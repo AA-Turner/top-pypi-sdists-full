@@ -23,7 +23,7 @@ from arelle.CompareInstance import compareInstance
 from arelle.ModelRssItem import rssItemAlreadyValidatedStatuses
 from arelle.ModelRssObject import ModelRssObject
 from arelle.PythonUtil import isLegacyAbs
-from arelle.ValidateFileSource import ValidateFileSource
+from arelle.ValidateFileSource import ValidateFileSource, isPackage
 from arelle.ValidateXbrlCalcs import ValidateCalcsMode
 from arelle.formula import ValidateFormula
 from arelle.FileSource import FileSource, openFileSource, archiveFilenameParts
@@ -221,7 +221,8 @@ class Validate:
                 if self.useFileSource.isArchive and (isLegacyAbs(rssItemUrl) or not rssItemUrl.endswith(".zip")):
                     modelXbrl = modelXbrlLoad(self.modelXbrl.modelManager,
                                                openFileSource(rssItemUrl, self.modelXbrl.modelManager.cntlr, reloadCache=reloadCache),
-                                               _("validating"), rssItem=rssItem)
+                                               _("validating"), rssItem=rssItem,
+                                               requiredDocumentTypes=self.modelXbrl.modelManager.requiredDocumentTypes)
                 else: # need own file source, may need instance discovery
                     filesource = openFileSource(rssItemUrl, self.modelXbrl.modelManager.cntlr)
                     if filesource and not filesource.selection and filesource.isArchive:
@@ -237,7 +238,8 @@ class Validate:
                                 _("RSS item validation exception: %(error)s, entry URL: %(instance)s"),
                                 modelXbrl=self.modelXbrl, instance=rssItemUrl, error=err)
                             continue # don't try to load this entry URL
-                    modelXbrl = modelXbrlLoad(self.modelXbrl.modelManager, filesource, _("validating"), rssItem=rssItem, errorCaptureLevel=errorCaptureLevel)
+                    modelXbrl = modelXbrlLoad(self.modelXbrl.modelManager, filesource, _("validating"), rssItem=rssItem, errorCaptureLevel=errorCaptureLevel,
+                                              requiredDocumentTypes=self.modelXbrl.modelManager.requiredDocumentTypes)
                 for pluginXbrlMethod in modelXbrl.modelManager.cntlr.plugins.hooks("RssItem.Xbrl.Loaded"):
                     pluginXbrlMethod(modelXbrl, {}, rssItem)
                 if getattr(rssItem, "doNotProcessRSSitem", False) or modelXbrl.modelDocument is None:
@@ -387,6 +389,7 @@ class Validate:
     ) -> list[ModelXbrl]:
         preLoadingErrors: list[str] = [] # accumulate pre-loading errors, such as during taxonomy package loading
         loadedModels: list[ModelXbrl] = []
+        identifiedReportCount = 0
         filesource: FileSource | None = None
         readMeFirstElements = modelTestcaseVariation.readMeFirstElements
         expectTaxonomyPackage = (index < len(readMeFirstElements) and
@@ -438,7 +441,7 @@ class Validate:
                     if archivePath:
                         with self.useFileSource.fs.open(archivePath[1]) as embeddedFile:  # type: ignore[union-attr]
                             readMeFirstUriIsArchive = readMeFirstUriIsEmbeddedZipFile = zipfile.is_zipfile(embeddedFile)  # type: ignore[arg-type]
-            modelXbrlLoadArgs: dict[str, Any] = {}
+            modelXbrlLoadArgs: dict[str, Any] = {"requiredDocumentTypes": self.modelXbrl.modelManager.requiredDocumentTypes}
             if modelTestcaseVariation.ixdsTarget:
                 modelXbrlLoadArgs["ixdsTarget"] = modelTestcaseVariation.ixdsTarget
             if not readMeFirstUriIsArchive:
@@ -521,10 +524,13 @@ class Validate:
                             _("Testcase variation validation exception: %(error)s, entry URL: %(instance)s"),
                             modelXbrl=self.modelXbrl, instance=readMeFirstUri, error=err)
                         return [] # don't try to load this entry URL
+                skipPackageContentLoading = self.modelXbrl.modelManager.skipPackageContentLoading
                 if filesource and filesource.isReportPackage and not _rptPkgIxdsOptions:
                     if not reportPackageErrors:
                         assert isinstance(filesource.basefile, str)
-                        if entrypoints := filesourceEntrypointFiles(filesource):
+                        if filesource.reportPackage is not None and filesource.reportPackage.reports is not None:
+                            identifiedReportCount = len(filesource.reportPackage.reports)
+                        if entrypoints := filesourceEntrypointFiles(filesource, skipPackageEntries=skipPackageContentLoading):
                             fileSourceValidator = ValidateFileSource(self.modelXbrl.modelManager.cntlr, filesource)
                             fileSourceValidator.validate(
                                 self.modelXbrl.modelManager.validateAllFilesAsReportPackages,
@@ -548,7 +554,8 @@ class Validate:
                         # Legacy ESEF conformance suite logic.
                         for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("ModelTestcaseVariation.ReportPackageIxds"):
                                 filesource.select(pluginXbrlMethod(filesource, **_rptPkgIxdsOptions))
-                    if len(loadedModels) == 0:
+                    skipContentLoading = skipPackageContentLoading and isPackage(filesource)
+                    if len(loadedModels) == 0 and not skipContentLoading:
                         modelXbrl = modelXbrlLoad(self.modelXbrl.modelManager,
                                                     filesource,
                                                     _("validating"),
@@ -606,11 +613,7 @@ class Validate:
         for pluginXbrlMethod in self.modelXbrl.modelManager.cntlr.plugins.hooks("Validate.Complete"):
             pluginXbrlMethod(self.modelXbrl.modelManager.cntlr, filesource)
         errors = [error for model in loadedModels for error in model.errors]
-        reportModelCount = len([
-            model for model in loadedModels
-            if model.modelDocument is not None and (model.fileSource.isReportPackage or not model.fileSource.isTaxonomyPackage)
-        ])
-        self.determineTestStatus(modelTestcaseVariation, errors, validateModelCount=reportModelCount)
+        self.determineTestStatus(modelTestcaseVariation, errors, validateModelCount=identifiedReportCount)
         if not inputDTSes:
             for model in loadedModels:
                 model.close()
@@ -694,7 +697,7 @@ class Validate:
                 modelXbrl.error("exception:" + type(err).__name__,
                     _("Testcase formula variation validation exception: %(error)s, instance: %(instance)s"),
                     modelXbrl=modelXbrl, instance=modelXbrl.modelDocument.basename, error=err, exc_info=True)
-        if modelTestcaseVariation.resultIsInfoset and self.modelXbrl.modelManager.validateInfoset:
+        if modelTestcaseVariation.resultIsInfoset:
             for pluginXbrlMethod in modelXbrl.modelManager.cntlr.plugins.hooks("Validate.Infoset"):
                 pluginXbrlMethod(modelXbrl, modelTestcaseVariation.resultInfosetUri)
             infoset = modelXbrlLoad(self.modelXbrl.modelManager,
@@ -712,7 +715,7 @@ class Validate:
             else:   # check infoset
                 ValidateInfoset.validate(self.instValidator, modelXbrl, infoset)
             infoset.close()
-        if modelXbrl.hasTableRendering or modelTestcaseVariation.resultIsTable: # and self.modelXbrl.modelManager.validateInfoset:
+        if modelXbrl.hasTableRendering or modelTestcaseVariation.resultIsTable:
             # diff (or generate) table infoset
             resultTableUri = modelXbrl.modelManager.cntlr.webCache.normalizeUrl(modelTestcaseVariation.resultTableUri, baseForElement)
             if not any(alternativeValidation(modelXbrl, resultTableUri)

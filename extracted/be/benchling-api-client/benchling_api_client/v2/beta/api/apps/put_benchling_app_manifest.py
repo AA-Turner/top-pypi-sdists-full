@@ -95,7 +95,7 @@ def sync(
     app_id: str,
     yaml_body: BenchlingAppManifest,
 ) -> Optional[Union[BenchlingAppManifest, BenchlingAppManifest, BadRequestError, ForbiddenError]]:
-    """ This endpoint has been deprecated; please use the new [PUT /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://benchling.com/api/v2-beta/reference#/App%20Definitions/putBenchlingAppDefinitionVersionManifest) endpoint instead. """
+    """ This endpoint has been deprecated; please use the new [PUT /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/app-definitions/put-benchling-app-definition-version-manifest) endpoint instead. """
 
     return sync_detailed(
         client=client,
@@ -128,7 +128,7 @@ async def asyncio(
     app_id: str,
     yaml_body: BenchlingAppManifest,
 ) -> Optional[Union[BenchlingAppManifest, BenchlingAppManifest, BadRequestError, ForbiddenError]]:
-    """ This endpoint has been deprecated; please use the new [PUT /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://benchling.com/api/v2-beta/reference#/App%20Definitions/putBenchlingAppDefinitionVersionManifest) endpoint instead. """
+    """ This endpoint has been deprecated; please use the new [PUT /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/app-definitions/put-benchling-app-definition-version-manifest) endpoint instead. """
 
     return (
         await asyncio_detailed(

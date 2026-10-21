@@ -8,11 +8,11 @@ use pyo3::types::{PyDict, PyDictMethods, PyString};
 use sqlbuild_analysis::assembly::analysis_session::types::{Pairs, Shapes};
 use sqlbuild_analysis::compiled_project::models::SchemaColumnFact;
 
-use crate::bindings::_helpers::compiled_project::model_input_view::{
+use crate::bindings::_helpers::compiled_project::schema_facts::python_column_facts;
+use crate::bindings::_helpers::compiled_views::model_input_view::{
     attached_columns, attached_schema,
 };
-use crate::bindings::_helpers::compiled_project::schema_facts::python_column_facts;
-use crate::bindings::_helpers::compiled_project::source_views::{AttachedSource, read_source_view};
+use crate::bindings::_helpers::compiled_views::source_views::{AttachedSource, read_source_view};
 use crate::bindings::_helpers::records::construct::enum_member;
 use crate::bindings::_helpers::records::fields::{enum_member_value, field as native_field};
 use crate::bindings::_helpers::records::ids::RecordId;
@@ -27,13 +27,13 @@ const UNKNOWN_MEMBER: &str = "UNKNOWN";
 /// `str(None)`, the text of an exact declaration without a type.
 const NONE_TEXT: &str = "None";
 
-/// The three per-relation declaration maps the analysis starts from.
-pub(crate) type DeclaredRelations<'py> = (
-    Bound<'py, PyDict>,
-    Bound<'py, PyDict>,
-    Bound<'py, PyDict>,
-    DeclaredShapes,
-);
+/// The three per-relation declaration maps the analysis starts from, and the declared shapes.
+pub(crate) struct DeclaredRelations<'py> {
+    pub(crate) column_types: Bound<'py, PyDict>,
+    pub(crate) nullability: Bound<'py, PyDict>,
+    pub(crate) complete_schemas: Bound<'py, PyDict>,
+    pub(crate) declared: DeclaredShapes,
+}
 
 /// Relation shapes as rows in a dict's insertion order, each value as `str(value)`.
 #[derive(Debug, Clone, Default)]
@@ -327,5 +327,10 @@ pub(crate) fn declared_relations<'py>(
         declared.complete(&maps, &name, (&columns, true))?;
     }
     let (types, nulls, complete) = maps;
-    Ok((types, nulls, complete, declared.shapes))
+    Ok(DeclaredRelations {
+        column_types: types,
+        nullability: nulls,
+        complete_schemas: complete,
+        declared: declared.shapes,
+    })
 }

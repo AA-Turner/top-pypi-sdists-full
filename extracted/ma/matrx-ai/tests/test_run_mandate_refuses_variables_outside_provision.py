@@ -68,3 +68,21 @@ async def test_a_broadcast_agent_result_is_bookkeeping_not_variables(resolver_re
     with pytest.raises(_Reached):
         await _run({"mandate_key": "m", "provision_values": {"a": 1}, **broadcast})
     assert resolver_reached == ["m"]
+
+
+@pytest.mark.asyncio
+async def test_an_entry_steps_echo_of_its_own_state_is_not_fed_by_name(resolver_reached):
+    """Defect 75: an entry step also gets the run's input as top-level fields; the same names with
+    the same values it hands over as provision_values are its state, not values fed by name."""
+    state = {"destination_city": "Mexico City", "move_number": "4471"}
+    with pytest.raises(_Reached):
+        await _run({"mandate_key": "m", "provision_values": dict(state), **state})
+    assert resolver_reached == ["m"]
+
+
+@pytest.mark.asyncio
+async def test_a_top_level_value_that_differs_from_the_state_is_still_refused(resolver_reached):
+    with pytest.raises(ValueError, match=r"\['destination_city'\]"):
+        await _run({"mandate_key": "m", "provision_values": {"destination_city": "Mexico City"},
+                    "destination_city": "Lima"})
+    assert resolver_reached == []

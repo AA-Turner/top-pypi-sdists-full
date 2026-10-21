@@ -4,9 +4,12 @@
 // Reuses nsToISO from render.js for faithful time export (render.js has no import
 // side effects, so this stays one-directional: render.js never imports plot.js).
 import uPlot from "./uPlot.esm.js";
-import { plotSpec, applyMask, dropMissingX, lineView, gapThreshold, spectroView, columnSpans, toCSV, toJSON } from "./plot-model.js";
+import {
+    plotSpec, applyMask, dropMissingX, lineView, gapThreshold, spectroView, columnSpans, toCSV, toJSON,
+    CHAR_TYPES, KEEP, COLLAPSE, needsReduction, yAxisLog, positiveOnly, tickLabel, utcWallClock, defaultModes, withAxisMode, reducedVariable, maskArgs,
+} from "./plot-model.js";
 import { bindGestures } from "./plot-gestures.js";
-import { viridis, normalizeLevel, cellEdges, scaleTypeOf, isMonotonic } from "./spectrogram.js";
+import { viridis, cellEdges, scaleTypeOf, isMonotonic, colorLUT, cellColors, pixelIndex, rasterize } from "./spectrogram.js";
 import { nsToISO, nsToSeconds } from "./render.js";
 
 const LINE_COLORS = ["#6c8aff", "#4ade80", "#fbbf24", "#f87171", "#22d3ee", "#c084fc", "#fb923c", "#a3e635"];
@@ -31,6 +34,16 @@ function themeAxis(extra) {
         ticks: { stroke: TICK_STROKE, width: 1 },
         ...extra,
     };
+}
+
+// Y axis with readable labels for tiny or huge values (tickLabel), wide enough for them.
+// uPlot passes null for the ticks its filter hides (e.g. minor log ticks).
+function yAxis(extra) {
+    return themeAxis({
+        values: (u, ticks) => ticks.map((v) => (v == null ? null : tickLabel(v))),
+        size: (u, values) => 16 + 7 * Math.max(3, ...(values ?? []).map((s) => (s == null ? 0 : String(s).length))),
+        ...extra,
+    });
 }
 
 // --- value helpers -----------------------------------------------------------
@@ -127,10 +140,11 @@ function note(text) {
     return el;
 }
 
-function button(label, onClick, active) {
+function button(label, onClick, active, disabled = false) {
     const b = document.createElement("button");
     b.className = "plot-btn" + (active ? " active" : "");
     b.textContent = label;
+    b.disabled = disabled;
     b.addEventListener("click", onClick);
     return b;
 }
@@ -146,14 +160,17 @@ function download(filename, text, mime) {
 
 // --- renderers ---------------------------------------------------------------
 
-function drawLines(target, cdf, meta, spec, x, values) {
+function drawLines(target, cdf, meta, spec, x, values, yLog) {
     const recCount = x.values.length;
     const comps = Math.max(1, spec.components);
     const labels = lineLabels(cdf, spec);
     const xs = x.values;
 
     const kept = dropMissingX(xs, Array.from({ length: comps },
-        (_, c) => applyMask(deinterleave(values, comps, recCount, c), spec)));
+        (_, c) => {
+            const masked = applyMask(deinterleave(values, comps, recCount, c), spec);
+            return yLog ? positiveOnly(masked) : masked;
+        }));
     const gap = gapThreshold(kept.x);
     const series = [{ label: x.isTime ? "time" : "record" },
         ...Array.from({ length: comps }, (_, c) =>
@@ -162,14 +179,16 @@ function drawLines(target, cdf, meta, spec, x, values) {
     const opts = {
         width: target.clientWidth || 800,
         height: PLOT_HEIGHT,
-        scales: { x: { time: x.isTime } },
-        axes: [themeAxis(), themeAxis()],
+        scales: { x: { time: x.isTime }, y: { distr: yLog ? 3 : 1 } },
+        axes: [themeAxis(), yAxis()],
         series,
         legend: { show: comps > 1 },
     };
     zoomableChart(opts, target, x.isTime, {
         viewFor: (lo, hi) => lineView(kept, lo, hi, MAX_POINTS, gap),
-        autoY: (u, dmin, dmax) => uPlot.rangeNum(dmin, dmax, 0.1, true),
+        autoY: (u, dmin, dmax) => (yLog
+            ? (dmin > 0 ? uPlot.rangeLog(dmin, dmax, 10, true) : [1, 10])
+            : uPlot.rangeNum(dmin, dmax, 0.1, true)),
     });
 }
 
@@ -191,6 +210,8 @@ function zoomableChart(opts, el, isTime, { viewFor, autoY }) {
     };
     const u = new uPlot({
         ...opts,
+        tzDate: utcWallClock,
+        axes: [{ ...opts.axes[0], ...(isTime && { label: "UTC" }) }, ...opts.axes.slice(1)],
         scales: {
             ...opts.scales,
             x: { ...opts.scales.x, auto: () => !holdX },
@@ -209,7 +230,7 @@ function zoomableChart(opts, el, isTime, { viewFor, autoY }) {
     return u;
 }
 
-// Resolve the y (bin) axis from DEPEND_1: its values, log/linear (SCALETYP), units.
+// Resolve the y (bin) axis from DEPEND_1: its values, SCALETYP (fileLog), units.
 // Falls back to a linear bin index when DEPEND_1 is absent/non-monotonic.
 function resolveBins(cdf, spec, rows) {
     if (spec.depend1) {
@@ -218,14 +239,14 @@ function resolveBins(cdf, spec, rows) {
             if (dv && dv.copy_values && dv.copy_values.length >= rows) {
                 const centers = Array.from(dv.copy_values.slice(0, rows), Number);
                 if (isMonotonic(centers)) {
-                    const log = scaleTypeOf(dv.attributes, "linear") === "log" && centers.every(c => c > 0);
+                    const fileLog = scaleTypeOf(dv.attributes, "linear") === "log";
                     const units = typeof dv.attributes?.UNITS === "string" ? dv.attributes.UNITS : "";
-                    return { centers, log, units };
+                    return { centers, fileLog, units };
                 }
             }
         } catch { /* fall back to bin index */ }
     }
-    return { centers: Array.from({ length: rows }, (_, i) => i), log: false, units: "bin" };
+    return { centers: Array.from({ length: rows }, (_, i) => i), fileLog: false, units: "bin" };
 }
 
 // Vertical viridis gradient + max/scale/min labels.
@@ -254,7 +275,7 @@ function colorbar(min, max, scale, units) {
     return el;
 }
 
-function drawSpectro(target, cdf, meta, spec, x, values, scale) {
+function drawSpectro(target, meta, spec, x, values, scale, bins, yLog) {
     const rows = Math.max(1, spec.components);
     const masked = applyMask(values, spec);
 
@@ -276,8 +297,7 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
         return;
     }
 
-    const bins = resolveBins(cdf, spec, rows);
-    const yEdges = cellEdges(bins.centers, bins.log);
+    const yEdges = cellEdges(bins.centers, yLog);
     const yLo = Math.min(yEdges[0], yEdges[rows]);
     const yHi = Math.max(yEdges[0], yEdges[rows]);
     const units = typeof meta.attributes?.UNITS === "string" ? meta.attributes.UNITS : "";
@@ -289,35 +309,35 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
     wrap.append(plotEl, colorbar(min, max, scale, units));
     target.appendChild(wrap);
 
-    // Paint one filled rect per (time-cell x bin-cell) of the shown view over the uPlot draw area.
+    // Paint at most one (block-max) column per canvas pixel: sampling one of several
+    // columns under a pixel would show an empty one as a hole.
+    const pixelCols = Math.max(1, Math.round((plotEl.clientWidth || 700) * (window.devicePixelRatio || 1)));
+    const lut = colorLUT();
+    let colors = cellColors(shown.grid, min, max, scale, lut);
+    const image = document.createElement("canvas");
+
+    // The shown view as one image over the uPlot draw area: each canvas pixel looks up the
+    // cell under its center (see spectrogram.js).
     const paint = (u) => {
-        const { ctx } = u;
-        const spans = columnSpans(shown.centers);
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(u.bbox.left, u.bbox.top, u.bbox.width, u.bbox.height);
-        ctx.clip();
-        for (let c = 0; c < spans.length; c++) {
-            const xl = u.valToPos(spans[c][0], "x", true);
-            const xr = u.valToPos(spans[c][1], "x", true);
-            const left = Math.min(xl, xr), w = Math.abs(xr - xl) + 1;
-            for (let r = 0; r < rows; r++) {
-                const t = normalizeLevel(shown.grid[c * rows + r], min, max, scale);
-                if (Number.isNaN(t)) continue;
-                const yb = u.valToPos(yEdges[r], "y", true);
-                const yt = u.valToPos(yEdges[r + 1], "y", true);
-                const [R, G, B] = viridis(t);
-                ctx.fillStyle = `rgb(${R},${G},${B})`;
-                ctx.fillRect(left, Math.min(yt, yb), w, Math.abs(yb - yt) + 1);
-            }
-        }
-        ctx.restore();
+        const left = Math.round(u.bbox.left), top = Math.round(u.bbox.top);
+        const width = Math.round(u.bbox.width), height = Math.round(u.bbox.height);
+        if (width <= 0 || height <= 0) return;
+        const xPx = (v) => u.valToPos(v, "x", true) - left;
+        const yPx = (v) => u.valToPos(v, "y", true) - top;
+        const colOf = pixelIndex(columnSpans(shown.centers).map(([a, b]) => [xPx(a), xPx(b)]), width);
+        const rowOf = pixelIndex(Array.from({ length: rows }, (_, r) => [yPx(yEdges[r]), yPx(yEdges[r + 1])]), height);
+        const pixels = rasterize(colors, rows, colOf, rowOf, width, height);
+        image.width = width;
+        image.height = height;
+        image.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(pixels.buffer), width, height), 0, 0);
+        u.ctx.drawImage(image, left, top);
     };
 
     // The variable's outer cell edges stay in the x data (with no y) so the edge columns
     // render fully and double-click resets to the whole variable.
     const viewFor = (lo, hi) => {
-        shown = spectroView(full, lo, hi, MAX_COLS);
+        shown = spectroView(full, lo, hi, pixelCols);
+        colors = cellColors(shown.grid, min, max, scale, lut);
         const xs = [fullEdges[0], ...shown.centers, fullEdges[fullEdges.length - 1]];
         return [xs, new Array(xs.length).fill(null)];
     };
@@ -325,8 +345,8 @@ function drawSpectro(target, cdf, meta, spec, x, values, scale) {
     const opts = {
         width: (plotEl.clientWidth || 700),
         height: PLOT_HEIGHT,
-        scales: { x: { time: x.isTime }, y: { distr: bins.log ? 3 : 1 } },
-        axes: [themeAxis(), themeAxis(bins.units ? { label: bins.units } : undefined)],
+        scales: { x: { time: x.isTime }, y: { distr: yLog ? 3 : 1 } },
+        axes: [themeAxis(), yAxis(bins.units ? { label: bins.units } : undefined)],
         series: [{}, { paths: () => null, points: { show: false } }],
         legend: { show: false },
         hooks: { draw: [paint] },
@@ -351,26 +371,104 @@ function exportColumns(cdf, meta, spec, x, values) {
 
 // --- entry point -------------------------------------------------------------
 
-// Render the plot panel for `name` into `mount`. Re-fetches the variable and reads
-// owned copies immediately (heap-growth safety). Toggles re-render from cached data.
+// Render the plot panel for `name` into `mount`. Metadata comes from variable_info, which
+// reads no values; values are fetched only once the variable passed the gates.
 export function renderPlot(mount, cdf, name) {
     mount.innerHTML = "";
-    const v = cdf.get_variable(name);
-    if (!v) return;
+    const info = cdf.variable_info(name);
+    if (!info) return;
+    const meta = { type: info.type, shape: Array.from(info.shape), attributes: info.attributes };
+    if (needsReduction(meta)) renderReduced(mount, cdf, name, meta);
+    else renderDirect(mount, cdf, name, meta);
+}
 
-    const meta = { type: v.type, shape: Array.from(v.shape), attributes: v.attributes };
-
-    // Gate from metadata BEFORE materializing values: copy_values copies the whole
-    // variable, so a high-rank/oversized distribution would OOM here. plotSpec (no
-    // override) returns kind "none" for char, empty, >2-D and over-size variables.
+function renderDirect(mount, cdf, name, meta) {
+    // plotSpec (no override) returns kind "none" for char, empty, >2-D and over-size variables.
     const gate = plotSpec(meta);
     if (gate.kind === "none") { mount.appendChild(note(gate.reason || "not plottable")); return; }
 
+    const v = cdf.get_variable(name);
     const values = v.copy_values ? Float64Array.from(v.copy_values, Number) : new Float64Array(0);
-    const x = resolveXAxis(cdf, meta);
+    chartPanel(mount, cdf, name, resolveXAxis(cdf, meta))(meta, values);
+}
 
+// A distribution is reduced in WASM to (records, kept axis); one select per axis picks its
+// mode, and sum/mean applies to every collapsed axis.
+function renderReduced(mount, cdf, name, meta) {
+    let modes = defaultModes(meta);
+    let op = "sum";
+    const mask = maskArgs(meta.attributes);
+    const axes = document.createElement("div");
+    axes.className = "plot-controls";
+    mount.appendChild(axes);
+    const show = chartPanel(mount, cdf, name, resolveXAxis(cdf, meta));
+    const choices = axisChoices(cdf, meta);
+
+    function update() {
+        axes.replaceChildren(
+            ...choices.map((axis, k) => axisSelect(axis, modes[k], op, (mode) => { modes = withAxisMode(modes, k, mode); update(); })),
+            button("sum", () => { op = "sum"; update(); }, op === "sum"),
+            button("mean", () => { op = "mean"; update(); }, op === "mean"),
+        );
+        const reduced = reducedVariable(meta, modes);
+        if (plotSpec(reduced).kind === "none") { show(reduced, new Float64Array(0)); return; }
+        try {
+            show(reduced, cdf.reduce_values(name, modes, op, ...mask));
+        } catch (e) {
+            show(null, null, e.message);
+        }
+    }
+    update();
+}
+
+// Per non-record axis: its name (DEPEND_k, else "axis k") and one label per index, from the
+// DEPEND_k values (first record when they vary) and units.
+function axisChoices(cdf, meta) {
+    return meta.shape.slice(1).map((size, k) => {
+        const dep = meta.attributes?.[`DEPEND_${k + 1}`];
+        const centers = dep ? axisValues(cdf, dep, size) : null;
+        return {
+            name: dep || `axis ${k + 1}`,
+            labels: Array.from({ length: size }, (_, i) => (centers ? `${centers.values[i]}${centers.units}` : `#${i}`)),
+        };
+    });
+}
+
+function axisValues(cdf, dep, size) {
+    try {
+        const dv = cdf.get_variable(dep);
+        if (!dv?.copy_values || dv.copy_values.length < size || CHAR_TYPES.has(dv.type)) return null;
+        const units = typeof dv.attributes?.UNITS === "string" ? ` ${dv.attributes.UNITS.trim()}` : "";
+        return { values: Array.from(dv.copy_values.slice(0, size), (v) => String(Number(Number(v).toPrecision(4)))), units };
+    } catch {
+        return null;
+    }
+}
+
+function axisSelect(axis, mode, op, onChange) {
+    const label = document.createElement("label");
+    label.className = "plot-axis";
+    const select = document.createElement("select");
+    const option = (value, text) => {
+        const o = document.createElement("option");
+        o.value = String(value);
+        o.textContent = text;
+        o.selected = value === mode;
+        return o;
+    };
+    select.append(option(KEEP, "plot"), option(COLLAPSE, op), ...axis.labels.map((text, i) => option(i, `= ${text}`)));
+    select.addEventListener("change", () => onChange(Number(select.value)));
+    label.append(axis.name, select);
+    return label;
+}
+
+// Chart area with the line/spectrogram, log/linear and export controls. The returned
+// show(meta, values, error?) redraws it for new data and keeps the toggles.
+function chartPanel(mount, cdf, name, x) {
     let override;          // undefined | "line" | "spectrogram"
-    let scale = scaleTypeOf(meta.attributes, "log");   // spectrogram color scale (ISTP default)
+    let scale;             // spectrogram color scale, from the first variable shown
+    let yScale;            // undefined (SCALETYP) | "log" | "linear"
+    let meta, values, error;
 
     const controls = document.createElement("div");
     controls.className = "plot-controls";
@@ -379,6 +477,11 @@ export function renderPlot(mount, cdf, name) {
     mount.append(controls, body);
 
     function redraw() {
+        if (error) {
+            controls.innerHTML = "";
+            body.replaceChildren(note(error));
+            return;
+        }
         const spec = plotSpec(meta, override);
         controls.innerHTML = "";
         body.innerHTML = "";
@@ -392,10 +495,18 @@ export function renderPlot(mount, cdf, name) {
             button("Line", () => { override = "line"; redraw(); }, spec.kind === "line"),
             button("Spectrogram", () => { override = "spectrogram"; redraw(); }, spec.kind === "spectrogram"),
         );
+        const bins = spec.kind === "spectrogram" ? resolveBins(cdf, spec, Math.max(1, spec.components)) : null;
+        const logPossible = bins ? bins.centers.every((c) => c > 0) : true;
+        const fileLog = bins ? bins.fileLog : scaleTypeOf(meta.attributes, "linear") === "log";
+        const yLog = yAxisLog(yScale, fileLog, logPossible);
+        controls.append(
+            button("y linear", () => { yScale = "linear"; redraw(); }, !yLog),
+            button("y log", () => { yScale = "log"; redraw(); }, yLog, !logPossible),
+        );
         if (spec.kind === "spectrogram") {
             controls.append(
-                button("log", () => { scale = "log"; redraw(); }, scale === "log"),
-                button("linear", () => { scale = "linear"; redraw(); }, scale === "linear"),
+                button("color linear", () => { scale = "linear"; redraw(); }, scale === "linear"),
+                button("color log", () => { scale = "log"; redraw(); }, scale === "log"),
             );
         }
         controls.append(
@@ -403,9 +514,13 @@ export function renderPlot(mount, cdf, name) {
             button("JSON", () => download(`${name}.json`, toJSON(exportColumns(cdf, meta, spec, x, values)), "application/json")),
         );
 
-        if (spec.kind === "line") drawLines(body, cdf, meta, spec, x, values);
-        else drawSpectro(body, cdf, meta, spec, x, values, scale);
+        if (spec.kind === "line") drawLines(body, cdf, meta, spec, x, values, yLog);
+        else drawSpectro(body, meta, spec, x, values, scale, bins, yLog);
     }
 
-    redraw();
+    return (newMeta, newValues, newError) => {
+        [meta, values, error] = [newMeta, newValues, newError];
+        scale ??= meta && scaleTypeOf(meta.attributes, "log");   // ISTP default
+        redraw();
+    };
 }

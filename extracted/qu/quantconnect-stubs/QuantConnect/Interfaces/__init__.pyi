@@ -228,7 +228,7 @@ class DataProviderNewDataRequestEventArgs(System.EventArgs):
         
         :param path: The path to the fetched data
         :param succeeded: Whether the data was fetched successfully
-        :param error_message: Any error message that occured during the fetch
+        :param error_message: Any error message that occurred during the fetch
         """
         ...
 

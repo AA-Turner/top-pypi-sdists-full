@@ -59,7 +59,8 @@ class UpsertResponse(DictLikeStruct, Struct, rename="camel", kw_only=True, gc=Fa
                 retry = idx.upsert(vectors=response.failed_items, batch_size=100)
 
     .. seealso::
-       :doc:`/guides/performance` — choosing a ``batch_size``.
+       `Performance <https://sdk.pinecone.io/python/guides/performance.html>`__
+       — choosing a ``batch_size``.
     """
 
     upserted_count: int
@@ -111,12 +112,23 @@ class UpsertResponse(DictLikeStruct, Struct, rename="camel", kw_only=True, gc=Fa
     def __repr__(self) -> str:
         if not self.has_errors and self.total_batch_count == 0:
             return f"UpsertResponse(upserted_count={self.upserted_count})"
-        status = "PARTIAL FAILURE" if self.has_errors else "SUCCESS"
-        return (
+        if not self.has_errors:
+            status = "SUCCESS"
+        elif self.total_batch_count > 0 and self.successful_batch_count == 0:
+            status = "FAILURE"
+        else:
+            status = "PARTIAL FAILURE"
+        text = (
             f"UpsertResponse({status}: "
             f"{self.upserted_count}/{self.total_item_count} items, "
-            f"{self.successful_batch_count}/{self.total_batch_count} batches)"
+            f"{self.successful_batch_count}/{self.total_batch_count} batches"
         )
+        if self.has_errors:
+            first = " ".join(self.errors[0].error_message.split())
+            if len(first) > 200:
+                first = first[:197] + "..."
+            text += f"; first error: {first}"
+        return text + ")"
 
 
 class QueryResponse(DictLikeStruct, Struct, rename="camel", kw_only=True, gc=False):
@@ -252,7 +264,8 @@ class FetchByMetadataResponse(DictLikeStruct, Struct, rename="camel", kw_only=Tr
                 token = page.pagination.next
 
     .. seealso::
-       :doc:`/guides/pagination` — the paging pattern used across the SDK.
+       `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+       — the paging pattern used across the SDK.
     """
 
     vectors: dict[str, Vector] = {}
@@ -360,7 +373,8 @@ class Pagination(StructDictMixin, Struct, kw_only=True, gc=False):
             opaque: it is not an ID, an offset, or anything you can construct yourself.
 
     .. seealso::
-       :doc:`/guides/pagination` — the paging loop, and the paginated helpers that run it
+       `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+       — the paging loop, and the paginated helpers that run it
        for you.
     """
 
@@ -404,7 +418,8 @@ class ListResponse(StructDictMixin, Struct, rename="camel", kw_only=True, gc=Fal
                 print(item.id)
 
     .. seealso::
-       :doc:`/guides/pagination` — and ``Index.list``, which yields every page for you.
+       `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+       — and ``Index.list``, which yields every page for you.
     """
 
     vectors: list[ListItem] = []

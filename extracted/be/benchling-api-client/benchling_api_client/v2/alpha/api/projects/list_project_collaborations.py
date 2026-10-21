@@ -184,7 +184,7 @@ def sync(
     next_token: Union[Unset, str] = UNSET,
     sort: Union[Unset, ListProjectCollaborationsSort] = ListProjectCollaborationsSort.MODIFIEDAT,
 ) -> Optional[Union[CollaborationsPaginatedList, BadRequestError, NotFoundError]]:
-    """Returns information about collaborations on the specified project. Collaboration endpoints are moving to beta. Visit the [beta v2 docs](https://benchling.com/api/v2-beta/reference?showLA=true#/Projects)."""
+    """Returns information about collaborations on the specified project. Collaboration endpoints are moving to beta. Visit the [beta v2 docs](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/projects/list-project-collaborations)."""
 
     return sync_detailed(
         client=client,
@@ -273,7 +273,7 @@ async def asyncio(
     next_token: Union[Unset, str] = UNSET,
     sort: Union[Unset, ListProjectCollaborationsSort] = ListProjectCollaborationsSort.MODIFIEDAT,
 ) -> Optional[Union[CollaborationsPaginatedList, BadRequestError, NotFoundError]]:
-    """Returns information about collaborations on the specified project. Collaboration endpoints are moving to beta. Visit the [beta v2 docs](https://benchling.com/api/v2-beta/reference?showLA=true#/Projects)."""
+    """Returns information about collaborations on the specified project. Collaboration endpoints are moving to beta. Visit the [beta v2 docs](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/projects/list-project-collaborations)."""
 
     return (
         await asyncio_detailed(

@@ -132,6 +132,13 @@ pub(crate) struct FormatTestCase {
     pub expected_changed: bool,
 }
 
+pub(crate) struct ReprintTestCase {
+    pub description: &'static str,
+    pub sql: &'static str,
+    pub expected_changed: bool,
+    pub expected_reprints: usize,
+}
+
 pub(crate) struct InvalidRuleTestCase {
     pub description: &'static str,
     pub rule: &'static str,
@@ -149,4 +156,18 @@ pub(crate) struct FunctionDepthFailureTestCase {
     pub depth: usize,
     pub expected_code: &'static str,
     pub expected_limit: &'static str,
+}
+
+pub(crate) struct CrossJoinTestCase {
+    pub description: &'static str,
+    pub sql: &'static str,
+    pub dialect: &'static str,
+    pub one_row_relations: &'static [&'static str],
+    pub expected_messages: &'static [&'static str],
+}
+
+pub(crate) struct CrossJoinSubjectTestCase {
+    pub description: &'static str,
+    pub message: &'static str,
+    pub expected_subject: Option<(&'static str, Option<&'static str>)>,
 }

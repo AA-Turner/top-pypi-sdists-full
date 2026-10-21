@@ -25,6 +25,7 @@ import jax
 import jax.numpy as jnp
 from tokamax._src.ops import op as op_lib
 from tokamax.experimental.torch_tpu.ops import torch_op
+from tokamax.experimental.torch_tpu.ops import torch_test_utils
 from tokamax.experimental.torch_tpu.ops import torch_utils
 import torch
 from torch._subclasses import fake_tensor
@@ -420,6 +421,56 @@ class ConvertTorchToJaxViaMetaTest(parameterized.TestCase):
     self.assertIsInstance(meta, jax.ShapeDtypeStruct)
     self.assertEqual(meta.shape, (4, 8))
     self.assertEqual(meta.dtype, jnp.bfloat16)
+
+  @parameterized.named_parameters(
+      ("float32", torch.float32, jnp.float32),
+      ("bfloat16", torch.bfloat16, jnp.bfloat16),
+      ("int32", torch.int32, jnp.int32),
+  )
+  def test_torch_to_jax_and_jax_to_torch_roundtrip(
+      self, torch_dtype: torch.dtype, expected_jax_dtype: Any
+  ):
+    t = torch.tensor([[1, 2, 3], [4, 5, 6]], dtype=torch_dtype, device="cpu")
+    jax_arr = torch_test_utils.torch_to_jax(t)
+    self.assertEqual(jax_arr.shape, (2, 3))
+    self.assertEqual(jax_arr.dtype, expected_jax_dtype)
+    roundtrip = torch_test_utils.jax_to_torch(jax_arr, device="cpu")
+    self.assertEqual(roundtrip.shape, (2, 3))
+    self.assertEqual(roundtrip.dtype, torch_dtype)
+    torch.testing.assert_close(roundtrip, t)
+
+  @parameterized.named_parameters(
+      ("float32", torch.float32, jnp.float32, "float32"),
+      ("bfloat16", torch.bfloat16, jnp.bfloat16, "bfloat16"),
+      ("float16", torch.float16, jnp.float16, "float16"),
+      (
+          "float8_e4m3fn",
+          torch.float8_e4m3fn,
+          jnp.float8_e4m3fn,
+          "float8_e4m3fn",
+      ),
+      ("float8_e5m2", torch.float8_e5m2, jnp.float8_e5m2, "float8_e5m2"),
+      ("int32", torch.int32, jnp.int32, "int32"),
+      ("bool", torch.bool, jnp.bool_, "bool"),
+  )
+  def test_to_jax_dtype_and_to_torch_dtype(
+      self,
+      torch_dtype: torch.dtype,
+      jax_dtype: Any,
+      dtype_str: str,
+  ):
+    self.assertEqual(
+        torch_utils.to_jax_dtype(torch_dtype), jnp.dtype(jax_dtype)
+    )
+    self.assertEqual(torch_utils.to_jax_dtype(dtype_str), jnp.dtype(jax_dtype))
+    self.assertEqual(torch_utils.to_jax_dtype(jax_dtype), jnp.dtype(jax_dtype))
+    self.assertEqual(torch_utils.to_torch_dtype(torch_dtype), torch_dtype)
+    self.assertEqual(torch_utils.to_torch_dtype(dtype_str), torch_dtype)
+    self.assertEqual(torch_utils.to_torch_dtype(jax_dtype), torch_dtype)
+
+  def test_to_jax_dtype_and_to_torch_dtype_none(self):
+    self.assertIsNone(torch_utils.to_jax_dtype(None))
+    self.assertIsNone(torch_utils.to_torch_dtype(None))
 
 
 class TorchOpTest(parameterized.TestCase):
@@ -838,6 +889,35 @@ class TorchOpTest(parameterized.TestCase):
     deconstructed = op.deconstruct_config(_FakeOpConfig(7))
     self.assertEqual(deconstructed, (7,))
     self.assertEqual(op.reconstruct_config(deconstructed), _FakeOpConfig(7))
+
+  def test_op_impl_call_config_setup_calls_deconstruct_config(self):
+    deconstruct_calls = 0
+
+    class _CustomDeconstructOp(_FakeTorchOp):
+
+      def deconstruct_config(
+          self, config: _FakeOpConfig | tuple[Any, ...] | list[Any] | None
+      ) -> tuple[int, ...] | None:
+        nonlocal deconstruct_calls
+        deconstruct_calls += 1
+        if config is None:
+          return None
+        assert isinstance(config, _FakeOpConfig)
+        return (config.blah + 10,)
+
+      def reconstruct_config(self, *config_parts: Any) -> _FakeOpConfig:
+        config = config_parts[0]
+        assert config is not None
+        return _FakeOpConfig(config[0] - 10)
+
+    op = _CustomDeconstructOp()
+    x_jax = jnp.ones((2, 4), dtype=jnp.float32)
+    y_jax = 2.0 * jnp.ones((2, 4), dtype=jnp.float32)
+
+    resolved = op.op_impl_call_config_setup(x_jax, y_jax)
+    self.assertEqual(deconstruct_calls, 1)
+    self.assertEqual(resolved, (_HEURISTICS_CONFIG.blah + 10,))
+    self.assertEqual(op.reconstruct_config(resolved), _HEURISTICS_CONFIG)
 
   def test_torch_utils_get_configs(self):
     op = _FakeTorchOp()

@@ -31,6 +31,7 @@ from pathlib import Path
 
 from ..errors import BoostError
 from . import (
+    browse,
     builtin,
     config,
     frontmatter,
@@ -49,7 +50,11 @@ from . import (
 # without it there was no way to ship a new entry field at all.
 #   1 -- entries carry `content` (see `_content_digest`)
 #   2 -- entries carry `category` (see `_entry_category`)
-CACHE_FORMAT = 2
+#   3 -- `frontmatter` strips a leading BOM and keeps a nested map as a dict
+#        under its parent key instead of hoisting its keys to the top level,
+#        so a BOM file's meta/description/digest and a nested `author:` /
+#        `metadata:` file's name/version both change on rescan
+CACHE_FORMAT = 3
 
 KIND_SKILL = "skill"
 KIND_RULE = "rule"
@@ -75,8 +80,20 @@ def _read(path: Path) -> tuple[dict, str] | None:
         return None
 
 
+def _text(meta: dict, key: str) -> str:
+    """A scalar frontmatter field as stripped text; a nested map reads as "".
+
+    `frontmatter.parse_block` keeps `author:`/`metadata:`-style maps as dicts,
+    and `str()` of one would put a Python repr into a name or description.
+    """
+    val = meta.get(key)
+    if isinstance(val, dict):
+        return ""
+    return str(val or "").strip()
+
+
 def _description(meta: dict, body: str) -> str:
-    desc = str(meta.get("description") or "").strip()
+    desc = _text(meta, "description")
     if desc:
         return desc
     for line in body.splitlines():
@@ -170,7 +187,7 @@ def _entry_category(meta: dict, tap_category: str) -> str:
     bundled registry catalog, never per item — is everything an un-annotated
     item has, and is itself often empty for a tap outside the bundled 487.
     """
-    own = str(meta.get("category") or "").strip()
+    own = _text(meta, "category")
     if own:
         return own
     tags = meta.get("tags")
@@ -185,7 +202,7 @@ def _entry_category(meta: dict, tap_category: str) -> str:
 def _make_entry(root: Path, defining_file: Path, kind: str, default_name: str,
                 tap_name: str, curated: bool, meta: dict, body: str,
                 tap_category: str = "") -> dict:
-    name = str(meta.get("name") or "").strip() or default_name
+    name = _text(meta, "name") or default_name
     # Slugify anything that is not already a safe path component, not just names
     # containing a space: this name becomes a rule/workflow filename, so
     # `../../..` has to be neutralized at index time too, not only at the sinks.
@@ -195,7 +212,7 @@ def _make_entry(root: Path, defining_file: Path, kind: str, default_name: str,
     return {
         "name": slug,
         "description": description,
-        "version": str(meta.get("version") or "0.0.0"),
+        "version": _text(meta, "version") or "0.0.0",
         "tap": tap_name,
         "curated": curated,
         "kind": kind,
@@ -581,6 +598,54 @@ def tap_matches(tap_name: str, qualifier: str) -> bool:
     or reject, so the two tiers collapse into one test.
     """
     return bool(tap_name) and qualifier in (tap_name, tap_name.split("/")[-1])
+
+
+def for_tap(entry: dict | None, qualifier: str | None) -> dict | None:
+    """``entry`` unless a ``tap:`` qualifier was given that it does not satisfy.
+
+    A qualifier has to be honored against the *installed* record, not only the
+    catalog: with one skill installed from tap A and asked about via
+    ``tap-b:skill``, tap A's lock entry is the wrong answer, and reporting it
+    would describe another tap's install as this one's.
+    """
+    if entry and qualifier and not tap_matches(
+            str(entry.get("tap") or ""), qualifier):
+        return None
+    return entry
+
+
+def for_lock(matches: list, lock: dict | None) -> dict | None:
+    """The catalogue row to describe next to ``lock``: the installed tap's.
+
+    ``matches[0]`` is whichever tap sorted first, so with a homonym in another
+    tap the lock's version sat next to that other tap's description, latest
+    and upstream — and "(up to date)" compared two different skills. When the
+    lock names its tap, only that tap's row is the answer; none is better than
+    another skill's facts. A lock with no tap (older format) keeps the old
+    first-match behaviour, having nothing to narrow by.
+    """
+    lock_tap = str((lock or {}).get("tap") or "")
+    if lock_tap:
+        matches = [m for m in matches
+                   if tap_matches(str(m.get("tap") or ""), lock_tap)]
+    return matches[0] if matches else None
+
+
+def events_for_tap(events: list, qualifier: str | None,
+                   lock: dict | None) -> list:
+    """``events`` that belong to a tap-qualified `stats` lookup.
+
+    The journal keys on the bare name, so `stats fix:x` counted installs made
+    from tap ``other``. With a qualifier, an event that records its tap counts
+    only when that tap matches; one that records none (uninstall rows) counts
+    only when the qualifier selects the installed tap (``lock`` is already
+    narrowed to the qualifier by `store.resolve_lock_entry`).
+    """
+    if not qualifier:
+        return events
+    return [e for e in events
+            if (tap_matches(str(e["tap"]), qualifier) if e.get("tap")
+                else lock is not None)]
 
 
 def find(name: str, tap: str | None = None,
@@ -1090,19 +1155,24 @@ def search(query: str, entries: list[dict] | None = None):
     return scored
 
 
-def matches_category(entry: dict, category: str) -> bool:
-    """True when `entry`'s stamped category equals `category`, case-insensitively.
+def matches_category(entry: dict, category: str, categories=None) -> bool:
+    """True when `entry` is filed under `category`, case-insensitively.
+
+    The same test `boost browse --category` applies (`browse.in_category`), so
+    every `--category` flag accepts what `boost browse --categories` lists:
+    an entry with no category at all is filed as `browse.UNCATEGORIZED`, and
+    `categories` (tap -> category, from the bundled registry catalogue) is the
+    fallback for an entry whose cache predates a stamped `category`. Comparing
+    the raw string instead made `--category uncategorized` match nothing in
+    `search` and `recommend` while `browse` listed those very rows.
 
     An empty `category` always matches — the no-filter case — so callers can
     apply this unconditionally instead of branching on "was --category given".
-    A missing/empty `entry["category"]` (an old cache predating `CACHE_FORMAT`
-    2, or a synthesised entry) only matches an equally empty `category`.
     """
-    if not category:
-        return True
-    return (entry.get("category") or "").strip().lower() == category.strip().lower()
+    return browse.in_category(entry, category, categories)
 
 
-def filter_by_category(entries: list[dict], category: str) -> list[dict]:
+def filter_by_category(entries: list[dict], category: str,
+                       categories=None) -> list[dict]:
     """`entries` narrowed to those matching `category` (see `matches_category`)."""
-    return [e for e in entries if matches_category(e, category)]
+    return [e for e in entries if matches_category(e, category, categories)]

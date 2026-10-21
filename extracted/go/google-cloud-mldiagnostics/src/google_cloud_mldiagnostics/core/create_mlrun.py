@@ -80,6 +80,11 @@ def initialize_mlrun(
     rl_orchestrator: mlrun_types.RlOrchestrator = (
         mlrun_types.RlOrchestrator.NONE
     ),
+    base_url: str | None = None,
+    cluster_id: str | None = None,
+    ml_run_id: str | None = None,
+    workload_id: str | None = None,
+    namespace: str | None = None,
 ) -> mlrun_types.MLRun:
   """Initializes a new ML run.
 
@@ -107,11 +112,16 @@ def initialize_mlrun(
         Default is NONE, but auto-detected if pathways is used.
       application_framework: The application framework used for the ML run.
         Default is NONE.
-      rl_orchestrator: The RL orchestrator used for the ML run.
-        Default is NONE.
+      rl_orchestrator: The RL orchestrator used for the ML run. Default is NONE.
+      base_url: Optional URL for the self-hosted Diagon Control Plane.
+      cluster_id: Optional cluster identifier for self-hosted runs.
+      ml_run_id: Optional deterministic ML run ID for self-hosted runs.
+      workload_id: Optional workload identifier for self-hosted runs.
+      namespace: Optional Kubernetes namespace for self-hosted runs.
 
   Returns:
-      The initialized ML run object.
+      The initialized ML run object. It may be mutated (e.g., its name
+      updated to the canonical run ID) based on the control plane response.
   """
   # Combine default configs with user configs.
   software_configs = config_utils.get_software_config(
@@ -130,11 +140,17 @@ def initialize_mlrun(
       "userConfigs": config_utils.sanitize_config(user_configs),
   })
 
-  if region is None:
-    region = gcp.get_instance_region()
-  gcp.validate_region(region)
-  if project is None:
-    project = gcp.get_project_id()
+  self_contained = bool(base_url)
+
+  if not self_contained:
+    if region is None:
+      region = gcp.get_instance_region()
+    gcp.validate_region(region)
+    if project is None:
+      project = gcp.get_project_id()
+  else:
+    region = region or ""
+    project = project or ""
 
   # TODO([INTERNAL]): Add support for checking the repetitive registered ML
   # name in Spanner after control plane client ready.
@@ -142,10 +158,15 @@ def initialize_mlrun(
 
   created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
   run_phase = mlrun_types.RunPhase.PHASE_ACTIVE
-  orchestrator = orchestrator_utils.detect_orchestrator()
-  workload_details = host_utils.get_workload_details(
-      orchestrator, run_workload_id=run_workload_id
-  )
+
+  if self_contained:
+    orchestrator = mlrun_types.Orchestrator.NONE
+    workload_details = {"id": workload_id}
+  else:
+    orchestrator = orchestrator_utils.detect_orchestrator()
+    workload_details = host_utils.get_workload_details(
+        orchestrator, run_workload_id=run_workload_id
+    )
 
   # Generate display name and name for the MLRun.
   display_name = name
@@ -178,6 +199,8 @@ def initialize_mlrun(
 
   # sanitize the name and use it as the MLRun name for the control plane.
   sanitized_name = host_utils.sanitize_identifier(name)
+  if self_contained:
+    sanitized_name = ml_run_id or ""
 
   workload_targets = host_utils.get_workload_targets(
       orchestrator, workload_details
@@ -206,6 +229,11 @@ def initialize_mlrun(
       accelerator_orchestrator=accelerator_orchestrator,
       application_framework=application_framework,
       rl_orchestrator=rl_orchestrator,
+      control_plane_url=base_url,
+      cluster_id=cluster_id,
+      ml_run_id=ml_run_id,
+      workload_id=workload_id,
+      namespace=namespace,
   )
 
   logger.debug("Initializing MLRun: %s", ml_run)
@@ -214,33 +242,38 @@ def initialize_mlrun(
   manager = global_manager.get_global_run_manager()
   manager.initialize(ml_run)
 
-  ml_diagnostics_url = create_diagnostics_url(region, project, sanitized_name)  # pyrefly: ignore[bad-argument-type]
-  xprof_url = create_xprof_url(ml_diagnostics_url)
   logging.info("MLRun '%s' created successfully.", ml_run.display_name)
-  logging.info(
-      "ML Diagnostics URL: %s : %s",
-      ml_run.display_name,
-      ml_diagnostics_url,
-  )
-  logging.info(
-      "Xprof URL: %s : %s",
-      ml_run.display_name,
-      xprof_url,
-  )
-
-  if orchestrator == mlrun_types.Orchestrator.GKE:
-    gke_url = create_gke_url(region, project, sanitized_name)  # pyrefly: ignore[bad-argument-type]
+  if not self_contained:
+    ml_diagnostics_url = create_diagnostics_url(region, project, sanitized_name)  # pyrefly: ignore[bad-argument-type]
+    xprof_url = create_xprof_url(ml_diagnostics_url)
     logging.info(
-        "GKE detail view URL: %s : %s",
+        "ML Diagnostics URL: %s : %s",
         ml_run.display_name,
-        gke_url,
+        ml_diagnostics_url,
     )
+    logging.info(
+        "Xprof URL: %s : %s",
+        ml_run.display_name,
+        xprof_url,
+    )
+
+    if orchestrator == mlrun_types.Orchestrator.GKE:
+      gke_url = create_gke_url(region, project, sanitized_name)  # pyrefly: ignore[bad-argument-type]
+      logging.info(
+          "GKE detail view URL: %s : %s",
+          ml_run.display_name,
+          gke_url,
+      )
 
   run_phase_monitor = run_phase_utils.RunPhaseMonitor()
   run_phase_monitor.start()
 
   global _METRICS_RECORDER_THREAD_STARTED
-  if metrics_record_interval_sec > 0 and not _METRICS_RECORDER_THREAD_STARTED:
+  if (
+      metrics_record_interval_sec > 0
+      and not _METRICS_RECORDER_THREAD_STARTED
+      and host_utils.is_local_master_process(ml_run.framework)
+  ):
     framework = ml_run.framework
     with _METRICS_RECORDER_THREAD_LOCK:
       if not _METRICS_RECORDER_THREAD_STARTED:

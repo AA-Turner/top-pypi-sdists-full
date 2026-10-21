@@ -136,6 +136,36 @@ def decode_pointer(value: str) -> str:
     return value.replace("~1", "/").replace("~0", "~")
 
 
+def is_array_index(segment: str) -> bool:
+    """Whether a path segment is an array index; non-ASCII digits such as `²` are object keys."""
+    return segment.isascii() and segment.isdigit()
+
+
+def as_index_or_key(segment: str) -> str | int:
+    """`"0"` -> 0 for array indices, any other segment unchanged."""
+    return int(segment) if is_array_index(segment) else segment
+
+
+def format_body_key(path: Iterable[str | int]) -> str:
+    """`("items", 0, "id")` -> `"items/0/id"`, the key a nested body field is required and captured under."""
+    return "/".join(map(str, path))
+
+
+def split_body_key(key: str) -> list[str]:
+    """`"items/0/id"` -> `["items", "0", "id"]`, every segment kept as text."""
+    return key.split("/")
+
+
+def format_body_path(path: Iterable[str]) -> str:
+    """`("items", "id")` -> `"/items/id"`, the path a body binding or a body draw is recorded under."""
+    return "/" + format_body_key(path)
+
+
+def split_body_path(body_path: str) -> list[str]:
+    """`"/items/id"` -> `["items", "id"]`, every segment kept as text."""
+    return split_body_key(body_path[1:])
+
+
 def iter_decoded_pointer_segments(pointer: str) -> Iterator[str]:
     return map(decode_pointer, pointer.split("/")[1:])
 

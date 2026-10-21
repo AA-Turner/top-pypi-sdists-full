@@ -12,6 +12,7 @@ from typing import (
     Generic,
     NoReturn,
     TypeVar,
+    cast,
 )
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
 
@@ -43,7 +44,6 @@ from .filters import (
     FilterValue,
     MatcherFunc,
     RegexValue,
-    is_deprecated,
 )
 from .hooks import (
     HookDispatcher,
@@ -63,6 +63,7 @@ if TYPE_CHECKING:
     from werkzeug.test import TestResponse
 
     from schemathesis.auths import AuthContext, AuthProvider
+    from schemathesis.checks import RunChecks
     from schemathesis.core import Specification
     from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
@@ -86,6 +87,24 @@ def get_full_path(base_path: str, path: str) -> str:
     return unquote(urljoin(base_path.replace("%", "%25"), quote(path.lstrip("/"))))
 
 
+def wrap_test_function(func: Callable) -> Callable:
+    """Wrap a test function so it gets its own hook dispatcher, keeping it sync or async like `func`."""
+    if iscoroutinefunction(func):
+
+        @wraps(func)
+        async def test_wrapper(*args: Any, **kwargs: Any) -> Any:
+            return await func(*args, **kwargs)
+
+    else:
+
+        @wraps(func)
+        def test_wrapper(*args: Any, **kwargs: Any) -> Any:
+            return func(*args, **kwargs)
+
+    HookDispatcher.add_dispatcher(test_wrapper)
+    return test_wrapper
+
+
 @dataclass(eq=False)
 class BaseSchema(Mapping):
     raw_schema: JsonSchemaObject
@@ -100,6 +119,8 @@ class BaseSchema(Mapping):
     _constants_pool_cache: tuple[object, int, ConstantsPool] | None = field(
         init=False, default=None, repr=False, compare=False
     )
+    # Check instances outside the engine; clones build their own, so `after_run` fires once per test function.
+    _run_checks: RunChecks | None = field(init=False, default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         self.hook = to_filterable_hook(self.hooks)  # type: ignore[method-assign]
@@ -189,8 +210,7 @@ class BaseSchema(Mapping):
             New schema instance with applied include filters.
 
         """
-        filter_set = self.filter_set.clone()
-        filter_set.include(
+        filter_set = self.filter_set.with_include(
             func,
             name=name,
             name_regex=name_regex,
@@ -241,13 +261,7 @@ class BaseSchema(Mapping):
             New schema instance with applied exclude filters.
 
         """
-        filter_set = self.filter_set.clone()
-        if deprecated:
-            if func is None:
-                func = is_deprecated
-            else:
-                filter_set.exclude(is_deprecated)
-        filter_set.exclude(
+        filter_set = self.filter_set.with_exclude(
             func,
             name=name,
             name_regex=name_regex,
@@ -259,6 +273,7 @@ class BaseSchema(Mapping):
             tag_regex=tag_regex,
             operation_id=operation_id,
             operation_id_regex=operation_id_regex,
+            deprecated=deprecated,
         )
         return self.clone(filter_set=filter_set)
 
@@ -389,19 +404,7 @@ class BaseSchema(Mapping):
 
                 return wrapped_test
 
-            if iscoroutinefunction(func):
-
-                @wraps(func)
-                async def test_wrapper(*args: Any, **kwargs: Any) -> Any:
-                    return await func(*args, **kwargs)
-
-            else:
-
-                @wraps(func)
-                def test_wrapper(*args: Any, **kwargs: Any) -> Any:
-                    return func(*args, **kwargs)
-
-            HookDispatcher.add_dispatcher(test_wrapper)
+            test_wrapper = wrap_test_function(func)
             cloned = self.clone(test_function=test_wrapper)
             SchemaHandleMark.set(test_wrapper, cloned)
             return test_wrapper
@@ -457,7 +460,6 @@ class BaseSchema(Mapping):
     def get_request_payload_content_types(self, operation: APIOperation) -> list[str]:
         raise NotImplementedError
 
-    @abstractmethod
     def make_case(
         self,
         *,
@@ -473,6 +475,25 @@ class BaseSchema(Mapping):
         multipart_content_types: dict[str, str] | None = None,
         meta: CaseMetadata | None = None,
     ) -> Case:
+        from requests.structures import CaseInsensitiveDict
+
+        return Case(
+            operation=operation,
+            method=method or cast("HttpMethod", operation.method.upper()),
+            path=path or operation.path,
+            path_parameters=path_parameters or {},
+            headers=CaseInsensitiveDict() if headers is None else CaseInsensitiveDict(headers),
+            cookies=cookies or {},
+            query=query or {},
+            body=body,
+            media_type=self._case_media_type(operation, body, media_type),
+            multipart_content_types=multipart_content_types,
+            meta=meta,
+        )
+
+    @abstractmethod
+    def _case_media_type(self, operation: APIOperation, body: Body, media_type: str | None) -> str | None:
+        """Media type of a new case when the caller gives `media_type`, possibly `None`."""
         raise NotImplementedError
 
     @abstractmethod
@@ -517,6 +538,10 @@ class BaseSchema(Mapping):
 
     @abstractmethod
     def get_operation_id(self, operation: APIOperation) -> str | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_deprecated(self, operation: APIOperation) -> bool:
         raise NotImplementedError
 
     @abstractmethod

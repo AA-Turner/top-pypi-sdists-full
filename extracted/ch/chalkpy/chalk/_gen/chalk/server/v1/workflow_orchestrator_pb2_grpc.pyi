@@ -18,6 +18,8 @@ from chalk._gen.chalk.server.v1.workflow_orchestrator_pb2 import (
     ListWorkflowOrchestratorNamespacesResponse,
     ListWorkflowOrchestratorWorkflowsRequest,
     ListWorkflowOrchestratorWorkflowsResponse,
+    SendWorkflowMessageRequest,
+    SendWorkflowMessageResponse,
 )
 from grpc import (
     Channel,
@@ -51,6 +53,15 @@ class WorkflowOrchestratorServiceStub:
         GetWorkflowOrchestratorWorkflowHistoryRequest,
         GetWorkflowOrchestratorWorkflowHistoryResponse,
     ]
+    SendWorkflowMessage: UnaryUnaryMultiCallable[
+        SendWorkflowMessageRequest,
+        SendWorkflowMessageResponse,
+    ]
+    """Delivers a named message to a running workflow in the caller's environment, for steps
+    that wait on a person or another system, such as a review that approves or rejects a run.
+    The workflow receives the payload together with the authenticated sender, which it can use
+    to decide whose decisions to accept. Fails with NOT_FOUND when the workflow is not running.
+    """
 
 class WorkflowOrchestratorServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -86,6 +97,17 @@ class WorkflowOrchestratorServiceServicer(metaclass=ABCMeta):
         request: GetWorkflowOrchestratorWorkflowHistoryRequest,
         context: ServicerContext,
     ) -> GetWorkflowOrchestratorWorkflowHistoryResponse: ...
+    @abstractmethod
+    def SendWorkflowMessage(
+        self,
+        request: SendWorkflowMessageRequest,
+        context: ServicerContext,
+    ) -> SendWorkflowMessageResponse:
+        """Delivers a named message to a running workflow in the caller's environment, for steps
+        that wait on a person or another system, such as a review that approves or rejects a run.
+        The workflow receives the payload together with the authenticated sender, which it can use
+        to decide whose decisions to accept. Fails with NOT_FOUND when the workflow is not running.
+        """
 
 def add_WorkflowOrchestratorServiceServicer_to_server(
     servicer: WorkflowOrchestratorServiceServicer, server: Server

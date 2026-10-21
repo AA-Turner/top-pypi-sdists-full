@@ -8,6 +8,7 @@ license.workspace = true
 rust-version = "1.96"
 
 crate-type = ["cdylib"]
+readme = "README.md"
 
 [lints]
 workspace = true
@@ -59,6 +60,10 @@ harness = false
 [dependencies]
 sqruff-cli-lib.workspace = true
 sqruff-cli-lib.features = ["python"]
+sqruff-lib.workspace = true
+sqruff-lib-core.workspace = true
+strum.workspace = true
+hashbrown.workspace = true
 
 [dev-dependencies]
 assert_cmd = "2.2.2"

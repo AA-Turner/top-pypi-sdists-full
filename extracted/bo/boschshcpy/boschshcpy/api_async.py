@@ -46,6 +46,7 @@ logger = logging.getLogger("boschshcpy")
 # Re-export so callers can ``from boschshcpy.api_async import JSONRPCError``
 # without importing the sync api module.
 from .api import JSONRPCError as JSONRPCError  # noqa: E402  -- explicit re-export for mypy
+from .api import _check_measurements_args  # noqa: E402
 
 
 def build_ssl_context(certificate: str, key: str) -> ssl.SSLContext:
@@ -426,6 +427,19 @@ class SHCAPIAsync:
         api_url = f"{self._api_root}/devicemanagement/firmware/{urllib.parse.quote(device_id, safe='')}/activate"
         await self._put_api_or_fail(api_url, body=None)
 
+    async def put_motion_detector_illuminance_enable(self, device_id: str) -> None:
+        """Ask the SHC to report this Motion Detector's illuminance (no body).
+
+        The MultiLevelSensor only reports lux while a MotionLight or an
+        illuminance automation needs it (official OpenAPI). The Bosch app
+        calls this endpoint when an illuminance trigger/condition is
+        configured (APK: RestRequests.activateMotionDetectorIlluminanceSensor
+        -> PUT motiondetectors/{id}/sensors/illuminance/enable). Not in the
+        OpenAPI spec. NEVER_BLIND_FIX: confirm on real hardware.
+        """
+        api_url = f"{self._api_root}/motiondetectors/{urllib.parse.quote(device_id, safe='')}/sensors/illuminance/enable"
+        await self._put_api_or_fail(api_url, body=None)
+
     async def get_device_firmware_state(self, device_id: str) -> str | None:
         """Probe this device's firmware lifecycle state (no OpenAPI spec).
 
@@ -544,6 +558,51 @@ class SHCAPIAsync:
     async def get_domain_intrusion_detection(self) -> Any:
         api_url = f"{self._api_root}/intrusion/states/system"
         return await self._get_api_result_or_fail(api_url, expected_type="systemState")
+
+    async def get_smoke_system_state(self) -> Any:
+        """Smoke detection system availability (``GET smoke/states/system``).
+
+        Found in the Bosch app, not in the OpenAPI spec. The wire ``@type`` is
+        not verified, so it is not checked here.
+        """
+        return await self._get_api_result_or_fail(
+            f"{self._api_root}/smoke/states/system"
+        )
+
+    async def get_smoke_configuration(self) -> Any:
+        """Smoke detection system configuration (``GET smoke/configuration``).
+
+        Lists the alarm actuator groups. Found in the Bosch app, not in the
+        OpenAPI spec.
+        """
+        return await self._get_api_result_or_fail(
+            f"{self._api_root}/smoke/configuration"
+        )
+
+    async def get_measurements_page(
+        self,
+        sensor_id: str,
+        reference_time: int,
+        interval: int,
+        rounding: int,
+        overlap: int = 0,
+    ) -> Any:
+        """One page of measurement history (``GET historicdata/page/{id}``).
+
+        All times are in seconds (``reference_time`` is epoch seconds). The
+        reply holds ``times`` and a ``history`` map from measurement type
+        (``TEMPERATURE``, ``HUMIDITY``, ``PURITY``, ...) to a list of values.
+        An empty reply comes back as an empty dict. Found in the Bosch app
+        (Twinguard charts), not in the OpenAPI spec.
+        """
+        _check_measurements_args(sensor_id, reference_time, interval, rounding, overlap)
+        api_url = (
+            f"{self._api_root}/historicdata/page/"
+            f"{urllib.parse.quote(sensor_id, safe='')}"
+            f"?referenceTime={int(reference_time)}&interval={int(interval)}"
+            f"&rounding={int(rounding)}&overlap={int(overlap)}"
+        )
+        return await self._get_api_result_or_fail(api_url)
 
     async def get_zigbee_routing_info(self, device_id: str) -> Any:
         """Async counterpart to SHCAPI.get_zigbee_routing_info."""

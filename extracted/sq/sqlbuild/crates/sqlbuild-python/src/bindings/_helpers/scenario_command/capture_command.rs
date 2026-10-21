@@ -8,15 +8,15 @@ use sqlbuild_core::cli_text::models::{CliStyle, SummaryCount};
 use sqlbuild_core::scenario_command::main::snapshot_capture_warning::snapshot_capture_warning;
 use sqlbuild_core::scenario_command::main::sql_analysis_required_error::sql_analysis_required_error;
 use sqlbuild_core::scenario_command::models::SqlAnalysisCommand;
+use sqlbuild_host::entries::models::ExecutorHost;
 
-use crate::bindings::_helpers::compile_driver::python_calls::call_with;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
+use crate::bindings::_helpers::boundary::python_calls::call_with;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::scenario_command::conversions::succeeded;
 use crate::bindings::_helpers::scenario_command::presentation::{
-    CompletionKind, SectionStatus, activity, begin_section, connection_hooks, progress_relay,
-    write_completion,
+    CompletionKind, RelayContext, SectionStatus, activity, begin_section, connection_hooks,
+    progress_relay, write_completion,
 };
 use crate::bindings::_helpers::scenario_command::setup::{
     CompileInputs, ScenarioProject, capture_limits, capture_settings, cli_user_error, compile,
@@ -101,12 +101,12 @@ pub(crate) fn run_scenario_capture_command(
     let relay = progress_relay(
         &stream,
         &section,
-        (
-            &project.project_dir,
-            &adapter,
-            CompletionKind::Capture,
+        RelayContext {
+            project_dir: &project.project_dir,
+            adapter: &adapter,
+            kind: CompletionKind::Capture,
             style,
-        ),
+        },
     )?;
     let results: Vec<Bound<'_, PyAny>> = call_with(
         &host::entry(py, ExecutorHost::RunScenarioCapturePipeline)?,

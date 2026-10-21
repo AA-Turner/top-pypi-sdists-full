@@ -1797,12 +1797,6 @@ class CfnComputeNodeGroup(
         
         cfn_compute_node_group = pcs.CfnComputeNodeGroup(self, "MyCfnComputeNodeGroup",
             cluster_id="clusterId",
-            custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
-                version="version",
-        
-                # the properties below are optional
-                template_id="templateId"
-            ),
             iam_instance_profile_arn="iamInstanceProfileArn",
             instance_configs=[pcs.CfnComputeNodeGroup.InstanceConfigProperty(
                 instance_type="instanceType"
@@ -1815,6 +1809,12 @@ class CfnComputeNodeGroup(
         
             # the properties below are optional
             ami_id="amiId",
+            custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
+                version="version",
+        
+                # the properties below are optional
+                template_id="templateId"
+            ),
             name="name",
             node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
                 stages=pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
@@ -1879,12 +1879,12 @@ class CfnComputeNodeGroup(
         id: builtins.str,
         *,
         cluster_id: builtins.str,
-        custom_launch_template: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.CustomLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
         iam_instance_profile_arn: builtins.str,
         instance_configs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.InstanceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
         scaling_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.ScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         subnet_ids: typing.Sequence[builtins.str],
         ami_id: typing.Optional[builtins.str] = None,
+        custom_launch_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.CustomLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         node_lifecycle_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         purchase_option: typing.Optional[builtins.str] = None,
@@ -1897,12 +1897,12 @@ class CfnComputeNodeGroup(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param cluster_id: The ID of the cluster of the compute node group.
-        :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
         :param iam_instance_profile_arn: The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances. The role contained in your instance profile must have the ``pcs:RegisterComputeNodeGroupInstance`` permission and the role name must start with ``AWSPCS`` or must have the path ``/aws-pcs/`` . For more information, see `IAM instance profiles for AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/security-instance-profiles.html>`_ in the *AWS PCS User Guide* .
         :param instance_configs: A list of EC2 instance configurations that AWS PCS can provision in the compute node group.
         :param scaling_configuration: Specifies the boundaries of the compute node group auto scaling.
         :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
         :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
+        :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
         :param name: The name that identifies the compute node group.
         :param node_lifecycle_actions: Custom scripts that run at defined points in a compute node's lifecycle.
         :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand Instances, Spot Instances, and Amazon EC2 Capacity Blocks for ML. For more information, see `Amazon EC2 billing and purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . For more information about AWS PCS support for Capacity Blocks, see `Using Amazon EC2 Capacity Blocks for ML with AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/capacity-blocks.html>`_ in the *AWS PCS User Guide* . If you don't provide this option, it defaults to On-Demand.
@@ -1916,12 +1916,12 @@ class CfnComputeNodeGroup(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnComputeNodeGroupProps(
             cluster_id=cluster_id,
-            custom_launch_template=custom_launch_template,
             iam_instance_profile_arn=iam_instance_profile_arn,
             instance_configs=instance_configs,
             scaling_configuration=scaling_configuration,
             subnet_ids=subnet_ids,
             ami_id=ami_id,
+            custom_launch_template=custom_launch_template,
             name=name,
             node_lifecycle_actions=node_lifecycle_actions,
             purchase_option=purchase_option,
@@ -2064,24 +2064,6 @@ class CfnComputeNodeGroup(
         jsii.set(self, "clusterId", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="customLaunchTemplate")
-    def custom_launch_template(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]:
-        '''An Amazon EC2 launch template AWS PCS uses to launch compute nodes.'''
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"], jsii.get(self, "customLaunchTemplate"))
-
-    @custom_launch_template.setter
-    def custom_launch_template(
-        self,
-        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__bf4a47490919e9b97683082d58e0ccf8649fd09ec2c5f621c3f8467d84363706)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customLaunchTemplate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="iamInstanceProfileArn")
     def iam_instance_profile_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances.'''
@@ -2155,6 +2137,24 @@ class CfnComputeNodeGroup(
             type_hints = cached_type_hints(_typecheckingstub__ce6f7916bab348203539e21c424ed76ed039fc805a1e3d704cca40baffc97318)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "amiId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customLaunchTemplate")
+    def custom_launch_template(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]]:
+        '''An Amazon EC2 launch template AWS PCS uses to launch compute nodes.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]], jsii.get(self, "customLaunchTemplate"))
+
+    @custom_launch_template.setter
+    def custom_launch_template(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf4a47490919e9b97683082d58e0ccf8649fd09ec2c5f621c3f8467d84363706)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customLaunchTemplate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -3211,12 +3211,12 @@ class CfnComputeNodeGroup(
     jsii_struct_bases=[],
     name_mapping={
         "cluster_id": "clusterId",
-        "custom_launch_template": "customLaunchTemplate",
         "iam_instance_profile_arn": "iamInstanceProfileArn",
         "instance_configs": "instanceConfigs",
         "scaling_configuration": "scalingConfiguration",
         "subnet_ids": "subnetIds",
         "ami_id": "amiId",
+        "custom_launch_template": "customLaunchTemplate",
         "name": "name",
         "node_lifecycle_actions": "nodeLifecycleActions",
         "purchase_option": "purchaseOption",
@@ -3230,12 +3230,12 @@ class CfnComputeNodeGroupProps:
         self,
         *,
         cluster_id: builtins.str,
-        custom_launch_template: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.CustomLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]],
         iam_instance_profile_arn: builtins.str,
         instance_configs: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.InstanceConfigProperty", typing.Dict[builtins.str, typing.Any]]]]],
         scaling_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.ScalingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
         subnet_ids: typing.Sequence[builtins.str],
         ami_id: typing.Optional[builtins.str] = None,
+        custom_launch_template: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.CustomLaunchTemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         name: typing.Optional[builtins.str] = None,
         node_lifecycle_actions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnComputeNodeGroup.NodeLifecycleActionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         purchase_option: typing.Optional[builtins.str] = None,
@@ -3246,12 +3246,12 @@ class CfnComputeNodeGroupProps:
         '''Properties for defining a ``CfnComputeNodeGroup``.
 
         :param cluster_id: The ID of the cluster of the compute node group.
-        :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
         :param iam_instance_profile_arn: The Amazon Resource Name (ARN) of the IAM instance profile used to pass an IAM role when launching EC2 instances. The role contained in your instance profile must have the ``pcs:RegisterComputeNodeGroupInstance`` permission and the role name must start with ``AWSPCS`` or must have the path ``/aws-pcs/`` . For more information, see `IAM instance profiles for AWS PCS <https://docs.aws.amazon.com//pcs/latest/userguide/security-instance-profiles.html>`_ in the *AWS PCS User Guide* .
         :param instance_configs: A list of EC2 instance configurations that AWS PCS can provision in the compute node group.
         :param scaling_configuration: Specifies the boundaries of the compute node group auto scaling.
         :param subnet_ids: The list of subnet IDs where instances are provisioned by the compute node group. The subnets must be in the same VPC as the cluster.
         :param ami_id: The ID of the Amazon Machine Image (AMI) that AWS PCS uses to launch instances. If not provided, AWS PCS uses the AMI ID specified in the custom launch template.
+        :param custom_launch_template: An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
         :param name: The name that identifies the compute node group.
         :param node_lifecycle_actions: Custom scripts that run at defined points in a compute node's lifecycle.
         :param purchase_option: Specifies how EC2 instances are purchased on your behalf. AWS PCS supports On-Demand Instances, Spot Instances, and Amazon EC2 Capacity Blocks for ML. For more information, see `Amazon EC2 billing and purchasing options <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-purchasing-options.html>`_ in the *Amazon Elastic Compute Cloud User Guide* . For more information about AWS PCS support for Capacity Blocks, see `Using Amazon EC2 Capacity Blocks for ML with AWS PCS <https://docs.aws.amazon.com/pcs/latest/userguide/capacity-blocks.html>`_ in the *AWS PCS User Guide* . If you don't provide this option, it defaults to On-Demand.
@@ -3270,12 +3270,6 @@ class CfnComputeNodeGroupProps:
             
             cfn_compute_node_group_props = pcs.CfnComputeNodeGroupProps(
                 cluster_id="clusterId",
-                custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
-                    version="version",
-            
-                    # the properties below are optional
-                    template_id="templateId"
-                ),
                 iam_instance_profile_arn="iamInstanceProfileArn",
                 instance_configs=[pcs.CfnComputeNodeGroup.InstanceConfigProperty(
                     instance_type="instanceType"
@@ -3288,6 +3282,12 @@ class CfnComputeNodeGroupProps:
             
                 # the properties below are optional
                 ami_id="amiId",
+                custom_launch_template=pcs.CfnComputeNodeGroup.CustomLaunchTemplateProperty(
+                    version="version",
+            
+                    # the properties below are optional
+                    template_id="templateId"
+                ),
                 name="name",
                 node_lifecycle_actions=pcs.CfnComputeNodeGroup.NodeLifecycleActionsProperty(
                     stages=pcs.CfnComputeNodeGroup.NodeLifecycleStagesProperty(
@@ -3348,12 +3348,12 @@ class CfnComputeNodeGroupProps:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde115a012d)
             check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
-            check_type(argname="argument custom_launch_template", value=custom_launch_template, expected_type=type_hints["custom_launch_template"])
             check_type(argname="argument iam_instance_profile_arn", value=iam_instance_profile_arn, expected_type=type_hints["iam_instance_profile_arn"])
             check_type(argname="argument instance_configs", value=instance_configs, expected_type=type_hints["instance_configs"])
             check_type(argname="argument scaling_configuration", value=scaling_configuration, expected_type=type_hints["scaling_configuration"])
             check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
             check_type(argname="argument ami_id", value=ami_id, expected_type=type_hints["ami_id"])
+            check_type(argname="argument custom_launch_template", value=custom_launch_template, expected_type=type_hints["custom_launch_template"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument node_lifecycle_actions", value=node_lifecycle_actions, expected_type=type_hints["node_lifecycle_actions"])
             check_type(argname="argument purchase_option", value=purchase_option, expected_type=type_hints["purchase_option"])
@@ -3362,7 +3362,6 @@ class CfnComputeNodeGroupProps:
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cluster_id": cluster_id,
-            "custom_launch_template": custom_launch_template,
             "iam_instance_profile_arn": iam_instance_profile_arn,
             "instance_configs": instance_configs,
             "scaling_configuration": scaling_configuration,
@@ -3370,6 +3369,8 @@ class CfnComputeNodeGroupProps:
         }
         if ami_id is not None:
             self._values["ami_id"] = ami_id
+        if custom_launch_template is not None:
+            self._values["custom_launch_template"] = custom_launch_template
         if name is not None:
             self._values["name"] = name
         if node_lifecycle_actions is not None:
@@ -3392,18 +3393,6 @@ class CfnComputeNodeGroupProps:
         result = self._values.get("cluster_id")
         assert result is not None, "Required property 'cluster_id' is missing"
         return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def custom_launch_template(
-        self,
-    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]:
-        '''An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-customlaunchtemplate
-        '''
-        result = self._values.get("custom_launch_template")
-        assert result is not None, "Required property 'custom_launch_template' is missing"
-        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"], result)
 
     @builtins.property
     def iam_instance_profile_arn(self) -> builtins.str:
@@ -3463,6 +3452,17 @@ class CfnComputeNodeGroupProps:
         '''
         result = self._values.get("ami_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def custom_launch_template(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]]:
+        '''An Amazon EC2 launch template AWS PCS uses to launch compute nodes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pcs-computenodegroup.html#cfn-pcs-computenodegroup-customlaunchtemplate
+        '''
+        result = self._values.get("custom_launch_template")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnComputeNodeGroup.CustomLaunchTemplateProperty"]], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -4424,12 +4424,12 @@ def _typecheckingstub__5d74625cecbce8d2048b29b24f3148123fb31c64b330ed51fd45d2b2c
     id: builtins.str,
     *,
     cluster_id: builtins.str,
-    custom_launch_template: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
     iam_instance_profile_arn: builtins.str,
     instance_configs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.InstanceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
     scaling_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     subnet_ids: typing.Sequence[builtins.str],
     ami_id: typing.Optional[builtins.str] = None,
+    custom_launch_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     node_lifecycle_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     purchase_option: typing.Optional[builtins.str] = None,
@@ -4470,12 +4470,6 @@ def _typecheckingstub__27a33200e9f918661858505e376a9533b97ee45f0f14cd2c479bb9e61
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__bf4a47490919e9b97683082d58e0ccf8649fd09ec2c5f621c3f8467d84363706(
-    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeNodeGroup.CustomLaunchTemplateProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__77021f3115c7344dc9b7365b13a661fa578c34c1997a99dd619003646b7e460a(
     value: builtins.str,
 ) -> None:
@@ -4502,6 +4496,12 @@ def _typecheckingstub__c6c11a7ef6bbf97645d89e780e4819e5c51eacccbab5c6e46497a3e31
 
 def _typecheckingstub__ce6f7916bab348203539e21c424ed76ed039fc805a1e3d704cca40baffc97318(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf4a47490919e9b97683082d58e0ccf8649fd09ec2c5f621c3f8467d84363706(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnComputeNodeGroup.CustomLaunchTemplateProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -4636,12 +4636,12 @@ def _typecheckingstub__adf4042ef194d53ff84c49fd66b8d9e370cc1fb06ce3e5dfca9c196a9
 def _typecheckingstub__b89ff3536491b7ea531bd9d6ca00d7d32a25ce4c02b926c6d677abde115a012d(
     *,
     cluster_id: builtins.str,
-    custom_launch_template: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]],
     iam_instance_profile_arn: builtins.str,
     instance_configs: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.InstanceConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
     scaling_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.ScalingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
     subnet_ids: typing.Sequence[builtins.str],
     ami_id: typing.Optional[builtins.str] = None,
+    custom_launch_template: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.CustomLaunchTemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     name: typing.Optional[builtins.str] = None,
     node_lifecycle_actions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnComputeNodeGroup.NodeLifecycleActionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     purchase_option: typing.Optional[builtins.str] = None,

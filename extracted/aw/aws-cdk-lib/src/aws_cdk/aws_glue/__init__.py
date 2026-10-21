@@ -24525,14 +24525,6 @@ class CfnTable(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -24743,8 +24735,6 @@ class CfnTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
-                # properties: Any
-                
                 iceberg_input_property = glue.CfnTable.IcebergInputProperty(
                     iceberg_table_input=glue.CfnTable.IcebergTableInputProperty(
                         location="location",
@@ -24779,7 +24769,9 @@ class CfnTable(
                             # the properties below are optional
                             spec_id=123
                         ),
-                        properties=properties,
+                        properties={
+                            "properties_key": "properties"
+                        },
                         write_order=glue.CfnTable.IcebergSortOrderProperty(
                             fields=[glue.CfnTable.IcebergSortFieldProperty(
                                 direction="direction",
@@ -25489,7 +25481,7 @@ class CfnTable(
             location: builtins.str,
             schema: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSchemaProperty", typing.Dict[builtins.str, typing.Any]]],
             partition_spec: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergPartitionSpecProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            properties: typing.Any = None,
+            properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             write_order: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnTable.IcebergSortOrderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the Iceberg table configuration.
@@ -25508,8 +25500,6 @@ class CfnTable(
                 # The code below shows an example of how to instantiate this type.
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
-                
-                # properties: Any
                 
                 iceberg_table_input_property = glue.CfnTable.IcebergTableInputProperty(
                     location="location",
@@ -25544,7 +25534,9 @@ class CfnTable(
                         # the properties below are optional
                         spec_id=123
                     ),
-                    properties=properties,
+                    properties={
+                        "properties_key": "properties"
+                    },
                     write_order=glue.CfnTable.IcebergSortOrderProperty(
                         fields=[glue.CfnTable.IcebergSortFieldProperty(
                             direction="direction",
@@ -25608,13 +25600,15 @@ class CfnTable(
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnTable.IcebergPartitionSpecProperty"]], result)
 
         @builtins.property
-        def properties(self) -> typing.Any:
+        def properties(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
             '''The properties for the Iceberg table.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergtableinput.html#cfn-glue-table-icebergtableinput-properties
             '''
             result = self._values.get("properties")
-            return typing.cast(typing.Any, result)
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
 
         @builtins.property
         def write_order(
@@ -25662,8 +25656,6 @@ class CfnTable(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_glue as glue
                 
-                # properties: Any
-                
                 open_table_format_input_property = glue.CfnTable.OpenTableFormatInputProperty(
                     iceberg_input=glue.CfnTable.IcebergInputProperty(
                         iceberg_table_input=glue.CfnTable.IcebergTableInputProperty(
@@ -25699,7 +25691,9 @@ class CfnTable(
                                 # the properties below are optional
                                 spec_id=123
                             ),
-                            properties=properties,
+                            properties={
+                                "properties_key": "properties"
+                            },
                             write_order=glue.CfnTable.IcebergSortOrderProperty(
                                 fields=[glue.CfnTable.IcebergSortFieldProperty(
                                     direction="direction",
@@ -28239,7 +28233,6 @@ class CfnTableProps:
             from aws_cdk import aws_glue as glue
             
             # parameters: Any
-            # properties: Any
             # skewed_column_value_location_maps: Any
             
             cfn_table_props = glue.CfnTableProps(
@@ -28283,7 +28276,9 @@ class CfnTableProps:
                                 # the properties below are optional
                                 spec_id=123
                             ),
-                            properties=properties,
+                            properties={
+                                "properties_key": "properties"
+                            },
                             write_order=glue.CfnTable.IcebergSortOrderProperty(
                                 fields=[glue.CfnTable.IcebergSortFieldProperty(
                                     direction="direction",
@@ -51020,7 +51015,7 @@ def _typecheckingstub__e61f514edbd4a971d7fcc49f4019caf0833fa0f51d1a2ce111f239ac1
     location: builtins.str,
     schema: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergSchemaProperty, typing.Dict[builtins.str, typing.Any]]],
     partition_spec: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergPartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    properties: typing.Any = None,
+    properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     write_order: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnTable.IcebergSortOrderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

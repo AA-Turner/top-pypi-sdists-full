@@ -2305,6 +2305,7 @@ struct __pyx_obj_2av_5audio_9resampler_AudioResampler {
   PyObject *options;
   int rate;
   unsigned int frame_size;
+  int threads;
   int is_passthrough;
 };
 
@@ -2556,7 +2557,7 @@ static struct __pyx_vtabstruct_2av_6filter_5graph_Graph *__pyx_vtabptr_2av_6filt
  * @cython.final
  * @cython.cclass
  * class AudioResampler:             # <<<<<<<<<<<<<<
- *     """AudioResampler(format=None, layout=None, rate=None, frame_size=None, options=None)
+ *     """AudioResampler(format=None, layout=None, rate=None, frame_size=None, options=None, threads=None)
  * 
 */
 
@@ -2948,6 +2949,22 @@ static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject
 
 /* PyObjectCompare.proto */
 static CYTHON_INLINE int __Pyx_PyObject_CompareBoolEq_object_int(PyObject *op1, PyObject *op2, int pyop);
+
+/* PyObjectDelAttr.proto (used by PyObjectSetAttrStr) */
+#if CYTHON_COMPILING_IN_LIMITED_API && __PYX_LIMITED_VERSION_HEX < 0x030d0000
+#define __Pyx_PyObject_DelAttr(o, n) PyObject_SetAttr(o, n, NULL)
+#else
+#define __Pyx_PyObject_DelAttr(o, n) PyObject_DelAttr(o, n)
+#endif
+
+/* PyObjectSetAttrStr.proto */
+#if CYTHON_USE_TYPE_SLOTS
+#define __Pyx_PyObject_DelAttrStr(o,n) __Pyx_PyObject_SetAttrStr(o, n, NULL)
+static CYTHON_INLINE int __Pyx_PyObject_SetAttrStr(PyObject* obj, PyObject* attr_name, PyObject* value);
+#else
+#define __Pyx_PyObject_DelAttrStr(o,n)   __Pyx_PyObject_DelAttr(o,n)
+#define __Pyx_PyObject_SetAttrStr(o,n,v) PyObject_SetAttr(o,n,v)
+#endif
 
 /* PyObjectFormatSimple.proto */
 #if CYTHON_COMPILING_IN_PYPY
@@ -3489,13 +3506,14 @@ int __pyx_module_is_main_av__audio__resampler = 0;
 /* #### Code section: global_var ### */
 /* #### Code section: string_decls ### */
 /* #### Code section: decls ### */
-static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self, PyObject *__pyx_v_format, PyObject *__pyx_v_layout, PyObject *__pyx_v_rate, PyObject *__pyx_v_frame_size, PyObject *__pyx_v_options); /* proto */
+static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self, PyObject *__pyx_v_format, PyObject *__pyx_v_layout, PyObject *__pyx_v_rate, PyObject *__pyx_v_frame_size, PyObject *__pyx_v_options, PyObject *__pyx_v_threads); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_2resample(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self, struct __pyx_obj_2av_5audio_5frame_AudioFrame *__pyx_v_frame); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_6format___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_6layout___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_7options___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_4rate___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_10frame_size___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_7threads___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_14is_passthrough___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_4__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_6__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
@@ -3574,7 +3592,7 @@ namespace {
     __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_items;
     __Pyx_CachedCFunction __pyx_umethod_PyDict_Type_values;
     PyObject *__pyx_tuple[1];
-    PyObject *__pyx_string_tab[44];
+    PyObject *__pyx_string_tab[45];
 /* #### Code section: module_state_contents ### */
 /* PyFrozenDict.module_state_decls */
 #if CYTHON_COMPILING_IN_LIMITED_API
@@ -3653,9 +3671,10 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_sample_rates __pyx_string_tab[38]
 #define __pyx_n_u_set_audio_frame_size __pyx_string_tab[39]
 #define __pyx_n_u_setdefault __pyx_string_tab[40]
-#define __pyx_n_u_time_base __pyx_string_tab[41]
-#define __pyx_n_u_values __pyx_string_tab[42]
-#define __pyx_kp_b_PyObject_PyObject_name_PyObject __pyx_string_tab[43]
+#define __pyx_n_u_threads __pyx_string_tab[41]
+#define __pyx_n_u_time_base __pyx_string_tab[42]
+#define __pyx_n_u_values __pyx_string_tab[43]
+#define __pyx_kp_b_PyObject_PyObject_name_PyObject __pyx_string_tab[44]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3699,7 +3718,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_umethod_PyDict_Type_items.method);
   Py_CLEAR(clear_module_state->__pyx_umethod_PyDict_Type_values.method);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<44; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<45; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
 return 0;
@@ -3745,7 +3764,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_umethod_PyDict_Type_items.method);
   Py_VISIT(traverse_module_state->__pyx_umethod_PyDict_Type_values.method);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<44; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<45; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
 return 0;
@@ -3753,12 +3772,12 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/audio/resampler.py":26
+/* "av/audio/resampler.py":29
  *     """
  * 
  *     def __cinit__(             # <<<<<<<<<<<<<<
- *         self, format=None, layout=None, rate=None, frame_size=None, options=None
- *     ):
+ *         self,
+ *         format=None,
 */
 
 /* Python wrapper */
@@ -3781,11 +3800,12 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   PyObject *__pyx_v_rate = 0;
   PyObject *__pyx_v_frame_size = 0;
   PyObject *__pyx_v_options = 0;
+  PyObject *__pyx_v_threads = 0;
   #if !CYTHON_VECTORCALL_TPNEW
   CYTHON_UNUSED Py_ssize_t __pyx_nargs;
   #endif
   CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
-  PyObject* values[5] = {0,0,0,0,0};
+  PyObject* values[6] = {0,0,0,0,0,0};
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -3801,89 +3821,188 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   #endif
   __pyx_kwvalues = __Pyx_KwValues_FASTCALL_TPNEW(__pyx_args, __pyx_nargs);
   {
-    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_format,&__pyx_mstate_global->__pyx_n_u_layout,&__pyx_mstate_global->__pyx_n_u_rate,&__pyx_mstate_global->__pyx_n_u_frame_size,&__pyx_mstate_global->__pyx_n_u_options,0};
+    PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_format,&__pyx_mstate_global->__pyx_n_u_layout,&__pyx_mstate_global->__pyx_n_u_rate,&__pyx_mstate_global->__pyx_n_u_frame_size,&__pyx_mstate_global->__pyx_n_u_options,&__pyx_mstate_global->__pyx_n_u_threads,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL_TPNEW(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 26, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 29, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 29, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 26, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "__cinit__", 0) < (0)) __PYX_ERR(0, 29, __pyx_L3_error)
 
-      /* "av/audio/resampler.py":27
- * 
+      /* "av/audio/resampler.py":31
  *     def __cinit__(
- *         self, format=None, layout=None, rate=None, frame_size=None, options=None             # <<<<<<<<<<<<<<
+ *         self,
+ *         format=None,             # <<<<<<<<<<<<<<
+ *         layout=None,
+ *         rate=None,
+*/
+      if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":32
+ *         self,
+ *         format=None,
+ *         layout=None,             # <<<<<<<<<<<<<<
+ *         rate=None,
+ *         frame_size=None,
+*/
+      if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":33
+ *         format=None,
+ *         layout=None,
+ *         rate=None,             # <<<<<<<<<<<<<<
+ *         frame_size=None,
+ *         options=None,
+*/
+      if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":34
+ *         layout=None,
+ *         rate=None,
+ *         frame_size=None,             # <<<<<<<<<<<<<<
+ *         options=None,
+ *         threads=None,
+*/
+      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":35
+ *         rate=None,
+ *         frame_size=None,
+ *         options=None,             # <<<<<<<<<<<<<<
+ *         threads=None,
+ *     ):
+*/
+      if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":36
+ *         frame_size=None,
+ *         options=None,
+ *         threads=None,             # <<<<<<<<<<<<<<
  *     ):
  *         if format is not None:
 */
-      if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
-      if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
-      if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
-      if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
-      if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
+      if (!values[5]) values[5] = __Pyx_NewRef(((PyObject *)Py_None));
     } else {
       switch (__pyx_nargs) {
+        case  6:
+        values[5] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 5);
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[5])) __PYX_ERR(0, 29, __pyx_L3_error)
+        CYTHON_FALLTHROUGH;
         case  5:
         values[4] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 4);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[4])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  4:
         values[3] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 3);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[3])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL_TPNEW(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 26, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 29, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
+
+      /* "av/audio/resampler.py":31
+ *     def __cinit__(
+ *         self,
+ *         format=None,             # <<<<<<<<<<<<<<
+ *         layout=None,
+ *         rate=None,
+*/
       if (!values[0]) values[0] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":32
+ *         self,
+ *         format=None,
+ *         layout=None,             # <<<<<<<<<<<<<<
+ *         rate=None,
+ *         frame_size=None,
+*/
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":33
+ *         format=None,
+ *         layout=None,
+ *         rate=None,             # <<<<<<<<<<<<<<
+ *         frame_size=None,
+ *         options=None,
+*/
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":34
+ *         layout=None,
+ *         rate=None,
+ *         frame_size=None,             # <<<<<<<<<<<<<<
+ *         options=None,
+ *         threads=None,
+*/
       if (!values[3]) values[3] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":35
+ *         rate=None,
+ *         frame_size=None,
+ *         options=None,             # <<<<<<<<<<<<<<
+ *         threads=None,
+ *     ):
+*/
       if (!values[4]) values[4] = __Pyx_NewRef(((PyObject *)Py_None));
+
+      /* "av/audio/resampler.py":36
+ *         frame_size=None,
+ *         options=None,
+ *         threads=None,             # <<<<<<<<<<<<<<
+ *     ):
+ *         if format is not None:
+*/
+      if (!values[5]) values[5] = __Pyx_NewRef(((PyObject *)Py_None));
     }
     __pyx_v_format = values[0];
     __pyx_v_layout = values[1];
     __pyx_v_rate = values[2];
     __pyx_v_frame_size = values[3];
     __pyx_v_options = values[4];
+    __pyx_v_threads = values[5];
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 0, 5, __pyx_nargs); __PYX_ERR(0, 26, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("__cinit__", 0, 0, 6, __pyx_nargs); __PYX_ERR(0, 29, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3894,14 +4013,14 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return -1;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(((struct __pyx_obj_2av_5audio_9resampler_AudioResampler *)__pyx_v_self), __pyx_v_format, __pyx_v_layout, __pyx_v_rate, __pyx_v_frame_size, __pyx_v_options);
+  __pyx_r = __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(((struct __pyx_obj_2av_5audio_9resampler_AudioResampler *)__pyx_v_self), __pyx_v_format, __pyx_v_layout, __pyx_v_rate, __pyx_v_frame_size, __pyx_v_options, __pyx_v_threads);
 
-  /* "av/audio/resampler.py":26
+  /* "av/audio/resampler.py":29
  *     """
  * 
  *     def __cinit__(             # <<<<<<<<<<<<<<
- *         self, format=None, layout=None, rate=None, frame_size=None, options=None
- *     ):
+ *         self,
+ *         format=None,
 */
 
   /* function exit code */
@@ -3912,7 +4031,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   return __pyx_r;
 }
 
-static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self, PyObject *__pyx_v_format, PyObject *__pyx_v_layout, PyObject *__pyx_v_rate, PyObject *__pyx_v_frame_size, PyObject *__pyx_v_options) {
+static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self, PyObject *__pyx_v_format, PyObject *__pyx_v_layout, PyObject *__pyx_v_rate, PyObject *__pyx_v_frame_size, PyObject *__pyx_v_options, PyObject *__pyx_v_threads) {
   PyObject *__pyx_7genexpr__pyx_v_k = NULL;
   PyObject *__pyx_7genexpr__pyx_v_v = NULL;
   int __pyx_r;
@@ -3935,8 +4054,8 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__cinit__", 0);
 
-  /* "av/audio/resampler.py":29
- *         self, format=None, layout=None, rate=None, frame_size=None, options=None
+  /* "av/audio/resampler.py":38
+ *         threads=None,
  *     ):
  *         if format is not None:             # <<<<<<<<<<<<<<
  *             self.format = (
@@ -3946,7 +4065,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
   if (__pyx_t_1) {
 
 
-    /* "av/audio/resampler.py":31
+    /* "av/audio/resampler.py":40
  *         if format is not None:
  *             self.format = (
  *                 format if isinstance(format, AudioFormat) else AudioFormat(format)             # <<<<<<<<<<<<<<
@@ -3955,7 +4074,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
 */
     __pyx_t_1 = __Pyx_TypeCheck(__pyx_v_format, __pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat); 
     if (__pyx_t_1) {
-      if (!(likely(((__pyx_v_format) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_format, __pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat))))) __PYX_ERR(0, 31, __pyx_L1_error)
+      if (!(likely(((__pyx_v_format) == Py_None) || likely(__Pyx_TypeTest(__pyx_v_format, __pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat))))) __PYX_ERR(0, 40, __pyx_L1_error)
       __Pyx_INCREF(__pyx_v_format);
       __pyx_t_2 = __pyx_v_format;
     } else {
@@ -3965,7 +4084,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
         PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_v_format};
         __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 31, __pyx_L1_error)
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 40, __pyx_L1_error)
         __Pyx_GOTREF((PyObject *)__pyx_t_3);
       }
       __pyx_t_2 = ((PyObject *)__pyx_t_3);
@@ -3973,7 +4092,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
     }
 
 
-    /* "av/audio/resampler.py":30
+    /* "av/audio/resampler.py":39
  *     ):
  *         if format is not None:
  *             self.format = (             # <<<<<<<<<<<<<<
@@ -3986,8 +4105,8 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
     __pyx_v_self->format = ((struct __pyx_obj_2av_5audio_6format_AudioFormat *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/audio/resampler.py":29
- *         self, format=None, layout=None, rate=None, frame_size=None, options=None
+    /* "av/audio/resampler.py":38
+ *         threads=None,
  *     ):
  *         if format is not None:             # <<<<<<<<<<<<<<
  *             self.format = (
@@ -3995,7 +4114,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
 */
   }
 
-  /* "av/audio/resampler.py":34
+  /* "av/audio/resampler.py":43
  *             )
  * 
  *         if layout is not None:             # <<<<<<<<<<<<<<
@@ -4006,7 +4125,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
   if (__pyx_t_1) {
 
 
-    /* "av/audio/resampler.py":35
+    /* "av/audio/resampler.py":44
  * 
  *         if layout is not None:
  *             self.layout = AudioLayout(layout)             # <<<<<<<<<<<<<<
@@ -4019,7 +4138,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
       PyObject *__pyx_callargs[2] = {__pyx_t_3, __pyx_v_layout};
       __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout, __pyx_callargs+__pyx_t_5, (2-__pyx_t_5) | (__pyx_t_5*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 35, __pyx_L1_error)
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 44, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_2);
     }
     __Pyx_GIVEREF((PyObject *)__pyx_t_2);
@@ -4028,7 +4147,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
     __pyx_v_self->layout = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_t_2);
     __pyx_t_2 = 0;
 
-    /* "av/audio/resampler.py":34
+    /* "av/audio/resampler.py":43
  *             )
  * 
  *         if layout is not None:             # <<<<<<<<<<<<<<
@@ -4037,18 +4156,18 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
 */
   }
 
-  /* "av/audio/resampler.py":37
+  /* "av/audio/resampler.py":46
  *             self.layout = AudioLayout(layout)
  * 
  *         self.rate = int(rate) if rate else 0             # <<<<<<<<<<<<<<
  *         self.frame_size = int(frame_size) if frame_size else 0
  *         self.options = {str(k): str(v) for k, v in options.items()} if options else {}
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_rate); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 37, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_rate); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 46, __pyx_L1_error)
   if (__pyx_t_1) {
-    __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_v_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 37, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_v_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_7 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_7 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 37, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_7 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 46, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_6 = __pyx_t_7;
   } else {
@@ -4058,18 +4177,18 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
 
   __pyx_v_self->rate = __pyx_t_6;
 
-  /* "av/audio/resampler.py":38
+  /* "av/audio/resampler.py":47
  * 
  *         self.rate = int(rate) if rate else 0
  *         self.frame_size = int(frame_size) if frame_size else 0             # <<<<<<<<<<<<<<
  *         self.options = {str(k): str(v) for k, v in options.items()} if options else {}
- *         self.graph = None
+ *         self.threads = int(threads) if threads else 0
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_frame_size); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_frame_size); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 47, __pyx_L1_error)
   if (__pyx_t_1) {
-    __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_v_frame_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 38, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_v_frame_size); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 47, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_9 = __Pyx_PyLong_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_9 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 38, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyLong_As_unsigned_int(__pyx_t_2); if (unlikely((__pyx_t_9 == (unsigned int)-1) && PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     __pyx_t_8 = __pyx_t_9;
   } else {
@@ -4079,24 +4198,24 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
 
   __pyx_v_self->frame_size = __pyx_t_8;
 
-  /* "av/audio/resampler.py":39
+  /* "av/audio/resampler.py":48
  *         self.rate = int(rate) if rate else 0
  *         self.frame_size = int(frame_size) if frame_size else 0
  *         self.options = {str(k): str(v) for k, v in options.items()} if options else {}             # <<<<<<<<<<<<<<
+ *         self.threads = int(threads) if threads else 0
  *         self.graph = None
- * 
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_options); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 48, __pyx_L1_error)
   if (__pyx_t_1) {
     { /* enter inner scope */
-      __pyx_t_3 = PyDict_New(); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 39, __pyx_L7_error)
+      __pyx_t_3 = PyDict_New(); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_3);
       __pyx_t_10 = 0;
       if (unlikely(__pyx_v_options == Py_None)) {
         PyErr_Format(PyExc_AttributeError, "\047NoneType\047 object has no attribute \047%.30s\047", "items");
-        __PYX_ERR(0, 39, __pyx_L7_error)
+        __PYX_ERR(0, 48, __pyx_L7_error)
       }
-      __pyx_t_12 = __Pyx_dict_iterator(__pyx_v_options, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_6)); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 39, __pyx_L7_error)
+      __pyx_t_12 = __Pyx_dict_iterator(__pyx_v_options, 0, __pyx_mstate_global->__pyx_n_u_items, (&__pyx_t_11), (&__pyx_t_6)); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 48, __pyx_L7_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_XDECREF(__pyx_t_4);
       __pyx_t_4 = __pyx_t_12;
@@ -4104,18 +4223,18 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
       while (1) {
         __pyx_t_7 = __Pyx_dict_iter_next(__pyx_t_4, __pyx_t_11, &__pyx_t_10, &__pyx_t_12, &__pyx_t_13, NULL, __pyx_t_6);
         if (unlikely(__pyx_t_7 == 0)) break;
-        if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 39, __pyx_L7_error)
+        if (unlikely(__pyx_t_7 == -1)) __PYX_ERR(0, 48, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_12);
         __Pyx_GOTREF(__pyx_t_13);
         __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_k, __pyx_t_12);
         __pyx_t_12 = 0;
         __Pyx_XDECREF_SET(__pyx_7genexpr__pyx_v_v, __pyx_t_13);
         __pyx_t_13 = 0;
-        __pyx_t_13 = __Pyx_PyObject_Unicode(__pyx_7genexpr__pyx_v_k); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 39, __pyx_L7_error)
+        __pyx_t_13 = __Pyx_PyObject_Unicode(__pyx_7genexpr__pyx_v_k); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 48, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_13);
-        __pyx_t_12 = __Pyx_PyObject_Unicode(__pyx_7genexpr__pyx_v_v); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 39, __pyx_L7_error)
+        __pyx_t_12 = __Pyx_PyObject_Unicode(__pyx_7genexpr__pyx_v_v); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 48, __pyx_L7_error)
         __Pyx_GOTREF(__pyx_t_12);
-        if (unlikely(PyDict_SetItem(__pyx_t_3, __pyx_t_13, __pyx_t_12))) __PYX_ERR(0, 39, __pyx_L7_error)
+        if (unlikely(PyDict_SetItem(__pyx_t_3, __pyx_t_13, __pyx_t_12))) __PYX_ERR(0, 48, __pyx_L7_error)
         __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       }
@@ -4132,7 +4251,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
     __pyx_t_2 = __pyx_t_3;
     __pyx_t_3 = 0;
   } else {
-    __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 39, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_3);
     __pyx_t_2 = __pyx_t_3;
     __pyx_t_3 = 0;
@@ -4144,9 +4263,30 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
   __pyx_v_self->options = ((PyObject*)__pyx_t_2);
   __pyx_t_2 = 0;
 
-  /* "av/audio/resampler.py":40
+  /* "av/audio/resampler.py":49
  *         self.frame_size = int(frame_size) if frame_size else 0
  *         self.options = {str(k): str(v) for k, v in options.items()} if options else {}
+ *         self.threads = int(threads) if threads else 0             # <<<<<<<<<<<<<<
+ *         self.graph = None
+ * 
+*/
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_threads); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 49, __pyx_L1_error)
+  if (__pyx_t_1) {
+    __pyx_t_2 = __Pyx_PyNumber_Int(__pyx_v_threads); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 49, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_t_7 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_7 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 49, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_6 = __pyx_t_7;
+  } else {
+
+    __pyx_t_6 = 0;
+  }
+
+  __pyx_v_self->threads = __pyx_t_6;
+
+  /* "av/audio/resampler.py":50
+ *         self.options = {str(k): str(v) for k, v in options.items()} if options else {}
+ *         self.threads = int(threads) if threads else 0
  *         self.graph = None             # <<<<<<<<<<<<<<
  * 
  *     @cython.ccall
@@ -4157,12 +4297,12 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
   __Pyx_DECREF((PyObject *)__pyx_v_self->graph);
   __pyx_v_self->graph = ((struct __pyx_obj_2av_6filter_5graph_Graph *)Py_None);
 
-  /* "av/audio/resampler.py":26
+  /* "av/audio/resampler.py":29
  *     """
  * 
  *     def __cinit__(             # <<<<<<<<<<<<<<
- *         self, format=None, layout=None, rate=None, frame_size=None, options=None
- *     ):
+ *         self,
+ *         format=None,
 */
 
   /* function exit code */
@@ -4184,7 +4324,7 @@ static int __pyx_pf_2av_5audio_9resampler_14AudioResampler___cinit__(struct __py
   return __pyx_r;
 }
 
-/* "av/audio/resampler.py":42
+/* "av/audio/resampler.py":52
  *         self.graph = None
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -4238,14 +4378,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("resample", 0);
 
-  /* "av/audio/resampler.py":55
+  /* "av/audio/resampler.py":65
  *         """
  *         # We don't have any input, so don't bother even setting up.
  *         if not self.graph and frame is None:             # <<<<<<<<<<<<<<
  *             return []
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->graph)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 55, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->graph)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 65, __pyx_L1_error)
   __pyx_t_3 = (!__pyx_t_2);
 
 
@@ -4265,14 +4405,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
   if (__pyx_t_1) {
 
 
-    /* "av/audio/resampler.py":56
+    /* "av/audio/resampler.py":66
  *         # We don't have any input, so don't bother even setting up.
  *         if not self.graph and frame is None:
  *             return []             # <<<<<<<<<<<<<<
  * 
  *         # Shortcut for passthrough.
 */
-    __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 56, __pyx_L1_error)
+    __pyx_t_4 = PyList_New(0); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 66, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     {
       PyObject *__pyx_temp;
@@ -4285,7 +4425,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "av/audio/resampler.py":55
+    /* "av/audio/resampler.py":65
  *         """
  *         # We don't have any input, so don't bother even setting up.
  *         if not self.graph and frame is None:             # <<<<<<<<<<<<<<
@@ -4294,7 +4434,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
   }
 
-  /* "av/audio/resampler.py":59
+  /* "av/audio/resampler.py":69
  * 
  *         # Shortcut for passthrough.
  *         if self.is_passthrough:             # <<<<<<<<<<<<<<
@@ -4303,18 +4443,18 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
   if (__pyx_v_self->is_passthrough) {
 
-    /* "av/audio/resampler.py":60
+    /* "av/audio/resampler.py":70
  *         # Shortcut for passthrough.
  *         if self.is_passthrough:
  *             return [frame]             # <<<<<<<<<<<<<<
  * 
  *         # Take source settings from the first frame.
 */
-    __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 60, __pyx_L1_error)
+    __pyx_t_4 = PyList_New(1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 70, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_INCREF((PyObject *)__pyx_v_frame);
     __Pyx_GIVEREF((PyObject *)__pyx_v_frame);
-    if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, ((PyObject *)__pyx_v_frame)) != (0)) __PYX_ERR(0, 60, __pyx_L1_error);
+    if (__Pyx_PyList_SET_ITEM(__pyx_t_4, 0, ((PyObject *)__pyx_v_frame)) != (0)) __PYX_ERR(0, 70, __pyx_L1_error);
     {
       PyObject *__pyx_temp;
       {
@@ -4326,7 +4466,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     __pyx_t_4 = 0;
     goto __pyx_L0;
 
-    /* "av/audio/resampler.py":59
+    /* "av/audio/resampler.py":69
  * 
  *         # Shortcut for passthrough.
  *         if self.is_passthrough:             # <<<<<<<<<<<<<<
@@ -4335,21 +4475,21 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
   }
 
-  /* "av/audio/resampler.py":63
+  /* "av/audio/resampler.py":73
  * 
  *         # Take source settings from the first frame.
  *         if not self.graph:             # <<<<<<<<<<<<<<
  *             self.template = frame
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->graph)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->graph)); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 73, __pyx_L1_error)
   __pyx_t_3 = (!__pyx_t_1);
 
 
   if (__pyx_t_3) {
 
 
-    /* "av/audio/resampler.py":64
+    /* "av/audio/resampler.py":74
  *         # Take source settings from the first frame.
  *         if not self.graph:
  *             self.template = frame             # <<<<<<<<<<<<<<
@@ -4362,14 +4502,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     __Pyx_DECREF((PyObject *)__pyx_v_self->__pyx_template);
     __pyx_v_self->__pyx_template = __pyx_v_frame;
 
-    /* "av/audio/resampler.py":67
+    /* "av/audio/resampler.py":77
  * 
  *             # Set some default descriptors.
  *             self.format = self.format or frame.format             # <<<<<<<<<<<<<<
  *             self.layout = self.layout or frame.layout
  *             self.rate = self.rate or frame.sample_rate
 */
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->format)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 67, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->format)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 77, __pyx_L1_error)
     if (!__pyx_t_3) {
     } else {
       __Pyx_INCREF((PyObject *)__pyx_v_self->format);
@@ -4385,14 +4525,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     __pyx_v_self->format = ((struct __pyx_obj_2av_5audio_6format_AudioFormat *)__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "av/audio/resampler.py":68
+    /* "av/audio/resampler.py":78
  *             # Set some default descriptors.
  *             self.format = self.format or frame.format
  *             self.layout = self.layout or frame.layout             # <<<<<<<<<<<<<<
  *             self.rate = self.rate or frame.sample_rate
  * 
 */
-    __pyx_t_3 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->layout)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 68, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->layout)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 78, __pyx_L1_error)
     if (!__pyx_t_3) {
     } else {
       __Pyx_INCREF((PyObject *)__pyx_v_self->layout);
@@ -4408,7 +4548,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     __pyx_v_self->layout = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_t_4);
     __pyx_t_4 = 0;
 
-    /* "av/audio/resampler.py":69
+    /* "av/audio/resampler.py":79
  *             self.format = self.format or frame.format
  *             self.layout = self.layout or frame.layout
  *             self.rate = self.rate or frame.sample_rate             # <<<<<<<<<<<<<<
@@ -4421,15 +4561,15 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __pyx_t_5 = __pyx_v_self->rate;
       goto __pyx_L12_bool_binop_done;
     }
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 79, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 69, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyLong_As_int(__pyx_t_4); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 79, __pyx_L1_error)
     __pyx_t_5 = __pyx_t_6;
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __pyx_L12_bool_binop_done:;
     __pyx_v_self->rate = __pyx_t_5;
 
-    /* "av/audio/resampler.py":73
+    /* "av/audio/resampler.py":83
  *             # Check if we can passthrough or if there is actually work to do.
  *             if (
  *                 frame.format.sample_fmt == self.format.sample_fmt             # <<<<<<<<<<<<<<
@@ -4447,14 +4587,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       goto __pyx_L15_bool_binop_done;
     }
 
-    /* "av/audio/resampler.py":74
+    /* "av/audio/resampler.py":84
  *             if (
  *                 frame.format.sample_fmt == self.format.sample_fmt
  *                 and frame.layout == self.layout             # <<<<<<<<<<<<<<
  *                 and frame.sample_rate == self.rate
  *                 and self.frame_size == 0
 */
-    __pyx_t_1 = __Pyx_PyObject_RichCompareBool(((PyObject *)__pyx_v_frame->layout), ((PyObject *)__pyx_v_self->layout), Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 74, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_RichCompareBool(((PyObject *)__pyx_v_frame->layout), ((PyObject *)__pyx_v_self->layout), Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 84, __pyx_L1_error)
     if (__pyx_t_1) {
 
     } else {
@@ -4464,18 +4604,18 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       goto __pyx_L15_bool_binop_done;
     }
 
-    /* "av/audio/resampler.py":75
+    /* "av/audio/resampler.py":85
  *                 frame.format.sample_fmt == self.format.sample_fmt
  *                 and frame.layout == self.layout
  *                 and frame.sample_rate == self.rate             # <<<<<<<<<<<<<<
  *                 and self.frame_size == 0
  *             ):
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->rate); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->rate); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_int(__pyx_t_4, __pyx_t_7, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_CompareBoolEq_object_int(__pyx_t_4, __pyx_t_7, Py_EQ); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 85, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     if (__pyx_t_1) {
@@ -4487,7 +4627,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       goto __pyx_L15_bool_binop_done;
     }
 
-    /* "av/audio/resampler.py":76
+    /* "av/audio/resampler.py":86
  *                 and frame.layout == self.layout
  *                 and frame.sample_rate == self.rate
  *                 and self.frame_size == 0             # <<<<<<<<<<<<<<
@@ -4501,7 +4641,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 
     __pyx_L15_bool_binop_done:;
 
-    /* "av/audio/resampler.py":72
+    /* "av/audio/resampler.py":82
  * 
  *             # Check if we can passthrough or if there is actually work to do.
  *             if (             # <<<<<<<<<<<<<<
@@ -4511,7 +4651,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     if (__pyx_t_3) {
 
 
-      /* "av/audio/resampler.py":78
+      /* "av/audio/resampler.py":88
  *                 and self.frame_size == 0
  *             ):
  *                 self.is_passthrough = True             # <<<<<<<<<<<<<<
@@ -4520,18 +4660,18 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
       __pyx_v_self->is_passthrough = 1;
 
-      /* "av/audio/resampler.py":79
+      /* "av/audio/resampler.py":89
  *             ):
  *                 self.is_passthrough = True
  *                 return [frame]             # <<<<<<<<<<<<<<
  * 
  *             # handle resampling with aformat filter
 */
-      __pyx_t_7 = PyList_New(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 79, __pyx_L1_error)
+      __pyx_t_7 = PyList_New(1); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 89, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __Pyx_INCREF((PyObject *)__pyx_v_frame);
       __Pyx_GIVEREF((PyObject *)__pyx_v_frame);
-      if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, ((PyObject *)__pyx_v_frame)) != (0)) __PYX_ERR(0, 79, __pyx_L1_error);
+      if (__Pyx_PyList_SET_ITEM(__pyx_t_7, 0, ((PyObject *)__pyx_v_frame)) != (0)) __PYX_ERR(0, 89, __pyx_L1_error);
       {
         PyObject *__pyx_temp;
         {
@@ -4543,7 +4683,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __pyx_t_7 = 0;
       goto __pyx_L0;
 
-      /* "av/audio/resampler.py":72
+      /* "av/audio/resampler.py":82
  * 
  *             # Check if we can passthrough or if there is actually work to do.
  *             if (             # <<<<<<<<<<<<<<
@@ -4552,12 +4692,12 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
     }
 
-    /* "av/audio/resampler.py":83
+    /* "av/audio/resampler.py":93
  *             # handle resampling with aformat filter
  *             # (similar to configure_output_audio_filter from ffmpeg)
  *             self.graph = Graph()             # <<<<<<<<<<<<<<
+ *             self.graph.threads = self.threads
  *             extra_args = {}
- *             if frame.time_base is not None:
 */
     __pyx_t_4 = NULL;
     __pyx_t_8 = 1;
@@ -4565,7 +4705,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
       __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_6filter_5graph_Graph, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 83, __pyx_L1_error)
+      if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 93, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_7);
     }
     __Pyx_GIVEREF((PyObject *)__pyx_t_7);
@@ -4574,49 +4714,61 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     __pyx_v_self->graph = ((struct __pyx_obj_2av_6filter_5graph_Graph *)__pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "av/audio/resampler.py":84
+    /* "av/audio/resampler.py":94
  *             # (similar to configure_output_audio_filter from ffmpeg)
  *             self.graph = Graph()
+ *             self.graph.threads = self.threads             # <<<<<<<<<<<<<<
+ *             extra_args = {}
+ *             if frame.time_base is not None:
+*/
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->threads); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 94, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_7);
+    if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self->graph), __pyx_mstate_global->__pyx_n_u_threads, __pyx_t_7) < (0)) __PYX_ERR(0, 94, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
+
+    /* "av/audio/resampler.py":95
+ *             self.graph = Graph()
+ *             self.graph.threads = self.threads
  *             extra_args = {}             # <<<<<<<<<<<<<<
  *             if frame.time_base is not None:
  *                 extra_args["time_base"] = f"{frame.time_base}"
 */
-    __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 84, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyDict_NewPresized(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 95, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_v_extra_args = ((PyObject*)__pyx_t_7);
     __pyx_t_7 = 0;
 
-    /* "av/audio/resampler.py":85
- *             self.graph = Graph()
+    /* "av/audio/resampler.py":96
+ *             self.graph.threads = self.threads
  *             extra_args = {}
  *             if frame.time_base is not None:             # <<<<<<<<<<<<<<
  *                 extra_args["time_base"] = f"{frame.time_base}"
  * 
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 85, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 96, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __pyx_t_3 = (__pyx_t_7 != Py_None);
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     if (__pyx_t_3) {
 
 
-      /* "av/audio/resampler.py":86
+      /* "av/audio/resampler.py":97
  *             extra_args = {}
  *             if frame.time_base is not None:
  *                 extra_args["time_base"] = f"{frame.time_base}"             # <<<<<<<<<<<<<<
  * 
  *             abuffer = self.graph.add(
 */
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 86, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_time_base); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 97, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 86, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_7, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 97, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      if (unlikely((PyDict_SetItem(__pyx_v_extra_args, __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_4) < 0))) __PYX_ERR(0, 86, __pyx_L1_error)
+      if (unlikely((PyDict_SetItem(__pyx_v_extra_args, __pyx_mstate_global->__pyx_n_u_time_base, __pyx_t_4) < 0))) __PYX_ERR(0, 97, __pyx_L1_error)
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "av/audio/resampler.py":85
- *             self.graph = Graph()
+      /* "av/audio/resampler.py":96
+ *             self.graph.threads = self.threads
  *             extra_args = {}
  *             if frame.time_base is not None:             # <<<<<<<<<<<<<<
  *                 extra_args["time_base"] = f"{frame.time_base}"
@@ -4624,7 +4776,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
     }
 
-    /* "av/audio/resampler.py":88
+    /* "av/audio/resampler.py":99
  *                 extra_args["time_base"] = f"{frame.time_base}"
  * 
  *             abuffer = self.graph.add(             # <<<<<<<<<<<<<<
@@ -4632,27 +4784,27 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
  *                 sample_rate=f"{frame.sample_rate}",
 */
     __pyx_t_7 = NULL;
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->graph), __pyx_mstate_global->__pyx_n_u_add); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 88, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->graph), __pyx_mstate_global->__pyx_n_u_add); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 99, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
 
-    /* "av/audio/resampler.py":90
+    /* "av/audio/resampler.py":101
  *             abuffer = self.graph.add(
  *                 "abuffer",
  *                 sample_rate=f"{frame.sample_rate}",             # <<<<<<<<<<<<<<
  *                 sample_fmt=AudioFormat(frame.format).name,
  *                 channel_layout=frame.layout.name,
 */
-    __pyx_t_11 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 90, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyDict_NewPresized(3); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
-    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 90, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
-    __pyx_t_13 = __Pyx_PyObject_FormatSimple(__pyx_t_12, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 90, __pyx_L1_error)
+    __pyx_t_13 = __Pyx_PyObject_FormatSimple(__pyx_t_12, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_13);
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-    if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_sample_rate, __pyx_t_13) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_sample_rate, __pyx_t_13) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_13); __pyx_t_13 = 0;
 
-    /* "av/audio/resampler.py":91
+    /* "av/audio/resampler.py":102
  *                 "abuffer",
  *                 sample_rate=f"{frame.sample_rate}",
  *                 sample_fmt=AudioFormat(frame.format).name,             # <<<<<<<<<<<<<<
@@ -4665,37 +4817,37 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       PyObject *__pyx_callargs[2] = {__pyx_t_12, ((PyObject *)__pyx_v_frame->format)};
       __pyx_t_13 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 91, __pyx_L1_error)
+      if (unlikely(!__pyx_t_13)) __PYX_ERR(0, 102, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_13);
     }
-    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_t_13), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 91, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_t_13), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 102, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
     __Pyx_DECREF((PyObject *)__pyx_t_13); __pyx_t_13 = 0;
-    if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_sample_fmt, __pyx_t_12) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_sample_fmt, __pyx_t_12) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
 
-    /* "av/audio/resampler.py":92
+    /* "av/audio/resampler.py":103
  *                 sample_rate=f"{frame.sample_rate}",
  *                 sample_fmt=AudioFormat(frame.format).name,
  *                 channel_layout=frame.layout.name,             # <<<<<<<<<<<<<<
  *                 **extra_args,
  *             )
 */
-    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame->layout), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 92, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame->layout), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 103, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_12);
-    if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_channel_layout, __pyx_t_12) < (0)) __PYX_ERR(0, 90, __pyx_L1_error)
+    if (PyDict_SetItem(__pyx_t_11, __pyx_mstate_global->__pyx_n_u_channel_layout, __pyx_t_12) < (0)) __PYX_ERR(0, 101, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
     __pyx_t_10 = __pyx_t_11;
     __pyx_t_11 = 0;
 
-    /* "av/audio/resampler.py":93
+    /* "av/audio/resampler.py":104
  *                 sample_fmt=AudioFormat(frame.format).name,
  *                 channel_layout=frame.layout.name,
  *                 **extra_args,             # <<<<<<<<<<<<<<
  *             )
  *             aformat = self.graph.add(
 */
-    if (__Pyx_MergeKeywords(__pyx_t_10, __pyx_v_extra_args) < (0)) __PYX_ERR(0, 93, __pyx_L1_error)
+    if (__Pyx_MergeKeywords(__pyx_t_10, __pyx_v_extra_args) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
     __pyx_t_8 = 1;
     #if CYTHON_UNPACK_METHODS
     if (likely(PyMethod_Check(__pyx_t_9))) {
@@ -4714,13 +4866,13 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 88, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 99, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __pyx_v_abuffer = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "av/audio/resampler.py":95
+    /* "av/audio/resampler.py":106
  *                 **extra_args,
  *             )
  *             aformat = self.graph.add(             # <<<<<<<<<<<<<<
@@ -4730,47 +4882,47 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     __pyx_t_9 = ((PyObject *)__pyx_v_self->graph);
     __Pyx_INCREF(__pyx_t_9);
 
-    /* "av/audio/resampler.py":97
+    /* "av/audio/resampler.py":108
  *             aformat = self.graph.add(
  *                 "aformat",
  *                 sample_rates=f"{self.rate}",             # <<<<<<<<<<<<<<
  *                 sample_fmts=self.format.name,
  *                 channel_layouts=self.layout.name,
 */
-    __pyx_t_10 = __Pyx_PyUnicode_From_int(__pyx_v_self->rate, 0, ' ', 'd'); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 97, __pyx_L1_error)
+    __pyx_t_10 = __Pyx_PyUnicode_From_int(__pyx_v_self->rate, 0, ' ', 'd'); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 108, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_10);
 
-    /* "av/audio/resampler.py":98
+    /* "av/audio/resampler.py":109
  *                 "aformat",
  *                 sample_rates=f"{self.rate}",
  *                 sample_fmts=self.format.name,             # <<<<<<<<<<<<<<
  *                 channel_layouts=self.layout.name,
  *             )
 */
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 98, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 109, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
 
-    /* "av/audio/resampler.py":99
+    /* "av/audio/resampler.py":110
  *                 sample_rates=f"{self.rate}",
  *                 sample_fmts=self.format.name,
  *                 channel_layouts=self.layout.name,             # <<<<<<<<<<<<<<
  *             )
  *             abuffersink = self.graph.add("abuffersink")
 */
-    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 99, __pyx_L1_error)
+    __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 110, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __pyx_t_8 = 0;
     {
       PyObject *__pyx_callargs[5] = {__pyx_t_9, __pyx_mstate_global->__pyx_n_u_aformat, __pyx_t_10, __pyx_t_7, __pyx_t_11};
       #if CYTHON_VECTORCALL
       __pyx_t_12 = __pyx_mstate_global->__pyx_tuple[0];
-      if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 95, __pyx_L1_error)
+      if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 106, __pyx_L1_error)
       __Pyx_INCREF(__pyx_t_12);
       #else
       {
         PyObject *__pyx_temp[3] = {__pyx_mstate_global->__pyx_n_u_sample_rates, __pyx_mstate_global->__pyx_n_u_sample_fmts, __pyx_mstate_global->__pyx_n_u_channel_layouts};
         __pyx_t_12 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 3);
-        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 95, __pyx_L1_error)
+        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 106, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_12);
       }
       #endif
@@ -4780,13 +4932,13 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 95, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 106, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __pyx_v_aformat = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "av/audio/resampler.py":101
+    /* "av/audio/resampler.py":112
  *                 channel_layouts=self.layout.name,
  *             )
  *             abuffersink = self.graph.add("abuffersink")             # <<<<<<<<<<<<<<
@@ -4800,13 +4952,13 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       PyObject *__pyx_callargs[2] = {__pyx_t_12, __pyx_mstate_global->__pyx_n_u_abuffersink};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_add, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 101, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 112, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __pyx_v_abuffersink = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "av/audio/resampler.py":106
+    /* "av/audio/resampler.py":117
  *             # explicit aresample filter (which owns the SwrContext) instead of
  *             # relying on the one FFmpeg auto-inserts before aformat.
  *             if self.options:             # <<<<<<<<<<<<<<
@@ -4817,14 +4969,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     else
     {
       Py_ssize_t __pyx_temp = __Pyx_PyDict_GET_SIZE(__pyx_v_self->options);
-      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 106, __pyx_L1_error)
+      if (unlikely(((!CYTHON_ASSUME_SAFE_SIZE) && __pyx_temp < 0))) __PYX_ERR(0, 117, __pyx_L1_error)
       __pyx_t_3 = (__pyx_temp != 0);
     }
 
     if (__pyx_t_3) {
 
 
-      /* "av/audio/resampler.py":107
+      /* "av/audio/resampler.py":118
  *             # relying on the one FFmpeg auto-inserts before aformat.
  *             if self.options:
  *                 aresample = self.graph.add("aresample", **self.options)             # <<<<<<<<<<<<<<
@@ -4832,13 +4984,13 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
  *                 aresample.link_to(aformat)
 */
       __pyx_t_12 = NULL;
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->graph), __pyx_mstate_global->__pyx_n_u_add); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 107, __pyx_L1_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->graph), __pyx_mstate_global->__pyx_n_u_add); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 118, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_11);
       if (unlikely(__pyx_v_self->options == Py_None)) {
         PyErr_SetString(PyExc_TypeError, "argument after ** must be a mapping, not NoneType");
-        __PYX_ERR(0, 107, __pyx_L1_error)
+        __PYX_ERR(0, 118, __pyx_L1_error)
       }
-      __pyx_t_7 = PyDict_Copy(__pyx_v_self->options); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 107, __pyx_L1_error)
+      __pyx_t_7 = PyDict_Copy(__pyx_v_self->options); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 118, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_8 = 1;
       #if CYTHON_UNPACK_METHODS
@@ -4858,13 +5010,13 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         __Pyx_XDECREF(__pyx_t_12); __pyx_t_12 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 118, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __pyx_v_aresample = __pyx_t_4;
       __pyx_t_4 = 0;
 
-      /* "av/audio/resampler.py":108
+      /* "av/audio/resampler.py":119
  *             if self.options:
  *                 aresample = self.graph.add("aresample", **self.options)
  *                 abuffer.link_to(aresample)             # <<<<<<<<<<<<<<
@@ -4878,12 +5030,12 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_v_aresample};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_link_to, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 108, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 119, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "av/audio/resampler.py":109
+      /* "av/audio/resampler.py":120
  *                 aresample = self.graph.add("aresample", **self.options)
  *                 abuffer.link_to(aresample)
  *                 aresample.link_to(aformat)             # <<<<<<<<<<<<<<
@@ -4897,12 +5049,12 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_v_aformat};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_link_to, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 109, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "av/audio/resampler.py":106
+      /* "av/audio/resampler.py":117
  *             # explicit aresample filter (which owns the SwrContext) instead of
  *             # relying on the one FFmpeg auto-inserts before aformat.
  *             if self.options:             # <<<<<<<<<<<<<<
@@ -4912,7 +5064,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       goto __pyx_L20;
     }
 
-    /* "av/audio/resampler.py":111
+    /* "av/audio/resampler.py":122
  *                 aresample.link_to(aformat)
  *             else:
  *                 abuffer.link_to(aformat)             # <<<<<<<<<<<<<<
@@ -4927,14 +5079,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_v_aformat};
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_link_to, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 122, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     }
     __pyx_L20:;
 
-    /* "av/audio/resampler.py":113
+    /* "av/audio/resampler.py":124
  *                 abuffer.link_to(aformat)
  * 
  *             aformat.link_to(abuffersink)             # <<<<<<<<<<<<<<
@@ -4948,23 +5100,23 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       PyObject *__pyx_callargs[2] = {__pyx_t_11, __pyx_v_abuffersink};
       __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_link_to, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 113, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 124, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
     }
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "av/audio/resampler.py":114
+    /* "av/audio/resampler.py":125
  * 
  *             aformat.link_to(abuffersink)
  *             self.graph.configure()             # <<<<<<<<<<<<<<
  * 
  *             if self.frame_size > 0:
 */
-    __pyx_t_4 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->graph->__pyx_vtab)->configure(__pyx_v_self->graph, 0, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 114, __pyx_L1_error)
+    __pyx_t_4 = ((struct __pyx_vtabstruct_2av_6filter_5graph_Graph *)__pyx_v_self->graph->__pyx_vtab)->configure(__pyx_v_self->graph, 0, NULL); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 125, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-    /* "av/audio/resampler.py":116
+    /* "av/audio/resampler.py":127
  *             self.graph.configure()
  * 
  *             if self.frame_size > 0:             # <<<<<<<<<<<<<<
@@ -4976,7 +5128,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     if (__pyx_t_3) {
 
 
-      /* "av/audio/resampler.py":117
+      /* "av/audio/resampler.py":128
  * 
  *             if self.frame_size > 0:
  *                 self.graph.set_audio_frame_size(self.frame_size)             # <<<<<<<<<<<<<<
@@ -4985,7 +5137,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
       __pyx_t_11 = ((PyObject *)__pyx_v_self->graph);
       __Pyx_INCREF(__pyx_t_11);
-      __pyx_t_7 = __Pyx_PyLong_From_unsigned_int(__pyx_v_self->frame_size); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 117, __pyx_L1_error)
+      __pyx_t_7 = __Pyx_PyLong_From_unsigned_int(__pyx_v_self->frame_size); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 128, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_7);
       __pyx_t_8 = 0;
       {
@@ -4993,12 +5145,12 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         __pyx_t_4 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_set_audio_frame_size, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 117, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-      /* "av/audio/resampler.py":116
+      /* "av/audio/resampler.py":127
  *             self.graph.configure()
  * 
  *             if self.frame_size > 0:             # <<<<<<<<<<<<<<
@@ -5007,7 +5159,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
     }
 
-    /* "av/audio/resampler.py":63
+    /* "av/audio/resampler.py":73
  * 
  *         # Take source settings from the first frame.
  *         if not self.graph:             # <<<<<<<<<<<<<<
@@ -5016,7 +5168,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
   }
 
-  /* "av/audio/resampler.py":119
+  /* "av/audio/resampler.py":130
  *                 self.graph.set_audio_frame_size(self.frame_size)
  * 
  *         if frame is not None:             # <<<<<<<<<<<<<<
@@ -5027,7 +5179,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
   if (__pyx_t_3) {
 
 
-    /* "av/audio/resampler.py":121
+    /* "av/audio/resampler.py":132
  *         if frame is not None:
  *             if (
  *                 frame.format.sample_fmt != self.template.format.sample_fmt             # <<<<<<<<<<<<<<
@@ -5045,14 +5197,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       goto __pyx_L24_bool_binop_done;
     }
 
-    /* "av/audio/resampler.py":122
+    /* "av/audio/resampler.py":133
  *             if (
  *                 frame.format.sample_fmt != self.template.format.sample_fmt
  *                 or frame.layout != self.template.layout             # <<<<<<<<<<<<<<
  *                 or frame.sample_rate != self.template.rate
  *             ):
 */
-    __pyx_t_1 = __Pyx_PyObject_RichCompareBool(((PyObject *)__pyx_v_frame->layout), ((PyObject *)__pyx_v_self->__pyx_template->layout), Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_RichCompareBool(((PyObject *)__pyx_v_frame->layout), ((PyObject *)__pyx_v_self->__pyx_template->layout), Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
     if (!__pyx_t_1) {
 
     } else {
@@ -5062,18 +5214,18 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       goto __pyx_L24_bool_binop_done;
     }
 
-    /* "av/audio/resampler.py":123
+    /* "av/audio/resampler.py":134
  *                 frame.format.sample_fmt != self.template.format.sample_fmt
  *                 or frame.layout != self.template.layout
  *                 or frame.sample_rate != self.template.rate             # <<<<<<<<<<<<<<
  *             ):
  *                 raise ValueError("Frame does not match AudioResampler setup.")
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->__pyx_template), __pyx_mstate_global->__pyx_n_u_rate); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->__pyx_template), __pyx_mstate_global->__pyx_n_u_rate); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
-    __pyx_t_1 = __Pyx_PyObject_CompareBoolNe_object_object(__pyx_t_4, __pyx_t_7, Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyObject_CompareBoolNe_object_object(__pyx_t_4, __pyx_t_7, Py_NE); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(0, 134, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
@@ -5081,7 +5233,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 
     __pyx_L24_bool_binop_done:;
 
-    /* "av/audio/resampler.py":120
+    /* "av/audio/resampler.py":131
  * 
  *         if frame is not None:
  *             if (             # <<<<<<<<<<<<<<
@@ -5091,7 +5243,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     if (unlikely(__pyx_t_3)) {
 
 
-      /* "av/audio/resampler.py":125
+      /* "av/audio/resampler.py":136
  *                 or frame.sample_rate != self.template.rate
  *             ):
  *                 raise ValueError("Frame does not match AudioResampler setup.")             # <<<<<<<<<<<<<<
@@ -5104,14 +5256,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         PyObject *__pyx_callargs[2] = {__pyx_t_4, __pyx_mstate_global->__pyx_kp_u_Frame_does_not_match_AudioResamp};
         __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (__pyx_t_8*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 125, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 136, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_Raise(__pyx_t_7, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __PYX_ERR(0, 125, __pyx_L1_error)
+      __PYX_ERR(0, 136, __pyx_L1_error)
 
-      /* "av/audio/resampler.py":120
+      /* "av/audio/resampler.py":131
  * 
  *         if frame is not None:
  *             if (             # <<<<<<<<<<<<<<
@@ -5120,7 +5272,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
     }
 
-    /* "av/audio/resampler.py":119
+    /* "av/audio/resampler.py":130
  *                 self.graph.set_audio_frame_size(self.frame_size)
  * 
  *         if frame is not None:             # <<<<<<<<<<<<<<
@@ -5129,7 +5281,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
   }
 
-  /* "av/audio/resampler.py":127
+  /* "av/audio/resampler.py":138
  *                 raise ValueError("Frame does not match AudioResampler setup.")
  * 
  *         self.graph.push(frame)             # <<<<<<<<<<<<<<
@@ -5143,24 +5295,24 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
     PyObject *__pyx_callargs[2] = {__pyx_t_4, ((PyObject *)__pyx_v_frame)};
     __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_push, __pyx_callargs+__pyx_t_8, (2-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 127, __pyx_L1_error)
+    if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 138, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
   }
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
-  /* "av/audio/resampler.py":129
+  /* "av/audio/resampler.py":140
  *         self.graph.push(frame)
  * 
  *         output: list[AudioFrame] = []             # <<<<<<<<<<<<<<
  *         while True:
  *             try:
 */
-  __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_7 = PyList_New(0); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __pyx_v_output = ((PyObject*)__pyx_t_7);
   __pyx_t_7 = 0;
 
-  /* "av/audio/resampler.py":130
+  /* "av/audio/resampler.py":141
  * 
  *         output: list[AudioFrame] = []
  *         while True:             # <<<<<<<<<<<<<<
@@ -5169,7 +5321,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
   while (1) {
 
-    /* "av/audio/resampler.py":131
+    /* "av/audio/resampler.py":142
  *         output: list[AudioFrame] = []
  *         while True:
  *             try:             # <<<<<<<<<<<<<<
@@ -5185,7 +5337,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __Pyx_XGOTREF(__pyx_t_16);
       /*try:*/ {
 
-        /* "av/audio/resampler.py":132
+        /* "av/audio/resampler.py":143
  *         while True:
  *             try:
  *                 output.append(self.graph.pull())             # <<<<<<<<<<<<<<
@@ -5199,14 +5351,14 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
           PyObject *__pyx_callargs[2] = {__pyx_t_4, NULL};
           __pyx_t_7 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_pull, __pyx_callargs+__pyx_t_8, (1-__pyx_t_8) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 132, __pyx_L29_error)
+          if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 143, __pyx_L29_error)
           __Pyx_GOTREF(__pyx_t_7);
         }
-        __pyx_t_17 = __Pyx_PyList_Append(((PyObject*)__pyx_v_output), __pyx_t_7); if (unlikely(__pyx_t_17 == ((int)-1))) __PYX_ERR(0, 132, __pyx_L29_error)
+        __pyx_t_17 = __Pyx_PyList_Append(((PyObject*)__pyx_v_output), __pyx_t_7); if (unlikely(__pyx_t_17 == ((int)-1))) __PYX_ERR(0, 143, __pyx_L29_error)
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
 
 
-        /* "av/audio/resampler.py":131
+        /* "av/audio/resampler.py":142
  *         output: list[AudioFrame] = []
  *         while True:
  *             try:             # <<<<<<<<<<<<<<
@@ -5227,7 +5379,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-      /* "av/audio/resampler.py":133
+      /* "av/audio/resampler.py":144
  *             try:
  *                 output.append(self.graph.pull())
  *             except EOFError:             # <<<<<<<<<<<<<<
@@ -5237,12 +5389,12 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __pyx_t_5 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_EOFError))));
       if (__pyx_t_5) {
         __Pyx_AddTraceback("av.audio.resampler.AudioResampler.resample", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_4, &__pyx_t_11) < 0) __PYX_ERR(0, 133, __pyx_L31_except_error)
+        if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_4, &__pyx_t_11) < 0) __PYX_ERR(0, 144, __pyx_L31_except_error)
         __Pyx_XGOTREF(__pyx_t_7);
         __Pyx_XGOTREF(__pyx_t_4);
         __Pyx_XGOTREF(__pyx_t_11);
 
-        /* "av/audio/resampler.py":134
+        /* "av/audio/resampler.py":145
  *                 output.append(self.graph.pull())
  *             except EOFError:
  *                 break             # <<<<<<<<<<<<<<
@@ -5257,7 +5409,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         goto __pyx_L34_try_break;
       }
 
-      /* "av/audio/resampler.py":135
+      /* "av/audio/resampler.py":146
  *             except EOFError:
  *                 break
  *             except FFmpegError as e:             # <<<<<<<<<<<<<<
@@ -5265,7 +5417,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
  *                     raise
 */
       __Pyx_ErrFetch(&__pyx_t_11, &__pyx_t_4, &__pyx_t_7);
-      __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_FFmpegError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 135, __pyx_L31_except_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_12, __pyx_mstate_global->__pyx_n_u_FFmpegError); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 146, __pyx_L31_except_error)
       __Pyx_GOTREF(__pyx_t_12);
       __pyx_t_5 = __Pyx_PyErr_GivenExceptionMatches(__pyx_t_11, __pyx_t_12);
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
@@ -5273,7 +5425,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       __pyx_t_11 = 0; __pyx_t_4 = 0; __pyx_t_7 = 0;
       if (__pyx_t_5) {
         __Pyx_AddTraceback("av.audio.resampler.AudioResampler.resample", __pyx_clineno, __pyx_lineno, __pyx_filename);
-        if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_4, &__pyx_t_11) < 0) __PYX_ERR(0, 135, __pyx_L31_except_error)
+        if (__Pyx_GetException(&__pyx_t_7, &__pyx_t_4, &__pyx_t_11) < 0) __PYX_ERR(0, 146, __pyx_L31_except_error)
         __Pyx_XGOTREF(__pyx_t_7);
         __Pyx_XGOTREF(__pyx_t_4);
         __Pyx_XGOTREF(__pyx_t_11);
@@ -5281,24 +5433,24 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
         __pyx_v_e = __pyx_t_4;
         /*try:*/ {
 
-          /* "av/audio/resampler.py":136
+          /* "av/audio/resampler.py":147
  *                 break
  *             except FFmpegError as e:
  *                 if e.errno != EAGAIN:             # <<<<<<<<<<<<<<
  *                     raise
  *                 break
 */
-          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_e, __pyx_mstate_global->__pyx_n_u_errno); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 136, __pyx_L44_error)
+          __pyx_t_12 = __Pyx_PyObject_GetAttrStr(__pyx_v_e, __pyx_mstate_global->__pyx_n_u_errno); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 147, __pyx_L44_error)
           __Pyx_GOTREF(__pyx_t_12);
-          __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_EAGAIN); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 136, __pyx_L44_error)
+          __Pyx_GetModuleGlobalName(__pyx_t_10, __pyx_mstate_global->__pyx_n_u_EAGAIN); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 147, __pyx_L44_error)
           __Pyx_GOTREF(__pyx_t_10);
-          __pyx_t_3 = __Pyx_PyObject_CompareBoolNe_object_object(__pyx_t_12, __pyx_t_10, Py_NE); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 136, __pyx_L44_error)
+          __pyx_t_3 = __Pyx_PyObject_CompareBoolNe_object_object(__pyx_t_12, __pyx_t_10, Py_NE); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 147, __pyx_L44_error)
           __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           if (unlikely(__pyx_t_3)) {
 
 
-            /* "av/audio/resampler.py":137
+            /* "av/audio/resampler.py":148
  *             except FFmpegError as e:
  *                 if e.errno != EAGAIN:
  *                     raise             # <<<<<<<<<<<<<<
@@ -5310,9 +5462,9 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
             __Pyx_XGIVEREF(__pyx_t_11);
             __Pyx_ErrRestoreWithState(__pyx_t_7, __pyx_t_4, __pyx_t_11);
             __pyx_t_7 = 0;  __pyx_t_4 = 0;  __pyx_t_11 = 0; 
-            __PYX_ERR(0, 137, __pyx_L44_error)
+            __PYX_ERR(0, 148, __pyx_L44_error)
 
-            /* "av/audio/resampler.py":136
+            /* "av/audio/resampler.py":147
  *                 break
  *             except FFmpegError as e:
  *                 if e.errno != EAGAIN:             # <<<<<<<<<<<<<<
@@ -5321,7 +5473,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
 */
           }
 
-          /* "av/audio/resampler.py":138
+          /* "av/audio/resampler.py":149
  *                 if e.errno != EAGAIN:
  *                     raise
  *                 break             # <<<<<<<<<<<<<<
@@ -5331,7 +5483,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
           goto __pyx_L42_break;
         }
 
-        /* "av/audio/resampler.py":135
+        /* "av/audio/resampler.py":146
  *             except EOFError:
  *                 break
  *             except FFmpegError as e:             # <<<<<<<<<<<<<<
@@ -5385,7 +5537,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
       }
       goto __pyx_L31_except_error;
 
-      /* "av/audio/resampler.py":131
+      /* "av/audio/resampler.py":142
  *         output: list[AudioFrame] = []
  *         while True:
  *             try:             # <<<<<<<<<<<<<<
@@ -5409,7 +5561,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
   }
   __pyx_L28_break:;
 
-  /* "av/audio/resampler.py":140
+  /* "av/audio/resampler.py":151
  *                 break
  * 
  *         return output             # <<<<<<<<<<<<<<
@@ -5425,7 +5577,7 @@ static PyObject *__pyx_f_2av_5audio_9resampler_14AudioResampler_resample(struct 
   }
   goto __pyx_L0;
 
-  /* "av/audio/resampler.py":42
+  /* "av/audio/resampler.py":52
  *         self.graph = None
  * 
  *     @cython.ccall             # <<<<<<<<<<<<<<
@@ -5496,32 +5648,32 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_frame,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 42, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 52, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 42, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 52, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "resample", 0) < (0)) __PYX_ERR(0, 42, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "resample", 0) < (0)) __PYX_ERR(0, 52, __pyx_L3_error)
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("resample", 1, 1, 1, i); __PYX_ERR(0, 42, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("resample", 1, 1, 1, i); __PYX_ERR(0, 52, __pyx_L3_error) }
       }
     } else if (unlikely(__pyx_nargs != 1)) {
       goto __pyx_L5_argtuple_error;
     } else {
       values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 42, __pyx_L3_error)
+      if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 52, __pyx_L3_error)
     }
     __pyx_v_frame = ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)values[0]);
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("resample", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 42, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("resample", 1, 1, 1, __pyx_nargs); __PYX_ERR(0, 52, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -5532,7 +5684,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, 1, "frame", 0))) __PYX_ERR(0, 43, __pyx_L1_error)
+  if (unlikely(!__Pyx_ArgTypeTest(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, 1, "frame", 0))) __PYX_ERR(0, 53, __pyx_L1_error)
   __pyx_r = __pyx_pf_2av_5audio_9resampler_14AudioResampler_2resample(((struct __pyx_obj_2av_5audio_9resampler_AudioResampler *)__pyx_v_self), __pyx_v_frame);
 
   /* function exit code */
@@ -5560,7 +5712,7 @@ static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_2resample(struc
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("resample", 0);
-  __pyx_t_1 = __pyx_f_2av_5audio_9resampler_14AudioResampler_resample(__pyx_v_self, __pyx_v_frame, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
+  __pyx_t_1 = __pyx_f_2av_5audio_9resampler_14AudioResampler_resample(__pyx_v_self, __pyx_v_frame, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 52, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5790,7 +5942,7 @@ static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_7options___get_
  *     cdef readonly dict options
  *     cdef readonly int rate             # <<<<<<<<<<<<<<
  *     cdef readonly unsigned int frame_size
- *     cdef readonly bint is_passthrough
+ *     cdef readonly int threads
 */
 
 /* Python wrapper */
@@ -5871,8 +6023,8 @@ static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_4rate___get__(s
  *     cdef readonly dict options
  *     cdef readonly int rate
  *     cdef readonly unsigned int frame_size             # <<<<<<<<<<<<<<
+ *     cdef readonly int threads
  *     cdef readonly bint is_passthrough
- * 
 */
 
 /* Python wrapper */
@@ -5952,6 +6104,88 @@ static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_10frame_size___
 /* "av/audio/resampler.pxd":15
  *     cdef readonly int rate
  *     cdef readonly unsigned int frame_size
+ *     cdef readonly int threads             # <<<<<<<<<<<<<<
+ *     cdef readonly bint is_passthrough
+ * 
+*/
+
+/* Python wrapper */
+static PyObject *__pyx_pw_2av_5audio_9resampler_14AudioResampler_7threads_1__get__(PyObject *__pyx_v_self); /*proto*/
+static PyObject *__pyx_pw_2av_5audio_9resampler_14AudioResampler_7threads_1__get__(PyObject *__pyx_v_self) {
+  CYTHON_UNUSED PyObject *const *__pyx_kwvalues;
+  PyObject *__pyx_r = 0;
+  __Pyx_RefNannyDeclarations
+  __Pyx_RefNannySetupContext("__get__ (wrapper)", 0);
+  __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
+  __pyx_r = __pyx_pf_2av_5audio_9resampler_14AudioResampler_7threads___get__(((struct __pyx_obj_2av_5audio_9resampler_AudioResampler *)__pyx_v_self));
+
+  /* function exit code */
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_7threads___get__(struct __pyx_obj_2av_5audio_9resampler_AudioResampler *__pyx_v_self) {
+  PyObject *__pyx_r = NULL;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
+  PyObject *__pyx_t_3 = NULL;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("__get__", 0);
+  {
+      __Pyx_PyCriticalSection __pyx_cs;
+      __pyx_t_1 = ((PyObject *)__pyx_v_self);
+      __Pyx_INCREF(__pyx_t_1);
+      __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
+      /*try:*/ {
+        __pyx_t_2 = __Pyx_PyLong_From_int(__pyx_v_self->threads); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 15, __pyx_L4_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        {
+          PyObject *__pyx_temp;
+          {
+            __pyx_temp = __pyx_r;
+            __pyx_r = __pyx_t_2;
+          }
+          __Pyx_XDECREF(__pyx_temp);
+        }
+        __pyx_t_2 = 0;
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+        goto __pyx_L3_return;
+      }
+      /*finally:*/ {
+        __pyx_L3_return: {
+          __pyx_t_3 = __pyx_r;
+          __pyx_r = 0;
+          __Pyx_PyCriticalSection_End(&__pyx_cs);
+          __pyx_r = __pyx_t_3;
+          __pyx_t_3 = 0;
+          goto __pyx_L0;
+        }
+        __pyx_L4_error: {
+          __Pyx_PyCriticalSection_End(&__pyx_cs);
+          goto __pyx_L1_error;
+        }
+      }
+      __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  }
+
+  /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("av.audio.resampler.AudioResampler.threads.__get__", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  __Pyx_XGIVEREF(__pyx_r);
+  __Pyx_RefNannyFinishContext();
+  return __pyx_r;
+}
+
+/* "av/audio/resampler.pxd":16
+ *     cdef readonly unsigned int frame_size
+ *     cdef readonly int threads
  *     cdef readonly bint is_passthrough             # <<<<<<<<<<<<<<
  * 
  *     cpdef list[AudioFrame] resample(self, AudioFrame)
@@ -5988,7 +6222,7 @@ static PyObject *__pyx_pf_2av_5audio_9resampler_14AudioResampler_14is_passthroug
       __Pyx_INCREF(__pyx_t_1);
       __Pyx_PyCriticalSection_Begin(&__pyx_cs, (PyObject*)__pyx_t_1);
       /*try:*/ {
-        __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->is_passthrough); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 15, __pyx_L4_error)
+        __pyx_t_2 = __Pyx_PyBool_FromLong(__pyx_v_self->is_passthrough); if (unlikely(!__pyx_t_2)) __PYX_ERR(1, 16, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_2);
         {
           PyObject *__pyx_temp;
@@ -6391,6 +6625,10 @@ static PyObject *__pyx_getprop_2av_5audio_9resampler_14AudioResampler_frame_size
   return __pyx_pw_2av_5audio_9resampler_14AudioResampler_10frame_size_1__get__(o);
 }
 
+static PyObject *__pyx_getprop_2av_5audio_9resampler_14AudioResampler_threads(PyObject *o, CYTHON_UNUSED void *x) {
+  return __pyx_pw_2av_5audio_9resampler_14AudioResampler_7threads_1__get__(o);
+}
+
 static PyObject *__pyx_getprop_2av_5audio_9resampler_14AudioResampler_is_passthrough(PyObject *o, CYTHON_UNUSED void *x) {
   return __pyx_pw_2av_5audio_9resampler_14AudioResampler_14is_passthrough_1__get__(o);
 }
@@ -6408,13 +6646,14 @@ static struct PyGetSetDef __pyx_getsets_2av_5audio_9resampler_AudioResampler[] =
   {"options", __pyx_getprop_2av_5audio_9resampler_14AudioResampler_options, 0, 0, 0},
   {"rate", __pyx_getprop_2av_5audio_9resampler_14AudioResampler_rate, 0, 0, 0},
   {"frame_size", __pyx_getprop_2av_5audio_9resampler_14AudioResampler_frame_size, 0, 0, 0},
+  {"threads", __pyx_getprop_2av_5audio_9resampler_14AudioResampler_threads, 0, 0, 0},
   {"is_passthrough", __pyx_getprop_2av_5audio_9resampler_14AudioResampler_is_passthrough, 0, 0, 0},
   {0, 0, 0, 0, 0}
 };
 #if CYTHON_USE_TYPE_SPECS
 static PyType_Slot __pyx_type_2av_5audio_9resampler_AudioResampler_slots[] = {
   {Py_tp_dealloc, (void *)__pyx_tp_dealloc_2av_5audio_9resampler_AudioResampler},
-  {Py_tp_doc, (void *)PyDoc_STR("AudioResampler(format=None, layout=None, rate=None, frame_size=None, options=None)\n\n    :param AudioFormat format: The target format, or string that parses to one\n        (e.g. ``\"s16\"``).\n    :param AudioLayout layout: The target layout, or an int/string that parses\n        to one (e.g. ``\"stereo\"``).\n    :param int rate: The target sample rate.\n    :param int frame_size: The number of samples per output frame.\n    :param dict options: ``libswresample`` options passed to the underlying\n        ``aresample`` filter (e.g. ``{\"resampler\": \"soxr\", \"precision\": \"28\"}``).\n        See the `FFmpeg resampler documentation\n        <https://ffmpeg.org/ffmpeg-resampler.html>`_ for the full list.\n    ")},
+  {Py_tp_doc, (void *)PyDoc_STR("AudioResampler(format=None, layout=None, rate=None, frame_size=None, options=None, threads=None)\n\n    :param AudioFormat format: The target format, or string that parses to one\n        (e.g. ``\"s16\"``).\n    :param AudioLayout layout: The target layout, or an int/string that parses\n        to one (e.g. ``\"stereo\"``).\n    :param int rate: The target sample rate.\n    :param int frame_size: The number of samples per output frame.\n    :param dict options: ``libswresample`` options passed to the underlying\n        ``aresample`` filter (e.g. ``{\"resampler\": \"soxr\", \"precision\": \"28\"}``).\n        See the `FFmpeg resampler documentation\n        <https://ffmpeg.org/ffmpeg-resampler.html>`_ for the full list.\n    :param int threads: How many threads the filter graph may use, or ``0`` for\n        automatic selection based on the number of available CPUs. Defaults to\n        ``0`` (auto).\n    ")},
   {Py_tp_traverse, (void *)__pyx_tp_traverse_2av_5audio_9resampler_AudioResampler},
   {Py_tp_clear, (void *)__pyx_tp_clear_2av_5audio_9resampler_AudioResampler},
   {Py_tp_methods, (void *)__pyx_methods_2av_5audio_9resampler_AudioResampler},
@@ -6457,7 +6696,7 @@ static PyTypeObject __pyx_type_2av_5audio_9resampler_AudioResampler = {
   0, /*tp_setattro*/
   0, /*tp_as_buffer*/
   Py_TPFLAGS_DEFAULT|Py_TPFLAGS_HAVE_VERSION_TAG|Py_TPFLAGS_HAVE_GC, /*tp_flags*/
-  PyDoc_STR("AudioResampler(format=None, layout=None, rate=None, frame_size=None, options=None)\n\n    :param AudioFormat format: The target format, or string that parses to one\n        (e.g. ``\"s16\"``).\n    :param AudioLayout layout: The target layout, or an int/string that parses\n        to one (e.g. ``\"stereo\"``).\n    :param int rate: The target sample rate.\n    :param int frame_size: The number of samples per output frame.\n    :param dict options: ``libswresample`` options passed to the underlying\n        ``aresample`` filter (e.g. ``{\"resampler\": \"soxr\", \"precision\": \"28\"}``).\n        See the `FFmpeg resampler documentation\n        <https://ffmpeg.org/ffmpeg-resampler.html>`_ for the full list.\n    "), /*tp_doc*/
+  PyDoc_STR("AudioResampler(format=None, layout=None, rate=None, frame_size=None, options=None, threads=None)\n\n    :param AudioFormat format: The target format, or string that parses to one\n        (e.g. ``\"s16\"``).\n    :param AudioLayout layout: The target layout, or an int/string that parses\n        to one (e.g. ``\"stereo\"``).\n    :param int rate: The target sample rate.\n    :param int frame_size: The number of samples per output frame.\n    :param dict options: ``libswresample`` options passed to the underlying\n        ``aresample`` filter (e.g. ``{\"resampler\": \"soxr\", \"precision\": \"28\"}``).\n        See the `FFmpeg resampler documentation\n        <https://ffmpeg.org/ffmpeg-resampler.html>`_ for the full list.\n    :param int threads: How many threads the filter graph may use, or ``0`` for\n        automatic selection based on the number of available CPUs. Defaults to\n        ``0`` (auto).\n    "), /*tp_doc*/
   __pyx_tp_traverse_2av_5audio_9resampler_AudioResampler, /*tp_traverse*/
   __pyx_tp_clear_2av_5audio_9resampler_AudioResampler, /*tp_clear*/
   0, /*tp_richcompare*/
@@ -7342,7 +7581,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "av/audio/resampler.py":95
+  /* "av/audio/resampler.py":106
  *                 **extra_args,
  *             )
  *             aformat = self.graph.add(             # <<<<<<<<<<<<<<
@@ -7351,7 +7590,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[3] = {__pyx_mstate_global->__pyx_n_u_sample_rates, __pyx_mstate_global->__pyx_n_u_sample_fmts, __pyx_mstate_global->__pyx_n_u_channel_layouts};
-    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 95, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 106, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
@@ -7392,38 +7631,38 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   int __pyx_clineno = 0;
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 6; } str_length_index[] = {{1},{42},{50},{14},{6},{11},{20},{8},{10},{8},{11},{14},{12},{8},{7},{11},{3},{7},{9},{8},{14},{15},{18},{5},{6},{5},{10},{5},{6},{7},{4},{7},{4},{4},{4},{10},{11},{11},{12},{20},{10},{9},{6}};
+    const struct { const unsigned int length: 6; } str_length_index[] = {{1},{42},{50},{14},{6},{11},{20},{8},{10},{8},{11},{14},{12},{8},{7},{11},{3},{7},{9},{8},{14},{15},{18},{5},{6},{5},{10},{5},{6},{7},{4},{7},{4},{4},{4},{10},{11},{11},{12},{20},{10},{7},{9},{6}};
     const struct { const unsigned int length: 11; } bytes_length_index[] = {{1392}};
     #ifndef CYTHON_COMPRESS_STRINGS
       #define CYTHON_COMPRESS_STRINGS 90
     #endif
-    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (665 bytes) */
-static const char cstring[] = "x\332\305U\301n\3330\014\355\247\350\270\006]\017\373\201!\350\232\241\030\326\025Y\272\3130\020\262E\047\252m\311\223\250$\336\327\217\262\344\305\251W\354\260\001\013\020\213\"\371\310G\322\226\336\256\234lQ(\213^\030K\242\225T\356\3042(m\327\350e\3335\350\204G\n\335\265\261Ba%CC\002\300\241\n%\002\010\025P\220e\254yMN\357\265l\330Zj\243\t\340<\314\355\362\375\362\356~\265j;\334\336:g\035\300C\177\344\377;]\022\334\343\221\326X\001\264R\033\340_kUh0J\206\031\306\265coO\2220\211{\222Er\370\036d3:\021z\316,\213PU\350\362\342\265\251\245R\262\262\216\353\223.3\222\373k\214<\312\2354\006\033hdo\003\235\357|\331h\203\300\224\310\311\022\013Y\326\21416\205\252b\363\206\007x\375\0035a\353\023\216Q5\220\215\254lG\332\032\337\205\246\351\202\3379. \345\207\252\245\211\224\305\211}\020\271\371 c#\341\224\210uy\024\244YUH\217{\331\004\364\017\375\247\342\tK\022\213W\0471\222\270\022\247}\311lx\321mg\035\241\032\372\353\243\003\370\030\034H4h`n\036\361c\273\247:\236\226\3421^\tm\"|\217\315\345\305h=qY\2104\325\023r!b\244\313\013\206M\030\327\007u\226Qd\312\365!\2259\265\215F\351\266\003\323\257\337\246\326\030\351\315T\221\002$\247_\365\232\320Bg=p\014?3\324\207\244Ni\370\365p\013Q\005S\306\251B\352C,Zo\215u\010\301\324\306\036LF\375\251\260\177O\376E\226\177G\345\177\266m!\250\357\020l\3614\3527\274\037\231\321\\\231\000\0359q%\366V\253\205HgE\362L\307\316\215,w\250nV\231\021C81r\260\010\230\264\211\263\306\322\3162\262<\255k\374\302b9x\224\345<HB<\353\346TA\305\331\007*\203\307\034\344y\373\340Y\256Y\337[m\346:y\234\351*\033\214z!\311dF\347/\314\345E\352\036\334\r\247C\336\245\315\312\3316+\036\244\363\370\001\373\203u\312o\002\237e\2771\304c\177c\343\363\005cV\017\267O\276pF\317a\036\260F\251\372\254\372\214\364e\030r\336o\\\377h:>\256\037M\021+\275\371\210\264\263*[\227n\033#\014\327PV\255\245\3668\225\331\207\"\365;\303\343\322#r\215\261\033cm?\001\003\342\260\004";
-    PyObject *data = __Pyx_DecompressString(cstring, 665, 1);
+    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (669 bytes) */
+static const char cstring[] = "x\332\305U\301n\3330\014\355\247\350\270\006]\017\373\201!\350\232\241\030\326\025Y\272\3130\020\262E\047\252m\311\223\250$\336\327\217\262\344\305\251W\354\260\001\013\020\233\"\371\310G\322\246\337\256\234lQ(\213^\030K\242\225T\356\3042(m\327\350e\3335\350\204G\n\335\265\261Ba%CC\002\300\241\n%\002\010\025P\220e\254yMN\357\265l\330Zj\243\t\340<\314\355\362\375\362\356~\265j;\334\336:g\035\300C\177\344\377;]\022\334\343\221\326X\001\264R\033\340_kUh0J\206\031\306{\307\336\236$a\022\367$\213\344\360=\310ft\"\364\234Y\026\241\252\320\345\233\327\246\226J\311\312:\256O\272\314H\356\2571\362(w\322\030l\240\221\275\rt~\362e\243\r\002S\"\047K,dY3\306\330\024\252\212\315\033.\340\365\017\324\204\255O8F\325@6\262\262\035ik|\027\232\246\013~\347\270\200\224\037\252\226&R\026\047\366A\344\346\203\214\215\204S\"\326\345Q\320\316\241T\2364[\n\351q/\233\200\376\241\377T<aIb\361\352$F.W\342t.\231\024\337t\333YG\250\2066\373\350\000>\346\000\022\r\032\230\233G\374\330\365\251\216\207\246x\232WB\233\010\337csy1ZO\\\026\"\r\367\204\\\210\030\351\362\202a\023\306\365A\235e\024\231r}HeNm\243Q\272\355\300\364\353\267\2515Fz3U\244\000\311\351W\275&\264\320Y\017\034\303\317\014\365!\251S\032~J\334BT\301\224q\270\220\372\020\213\326[c\035B0\265\261\007\223Q\177*\354\337\223\177\221\345\337Q\371\237m[\010\352;\004[<\215\372\r\237Gf4W&@GN\\\211\275\325j!\322\312H\236i\373\334\310r\207\352f\225\0311\204\023#\007\213\200I\2338k,\355,#\313\323\272\3067,\226\203GY\316\203$\304\263nN\025T\234\275\2402x\314A\236\267\017\236\345\232\365\275\325f\256\223\307\231\256\262\301\250\027\222Lft\376\300\\^\244\356\301\335\260\035\362)\035V\316\266Y\361 \235\307\017\330\037\254S~\023x\245\375\306\020\267\377\306\306\353\013\306\254\036>B\371\2733z\016\363\2005o\300>\253>#}\031\206\234\317\033\327?\232\216\267\366\243)b\2457\037\221vVe\353\322mc\204\341k\224Uk\251=Ne\366\241H\375\316\360\270\364\210\\c\354\306X\333O\001d\262\357";
+    PyObject *data = __Pyx_DecompressString(cstring, 669, 1);
     #define __Pyx_DecompressString_LZSS_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (904 bytes) */
-static const char cstring[] = "\377?Frame d\377oes not \377match Au\377dioResam\377pler set\377up.no de\377fault __\377reduce__\177 due to9\000\377n-trivia\375l\033\000cinit_\375_9\013EAGAIN\377FFmpegEr\377ror__Pyx\376\001\000Dict_Ne\377xtRef__m\337ain__\005\000od;ul_\000__n\237\000\016\001=p+\000statt\000\007\001\357vtab\033\003qua\335l\035\005tesw\000ab\337uffer\000\004si\377nkaddafo\355r\335\000ar\322\004av.\375e\204\001channe\377l_layout\376\000\013scline_\376\220\000traceba[ck1\000noE\003f\271!\376\000\002_sizeit\347ems@\0033\000k_t\375o\267\001option\377spullpus\363hr\276\000\323#_fmt\302\000\007s\016\004\025\010&\002\372 _a\342\214A__\007\216@\204Dtim\377e_baseva\377luesPyOb\177ject *(\001\007\226\274!, \021\007c\213\000\037\000i\177mported\333\"\355s\035\001_s\302\001_t \017len_\r\017S\005\347%H\t\357modd\304@, i}n;\001vel)\000\205\005\316\202\007* m\321B\204\007* \346\332A)\0004\000\247\010kwd5s\246\t \254\004kw\341\003\302\t\335*\026\004arg\245as[\t]\340\tF\0012\361\t\242#\037\003\347\006\377num_pos_\030A\000\373\013\025\001kw\021\003\261#\252`\177r* func\322A\374\227\204\002\357\003ignore\377_unknown\201_0\003\271\035kO\215\026M;\273\200y*\377 type_ob%j\240eT\r\000\341\204\005t\003\017+\003\377ptr , vo\217id* \246\207\003\341c\361\207\003C\177achedCF\302D\004a\000\276`eJ\000-\001\262\205\010s\000\270\205\001le\n\213\000, \205g *\334\205\003\036\367\204\001exac3\017\274\001\364n\366\207\206\ttb\224\206\nause\023)\000\205\002\346m_]\014\253\206\n\304\204\001\267min\002\017ax\027\016f\017oundN\024\320\204\010\310\207\007\221\206\001\033)\000\257\212\003_I\270\207\002\007\004\007\003\357From\030\004Par\377seKeywor\177dsTuple\006\020\006\363\212\001To\371\212\001\006\024e\004\371\213\002\352\213\004\372X\005y\376A_Read=y\213\004SetV\214\213\002\233\004\377TryUnpac\357kUnb\346\001CMe\357thod\271\004Arg\370\300a\202\214\002\314\004Raise\364\000\t!\000t\267\001Inva\033li2\005Re\334\211\001\324\005";
-    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 904, 1855);
+    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (912 bytes) */
+static const char cstring[] = "\377?Frame d\377oes not \377match Au\377dioResam\377pler set\377up.no de\377fault __\377reduce__\177 due to9\000\377n-trivia\375l\033\000cinit_\375_9\013EAGAIN\377FFmpegEr\377ror__Pyx\376\001\000Dict_Ne\377xtRef__m\337ain__\005\000od;ul_\000__n\237\000\016\001=p+\000statt\000\007\001\357vtab\033\003qua\335l\035\005tesw\000ab\337uffer\000\004si\377nkaddafo\355r\335\000ar\322\004av.\375e\204\001channe\377l_layout\376\000\013scline_\376\220\000traceba[ck1\000noE\003f\271!\376\000\002_sizeit\347ems@\0033\000k_t\375o\267\001option\377spullpus\363hr\276\000\323#_fmt\302\000\007s\016\004\025\010&\002\372 _a\342\214A__\007\216@\204Dthr\377eadstime\377_baseval\377uesPyObj?ect *(\001\007\303!\313, \021\007c\222\000\037\000im\277ported\342\"s\366\035\001_s\311\001_t l\207en_\r\017S\005\356%H\tm\367odd\313@, in>;\001vel)\000\205\005\202\007g* m\330B\204\007* \341A\363)\0004\000\247\010kwds\232\246\t \254\004kw\341\003\302\t*\356\026\004arg\254as[]\204\340\tF\0012\361\t\242#\037\003\347\006n\177um_pos_A\000\214\373\013\025\001kw\021\003\261#\261`r?* func\331A\236\204\002\376\357\003ignore_\377unknown_\3000\003\271\035kO\215\026M;\273\200y* \377type_obj\222\240eT\r\000\341\204\005t\003\017+\003p\377tr , voi\307d* \255\207\003\341c\370\207\003Ca?chedCF\302Da\000\002\276`eJ\000-\001\262\205\010s\000\270\205\001e\n6\213\000, \205g *\334\205\003\367\204\001\017exac3\017\274\001\364n\207\206\t\373tb\224\206\nause)\211\000\205\002\346m_]\014\253\206\n\304\204\001m\333in\002\017ax\027\016fo\207undN\024\320\204\010\310\207\007\221\206\001)\215\000\266\212\003_I\270\207\002\007\004\007\003F\367rom\030\004Pars\377eKeyword?sTuple\006\020\372\212\001\003To\200\213\001\006\024e\004\200\214\002\361\213\004X\005\375y\376A_Ready\236\213\004SetV\223\213\002\233\004T\377ryUnpack\367Unb\346\001CMetwhod\271\004Arg\300a|\211\214\002\314\004Raise\000\t\372!\000t\267\001Inval\ri2\005Re\334\211\001\324\005";
+    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 912, 1862);
     #define __Pyx_DecompressString_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1855 bytes) */
-static const char bytes[] = "?Frame does not match AudioResampler setup.no default __reduce__ due to non-trivial __cinit__AudioResamplerEAGAINFFmpegError__Pyx_PyDict_NextRef__main____module____name____pyx_state__pyx_vtable____qualname____test__abufferabuffersinkaddaformataresampleav.errorchannel_layoutchannel_layoutscline_in_tracebackerrnoformatframeframe_sizeitemslayoutlink_tonameoptionspullpushratesample_fmtsample_fmtssample_ratesample_ratesset_audio_frame_sizesetdefaulttime_basevaluesPyObject *(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, PyObject *moddict, int level)\000PyObject*(PyObject* module, PyObject* name)\000int(PyObject *kwds, PyObject * const *kwvalues, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, const char* function_name)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject* type_obj)\000int(PyTypeObject *t)\000int(PyTypeObject* typeptr , void* vtable)\000int(__Pyx_CachedCFunction* target)\000void(PyObject *obj, PyTypeObject *type, const char *name, int exact)\000void(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause)\000void(const char* func_name, int exact, Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found)\000void(const char* function_name, PyObject *kwds)\000__Pyx__Import\000__Pyx_ImportFrom\000__Pyx_ParseKeywordsTuple\000__Pyx_ParseKeywordDictToDict\000__Pyx_ParseKeywordDict\000__Pyx_setup_reduce\000__Pyx_PyType_Ready\000__Pyx_SetVtable\000__Pyx_TryUnpackUnboundCMethod\000__Pyx_ArgTypeError\000__Pyx_Raise\000__Pyx_RaiseArgtupleInvalid\000__Pyx_RejectKeywords";
+    #else /* compression: none (1862 bytes) */
+static const char bytes[] = "?Frame does not match AudioResampler setup.no default __reduce__ due to non-trivial __cinit__AudioResamplerEAGAINFFmpegError__Pyx_PyDict_NextRef__main____module____name____pyx_state__pyx_vtable____qualname____test__abufferabuffersinkaddaformataresampleav.errorchannel_layoutchannel_layoutscline_in_tracebackerrnoformatframeframe_sizeitemslayoutlink_tonameoptionspullpushratesample_fmtsample_fmtssample_ratesample_ratesset_audio_frame_sizesetdefaultthreadstime_basevaluesPyObject *(PyObject *name, PyObject *const *imported_names, Py_ssize_t len_imported_names, PyObject *qualname, PyObject *moddict, int level)\000PyObject*(PyObject* module, PyObject* name)\000int(PyObject *kwds, PyObject * const *kwvalues, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, const char* function_name)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject* type_obj)\000int(PyTypeObject *t)\000int(PyTypeObject* typeptr , void* vtable)\000int(__Pyx_CachedCFunction* target)\000void(PyObject *obj, PyTypeObject *type, const char *name, int exact)\000void(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause)\000void(const char* func_name, int exact, Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found)\000void(const char* function_name, PyObject *kwds)\000__Pyx__Import\000__Pyx_ImportFrom\000__Pyx_ParseKeywordsTuple\000__Pyx_ParseKeywordDictToDict\000__Pyx_ParseKeywordDict\000__Pyx_setup_reduce\000__Pyx_PyType_Ready\000__Pyx_SetVtable\000__Pyx_TryUnpackUnboundCMethod\000__Pyx_ArgTypeError\000__Pyx_Raise\000__Pyx_RaiseArgtupleInvalid\000__Pyx_RejectKeywords";
     PyObject *data = NULL;
     #define __Pyx_DecompressString_UNUSED
     #define __Pyx_DecompressString_LZSS_UNUSED
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 43; i++) {
+    for (int i = 0; i < 44; i++) {
       Py_ssize_t bytes_length = str_length_index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 3) PyUnicode_InternInPlace(&string);
@@ -7434,8 +7673,8 @@ static const char bytes[] = "?Frame does not match AudioResampler setup.no defau
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 43; i < 44; i++) {
-      Py_ssize_t bytes_length = bytes_length_index[i-43].length;
+    for (int i = 44; i < 45; i++) {
+      Py_ssize_t bytes_length = bytes_length_index[i-44].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
       pos += bytes_length;
@@ -7445,14 +7684,14 @@ static const char bytes[] = "?Frame does not match AudioResampler setup.no defau
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 44; i++) {
+    for (Py_ssize_t i = 0; i < 45; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 43;
+      PyObject **table = stringtab + 44;
       for (Py_ssize_t i=0; i<1; ++i) {
         #if PY_VERSION_HEX >= 0x030F0000
         PyUnstable_SetImmortal(table[i]);
@@ -8492,6 +8731,16 @@ __pyx_return_true:
 __pyx_return_false:
     return 0;
 }
+
+/* PyObjectSetAttrStr */
+#if CYTHON_USE_TYPE_SLOTS
+static CYTHON_INLINE int __Pyx_PyObject_SetAttrStr(PyObject* obj, PyObject* attr_name, PyObject* value) {
+    PyTypeObject* tp = Py_TYPE(obj);
+    if (likely(tp->tp_setattro))
+        return tp->tp_setattro(obj, attr_name, value);
+    return PyObject_SetAttr(obj, attr_name, value);
+}
+#endif
 
 /* PyObjectCallOneArg (used by CallUnboundCMethod0) */
 static CYTHON_INLINE PyObject* __Pyx_PyObject_CallOneArg(PyObject *func, PyObject *arg) {

@@ -432,6 +432,14 @@ def validate_rules_against_settings(
 
 
 # ── the compiled map ─────────────────────────────────────────────────────────
+def _value_rides_on_wire(out: dict[str, Any], key: str, value: Any) -> bool:
+    """True when ``value`` sits at a wire leaf that carries ``key``'s meaning (any depth)."""
+    from matrx_ai.catalog.wire_meaning import leaves, meaning_paths
+
+    paths = set(meaning_paths(out, key))
+    return any(path in paths and leaf == value for path, leaf in leaves(out))
+
+
 class CompiledControlsMap(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -1786,7 +1794,25 @@ class CompiledControlsMap(BaseModel):
             except Exception:  # noqa: BLE001 — accounting must never break a request
                 continue
             value = pre_canonical.get(consumed)
-            if alt == out:
+            if alt == out and _value_rides_on_wire(out, consumed, value):
+                # The same request without the key still carries the key's value (the
+                # cell's own default equals what the caller asked, e.g. include_thoughts
+                # True): it was SENT, so a "dropped" notice would be false (L48, defect 78).
+                adjustments.append(
+                    Adjustment(
+                        key=consumed,
+                        action="mapped",
+                        canonical_value=value,
+                        sent_value=fragment or None,
+                        expected=True,
+                        reason=(
+                            f"'{consumed}'={value!r} is sent by the '{rule.processor}' "
+                            "processor in this model's own shape (the model's declared "
+                            "default is the same value)"
+                        ),
+                    )
+                )
+            elif alt == out:
                 adjustments.append(
                     Adjustment(
                         key=consumed,

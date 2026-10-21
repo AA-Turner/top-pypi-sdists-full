@@ -32,7 +32,9 @@ class IssueOriginDto(BaseModel):
     origin_id: Optional[StrictStr] = Field(default=None, alias="originId")
     origin_name: Optional[StrictStr] = Field(default=None, alias="originName")
     is_deleted: Optional[StrictBool] = Field(default=None, alias="isDeleted")
-    __properties: ClassVar[List[str]] = ["originType", "originId", "originName", "isDeleted"]
+    repository_id: Optional[StrictStr] = Field(default=None, alias="repositoryId")
+    branch_name: Optional[StrictStr] = Field(default=None, alias="branchName")
+    __properties: ClassVar[List[str]] = ["originType", "originId", "originName", "isDeleted", "repositoryId", "branchName"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -83,6 +85,16 @@ class IssueOriginDto(BaseModel):
         if self.origin_name is None and "origin_name" in self.model_fields_set:
             _dict['originName'] = None
 
+        # set to None if repository_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.repository_id is None and "repository_id" in self.model_fields_set:
+            _dict['repositoryId'] = None
+
+        # set to None if branch_name (nullable) is None
+        # and model_fields_set contains the field
+        if self.branch_name is None and "branch_name" in self.model_fields_set:
+            _dict['branchName'] = None
+
         return _dict
 
     @classmethod
@@ -98,7 +110,9 @@ class IssueOriginDto(BaseModel):
             "originType": obj.get("originType"),
             "originId": obj.get("originId"),
             "originName": obj.get("originName"),
-            "isDeleted": obj.get("isDeleted")
+            "isDeleted": obj.get("isDeleted"),
+            "repositoryId": obj.get("repositoryId"),
+            "branchName": obj.get("branchName")
         })
         return _obj
 

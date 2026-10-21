@@ -123,9 +123,33 @@ text2mecab_result_t text2mecab(char *output, size_t sizeOfOutput, const char *in
             output[index++] = str[j];
       } else if (text2mecab_control_range[0] <= str[0] && str[0] <= text2mecab_control_range[1]) {
          /* control character */
+         if (str[0] == '\n' || str[0] == '\r' || str[0] == '\t') {
+            if (index + strlen("　") >= sizeOfOutput) {
+               output[0] = '\0';
+               return TEXT2MECAB_RESULT_RANGE_ERROR;
+            }
+            for (j = 0; "　"[j] != '\0'; j++)
+               output[index++] = "　"[j];
+         }
          s++;
       } else {
          /* multi byte character */
+         /* Variation selectors do not create word boundaries. */
+         if (index > 0 && length - s >= 3 && (unsigned char) str[0] == 0xEF &&
+             (unsigned char) str[1] == 0xB8 &&
+             (unsigned char) str[2] >= 0x80 && (unsigned char) str[2] <= 0x8F) {
+            s += 3;
+            continue;
+         }
+         if (index > 0 && length - s >= 4 && (unsigned char) str[0] == 0xF3 &&
+             (unsigned char) str[1] == 0xA0 &&
+             (((unsigned char) str[2] >= 0x84 && (unsigned char) str[2] <= 0x86 &&
+               (unsigned char) str[3] >= 0x80 && (unsigned char) str[3] <= 0xBF) ||
+              ((unsigned char) str[2] == 0x87 && (unsigned char) str[3] >= 0x80 &&
+               (unsigned char) str[3] <= 0xAF))) {
+            s += 4;
+            continue;
+         }
          e = -1;
          for (j = 0; text2mecab_kanji_range[j] > 0; j += 3) {
             if (text2mecab_kanji_range[j + 1] <= str[0] && text2mecab_kanji_range[j + 2] >= str[0]) {

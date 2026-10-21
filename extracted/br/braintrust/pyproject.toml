@@ -1,6 +1,7 @@
 [build-system]
 requires = ["setuptools>=82.0.1"]
-build-backend = "setuptools.build_meta"
+build-backend = "_build_hooks"
+backend-path = ["."]
 
 [project]
 name = "braintrust"
@@ -23,6 +24,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
+    "certifi>=2026.10.19",
     "requests",
     "chevron",
     "tqdm",
@@ -50,7 +52,7 @@ braintrust = "braintrust.wrappers.pytest_plugin.plugin"
 braintrust = "braintrust.integrations.harbor:HarborPlugin"
 
 [project.optional-dependencies]
-cli = ["boto3", "python-dotenv", "uv", "starlette", "uvicorn"]
+cli = ["boto3", "python-dotenv", "uv>=0.13.4", "starlette", "uvicorn"]
 # TODO: remove the doc extra in the next major version.
 doc = []
 openai-agents = ["openai-agents"]
@@ -77,18 +79,25 @@ all = [
     "python-dotenv",
     "starlette",
     "temporalio>=1.19.0; python_version>='3.10'",
-    "uv",
+    "uv>=0.13.4",
     "uvicorn",
 ]
 
 [tool.setuptools.dynamic]
 version = {attr = "braintrust.version.VERSION"}
 
+[tool.setuptools.cmdclass]
+build_py = "_build_hooks.BuildPy"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+exclude = ["braintrust.type_tests*", "braintrust.fixtures*"]
 
 [tool.setuptools.package-data]
-braintrust = ["py.typed", "fixtures/test-image.png"]
+braintrust = ["py.typed"]
+
+[tool.setuptools.exclude-package-data]
+braintrust = ["fixtures/*", "type_tests/*"]
 
 # ---------------------------------------------------------------------------
 # Dependency groups (PEP 735)
@@ -291,7 +300,7 @@ test-cli = [
     "httpx==0.28.1",
     "python-dotenv",
     "starlette",
-    "uv",
+    "uv>=0.13.4",
     "uvicorn",
 ]
 
@@ -403,7 +412,7 @@ explicit = true
 # ---------------------------------------------------------------------------
 
 [tool.uv]
-exclude-newer = "2026-10-19T06:03:00Z"
+exclude-newer = "2026-10-20T19:24:36Z"
 conflicts = [
     # Groups that pin or transitively require conflicting openai versions.
     [
@@ -507,7 +516,9 @@ latest = "pipecat-ai==1.12.0"
 
 [tool.braintrust.matrix.claude-agent-sdk]
 latest = "claude-agent-sdk==0.2.168"
-"0.1.10" = "claude-agent-sdk==0.1.10"
+# The integration still supports >=0.1.10, but 0.1.9-0.1.17 were deleted from
+# PyPI, so 0.1.18 is the oldest installable version we can test against.
+"0.1.18" = "claude-agent-sdk==0.1.18"
 
 [tool.braintrust.matrix.cursor-sdk]
 # 1.0.25 fixes bridge callback tokens that could be parsed as CLI flags while

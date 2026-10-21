@@ -19,10 +19,13 @@ from schemathesis.core import NOT_SET, NotSet, media_types
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
 from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator, resolve_bundled_ref, schema_with_bundle
 from schemathesis.core.jsonschema.types import JsonSchemaObject, as_object_schema
-from schemathesis.core.media_types import FORM_MEDIA_TYPES, find_media_type_strategy
+from schemathesis.core.media_types import (
+    FORM_MEDIA_TYPES,
+    iter_matching_media_type_strategies,
+)
 from schemathesis.core.parameters import CONTAINER_TO_LOCATION, ParameterLocation
 from schemathesis.core.timing import Instant
-from schemathesis.core.transforms import UNRESOLVABLE, deepclone, resolve_path
+from schemathesis.core.transforms import UNRESOLVABLE, deepclone, is_array_index, resolve_path, split_body_key
 from schemathesis.core.transport import HTTP_METHODS_SCHEMA
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.case import Case
@@ -42,6 +45,7 @@ from schemathesis.specs.openapi.coverage._schema import (
     CoverageContext,
     GeneratedValue,
     HashSet,
+    _to_hashable_key_with_json_parts,
     cover_schema_iter,
     drop_negatives_any_draft_admits,
 )
@@ -61,6 +65,16 @@ if TYPE_CHECKING:
     from schemathesis.resources import PoolDraw, ResourcePool
     from schemathesis.schemas import APIOperation, ParameterSet
     from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter
+
+# Case keyword arguments that describe the request body.
+BODY_KEYS = ("body", "media_type", "multipart_content_types")
+
+
+def _set_multipart_content_types(kwargs: dict[str, Any], content_types: dict[str, str] | None) -> None:
+    if content_types:
+        kwargs["multipart_content_types"] = content_types
+    else:
+        kwargs.pop("multipart_content_types", None)
 
 
 class Template:
@@ -145,9 +159,12 @@ class Template:
             return None
         return {**headers, name: media_type}
 
-    def set_body(self, body: GeneratedValue, media_type: str) -> None:
+    def set_body(
+        self, body: GeneratedValue, media_type: str, multipart_content_types: dict[str, str] | None = None
+    ) -> None:
         self._template["body"] = body.value
         self._template["media_type"] = media_type
+        _set_multipart_content_types(self._template, multipart_content_types)
         self._components[ParameterLocation.BODY] = ComponentInfo(mode=body.generation_mode)
         headers = self._headers_for(media_type)
         if headers is not None:
@@ -192,8 +209,11 @@ class Template:
         kwargs = self._serialize(raw, components)
         return TemplateValue(kwargs=kwargs, raw=raw, components=components)
 
-    def with_body(self, *, media_type: str, value: GeneratedValue) -> TemplateValue:
+    def with_body(
+        self, *, media_type: str, value: GeneratedValue, multipart_content_types: dict[str, str] | None = None
+    ) -> TemplateValue:
         raw = {**self._template, "media_type": media_type, "body": value.value}
+        _set_multipart_content_types(raw, multipart_content_types)
         headers = self._headers_for(media_type)
         if headers is not None:
             raw["headers"] = headers
@@ -203,7 +223,7 @@ class Template:
 
     def without_body(self) -> TemplateValue:
         # A `Content-Type` describing a body that is not there is a different oddity than sending no body at all.
-        raw = {key: value for key, value in self._template.items() if key not in ("body", "media_type")}
+        raw = {key: value for key, value in self._template.items() if key not in BODY_KEYS}
         components = {**self._components, ParameterLocation.BODY: ComponentInfo(mode=GenerationMode.NEGATIVE)}
         headers = raw.get("headers")
         if isinstance(headers, dict):
@@ -248,6 +268,19 @@ class Dedup(Enum):
     WIRE_NEGATIVE_SET = auto()
 
 
+def _dedup_key_and_hashes(
+    kwargs: dict[str, Any],
+) -> tuple[dict[str, Any], tuple, dict[ParameterLocation, int]]:
+    request = _dedup_key(kwargs)
+    key, hashes = _to_hashable_key_with_json_parts(request)
+    initial_hashes = {
+        location: hashes[name]
+        for name, location in CONTAINER_TO_LOCATION.items()
+        if name != "headers" and name in hashes and request.get(name) == kwargs.get(name)
+    }
+    return request, key, initial_hashes
+
+
 @dataclass(slots=True)
 class CaseEmitter:
     """Builds and deduplicates the cases one operation's coverage run emits."""
@@ -259,12 +292,14 @@ class CaseEmitter:
     seen_positive: HashSet
     seen_negative: HashSet
 
-    def is_new_request(self, kwargs: dict[str, Any], mode: GenerationMode) -> bool:
+    def is_new_request(self, kwargs: dict[str, Any], mode: GenerationMode) -> tuple[bool, dict[ParameterLocation, int]]:
         # Repeating a request already sent tests nothing, whichever mode sent it first.
-        key = _dedup_key(kwargs)
+        request, key, initial_hashes = _dedup_key_and_hashes(kwargs)
         if mode == GenerationMode.POSITIVE:
-            return self.seen_positive.insert(key)
-        return self.seen_negative.insert_unless_in(self.seen_positive, key)
+            is_new = self.seen_positive.insert(request, key=key)
+        else:
+            is_new = self.seen_negative.insert_unless_in(self.seen_positive, request, key=key)
+        return is_new, initial_hashes
 
     def _meta(
         self,
@@ -273,6 +308,7 @@ class CaseEmitter:
         components: dict[ParameterLocation, ComponentInfo],
         phase: PhaseInfo,
         raw: dict[str, Any],
+        initial_hashes: dict[ParameterLocation, int],
     ) -> CaseMetadata:
         # Typed parameter containers survive so revalidation judges the schema level, not the wire form.
         raw_containers: dict[ParameterLocation, Any] = {
@@ -283,7 +319,7 @@ class CaseEmitter:
             and location != ParameterLocation.BODY
         }
         # Draws/misses narrowed to the slots this request actually carries, so the pool is not misattributed.
-        return CaseMetadata(
+        meta = CaseMetadata(
             generation=generation,
             components=components,
             phase=phase,
@@ -291,6 +327,10 @@ class CaseEmitter:
             pool_misses=_filter_misses_for_case(raw, self.correlated_misses),
             raw_containers=raw_containers,
         )
+        meta._initial_hashes.update(
+            (location, hash_value) for location, hash_value in initial_hashes.items() if location in components
+        )
+        return meta
 
     def build(
         self,
@@ -306,6 +346,7 @@ class CaseEmitter:
         method: HttpMethod | None = None,
         kwargs: dict[str, Any] | None = None,
         raw: dict[str, Any] | None = None,
+        initial_hashes: dict[ParameterLocation, int] | None = None,
     ) -> Case:
         kwargs = data.kwargs if kwargs is None else kwargs
         raw = data.raw if raw is None else raw
@@ -324,6 +365,7 @@ class CaseEmitter:
                     parameter_location=parameter_location,
                 ),
                 raw=raw,
+                initial_hashes={} if initial_hashes is None else initial_hashes,
             ),
         )
 
@@ -344,10 +386,15 @@ class CaseEmitter:
         dedup: Dedup = Dedup.REQUEST,
     ) -> Case | None:
         checked_kwargs = data.kwargs if kwargs is None else kwargs
-        if dedup is Dedup.REQUEST and not self.is_new_request(checked_kwargs, mode):
-            return None
-        if dedup is Dedup.NEGATIVE_SET and not self.seen_negative.insert(_dedup_key(checked_kwargs)):
-            return None
+        initial_hashes: dict[ParameterLocation, int] = {}
+        if dedup is Dedup.REQUEST:
+            is_new, initial_hashes = self.is_new_request(checked_kwargs, mode)
+            if not is_new:
+                return None
+        if dedup is Dedup.NEGATIVE_SET:
+            request, key, initial_hashes = _dedup_key_and_hashes(checked_kwargs)
+            if not self.seen_negative.insert(request, key=key):
+                return None
         case = self.build(
             data,
             mode=mode,
@@ -360,12 +407,25 @@ class CaseEmitter:
             method=method,
             kwargs=kwargs,
             raw=raw,
+            initial_hashes=initial_hashes,
         )
-        if dedup is Dedup.WIRE_REQUEST and not self.is_new_request(_case_to_kwargs(case), mode):
-            return None
-        if dedup is Dedup.WIRE_NEGATIVE_SET and not self.seen_negative.insert(_dedup_key(_case_to_kwargs(case))):
+        if dedup is Dedup.WIRE_REQUEST:
+            is_new, _ = self.is_new_request(_wire_kwargs(case), mode)
+            if not is_new:
+                return None
+        if dedup is Dedup.WIRE_NEGATIVE_SET and not self.seen_negative.insert(_dedup_key(_wire_kwargs(case))):
             return None
         return case
+
+
+def _wire_kwargs(case: Case) -> dict[str, Any]:
+    # Keyed like the template, so a case that sends the same request as a body or parameter case is caught.
+    kwargs = _case_to_kwargs(case)
+    if case.body is not NOT_SET:
+        kwargs["body"] = case.body
+        kwargs["media_type"] = case.media_type
+        _set_multipart_content_types(kwargs, case.multipart_content_types)
+    return kwargs
 
 
 def _replay(
@@ -435,7 +495,7 @@ def _with_body_pool_values(
     filled: set[str] = set()
     updated = schema
     for name, value in fields:
-        path = tuple(int(segment) if segment.isdigit() else segment for segment in name.split("/"))
+        path = split_body_key(name)
         if path[0] in filled:
             continue
         candidate = _with_leaf_example(updated, path, value, bundled, schema, validator_cls)
@@ -448,7 +508,7 @@ def _with_body_pool_values(
 
 def _with_leaf_example(
     node: dict[str, Any],
-    path: tuple[str | int, ...],
+    path: list[str],
     value: object,
     bundled: object,
     body_schema: dict[str, Any],
@@ -460,15 +520,21 @@ def _with_leaf_example(
         return None
     step, *rest = path
     properties = resolved.get("properties")
-    if isinstance(step, str):
-        child = properties.get(step) if isinstance(properties, dict) else None
-    else:
+    if not isinstance(properties, dict):
+        properties = {}
+    # A digit segment is an array index only when the node has no property of that name.
+    is_property = step in properties
+    if is_property:
+        child = properties[step]
+    elif is_array_index(step):
         # Every array item shares the `items` schema, so the value reaches each generated item.
         child = resolved.get("items")
+    else:
+        child = None
     if not isinstance(child, dict):
         return None
     if rest:
-        replacement = _with_leaf_example(child, tuple(rest), value, bundled, body_schema, validator_cls)
+        replacement = _with_leaf_example(child, rest, value, bundled, body_schema, validator_cls)
         if replacement is None:
             return None
     else:
@@ -477,8 +543,7 @@ def _with_leaf_example(
         if not make_validator(schema_with_bundle(child, body_schema), validator_cls).is_valid(value):
             return None
         replacement = {**child, "examples": [value]}
-    if isinstance(step, str):
-        assert isinstance(properties, dict), "a named step only resolves through `properties`"
+    if is_property:
         return {**resolved, "properties": {**properties, step: replacement}}
     return {**resolved, "items": replacement}
 
@@ -496,22 +561,24 @@ def _inline_ref(node: dict[str, Any], bundled: object) -> dict[str, Any] | None:
 
 def _generate_coverage_values_from_custom_strategy(
     media_type: str,
-) -> Generator[GeneratedValue, None, None]:
+) -> Generator[tuple[str, GeneratedValue], None, None]:
     """Generate coverage values from a custom media type strategy."""
-    strategy = find_media_type_strategy(media_type)
-    if strategy is None:
-        return
+    for resolved_media_type, strategy in iter_matching_media_type_strategies(media_type):
+        value: str | bytes = examples.generate_one(strategy)
+        yield (
+            resolved_media_type,
+            GeneratedValue.with_positive(
+                value=value,
+                scenario=CoverageScenario.EXAMPLE_VALUE,
+                description=f"Custom media type: {resolved_media_type}",
+            ),
+        )
 
-    value: str | bytes = examples.generate_one(strategy)
-    yield GeneratedValue.with_positive(
-        value=value,
-        scenario=CoverageScenario.EXAMPLE_VALUE,
-        description=f"Custom media type: {media_type}",
-    )
 
-
-def _generate_multipart_body_from_custom_strategies(body: OpenApiBody) -> dict[str, Any] | None:
-    """Generate a body dict for multipart forms using custom encoding strategies.
+def _generate_multipart_body_from_custom_strategies(
+    body: OpenApiBody,
+) -> tuple[dict[str, Any], dict[str, str]] | None:
+    """Generate a body dict for multipart forms using custom encoding strategies, with each part's content type.
 
     Returns None if the body doesn't have custom encoding strategies or isn't a form type.
     """
@@ -523,14 +590,14 @@ def _generate_multipart_body_from_custom_strategies(body: OpenApiBody) -> dict[s
     required = schema.get("required", [])
 
     result: dict[str, Any] = {}
-    has_custom_strategy = False
+    content_types: dict[str, str] = {}
 
     for prop_name in properties:
         for ct in body.get_property_content_types(prop_name):
-            strategy = find_media_type_strategy(ct)
-            if strategy is not None:
+            match = next(iter_matching_media_type_strategies(ct), None)
+            if match is not None:
+                content_types[prop_name], strategy = match
                 result[prop_name] = examples.generate_one(strategy)
-                has_custom_strategy = True
                 break
 
     for prop_name in required:
@@ -538,7 +605,7 @@ def _generate_multipart_body_from_custom_strategies(body: OpenApiBody) -> dict[s
             prop_schema = properties.get(prop_name, {})
             result[prop_name] = b"" if prop_schema.get("format") == "binary" else ""
 
-    return result if has_custom_strategy else None
+    return (result, content_types) if content_types else None
 
 
 def _filter_draws_for_case(
@@ -603,7 +670,7 @@ def _case_slot_value(kwargs: dict[str, Any], location: ParameterLocation, parame
     if container is None:
         return _SENTINEL_ABSENT
     if location == ParameterLocation.BODY:
-        value = resolve_path(container, parameter_name.split("/"))
+        value = resolve_path(container, split_body_key(parameter_name))
         return _SENTINEL_ABSENT if value is UNRESOLVABLE else value
     if not isinstance(container, dict) or parameter_name not in container:
         return _SENTINEL_ABSENT
@@ -864,36 +931,52 @@ def _body_cases(run: CoverageRun) -> Generator[Case, None, None]:
     for body in operation.body:
         instant = Instant()
 
-        multipart_body = _generate_multipart_body_from_custom_strategies(body)
-        first_custom_value: GeneratedValue | None
-        if multipart_body is not None:
-            first_custom_value = GeneratedValue.with_positive(
-                value=multipart_body,
-                scenario=CoverageScenario.EXAMPLE_VALUE,
-                description="Multipart body with custom encoding",
-            )
+        multipart = _generate_multipart_body_from_custom_strategies(body)
+        custom_values: list[tuple[str, dict[str, str] | None, GeneratedValue]]
+        if multipart is not None:
+            multipart_body, part_content_types = multipart
+            custom_values = [
+                (
+                    body.media_type,
+                    part_content_types,
+                    GeneratedValue.with_positive(
+                        value=multipart_body,
+                        scenario=CoverageScenario.EXAMPLE_VALUE,
+                        description="Multipart body with custom encoding",
+                    ),
+                )
+            ]
         else:
-            first_custom_value = next(_generate_coverage_values_from_custom_strategy(body.media_type), None)
+            custom_values = [
+                (media_type, None, value)
+                for media_type, value in _generate_coverage_values_from_custom_strategy(body.media_type)
+            ]
 
-        if first_custom_value is not None:
+        if custom_values:
+            first_media_type, first_content_types, first_custom_value = custom_values[0]
             if body.is_required:
                 template.has_generated_required_body = True
             elapsed = instant.elapsed
             if "body" not in template:
                 template.seed_time += elapsed
-                template.set_body(first_custom_value, body.media_type)
-            if GenerationMode.POSITIVE in generation_modes and not _is_invalid_positive(template, first_custom_value):
-                data = template.with_body(value=first_custom_value, media_type=body.media_type)
-                yield emitter.build(
-                    data,
-                    mode=first_custom_value.generation_mode,
-                    elapsed=elapsed,
-                    scenario=first_custom_value.scenario,
-                    description=first_custom_value.description,
-                    location=first_custom_value.location,
-                    parameter=body.media_type,
-                    parameter_location=ParameterLocation.BODY,
-                )
+                template.set_body(first_custom_value, first_media_type, first_content_types)
+            if GenerationMode.POSITIVE in generation_modes:
+                for resolved_media_type, content_types, custom_value in custom_values:
+                    if _is_invalid_positive(template, custom_value):
+                        continue
+                    data = template.with_body(
+                        value=custom_value, media_type=resolved_media_type, multipart_content_types=content_types
+                    )
+                    yield emitter.build(
+                        data,
+                        mode=custom_value.generation_mode,
+                        elapsed=elapsed,
+                        scenario=custom_value.scenario,
+                        description=custom_value.description,
+                        location=custom_value.location,
+                        parameter=resolved_media_type,
+                        parameter_location=ParameterLocation.BODY,
+                    )
             continue
 
         schema = as_object_schema(body.unoptimized_schema)
@@ -1040,8 +1123,8 @@ def _parameter_mutations(run: CoverageRun) -> Generator[Case, None, None]:
             kwargs = data.kwargs
             raw = data.raw
             if is_content_type_mutation:
-                kwargs = {k: v for k, v in kwargs.items() if k not in ("body", "media_type")}
-                raw = {k: v for k, v in raw.items() if k not in ("body", "media_type")}
+                kwargs = {k: v for k, v in kwargs.items() if k not in BODY_KEYS}
+                raw = {k: v for k, v in raw.items() if k not in BODY_KEYS}
 
             if value.generation_mode == GenerationMode.NEGATIVE:
                 if not template.can_emit(GenerationMode.NEGATIVE):
@@ -1187,8 +1270,8 @@ def _content_type_probes(run: CoverageRun) -> Generator[Case, None, None]:
             scenario == CoverageScenario.MALFORMED_CONTENT_TYPE
             and data.kwargs.get("media_type") == "multipart/form-data"
         ):
-            kwargs = {key: value for key, value in kwargs.items() if key not in ("body", "media_type")}
-            raw = {key: value for key, value in raw.items() if key not in ("body", "media_type")}
+            kwargs = {key: value for key, value in kwargs.items() if key not in BODY_KEYS}
+            raw = {key: value for key, value in raw.items() if key not in BODY_KEYS}
         yield emitter.build(
             data,
             mode=GenerationMode.NEGATIVE,
@@ -1258,8 +1341,8 @@ def _missing_required(run: CoverageRun) -> Generator[Case, None, None]:
             raw = data.raw
             # For missing Content-Type header test, don't send body
             if location == ParameterLocation.HEADER and name.lower() == "content-type":
-                kwargs = {k: v for k, v in kwargs.items() if k not in ("body", "media_type")}
-                raw = {k: v for k, v in raw.items() if k not in ("body", "media_type")}
+                kwargs = {k: v for k, v in kwargs.items() if k not in BODY_KEYS}
+                raw = {k: v for k, v in raw.items() if k not in BODY_KEYS}
 
             case = emitter.emit(
                 data,

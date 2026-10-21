@@ -103,7 +103,7 @@ def sync(
     part of a data frame that can be downloaded and the names of the files.
 
     If the data frame has `NOT_UPLOADED` status, the `manifest` field in the response will contain S3 `PUT` URLs
-    to upload data frame `.csv` files. See [Create a data frame](#/Data%20Frames/createDataFrames) for documentation of
+    to upload data frame `.csv` files. See [Create a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/create-data-frame) for documentation of
     the full upload flow.
 
     If the data frame has `FAILED_VALIDATION` or `IN_PROGRESS` status, the `manifest` field in the response will
@@ -161,7 +161,7 @@ async def asyncio(
     part of a data frame that can be downloaded and the names of the files.
 
     If the data frame has `NOT_UPLOADED` status, the `manifest` field in the response will contain S3 `PUT` URLs
-    to upload data frame `.csv` files. See [Create a data frame](#/Data%20Frames/createDataFrames) for documentation of
+    to upload data frame `.csv` files. See [Create a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/create-data-frame) for documentation of
     the full upload flow.
 
     If the data frame has `FAILED_VALIDATION` or `IN_PROGRESS` status, the `manifest` field in the response will

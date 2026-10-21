@@ -67,6 +67,8 @@ class TrainingRun(_message.Message):
         "environment_id",
         "deployment_id",
         "experiment_id",
+        "compute_class",
+        "network_policy",
     )
     class EnvEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -104,6 +106,8 @@ class TrainingRun(_message.Message):
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
+    NETWORK_POLICY_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: TrainingRunStatus
@@ -122,6 +126,8 @@ class TrainingRun(_message.Message):
     environment_id: str
     deployment_id: str
     experiment_id: str
+    compute_class: _service_pb2.ComputeClass
+    network_policy: _service_pb2.NetworkPolicy
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -142,6 +148,8 @@ class TrainingRun(_message.Message):
         environment_id: _Optional[str] = ...,
         deployment_id: _Optional[str] = ...,
         experiment_id: _Optional[str] = ...,
+        compute_class: _Optional[_Union[_service_pb2.ComputeClass, str]] = ...,
+        network_policy: _Optional[_Union[_service_pb2.NetworkPolicy, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateTrainingRunRequest(_message.Message):
@@ -158,6 +166,9 @@ class CreateTrainingRunRequest(_message.Message):
         "max_retries",
         "volume_mounts",
         "experiment_id",
+        "compute_class",
+        "network_policy",
+        "execution_target",
     )
     class EnvEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -189,6 +200,9 @@ class CreateTrainingRunRequest(_message.Message):
     MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
     VOLUME_MOUNTS_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
+    NETWORK_POLICY_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_TARGET_FIELD_NUMBER: _ClassVar[int]
     name: str
     data: TrainingRunDataSource
     config: _struct_pb2.Struct
@@ -201,6 +215,9 @@ class CreateTrainingRunRequest(_message.Message):
     max_retries: int
     volume_mounts: _containers.RepeatedCompositeFieldContainer[_service_pb2.VolumeMount]
     experiment_id: str
+    compute_class: _service_pb2.ComputeClass
+    network_policy: _service_pb2.NetworkPolicy
+    execution_target: _service_pb2.ExecutionTarget
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -215,6 +232,9 @@ class CreateTrainingRunRequest(_message.Message):
         max_retries: _Optional[int] = ...,
         volume_mounts: _Optional[_Iterable[_Union[_service_pb2.VolumeMount, _Mapping]]] = ...,
         experiment_id: _Optional[str] = ...,
+        compute_class: _Optional[_Union[_service_pb2.ComputeClass, str]] = ...,
+        network_policy: _Optional[_Union[_service_pb2.NetworkPolicy, _Mapping]] = ...,
+        execution_target: _Optional[_Union[_service_pb2.ExecutionTarget, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateTrainingRunResponse(_message.Message):
@@ -236,19 +256,21 @@ class GetTrainingRunResponse(_message.Message):
     def __init__(self, training_run: _Optional[_Union[TrainingRun, _Mapping]] = ...) -> None: ...
 
 class ListTrainingRunsFilters(_message.Message):
-    __slots__ = ("name", "statuses", "start_time", "end_time", "training_run_id", "experiment_id")
+    __slots__ = ("name", "statuses", "start_time", "end_time", "training_run_id", "experiment_id", "created_by")
     NAME_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     TRAINING_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     name: str
     statuses: _containers.RepeatedScalarFieldContainer[TrainingRunStatus]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     training_run_id: str
     experiment_id: str
+    created_by: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -257,6 +279,7 @@ class ListTrainingRunsFilters(_message.Message):
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         training_run_id: _Optional[str] = ...,
         experiment_id: _Optional[str] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListTrainingRunsRequest(_message.Message):

@@ -120,6 +120,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import math
+import os
 import time
 import uuid
 import weakref
@@ -158,6 +160,7 @@ from local_operator.harness.types import (
     ToolExecutionStartEvent,
     Usage,
 )
+from local_operator.harness.wip_checkpoint import WipCheckpointer, restore_hint
 from local_operator.mcp.config import server_own_turn_only
 
 # Re-exported from the leaf module: ``teams.py`` validates ``TeamMember.tier``
@@ -370,6 +373,18 @@ class MemberModelResolution:
     #: caller (session naming) is silent about the first: a session with no
     #: ``subagents.models`` at all names itself on the parent's model by design.
     unavailable_quiet: bool = False
+    #: Whether the ROLE's own pin is the inherit sentinel -- "always run on the
+    #: launching session's model", stated absolutely.
+    #:
+    #: This is a DIFFERENT kind of statement from an ordinary tier pin, and it
+    #: is kept as its own field rather than folded into ``tier`` because the two
+    #: are resolved by different rules: a tier pin is the role's DEFAULT and a
+    #: launch may override it, while the sentinel is the role's decision and
+    #: nothing a delegating model can pass may move it. Folding them together
+    #: would make the resolver's own output unable to say which kind of pin it
+    #: honoured -- and the launch receipt has to name that difference, because
+    #: "your tier was ignored" is only honest when something ignored it.
+    role_pins_inherit: bool = False
 
     @property
     def decided_by_team(self) -> bool:
@@ -401,6 +416,30 @@ def resolve_member_model(
     * **effort** — the roster slot's ``effort`` → the chosen tier's
       ``{model, effort}`` mapping → the model's own default.
 
+    **One exception, and it is absolute: the role's own pin may BE the inherit
+    sentinel** (``effort: default`` on a role row or in a packaged seed), which
+    means "this role always runs on the launching session's model". When it is,
+    the role's decision wins outright — over the caller's ``launch_tier`` AND
+    over a roster slot's ``tier`` — and the resolution reports
+    ``role_pins_inherit``.
+
+    Why it outranks the ROSTER slot too, and not only the launch argument: every
+    layer it outranks is reachable by a DELEGATING MODEL. The ``task`` tool's
+    ``effort``/``model`` arguments are the launch tier and the explicit pick,
+    and the ``team`` tool lets a model set a roster slot's ``tier`` outright
+    (``subagents.model_choice=model``). A pin that a model could move by any of
+    those routes would not be a pin at all: the role would run on whatever the
+    delegating model last asked for, which is the failure this sentinel exists
+    to close (a coder that silently ran on a tier its parent picked instead of
+    the model the parent itself runs on). What the sentinel does NOT outrank is
+    the operator changing the role's own pin — the role row, the packaged seed
+    and the operator's registry edit are the only ways to state or withdraw it.
+
+    The ordinary tier pin keeps its documented meaning: a role's ``effort: hi``
+    is the role's DEFAULT and a launch tier may still override it. Only the
+    sentinel is absolute, because only the sentinel claims the session's model
+    rather than naming a tier.
+
     ``slot_role`` is the roster SLOT's name when it differs from the role the
     child runs as: a ``team:pod`` launch runs as pod's manager, while the
     override that moved it is stored on the ``team:pod`` slot of the PARENT's
@@ -418,13 +457,30 @@ def resolve_member_model(
     member_tier = getattr(slot, "tier", None)
     member_effort = getattr(slot, "effort", None)
 
-    if launch_tier:
-        tier: str | None = str(launch_tier).strip().lower()
-        tier_source: Literal["launch", "team", "row", "none"] = "launch"
+    # The role's OWN pin is read FIRST, and ALWAYS -- not only when nothing
+    # else could have chosen a tier. The reason is the sentinel: a role may
+    # state "always run on the launching session's model", and that statement
+    # has to be known before a launch tier or a roster tier is allowed to
+    # decide, or the absolute pin would lose to exactly the layers it exists to
+    # outrank. The read is the same one this resolver has always made, on the
+    # same freshness (the registry is re-read per launch, so a pin written
+    # between two spawns is obeyed by the next one) -- what changed is that a
+    # launch which NAMES a tier now pays for it too.
+    row_tier = _row_effort_tier(role, agent_registry)
+    role_pins_inherit = is_inherit_tier_sentinel(row_tier)
+
+    if role_pins_inherit:
+        # The role decides, and the decision is "the launching session's
+        # model": no tier is named, so the tier lookup below is skipped
+        # entirely and the sentinel is carried straight through to the launch.
+        tier: str | None = None
+        tier_source: Literal["launch", "team", "row", "none"] = "row"
+    elif launch_tier:
+        tier = str(launch_tier).strip().lower()
+        tier_source = "launch"
     elif member_tier:
         tier, tier_source = str(member_tier), "team"
     else:
-        row_tier = _row_effort_tier(role, agent_registry)
         tier, tier_source = (row_tier, "row") if row_tier else (None, "none")
 
     selector: Any = None
@@ -441,7 +497,13 @@ def resolve_member_model(
             return str(tier_level), "tier"
         return None, "model_default"
 
-    if tier is not None:
+    if role_pins_inherit:
+        # The sentinel IS the selector: the launch resolves it to the
+        # launching session's own model through the existing sentinel path
+        # (``is_inherit_tier_sentinel``), so there is no second way of saying
+        # "the session's model" here.
+        selector = INHERIT_TIER_SENTINEL
+    elif tier is not None:
         try:
             targets = read_effort_tier_targets() if tier_targets is None else tier_targets
         except Exception as exc:  # noqa: BLE001 — a config read error is a reason, not a crash
@@ -488,6 +550,7 @@ def resolve_member_model(
         effort_source=effort_source,
         unavailable=unavailable,
         unavailable_quiet=unavailable_quiet,
+        role_pins_inherit=role_pins_inherit,
     )
 
 
@@ -498,6 +561,14 @@ def _row_effort_tier(role: str, agent_registry: Any) -> str | None:
     the reason this moved behind one function: the resolver has to know the row
     tier before it can decide whether a roster override came FIRST, and a second
     copy of the read is how the two would come apart.
+
+    **The value it returns may BE the inherit sentinel** (``default``), which
+    is not a tier name at all: it is the role saying "always run on the
+    launching session's model". The caller must recognise it before looking it
+    up in ``subagents.models`` — a tier named ``default`` is not configured on
+    any machine, so reading it as one would turn the role's absolute pin into a
+    launch failure. :func:`is_inherit_tier_sentinel` is that recognition, and
+    the resolver above is its only caller.
 
     It RAISES when the registry cannot be read, and that is deliberate rather
     than sloppy: "the registry could not be read" and "no role of that name" are
@@ -1431,6 +1502,7 @@ def run_subagent(
     jobs_manager: "AsyncJobManager",
     model_spec: ModelSpec | None = None,
     resume_dir: "Path | None" = None,
+    resume_facts: Mapping[str, Any] | None = None,
     agent: str = "task",
     effort: str | None = None,
     model_selector: str | None = None,
@@ -1496,6 +1568,7 @@ def run_subagent(
             jobs_manager=jobs_manager,
             model_spec=model_spec,
             resume_dir=resume_dir,
+            resume_facts=resume_facts,
             agent=agent,
             profile=profile,
             restricted=restricted,
@@ -1660,6 +1733,136 @@ def _effective_prompt(
     return head + escalation_preamble(target.reports_to) + effective_prompt, profile
 
 
+def _child_failure_cause(evidence: str) -> str:
+    """Name a provider only when its own renderer attests to the refusal.
+
+    Startup/filesystem/programming errors can occur before any model request;
+    an arbitrary error string is not evidence that a provider was involved.
+    """
+    from local_operator.providers.failover import (
+        is_rendered_auth_error,
+        is_rendered_out_of_credits_error,
+    )
+
+    return (
+        "child-provider-error"
+        if is_rendered_auth_error(evidence) or is_rendered_out_of_credits_error(evidence)
+        else "child-failed"
+    )
+
+
+def _note_checkpoint_cause(directory: Path, job_id: str, cause: str) -> None:
+    """Retain settle classification where a restart-only resume can read it."""
+    import json
+
+    path = directory / f"subagent-wip-{job_id}.v1.json"
+    try:
+        payload = json.loads(path.read_text())
+        payload["death_cause"] = cause
+        ledger._staged_write(path, payload)
+    except (OSError, ValueError, TypeError):
+        pass
+
+
+def _resume_context(directory: Path, facts: Mapping[str, Any] | None = None) -> str:
+    """Read the latest recovery receipts and todo snapshot, never replay work.
+
+    Uses the same backward custom-entry reader as serving, without importing
+    serving (which imports the harness). Old transcripts with no evidence add
+    no prompt noise. Recovery remains the child's explicit choice.
+    """
+    import json
+
+    from local_operator.incidents import render_child_death
+    from local_operator.session.transcript import read_latest_custom
+
+    facts = facts or {}
+    lanes = ledger.read_lane_receipts(directory)
+    stops = ledger.read_stop_receipts(directory)
+    checkpoints = []
+    for path in directory.glob("subagent-wip-*.v1.json"):
+        try:
+            payload = json.loads(path.read_text())
+            if isinstance(payload, dict):
+                checkpoints.append(payload)
+        except (OSError, ValueError):
+            continue
+    wip = max(checkpoints, key=lambda r: float(r.get("at") or 0), default={})
+    lane = max(lanes, key=lambda r: float(r.get("started_at") or 0), default={})
+    stop = max(stops, key=lambda r: float(r.get("at") or 0), default={})
+    step = str(facts.get("last_step") or wip.get("step") or lane.get("last_step") or "")
+    cause = str(
+        facts.get("cut_off_cause") or facts.get("death_cause") or wip.get("death_cause") or ""
+    )
+    if cause:
+        pass
+    elif facts.get("error_text"):
+        cause = _child_failure_cause(str(facts["error_text"]))
+    elif stop.get("mechanism") == "cancel":
+        cause = "child-parent-gone" if stop.get("actor") == "parent-teardown" else "child-cancelled"
+    elif stop.get("mechanism") == "pause":
+        cause = "child-paused"
+    elif lane:
+        cause = "child-never-settled"
+
+    try:
+        todo = read_latest_custom(directory, "todo_snapshot") or {}
+    except (OSError, ValueError, TypeError):
+        todo = {}
+    pending = []
+    for phase in todo.get("items", []):
+        for item in phase.get("items", [phase]):
+            if item.get("status") in ("pending", "blocked", "in_progress"):
+                pending.append(str(item.get("text") or item.get("content") or ""))
+    blocks = []
+    if cause or step:
+        detail = str(facts.get("error_text") or "") if cause == "child-failed" else ""
+        rendered_cause = render_child_death(cause, detail=detail)
+        blocks.append(
+            f"[resume context — the previous attempt ended: {rendered_cause}. "
+            f"Last completed step: {step or 'not recorded'}.]"
+        )
+    if wip.get("commit"):
+        command = restore_hint(str(wip.get("root") or directory), str(wip["commit"]))
+        ref = facts.get("wip_ref") or wip.get("ref")
+        if wip.get("head_moved"):
+            import shlex
+
+            root = shlex.quote(str(wip.get("root") or directory))
+            inspect = f"git -C {root} diff {shlex.quote(str(ref))} HEAD"
+            reading = (
+                "The worktree is clean while HEAD moved since the checkpoint. "
+                if wip.get("worktree_clean")
+                else "HEAD moved since the checkpoint. "
+            )
+            guidance = (
+                reading + f"Inspect {inspect} before restoring; only after inspection, "
+                f"the recovery overlay is: {command}"
+            )
+        else:
+            guidance = (
+                "Check whether these changes are present; if the worktree is clean, "
+                f"restore with: {command}"
+            )
+        blocks.append(
+            f"[WIP checkpoint: {ref} ({len(wip.get('files', []))} files, at {wip.get('at')}). "
+            f"{guidance}]"
+        )
+    if pending:
+        blocks.append("[Open work: " + "; ".join(f"- {item}" for item in pending) + "]")
+    return (
+        "\n".join(
+            [
+                *blocks,
+                "Continue from there; do not repeat completed steps or re-read the whole diff.",
+                "",
+            ]
+        )
+        if blocks
+        else ""
+    )
+
+
 def _make_runner(
     *,
     label: str,
@@ -1668,6 +1871,7 @@ def _make_runner(
     jobs_manager: "AsyncJobManager",
     model_spec: ModelSpec | None,
     resume_dir: "Path | None" = None,
+    resume_facts: Mapping[str, Any] | None = None,
     agent: str = "task",
     profile: "AgentProfile | None" = None,
     restricted: bool = False,
@@ -1690,10 +1894,26 @@ def _make_runner(
             # ``None`` means "no trajectory yet" to a ``getattr`` probe; the
             # list materializes when the child actually starts running.
             job.trajectory = []
+        checkpoint: WipCheckpointer | None = None
+        checkpoint_task: asyncio.Task[None] | None = None
+        event_checkpoint_task: asyncio.Task[None] | None = None
+        settled_status = "failed"
+        forced_snapshot = False
+        take_checkpoint: Callable[..., Awaitable[None]] | None = None
         child: Session | None = None
         unsubscribe: Callable[[], None] | None = None
         # Mutable cells the relay handler writes into across the run.
         final: dict[str, Any] = {"text": "", "error": None}
+
+        async def stop_checkpoint_background() -> None:
+            # Join workers before clear/final snapshot: a timer must not
+            # republish a ref after a completed child has released it.
+            for task in (checkpoint_task, event_checkpoint_task):
+                if task is not None:
+                    task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await task
+
         try:
             child = await _build_child_session(
                 label=label,
@@ -1710,6 +1930,114 @@ def _make_runner(
                 restricted=restricted,
                 target=target,
             )
+            try:
+                interval = float(os.environ.get("LOCAL_OPERATOR_SUBAGENT_WIP_INTERVAL_S", "30"))
+                if not math.isfinite(interval) or interval <= 0:
+                    interval = 30.0
+            except ValueError:
+                interval = 30.0
+            checkpoint_lock = asyncio.Lock()
+
+            async def checkpoint_now(force: bool = False, *, event_driven: bool = False) -> None:
+                nonlocal forced_snapshot
+                if force:
+                    if forced_snapshot:
+                        return
+                assert checkpoint is not None
+                # Offload Git without allowing a cancelled thread to race the
+                # final snapshot/clear. The lock spans worker completion.
+                async with checkpoint_lock:
+                    previous_commit = checkpoint.result.get("commit")
+                    worker = asyncio.create_task(
+                        asyncio.to_thread(checkpoint.snapshot, force or event_driven)
+                    )
+                    try:
+                        result = await asyncio.shield(worker)
+                    except asyncio.CancelledError:
+                        await worker
+                        raise
+                ref = checkpoint.ref if result.get("commit") else ""
+                try:
+                    if job is not None:
+                        job.last_step = checkpoint.step
+                        job.wip_ref = ref
+                    if comms is not None:
+                        comms.note_checkpoint(
+                            job_id,
+                            last_step=checkpoint.step,
+                            wip_ref=ref,
+                            wip_files=len(result.get("files", [])),
+                            wip_at=result.get("at", 0),
+                        )
+                    ledger.note_lane_step(
+                        child._transcript.directory,
+                        job_id,
+                        checkpoint.step,
+                        checkpoint.step_at,
+                        ref,
+                        force=bool(
+                            result.get("commit") and result.get("commit") != previous_commit
+                        ),
+                    )
+                except Exception:
+                    logger.warning("could not publish WIP checkpoint evidence", exc_info=True)
+                if force:
+                    forced_snapshot = True
+
+            async def on_tool_end(tool_name: str, intent: str, is_error: bool) -> None:
+                nonlocal event_checkpoint_task
+                assert checkpoint is not None
+                try:
+                    if not is_error:
+                        checkpoint.note_step(tool_name, intent, time.time())
+                    # A failed tool may still have written recoverable files.
+                    ref = checkpoint.ref if checkpoint.result.get("commit") else ""
+                    ledger.note_lane_step(
+                        child._transcript.directory,
+                        job_id,
+                        checkpoint.step,
+                        checkpoint.step_at,
+                        ref,
+                    )
+                    if job is not None:
+                        job.last_step = checkpoint.step
+                    if comms is not None:
+                        comms.note_checkpoint(
+                            job_id,
+                            last_step=checkpoint.step,
+                            wip_ref=ref,
+                            wip_files=len(checkpoint.result.get("files", [])),
+                            wip_at=checkpoint.result.get("at", 0),
+                        )
+                    # Tool events have their own 10s debounce, independent of
+                    # the periodic interval override.
+                    if (
+                        time.monotonic() - checkpoint.last_snapshot >= 10
+                        and not checkpoint_lock.locked()
+                        and (event_checkpoint_task is None or event_checkpoint_task.done())
+                    ):
+                        event_checkpoint_task = asyncio.create_task(
+                            checkpoint_now(force=False, event_driven=True)
+                        )
+                except Exception:
+                    logger.warning("could not record child tool completion", exc_info=True)
+
+            async def checkpoint_loop() -> None:
+                while True:
+                    await asyncio.sleep(interval)
+                    if not checkpoint_lock.locked():
+                        await checkpoint_now()
+
+            take_checkpoint = checkpoint_now
+            checkpoint = WipCheckpointer(
+                child._cwd, child._transcript.directory, job_id, label, interval
+            )
+
+            checkpoint_task = asyncio.create_task(checkpoint_loop())
+            if resume_dir is not None:
+                effective_resume = _resume_context(resume_dir, resume_facts)
+            else:
+                effective_resume = ""
             if job is not None:
                 # Off the CHILD, not the parent: ``model_spec`` may have put
                 # this child on a different model, which is precisely the fact
@@ -1813,6 +2141,7 @@ def _make_runner(
                     final,
                     parent_session.jobs,
                     comms,
+                    on_tool_end=on_tool_end,
                 )
             )
             bridge = asyncio.create_task(_abort_bridge(signal, child))
@@ -1820,7 +2149,9 @@ def _make_runner(
                 # The raw launch task and the role-expanded child prompt are two
                 # views of one turn. Persist the job-derived correlation id so
                 # projections render that durable row once without text matching.
-                await child.prompt(effective_prompt, message_id=f"subagent-launch:{job_id}")
+                await child.prompt(
+                    effective_resume + effective_prompt, message_id=f"subagent-launch:{job_id}"
+                )
             finally:
                 bridge.cancel()
                 with contextlib.suppress(BaseException):
@@ -1836,6 +2167,14 @@ def _make_runner(
             # records outlive them so a child stays resumable, and without
             # this the roster (``hub op='list'``) could not say whether a
             # swept child finished or crashed.
+            settled_status = "completed"
+            await stop_checkpoint_background()
+            async with checkpoint_lock:
+                await asyncio.to_thread(checkpoint.clear)
+            if job is not None:
+                job.wip_ref = ""
+            if comms is not None:
+                comms.note_checkpoint(job_id, last_step=checkpoint.step)
             await _finish_child_browser(child, comms, job_id, "completed")
             await _publish_terminal_outcome(
                 comms,
@@ -1864,6 +2203,10 @@ def _make_runner(
             # already classified the end as involuntary — a cancel that raced
             # the budget guard is still the budget guard, and the child's
             # recorded cause is the more specific fact.
+            settled_status = "cancelled"
+            await stop_checkpoint_background()
+            if checkpoint is not None and take_checkpoint is not None:
+                await take_checkpoint(force=True)
             cancelled_cause = str(final.get("cut_off_cause") or "")
             with contextlib.suppress(BaseException):
                 await _settle_child_cleanup(
@@ -1896,6 +2239,9 @@ def _make_runner(
             cut_off_cause = str(final.get("cut_off_cause") or "")
             if not cut_off_cause and child is not None:
                 cut_off_cause = str(getattr(child, "_cut_off_cause", "") or "")
+            await stop_checkpoint_background()
+            if checkpoint is not None and take_checkpoint is not None:
+                await take_checkpoint(force=True)
             await _finish_child_browser(child, comms, job_id, "failed")
             await _publish_terminal_outcome(
                 comms,
@@ -1904,12 +2250,20 @@ def _make_runner(
                 job_id=job_id,
                 label=label,
                 status="failed",
+                failure_evidence=str(final.get("error") or ""),
                 error_text=str(exc),
                 cut_off_cause=cut_off_cause,
                 cut_off=str(final.get("cut_off") or ""),
             )
             raise
         finally:
+            await stop_checkpoint_background()
+            if (
+                checkpoint is not None
+                and take_checkpoint is not None
+                and settled_status != "completed"
+            ):
+                await take_checkpoint(force=True)
             if unsubscribe is not None:
                 unsubscribe()
             # WITHDRAW THE LANE RECEIPT. Every settle arm (completed /
@@ -2137,6 +2491,7 @@ async def _publish_terminal_outcome(
     result_text: str | None = None,
     cut_off_cause: str = "",
     cut_off: str = "",
+    failure_evidence: str = "",
 ) -> tuple[str, str | None, str | None]:
     """Resolve and deliver the one terminal fact owned by a child run.
 
@@ -2152,6 +2507,40 @@ async def _publish_terminal_outcome(
     mid-flight used to settle with no vocabulary at all, so its parent saw a
     child that had "finished" — the reported "stopping without committing".
     """
+    last_step = str(getattr(job, "last_step", "") or "")
+    wip_ref = str(getattr(job, "wip_ref", "") or "")
+    death_cause = cut_off_cause
+    if not death_cause and status != "completed":
+        directory = comms.session_dir_of(job_id) if comms is not None else None
+        stops = ledger.read_stop_receipts(directory) if directory is not None else []
+        stop = next((r for r in reversed(stops) if r.get("job_id") == job_id), {})
+        if stop.get("mechanism") == "pause":
+            death_cause = "child-paused"
+        elif stop.get("mechanism") == "cancel":
+            death_cause = (
+                "child-parent-gone" if stop.get("actor") == "parent-teardown" else "child-cancelled"
+            )
+        elif status == "cancelled":
+            death_cause = "child-cancelled"
+        else:
+            death_cause = _child_failure_cause(failure_evidence or error_text or "")
+    if job is not None:
+        job.death_cause = death_cause
+        job.last_step = last_step
+        job.wip_ref = wip_ref
+    if comms is not None:
+        record = comms._record(job_id)
+        comms.note_checkpoint(
+            job_id,
+            last_step=last_step,
+            wip_ref=wip_ref,
+            death_cause=death_cause,
+            wip_files=getattr(record, "wip_files", 0),
+            wip_at=getattr(record, "wip_at", 0),
+        )
+        directory = comms.session_dir_of(job_id)
+        if directory is not None and death_cause:
+            _note_checkpoint_cause(directory, job_id, death_cause)
     outcome = (
         comms.record_outcome(
             job_id,
@@ -2178,6 +2567,9 @@ async def _publish_terminal_outcome(
         job_id=job_id,
         label=label,
         status=resolved_status,
+        last_step=last_step,
+        wip_ref=wip_ref,
+        death_cause=death_cause,
         error_text=resolved_error,
         result_text=resolved_result,
         cut_off_cause=cut_off_cause,
@@ -2283,6 +2675,7 @@ def _make_relay(
     final: dict[str, Any],
     owner_jobs: Any = None,
     comms: Any = None,
+    on_tool_end: Callable[[str, str, bool], Awaitable[None]] | None = None,
 ) -> Callable[[AgentEvent], Awaitable[None]]:
     """The child-stream handler: trajectory + throttled parent relay.
 
@@ -2399,6 +2792,8 @@ def _make_relay(
             if callable(notify):
                 notify()
 
+    completed_intents: dict[str, str] = {}
+
     async def relay(event: AgentEvent) -> None:
         nonlocal streaming
         # The model's private reasoning is display-only and has NO row on the
@@ -2434,9 +2829,14 @@ def _make_relay(
         progress: str | None = None
         if isinstance(event, ToolExecutionStartEvent):
             streaming = False
+            completed_intents[event.tool_call_id] = event.intent or ""
             running[event.tool_call_id] = tool_activity(event.tool_name, event.intent)
             progress = batch_activity(list(running.values()))
         elif isinstance(event, ToolExecutionEndEvent):
+            if on_tool_end is not None:
+                await on_tool_end(
+                    event.tool_name, completed_intents.pop(event.tool_call_id, ""), event.is_error
+                )
             running.pop(event.tool_call_id, None)
             # Back to the model as soon as the batch empties: a settled call is
             # not the child's current activity, and the ledger the page draws

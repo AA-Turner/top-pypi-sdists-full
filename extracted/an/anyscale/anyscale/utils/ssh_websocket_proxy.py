@@ -101,6 +101,24 @@ async def drain(ws_receive_func):
         logger.debug("drain: finished")
 
 
+def read_auth_token(args):
+    """The bearer token, read from a file when `--token-file <path>` is given.
+
+    A path rather than the token: ssh runs a ProxyCommand through `sh -c`, so anything
+    in that string sits in a world-readable /proc/<pid>/cmdline. The positional form
+    still works.
+    """
+    if not args:
+        return None
+    if args[0] == "--token-file":
+        if len(args) < 2:
+            logger.debug("--token-file needs a path")
+            sys.exit(1)
+        with open(args[1]) as f:
+            return f.read().strip() or None
+    return args[0]
+
+
 async def main():
     if len(sys.argv) < 2:
         logger.debug("WebSocket URL must be provided as the first argument.")
@@ -109,11 +127,9 @@ async def main():
     ws_url = sys.argv[1]
     logger.debug(f"WebSocket URL: {ws_url}")
 
-    # Check for optional token argument
-    auth_token = None
-    if len(sys.argv) >= 3:
-        auth_token = sys.argv[2]
-        logger.debug("Authentication token provided as second argument")
+    auth_token = read_auth_token(sys.argv[2:])
+    if auth_token:
+        logger.debug("Authentication token provided")
 
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader(loop=loop)

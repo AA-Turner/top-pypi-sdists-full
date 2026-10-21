@@ -7,22 +7,26 @@ version does not yet model still reaches the server unchanged.
 
 What belongs in a create schema is narrower than what an index stores. Declare
 the fields you search — a ``dense_vector`` field, a ``sparse_vector`` field,
-and ``string`` fields with full-text search enabled — and at least one of
-those is required. Everything else is metadata: put those values in the
-documents you upsert and they are indexed for filtering automatically, with no
-declaration at all. A schema may hold at most one ``dense_vector`` and one
-``sparse_vector`` field.
+and ``string`` fields with full-text search enabled or with integrated
+embedding (``embed`` / ``sparse_embed``) — and at least one of those is required.
+Everything else is metadata: put those values in the documents you upsert and
+they are indexed for filtering automatically, with no declaration at all. An
+index has one dense slot and one sparse slot: at most one field may be a
+``dense_vector`` field or carry ``embed``, and at most one may be a
+``sparse_vector`` field or carry ``sparse_embed``.
 
 The builder still has methods for the metadata-only declarations
 (:meth:`SchemaBuilder.add_boolean_field`,
 :meth:`SchemaBuilder.add_float_field`,
 :meth:`SchemaBuilder.add_string_list_field`, and
-:meth:`SchemaBuilder.add_string_field` without full-text search). The server
+:meth:`SchemaBuilder.add_string_field` with no search key). The server
 rejects all of them on create, and one rejected field fails the whole request.
 
-Two field types have no method at all. Text embedded server-side is a
-``semantic_text`` field, which a create schema does not accept — reach it
-through :meth:`~pinecone.client.indexes.Indexes.create_for_model` instead.
+Two field types have no method at all. For integrated embedding, pass
+``embed`` or ``sparse_embed`` to :meth:`SchemaBuilder.add_string_field`; the
+``semantic_text`` field type, which is how a legacy integrated index (created
+via :meth:`~pinecone.client.indexes.Indexes.create_for_model`) reports its
+embedded field, is not accepted in a create schema.
 ``integer`` is response-only: describe and list return it for indexes that
 pre-date numeric normalisation, but there is no ``integer`` variant to create
 and the server answers one with a ``422``. The builder refuses it wherever a
@@ -40,7 +44,13 @@ locally with an explanation instead of remotely with a status code.
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping
 from typing import Any
+
+import msgspec
+
+from pinecone._internal.indexes_helpers import lowercase_metric
+from pinecone.models.indexes.schema import FieldEmbedConfig, FieldSparseEmbedConfig
 
 _FTS_LANGUAGES_SHORT = frozenset(
     [
@@ -188,6 +198,22 @@ def _validate_sparse_vector_options(name: str, options: dict[str, Any]) -> None:
             )
 
 
+def _embed_aspect(
+    value: bool | Mapping[str, Any] | FieldEmbedConfig | FieldSparseEmbedConfig | None,
+) -> dict[str, Any] | None:
+    if value is None or value is False:
+        return None
+    if value is True:
+        return {}
+    if isinstance(value, msgspec.Struct):
+        config = {k: v for k, v in msgspec.to_builtins(value).items() if v is not None}
+    else:
+        config = dict(value)
+    if "metric" in config:
+        config["metric"] = lowercase_metric(config["metric"])
+    return config
+
+
 def _normalize_fts_language(language: str) -> str:
     """Return the canonical short-code form of a language input.
 
@@ -216,20 +242,27 @@ class SchemaBuilder:
     definition rather than raising, so a later call wins.
 
     Building the ``{"fields": {...}}`` dict by hand is equally valid and
-    equally supported; the builder exists so the field types, their required
-    keys, and the declarations the server refuses are checked as you write
-    rather than on the create call.
+    equally supported; the builder exists so the field types and their
+    required keys are checked as you write rather than on the create call. It
+    checks names, byte limits, the dimension range and the required keys, and
+    refuses the response-only ``integer`` type when a raw ``type`` key reaches
+    a field dict (:meth:`add_custom_field`, ``additional_options``). It does
+    not check which field combinations the server accepts: the metadata-only
+    methods or a second dense vector field are built as written and the
+    server rejects them with a ``400``.
 
     Examples:
         >>> from pinecone.schema_builder import SchemaBuilder
         >>> schema = (
         ...     SchemaBuilder()
-        ...     .add_dense_vector_field("embedding", dimension=768, metric="cosine")
-        ...     .add_string_field("title", full_text_search={"language": "en"})
+        ...     .add_dense_vector_field("your_vector", dimension=768, metric="cosine")
+        ...     .add_string_field(
+        ...         "title", full_text_search={"language": "en", "stemming": True}
+        ...     )
         ...     .build()
         ... )
         >>> sorted(schema["fields"])
-        ['embedding', 'title']
+        ['title', 'your_vector']
 
     Pass the result straight to the create call:
 
@@ -267,13 +300,15 @@ class SchemaBuilder:
         """Add the field that holds an embedding, for vector similarity search.
 
         This is the field most indexes are built around, and a schema may
-        hold at most one of them. ``dimension`` and ``metric`` are fixed for
+        hold at most one of them. The builder does not count them: a second
+        dense vector field is built as written and the server rejects it on
+        create with a ``400``. ``dimension`` and ``metric`` are fixed for
         the life of the field, so they have to match the embedding model you
         intend to use.
 
         Args:
             name: Field name, up to 64 bytes; the documents you upsert carry
-                their vector under this key, e.g. ``"embedding"``. Replaces
+                their vector under this key, e.g. ``"your_vector"``. Replaces
                 any existing field with the same name.
             dimension: Length of the vectors this field stores — the output
                 width of your embedding model, e.g. ``1536``. Must be between
@@ -281,7 +316,10 @@ class SchemaBuilder:
                 the request goes out.
             metric: How similarity is scored — ``"cosine"``, ``"euclidean"``,
                 or ``"dotproduct"``. ``"cosine"`` is what most text embedding
-                models are trained for. See
+                models are trained for. Capitals are lowercased, so
+                ``"EUCLIDEAN"`` is sent as ``"euclidean"``: the server accepts
+                a mixed-case metric at create but cannot write to the index
+                afterwards. See
                 :class:`~pinecone.models.enums.Metric`.
             description: Human-readable note stored with the field, up to 256
                 bytes. Optional.
@@ -301,9 +339,9 @@ class SchemaBuilder:
         Examples:
             >>> from pinecone.schema_builder import SchemaBuilder
             >>> schema = SchemaBuilder().add_dense_vector_field(
-            ...     "embedding", dimension=1536, metric="cosine"
+            ...     "your_vector", dimension=1536, metric="cosine"
             ... ).build()
-            >>> schema["fields"]["embedding"]
+            >>> schema["fields"]["your_vector"]
             {'type': 'dense_vector', 'dimension': 1536, 'metric': 'cosine'}
         """
         from pinecone.errors.exceptions import PineconeValueError
@@ -318,7 +356,7 @@ class SchemaBuilder:
         field: dict[str, Any] = {
             "type": "dense_vector",
             "dimension": dimension,
-            "metric": metric,
+            "metric": lowercase_metric(metric),
         }
         if description is not None:
             field["description"] = description
@@ -366,7 +404,7 @@ class SchemaBuilder:
             >>> schema = (
             ...     SchemaBuilder()
             ...     .add_dense_vector_field(
-            ...         "embedding", dimension=1536, metric="dotproduct"
+            ...         "your_vector", dimension=1536, metric="dotproduct"
             ...     )
             ...     .add_sparse_vector_field("keyword_terms")
             ...     .build()
@@ -392,19 +430,33 @@ class SchemaBuilder:
         language: str | None = None,
         stemming: bool | None = None,
         stop_words: bool | None = None,
+        embed: bool | Mapping[str, Any] | FieldEmbedConfig | None = None,
+        sparse_embed: bool | Mapping[str, Any] | FieldSparseEmbedConfig | None = None,
+        store_text: bool | None = None,
         filterable: bool = False,
         description: str | None = None,
         **additional_options: Any,
     ) -> SchemaBuilder:
-        """Add a string field searchable by keyword, using full-text search.
+        """Add a string field searched by full-text search, integrated embedding, or both.
 
-        Always pass ``full_text_search``: enabling it is what makes the field
-        searched, and a string field without it is a metadata-only
-        declaration the server refuses on create. Any of
-        ``full_text_search=True``, a ``full_text_search`` dict, or one of the
-        typed keyword arguments (``language``, ``stemming``, ``stop_words``)
-        turns it on; where a dict and a keyword argument set the same key,
-        the keyword argument wins.
+        Always pass at least one of ``full_text_search``, ``embed`` and
+        ``sparse_embed``: they are what make the field searched, and a string
+        field with none of them is a metadata-only declaration the server
+        refuses on create. Any of ``full_text_search=True``, a
+        ``full_text_search`` dict, or one of the typed keyword arguments
+        (``language``, ``stemming``, ``stop_words``) turns full-text search
+        on; where a dict and a keyword argument set the same key, the keyword
+        argument wins.
+
+        ``embed`` and ``sparse_embed`` enable integrated embedding for the field:
+        Pinecone embeds the text into a dense or learned-sparse vector with a
+        hosted model. Search
+        the field with :class:`~pinecone.models.documents.score_by.EmbedQuery`
+        or :class:`~pinecone.models.documents.score_by.SparseEmbedQuery`.
+        The text is stored by default, and stored text is always full-text
+        searchable, so ``embed`` alone also turns on full-text search with
+        default settings. ``store_text=False`` embeds the text without
+        storing it; see ``store_text`` below for what that gives up.
 
         ``lowercase`` and ``max_term_len`` are managed for you and cannot be
         set here.
@@ -434,12 +486,39 @@ class SchemaBuilder:
                 index. Requires ``stemming=True``. Not every language
                 supports stop words, and the server is what rejects an
                 unsupported pairing — the SDK does not pre-check it.
-            filterable: Make the field filterable instead of searched.
-                Requesting it together with ``full_text_search`` is the trap:
-                a string field is one or the other, and the server keeps the
-                filter, silently discards the search configuration, and
-                reports no error. Sent on the wire including its ``False``
-                default, except when ``full_text_search`` is enabled and you
+            embed: ``True`` or ``{}`` to embed the text with the default dense
+                model at its default dimension and metric, or a dict or
+                :class:`~pinecone.models.indexes.schema.FieldEmbedConfig` of
+                ``model``, ``dimension``, ``metric`` (lowercased, as for a
+                dense vector field), ``write_parameters`` and
+                ``read_parameters``. The field takes the index's one dense
+                slot. Fixed at creation.
+            sparse_embed: ``True`` or ``{}`` to embed the text with the
+                default sparse model, or a dict or
+                :class:`~pinecone.models.indexes.schema.FieldSparseEmbedConfig`
+                of ``model``, ``write_parameters`` and ``read_parameters``. The
+                field takes the index's one sparse slot. Fixed at creation.
+            store_text: Only meaningful as ``False``, on a field with ``embed``
+                or ``sparse_embed``. ``None``, the default, leaves the key off
+                and the server stores the text. ``False`` embeds the text
+                without storing it, which can save space when the field is
+                only used for similarity search, or keep sensitive text out of
+                Pinecone. The field then has no full-text search: it can be
+                searched only with an embed clause, and a fetch or search
+                whose ``include_fields`` names it is rejected with a ``400``.
+                The server rejects ``False`` on a field without ``embed`` or
+                ``sparse_embed``, and together with ``full_text_search``, each
+                with a ``400``. If you're not sure whether you'll need
+                full-text search, keep the text stored, for more search
+                flexibility later. Each value is at most 100 KB; with the text
+                stored, the full-text limit of 10,000 tokens per value also
+                applies. Fixed at creation.
+            filterable: Make the field filterable instead of searched. A
+                string field is one or the other: the server rejects
+                ``filterable=True`` alongside ``full_text_search``, ``embed``
+                or ``sparse_embed`` with a ``400``. Sent on the wire including
+                its ``False`` default, except when ``full_text_search``,
+                ``embed``, ``sparse_embed`` or ``store_text`` is set and you
                 did not ask to be filterable.
             description: Human-readable note stored with the field, up to 256
                 bytes. Optional.
@@ -485,8 +564,31 @@ class SchemaBuilder:
             >>> schema["fields"]["title"]["full_text_search"]
             {'ngram': {'min_gram': 2, 'max_gram': 3}}
 
+            Pinecone embeds the text of an ``embed`` field for you, here with
+            a chosen model and dimension, and a sparse aspect can sit on the
+            same field:
+
+            >>> schema = SchemaBuilder().add_string_field(
+            ...     "body",
+            ...     embed={"model": "llama-text-embed-v2", "dimension": 512},
+            ...     sparse_embed=True,
+            ... ).build()
+            >>> schema["fields"]["body"]["embed"]
+            {'model': 'llama-text-embed-v2', 'dimension': 512}
+            >>> schema["fields"]["body"]["sparse_embed"]
+            {}
+
+            ``store_text=False`` embeds the text without keeping it:
+
+            >>> schema = SchemaBuilder().add_string_field(
+            ...     "body", embed=True, store_text=False
+            ... ).build()
+            >>> schema["fields"]["body"]
+            {'type': 'string', 'embed': {}, 'store_text': False}
+
         .. note::
-           A string field with no ``full_text_search`` is a metadata-only
+           A string field with none of ``full_text_search``, ``embed`` and
+           ``sparse_embed`` is a metadata-only
            declaration, and the server rejects those on create — a ``400``
            saying the schema only accepts fields used for search — whatever
            deployment you ask for, failing the whole request over the one
@@ -534,11 +636,25 @@ class SchemaBuilder:
         field: dict[str, Any] = {"type": "string"}
         if fts_enabled:
             field["full_text_search"] = fts_config
+        embed_config = _embed_aspect(embed)
+        if embed_config is not None:
+            field["embed"] = embed_config
+        sparse_embed_config = _embed_aspect(sparse_embed)
+        if sparse_embed_config is not None:
+            field["sparse_embed"] = sparse_embed_config
+        if store_text is not None:
+            field["store_text"] = store_text
+        search_configured = (
+            fts_enabled
+            or embed_config is not None
+            or sparse_embed_config is not None
+            or store_text is not None
+        )
         # `filterable` selects the metadata variant on the wire, so the
-        # `False` default is omitted only when `full_text_search` already
-        # selects the search variant and the caller did not also ask to be
+        # `False` default is omitted only when a search key already selects
+        # the search variant and the caller did not also ask to be
         # filterable — otherwise no variant would match this field at all.
-        if filterable or not fts_enabled:
+        if filterable or not search_configured:
             field["filterable"] = filterable
         if description is not None:
             field["description"] = description
@@ -734,7 +850,9 @@ class SchemaBuilder:
         offers that this SDK does not model yet. The name is checked and the
         definition's ``type`` is rejected if it is response-only; the rest of
         the definition goes through untouched, so anything else wrong with it
-        surfaces as a server error on create rather than here.
+        surfaces as a server error on create rather than here. The one
+        exception is a ``metric`` in capitals, which is lowercased when the
+        create request is sent, not in the schema this builder returns.
 
         Args:
             name: Field name, up to 64 bytes. Replaces any existing field
@@ -756,9 +874,9 @@ class SchemaBuilder:
             >>> described = {"type": "dense_vector", "dimension": 1536,
             ...              "metric": "cosine"}
             >>> schema = SchemaBuilder().add_custom_field(
-            ...     "embedding", described
+            ...     "your_vector", described
             ... ).build()
-            >>> schema["fields"]["embedding"]
+            >>> schema["fields"]["your_vector"]
             {'type': 'dense_vector', 'dimension': 1536, 'metric': 'cosine'}
 
         .. note::
@@ -787,9 +905,9 @@ class SchemaBuilder:
 
         Nothing here checks that the schema is complete. The server requires
         at least one searched field (``dense_vector``, ``sparse_vector``, or
-        ``string`` with ``full_text_search``), and a schema without one is
-        built and returned all the same, so that partial schemas can be
-        inspected; the create call is where it fails.
+        ``string`` with ``full_text_search``, ``embed`` or ``sparse_embed``),
+        and a schema without one is built and returned all the same, so that
+        partial schemas can be inspected; the create call is where it fails.
 
         Returns:
             ``{"fields": {name: field_dict, ...}}`` ready to pass as the
@@ -798,11 +916,11 @@ class SchemaBuilder:
         Examples:
             >>> from pinecone.schema_builder import SchemaBuilder
             >>> builder = SchemaBuilder().add_dense_vector_field(
-            ...     "embedding", dimension=8, metric="cosine"
+            ...     "your_vector", dimension=8, metric="cosine"
             ... )
             >>> schema = builder.build()
-            >>> schema["fields"]["embedding"]["future_option"] = True
-            >>> builder.build()["fields"]["embedding"]
+            >>> schema["fields"]["your_vector"]["future_option"] = True
+            >>> builder.build()["fields"]["your_vector"]
             {'type': 'dense_vector', 'dimension': 8, 'metric': 'cosine'}
         """
         return {"fields": copy.deepcopy(self._fields)}

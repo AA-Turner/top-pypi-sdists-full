@@ -2,7 +2,7 @@
 Core TimezoneFinder implementation.
 
 This module provides the TimezoneFinder and TimezoneFinderL classes for offline
-timezone lookups from geographic coordinates. The module uses H3-based spatial
+timezone lookups from geographic coordinates. The module uses grid-based spatial
 shortcuts and optimized polygon-based algorithms for fast, accurate results.
 
 Core classes:
@@ -14,7 +14,7 @@ Core classes:
 import json
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import TracebackType
@@ -22,7 +22,6 @@ from typing import Literal, Self
 from zoneinfo import ZoneInfo
 
 import numpy as np
-from h3.api import numpy_int as h3
 
 from timezonefinder.np_binary_helpers import (
     get_zone_ids_path,
@@ -36,7 +35,6 @@ from timezonefinder.configs import (
     MAX_LAT_VAL,
     MAX_LNG_VAL,
     NO_ZONE_ID,
-    SHORTCUT_H3_RES,
     DATA_VERSION_FILENAME,
     CoordArrayLike,
     CoordLists,
@@ -75,7 +73,7 @@ class AbstractTimezoneFinder(ABC):
 
     Provides shared functionality for timezone lookups including:
     - Timezone name/ID mapping
-    - H3 spatial indexing for shortcut lookups
+    - a longitude/latitude-aligned grid tree for shortcut lookups
     - Boundary polygon management
     - Coordinate validation
 
@@ -83,8 +81,9 @@ class AbstractTimezoneFinder(ABC):
     (full accuracy) or TimezoneFinderL (lightweight heuristic) instead.
 
     Thread Safety:
-        For parallel computation with multiple threads, each thread must create
-        its own independent instance. Do not share a single instance across threads.
+        Lookups on a shared instance are safe; ``TimezoneFinder`` states why. For
+        parallel computation, still give each thread its own instance: threads
+        sharing one contend on its objects and gain far less from parallelism.
 
     Lifecycle:
         Prefer ``with TimezoneFinder(...) as finder`` (or ``TimezoneFinderL``) for a
@@ -97,7 +96,7 @@ class AbstractTimezoneFinder(ABC):
         zone_names: the dataset's names, and every way a zone id becomes one
         timezone_names: List of all available timezone names (a view onto ``zone_names``)
         zone_ids: NumPy array mapping boundary polygons to timezone IDs
-        shortcuts: H3-indexed lookup of the timezones that can cover a point
+        shortcuts: grid-indexed lookup of the timezones that can cover a point
         data_location: Path to the timezone data directory
     """
 
@@ -244,10 +243,16 @@ class AbstractTimezoneFinder(ABC):
     @staticmethod
     def using_numba() -> bool:
         """
-        Check if Numba is being used.
+        Check if the Numba-compiled point-in-polygon kernel is what this process runs.
+
+        ``False`` on an installation whose C extension loaded, *even with Numba
+        installed*: the extension outranks the JIT kernel, and ``timezonefinder.utils``
+        then never imports ``utils_numba`` at all, so nothing here is JIT-compiled and
+        the process never pays Numba's import. It was ``True`` for "Numba is
+        importable" until that import became conditional.
 
         :rtype: bool
-        :return: True if Numba is being used to JIT compile helper functions
+        :return: True if the JIT-compiled kernel is the one a lookup reaches
         """
         return utils.using_numba
 
@@ -404,9 +409,7 @@ class AbstractTimezoneFinder(ABC):
         :param lat: The latitude of the point in degrees (90.0 to -90.0).
         :yield: Boundary polygon IDs.
         """
-        hex_id = h3.latlng_to_cell(lat, lng, SHORTCUT_H3_RES)
-
-        entry = self.shortcuts.entry_of(hex_id)
+        entry = self.shortcuts.entry_at(lng, lat)
         if entry == ABSENT:
             return
         if entry >= 0:
@@ -425,6 +428,44 @@ class AbstractTimezoneFinder(ABC):
         :return: the timezone name of a matching polygon or None
         """
         ...
+
+    def timezone_id_at(self, *, lng: float, lat: float) -> int | None:
+        """Look up the timezone id for one coordinate.
+
+        The id form of :meth:`timezone_at`, for a caller that indexes, joins or groups
+        on the result and does not need its name yet. The lookup itself already resolves
+        a zone id; this method returns it directly instead of naming it first.
+
+        A zone id is only an index into this finder's :attr:`timezone_names`. It is not
+        a stable timezone identifier and can name a different zone after the loaded
+        dataset changes. Persist the IANA name instead, or persist the data version with
+        the id when the result has to be reproduced.
+
+        :param lng: longitude of the point in degrees (-180.0 to 180.0)
+        :param lat: latitude of the point in degrees (-90.0 to 90.0)
+        :return: the id of the zone :meth:`timezone_at` names, or ``None`` where that
+            method answers ``None``
+        :raises ValueError: if the coordinates are out of bounds
+
+        Example:
+            >>> tf = TimezoneFinder()
+            >>> zone_id = tf.timezone_id_at(lng=13.358, lat=52.5061)
+            >>> tf.zone_name_from_id(zone_id)
+            'Europe/Berlin'
+        """
+        # Deliberately repeats the small scalar dispatch in ``timezone_at`` instead of
+        # making that established hot path call this method. A paired whole-call
+        # comparison on the C-extension/mapped path resolved the delegation slower for
+        # random and unique-cell queries; ambiguous queries were unchanged. Keeping both
+        # public forms inline removes a Python call from the common path, while fixture
+        # parity tests prevent the two implementations drifting.
+        lng, lat = utils.validate_coordinates(lng, lat)
+        entry = self.shortcuts.entry_at(lng, lat)
+        if entry >= 0:
+            return entry
+        if entry == ABSENT:
+            return None
+        return self._zone_id_in_ambiguous_cell(entry, lng, lat)
 
     @abstractmethod
     def _resolve_ambiguous_cells(
@@ -467,7 +508,7 @@ class AbstractTimezoneFinder(ABC):
 
     @abstractmethod
     def _zone_id_in_ambiguous_cell(self, entry: int, lng: float, lat: float) -> int:
-        """The zone id of a point whose H3 cell several timezones cover.
+        """The zone id of a point whose shortcut cell several timezones cover.
 
         Reached only for ``entry < ABSENT``: a cell a single zone covers and a cell no
         zone covers are both answered by the shortcut table itself. Both
@@ -495,10 +536,10 @@ class AbstractTimezoneFinder(ABC):
         back to something else. :meth:`timezone_names_at` is the convenience on top.
 
         What a batch amortises is the per-call overhead, not the geometry. Validation, the
-        integer scaling and the shortcut lookup run once over the whole batch as numpy
-        operations; ambiguous points still fall through to the point-in-polygon loop one
-        at a time, and ``h3``'s cell lookup has no vectorised form, so it stays a loop
-        too. Expect the win to be largest on points whose cell a single zone covers.
+        integer scaling and the whole shortcut lookup - the cell arithmetic included -
+        run once over the batch as numpy operations; ambiguous points still fall through
+        to the point-in-polygon loop one at a time. Expect the win to be largest on
+        points whose cell a single zone covers.
 
         :param lngs: longitudes in degrees, as any 1-D array-like. A C-contiguous
             ``float64`` numpy array is used without copying.
@@ -585,29 +626,13 @@ class AbstractTimezoneFinder(ABC):
     def _zone_ids_of_valid(self, lngs: np.ndarray, lats: np.ndarray) -> np.ndarray:
         """Zone ids for coordinates already known to be in range.
 
-        The prologue every point shares runs once over the whole batch: the slot
-        arithmetic and the table read are one numpy operation each rather than N. What
-        cannot join them is ``h3.latlng_to_cell`` - h3-py exposes no vectorised form, so
-        N points cost N scalar C calls, and that is nearly the whole cost of a batched
-        lookup once the cells resolve to a single zone.
+        The prologue every point shares runs once over the whole batch, in
+        ``ShortcutIndex.entries_at``, which says what of it cannot be vectorised.
         """
-        nr_points = lngs.shape[0]
-        if nr_points == 0:
+        if lngs.shape[0] == 0:
             return np.empty(0, dtype=ZONE_ID_RESULT_DTYPE)
 
-        # bound once outside the loop: N attribute lookups are a measurable share of a
-        # stage that is otherwise a single C call per point
-        latlng_to_cell = h3.latlng_to_cell
-        resolution = SHORTCUT_H3_RES
-        hex_ids = np.fromiter(
-            (
-                latlng_to_cell(lat, lng, resolution)
-                for lat, lng in zip(lats.tolist(), lngs.tolist(), strict=True)
-            ),
-            dtype=np.uint64,
-            count=nr_points,
-        )
-        entries = self.shortcuts.entries_of(hex_ids)
+        entries = self.shortcuts.entries_at(lngs, lats)
 
         # a non-negative entry is the answer itself. ABSENT and the candidate-list
         # encodings are both "no answer yet"; the latter are then resolved per point,
@@ -636,6 +661,30 @@ class AbstractTimezoneFinder(ABC):
         if tz_name is not None and utils.is_ocean_timezone(tz_name):
             return None
         return tz_name
+
+    def timezone_id_at_land(self, *, lng: float, lat: float) -> int | None:
+        """Look up the land timezone id for one coordinate.
+
+        The id form of :meth:`timezone_at_land`. It returns ``None`` for an ocean
+        timezone, as that method does, and otherwise returns the id of the same zone.
+
+        :param lng: longitude of the point in degrees (-180.0 to 180.0)
+        :param lat: latitude of the point in degrees (-90.0 to 90.0)
+        :return: the land timezone id, or ``None`` where :meth:`timezone_at_land`
+            answers ``None``
+        :raises ValueError: if the coordinates are out of bounds
+
+        Example:
+            >>> tf = TimezoneFinder()
+            >>> tf.timezone_id_at_land(lng=-30.0, lat=0.0) is None
+            True
+        """
+        zone_id = self.timezone_id_at(lng=lng, lat=lat)
+        if zone_id is not None and utils.is_ocean_timezone(
+            self.zone_names.name_of(zone_id)
+        ):
+            return None
+        return zone_id
 
     def timezone_ids_at_land(
         self,
@@ -724,11 +773,10 @@ class AbstractTimezoneFinder(ABC):
         :return: the timezone name of the unique zone or ``None`` if there are no or multiple zones in this shortcut
         """
         lng, lat = utils.validate_coordinates(lng, lat)
-        hex_id = h3.latlng_to_cell(lat, lng, SHORTCUT_H3_RES)
 
         # a zone id in the table *is* the precomputed uniqueness; anything else in it
         # means either no coverage or several zones, and neither is a unique answer
-        zone_id = self.shortcuts.entry_of(hex_id)
+        zone_id = self.shortcuts.entry_at(lng, lat)
         if zone_id < 0:
             return None
         return self.zone_names.name_of(zone_id)
@@ -886,8 +934,9 @@ class TimezoneFinderL(AbstractTimezoneFinder):
     while optimizing the full lookup; it need not cover the point or most of the cell.
 
     Thread Safety:
-        Each thread that performs timezone lookups must create its own independent
-        TimezoneFinderL instance. Do not share a single instance across threads.
+        Lookups on a shared instance are safe. For parallel computation, still give
+        each thread its own TimezoneFinderL: threads sharing one contend on its
+        objects and gain far less from parallelism, even without polygon data.
     """
 
     def timezone_at(self, *, lng: float, lat: float) -> str | None:
@@ -897,7 +946,8 @@ class TimezoneFinderL(AbstractTimezoneFinder):
         use after every earlier candidate failed its geometry check. Candidate order
         is optimized for full-lookup work, so the result is not an estimate of which
         zone covers this point or most of the cell. Cells retained by the converter's
-        geometry safety gates use the legacy total-vertex-count ordering.
+        geometry safety gates keep the zone precedence order, smaller spherical zone
+        area first, so their fallback is the largest zone among the cell's candidates.
 
         :param lng: longitude of the point in degree (-180.0 to 180.0)
         :param lat: latitude in degree (90.0 to -90.0)
@@ -905,9 +955,7 @@ class TimezoneFinderL(AbstractTimezoneFinder):
         """
         lng, lat = utils.validate_coordinates(lng, lat)
         # Inline fast-path to minimize helper overhead
-        hex_id = h3.latlng_to_cell(lat, lng, SHORTCUT_H3_RES)
-
-        entry = self.shortcuts.entry_of(hex_id)
+        entry = self.shortcuts.entry_at(lng, lat)
         if entry >= 0:
             # unique zone case: the index holds the answer
             return self.zone_names.name_of(entry)
@@ -975,9 +1023,20 @@ class TimezoneFinder(AbstractTimezoneFinder):
     `file_converter.py <https://github.com/jannikmi/timezonefinder/blob/master/scripts/file_converter.py>`__
 
     Thread Safety:
-        Each thread that performs timezone lookups must create its own independent
-        TimezoneFinder instance. Do not share a single instance across threads, as this can
-        lead to race conditions and incorrect results. Example:
+        Concurrent lookups on a shared instance return correct answers. The data a
+        lookup reads is loaded once and never modified. The only state a lookup
+        writes is a small array built on first use and kept - ``_zone_positions``
+        here, read by ``certain_timezone_at`` and ``get_geometry``, and the two in
+        ``ZoneNames`` - and each is published by a single store of a read-only array
+        that is identical whichever thread builds it, so a thread losing that race
+        repeats a small build and nothing else. Keep any new lazily kept value to
+        that shape, or this statement stops holding. Releasing the instance is not a
+        lookup: ``cleanup()``, or leaving its ``with`` block, frees the data lookups
+        read, so on a shared instance it must wait for every thread using it.
+
+        For parallel computation, still give each thread its own instance: threads
+        sharing one contend on its objects and gain far less from parallelism, which
+        shows once the GIL is disabled. Example:
 
             import threading
             from timezonefinder import TimezoneFinder
@@ -1097,6 +1156,10 @@ class TimezoneFinder(AbstractTimezoneFinder):
         :return: List of polygon coordinates
         """
         list_of_converted_polygons = []
+        # Annotated because the two converters return different shapes and this variable
+        # holds either. It only needed saying once they stopped being `njit` dispatchers,
+        # whose `Any` hid the union from the type checker.
+        conversion_method: Callable[[np.ndarray], CoordPairs | CoordLists]
         if coords_as_pairs:
             conversion_method = utils.convert2coord_pairs
         else:
@@ -1203,10 +1266,9 @@ class TimezoneFinder(AbstractTimezoneFinder):
         """
         # NOTE: performance critical code. avoid helper function call overhead as much as possible
         lng, lat = utils.validate_coordinates(lng, lat)
-        hex_id = h3.latlng_to_cell(lat, lng, SHORTCUT_H3_RES)
 
         # one lookup answers most queries: a zone id is the answer itself
-        entry = self.shortcuts.entry_of(hex_id)
+        entry = self.shortcuts.entry_at(lng, lat)
         if entry >= 0:
             return self.zone_names.name_of(entry)
         if entry == ABSENT:
@@ -1252,14 +1314,13 @@ class TimezoneFinder(AbstractTimezoneFinder):
         The last remaining zone is returned without a test - see :meth:`timezone_at`,
         whose note explains when that is and is not correct.
         """
-        # ATTENTION: the polygons are stored converted to 32-bit ints,
-        # convert the query coordinates in the same fashion in order to make the data
-        # formats match. ``coord2int`` is a plain Python function, not an ``njit`` one -
-        # see its comment - so calling it here costs the multiplication and not a
-        # dispatch on top of it.
-        # x = longitude  y = latitude  both converted to 8byte int
-        x = utils.coord2int(lng)
-        y = utils.coord2int(lat)
+        # ATTENTION: the polygons are stored converted to 32-bit ints, so the query
+        # point is converted the same way, reading the -180 meridian and the -90
+        # parallel as points a polygon owns - see ``utils.query2int``. It is a plain
+        # Python function, not an ``njit`` one, so calling it here costs the arithmetic
+        # and not a dispatch on top of it.
+        # x = longitude  y = latitude
+        x, y = utils.query2int(lng, lat)
 
         # check until the point is included in one of the possible boundary polygons.
         #
@@ -1354,14 +1415,13 @@ class TimezoneFinder(AbstractTimezoneFinder):
         """
         lng, lat = utils.validate_coordinates(lng, lat)
 
-        # ATTENTION: the polygons are stored converted to 32-bit ints,
-        # convert the query coordinates in the same fashion in order to make the data
-        # formats match. ``coord2int`` is a plain Python function, not an ``njit`` one -
-        # see its comment - so calling it here costs the multiplication and not a
-        # dispatch on top of it.
-        # x = longitude  y = latitude  both converted to 8byte int
-        x = utils.coord2int(lng)
-        y = utils.coord2int(lat)
+        # ATTENTION: the polygons are stored converted to 32-bit ints, so the query
+        # point is converted the same way, reading the -180 meridian and the -90
+        # parallel as points a polygon owns - see ``utils.query2int``. It is a plain
+        # Python function, not an ``njit`` one, so calling it here costs the arithmetic
+        # and not a dispatch on top of it.
+        # x = longitude  y = latitude
+        x, y = utils.query2int(lng, lat)
 
         # check if the query point is found to be truly included in one of the possible boundary polygons
         for boundary_id in self._iter_boundaries_in_shortcut(lng=lng, lat=lat):
@@ -1371,3 +1431,100 @@ class TimezoneFinder(AbstractTimezoneFinder):
 
         # none of the boundary polygon candidates truly matched
         return None
+
+    def timezones_at(self, *, lng: float, lat: float) -> list[str]:
+        """Every timezone whose polygons contain the point, not only the one that wins.
+
+        The dataset ships genuinely overlapping zones, and :meth:`timezone_at` has to
+        pick one of them without saying that it did: ``Asia/Urumqi`` lies inside
+        ``Asia/Shanghai`` and is a second local time in real use, and the disputed or
+        dual-administered areas (Abyei, Abkhazia and South Ossetia, the West Bank,
+        and a few maritime borders) overlap the same way. Roughly 1 % of points on
+        land lie in two zones. This method reports all of them, so a caller for whom
+        the other answer is the right one can see that a choice was made.
+
+        The list always *contains* :meth:`timezone_at`'s answer, and that membership
+        is what stops the two methods contradicting each other. Where that answer sits
+        is a second, stronger contract: it is always **the first element**, so
+        ``zones[0]`` is a drop-in for :meth:`timezone_at` and the otherwise meaningless
+        tail has an anchor. The rest follow in the order the shortcut index stores the
+        candidates, which is tuned for lookup work and carries no meaning - do not read
+        it as "most likely second".
+
+        Only this method pays for the full candidate loop; :meth:`timezone_at` is
+        untouched. A point whose shortcut cell a single zone covers is answered from the
+        shortcut index with a one-element list and no geometry at all, exactly as
+        :meth:`timezone_at` answers it - so with custom data leaving areas uncovered
+        this inherits that method's caveat rather than
+        :meth:`certain_timezone_at`'s, and the same holds for the untested fallback:
+        where no candidate contains the point, the single zone :meth:`timezone_at`
+        would return is returned here too.
+
+        .. note:: completeness is bounded by the shortcut index's candidate lists.
+            A zone whose polygons are not listed for the point's cell is not
+            reported, which is the same limit :meth:`certain_timezone_at` already
+            has; neither method promises more.
+
+        :param lng: longitude of the point in degrees (-180.0 to 180.0)
+        :param lat: latitude of the point in degrees (90.0 to -90.0)
+        :return: the names of every containing zone, :meth:`timezone_at`'s answer
+            first. Empty only where that method answers ``None``.
+        :raises ValueError: if the coordinates are out of bounds
+
+        Example:
+            >>> tf = TimezoneFinder()
+            >>> tf.timezones_at(lng=13.358, lat=52.5061)
+            ['Europe/Berlin']
+            >>> tf.timezones_at(lng=87.6168, lat=43.8256)  # Ürümqi
+            ['Asia/Urumqi', 'Asia/Shanghai']
+        """
+        lng, lat = utils.validate_coordinates(lng, lat)
+        entry = self.shortcuts.entry_at(lng, lat)
+        if entry == ABSENT:
+            return []
+        if entry >= 0:
+            # a cell a single zone covers: the index already says no other zone's
+            # polygons reach this cell, so geometry has nothing to add
+            return [self.zone_names.name_of(entry)]
+
+        possible_boundaries = self.shortcuts.candidates_of(entry)
+        last_zone_change_idx = self.shortcuts.stop_index_of(entry)
+
+        # ATTENTION: the polygons are stored converted to 32-bit ints, so the query
+        # point is converted the same way - see :meth:`certain_timezone_at`
+        x, y = utils.query2int(lng, lat)
+
+        zone_ids: list[int] = []
+        # Candidates whose zone is already collected are *not* skipped ahead of the
+        # geometry test, although testing them cannot add a zone. Measured on data
+        # 2026c: the guard would save 0.003 geometry tests per ambiguous query and
+        # cost a ``_zone_id_of`` lookup on the 0.43 candidates per query that follow
+        # the first match. It loses because a repeated zone's other polygons are
+        # rejected by the bounding box before any point-in-polygon scan runs - 0 of
+        # the 7 redundant candidates at the worst query sampled from 300,000 random
+        # points, 2 of 23 across the committed fixtures. Timed both ways, the guard
+        # is ~2.5 % slower over the ambiguous fixture and ~7 % slower at that worst
+        # query, so what looks like wasted work is cheaper than avoiding it.
+        for i, boundary_id in enumerate(possible_boundaries):
+            if not self.inside_of_polygon(boundary_id, x, y):
+                continue
+            zone_id = self._zone_id_of(boundary_id)
+            if zone_id not in zone_ids:
+                # several polygons of one zone can contain the point; the answer is
+                # zones, so the list is deduplicated as it is built
+                zone_ids.append(zone_id)
+            if i >= last_zone_change_idx:
+                # from here on the candidates are the final zone's polygons, so a
+                # match is the last new zone this candidate list can produce. Unlike
+                # ``_zone_id_among``'s break, this one is reached only *after* a
+                # match: every earlier candidate still has to be tested, because a
+                # zone the lookup never reaches may contain the point too.
+                break
+
+        if not zone_ids:
+            # no candidate contained the point. ``timezone_at`` answers the final zone
+            # here without testing it, and this method agrees rather than contradicting
+            # it - see the note in that method for when that answer is and is not right.
+            zone_ids.append(self._zone_id_of(possible_boundaries[-1]))
+
+        return [self.zone_names.name_of(zone_id) for zone_id in zone_ids]

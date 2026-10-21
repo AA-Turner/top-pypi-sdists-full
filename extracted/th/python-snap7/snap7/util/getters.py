@@ -218,6 +218,10 @@ def get_string(bytearray_: Buffer, byte_index: int, encoding: str = "latin-1") -
             "String contains {str_length} chars, but max. {max_string_size} chars are expected or is "
             "larger than 254. Bytearray doesn't seem to be a valid string."
         )
+    if byte_index + 2 + str_length > len(bytearray_):
+        raise ValueError(
+            f"String contains {str_length} chars, but only {len(bytearray_) - byte_index - 2} bytes are in the buffer"
+        )
     raw = bytes(bytearray_[byte_index + 2 : byte_index + 2 + str_length])
     return raw.decode(encoding)
 
@@ -781,17 +785,22 @@ def get_wstring(bytearray_: Buffer, byte_index: int) -> str:
 
     max_wstring_size = bytearray_[byte_index : byte_index + 2]
     packed = struct.pack("2B", *max_wstring_size)
-    max_wstring_symbols = struct.unpack(">H", packed)[0] * 2
+    max_wstring_chars = struct.unpack(">H", packed)[0]
 
     wstr_length_raw = bytearray_[byte_index + 2 : byte_index + 4]
-    wstr_symbols_amount = struct.unpack(">H", struct.pack("2B", *wstr_length_raw))[0] * 2
+    wstr_chars = struct.unpack(">H", struct.pack("2B", *wstr_length_raw))[0]
 
-    if wstr_symbols_amount > max_wstring_symbols or max_wstring_symbols > 16382:
+    if wstr_chars > max_wstring_chars or max_wstring_chars > 16382:
         logger.error("The wstring is too big for the size encountered in specification")
         logger.error("WRONG SIZED STRING ENCOUNTERED")
         raise TypeError(
-            f"WString contains {wstr_symbols_amount} chars, but max {max_wstring_symbols} chars are "
+            f"WString contains {wstr_chars} chars, but max {max_wstring_chars} chars are "
             f"expected or is larger than 16382. Bytearray doesn't seem to be a valid string."
         )
 
-    return bytes(bytearray_[wstring_start : wstring_start + wstr_symbols_amount]).decode("utf-16-be")
+    wstr_bytes = wstr_chars * 2
+    if wstring_start + wstr_bytes > len(bytearray_):
+        raise ValueError(
+            f"WString contains {wstr_chars} chars, but only {len(bytearray_) - wstring_start} bytes are in the buffer"
+        )
+    return bytes(bytearray_[wstring_start : wstring_start + wstr_bytes]).decode("utf-16-be")

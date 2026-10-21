@@ -34,6 +34,16 @@ class CloseIncidentResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class DeleteIncidentRequest(_message.Message):
+    __slots__ = ("incident_id",)
+    INCIDENT_ID_FIELD_NUMBER: _ClassVar[int]
+    incident_id: str
+    def __init__(self, incident_id: _Optional[str] = ...) -> None: ...
+
+class DeleteIncidentResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetIncidentRequest(_message.Message):
     __slots__ = ("incident_id",)
     INCIDENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -55,6 +65,8 @@ class ListIncidentsFilters(_message.Message):
         "linked_entity_id_filter",
         "monitor_id_filter",
         "monitor_type_filter",
+        "name_search",
+        "include_archived",
     )
     CREATED_AT_LOWER_BOUND_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_UPPER_BOUND_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
@@ -63,6 +75,8 @@ class ListIncidentsFilters(_message.Message):
     LINKED_ENTITY_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
     MONITOR_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
     MONITOR_TYPE_FILTER_FIELD_NUMBER: _ClassVar[int]
+    NAME_SEARCH_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
     created_at_lower_bound_inclusive: _timestamp_pb2.Timestamp
     created_at_upper_bound_exclusive: _timestamp_pb2.Timestamp
     has_closed_filter: bool
@@ -70,6 +84,8 @@ class ListIncidentsFilters(_message.Message):
     linked_entity_id_filter: str
     monitor_id_filter: str
     monitor_type_filter: _monitor_pb2.MonitorType
+    name_search: str
+    include_archived: bool
     def __init__(
         self,
         created_at_lower_bound_inclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -79,6 +95,8 @@ class ListIncidentsFilters(_message.Message):
         linked_entity_id_filter: _Optional[str] = ...,
         monitor_id_filter: _Optional[str] = ...,
         monitor_type_filter: _Optional[_Union[_monitor_pb2.MonitorType, str]] = ...,
+        name_search: _Optional[str] = ...,
+        include_archived: bool = ...,
     ) -> None: ...
 
 class ListIncidentsRequest(_message.Message):

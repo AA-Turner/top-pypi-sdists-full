@@ -129,6 +129,12 @@ EVENT_WIZARD_ONBOARDING_COMPLETED = "wizard.onboarding_completed"
 #: server at all. These two are the only place that funnel exists.
 EVENT_WIZARD_UNINSTALL_STARTED = "wizard.uninstall_started"
 EVENT_WIZARD_UNINSTALL_COMPLETED = "wizard.uninstall_completed"
+#: Sign out (`probe wizard` › Account, `--action logout`, the Mac app's Sign
+#: out): this device's credentials released, the plugins left installed. The
+#: server sees only a token revoked, which re-pairing and Uninstall also do, so
+#: this is the one event that means "signed out". Emitted after the release with
+#: the identity pinned before it, exactly as Uninstall does.
+EVENT_WIZARD_SIGNED_OUT = "wizard.signed_out"
 
 #: The Who records row switched (`probe wizard` › Who records): the Probe
 #: daemon turned on, or back off. The only place the daemon is switched

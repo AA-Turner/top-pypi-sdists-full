@@ -17,8 +17,6 @@ from pathlib import Path
 
 import pytest
 
-from probe.harness.registry import FAMILY_CLOUD
-
 from probe.cli import backfill_transcripts as bt
 
 _TAP_DIR = Path(__file__).resolve().parent.parent / "plugins" / "probe-research-tap"
@@ -633,24 +631,9 @@ def test_the_history_step_offers_every_captured_agent(lane, monkeypatch):
         bt, "saved_session_sources", lambda sources, **kwargs: asked.append(tuple(sources)) or ()
     )
     lane(interactive=True)
-    captured = tuple(
-        h.id for h in get_registry().all() if h.captured and h.family != FAMILY_CLOUD
-    )
+    captured = tuple(h.id for h in get_registry().all() if h.captured)
     assert asked == [captured]
     assert bt.KIMI in captured
-
-
-def test_a_cloud_agent_s_sessions_are_never_offered_for_import(lane):
-    """Capy's sessions never existed on this machine: `probe capy sync` pulls
-    and uploads them itself. Naming one here is refused, not walked (it has no
-    transcript root to walk)."""
-    from probe.harness import get_registry
-
-    cloud = [h.id for h in get_registry().captured() if h.family == FAMILY_CLOUD]
-    assert cloud, "the registry has a captured cloud harness"
-    assert not set(cloud) & set(bt.IMPORTABLE)
-    with pytest.raises(ValueError, match="Unknown coding-agent history source"):
-        lane(interactive=True, sources=cloud)
 
 
 def test_saved_kimi_sessions_are_offered(tmp_path, monkeypatch):

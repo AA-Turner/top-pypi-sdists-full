@@ -396,18 +396,27 @@ def app_setup(
         "--build-eai",
         help="External access integration used during the app build.",
     ),
+    capabilities: bool = typer.Option(
+        False,
+        "--capabilities",
+        help="Only report whether the account supports each Snowflake App "
+        "Runtime capability, without writing app.yml.",
+        hidden=True,
+    ),
     **options,
 ) -> CommandResult:
     """
     (Snowflake App Runtime only) Initializes an app.yml for a Snowflake App Runtime project.
 
-    Creates an ``app.yml`` in the current directory: a flat ``version: 2``
-    manifest whose ``name``, ``database``, ``schema``, and ``query_warehouse``
+    Creates an `app.yml` in the current directory: a flat `version: 2`
+    manifest whose `name`, `database`, `schema`, and `query_warehouse`
     are preconfigured from account parameters and the current connection.
     This command does not apply to Native App projects.
     """
     set_app_flow(AppFlow.SNOWFLAKE_APP)
-    return snowflake_app_setup(app_name, dry_run, compute_pool, build_eai)
+    return snowflake_app_setup(
+        app_name, dry_run, compute_pool, build_eai, capabilities=capabilities
+    )
 
 
 @app.command("bundle", rich_help_panel=COMMON_PANEL)

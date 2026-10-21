@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.303.0"
+  version: "1.316.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -1180,6 +1180,18 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    ConnectWelcomeScreen:
+      type: object
+      properties:
+        showByDefault: { type: boolean }
+        brandName: { type: [string, "null"] }
+        logoUrl: { type: [string, "null"] }
+        theme: { type: [object, "null"], description: 'Same keys as the `welcomeTheme` parameter of `GET /v1/connect/{platform}`.' }
+      example:
+        showByDefault: true
+        brandName: Acme
+        logoUrl: https://acme.com/logo.png
+        theme: { primaryColor: '#1D4ED8', cornerRadius: 12 }
     AnalyticsDashboardTotals:
       type: object
       properties:
@@ -2667,11 +2679,11 @@ components:
         type:
           type: string
           description: >
-            Node kind. The 16 supported types break into four groups:
+            Node kind. The 17 supported types break into four groups:
               messaging (send_message),
               control flow (trigger, condition, delay, wait_for_reply, a_b_split, end),
               data ops (set_variable, set_field, add_tag, remove_tag, enroll_sequence),
-              integrations (webhook, ai, handoff, start_call).
+              integrations (webhook, hubspot_upsert_contact, ai, handoff, start_call).
           enum:
             - trigger
             - send_message
@@ -2680,6 +2692,7 @@ components:
             - set_variable
             - delay
             - webhook
+            - hubspot_upsert_contact
             - ai
             - handoff
             - start_call
@@ -2787,6 +2800,17 @@ components:
             `{ status, ok, body }` to `vars[saveAs]`. Edge: `'success'` on 2xx, `'error'` otherwise.
 
 
+            **hubspot_upsert_contact**: `{ email, phone, firstName, lastName, properties, saveAs }`.
+            Creates or updates the run contact in the profile's connected HubSpot portal: the contact
+            already linked by inbox sync, else one matching by email, then phone, is updated; otherwise
+            one is created. An existing contact gets only the fields the node sets (a value that resolves
+            to an empty string is skipped); a new one also takes the Zernio contact's name, email and
+            phone for anything left out. `properties` maps HubSpot internal property names to values
+            (at most 50). Saves `{ id, created }` (or `{ error }`) to `vars[saveAs]` (default
+            `hubspotContact`). Edges: `'success'` | `'error'` (HubSpot not connected, or HubSpot refused
+            the write).
+
+
             **ai**: `{ provider: anthropic|openai|google|mistral|groq|openrouter, model, preset:
             smart|tools|cheap, systemPrompt, userPromptTemplate, saveAs, temperature, maxTokens,
             outputType: text|json, tools:[{ name, description, parameters }] }`. Set `provider` +
@@ -2849,6 +2873,7 @@ components:
               - **condition**: a rule's `id`, or `'default'` (no rule matched)
               - **wait_for_reply**: `'reply'` (contact replied) | `'timeout'` (no reply in window)
               - **webhook**: `'success'` (2xx) | `'error'` (non-2xx / fetch failed)
+              - **hubspot_upsert_contact**: `'success'` | `'error'` (not connected / HubSpot refused)
               - **ai**: `'success'` (text/JSON response) | `'tool:<toolName>'` (model invoked
                 that tool) | `'error'` (upstream failure / non-JSON in JSON mode)
               - **start_call**: `'success'` | `'permission_required'` | `'failed'`
@@ -3084,6 +3109,62 @@ components:
         name: { type: string }
         email: { type: string }
         role: { type: string, description: "Meta role in the portfolio, e.g. ADMIN or EMPLOYEE." }
+    CreateMetaAdAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [accountId, businessId, name, currency, timezoneId]
+      properties:
+        platform: { type: string, enum: [meta], description: "Optional. Omit it or send meta for a Meta ad account." }
+        accountId: { type: string, pattern: '^[a-fA-F0-9]{24}$', description: "Zernio metaads SocialAccount ID." }
+        businessId: { type: string, pattern: '^[1-9][0-9]*$', description: "Business portfolio that will own the account." }
+        name: { type: string, minLength: 1, maxLength: 255, description: "Ad account name. Whitespace is trimmed." }
+        currency: { type: string, pattern: '^[A-Z]{3}$', description: "Uppercase ISO 4217 currency supported by Meta." }
+        timezoneId: { type: integer, minimum: 0, maximum: 4294967295, description: "Numeric Meta timezone ID from the linked timezone list. For example 1 is America/Los_Angeles." }
+        endAdvertiser: { type: string, pattern: '^(NONE|[1-9][0-9]*)$', default: NONE, description: "End advertiser business or page ID. NONE uses the owning business." }
+        mediaAgency: { type: string, pattern: '^(NONE|[1-9][0-9]*)$', default: NONE, description: "Media agency business or page ID. NONE for self-serve customers." }
+        partner: { type: string, pattern: '^(NONE|[1-9][0-9]*)$', default: NONE, description: "Partner business or page ID. NONE for self-serve customers." }
+        invoice: { type: boolean, description: "Request Meta invoicing. Eligibility is determined by Meta." }
+        invoiceGroupId: { type: string, pattern: '^[1-9][0-9]*$', description: "Existing Meta invoice group ID." }
+        invoicingEmails: { type: array, minItems: 1, maxItems: 100, items: { type: string, format: email }, description: "Addresses for Meta invoices." }
+        io: { type: boolean, description: "Meta insertion-order invoicing option." }
+        poNumber: { type: string, minLength: 1, maxLength: 255, description: "Purchase order number." }
+        fundingId: { type: string, pattern: '^[1-9][0-9]*$', description: "Existing Meta funding reference. Does not add a payment method." }
+        adAccountCreatedFromBmFlag: { type: boolean, description: "Meta Business Manager creation flag." }
+    CreateGoogleAdAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [platform, accountId, managerCustomerId, name, currency, timeZone]
+      properties:
+        platform: { type: string, enum: [google] }
+        accountId: { type: string, pattern: '^[a-fA-F0-9]{24}$', description: "Zernio googleads SocialAccount ID whose Google user reaches the manager." }
+        managerCustomerId: { type: string, pattern: '^[0-9]+$', description: "Manager (MCC) customer id without dashes. The new account is created under it. List reachable managers with GET /v1/ads/accounts/hierarchy." }
+        name: { type: string, minLength: 1, maxLength: 255, description: "Account name. Whitespace is trimmed." }
+        currency: { type: string, pattern: '^[A-Z]{3}$', description: "Uppercase ISO 4217 currency. Cannot be changed after creation." }
+        timeZone: { type: string, description: "IANA time zone name, for example Europe/Madrid. Cannot be changed after creation." }
+        validateOnly: { type: boolean, default: false, description: "Ask Google to validate the request without creating the account." }
+    CreatedMetaAdAccount:
+      type: object
+      required: [adAccountId, businessId, connectionUpdated, paymentMethodRequired, adsManagerUrl, nextSteps, warnings]
+      properties:
+        adAccountId: { type: string, pattern: '^act_[0-9]+$', description: "New Meta ad account ID for subsequent ads calls." }
+        businessId: { type: string, description: "Owning business portfolio ID." }
+        connectionUpdated: { type: boolean, description: "Whether the connection scope and discovery schedule were updated." }
+        paymentMethodRequired: { type: boolean, description: "Always true as a delivery prerequisite. This is not a live funding-source check. Confirm payment or invoicing in Ads Manager." }
+        adsManagerUrl: { type: string, format: uri, description: "Open the created account in Ads Manager." }
+        nextSteps: { type: string, description: "Payment setup instructions for the user." }
+        warnings: { type: array, items: { type: string }, description: "Recovery instructions if the account could not be attached to the connection." }
+    CreatedGoogleAdAccount:
+      type: object
+      required: [platform, adAccountId, managerCustomerId, connectionUpdated, warnings, paymentMethodRequired, nextSteps, validateOnly]
+      properties:
+        platform: { type: string, enum: [google] }
+        adAccountId: { type: string, pattern: '^[0-9]+$', description: "New Google Ads customer id for subsequent ads calls." }
+        managerCustomerId: { type: string, description: "Manager the account was created under." }
+        connectionUpdated: { type: boolean, description: "Whether the customer was added to the connection and discovery was scheduled. When false the account exists: reconnect Google Ads instead of creating it again." }
+        warnings: { type: array, items: { type: string }, description: "Recovery instructions if the account could not be attached to the connection." }
+        paymentMethodRequired: { type: boolean, description: "Always true. The account has no billing until it is set up in Google Ads." }
+        nextSteps: { type: string, description: "Billing setup instructions for the user." }
+        validateOnly: { type: boolean, description: "Always false on a 201." }
     ErrorResponse:
       type: object
       description: |
@@ -8004,7 +8085,7 @@ components:
         status:
           type: string
           example: pending
-          description: "Platform-specific status: pending, processing, uploading, published, failed, cancelled (removed from the platform via DELETE /v1/posts/{postId}/unpublish)"
+          description: "Platform-specific status: pending, processing, uploading, published, failed, cancelled (removed from the platform via POST /v1/posts/{postId}/unpublish)"
         platformPostId:
           type: string
           description: The native post ID on the platform (populated after successful publish)
@@ -8111,7 +8192,7 @@ components:
         status:
           type: string
           enum: [draft, scheduled, publishing, published, partial, failed, cancelled]
-          description: '`cancelled` is set by DELETE /v1/posts/{postId}/unpublish once every platform entry has been removed from its platform (a post with published entries left becomes `partial`); cancelled posts can be edited and rescheduled like drafts.'
+          description: '`cancelled` is set by POST /v1/posts/{postId}/unpublish once every platform entry has been removed from its platform (a post with published entries left becomes `partial`); cancelled posts can be edited and rescheduled like drafts.'
         tags:
           type: array
           description: "YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates removed."
@@ -8533,6 +8614,13 @@ components:
             other:
               type: boolean
               description: Content has other sensitive characteristics.
+        mediaTaggedUsers:
+          type: array
+          maxItems: 10
+          items:
+            type: string
+            pattern: '^@?\w{1,15}$'
+          description: 'X usernames (with or without @) to tag on the photos of the post, up to 10. Photos only, not video or GIF. Applied to the media of every tweet in a thread. An unknown username fails the post.'
       description: >
         X-specific post options. The article field creates a long-form X Article and is mutually
         exclusive with tweet media and tweet-only options. Geo-restriction applies at the media
@@ -8775,6 +8863,27 @@ components:
           description: 'Tags the post with a location. The ID of a Facebook Page that has location data (digits only); it is sent to Instagram as location_id. Applies to feed posts, Reels, and the carousel as a whole; Stories and individual carousel slides are unsupported (a Story with locationId is rejected with a 400). A Page without location data or that does not exist fails the post with a user error at publish time.'
           example: '105890561436614'
       description: Feed aspect ratio 0.5625-1.91, carousels up to 20 items, stories require media (no captions). User tag coordinates 0.0-1.0 from top-left. Images over 8 MB and videos over platform limits are auto-compressed.
+
+    InstagramMediaCollaborator:
+      type: object
+      required: [id, username, inviteStatus]
+      properties:
+        id: { type: string, description: App-scoped ID of the collaborator's Instagram account. }
+        username: { type: [string, "null"], description: Instagram handle of the collaborator. }
+        inviteStatus:
+          type: [string, "null"]
+          description: 'accepted or pending. Any other value Meta adds later is passed through in lowercase.'
+          example: accepted
+
+    InstagramLiveMedia:
+      type: object
+      required: [id, mediaType, mediaProductType, username, timestamp]
+      properties:
+        id: { type: string, description: Instagram media ID of the live broadcast. }
+        mediaType: { type: [string, "null"], description: BROADCAST for a live video., example: BROADCAST }
+        mediaProductType: { type: [string, "null"], description: LIVE for a live video., example: LIVE }
+        username: { type: [string, "null"], description: Instagram handle of the broadcasting account. }
+        timestamp: { type: [string, "null"], description: 'Creation time of the broadcast media as Meta returns it (ISO 8601).' }
 
     InstagramBusinessDiscovery:
       type: object
@@ -9958,6 +10067,40 @@ components:
           type: integer
           description: 'In the profile list. Connected accounts on the profile, including ones that need reconnecting; phone and SMS number internals and posting accounts hidden by an ads connect are not counted.'
         createdAt: { type: string, format: date-time }
+    HubSpotSettings:
+      type: object
+      required:
+        - _id
+        - platform
+        - hubId
+        - hubDomain
+        - scopes
+        - syncContacts
+        - logMessages
+      properties:
+        _id:
+          type: string
+          description: Zernio account ID of the HubSpot connection.
+        platform:
+          type: string
+          enum: [hubspot]
+        hubId:
+          type: string
+          description: HubSpot portal (hub) ID.
+        hubDomain:
+          type: [string, "null"]
+          description: HubSpot portal domain, when HubSpot reports one.
+        scopes:
+          type: array
+          items:
+            type: string
+          description: OAuth scopes the portal granted.
+        syncContacts:
+          type: boolean
+          description: Whether Zernio creates HubSpot contacts for inbox contacts that match none.
+        logMessages:
+          type: boolean
+          description: Whether Zernio logs inbox messages on HubSpot contact timelines.
     SocialAccount:
       type: object
       required: [_id, platform, profileId, isActive]
@@ -9965,7 +10108,7 @@ components:
         _id: { type: string }
         platform:
           type: string
-          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, sms, phone, rcs, whopads]
+          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, sms, phone, rcs, whopads, hubspot]
         profileId:
           oneOf:
             - type: string
@@ -10988,7 +11131,13 @@ components:
           items:
             $ref: '#/components/schemas/Post'
         pagination:
-          $ref: '#/components/schemas/Pagination'
+          allOf:
+            - $ref: '#/components/schemas/Pagination'
+            - type: object
+              properties:
+                nextCursor:
+                  type: [string, "null"]
+                  description: 'Cursor for the next page in the same sortBy order. Send it back as `cursor`. Null on the last page, and always null for `sortBy=status` or `sortBy=platform`. Absent for `source=external`.'
     PostGetResponse:
       type: object
       properties:
@@ -11292,7 +11441,7 @@ components:
         pagination: { $ref: '#/components/schemas/Pagination' }
         backfillPending:
           type: boolean
-          description: Present and true while historical data is being backfilled.
+          description: Meta only. Present and true while historical data is being backfilled.
     AdTreeResponse:
       type: object
       properties:
@@ -11302,13 +11451,13 @@ components:
         pagination: { $ref: '#/components/schemas/Pagination' }
         backfillPending:
           type: boolean
-          description: Present and true while historical data is being backfilled.
+          description: Meta only. Present and true while historical data is being backfilled.
     AdsTimelineResponse:
       type: object
       properties:
         backfillPending:
           type: boolean
-          description: Present and true while historical data is being backfilled.
+          description: Meta only. Present and true while historical data is being backfilled.
         rows:
           type: array
           items:
@@ -11378,7 +11527,7 @@ components:
       properties:
         backfillPending:
           type: boolean
-          description: Present and true while historical data is being backfilled.
+          description: Meta only. Present and true while historical data is being backfilled.
         campaign:
           type: object
           properties:
@@ -11486,7 +11635,7 @@ components:
       properties:
         backfillPending:
           type: boolean
-          description: Present and true while historical data is being backfilled.
+          description: Meta only. Present and true while historical data is being backfilled.
         ad:
           type: object
           properties:
@@ -11685,7 +11834,13 @@ components:
         cartAdds: { type: integer, description: "Adds to cart (Meta `AddToCart` pixel event)." }
         checkoutsInitiated: { type: integer, description: "Checkouts started (Meta `InitiateCheckout` pixel event)." }
         paymentInfoAdds: { type: integer, description: "Payment details added at checkout (Meta `AddPaymentInfo` pixel event)." }
-        purchases: { type: integer, description: "Purchases (Meta `Purchase` pixel event). Pair with `purchaseValue` for revenue." }
+        purchases:
+          type: integer
+          description: |
+            Purchases. Meta reports one purchase under several action types at once, so this takes the FIRST one present, in this order, never a sum: `offsite_conversion.fb_pixel_purchase`, `omni_purchase`, `app_custom_event.fb_mobile_purchase`, `onsite_conversion.purchase`, `purchase`.
+            It always counts purchases, whatever the ad set optimizes for. `conversions` instead follows the ad set's optimization event (PURCHASE when the ad set names none), so the two can differ on any other goal.
+            TikTok: app purchases (`purchase`), else website complete payments (`complete_payment`), else Place an Order (`place_order`).
+            Pair with `purchaseValue` for revenue.
         leads: { type: integer, description: "Leads, from either the website pixel or an instant form, whichever the ad uses." }
         registrationsCompleted: { type: integer, description: "Completed registrations (Meta `CompleteRegistration` pixel event)." }
         appInstalls: { type: integer, description: "Mobile app installs attributed to the ad." }
@@ -11901,6 +12056,36 @@ components:
         managerLinkId: { type: [string, "null"], description: "Null on a validateOnly invitation, where Google creates nothing." }
         status: { type: string, enum: [PENDING, ACTIVE, REFUSED, CANCELED, INACTIVE], description: "Status the link has after this call." }
         validateOnly: { type: boolean }
+    GoogleAdsAccessRole:
+      type: string
+      enum: [ADMIN, STANDARD, READ_ONLY, EMAIL_ONLY]
+      description: "ADMIN manages the account and its users, STANDARD edits campaigns, READ_ONLY views them, EMAIL_ONLY only receives the account's emails."
+    GoogleAdsUserAccessInvitation:
+      type: object
+      properties:
+        invitationId: { type: string }
+        emailAddress: { type: string }
+        accessRole: { type: string, enum: [ADMIN, STANDARD, READ_ONLY, EMAIL_ONLY, UNKNOWN] }
+        status: { type: string, enum: [PENDING, DECLINED, EXPIRED, UNKNOWN] }
+        createdAt: { type: [string, "null"], description: "Google's creation time, yyyy-MM-dd HH:mm:ss.ssssss in the account's time zone." }
+    GoogleAdsUserAccessInvitationResult:
+      type: object
+      properties:
+        customerId: { type: string }
+        emailAddress: { type: string }
+        accessRole: { $ref: '#/components/schemas/GoogleAdsAccessRole' }
+        status: { type: string, enum: [PENDING, PENDING_APPROVAL], description: "PENDING once the email is sent; PENDING_APPROVAL while Google waits for a second admin's multi-party approval." }
+        invitationId: { type: [string, "null"], description: "Null on validateOnly and while the invitation awaits multi-party approval." }
+        multiPartyAuthReviewId: { type: [string, "null"], description: "Google's multi-party approval review id when status is PENDING_APPROVAL." }
+        validateOnly: { type: boolean }
+    GoogleAdsUserInvitationApproval:
+      type: object
+      properties:
+        multiPartyAuthReviewId: { type: string, description: "Pass to DELETE /v1/ads/accounts/user-invitations/pending-approvals to withdraw the request." }
+        emailAddress: { type: [string, "null"], description: "Invited email address." }
+        accessRole: { type: string, enum: [ADMIN, STANDARD, READ_ONLY, EMAIL_ONLY, UNKNOWN] }
+        requestUserEmail: { type: [string, "null"], description: "Google user who sent the invitation. Only this user can withdraw it." }
+        createdAt: { type: [string, "null"], description: "Google's creation time, yyyy-MM-dd HH:mm:ss.ssssss in the account's time zone." }
     GoogleTargetImpressionShare:
       type: object
       additionalProperties: false
@@ -13846,8 +14031,24 @@ components:
           description: URL where the conversion originated (used by Meta).
         actionSource:
           type: string
-          enum: [web, app, offline, crm, phone_call, system_generated]
-          description: 'Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit value for accurate origin reporting.'
+          enum: [web, app, offline, crm, phone_call, system_generated, business_messaging]
+          description: 'Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit value for accurate origin reporting. `business_messaging` (Meta) marks an event from a WhatsApp, Messenger or Instagram Direct conversation and needs `messaging`.'
+        messaging:
+          type: object
+          description: |
+            Meta only, read when `actionSource` is `business_messaging` (Conversions API
+            for Business Messaging). `channel` is sent as the event's `messaging_channel`
+            (`instagram_direct` goes out as `instagram`). Each id lands in Meta's
+            `user_data` unhashed, and an id that does not belong to `channel` is ignored.
+          required: [channel]
+          properties:
+            channel: { type: string, enum: [whatsapp, messenger, instagram_direct] }
+            wabaId: { type: string, description: 'WhatsApp only. WhatsApp Business Account id, sent as `whatsapp_business_account_id`.' }
+            ctwaClid: { type: string, description: 'WhatsApp only. Click-to-WhatsApp click id from the first inbound message referral, sent as `ctwa_clid`.' }
+            pageId: { type: string, description: 'Messenger: Facebook Page id, sent as `page_id`. Instagram Direct: when `instagramBusinessAccountId` is absent, Zernio reads the Instagram professional account linked to this Page and sends its id as `instagram_business_account_id`; if none is linked or the lookup fails, `page_id` is sent instead.' }
+            instagramBusinessAccountId: { type: string, description: 'Instagram Direct only. Instagram professional account id (`instagram_business_account` on the Page), sent as `instagram_business_account_id` next to `ig_sid`.' }
+            pageScopedUserId: { type: string, description: 'Messenger only. The page-scoped user id (PSID) your Messenger webhook gives for the person, sent as `page_scoped_user_id` next to `page_id`.' }
+            instagramScopedUserId: { type: string, description: 'Instagram Direct only. The Instagram-scoped user id (IGSID) your Instagram messaging webhook gives for the person, sent as `ig_sid`.' }
         platformData:
           type: object
           additionalProperties: true
@@ -18873,9 +19074,9 @@ paths:
           description: |
             Comma-separated list of metrics. Defaults to "reach,views,accounts_engaged,total_interactions".
             Valid metrics: reach, views, accounts_engaged, total_interactions, comments, likes, saves, shares,
-            replies, reposts, follows_and_unfollows, profile_links_taps.
+            replies, reposts, follows_and_unfollows, profile_links_taps, profile_views, website_clicks.
             Note: only "reach" supports metricType=time_series. All other metrics (including
-            follows_and_unfollows) are total_value only. This is an Instagram Graph API limitation,
+            follows_and_unfollows, profile_views and website_clicks) are total_value only. This is an Instagram Graph API limitation,
             not a Zernio limitation - the IG API does not return time-series data for these metrics.
             For a daily running follower count, use /v1/analytics/instagram/follower-history instead.
         - name: fromDate
@@ -18977,7 +19178,7 @@ paths:
                 invalidMetric:
                   value:
                     error: "Invalid metrics: impressions"
-                    validMetrics: ["accounts_engaged", "comments", "follows_and_unfollows", "likes", "profile_links_taps", "reach", "replies", "reposts", "saves", "shares", "total_interactions", "views"]
+                    validMetrics: ["accounts_engaged", "comments", "follows_and_unfollows", "likes", "profile_links_taps", "profile_views", "reach", "replies", "reposts", "saves", "shares", "total_interactions", "views", "website_clicks"]
                 breakdownWithTimeSeries:
                   value:
                     error: "Breakdowns are only supported with metricType=total_value"
@@ -20443,7 +20644,8 @@ paths:
       summary: Get Google Business Profile search keywords
       description: |
         Returns search keywords that triggered impressions for a Google Business Profile location.
-        Data is aggregated monthly. Keywords below a minimum impression threshold set by Google are excluded.
+        Data is aggregated monthly. Keywords Google reports only as below a threshold have `impressions` 0 and `impressionsThreshold` set to that threshold.
+        Returns up to 100 keywords per page. When `nextPageToken` is not null, pass it as `pageToken` with the same `startMonth` and `endMonth` to get the next page.
         Max 18 months of historical data. Requires the Analytics add-on.
       parameters:
         - name: accountId
@@ -20459,6 +20661,10 @@ paths:
           in: query
           schema: { type: string, pattern: "^\\d{4}-\\d{2}$" }
           description: End month (YYYY-MM). Defaults to current month.
+        - name: pageToken
+          in: query
+          schema: { type: string }
+          description: 'The nextPageToken from the previous page. Valid only with the same startMonth and endMonth as the request that returned it.'
       responses:
         '200':
           description: Search keywords with impression counts
@@ -20481,8 +20687,10 @@ paths:
                       type: object
                       properties:
                         keyword: { type: string, example: "restaurant near me" }
-                        impressions: { type: integer, example: 245 }
-                  note: { type: string, example: "Keywords below a minimum impression threshold are excluded by Google" }
+                        impressions: { type: integer, example: 245, description: "Impressions for the range. 0 when Google reports only a threshold." }
+                        impressionsThreshold: { type: [integer, "null"], example: null, description: "Set when Google reports only that impressions were below this value. null when impressions is exact." }
+                  nextPageToken: { type: [string, "null"], description: "Pass as pageToken to fetch the next page. null on the last page." }
+                  note: { type: string, example: "Keywords Google reports only as below a threshold have impressions 0 and impressionsThreshold set" }
               examples:
                 keywords_data:
                   summary: Search keywords for a location
@@ -20496,11 +20704,18 @@ paths:
                     keywords:
                       - keyword: "restaurant near me"
                         impressions: 245
+                        impressionsThreshold: null
                       - keyword: "best tapas barcelona"
                         impressions: 89
+                        impressionsThreshold: null
                       - keyword: "zernio"
                         impressions: 34
-                    note: "Keywords below a minimum impression threshold are excluded by Google"
+                        impressionsThreshold: null
+                      - keyword: "tapas delivery"
+                        impressions: 0
+                        impressionsThreshold: 15
+                    nextPageToken: null
+                    note: "Keywords Google reports only as below a threshold have impressions 0 and impressionsThreshold set"
         '400':
           description: Invalid parameters
           content:
@@ -22155,6 +22370,34 @@ paths:
           in: query
           schema: { type: integer, minimum: 0 }
           description: 'Row offset. Takes precedence over page when both are sent; the response pagination.page is derived from it.'
+        - name: cursor
+          in: query
+          schema: { type: string }
+          description: >-
+            Opaque cursor from a previous response's `pagination.nextCursor`.
+            Returns the page that follows it in the same `sortBy` order, and
+            takes precedence over `page` and `offset`. Each cursor page costs
+            the same however deep it is, unlike `page`/`offset`, which get
+            slower the further you go; prefer it to walk a long history.
+            Send the same filters and `sortBy` as the request that issued it:
+            a cursor from another `sortBy` returns 400. Not available with
+            `sortBy=status` or `sortBy=platform`, or with `source=external`.
+        - name: fields
+          in: query
+          schema: { type: string }
+          example: status,scheduledFor,platforms
+          description: >-
+            Comma-separated list of post fields to return. Each post then
+            carries `_id` plus only these fields, which makes large pages
+            much cheaper: leave out `platforms`, `content`, `mediaItems` or
+            `metadata` when you do not need them. Accepted: `userId`,
+            `title`, `content`, `mediaItems`, `platforms`, `scheduledFor`,
+            `timezone`, `status`, `tags`, `hashtags`, `mentions`,
+            `visibility`, `metadata`, `recycling`, `recycledFromPostId`,
+            `queuedFromProfile`, `queueId`, `createdAt`, `updatedAt`. An
+            unknown field returns 400 naming it. `fields=_id` returns ids
+            only. Omit it (or send it empty) for the full post. Not
+            available with `source=external`.
         - name: source
           in: query
           schema: { type: string, enum: [zernio, external], default: zernio }
@@ -24249,8 +24492,8 @@ paths:
           in: query
           schema:
             type: string
-            enum: [social, ads, communication, blogs]
-          description: 'Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.'
+            enum: [social, ads, communication, blogs, crm]
+          description: 'Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, social = every other platform.'
         - name: sort
           in: query
           schema:
@@ -24592,7 +24835,7 @@ paths:
           description: Filter by platform
           schema:
             type: string
-            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, whopads]
+            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, whopads, hubspot]
         - name: status
           in: query
           description: Filter by health status
@@ -26120,16 +26363,16 @@ paths:
           description: 'Hex colour (`#RRGGBB`) for the primary button on the hosted WhatsApp signup page (`signup=hosted`) or the welcome screen (`welcome=true`). Validated server-side; anything else is a 400 `INVALID_FIELD_VALUE`. Rejected without one of the two.'
         - name: welcome
           in: query
-          schema: { type: boolean, default: false }
-          description: 'Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") with a Continue button; Continue sends the user to the platform''s own authorization screen and the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio''s own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform''s authorization screen still names the Zernio app.'
+          schema: { type: boolean }
+          description: 'Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button fills for about a second and then sends the user on to the platform''s own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio''s own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform''s authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.'
         - name: welcomeTheme
           in: query
           schema: { type: string, maxLength: 4000 }
-          description: 'Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine` and `consentLine` (up to 200 each), `buttonLabel` (up to 30); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor`, `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected without `welcome=true`. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.'
+          description: 'Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine` and `consentLine` (up to 200 each), `buttonLabel` (up to 30, the label on that button); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor`, `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.'
         - name: logoUrl
           in: query
           schema: { type: string, format: uri, maxLength: 2048 }
-          description: 'Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` without `welcome=true`.'
+          description: 'Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.'
         - name: language
           in: query
           schema: { type: string, enum: [en, es, pt-BR] }
@@ -26666,6 +26909,74 @@ paths:
         '403':
           description: 'API key does not have access to this profile.'
 
+  /v1/connect/hubspot:
+    get:
+      x-resource-group: accounts
+      operationId: getHubSpotConnectUrl
+      tags:
+        - Connect
+      summary: Get HubSpot OAuth connect URL
+      description: |
+        Initiates OAuth for a HubSpot portal. HubSpot is a connect-only CRM
+        platform: the connected account does not post, read analytics or run
+        ads. One HubSpot portal can be connected per profile; connecting a
+        different portal to a profile that already has one redirects with
+        `error=hubspot_profile_has_portal`.
+        Redirect the user to `authUrl`; after authorization, HubSpot returns
+        the browser to Zernio's internal callback and Zernio redirects to
+        `redirect_url` (or the dashboard when omitted). On success the redirect
+        carries `connected=hubspot`, `profileId`, `accountId` and `username`
+        (the portal domain); on failure it carries `error`, `platform=hubspot`
+        and `error_message`. Reconnecting the same portal and profile updates
+        the stored connection in place and keeps its settings.
+        Requested scopes: `oauth`, `crm.objects.contacts.read`, `crm.objects.contacts.write`.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Your Zernio profile ID (get from /v1/profiles).
+        - name: redirect_url
+          in: query
+          schema:
+            type: string
+          description: >-
+            Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as
+            `myapp://callback`; relative and unsafe URLs return 400.
+      responses:
+        '200':
+          description: OAuth authorization URL and authenticated state
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - authUrl
+                  - state
+                properties:
+                  authUrl:
+                    type: string
+                    format: uri
+                    description: HubSpot URL to open in the user agent.
+                  state:
+                    type: string
+                    description: Authenticated, expiring OAuth state handled by the callback.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '403':
+          description: API key does not have access to this profile, or the key is read-only.
+        '404':
+          description: Profile not found or access denied.
+        '503':
+          description: HubSpot OAuth is not configured.
   /v1/connect/wordpress:
     get:
       x-resource-group: "accounts"
@@ -29708,6 +30019,61 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
 
+  /v1/connect/welcome-screen:
+    get:
+      x-resource-group: accounts
+      operationId: getConnectWelcomeScreen
+      tags: [Connect]
+      summary: Get the saved welcome screen
+      description: 'The workspace''s saved welcome screen settings, shared by the whole team. With `showByDefault` on, every `GET /v1/connect/{platform}` made with your API key shows the welcome screen before the platform''s authorization screen, without `welcome=true` or any branding parameter. Connects started from the Zernio dashboard always show it, with this branding when saved.'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The saved settings. A workspace that never saved any gets `showByDefault` false and null fields.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectWelcomeScreen' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    put:
+      x-resource-group: accounts
+      operationId: updateConnectWelcomeScreen
+      tags: [Connect]
+      summary: Save the welcome screen
+      description: 'Replaces the workspace''s welcome screen settings: a field left out is cleared. Only the account owner or a full-access team member can save, and not with a profile-scoped API key. Parameters sent on a connect call still win over these values for that call.'
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [showByDefault]
+              properties:
+                showByDefault: { type: boolean, description: 'Show the welcome screen on connect calls that do not pass `welcome`.' }
+                brandName: { type: string, minLength: 1, maxLength: 60 }
+                logoUrl: { type: string, format: uri, maxLength: 2048, description: 'https URL of a square logo.' }
+                theme: { type: object, description: 'Same keys as the `welcomeTheme` parameter of `GET /v1/connect/{platform}`, as a JSON object.' }
+            example:
+              showByDefault: true
+              brandName: Acme
+              logoUrl: https://acme.com/logo.png
+              theme: { primaryColor: '#1D4ED8', cornerRadius: 12 }
+      responses:
+        '200':
+          description: The saved settings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConnectWelcomeScreen' }
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: The caller cannot change workspace settings (code INSUFFICIENT_PERMISSIONS).
   /v1/connect/pending-data:
     get:
       x-resource-group: "public"
@@ -32549,6 +32915,127 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
 
+  /v1/accounts/{accountId}/instagram/media/{mediaId}/collaborators:
+    get:
+      x-resource-group: publishing
+      operationId: listInstagramMediaCollaborators
+      tags:
+        - Instagram
+      summary: List the collaborators of an Instagram post
+      description: |
+        Returns the accounts invited as collaborators on one of the connected
+        account's own posts (feed image, Reel or carousel), with whether each
+        invitation was accepted or is still pending. Use it to check who
+        accepted a collab post after publishing it.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        serves this edge on graph.facebook.com only, so accounts connected with
+        classic Instagram Login receive a 400
+        (`instagram_collaborators_require_facebook_login`) and must be
+        reconnected choosing the Facebook option.
+
+        Meta returns at most 5 collaborators and only those who allow
+        collaborator tagging. A post without collaborators returns an empty list.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of a connected Instagram account (Facebook Login).
+          schema:
+            type: string
+        - name: mediaId
+          in: path
+          required: true
+          description: 'Instagram media ID of a post published by this account (digits only, e.g. the platformPostId of a published post).'
+          schema:
+            type: string
+            pattern: '^[0-9]+$'
+            example: '18063237463112345'
+      responses:
+        '200':
+          description: Collaborators of the post
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    maxItems: 5
+                    items:
+                      $ref: '#/components/schemas/InstagramMediaCollaborator'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: >-
+            The account is not reachable by the caller (`account_not_found`), or the media does not exist or does not
+            belong to this account (`resource_not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/AccountConnectionRequired'
+  /v1/accounts/{accountId}/instagram/live-media:
+    get:
+      x-resource-group: analytics
+      operationId: listInstagramLiveMedia
+      tags: [Instagram]
+      summary: List the live broadcasts of an Instagram account
+      description: |
+        Returns the live videos the connected Instagram account is broadcasting
+        right now. Meta only returns broadcasts in progress at the time of the
+        request, so the list is empty when nothing is live (a 200, not an error).
+        Pair the returned `id` with comments flagged as live (the live_comments
+        webhook field) or with a `live_comment` comment automation.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        documents the live_media edge on graph.facebook.com only, so accounts
+        connected with classic Instagram Login receive a 400
+        (`instagram_live_media_requires_facebook_login`) and must be
+        reconnected choosing the Facebook option.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of a connected Instagram account (Facebook Login).
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Live broadcasts in progress
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InstagramLiveMedia'
+        '400':
+          description: 'Invalid accountId, an account on another platform (`platform_not_supported`) or an account connected with Instagram Login (`instagram_live_media_requires_facebook_login`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'The API key is not scoped to this account, or Meta refused the request (`platform_api_error`, for example a missing permission).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: The account is not reachable by the caller (`account_not_found`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          $ref: '#/components/responses/AccountConnectionRequired'
   /v1/accounts/{accountId}/instagram/stories/{storyId}/insights:
     get:
       x-resource-group: "analytics"
@@ -32562,8 +33049,10 @@ paths:
         - `live`: fetched from Meta in real time (story is still active)
         - `cached`: fetched from a persisted `story_insights` webhook payload
           (story has expired but we received its final-state metrics from Meta)
-        - `unavailable`: story has expired and we never received its webhook
-          payload (for example, the account connected after the story expired)
+        - `unavailable`: story has expired and Meta sent no `story_insights` webhook for it.
+          Meta sends it most reliably for accounts connected with Facebook Login or with their
+          linked Facebook Page connected, so read insights while the story is live if you need
+          final numbers.
 
         Meta can report an expired story as an empty successful result rather
         than an error, so an expired story resolves to `cached` or `unavailable`
@@ -33436,7 +33925,7 @@ paths:
         Returns a subreddit's posting rules plus Reddit's site-wide rules, so you can check
         them before submitting and avoid a removal.
 
-        Use this alongside `POST /v1/tools/validate/subreddit`, which only confirms that a
+        Use this alongside `GET /v1/tools/validate/subreddit`, which only confirms that a
         subreddit exists and reports its basic posting settings.
       parameters:
         - name: accountId
@@ -33654,6 +34143,84 @@ paths:
         '502': { description: "Reddit was unreachable or returned an unclassified error. Reddit 4xx statuses (e.g. subreddit does not allow user flair selection) are forwarded as-is." }
         '503': { description: "Organic Reddit is temporarily unavailable while Reddit blocks third-party API access (`PLATFORM_DISABLED`)." }
 
+  /v1/accounts/{accountId}/hubspot-settings:
+    get:
+      x-resource-group: accounts
+      operationId: getHubSpotSettings
+      tags:
+        - Accounts
+      summary: Get HubSpot account settings
+      description: Read a connected HubSpot portal and what Zernio syncs to it.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: HubSpot settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account:
+                    $ref: '#/components/schemas/HubSpotSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Account not found
+    patch:
+      x-resource-group: accounts
+      operationId: updateHubSpotSettings
+      tags:
+        - Accounts
+      summary: Update HubSpot account settings
+      description: >-
+        Turn contact sync or message logging on or off for a connected HubSpot portal. Send at least one
+        field; omitted fields keep their value. Settings survive reconnecting the same portal.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                syncContacts:
+                  type: boolean
+                  description: >-
+                    Create a HubSpot contact for an inbox contact that matches none by email or phone. A match
+                    is linked as it is and never updated.
+                logMessages:
+                  type: boolean
+                  description: Log inbound and outbound inbox messages on the contact's HubSpot timeline.
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  account:
+                    $ref: '#/components/schemas/HubSpotSettings'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Account not found
   /v1/accounts/{accountId}/slack-settings:
     get:
       x-resource-group: "accounts"
@@ -36133,7 +36700,7 @@ paths:
       description: |
         Fetch conversations (DMs) from all connected messaging accounts in a single API call. Supports filtering by profile and platform. Results are aggregated and deduplicated.
 
-        Supported platforms: Facebook, Instagram, X, Bluesky, Reddit, Telegram.
+        Supported platforms: Facebook, Instagram, X, Bluesky, Reddit, Telegram, WhatsApp, iMessage and SMS.
 
         **X limitation.** X has replaced traditional DMs with encrypted "X Chat" for many accounts. Messages sent or received through encrypted X Chat are not accessible via X's API (the /2/dm_events endpoint only returns legacy unencrypted DMs). This means some X conversations may show only outgoing messages or appear empty. This is an X platform limitation that affects all third-party applications. See X's docs on encrypted messaging for more details.
 
@@ -36151,7 +36718,7 @@ paths:
           description: Filter by profile ID
         - name: platform
           in: query
-          schema: { type: string, enum: [facebook, instagram, twitter, bluesky, reddit, telegram, whatsapp, imessage] }
+          schema: { type: string, enum: [facebook, instagram, twitter, bluesky, reddit, telegram, whatsapp, imessage, sms] }
           description: Filter by platform
         - name: status
           in: query
@@ -38509,6 +39076,10 @@ paths:
 
         For iMessage, this also marks the conversation read with the contact
         (1:1 conversations only). Best-effort.
+
+        For Instagram (Instagram Login and Facebook Login) and Facebook Messenger,
+        this also sends a `mark_seen` read receipt to the contact, so they see the
+        conversation as seen. Best-effort: a Meta failure never fails the request.
 
         This is the explicit, human-driven counterpart to `GET .../messages`,
         which is side-effect-free and does NOT mark anything read. Call this when
@@ -44634,7 +45205,7 @@ paths:
                 references: { $ref: '#/components/schemas/BrandedCallingReferences' }
                 reviewAnswers:
                   type: object
-                  description: 'One entry per point id of the open reviewRequest. A text point takes text; a link point takes url; file and link_or_file points take url set to the URL of a file you uploaded first (POST /v1/media/upload). A point id that is not on the open request is a 422.'
+                  description: 'One entry per point id of the open reviewRequest. A text point takes text; a link point takes url; file and link_or_file points take url set to the URL of a file you uploaded first (POST /v1/media/presign). A point id that is not on the open request is a 422.'
                   additionalProperties:
                     type: object
                     properties:
@@ -50547,7 +51118,7 @@ paths:
         List active WhatsApp group chats for a business phone number.
         These are actual WhatsApp group conversations on the platform.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50588,7 +51159,7 @@ paths:
       description: |
         Create a new WhatsApp group chat. Returns the group ID and optionally an invite link.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       requestBody:
@@ -50633,7 +51204,7 @@ paths:
         Retrieve metadata about a WhatsApp group including subject, description,
         participants, and settings.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50676,7 +51247,7 @@ paths:
       description: |
         Update the subject, description, or join approval mode of a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50713,7 +51284,7 @@ paths:
       description: |
         Delete a WhatsApp group and remove all participants.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50742,7 +51313,7 @@ paths:
       description: |
         Add participants to a WhatsApp group. Maximum 8 participants per request. A group holds at most 8 participants in total (a Meta limit), so later requests cannot grow a group past 8. Meta documents groups as invite-only, so people normally join through the group's invite link.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50781,7 +51352,7 @@ paths:
       description: |
         Remove participants from a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50821,7 +51392,7 @@ paths:
       description: |
         Create a new invite link for a WhatsApp group. The previous link is revoked.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50849,7 +51420,7 @@ paths:
       description: |
         List pending join requests for a WhatsApp group (only for groups with approval_required mode).
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50881,7 +51452,7 @@ paths:
       description: |
         Approve pending join requests for a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -50919,7 +51490,7 @@ paths:
       description: |
         Reject pending join requests for a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
       security:
         - bearerAuth: []
       parameters:
@@ -54217,6 +54788,13 @@ paths:
         Use source=all to include externally-synced ads from platform ad managers.
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
 
+        History: when an ad account connects, Zernio imports its last 90 days of metrics, so the
+        metrics hold no data for days before that. When `accountId` or `adAccountId` resolves to a
+        Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) are imported in the background;
+        repeat the request until it returns 200.
+        A request scoped to no Meta account never returns `202`.
+
         To find the Zernio ad behind a comment you see in Meta Business Manager, filter by
         platformAdId (the Meta ad ID), effectiveObjectStoryId (Facebook), or
         effectiveInstagramMediaId (Instagram). Those are the post/media the ad's engagement
@@ -54248,7 +54826,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AdsListResponse' }
         '202':
-          description: Historical data is incomplete and backfill remains pending.
+          description: Meta only. Historical data is incomplete and backfill remains pending.
           headers:
             Retry-After:
               $ref: '#/components/headers/BackfillRetryAfter'
@@ -56866,8 +57444,8 @@ paths:
         incompatible combinations (e.g. a billingEvent the optimization goal
         doesn't allow) surface as 400s from Meta.
 
-        When updating `budget` on an ABO campaign: if the parent campaign is
-        CBO, the response is 409 with code BUDGET_LEVEL_MISMATCH. Route to
+        When updating `budget` on an ad set whose campaign holds the budget
+        (CBO), the response is 409 with code `invalid_field_value`. Send it to
         PUT /v1/ads/campaigns/{campaignId} instead.
 
         Reddit Ads: `budget` changes the ad group's amount; an ad group that spends its
@@ -57227,6 +57805,13 @@ paths:
         ID are grouped into synthetic "Ungrouped" buckets.
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
 
+        History: when an ad account connects, Zernio imports its last 90 days of metrics, so the
+        metrics hold no data for days before that. When `accountId` or `adAccountId` resolves to a
+        Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) are imported in the background;
+        repeat the request until it returns 200.
+        A request scoped to no Meta account never returns `202`.
+
         Pass `timeIncrement=1` to also get a daily breakdown: each node gains a `daily[]` array of
         per-day metrics (same fields as the aggregated `metrics`) in the same call. Use `dailyLevel`
         (`campaign` default, or `adset` / `ad`) to choose which levels carry the series. This replaces
@@ -57266,7 +57851,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AdTreeResponse' }
         '202':
-          description: Historical data is incomplete and backfill remains pending.
+          description: Meta only. Historical data is incomplete and backfill remains pending.
           headers:
             Retry-After:
               $ref: '#/components/headers/BackfillRetryAfter'
@@ -57302,10 +57887,14 @@ paths:
         ID also includes ads under the linked `facebook` / `instagram` posting account
         (and vice-versa), the same convention as `/v1/ads/tree` and `/v1/ads`.
 
-        Date range defaults to the last 90 days. Capped at 730 days. Ranges older
-        than the ingested history return a `202` immediately with the covered part
-        and `backfillPending: true` while the rest is backfilled in the background;
-        repeat the request shortly until it returns 200 with full data.
+        Date range defaults to the last 90 days. Capped at 730 days.
+
+        History: when an ad account connects, Zernio imports its last 90 days of metrics, so `rows`
+        hold no data for days before that. When `accountId` or `adAccountId` resolves to a Meta ad
+        account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) are imported in the background;
+        repeat the request until it returns 200.
+        Other platforms never return `202`.
 
         With adAccountId set to a Google customer id this is the customer-level performance report (clicks, cost, impressions, conversions, all conversions per day).
       security:
@@ -57323,7 +57912,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AdsTimelineResponse' }
         '202':
-          description: Historical data is incomplete and backfill remains pending.
+          description: Meta only. Historical data is incomplete and backfill remains pending.
           headers:
             Retry-After:
               $ref: '#/components/headers/BackfillRetryAfter'
@@ -57496,7 +58085,7 @@ paths:
           and creative (uploads new media, creates a replacement inline creative on the same
           campaign, pauses the old one).
         - **Pinterest / X / OpenAI Ads**: status + budget only. Sending
-          `targeting` or `creative` returns 501 with code `unsupported_platform_operation`.
+          `targeting` or `creative` returns 501 with code `feature_not_available`.
           OpenAI Ads budget is the campaign's spend cap, daily or lifetime (see `budget.type` below).
         - **Reddit Ads**: status, budget, `name` (renames the ad) and targeting. `budget` goes to
           the ad's ad group, or to its campaign when the ad group spends a campaign budget, and
@@ -58715,6 +59304,16 @@ paths:
         age/gender/placement/etc. without summing thousands of per-ad reads. `campaignId` is the platform campaign id; pass
         `platform` when a campaign id could be ambiguous across platforms. If no date range is provided,
         defaults to the last 90 days. Date range is capped at 730 days max.
+
+        History: when an ad account connects, Zernio imports its last 90 days of metrics. `summary`
+        and `daily` come from those synced metrics, so they hold no data for days before that.
+        Breakdowns and Google's impression share are read live from the platform over the requested
+        range, so they are not limited by the import.
+        When the campaign belongs to a Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) are imported in the background;
+        repeat the request until it returns 200.
+        Other platforms never return `202`.
+
         Google adds searchImpressionShare, searchBudgetLostImpressionShare,
         searchRankLostImpressionShare, searchTopImpressionShare and searchAbsoluteTopImpressionShare
         under analytics.summary for the requested inclusive range. These ratios are queried
@@ -58770,7 +59369,7 @@ paths:
                   impressionShareCache: { cachedAt: "2026-09-09T10:00:00Z", stale: false }
                   daily: []
         '202':
-          description: Historical data is incomplete and backfill remains pending.
+          description: Meta only. Historical data is incomplete and backfill remains pending.
           headers:
             Retry-After:
               $ref: '#/components/headers/BackfillRetryAfter'
@@ -59431,6 +60030,15 @@ paths:
         Includes summary metrics, a daily timeline
         over the requested date range, and optional demographic breakdowns (Meta, TikTok and LinkedIn only).
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
+
+        History: when an ad account connects, Zernio imports its last 90 days of metrics. `summary`
+        and `daily` come from those synced metrics, so they hold no data for days before that.
+        Breakdowns are read live from the platform over the requested range, so they are not limited
+        by the import.
+        When the ad belongs to a Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) are imported in the background;
+        repeat the request until it returns 200.
+        Other platforms never return `202`.
       security:
         - bearerAuth: []
       parameters:
@@ -59469,7 +60077,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/AdAnalyticsResponse' }
         '202':
-          description: Historical data is incomplete and backfill remains pending.
+          description: Meta only. Historical data is incomplete and backfill remains pending.
           headers:
             Retry-After:
               $ref: '#/components/headers/BackfillRetryAfter'
@@ -63698,6 +64306,230 @@ paths:
         '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
         '501': { description: Only available on Google Ads accounts }
 
+  /v1/ads/accounts/user-invitations:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdAccountUserInvitations
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'List user access invitations'
+      description: >-
+        Lists the email invitations to a Google Ads account, with their role and status.
+
+
+        Reads Google's `customer_user_access_invitation` resource for one customer:
+        invitations that are `PENDING`, `DECLINED` or `EXPIRED` (Google expires them 20
+        days after sending). An accepted invitation becomes a user of the account and
+        leaves this list, which can take Google up to 24 hours. An invitation still
+        waiting for multi-party approval is not listed until a second admin approves it;
+        GET /v1/ads/accounts/user-invitations/pending-approvals lists those.
+        Results are cached for 10 minutes and dropped on every invite or revoke through
+        Zernio.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Google Ads customer id, digits only. Defaults to the connection's selected customer." }
+      responses:
+        '200':
+          description: Invitations of the customer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  invitations:
+                    type: array
+                    items: { $ref: '#/components/schemas/GoogleAdsUserAccessInvitation' }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this data was fetched from Google. Null when the cache is unavailable." }
+                  stale: { type: boolean, description: "True when Google's quota was exhausted and this is the last successful fetch." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdAccountNotSelected' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+    post:
+      x-resource-group: "ads"
+      operationId: inviteAdAccountUser
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Invite a user to an ad account by email'
+      description: >-
+        Emails someone an invitation to a Google Ads account with the access role you choose, for example to hand a client account you created under your manager to its owner.
+
+
+        Creates a user access invitation (Google's CustomerUserAccessInvitationService) on
+        `adAccountId`. The connection's Google user needs admin access to that account,
+        directly or through a manager above it, which is the case for an account created
+        with POST /v1/ads/accounts. The recipient accepts from the email, possibly with
+        another Google account. When Google requires multi-party approval, nothing is
+        sent until a second admin of the account approves the request in Google Ads: the
+        response then has `status: PENDING_APPROVAL` and a `multiPartyAuthReviewId`
+        instead of an `invitationId`, which DELETE /v1/ads/accounts/user-invitations/pending-approvals
+        withdraws. Not idempotent: Google refuses a second invitation
+        while the email has one pending or awaiting approval. Google has no server-side
+        check for this call, so `validateOnly: true` reads the account's invitations with
+        the same credentials (proving the account is reachable) and fails if the email
+        already has a pending one, without sending anything.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, adAccountId, emailAddress, accessRole]
+              properties:
+                accountId: { type: string, description: "Google ads SocialAccount id." }
+                adAccountId: { type: string, description: "Google Ads customer id to invite the user to, digits only." }
+                emailAddress: { type: string, format: email }
+                accessRole: { $ref: '#/components/schemas/GoogleAdsAccessRole' }
+                validateOnly: { type: boolean, default: false }
+      responses:
+        '201':
+          description: Invitation sent, or held for multi-party approval
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoogleAdsUserAccessInvitationResult' }
+        '200':
+          description: Validated only (validateOnly true), nothing sent
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GoogleAdsUserAccessInvitationResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdAccountNotSelected' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+    delete:
+      x-resource-group: "ads"
+      operationId: revokeAdAccountUserInvitation
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Revoke a user access invitation'
+      description: >-
+        Withdraws an email invitation to a Google Ads account that has not been accepted yet.
+
+
+        Removes the invitation `invitationId` (from GET on this path) from `adAccountId`.
+        It no longer works from the email, and the address can be invited again.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Google Ads customer id, digits only." }
+        - { name: invitationId, in: query, required: true, schema: { type: string }, description: "Numeric invitation id from GET /v1/ads/accounts/user-invitations." }
+      responses:
+        '200':
+          description: Invitation revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  invitationId: { type: string }
+                  revoked: { type: boolean, description: "Always true." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdAccountNotSelected' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
+  /v1/ads/accounts/user-invitations/pending-approvals:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdAccountUserInvitationApprovals
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'List invitations awaiting multi-party approval'
+      description: >-
+        Lists the email invitations to a Google Ads account that Google is holding until a second admin approves them.
+
+
+        When Google requires multi-party approval, POST /v1/ads/accounts/user-invitations
+        answers `status: PENDING_APPROVAL` and sends nothing. Those requests are not in
+        GET /v1/ads/accounts/user-invitations; this reads Google's `multi_party_auth_review`
+        resource for the ones still `PENDING` that target an invitation. Approved, rejected,
+        revoked and expired reviews are not listed. Results are cached for 10 minutes and
+        dropped on every invite or withdrawal through Zernio, but an approval or rejection
+        made in Google Ads can take that long to show.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Google Ads customer id, digits only. Defaults to the connection's selected customer." }
+      responses:
+        '200':
+          description: Invitations awaiting approval on the customer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  approvals:
+                    type: array
+                    items: { $ref: '#/components/schemas/GoogleAdsUserInvitationApproval' }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this data was fetched from Google. Null when the cache is unavailable." }
+                  stale: { type: boolean, description: "True when Google's quota was exhausted and this is the last successful fetch." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdAccountNotSelected' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+    delete:
+      x-resource-group: "ads"
+      operationId: withdrawAdAccountUserInvitationApproval
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Withdraw an invitation awaiting multi-party approval'
+      description: >-
+        Cancels an email invitation that Google is still holding for a second admin's approval, so the same address can be invited again right away.
+
+
+        Resolves the review `multiPartyAuthReviewId` (from POST /v1/ads/accounts/user-invitations
+        or GET on this path) to `REVOKED` through Google's MultiPartyAuthReviewService. Only
+        the Google user who sent the invitation can withdraw it, and only while no admin has
+        approved or rejected it; otherwise Google refuses and this returns a 400. Without a
+        withdrawal, Google refuses a new invitation to the address until the review is
+        resolved or expires.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Google Ads customer id, digits only." }
+        - { name: multiPartyAuthReviewId, in: query, required: true, schema: { type: string }, description: "Numeric review id from POST /v1/ads/accounts/user-invitations or GET /v1/ads/accounts/user-invitations/pending-approvals." }
+      responses:
+        '200':
+          description: Approval request withdrawn
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  multiPartyAuthReviewId: { type: string }
+                  status: { type: string, enum: [REVOKED] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdAccountNotSelected' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+
   /v1/ads/accounts/users:
     get:
       x-resource-group: "ads"
@@ -64021,11 +64853,13 @@ paths:
     post:
       x-resource-group: "ads"
       operationId: createAdAccount
-      summary: Create Meta ad account
+      summary: Create ad account
       tags: ["Ad Accounts"]
-      x-platforms: ["meta"]
+      x-platforms: ["meta", "google"]
       description: |
-        Creates a new Meta ad account in the user's own business portfolio (a payment method must then be added in Ads Manager).
+        Creates a new Meta ad account in the user's own business portfolio, or a Google Ads client account under a manager (MCC) account the connection reaches. Billing must then be set up on the platform.
+
+        **Meta** (omit `platform` or send `meta`).
 
         Creates a durable Meta ad account in the end user's own business portfolio using
         their connected Meta Ads token. Requires an active metaads accountId, Ads access,
@@ -64050,11 +64884,30 @@ paths:
         immediately. Use the returned adAccountId with the existing ads endpoints.
 
         This operation is not idempotent and Zernio never automatically retries it.
-        Unknown body fields are rejected. No validateOnly or dry-run option is supported.
+        Unknown body fields are rejected. The Meta flow has no validateOnly or dry-run option.
         After a timeout or a 502 with details.creationStatus=unknown, check the business
         in Ads Manager before attempting another creation. A 201 with connectionUpdated=false
         means the account exists but needs reconnecting with adAccountIds containing the returned ID and the previous
         scoped IDs via GET /v1/connect/facebook/ads. Do not repeat the create call.
+
+        **Google** (send `platform: google`).
+
+        Google only creates accounts through a manager account, so the new client account
+        is created under `managerCustomerId`, which must be a manager the Google user behind
+        the googleads `accountId` reaches (directly or as a sub-manager). List them with
+        GET /v1/ads/accounts/hierarchy. Whose manager it is (the integrator's or the end
+        user's) is the caller's choice: pass the connection that reaches it.
+
+        `currency` (ISO 4217) and `timeZone` (IANA name, for example Europe/Madrid) cannot be
+        changed after creation. The account starts without billing: set it up in Google Ads
+        before ads can serve. Google caps how many accounts a manager can create and how
+        many active client accounts it can hold.
+
+        The new customer is added to the connection (and to a scoped connection's allowlist),
+        discovery is nudged immediately, and the returned adAccountId works with every other
+        ads endpoint. `validateOnly: true` asks Google to validate the request without creating
+        anything and returns 200. A real create is not idempotent: after a 502 with
+        details.creationStatus=unknown, check the manager in Google Ads before trying again.
       security:
         - bearerAuth: []
       requestBody:
@@ -64062,58 +64915,70 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              additionalProperties: false
-              required: [accountId, businessId, name, currency, timezoneId]
-              properties:
-                accountId: { type: string, pattern: '^[a-fA-F0-9]{24}$', description: "Zernio metaads SocialAccount ID." }
-                businessId: { type: string, pattern: '^[1-9][0-9]*$', description: "Business portfolio that will own the account." }
-                name: { type: string, minLength: 1, maxLength: 255, description: "Ad account name. Whitespace is trimmed." }
-                currency: { type: string, pattern: '^[A-Z]{3}$', description: "Uppercase ISO 4217 currency supported by Meta." }
-                timezoneId: { type: integer, minimum: 0, maximum: 4294967295, description: "Numeric Meta timezone ID from the linked timezone list. For example 1 is America/Los_Angeles." }
-                endAdvertiser: { type: string, pattern: '^(NONE|[1-9][0-9]*)$', default: NONE, description: "End advertiser business or page ID. NONE uses the owning business." }
-                mediaAgency: { type: string, pattern: '^(NONE|[1-9][0-9]*)$', default: NONE, description: "Media agency business or page ID. NONE for self-serve customers." }
-                partner: { type: string, pattern: '^(NONE|[1-9][0-9]*)$', default: NONE, description: "Partner business or page ID. NONE for self-serve customers." }
-                invoice: { type: boolean, description: "Request Meta invoicing. Eligibility is determined by Meta." }
-                invoiceGroupId: { type: string, pattern: '^[1-9][0-9]*$', description: "Existing Meta invoice group ID." }
-                invoicingEmails: { type: array, minItems: 1, maxItems: 100, items: { type: string, format: email }, description: "Addresses for Meta invoices." }
-                io: { type: boolean, description: "Meta insertion-order invoicing option." }
-                poNumber: { type: string, minLength: 1, maxLength: 255, description: "Purchase order number." }
-                fundingId: { type: string, pattern: '^[1-9][0-9]*$', description: "Existing Meta funding reference. Does not add a payment method." }
-                adAccountCreatedFromBmFlag: { type: boolean, description: "Meta Business Manager creation flag." }
-            example:
-              accountId: "69fc524892b3d8e85f893e73"
-              businessId: "123456789012345"
-              name: "Customer advertising"
-              currency: "EUR"
-              timezoneId: 1
+              oneOf:
+                - $ref: '#/components/schemas/CreateMetaAdAccountRequest'
+                - $ref: '#/components/schemas/CreateGoogleAdAccountRequest'
+            examples:
+              meta:
+                summary: Meta ad account in a business portfolio
+                value:
+                  accountId: "69fc524892b3d8e85f893e73"
+                  businessId: "123456789012345"
+                  name: "Customer advertising"
+                  currency: "EUR"
+                  timezoneId: 1
+              google:
+                summary: Google Ads client account under a manager
+                value:
+                  platform: "google"
+                  accountId: "69fc524892b3d8e85f893e73"
+                  managerCustomerId: "4234071052"
+                  name: "Customer advertising"
+                  currency: "EUR"
+                  timeZone: "Europe/Madrid"
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
-        '201':
-          description: "Ad account created. Check connectionUpdated and payment instructions."
+        '200':
+          description: "Google validateOnly request accepted by Google. Nothing was created."
           content:
             application/json:
               schema:
                 type: object
-                required: [adAccountId, businessId, connectionUpdated, paymentMethodRequired, adsManagerUrl, nextSteps, warnings]
+                required: [platform, managerCustomerId, validateOnly]
                 properties:
-                  adAccountId: { type: string, pattern: '^act_[0-9]+$', description: "New Meta ad account ID for subsequent ads calls." }
-                  businessId: { type: string, description: "Owning business portfolio ID." }
-                  connectionUpdated: { type: boolean, description: "Whether the connection scope and discovery schedule were updated." }
-                  paymentMethodRequired: { type: boolean, description: "Always true as a delivery prerequisite. This is not a live funding-source check. Confirm payment or invoicing in Ads Manager." }
-                  adsManagerUrl: { type: string, format: uri, description: "Open the created account in Ads Manager." }
-                  nextSteps: { type: string, description: "Payment setup instructions for the user." }
-                  warnings: { type: array, items: { type: string }, description: "Recovery instructions if the account could not be attached to the connection." }
-              example:
-                adAccountId: "act_123456789012345"
-                businessId: "123456789012345"
-                connectionUpdated: true
-                paymentMethodRequired: true
-                adsManagerUrl: "https://adsmanager.facebook.com/adsmanager/manage/accounts?act=123456789012345"
-                nextSteps: "The user must configure payment in Meta Ads Manager before ads can deliver. Add a payment method there, or confirm an existing funding or invoicing arrangement. Zernio cannot add payment methods through the API."
-                warnings: []
+                  platform: { type: string, enum: [google] }
+                  managerCustomerId: { type: string }
+                  validateOnly: { type: boolean, description: "Always true on a 200." }
+        '201':
+          description: "Ad account created. Check connectionUpdated and the billing instructions."
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/CreatedMetaAdAccount'
+                  - $ref: '#/components/schemas/CreatedGoogleAdAccount'
+              examples:
+                meta:
+                  value:
+                    adAccountId: "act_123456789012345"
+                    businessId: "123456789012345"
+                    connectionUpdated: true
+                    paymentMethodRequired: true
+                    adsManagerUrl: "https://adsmanager.facebook.com/adsmanager/manage/accounts?act=123456789012345"
+                    nextSteps: "The user must configure payment in Meta Ads Manager before ads can deliver. Add a payment method there, or confirm an existing funding or invoicing arrangement. Zernio cannot add payment methods through the API."
+                    warnings: []
+                google:
+                  value:
+                    platform: "google"
+                    adAccountId: "5551234567"
+                    managerCustomerId: "4234071052"
+                    connectionUpdated: true
+                    warnings: []
+                    paymentMethodRequired: true
+                    nextSteps: "The account has no billing yet. Set up billing in Google Ads (Billing > Settings) before ads can serve, or add it to an existing monthly invoicing setup. Zernio cannot add payment methods through the API."
+                    validateOnly: false
         '400':
-          description: "Invalid input or Meta rejection. details.reason identifies creation_limit, business_verification_required, unsupported_currency, unsupported_timezone or business_unavailable when recognized."
+          description: "Invalid input, a managerCustomerId the connection does not reach, or a Meta or Google rejection. For Meta, details.reason identifies creation_limit, business_verification_required, unsupported_currency, unsupported_timezone or business_unavailable when recognized."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -64126,14 +64991,23 @@ paths:
                 details: { reason: "creation_limit" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: "Ads access denied or Meta permission missing. details.reason may be business_management_required, business_admin_required or business_access_required."
+          description: "Ads access denied, Meta permission missing (details.reason may be business_management_required, business_admin_required or business_access_required), or Google denied the connection's user permission on managerCustomerId."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
-
+        '429':
+          description: "Google Ads rate limit or quota reached before the account was created. Retry later."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '501':
+          description: "platform google was sent with an accountId that is not a googleads connection."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '502':
-          description: "Creation outcome unknown. Check Ads Manager before repeating this non-idempotent request."
+          description: "Creation outcome unknown (details.creationStatus=unknown). Check Ads Manager or the Google Ads manager account before repeating this non-idempotent request. A Google validateOnly request answers 502 without creationStatus when Google did not respond; that is safe to retry."
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -65506,7 +66380,7 @@ paths:
                   description: "Meta only. Meta's \"Ad includes media created or edited with AI\" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision."
                 validateOnly:
                   type: boolean
-                  description: 'Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI''s own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.'
+                  description: 'Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI''s own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.'
                 budgetAmount: { type: number, description: "Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget. Reddit Ads: the ad group's daily or lifetime spend goal; lifetime needs `endDate`." }
                 status:
@@ -66799,6 +67673,11 @@ paths:
                     properties:
                       hasMore: { type: boolean }
                       cursor: { type: [string, "null"] }
+                  meta:
+                    type: object
+                    properties:
+                      lastCheckedAt: { type: [string, "null"], format: date-time, description: 'Meta only, present when `accountId` is passed: when Zernio last re-read the Page''s forms from Meta to catch leads the webhook missed. Null when no leads matched or before the first pass.' }
+                      lastUpdated: { type: string, format: date-time }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Ads add-on required. }
@@ -67063,6 +67942,8 @@ paths:
         Lists the leads submitted through one Meta lead form.
 
         Serves persisted leads (ingested via the leadgen webhook) when available, falling back to a live Graph read. Accepts a Facebook account or a metaads business-login account with leads_retrieval access to the form; the latter uses its system-user token without a posting parent.
+
+        Persisted leads arrive in real time through Meta's webhook, and a background pass re-reads every Page from Meta to catch the leads the webhook misses: every 15 minutes for Pages that received a lead in the last 7 days. `meta.lastCheckedAt` says when that pass last ran, so polling this endpoint faster than that returns nothing new; subscribe to the `lead.received` webhook instead. The live Graph read is cached for 5 minutes, and `meta.lastCheckedAt` is when it was read.
       parameters:
         - { name: formId, in: path, required: true, schema: { type: string } }
         - { name: accountId, in: query, required: true, schema: { type: string } }
@@ -67092,6 +67973,15 @@ paths:
                         fields: { type: object, additionalProperties: { type: string } }
                         fieldData: { type: array, items: { type: object } }
                   pagination: { type: object, properties: { hasMore: { type: boolean }, cursor: { type: [string, "null"] } } }
+                  meta:
+                    type: object
+                    properties:
+                      platform: { type: string, example: facebook }
+                      accountId: { type: string }
+                      formId: { type: string }
+                      source: { type: string, enum: [persisted, live], description: 'persisted: leads stored from the webhook and the reconcile pass. live: read from Meta because none are stored for this form yet.' }
+                      lastCheckedAt: { type: [string, "null"], format: date-time, description: 'When Zernio last read this form''s leads from Meta. For persisted leads, the last reconcile pass for the Page (null before the first one). For live reads, when the cached Graph read was made.' }
+                      lastUpdated: { type: string, format: date-time }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
@@ -69591,6 +70481,14 @@ paths:
                         eventId: { type: string, description: Echoes back the eventId of the failed event. }
                         message: { type: string }
                         code: { oneOf: [{ type: string }, { type: integer }] }
+                        platformError:
+                          type: object
+                          additionalProperties: true
+                          description: |
+                            Meta only. Meta's own error for the rejected chunk, with credentials
+                            redacted: `message`, `type`, `code`, `error_subcode`, `error_user_title`,
+                            `error_user_msg` and `fbtrace_id` when Meta sends them. `message` above
+                            already ends with `error_user_msg`. Absent when Meta returned no error body.
                   traceId:
                     type: string
                     description: |
@@ -69599,7 +70497,9 @@ paths:
                       conversionEvents endpoint does not surface a trace ID),
                       OpenAI Ads and Reddit (no trace ID surfaced).
         '400':
-          description: Invalid body (missing accountId/destinationId/events, malformed event shape).
+          description: >-
+            Invalid body (missing accountId/destinationId/events, malformed event shape), or (Google Ads, param
+            `destinationId`) the customer named in `destinationId` is not one of this connection's Google Ads accounts.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: |
@@ -69607,11 +70507,22 @@ paths:
             OR (for LinkedIn) the connected account lacks the `rw_conversions` scope and must be reconnected,
             OR (for Reddit) the connection lacks the `adsconversions` permission (code
             `reconnect_required`, reconnect Reddit Ads) or the Reddit user has no role on the ad
-            account that owns the pixel (code `insufficient_permissions`).
+            account that owns the pixel (code `insufficient_permissions`),
+            OR (for Google Ads) code `ad_account_not_selected`: the connection has selected ad accounts and the
+            Google Ads customer named in `destinationId` is not among them (param `destinationId`; `details`
+            carries `accountId`, `adAccountId` and `selectedAdAccountIds`). Add the customer to the selection
+            (GET /v1/connect/googleads/ads with adAccountIds, which replaces the selection) or use a connection
+            that has it selected.
         '404': { $ref: '#/components/responses/AccountUnavailable' }
 
         '422':
-          description: 'OpenAI Ads only: no tracking tag (pixel) exists yet for this account. Code `TRACKING_TAG_REQUIRED`; create one via `POST /v1/accounts/{accountId}/tracking-tags` first.'
+          description: >-
+            OpenAI Ads: no tracking tag (pixel) exists yet for this account. Code `TRACKING_TAG_REQUIRED`; create one via
+            `POST /v1/accounts/{accountId}/tracking-tags` first. Google Ads: no Google Ads customer account is left on
+            this connection after its ad-account selection (code `ads_connection_required`). Reconnect via
+            GET /v1/connect/googleads/ads with a Google user that can reach the ad account, or select one of its ad accounts. Code `invalid_resource_state` when the connection
+            reaches only a Google Ads manager account with no client accounts yet: create one with POST /v1/ads/accounts
+            or under the manager in Google Ads, then retry.
         '429':
           description: |
             LinkedIn token-level rate limit hit (600 requests/min, 300k/day
@@ -69734,12 +70645,28 @@ paths:
                         code: { oneOf: [{ type: string }, { type: integer }] }
                   traceId: { type: string }
         '400':
-          description: Invalid body, or a malformed adjustment (missing key, missing restatementValue for RESTATEMENT, missing identifiers for ENHANCEMENT).
+          description: >-
+            Invalid body, or a malformed adjustment (missing key, missing restatementValue for RESTATEMENT, missing
+            identifiers for ENHANCEMENT), or (param `destinationId`) the customer named in `destinationId` is not one
+            of this connection's Google Ads accounts.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+          description: |
+            Ads access required (Ads add-on on legacy plans, included on usage-based plans),
+            OR (for Google Ads) code `ad_account_not_selected`: the connection has selected ad accounts and the
+            Google Ads customer named in `destinationId` is not among them (param `destinationId`; `details`
+            carries `accountId`, `adAccountId` and `selectedAdAccountIds`). Add the customer to the selection
+            (GET /v1/connect/googleads/ads with adAccountIds, which replaces the selection) or use a connection
+            that has it selected.
         '404': { $ref: '#/components/responses/AccountUnavailable' }
 
+        '422':
+          description: >-
+            Google Ads: no Google Ads customer account is left on this connection after its ad-account selection
+            (code `ads_connection_required`). Reconnect via GET /v1/connect/googleads/ads with a Google user that
+            can reach the ad account, or select one of its ad accounts. Code `invalid_resource_state` when the connection
+            reaches only a Google Ads manager account with no client accounts yet: create one with POST /v1/ads/accounts
+            or under the manager in Google Ads, then retry.
         '405':
           description: Conversion adjustments are only available for Google Ads (the account's platform is not `googleads`).
 
@@ -69791,9 +70718,21 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+          description: >
+            Ads access required (Ads add-on on legacy plans, included on usage-based plans).
+            Also returned with code `ad_account_not_selected` when the connection has selected ad accounts and the
+            Google Ads customer this request targets is not among them; `details` carries `accountId`, `adAccountId`
+            and `selectedAdAccountIds`. Add it to the selection (GET /v1/connect/googleads/ads with adAccountIds,
+            which replaces the selection) or use a connection that has it selected.
         '404': { $ref: '#/components/responses/AccountUnavailable' }
 
+        '422':
+          description: >-
+            Google Ads: no Google Ads customer account is left on this connection after its ad-account selection
+            (code `ads_connection_required`). Reconnect via GET /v1/connect/googleads/ads with a Google user that
+            can reach the ad account, or select one of its ad accounts. Code `invalid_resource_state` when the connection
+            reaches only a Google Ads manager account with no client accounts yet: create one with POST /v1/ads/accounts
+            or under the manager in Google Ads, then retry.
         '501':
           description: Conversion actions are only available for Google Ads (the account's platform is not `googleads`).
     post:
@@ -69868,6 +70807,13 @@ paths:
             Ads access required (Ads add-on on legacy plans, included on usage-based plans). Also returned with code `ad_account_not_selected` when the connection has selected ad accounts and the ad account this request targets is not among them; `details` carries `accountId`, `adAccountId` and `selectedAdAccountIds`. Add the ad account to the selection (GET /v1/connect/{platform}/ads with adAccountIds, which replaces the selection) or use a connection that has it selected.
         '404': { $ref: '#/components/responses/AccountUnavailable' }
 
+        '422':
+          description: >-
+            Google Ads: no Google Ads customer account is left on this connection after its ad-account selection
+            (code `ads_connection_required`). Reconnect via GET /v1/connect/googleads/ads with a Google user that
+            can reach the ad account, or select one of its ad accounts. Code `invalid_resource_state` when the connection
+            reaches only a Google Ads manager account with no client accounts yet: create one with POST /v1/ads/accounts
+            or under the manager in Google Ads, then retry.
         '501':
           description: Conversion actions are only available for Google Ads (the account's platform is not `googleads`).
 
@@ -70555,6 +71501,13 @@ paths:
             Google Ads only. A conversion action with the given name already
             exists but has a different category. Use a different name or use
             the existing destination. Error code: `IDEMPOTENCY_CONFLICT`.
+        '422':
+          description: >-
+            Google Ads: no Google Ads customer account is left on this connection after its ad-account selection
+            (code `ads_connection_required`). Reconnect via GET /v1/connect/googleads/ads with a Google user that
+            can reach the ad account, or select one of its ad accounts. Code `invalid_resource_state` when the connection
+            reaches only a Google Ads manager account with no client accounts yet: create one with POST /v1/ads/accounts
+            or under the manager in Google Ads, then retry.
         '429':
           description: Rate limit hit. Retry with backoff.
 
@@ -71183,6 +72136,14 @@ paths:
                           oneOf:
                             - { type: string }
                             - { type: integer }
+                        platformError:
+                          type: object
+                          additionalProperties: true
+                          description: |
+                            Meta's own error for the rejected event, with credentials redacted:
+                            `message`, `type`, `code`, `error_subcode`, `error_user_title`,
+                            `error_user_msg` and `fbtrace_id` when Meta sends them. `message` above
+                            already ends with `error_user_msg`. Absent when Meta returned no error body.
                   traceId:
                     type: string
                     description: |

@@ -17,6 +17,7 @@ from snowflake.cli.api.config import (
     get_config_bool_value,
     get_config_manager,
     get_file_io_encoding,
+    is_air_gapped,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -46,7 +47,9 @@ _refresh_thread: threading.Thread | None = None
 
 
 def should_ignore_new_version_warning() -> bool:
-    return get_config_bool_value(
+    # Existing installs already have ignore_new_version_warning seeded to False,
+    # so air-gapped mode is a separate, positively-gated switch.
+    return is_air_gapped() or get_config_bool_value(
         CLI_SECTION, key=IGNORE_NEW_VERSION_WARNING_KEY, default=False
     )
 
@@ -54,8 +57,10 @@ def should_ignore_new_version_warning() -> bool:
 def should_hide_new_version_banner_for_auto_upgrade() -> bool:
     """True when this install is on the auto-upgrade path.
 
-    Direct-install (``SNOWFLAKE_MANAGED``) plus ``is_auto_upgrade_enabled()``.
-    Homebrew / pip / other stamps still see the PyPI/Homebrew banner.
+    Direct-install (``SNOWFLAKE_MANAGED``) plus product opt-in
+    (``is_auto_upgrade_enabled()``). Homebrew / pip / other stamps still see
+    the PyPI/Homebrew banner. ``SNOWFLAKE_CLI_AUTO_UPGRADE_DONE`` is not read:
+    the spawned child is still on this path and still hides the banner.
     Does not set ``cli.ignore_new_version_warning``. ``--no-auto-upgrade`` is
     a one-run download skip and does not affect this (the opt-in still holds).
     ``snow helpers check-version`` still reports via ``get_version_info``.
@@ -146,9 +151,16 @@ def get_version_info(*, force_refresh: bool = False) -> CliVersionInfo:
     Unlike the passive upgrade banner, this always reports the result: it
     ignores the ``ignore_new_version_warning`` config, the auto-upgrade-path
     hide, and the "shown recently" throttle so an explicit check is never
-    silenced. ``force_refresh`` bypasses the on-disk cache and queries the
-    package repositories directly.
+    silenced. Air-gapped mode is the exception: no repository is queried.
+    ``force_refresh`` bypasses the on-disk cache and queries the package
+    repositories directly.
     """
+    if is_air_gapped():
+        return CliVersionInfo(
+            current_version=VERSION,
+            latest_version=None,
+            update_available=False,
+        )
     latest_version = _VersionCache().get_last_version(force_refresh=force_refresh)
     update_available = bool(latest_version and latest_version > Version(VERSION))
     return CliVersionInfo(

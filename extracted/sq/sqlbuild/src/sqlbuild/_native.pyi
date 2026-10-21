@@ -3212,9 +3212,6 @@ class EventExporterDispatcher:
 class DispatcherWorker:
     def __call__(self) -> None: ...
 
-class InvocationCompletion:
-    def __call__(self, error: BaseException | None, /) -> None: ...
-
 def stop_event_exporter_threads() -> None: ...
 
 class EventExporterCommandScope:
@@ -3966,10 +3963,10 @@ def format_lint_sql_bodies(
 def lint_native_sql_bodies(
     bodies: list[LintBody], contents_by_path: dict[Path, str], config: LintConfig
 ) -> list[LintViolation]: ...
-def apply_lint_suppressions(
+def reject_lint_suppressions(
     violations: list[LintViolation],
     contents_by_path: dict[Path, str],
-    allow_suppressions: bool,
+    project_dir: Path,
 ) -> list[LintViolation]: ...
 def load_rules_config(*, project_dir: Path) -> RulesConfig: ...
 def valid_rules_config(*, project_dir: Path) -> RulesConfig | None: ...
@@ -5347,6 +5344,7 @@ class SqlTestScanCache:
     def save(self) -> None: ...
 
 SQL_TEST_SCAN_STORE_FILE_NAME: str
+FORMAT_RESULT_STORE_FILE_NAME: str
 
 def content_digest(parts: list[str]) -> str: ...
 def compiled_code_identity() -> str: ...
@@ -5799,6 +5797,7 @@ def run_format_command(
     fix: bool = False,
     json_output: bool = False,
     no_color: bool = False,
+    no_cache: bool = False,
 ) -> int: ...
 def format_parameterized_test_label(
     *,
@@ -6416,6 +6415,8 @@ def route_diagnostic_log_record(
     internal_only: bool,
     allow_internal: bool,
     include_sql_text: bool,
+    summarize_third_party: bool = False,
+    project_roots: tuple[str, ...] = (),
 ) -> dict[str, object] | None: ...
 def safe_diagnostic_extra_fields(record: logging.LogRecord) -> dict[str, object]: ...
 def compute_diagnostic_log_fields(
@@ -7581,6 +7582,7 @@ def collect_snowflake_cost(
     attempts: int = 3,
     retry_delay_seconds: float = 1.0,
     result_limit: int = 10000,
+    budget_seconds: float | None = None,
 ) -> RunCostSummary: ...
 def snowflake_query_observations(
     *,
@@ -7592,14 +7594,15 @@ def snowflake_query_observations(
     deadline: float,
     database: str | None = None,
     result_limit: int | None = None,
+    run_id: str | None = None,
 ) -> tuple[tuple[QueryCostObservation, ...], frozenset[str], dict[str, str], bool]: ...
 def render_snowflake_query_history_sql(
     *,
     started_at: datetime,
-    classification_query_ids: Iterable[str],
     database: str | None = None,
     completed_at: datetime | None = None,
     result_limit: int = 10000,
+    run_id: str | None = None,
 ) -> str: ...
 def snowflake_statement_is_metadata_only(*, query_type: object, query_text: object) -> bool: ...
 def parse_sqlbuild_query_tag(value: object) -> dict[str, str | None] | None: ...
@@ -7875,6 +7878,7 @@ class DbtSqlbuildWorkContext(NativeRecord):
     use_color: bool
     snapshots_config: SnapshotsConfig
     execution_limits: ExecutionLimitsConfig
+    concurrency: int
     def __init__(
         self,
         plan_output: PlanOutput,
@@ -7885,6 +7889,7 @@ class DbtSqlbuildWorkContext(NativeRecord):
         use_color: bool,
         snapshots_config: SnapshotsConfig,
         execution_limits: ExecutionLimitsConfig,
+        concurrency: int,
     ) -> None: ...
 
 class PlanSafetyGates(NativeRecord):
@@ -10456,7 +10461,6 @@ class LintConfig(NativeRecord):
     header_rules_enabled: bool
     max_literal_length: int
     max_ranking_order_by: int
-    allow_suppressions: bool
     relation_keys: Mapping[str, tuple[tuple[str, ...], ...]]
     def __init__(
         self,
@@ -10469,7 +10473,6 @@ class LintConfig(NativeRecord):
         header_rules_enabled: bool = ...,
         max_literal_length: int = ...,
         max_ranking_order_by: int = ...,
-        allow_suppressions: bool = ...,
         relation_keys: Mapping[str, tuple[tuple[str, ...], ...]] = ...,
     ) -> None: ...
 
@@ -11899,6 +11902,7 @@ class CompilePipelineOptions(NativeRecord):
     resolve_python_run_selectors: bool
     no_cache: bool
     max_microbatches: int | None
+    concurrency: int | None
     selection_diagnostics: bool
     plan_sql_tests: bool
     record_migration_fingerprints: bool
@@ -11923,6 +11927,7 @@ class CompilePipelineOptions(NativeRecord):
         resolve_python_run_selectors: bool = ...,
         no_cache: bool = ...,
         max_microbatches: int | None = ...,
+        concurrency: int | None = ...,
         selection_diagnostics: bool = ...,
         plan_sql_tests: bool = ...,
         record_migration_fingerprints: bool = ...,
@@ -12188,6 +12193,7 @@ class PlannerOverrides(NativeRecord):
     forced_stale_model_names: tuple[str, ...]
     external_blocked_model_names: tuple[str, ...]
     max_microbatches: int | None
+    concurrency: int | None
     def __init__(
         self,
         cursor_overrides: CursorOverrides | None = ...,
@@ -12196,6 +12202,7 @@ class PlannerOverrides(NativeRecord):
         forced_stale_model_names: tuple[str, ...] = ...,
         external_blocked_model_names: tuple[str, ...] = ...,
         max_microbatches: int | None = ...,
+        concurrency: int | None = ...,
     ) -> None: ...
 
 class DeferralInputs(NativeRecord):
@@ -12572,11 +12579,15 @@ class RuleExemption(NativeRecord):
     rule: str
     path: str
     reason: str
+    relation: str | None
+    cte: str | None
     def __init__(
         self,
         rule: str,
         path: str,
         reason: str,
+        relation: str | None = ...,
+        cte: str | None = ...,
     ) -> None: ...
 
 class GraphEdgeExclusion(NativeRecord):
@@ -13698,6 +13709,7 @@ class TargetConfig(NativeRecord):
     execution_limits: ExecutionLimitsConfig
     diff: TargetDiffConfig
     warehouses: TargetWarehousesConfig
+    concurrency: int | None
     def __init__(
         self,
         connection: dict[str, object] = ...,
@@ -13720,6 +13732,7 @@ class TargetConfig(NativeRecord):
         execution_limits: ExecutionLimitsConfig = ...,
         diff: TargetDiffConfig = ...,
         warehouses: TargetWarehousesConfig = ...,
+        concurrency: int | None = ...,
     ) -> None: ...
 
 class LocalTargetConfig(NativeRecord):
@@ -13745,6 +13758,7 @@ class LocalTargetConfig(NativeRecord):
     execution_limits: ExecutionLimitsConfig
     diff: TargetDiffConfig
     warehouses: TargetWarehousesConfig
+    concurrency: int | None
     def __init__(
         self,
         connection: dict[str, object] = ...,
@@ -13768,6 +13782,7 @@ class LocalTargetConfig(NativeRecord):
         execution_limits: ExecutionLimitsConfig = ...,
         diff: TargetDiffConfig = ...,
         warehouses: TargetWarehousesConfig = ...,
+        concurrency: int | None = ...,
     ) -> None: ...
 
 class SettingsConfig(NativeRecord):
@@ -17878,7 +17893,6 @@ class RulesConfig(NativeRecord):
     rule_exceptions: tuple[RuleExemption, ...]
     graph_edge_exceptions: tuple[GraphEdgeExclusion, ...]
     rule_ignores: tuple[RuleIgnore, ...]
-    allow_exceptions: bool
     select_star_allow: tuple[SelectStarAllow, ...]
     domains: tuple[str, ...]
     approved_source_tokens: tuple[str, ...]
@@ -17896,7 +17910,6 @@ class RulesConfig(NativeRecord):
         rule_exceptions: tuple[RuleExemption, ...] = ...,
         graph_edge_exceptions: tuple[GraphEdgeExclusion, ...] = ...,
         rule_ignores: tuple[RuleIgnore, ...] = ...,
-        allow_exceptions: bool = ...,
         select_star_allow: tuple[SelectStarAllow, ...] = ...,
         domains: tuple[str, ...] = ...,
         approved_source_tokens: tuple[str, ...] = ...,

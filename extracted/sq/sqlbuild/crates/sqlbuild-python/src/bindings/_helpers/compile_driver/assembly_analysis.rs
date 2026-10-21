@@ -6,25 +6,27 @@ use pyo3::types::{PyBool, PyDict, PyDictMethods, PyFrozenSet, PyString, PyTuple,
 
 use sqlbuild_analysis::assembly::analysis_session::main::native_dialect::native_dialect;
 use sqlbuild_analysis::assembly::analysis_session::types::Pairs;
+use sqlbuild_host::compile_context::main::record_compile_cpu_timing::record_compile_cpu_timing;
+use sqlbuild_host::compile_context::main::record_compile_timing::record_compile_timing;
+use sqlbuild_host::entries::models::AdapterHost;
 
-use crate::bindings::_helpers::analysis::binding_catalog::{BindingCatalog, ignores_quoted_case};
+use crate::bindings::_helpers::analysis::binding_catalog::{
+    BindingCatalog, CatalogKey, ignores_quoted_case,
+};
 use crate::bindings::_helpers::analysis_session::model_analyses::{
     ModelAnalyses, ModelAnalysisRequest, analyze_models,
 };
 use crate::bindings::_helpers::analysis_session::profile_inputs::text_pairs;
 use crate::bindings::_helpers::analysis_session::stage_functions::expression_source_shapes;
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::compile_context::compile_timings::PythonProcessClock;
 use crate::bindings::_helpers::compile_driver::analysis_cache::analysis_cache_context;
 use crate::bindings::_helpers::compile_driver::assembly::{AssemblyRequest, AssemblyStage};
-use crate::bindings::_helpers::compile_driver::compile_timings::{
-    record_compile_cpu_timing, record_compile_timing,
-};
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
 use crate::bindings::_helpers::compile_driver::stage_work::{
     EXPRESSION_SHAPES, MODEL_ANALYSIS, count_stage,
 };
-use crate::bindings::_helpers::compiled_project::model_input_view::attached_schema;
-use crate::bindings::_helpers::compiled_project::source_views::read_source_view;
-use crate::bindings::_helpers::native_host::adapter::AdapterHost;
+use crate::bindings::_helpers::compiled_views::model_input_view::attached_schema;
+use crate::bindings::_helpers::compiled_views::source_views::read_source_view;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::project_assembly::declared_relations::{
     DeclaredRelations, DeclaredShapes, declared_relations,
@@ -93,8 +95,12 @@ pub(crate) fn analysis_context<'py>(
         &native_field(inputs, "effective_settings")?.getattr("sql_analysis")?,
         request.skip_column_inference.bind(py),
     )?;
-    let (column_types, nullability, complete_schemas, declared): DeclaredRelations<'py> =
-        declared_relations(inputs.clone())?;
+    let DeclaredRelations {
+        column_types,
+        nullability,
+        complete_schemas,
+        declared,
+    }: DeclaredRelations<'py> = declared_relations(inputs.clone())?;
     let (column_types, nullability, complete_schemas): (
         Bound<'py, PyAny>,
         Bound<'py, PyAny>,
@@ -218,12 +224,13 @@ fn profile_with_catalog<'py>(
         py,
         BindingCatalog::create(
             py,
-            (
+            CatalogKey {
                 dialect,
-                native_field(&profile, "quoted_identifiers_ignore_case")?.extract()?,
-                native_field(&profile, "semantic_known_functions")?.extract()?,
-                native_field(&profile, "semantic_known_types")?.extract()?,
-            ),
+                quoted_ignore_case: native_field(&profile, "quoted_identifiers_ignore_case")?
+                    .extract()?,
+                known_functions: native_field(&profile, "semantic_known_functions")?.extract()?,
+                known_types: native_field(&profile, "semantic_known_types")?.extract()?,
+            },
             PyDict::new(py).as_any(),
         )?,
     )?
@@ -384,7 +391,7 @@ fn model_analyses<'py>(
         py.None().into_bound(py)
     };
     record_compile_timing("model_analysis_ms", || {
-        record_compile_cpu_timing(py, "model_analysis_cpu_ms", || {
+        record_compile_cpu_timing(&PythonProcessClock(py), "model_analysis_cpu_ms", || {
             let mut model_inputs: Vec<Bound<'py, PyAny>> = Vec::new();
             for model_input in native_field(inputs, "model_inputs")?.try_iter()? {
                 let model_input: Bound<'py, PyAny> = model_input?;

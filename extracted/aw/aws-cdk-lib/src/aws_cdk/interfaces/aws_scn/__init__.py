@@ -226,6 +226,51 @@ class _IDatasetRefProxy(
 typing.cast(typing.Any, IDatasetRef).__jsii_proxy_class__ = lambda : _IDatasetRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_scn.IInstanceRef")
+class IInstanceRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstanceRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Instance.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_scn.IInstanceRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "InstanceReference":
+        '''(experimental) A reference to a Instance resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstanceReference", jsii.get(self, "instanceRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceRef).__jsii_proxy_class__ = lambda : _IInstanceRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_scn.INamespaceRef")
 class INamespaceRef(
     _constructs_77d1e7e8.IConstruct,
@@ -269,6 +314,55 @@ class _INamespaceRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, INamespaceRef).__jsii_proxy_class__ = lambda : _INamespaceRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_scn.InstanceReference",
+    jsii_struct_bases=[],
+    name_mapping={"instance_arn": "instanceArn"},
+)
+class InstanceReference:
+    def __init__(self, *, instance_arn: builtins.str) -> None:
+        '''A reference to a Instance resource.
+
+        :param instance_arn: The Arn of the Instance resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_scn as interfaces_scn
+            
+            instance_reference = interfaces_scn.InstanceReference(
+                instance_arn="instanceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__20d639c78b5d4641eae3937fbc6c1bfd9c0de424b6f1365f5592b5081f1f0717)
+            check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "instance_arn": instance_arn,
+        }
+
+    @builtins.property
+    def instance_arn(self) -> builtins.str:
+        '''The Arn of the Instance resource.'''
+        result = self._values.get("instance_arn")
+        assert result is not None, "Required property 'instance_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -325,7 +419,9 @@ __all__ = [
     "DatasetReference",
     "IDataIntegrationFlowRef",
     "IDatasetRef",
+    "IInstanceRef",
     "INamespaceRef",
+    "InstanceReference",
     "NamespaceReference",
 ]
 
@@ -345,6 +441,13 @@ def _typecheckingstub__58fbe378483e1a46065f6e5466be65a2a964d4985557e01efac8aec31
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__20d639c78b5d4641eae3937fbc6c1bfd9c0de424b6f1365f5592b5081f1f0717(
+    *,
+    instance_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b720fee81ff1d853f207c887b1294a00c89e23b2e20478eb262206b4253d4b2f(
     *,
     namespace_arn: builtins.str,
@@ -352,5 +455,5 @@ def _typecheckingstub__b720fee81ff1d853f207c887b1294a00c89e23b2e20478eb262206b42
     """Type checking stubs"""
     pass
 
-for cls in [IDataIntegrationFlowRef, IDatasetRef, INamespaceRef]:
+for cls in [IDataIntegrationFlowRef, IDatasetRef, IInstanceRef, INamespaceRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

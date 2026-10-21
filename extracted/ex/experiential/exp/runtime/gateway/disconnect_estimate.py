@@ -16,10 +16,21 @@ hit ``max_tokens`` with ``finish_reason: stop`` and no usage frame
 at no less than the output budget the attempt dispatched with, because the
 provider generated (and billed) the whole budget even when its reasoning was
 never streamed.
+
+Every settled meter is then held to the attempt's dispatched output ceiling
+when the caller set one (``max_tokens``, ``max_completion_tokens``,
+``max_output_tokens``). OpenAI defines that ceiling as covering visible AND
+reasoning tokens, but some reasoning lanes apply the wire field to visible
+output only: Novita ``deepseek/deepseek-r1-turbo`` answered ``max_tokens: 16``
+with 206 completion tokens, 203 of them reasoning (2026-10-20). The provider
+may still bill its overshoot; the caller is never billed past the ceiling it
+set, and each clamp is logged with its deployment so the lane's wire field can
+be corrected in the catalog.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from exp.common.core.artifacts import JsonObject
@@ -32,7 +43,9 @@ from exp.runtime.gateway.native_settlement import (
     streamed_output_from_settlement,
     terminal_from_settlement,
     tool_search_requests_from_settlement,
+    web_search_cost_from_settlement,
     web_search_requests_from_settlement,
+    web_search_results_from_settlement,
 )
 from exp.runtime.gateway.reservation_tokenizer import reservation_encoder
 from exp.runtime.gateway.rung_admission import RungLoadRegistry
@@ -40,6 +53,8 @@ from exp.runtime.gateway.stream_contracts import GatewayEvent, GatewayUsage
 
 if TYPE_CHECKING:
     from exp.runtime.gateway.native_execution import InflightRequest
+
+_logger = logging.getLogger(__name__)
 
 FALLBACK_CHARACTERS_PER_TOKEN = 4
 """Characters per token assumed for overflow text when nothing was retained to calibrate on."""
@@ -90,12 +105,19 @@ def settled_terminal(
         cached_fraction=_frozen_cached_fraction(data, loads, entry),
         output_budget=_truncated_output_budget(terminal, data, entry),
     )
+    terminal = bill_within_output_ceiling(
+        terminal,
+        output_ceiling=_dispatched_output_ceiling(data, entry),
+        deployment_id=_attempt_deployment_id(data, entry),
+    )
     if terminal.usage_estimated and terminal.usage is not None:
         terminal = terminal.model_copy(
             update={
                 "usage": terminal.usage.model_copy(
                     update={
                         "web_search_requests": web_search_requests_from_settlement(data),
+                        "web_search_results": web_search_results_from_settlement(data),
+                        "web_search_cost_nano_usd": web_search_cost_from_settlement(data),
                         "tool_search_requests": tool_search_requests_from_settlement(data),
                     }
                 )
@@ -147,6 +169,93 @@ def _truncated_output_budget(
             update={"maximum_output_tokens": entry.reserved_output_tokens_by_depth[depth]}
         )
     return worst_case_output_tokens(request, entry.route.deployments[depth])
+
+
+def _dispatched_output_ceiling(data: JsonObject, entry: InflightRequest) -> int | None:
+    """The output ceiling one attempt dispatched under a caller's explicit cap, else None.
+
+    The caller's ceiling as the attempt carried it: the frozen per-depth bound
+    when one was frozen (a lower rung maximum, or a disclosed floor repair),
+    else the request's own value. A request without an explicit ceiling has
+    none, so a catalog maximum never caps what a provider legitimately billed.
+    """
+    attempt_id = data.get("attempt_id")
+    request = entry.request
+    if (
+        not isinstance(attempt_id, str)
+        or not isinstance(request, GatewayRequest)
+        or request.maximum_output_tokens is None
+    ):
+        return None
+    depth = entry.attempt_depths.get(attempt_id)
+    if depth is not None and depth < len(entry.reserved_output_tokens_by_depth):
+        return entry.reserved_output_tokens_by_depth[depth]
+    return request.maximum_output_tokens
+
+
+def _attempt_deployment_id(data: JsonObject, entry: InflightRequest) -> str | None:
+    """The deployment the settled attempt dispatched to, for operator logs only."""
+    attempt_id = data.get("attempt_id")
+    depth = None if not isinstance(attempt_id, str) else entry.attempt_depths.get(attempt_id)
+    if depth is None or depth >= len(entry.route.deployments):
+        return None
+    return entry.route.deployments[depth].deployment_id
+
+
+def bill_within_output_ceiling(
+    terminal: GatewayEvent, *, output_ceiling: int | None, deployment_id: str | None = None
+) -> GatewayEvent:
+    """Hold a settled output meter to the caller's dispatched ceiling.
+
+    The ceiling covers reasoning and visible output together (OpenAI's
+    ``max_completion_tokens`` contract, which ``max_tokens`` shares for
+    reasoning models). A provider that reports more output than it was
+    allowed overshot its own wire contract, so the excess is the lane's, not
+    the caller's: output is settled at the ceiling, and the reasoning and
+    generated-image subsets are held inside it. Input legs are untouched.
+
+    Args:
+        terminal: The normalized terminal, estimates already applied.
+        output_ceiling: The attempt's dispatched ceiling, or None when the
+            caller set none.
+        deployment_id: The attempt's deployment, named in the clamp log.
+
+    Returns:
+        The terminal with its output meter clamped, or the terminal unchanged.
+    """
+    usage = terminal.usage
+    if (
+        output_ceiling is None
+        or usage is None
+        or usage.output_tokens is None
+        or usage.output_tokens <= output_ceiling
+    ):
+        return terminal
+    _logger.warning(
+        "provider output exceeded the caller's ceiling; billed at the ceiling",
+        extra={
+            "deployment_id": deployment_id,
+            "output_ceiling": output_ceiling,
+            "reported_output_tokens": usage.output_tokens,
+            "reported_reasoning_tokens": usage.reasoning_tokens,
+        },
+    )
+    return terminal.model_copy(
+        update={
+            "usage": usage.model_copy(
+                update={
+                    "output_tokens": output_ceiling,
+                    "reasoning_tokens": _within(usage.reasoning_tokens, output_ceiling),
+                    "image_output_tokens": _within(usage.image_output_tokens, output_ceiling),
+                }
+            )
+        }
+    )
+
+
+def _within(subset: int | None, ceiling: int) -> int | None:
+    """An output subset held inside a clamped output total."""
+    return None if subset is None else min(subset, ceiling)
 
 
 def _recent_cached_fraction(
@@ -289,6 +398,7 @@ def _estimated(
     cached_input_tokens = None if observed is None else observed.cached_input_tokens
     observed_writes = None if observed is None else observed.cache_creation_input_tokens
     observed_1h_writes = None if observed is None else observed.cache_creation_1h_input_tokens
+    observed_12h_writes = None if observed is None else observed.cache_creation_12h_input_tokens
     if observed is None or observed.input_tokens is None:
         input_tokens = max(input_tokens, (cached_input_tokens or 0) + (observed_writes or 0))
     room = input_tokens - (observed_writes or 0)
@@ -300,9 +410,12 @@ def _estimated(
         cached_input_tokens=cached_input_tokens,
         cache_creation_input_tokens=observed_writes,
         cache_creation_1h_input_tokens=observed_1h_writes,
+        cache_creation_12h_input_tokens=observed_12h_writes,
         reasoning_tokens=reasoning_tokens,
         tool_names=() if observed is None else observed.tool_names,
         web_search_requests=0 if observed is None else observed.web_search_requests,
+        web_search_results=None if observed is None else observed.web_search_results,
+        web_search_cost_nano_usd=None if observed is None else observed.web_search_cost_nano_usd,
         tool_search_requests=0 if observed is None else observed.tool_search_requests,
     )
     return terminal.model_copy(update={"usage": usage, "usage_estimated": True})

@@ -222,7 +222,9 @@ def test_query_usage_auto_paging_get_all(mock_ctx):
 
     mock_api.metrics_api.list_usage_metrics.auto_paging_iter.assert_called_once_with(
         limit=None,
+        page_size=500,
         page_on=["time", "resource_id"],
+        page_sort=["asc", "asc"],
         org_id="org-1",
         breakdown_by=["resource_id"],
     )
@@ -249,10 +251,82 @@ def test_query_usage_auto_paging_with_explicit_page_on(mock_ctx):
 
     mock_api.metrics_api.list_usage_metrics.auto_paging_iter.assert_called_once_with(
         limit=None,
+        page_size=500,
         page_on=["time", "user_id"],
+        page_sort=["asc", "asc"],
         org_id="org-1",
     )
     assert len(res) == 1
+
+
+def test_query_usage_limit_above_page_size_pages(mock_ctx):
+    """--limit is a total: a value above one page must page, not 400."""
+    mock_api = MagicMock()
+    mock_iter = MagicMock()
+    mock_iter.all.return_value = [
+        MockUsageMetricBucket(time="2026-10-15T00:00:00Z", access_count=1),
+    ]
+    mock_api.metrics_api.list_usage_metrics.auto_paging_iter.return_value = mock_iter
+
+    with patch("agilicus.metrics.context.get_token", return_value="tok"), patch(
+        "agilicus.metrics.context.get_apiclient", return_value=mock_api
+    ):
+        res = metrics_module.query_usage(
+            mock_ctx,
+            org_id="org-1",
+            limit=1200,
+            breakdown_by=["resource_type"],
+        )
+
+    mock_api.metrics_api.list_usage_metrics.auto_paging_iter.assert_called_once_with(
+        limit=1200,
+        page_size=500,
+        page_on=["time", "resource_type"],
+        page_sort=["asc", "asc"],
+        org_id="org-1",
+        breakdown_by=["resource_type"],
+    )
+    mock_api.metrics_api.list_usage_metrics.assert_not_called()
+    assert len(res) == 1
+
+
+def test_query_usage_uses_endpoint_page_size_validation(mock_ctx):
+    """The page size comes from the endpoint's own limit validation."""
+    mock_api = MagicMock()
+    mock_iter = MagicMock()
+    mock_iter.all.return_value = []
+    mock_api.metrics_api.list_usage_metrics.validations = {
+        ("limit",): {"inclusive_maximum": 250, "inclusive_minimum": 1}
+    }
+    mock_api.metrics_api.list_usage_metrics.auto_paging_iter.return_value = mock_iter
+
+    with patch("agilicus.metrics.context.get_token", return_value="tok"), patch(
+        "agilicus.metrics.context.get_apiclient", return_value=mock_api
+    ):
+        metrics_module.query_usage(mock_ctx, org_id="org-1", limit=300)
+
+    mock_api.metrics_api.list_usage_metrics.auto_paging_iter.assert_called_once_with(
+        limit=300,
+        page_size=250,
+        page_on=["time"],
+        page_sort=["asc"],
+        org_id="org-1",
+    )
+
+
+def test_query_usage_limit_at_page_size_is_one_request(mock_ctx):
+    mock_api = MagicMock()
+    mock_api.metrics_api.list_usage_metrics.return_value = MockUsageMetricsResponse()
+
+    with patch("agilicus.metrics.context.get_token", return_value="tok"), patch(
+        "agilicus.metrics.context.get_apiclient", return_value=mock_api
+    ):
+        metrics_module.query_usage(mock_ctx, org_id="org-1", limit=500)
+
+    mock_api.metrics_api.list_usage_metrics.assert_called_once_with(
+        limit=500, org_id="org-1"
+    )
+    mock_api.metrics_api.list_usage_metrics.auto_paging_iter.assert_not_called()
 
 
 def test_query_convenience_functions(mock_ctx):

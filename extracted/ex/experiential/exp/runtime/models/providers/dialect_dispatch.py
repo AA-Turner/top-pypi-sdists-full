@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from exp.common.core.artifacts import JsonObject
+from exp.common.models.content import TextContentPart
 from exp.common.models.known_models import known_model_metadata
 from exp.runtime.gateway.contracts import (
     GatewayApiSurface,
@@ -52,9 +53,22 @@ TOOL_RESULT_IMAGE_DROP_DISCLOSURE = "messages.content.tool_result.image->placeho
 TOOL_RESULT_IMAGE_FOLD_DISCLOSURE = "messages.content.tool_result.image->following_user_message"
 """Disclosed when a rung carries tool-result images in a user turn that follows
 the tool run (Chat Completions and Gemini define no image carrier inside a tool
-result; see ``wire_messages.fold_tool_result_images``)."""
+result; see ``wire_messages.fold_tool_result_attachments``)."""
 TOOL_RESULT_IMAGE_FOLD_DIALECTS = frozenset({"openai_compatible", "gemini_generate_content"})
 """Dialects whose payload builders fold tool-result images into a user turn."""
+TOOL_RESULT_DOCUMENT_FOLD_DISCLOSURE = (
+    "messages.content.tool_result.document->following_user_message"
+)
+"""Disclosed when a rung carries tool-result documents in a user turn that
+follows the tool run (only native Anthropic Messages serves a document inside a
+tool result; see ``wire_messages.fold_tool_result_attachments``)."""
+TOOL_RESULT_DOCUMENT_FOLD_DIALECTS = frozenset(
+    {"openai_compatible", "openai_responses", "gemini_generate_content", "bedrock_converse_stream"}
+)
+"""Dialects whose payload builders fold tool-result documents into a user turn."""
+TOOL_RESULT_DOCUMENT_DROP_DISCLOSURE = "messages.content.tool_result.document->placeholder"
+"""Disclosed when a route with no PDF input serves a tool-result document as
+placeholder text (see ``capability_policy.coerce_capability``)."""
 THINKING_HISTORY_DROP_DISCLOSURE = "messages.thinking->dropped(unsupported_by_provider)"
 GEMINI_MISSING_TOOL_RESULT_DISCLOSURE = "messages.tool_results.missing->placeholder"
 """Disclosed when a Gemini rung answers an unanswered function call with a placeholder.
@@ -63,6 +77,41 @@ Gemini refuses a turn whose following content does not answer every function
 call of the model turn before it; a history whose call never got a result
 (an interrupted client) is served with ``GEMINI_MISSING_TOOL_RESULT`` in that
 call's slot instead (see ``gemini_requests._CallTurn``)."""
+
+
+def disclose_tool_result_attachment_folds(
+    profiles: Sequence[GatewayWireProfile],
+    messages: tuple[GatewayMessage, ...],
+    ignored: list[str],
+) -> None:
+    """Disclose, once per kind, the fold a rung applies to tool-result attachments.
+
+    An attachment a dialect cannot carry inside a tool result rides the user
+    turn after the tool run instead (see ``wire_messages.fold_tool_result_attachments``).
+
+    Args:
+        profiles: Ordered wire profiles of the route.
+        messages: The request's canonical messages.
+        ignored: The route's disclosure list, appended in place.
+    """
+    for dialects, disclosure, carries in (
+        (
+            TOOL_RESULT_IMAGE_FOLD_DIALECTS,
+            TOOL_RESULT_IMAGE_FOLD_DISCLOSURE,
+            lambda message: bool(message.images),
+        ),
+        (
+            TOOL_RESULT_DOCUMENT_FOLD_DIALECTS,
+            TOOL_RESULT_DOCUMENT_FOLD_DISCLOSURE,
+            lambda message: bool(message.documents),
+        ),
+    ):
+        if (
+            any(message.role == "tool" and carries(message) for message in messages)
+            and any(profile.dialect in dialects for profile in profiles)
+            and disclosure not in ignored
+        ):
+            ignored.append(disclosure)
 
 
 def disclose_gemini_missing_tool_results(
@@ -175,6 +224,47 @@ def strip_tool_result_images(
         )
         out.append(message.model_copy(update={"content": content, "content_parts": ()}))
     return tuple(out)
+
+
+def strip_tool_result_documents(
+    messages: tuple[GatewayMessage, ...],
+) -> tuple[GatewayMessage, ...] | None:
+    """Replace tool-message document parts with positional placeholder text.
+
+    Every other part (text, a screenshot beside the document) keeps its place;
+    a tool message left with only text collapses back to plain content.
+
+    Args:
+        messages: The request's canonical messages.
+
+    Returns:
+        The degraded messages, or ``None`` when no tool message carries a
+        document (nothing to strip).
+    """
+    if not any(message.role == "tool" and message.documents for message in messages):
+        return None
+    out: list[GatewayMessage] = []
+    for message in messages:
+        if message.role != "tool" or not message.documents:
+            out.append(message)
+            continue
+        parts = tuple(
+            TextContentPart(text=_tool_result_document_placeholder(part.name))
+            if part.kind == "document"
+            else part
+            for part in message.content_parts
+        )
+        content = "".join(part.text for part in parts if part.kind == "text")
+        if all(part.kind == "text" for part in parts):
+            parts = ()
+        out.append(message.model_copy(update={"content": content, "content_parts": parts}))
+    return tuple(out)
+
+
+def _tool_result_document_placeholder(name: str | None) -> str:
+    """Return the text left where a tool-result document cannot ride."""
+    label = f" {name!r}" if name else ""
+    return f"[document{label} omitted: this model route cannot carry documents]"
 
 
 def fireworks_continuation_required(profile: GatewayWireProfile, request: GatewayRequest) -> bool:
@@ -389,6 +479,14 @@ def dialect_stream_payload(
         # field silently: admission then prefers a tier-preserving rung and
         # otherwise retries with the disclosed drop in capability_policy.
         raise ProviderCapabilityError(capability="service_tier")
+    if provider_request.prompt_cache_ttl is not None and not (
+        profile.dialect == "openai_responses" and profile.forwards_prompt_cache_ttl
+    ):
+        # Only OpenAI's own Responses wire carries a cache lifetime (its Chat
+        # answers 400 for "12h"). Any other rung declares it through inherited
+        # capabilities at most, so it declines here instead of silently writing
+        # at the default lifetime or sending a field its backend refuses.
+        raise ProviderCapabilityError(capability="prompt_cache_ttl_12h")
     required_reasoning_effort = (
         profile.reasoning_effort if profile.reasoning_effort_required and budget is None else None
     )

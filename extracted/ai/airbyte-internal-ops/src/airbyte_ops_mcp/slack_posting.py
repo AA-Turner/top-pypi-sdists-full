@@ -353,6 +353,13 @@ def _format_mention(identifier: str, slack_id: str | None) -> str:
     return f"`{mention_id}` (could not resolve to Slack)"
 
 
+def _canonical_recipient_identity(identifier: str, slack_id: str | None) -> str:
+    """Return the resolved Slack ID or a normalized fallback identity."""
+    if slack_id:
+        return slack_id
+    return unwrap_slack_identifier(identifier).removeprefix("@").casefold()
+
+
 def format_github_login_contact(github_login: str) -> str:
     """Format a GitHub login as a Slack mention when the roster resolves it."""
     try:
@@ -716,8 +723,10 @@ def send_hitl_notification(
         allow_usergroup=True,
         slack_token=token,
     )
+    target_identity = _canonical_recipient_identity(target_person, target_slack_id)
 
     cc_mentions: list[str] = []
+    seen_recipients = {target_identity}
     if cc_persons:
         for person in cc_persons:
             cc_slack_id = _resolve_to_slack_id(
@@ -726,6 +735,10 @@ def send_hitl_notification(
                 allow_usergroup=True,
                 slack_token=token,
             )
+            cc_identity = _canonical_recipient_identity(person, cc_slack_id)
+            if cc_identity in seen_recipients:
+                continue
+            seen_recipients.add(cc_identity)
             cc_mentions.append(_format_mention(person, cc_slack_id))
 
     sender_name: str

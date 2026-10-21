@@ -62,7 +62,7 @@ def _row(**overrides) -> dict:
 def test_the_registry_loads_and_names_its_default():
     reg = registry_mod.load()
     # Detection order: the first row whose marker is set wins (same as the SDK's AGENTS).
-    assert reg.ids() == ("claude_code", "codex", "pi", "kimi_code", "capy")
+    assert reg.ids() == ("claude_code", "codex", "pi", "kimi_code")
     assert reg.default == "claude_code"
     assert reg.get(reg.default).captured
 
@@ -121,17 +121,6 @@ def test_home_dir_honours_the_override_variable(tmp_path):
             "needs package_dir",
         ),
         (lambda d: d["harnesses"].append(_row(detect_env=[])), "detect_env"),
-        # A cloud row (Capy) installs nothing into the agent, and an installable
-        # one is found by its app on disk, with a flag to name it.
-        (lambda d: d["harnesses"].append(_row(family="cloud")), "no plugin installs into it"),
-        (
-            lambda d: d["harnesses"].append(_row(family="cloud", plugin=None, installable=True, cli_flag=None)),
-            "needs cli_flag and detect_paths",
-        ),
-        (
-            lambda d: d["harnesses"].append(_row(family="cloud", plugin=None, installable=True, cli_flag="fake")),
-            "needs cli_flag and detect_paths",
-        ),
         (lambda d: d["harnesses"].append(_row(captured="false")), "captured must be true or false"),
         (
             lambda d: d["harnesses"].append(

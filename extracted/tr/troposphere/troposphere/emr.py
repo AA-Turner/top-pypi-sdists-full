@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -74,7 +74,7 @@ class BootstrapActionConfig(AWSProperty):
 
 class Configuration(AWSProperty):
     """
-    `Configuration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-cluster-configuration.html>`__
+    `Configuration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-cluster-configuration.html>`__
     """
 
     props: PropsDictType = {
@@ -86,7 +86,7 @@ class Configuration(AWSProperty):
 
 class OnDemandCapacityReservationOptions(AWSProperty):
     """
-    `OnDemandCapacityReservationOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-ondemandcapacityreservationoptions.html>`__
+    `OnDemandCapacityReservationOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ondemandcapacityreservationoptions.html>`__
     """
 
     props: PropsDictType = {
@@ -98,7 +98,7 @@ class OnDemandCapacityReservationOptions(AWSProperty):
 
 class OnDemandProvisioningSpecification(AWSProperty):
     """
-    `OnDemandProvisioningSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-ondemandprovisioningspecification.html>`__
+    `OnDemandProvisioningSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ondemandprovisioningspecification.html>`__
     """
 
     props: PropsDictType = {
@@ -112,7 +112,7 @@ class OnDemandProvisioningSpecification(AWSProperty):
 
 class SpotProvisioningSpecification(AWSProperty):
     """
-    `SpotProvisioningSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-spotprovisioningspecification.html>`__
+    `SpotProvisioningSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-spotprovisioningspecification.html>`__
     """
 
     props: PropsDictType = {
@@ -128,7 +128,7 @@ class SpotProvisioningSpecification(AWSProperty):
 
 class InstanceFleetProvisioningSpecifications(AWSProperty):
     """
-    `InstanceFleetProvisioningSpecifications <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-instancefleetprovisioningspecifications.html>`__
+    `InstanceFleetProvisioningSpecifications <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancefleetprovisioningspecifications.html>`__
     """
 
     props: PropsDictType = {
@@ -139,7 +139,7 @@ class InstanceFleetProvisioningSpecifications(AWSProperty):
 
 class OnDemandResizingSpecification(AWSProperty):
     """
-    `OnDemandResizingSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-ondemandresizingspecification.html>`__
+    `OnDemandResizingSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-ondemandresizingspecification.html>`__
     """
 
     props: PropsDictType = {
@@ -151,7 +151,7 @@ class OnDemandResizingSpecification(AWSProperty):
 
 class SpotResizingSpecification(AWSProperty):
     """
-    `SpotResizingSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-spotresizingspecification.html>`__
+    `SpotResizingSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-spotresizingspecification.html>`__
     """
 
     props: PropsDictType = {
@@ -162,7 +162,7 @@ class SpotResizingSpecification(AWSProperty):
 
 class InstanceFleetResizingSpecifications(AWSProperty):
     """
-    `InstanceFleetResizingSpecifications <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-instancefleetresizingspecifications.html>`__
+    `InstanceFleetResizingSpecifications <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancefleetresizingspecifications.html>`__
     """
 
     props: PropsDictType = {
@@ -171,9 +171,21 @@ class InstanceFleetResizingSpecifications(AWSProperty):
     }
 
 
+class ApplicationConfiguration(AWSProperty):
+    """
+    `ApplicationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-applicationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Classification": (str, False),
+        "ConfigurationProperties": (dict, False),
+        "Configurations": ([object], False),
+    }
+
+
 class VolumeSpecification(AWSProperty):
     """
-    `VolumeSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-ebsconfiguration-ebsblockdeviceconfig-volumespecification.html>`__
+    `VolumeSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-volumespecification.html>`__
     """
 
     props: PropsDictType = {
@@ -197,7 +209,7 @@ class EbsBlockDeviceConfigs(AWSProperty):
 
 class EbsConfiguration(AWSProperty):
     """
-    `EbsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-ebsconfiguration.html>`__
+    `EbsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-ebsconfiguration.html>`__
     """
 
     props: PropsDictType = {
@@ -208,13 +220,13 @@ class EbsConfiguration(AWSProperty):
 
 class InstanceTypeConfig(AWSProperty):
     """
-    `InstanceTypeConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancefleetconfig-instancetypeconfig.html>`__
+    `InstanceTypeConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancefleetconfig-instancetypeconfig.html>`__
     """
 
     props: PropsDictType = {
         "BidPrice": (str, False),
         "BidPriceAsPercentageOfOnDemandPrice": (double, False),
-        "Configurations": ([Configuration], False),
+        "Configurations": ([ApplicationConfiguration], False),
         "CustomAmiId": (str, False),
         "EbsConfiguration": (EbsConfiguration, False),
         "InstanceType": (str, True),
@@ -240,7 +252,7 @@ class InstanceFleetConfigProperty(AWSProperty):
 
 class ScalingConstraints(AWSProperty):
     """
-    `ScalingConstraints <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancegroupconfig-scalingconstraints.html>`__
+    `ScalingConstraints <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-scalingconstraints.html>`__
     """
 
     props: PropsDictType = {
@@ -251,7 +263,7 @@ class ScalingConstraints(AWSProperty):
 
 class SimpleScalingPolicyConfiguration(AWSProperty):
     """
-    `SimpleScalingPolicyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancegroupconfig-simplescalingpolicyconfiguration.html>`__
+    `SimpleScalingPolicyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-simplescalingpolicyconfiguration.html>`__
     """
 
     props: PropsDictType = {
@@ -266,7 +278,7 @@ class SimpleScalingPolicyConfiguration(AWSProperty):
 
 class ScalingAction(AWSProperty):
     """
-    `ScalingAction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancegroupconfig-scalingaction.html>`__
+    `ScalingAction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-scalingaction.html>`__
     """
 
     props: PropsDictType = {
@@ -277,7 +289,7 @@ class ScalingAction(AWSProperty):
 
 class CloudWatchAlarmDefinition(AWSProperty):
     """
-    `CloudWatchAlarmDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancegroupconfig-cloudwatchalarmdefinition.html>`__
+    `CloudWatchAlarmDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-cloudwatchalarmdefinition.html>`__
     """
 
     props: PropsDictType = {
@@ -295,7 +307,7 @@ class CloudWatchAlarmDefinition(AWSProperty):
 
 class ScalingTrigger(AWSProperty):
     """
-    `ScalingTrigger <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancegroupconfig-scalingtrigger.html>`__
+    `ScalingTrigger <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-scalingtrigger.html>`__
     """
 
     props: PropsDictType = {
@@ -305,7 +317,7 @@ class ScalingTrigger(AWSProperty):
 
 class ScalingRule(AWSProperty):
     """
-    `ScalingRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancegroupconfig-scalingrule.html>`__
+    `ScalingRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-scalingrule.html>`__
     """
 
     props: PropsDictType = {
@@ -318,7 +330,7 @@ class ScalingRule(AWSProperty):
 
 class AutoScalingPolicy(AWSProperty):
     """
-    `AutoScalingPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticmapreduce-instancegroupconfig-autoscalingpolicy.html>`__
+    `AutoScalingPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-autoscalingpolicy.html>`__
     """
 
     props: PropsDictType = {
@@ -500,7 +512,7 @@ class Cluster(AWSObject):
 
 class InstanceFleetConfig(AWSObject):
     """
-    `InstanceFleetConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticmapreduce-instancefleetconfig.html>`__
+    `InstanceFleetConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancefleetconfig.html>`__
     """
 
     resource_type = "AWS::EMR::InstanceFleetConfig"
@@ -517,6 +529,18 @@ class InstanceFleetConfig(AWSObject):
     }
 
 
+class AppConfiguration(AWSProperty):
+    """
+    `AppConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-instancegroupconfig-appconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Classification": (str, False),
+        "ConfigurationProperties": (dict, False),
+        "Configurations": ([object], False),
+    }
+
+
 class InstanceGroupConfig(AWSObject):
     """
     `InstanceGroupConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-instancegroupconfig.html>`__
@@ -527,7 +551,7 @@ class InstanceGroupConfig(AWSObject):
     props: PropsDictType = {
         "AutoScalingPolicy": (AutoScalingPolicy, False),
         "BidPrice": (str, False),
-        "Configurations": ([Configuration], False),
+        "Configurations": ([AppConfiguration], False),
         "CustomAmiId": (str, False),
         "EbsConfiguration": (EbsConfiguration, False),
         "InstanceCount": (integer, True),
@@ -601,6 +625,88 @@ class SecurityConfiguration(AWSObject):
     props: PropsDictType = {
         "Name": (str, False),
         "SecurityConfiguration": (dict, True),
+    }
+
+
+class SessionConfiguration(AWSProperty):
+    """
+    `SessionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-session-configuration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Classification": (str, False),
+        "Configurations": ([object], False),
+        "Properties": (dict, False),
+    }
+
+
+class SessionCloudWatchLoggingConfiguration(AWSProperty):
+    """
+    `SessionCloudWatchLoggingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-session-sessioncloudwatchloggingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
+        "EncryptionKeyArn": (str, False),
+        "LogGroup": (str, False),
+        "LogStreamNamePrefix": (str, False),
+        "LogTypes": (dict, False),
+    }
+
+
+class SessionManagedLoggingConfiguration(AWSProperty):
+    """
+    `SessionManagedLoggingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-session-sessionmanagedloggingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
+        "EncryptionKeyArn": (str, False),
+    }
+
+
+class SessionS3LoggingConfiguration(AWSProperty):
+    """
+    `SessionS3LoggingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-session-sessions3loggingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
+        "EncryptionKeyArn": (str, False),
+        "LogTypes": (dict, False),
+        "LogUri": (str, False),
+    }
+
+
+class SessionMonitoringConfiguration(AWSProperty):
+    """
+    `SessionMonitoringConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-emr-session-sessionmonitoringconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchLoggingConfiguration": (
+            SessionCloudWatchLoggingConfiguration,
+            False,
+        ),
+        "ManagedLoggingConfiguration": (SessionManagedLoggingConfiguration, False),
+        "S3LoggingConfiguration": (SessionS3LoggingConfiguration, False),
+    }
+
+
+class Session(AWSObject):
+    """
+    `Session <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-emr-session.html>`__
+    """
+
+    resource_type = "AWS::EMR::Session"
+
+    props: PropsDictType = {
+        "EngineConfigurations": ([SessionConfiguration], False),
+        "ExecutionRoleArn": (str, False),
+        "MonitoringConfiguration": (SessionMonitoringConfiguration, False),
+        "Name": (str, False),
+        "SessionIdleTimeoutInMinutes": (double, False),
+        "Tags": (Tags, False),
     }
 
 

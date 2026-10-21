@@ -755,10 +755,12 @@ def _read_source(path, *, scan_policy: ScanPolicy | None = None, inspect: bool) 
 def read_upload_redacted(
     path, *, scan_policy: ScanPolicy | None = None, full_scan: bool = False, verbatim: bool = False
 ) -> tuple[bytes, InspectionResult]:
-    """`(bytes to upload, what was found)` -- the ONLY redacting reader.
+    """`(bytes to upload, what was found)` -- the redacting reader, with
+    `read_upload_redacted_sourced` when the original's hash is needed too.
 
-    Used where bytes have not been hashed yet: `prepare_upload`, the outbox
-    snapshot, and `fingerprint_upload`. Never from transport.
+    Used where bytes have not been hashed yet: `prepare_upload` and
+    `fingerprint_upload` (the outbox snapshot and output capture read through
+    the sourced form). Never from transport.
 
     The quick check by default; the full inspection under the block policy or
     with ``full_scan`` -- which output capture asks for: a file nobody chose to
@@ -773,7 +775,7 @@ def read_upload_redacted(
 
 
 def read_upload_redacted_sourced(
-    path, *, scan_policy: ScanPolicy | None = None, full_scan: bool = False
+    path, *, scan_policy: ScanPolicy | None = None, full_scan: bool = False, verbatim: bool = False
 ) -> tuple[bytes, InspectionResult, str]:
     """`read_upload_redacted`, plus the sha256 of the ORIGINAL bytes.
 
@@ -786,7 +788,7 @@ def read_upload_redacted_sourced(
     `pre_redaction` basis).
     """
     raw = _read_source(path, scan_policy=scan_policy, inspect=False)
-    data, result = _redact_read(raw, scan_policy=scan_policy, full_scan=full_scan)
+    data, result = _redact_read(raw, scan_policy=scan_policy, full_scan=full_scan, verbatim=verbatim)
     return data, result, hashlib.sha256(raw).hexdigest()
 
 
@@ -919,16 +921,20 @@ def check_upload(path, *, force: bool = False, is_reference: bool = False) -> No
     _check_source(info)
 
 
-def safe_snapshot_file(source, destination, *, verbatim: bool = False) -> None:
+def safe_snapshot_file(source, destination, *, verbatim: bool = False) -> str:
+    """Write `source`, redacted, to `destination`; return the sha256 of the
+    source bytes that were read -- the same read, so the digest can never
+    describe a different version than the snapshot."""
     # Redacted: the outbox hashes this snapshot, not the source, so the
     # credential must be gone before the digest is taken.
-    raw, _ = read_upload_redacted(source, verbatim=verbatim)
+    raw, _, source_digest = read_upload_redacted_sourced(source, verbatim=verbatim)
     # No destination exists until ALL bytes have passed inspection.
     fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0), 0o600)
     with os.fdopen(fd, "wb") as stream:
         stream.write(raw)
         stream.flush()
         os.fsync(stream.fileno())
+    return source_digest
 
 
 _SOURCE_PATHS = ContextVar("probe_checked_upload_sources", default=None)

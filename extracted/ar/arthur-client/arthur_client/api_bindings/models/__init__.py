@@ -208,6 +208,7 @@ from arthur_client.api_bindings.models.group_membership import GroupMembership
 from arthur_client.api_bindings.models.group_sort import GroupSort
 from arthur_client.api_bindings.models.http_validation_error import HTTPValidationError
 from arthur_client.api_bindings.models.health_status import HealthStatus
+from arthur_client.api_bindings.models.identity_basis import IdentityBasis
 from arthur_client.api_bindings.models.infinite_pagination import InfinitePagination
 from arthur_client.api_bindings.models.infinite_resource_list_alert import InfiniteResourceListAlert
 from arthur_client.api_bindings.models.infinite_resource_list_alert_group import InfiniteResourceListAlertGroup
@@ -269,6 +270,8 @@ from arthur_client.api_bindings.models.model_provider import ModelProvider
 from arthur_client.api_bindings.models.model_summary import ModelSummary
 from arthur_client.api_bindings.models.models_sort import ModelsSort
 from arthur_client.api_bindings.models.mute_unregistered_agents_request import MuteUnregisteredAgentsRequest
+from arthur_client.api_bindings.models.network_agent_creation_source import NetworkAgentCreationSource
+from arthur_client.api_bindings.models.network_destination import NetworkDestination
 from arthur_client.api_bindings.models.new_metric_request import NewMetricRequest
 from arthur_client.api_bindings.models.new_rule_request import NewRuleRequest
 from arthur_client.api_bindings.models.non_compliant_alert_rule_status import NonCompliantAlertRuleStatus

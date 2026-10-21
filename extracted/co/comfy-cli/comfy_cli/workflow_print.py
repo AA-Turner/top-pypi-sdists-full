@@ -52,7 +52,14 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from comfy_cli.cql import promoted as _promoted
-from comfy_cli.cql.engine import _UNRESOLVED, _expand_widget_entries, _resolve_proxy_value, _widgets_as_positional
+from comfy_cli.cql.engine import (
+    _UNRESOLVED,
+    DynamicGroupBindingError,
+    _expand_widget_entries,
+    _resolve_proxy_value,
+    _validate_dynamic_group_layout,
+    _widgets_as_positional,
+)
 from comfy_cli.workflow_to_api import is_subgraph_uuid
 
 if TYPE_CHECKING:
@@ -164,6 +171,10 @@ def _validate(nodes: list[dict], links: list[list]) -> list[str]:
     Collects every problem found (rather than stopping at the first) so the
     caller's ``PrintUnsupported`` can report them all at once.
 
+    A broken LINK is not one of them: it is rendered, marked, and reported
+    (see ``_broken_links`` and ``_stale_input_slot_links``) — one bad link row
+    used to hide the whole graph, the shape a caller most needs to read.
+
     A subgraph instance whose definition is missing is deliberately NOT a
     refusal here (at any depth): it's printed opaquely instead — see
     ``_render_missing_subgraph_line`` and D11 in the task brief (amended).
@@ -190,33 +201,146 @@ def _validate(nodes: list[dict], links: list[list]) -> list[str]:
         else:
             seen_ids.add(nid)
 
+    return reasons
+
+
+def _broken_links(nodes: list[dict], links: list[Any], qualify: Any = str) -> tuple[list[str], dict[str, str], list]:
+    """Link rows that cannot carry a value, as ``(warnings, broken, rest)``.
+
+    ``broken`` maps a link id to the short reason the consuming input's line
+    is marked with; ``rest`` is every other row (well-formed, both endpoints
+    present), for the stale-input check and the link map. A broken link is
+    rendered as ``None`` on the input that holds it, marked ``BROKEN`` on that
+    node's line, and reported with the edit that repairs it — never a refusal
+    of the whole print.
+
+    Broken means: a malformed row, an endpoint node that does not exist, a
+    non-integer slot, or an output slot the source node does not have.
+    """
+    warnings: list[str] = []
+    broken: dict[str, str] = {}
+    rest: list = []
     nodes_by_id = {str(n.get("id")): n for n in nodes}
+
+    def holder_of(link_id: Any, tgt: dict | None) -> str | None:
+        for inp in (tgt or {}).get("inputs") or []:
+            if isinstance(inp, dict) and inp.get("link") is not None and str(inp["link"]) == str(link_id):
+                return str(inp.get("name") or "")
+        return None
+
     for link in links:
         if not isinstance(link, list) or len(link) < 5:
-            reasons.append(f"link malformed: {link!r}")
+            warnings.append(f"ignoring malformed link row {link!r}")
             continue
         link_id, src_id, src_slot, tgt_id, tgt_slot = link[0], link[1], link[2], link[3], link[4]
         src_node = nodes_by_id.get(str(src_id))
-        if src_node is None:
-            reasons.append(f"link {link_id} references missing node {src_id}")
-            continue
         tgt_node = nodes_by_id.get(str(tgt_id))
         if tgt_node is None:
-            reasons.append(f"link {link_id} references missing node {tgt_id}")
+            warnings.append(f"link {link_id} targets missing node {qualify(tgt_id)}; it feeds nothing and was ignored")
             continue
-        # Slots index into outputs/inputs below and into widgets_values later;
-        # a None or "0" would raise a TypeError deep in the render instead of
-        # being reported here with every other structural problem.
-        if not _is_slot_index(src_slot) or not _is_slot_index(tgt_slot):
-            reasons.append(f"link {link_id} has a non-integer slot")
+        why = None
+        if src_node is None:
+            why = f"its source node {qualify(src_id)} does not exist"
+        elif not _is_slot_index(src_slot) or not _is_slot_index(tgt_slot):
+            why = "it has a non-integer slot"
+        else:
+            outputs = src_node.get("outputs")
+            if isinstance(outputs, list) and not (0 <= src_slot < len(outputs)):
+                why = f"node {src_id} has no output slot {src_slot} (it has {len(outputs)})"
+        if why is None:
+            rest.append(link)
             continue
-        outputs = src_node.get("outputs")
-        if isinstance(outputs, list) and not (0 <= src_slot < len(outputs)):
-            reasons.append(f"link {link_id} references out-of-range output slot {src_slot} on node {src_id}")
+        broken[str(link_id)] = why
+        name = holder_of(link_id, tgt_node)
+        into = f"input {name!r} of node {qualify(tgt_id)}" if name is not None else f"node {qualify(tgt_id)}"
+        source = f"{qualify(src_id)}.<output>" if src_node is not None else "<source>.<output>"
+        fix = f"`connect {source} {qualify(tgt_id)}.{name}`" if name else "`connect` to the input it was meant for"
+        warnings.append(f"BROKEN link {link_id} into {into}: {why}; printed as None — re-wire it with {fix}")
+    return warnings, broken, rest
+
+
+def _stale_input_slot_links(nodes: list[dict], links: list[list], qualify: Any = str) -> tuple[list[str], set[str]]:
+    """Links whose target input slot the node does not have, as
+    ``(warnings, ignored_link_ids)``. Run only after ``_validate`` passed, so
+    every link row is well-formed and both endpoints exist.
+
+    This is a stale link, usually left behind when a node's inputs changed
+    after it was wired (a widget converted back from an input, dynamic or
+    auto-grow inputs shrinking). It does not make the rest of the workflow
+    unprintable, and the editor loads it: its link fixer keeps such a row only
+    while an output still lists it and never wires it into an input. What a
+    node reads is its own ``inputs[].link``, which is also what this printer
+    renders from. So:
+
+    * an input on the target that holds the link id is still wired through
+      that input — the edge prints as usual, and the warning says so;
+    * otherwise the link feeds nothing: it is ignored (no edge, no ordering
+      constraint, which could otherwise report a cycle that isn't there) and
+      reported.
+    """
+    warnings: list[str] = []
+    ignored: set[str] = set()
+    nodes_by_id = {str(n.get("id")): n for n in nodes}
+    for link in links:
+        link_id, tgt_id, tgt_slot = link[0], link[3], link[4]
+        tgt_node = nodes_by_id.get(str(tgt_id))
+        if tgt_node is None or not _is_slot_index(tgt_slot):
+            continue
+        # A node that serialized no ``inputs`` list has no input slots at all.
         inputs = tgt_node.get("inputs")
-        if isinstance(inputs, list) and not (0 <= tgt_slot < len(inputs)):
-            reasons.append(f"link {link_id} references out-of-range input slot {tgt_slot} on node {tgt_id}")
-    return reasons
+        if not isinstance(inputs, list):
+            inputs = []
+        if 0 <= tgt_slot < len(inputs):
+            continue
+        holder = next(
+            (
+                inp
+                for inp in inputs
+                if isinstance(inp, dict) and inp.get("link") is not None and str(inp["link"]) == str(link_id)
+            ),
+            None,
+        )
+        where = (
+            f"link {link_id} targets input slot {tgt_slot} on node {qualify(tgt_id)}, which has {len(inputs)} inputs"
+        )
+        if holder is not None:
+            warnings.append(f"{where}; rendered through input {str(holder.get('name') or '')!r}, which holds it")
+            continue
+        ignored.add(str(link_id))
+        rewired = _input_fed_from(inputs, links, link[1], link[2], link_id)
+        if rewired is not None:
+            warnings.append(
+                f"{where}; a leftover row — input {rewired!r} already gets that value from node "
+                f"{qualify(link[1])} output {link[2]} through another link, so nothing needs re-wiring"
+            )
+        else:
+            src = link[1]
+            source = "the subgraph input" if str(src) == _PROXY_IN else f"node {qualify(src)} output {link[2]}"
+            fixed = f"{qualify(src)}.{link[2]}" if str(src) != _PROXY_IN else None
+            warnings.append(
+                f"{where}; no input holds it, so it feeds nothing and was ignored. It was wired from {source} — "
+                + (
+                    f"if that value was meant for node {qualify(tgt_id)}, re-wire it with "
+                    f"`connect {fixed} {qualify(tgt_id)}.<input>` rather than retyping the value"
+                    if fixed
+                    else "re-wire it to the input it was meant for"
+                )
+            )
+    return warnings, ignored
+
+
+def _input_fed_from(inputs: list, links: list[list], src_id: Any, src_slot: Any, except_id: Any) -> str | None:
+    """The name of an input in ``inputs`` that a link OTHER than ``except_id``
+    feeds from ``src_id``/``src_slot`` — a stale row whose value was already
+    re-wired — else ``None``."""
+    by_id = {str(lk[0]): lk for lk in links if isinstance(lk, list) and len(lk) >= 5}
+    for inp in inputs:
+        if not isinstance(inp, dict) or inp.get("link") is None or str(inp["link"]) == str(except_id):
+            continue
+        row = by_id.get(str(inp["link"]))
+        if row is not None and str(row[1]) == str(src_id) and row[2] == src_slot:
+            return str(inp.get("name") or "")
+    return None
 
 
 def _toposort(printable: list[dict], link_map: dict[str, tuple]) -> list[dict]:
@@ -521,6 +645,9 @@ class _RenderCtx:
     # level). A nested subgraph instance registers against it so its own
     # address can later be expanded through every instance of THIS definition.
     owner_def: str | None = None
+    # Link id -> why it carries no value (see ``_broken_links``): the input
+    # holding it prints ``None`` and the line is marked ``BROKEN``.
+    broken_links: dict[str, str] = field(default_factory=dict)
 
     def proxy_in_name(self, slot: Any) -> str:
         name = self.proxy_in_names.get(slot)
@@ -697,6 +824,11 @@ def _build_args(
         positional = widgets_values if isinstance(widgets_values, list) else []
         groups: list = []
     else:
+        try:
+            validated_entries = _validate_dynamic_group_layout(node, m)
+        except DynamicGroupBindingError as e:
+            raise PrintUnsupported([f"node {ctx.qualify(nid)}: {e}"]) from e
+        dynamic_group_names = {p.name for p in m.inputs if p.is_dynamic_group}
         positional = _widgets_as_positional(widgets_values, ctx.graph, class_type)
         # The auto-grow groups this node exposes for its CURRENT selection —
         # a group nested under a dynamic combo disappears when the selector
@@ -723,6 +855,8 @@ def _build_args(
             continue
         link = ctx.link_map.get(str(link_id))
         if link is None:
+            if str(link_id) in ctx.broken_links:
+                annotations.append(f" {name} BROKEN link {link_id}: {ctx.broken_links[str(link_id)]}")
             continue
         src_id, src_slot, _tgt_id, _tgt_slot = link
         outcome = _resolve_source(
@@ -764,6 +898,8 @@ def _build_args(
             continue
         link = ctx.link_map.get(str(link_id))
         if link is None:
+            if str(link_id) in ctx.broken_links:
+                annotations.append(f" {name} BROKEN link {link_id}: {ctx.broken_links[str(link_id)]}")
             _place_arg(name, "None", args, extra)
             continue
         src_id, src_slot, _tgt_id, _tgt_slot = link
@@ -783,7 +919,7 @@ def _build_args(
             args.append(f"widgets={py_literal(positional)}")
         warnings.append(f"node {ctx.qualify(nid)}: class {class_type!r} not in catalog; widgets printed positionally")
     else:
-        entries = _expand_widget_entries(m, positional)
+        entries = validated_entries if validated_entries is not None else _expand_widget_entries(m, positional)
         for idx, entry in enumerate(entries):
             if entry.frontend_injected:
                 # ``upload`` / ``audioUI`` / PREVIEW_3D ``image``: a frontend
@@ -796,6 +932,12 @@ def _build_args(
                 continue  # already printed in the link pass above
             if arg_name in widget_overrides:
                 _place_arg(arg_name, widget_overrides[arg_name], args, extra)
+                continue
+            if (
+                entry.owner in dynamic_group_names
+                and isinstance(widgets_values, dict)
+                and arg_name not in widgets_values
+            ):
                 continue
             # R11 (amending D4): a dynamic combo's sub-widget the frontend never
             # serialized a value for prints the catalog's own default, not a
@@ -1257,6 +1399,21 @@ def _render_definition_block(
     reasons = _validate(interior_nodes, validate_links)
     if reasons:
         raise PrintUnsupported(reasons)
+    first_instance = state.first_instance_by_def.get(def_id, def_id)
+    broken_warnings, broken, _rest = _broken_links(
+        interior_nodes, validate_links, lambda nid: f"{first_instance}/{nid}"
+    )
+    state.warnings.extend(broken_warnings)
+    all_links = {lid: link for lid, link in all_links.items() if lid not in broken}
+    # Every link into an interior node, including one from the ``-10`` input
+    # proxy (which ``_validate`` does not see): a stale target slot is stale
+    # whatever feeds it.
+    into_interior = [[lid, oid, oslot, tid, tslot] for lid, (oid, oslot, tid, tslot) in all_links.items()]
+    stale_warnings, stale_ids = _stale_input_slot_links(
+        interior_nodes, into_interior, lambda nid: f"{first_instance}/{nid}"
+    )
+    state.warnings.extend(stale_warnings)
+    all_links = {lid: link for lid, link in all_links.items() if lid not in stale_ids}
 
     printable = [n for n in interior_nodes if n.get("type") not in _UI_ONLY]
     notes = [n for n in interior_nodes if n.get("type") in _NOTE_TYPES]
@@ -1276,7 +1433,6 @@ def _render_definition_block(
     proxy_out_names = {i: o.get("name") for i, o in enumerate(sg_def.get("outputs") or []) if isinstance(o, dict)}
 
     binding_by_id = _build_bindings(order, state.defs_by_id)
-    first_instance = state.first_instance_by_def.get(def_id, def_id)
 
     ctx = _RenderCtx(
         graph=graph,
@@ -1291,6 +1447,7 @@ def _render_definition_block(
         proxy_in_names=proxy_in_names,
         addr_prefix=first_instance,
         owner_def=def_id,
+        broken_links=broken,
     )
 
     lines = _render_nodes(order, ctx, graph, state.defs_by_id, binding_by_id, state, depth + 1)
@@ -1362,15 +1519,28 @@ def render_py(workflow: dict, graph: Graph | None) -> PrintResult:
         # cql.promoted indexes the same block; hand it the sanitized view.
         promoted_workflow = {**workflow, "definitions": None}
     subgraphs = definitions.get("subgraphs") if definitions else None
-    defs_by_id = {sg.get("id"): sg for sg in (subgraphs or []) if isinstance(sg, dict) and sg.get("id")}
+    if subgraphs is not None and not isinstance(subgraphs, list):
+        warnings.append("workflow: ignoring non-list definitions.subgraphs block")
+        subgraphs = None
+    defs_by_id = {
+        sg.get("id"): sg
+        for sg in (subgraphs or [])
+        if isinstance(sg, dict) and sg.get("id") and isinstance(sg.get("nodes") or [], list)
+    }
 
     reasons = _validate(nodes, links)
     if reasons:
         raise PrintUnsupported(reasons)
+    broken_warnings, broken, links = _broken_links(nodes, links)
+    warnings.extend(broken_warnings)
+    stale_warnings, stale_ids = _stale_input_slot_links(nodes, links)
+    warnings.extend(stale_warnings)
 
     link_map: dict[str, tuple] = {}
     for link in links:
         link_id, src_id, src_slot, tgt_id, tgt_slot = link[0], link[1], link[2], link[3], link[4]
+        if str(link_id) in stale_ids:
+            continue
         link_map[str(link_id)] = (src_id, src_slot, tgt_id, tgt_slot)
 
     printable = [n for n in nodes if n.get("type") not in _UI_ONLY]
@@ -1400,6 +1570,7 @@ def render_py(workflow: dict, graph: Graph | None) -> PrintResult:
         reroute_sources=reroute_sources,
         set_sources=set_sources,
         get_vars=get_vars,
+        broken_links=broken,
     )
 
     skipped: list[dict] = []

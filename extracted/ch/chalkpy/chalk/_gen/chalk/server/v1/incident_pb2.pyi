@@ -23,6 +23,17 @@ class IncidentEntityKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INCIDENT_ENTITY_KIND_SCHEDULED_QUERY: _ClassVar[IncidentEntityKind]
     INCIDENT_ENTITY_KIND_QUERY: _ClassVar[IncidentEntityKind]
     INCIDENT_ENTITY_KIND_SQL_QUERY: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_DEPLOYMENT: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_POD: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_SERVICE_KIND: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_RESOURCE_GROUP: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_OFFLINE_QUERY: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_SCHEDULED_QUERY_RUN: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_TRAINING_RUN: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_SCALING_GROUP: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_NODE: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_FUNCTION: _ClassVar[IncidentEntityKind]
+    INCIDENT_ENTITY_KIND_SCALING_GROUP_REVISION: _ClassVar[IncidentEntityKind]
 
 INCIDENT_ENTITY_KIND_UNSPECIFIED: IncidentEntityKind
 INCIDENT_ENTITY_KIND_FEATURE: IncidentEntityKind
@@ -30,6 +41,17 @@ INCIDENT_ENTITY_KIND_RESOLVER: IncidentEntityKind
 INCIDENT_ENTITY_KIND_SCHEDULED_QUERY: IncidentEntityKind
 INCIDENT_ENTITY_KIND_QUERY: IncidentEntityKind
 INCIDENT_ENTITY_KIND_SQL_QUERY: IncidentEntityKind
+INCIDENT_ENTITY_KIND_DEPLOYMENT: IncidentEntityKind
+INCIDENT_ENTITY_KIND_POD: IncidentEntityKind
+INCIDENT_ENTITY_KIND_SERVICE_KIND: IncidentEntityKind
+INCIDENT_ENTITY_KIND_RESOURCE_GROUP: IncidentEntityKind
+INCIDENT_ENTITY_KIND_OFFLINE_QUERY: IncidentEntityKind
+INCIDENT_ENTITY_KIND_SCHEDULED_QUERY_RUN: IncidentEntityKind
+INCIDENT_ENTITY_KIND_TRAINING_RUN: IncidentEntityKind
+INCIDENT_ENTITY_KIND_SCALING_GROUP: IncidentEntityKind
+INCIDENT_ENTITY_KIND_NODE: IncidentEntityKind
+INCIDENT_ENTITY_KIND_FUNCTION: IncidentEntityKind
+INCIDENT_ENTITY_KIND_SCALING_GROUP_REVISION: IncidentEntityKind
 
 class IncidentLinkedEntity(_message.Message):
     __slots__ = ("entity_kind", "entity_id")
@@ -48,6 +70,18 @@ class IncidentGroup(_message.Message):
     group_key: str
     value: str
     def __init__(self, group_key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class IncidentSnapshot(_message.Message):
+    __slots__ = ("metric_monitor",)
+    METRIC_MONITOR_FIELD_NUMBER: _ClassVar[int]
+    metric_monitor: MetricMonitorSnapshot
+    def __init__(self, metric_monitor: _Optional[_Union[MetricMonitorSnapshot, _Mapping]] = ...) -> None: ...
+
+class MetricMonitorSnapshot(_message.Message):
+    __slots__ = ("groups",)
+    GROUPS_FIELD_NUMBER: _ClassVar[int]
+    groups: _containers.RepeatedCompositeFieldContainer[IncidentGroup]
+    def __init__(self, groups: _Optional[_Iterable[_Union[IncidentGroup, _Mapping]]] = ...) -> None: ...
 
 class MetricIncident(_message.Message):
     __slots__ = (

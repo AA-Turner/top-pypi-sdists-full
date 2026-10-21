@@ -83,6 +83,14 @@ __all__ = (
     "ExpressGatewayServiceScalingMetricType",
     "ExpressGatewayServiceStatusCodeType",
     "FirelensConfigurationTypeType",
+    "GatewayAlbDesyncMitigationModeType",
+    "GatewayAlbProtocolType",
+    "GatewayClusterAssociationStatusType",
+    "GatewayConnectorHealthCheckProtocolType",
+    "GatewayElbIpAddressTypeType",
+    "GatewayElbSchemeType",
+    "GatewayRouteStatusType",
+    "GatewayStatusType",
     "HealthStatusType",
     "InstanceGenerationType",
     "InstanceHealthCheckStateType",
@@ -93,6 +101,9 @@ __all__ = (
     "ListAttributesPaginatorName",
     "ListClustersPaginatorName",
     "ListContainerInstancesPaginatorName",
+    "ListGatewayClusterAssociationsPaginatorName",
+    "ListGatewayRoutesPaginatorName",
+    "ListGatewaysPaginatorName",
     "ListServicesByNamespacePaginatorName",
     "ListServicesPaginatorName",
     "ListTaskDefinitionFamiliesPaginatorName",
@@ -114,6 +125,7 @@ __all__ = (
     "PlacementConstraintTypeType",
     "PlacementStrategyTypeType",
     "PlatformDeviceTypeType",
+    "PropagateGatewayTagsType",
     "PropagateMITagsType",
     "PropagateTagsType",
     "ProxyConfigurationTypeType",
@@ -271,6 +283,24 @@ ExpressGatewayServiceScalingMetricType = Literal[
 ]
 ExpressGatewayServiceStatusCodeType = Literal["ACTIVE", "DRAINING", "INACTIVE"]
 FirelensConfigurationTypeType = Literal["fluentbit", "fluentd"]
+GatewayAlbDesyncMitigationModeType = Literal["defensive", "monitor", "strictest"]
+GatewayAlbProtocolType = Literal["HTTP", "HTTPS"]
+GatewayClusterAssociationStatusType = Literal["ACTIVE", "DISASSOCIATING", "INACTIVE"]
+GatewayConnectorHealthCheckProtocolType = Literal["HTTP", "HTTPS"]
+GatewayElbIpAddressTypeType = Literal["dualstack", "dualstack-without-public-ipv4", "ipv4"]
+GatewayElbSchemeType = Literal["internal", "internet-facing"]
+GatewayRouteStatusType = Literal[
+    "ACTIVE",
+    "CREATE_FAILED",
+    "CREATE_IN_PROGRESS",
+    "DELETE_FAILED",
+    "DELETE_IN_PROGRESS",
+    "UPDATE_FAILED",
+    "UPDATE_IN_PROGRESS",
+]
+GatewayStatusType = Literal[
+    "ACTIVE", "DELETED", "UPDATE_COMPLETE", "UPDATE_FAILED", "UPDATE_IN_PROGRESS"
+]
 HealthStatusType = Literal["HEALTHY", "UNHEALTHY", "UNKNOWN"]
 InstanceGenerationType = Literal["current", "previous"]
 InstanceHealthCheckStateType = Literal["IMPAIRED", "INITIALIZING", "INSUFFICIENT_DATA", "OK"]
@@ -283,6 +313,9 @@ ListAccountSettingsPaginatorName = Literal["list_account_settings"]
 ListAttributesPaginatorName = Literal["list_attributes"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListContainerInstancesPaginatorName = Literal["list_container_instances"]
+ListGatewayClusterAssociationsPaginatorName = Literal["list_gateway_cluster_associations"]
+ListGatewayRoutesPaginatorName = Literal["list_gateway_routes"]
+ListGatewaysPaginatorName = Literal["list_gateways"]
 ListServicesByNamespacePaginatorName = Literal["list_services_by_namespace"]
 ListServicesPaginatorName = Literal["list_services"]
 ListTaskDefinitionFamiliesPaginatorName = Literal["list_task_definition_families"]
@@ -316,6 +349,7 @@ PidModeType = Literal["host", "task"]
 PlacementConstraintTypeType = Literal["distinctInstance", "memberOf"]
 PlacementStrategyTypeType = Literal["binpack", "random", "spread"]
 PlatformDeviceTypeType = Literal["GPU", "NEURON_DEVICE"]
+PropagateGatewayTagsType = Literal["GATEWAY", "NONE"]
 PropagateMITagsType = Literal["CAPACITY_PROVIDER", "NONE"]
 PropagateTagsType = Literal["NONE", "SERVICE", "TASK_DEFINITION"]
 ProxyConfigurationTypeType = Literal["APPMESH"]
@@ -860,6 +894,9 @@ PaginatorName = Literal[
     "list_attributes",
     "list_clusters",
     "list_container_instances",
+    "list_gateway_cluster_associations",
+    "list_gateway_routes",
+    "list_gateways",
     "list_services",
     "list_services_by_namespace",
     "list_task_definition_families",

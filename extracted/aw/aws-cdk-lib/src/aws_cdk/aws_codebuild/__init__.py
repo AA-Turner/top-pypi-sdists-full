@@ -418,7 +418,7 @@ is available for specifying Lambda-compatible images.
 You can specify one of the predefined Windows/Linux images by using one
 of the constants such as `WindowsBuildImage.WIN_SERVER_CORE_2019_BASE`,
 `WindowsBuildImage.WINDOWS_BASE_2_0`, `LinuxBuildImage.STANDARD_2_0`,
-`LinuxBuildImage.AMAZON_LINUX_2_5`, `MacBuildImage.BASE_14`, `MacBuildImage.BASE_15`, `MacBuildImage.BASE_26`, `LinuxArmBuildImage.AMAZON_LINUX_2_ARM`,
+`LinuxBuildImage.AMAZON_LINUX_2_5`, `LinuxBuildImage.AMAZON_LINUX_2023_6`, `LinuxBuildImage.STANDARD_7_0`, `LinuxBuildImage.STANDARD_8_0`, `MacBuildImage.BASE_14`, `MacBuildImage.BASE_15`, `MacBuildImage.BASE_26`, `LinuxArmBuildImage.AMAZON_LINUX_2_ARM`, `LinuxArmBuildImage.AMAZON_LINUX_2023_STANDARD_4_0`,
 `LinuxLambdaBuildImage.AMAZON_LINUX_2_NODE_18`, `LinuxLambdaBuildImage.AMAZON_LINUX_2023_NODE_24`, `LinuxArmLambdaBuildImage.AMAZON_LINUX_2_NODE_18` or `LinuxArmLambdaBuildImage.AMAZON_LINUX_2023_NODE_24`.
 
 Alternatively, you can specify a custom image using one of the static methods on
@@ -13206,6 +13206,12 @@ class LinuxArmBuildImage(
         '''Image "aws/codebuild/amazonlinux-aarch64-standard:3.0" based on Amazon Linux 2023.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_STANDARD_3_0"))
 
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_LINUX_2023_STANDARD_4_0")
+    def AMAZON_LINUX_2023_STANDARD_4_0(cls) -> "IBuildImage":
+        '''Image "aws/codebuild/amazonlinux-aarch64-standard:4.0" based on Amazon Linux 2023.'''
+        return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_STANDARD_4_0"))
+
     @builtins.property
     @jsii.member(jsii_name="defaultComputeType")
     def default_compute_type(self) -> "ComputeType":
@@ -13774,6 +13780,12 @@ class LinuxBuildImage(
         return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_5"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="AMAZON_LINUX_2023_6")
+    def AMAZON_LINUX_2023_6(cls) -> "IBuildImage":
+        '''The Amazon Linux 2023 x86_64 standard image, version ``6.0``.'''
+        return typing.cast("IBuildImage", jsii.sget(cls, "AMAZON_LINUX_2023_6"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="AMAZON_LINUX_2023_CORETTO_11")
     def AMAZON_LINUX_2023_CORETTO_11(cls) -> "IBuildImage":
         '''The Amazon Coretto 11 image x86_64, based on Amazon Linux 2023.'''
@@ -13843,6 +13855,12 @@ class LinuxBuildImage(
     def STANDARD_7_0(cls) -> "IBuildImage":
         '''The ``aws/codebuild/standard:7.0`` build image.'''
         return typing.cast("IBuildImage", jsii.sget(cls, "STANDARD_7_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="STANDARD_8_0")
+    def STANDARD_8_0(cls) -> "IBuildImage":
+        '''The ``aws/codebuild/standard:8.0`` build image.'''
+        return typing.cast("IBuildImage", jsii.sget(cls, "STANDARD_8_0"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultComputeType")

@@ -790,8 +790,8 @@ class DynamoDBClient(BaseClient):
 
     def update_table(self, **kwargs: Unpack[UpdateTableInputTypeDef]) -> UpdateTableOutputTypeDef:
         """
-        Modifies the provisioned throughput settings, global secondary indexes, or
-        DynamoDB Streams settings for a given table.
+        Modifies the provisioned throughput settings, global secondary indexes,
+        DynamoDB Streams settings, or global table replica settings for a given table.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/client/update_table.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/client/#update_table)

@@ -36,17 +36,19 @@ class ServiceConfig(object):
         'max_uptime_timeout_sec': 'int',
         'access': 'AccessConfig',
         'protocols': 'Protocols',
-        'env_vars': 'object'
+        'env_vars': 'object',
+        'traffic_policy': 'TrafficPolicy'
     }
 
     attribute_map = {
         'max_uptime_timeout_sec': 'max_uptime_timeout_sec',
         'access': 'access',
         'protocols': 'protocols',
-        'env_vars': 'env_vars'
+        'env_vars': 'env_vars',
+        'traffic_policy': 'traffic_policy'
     }
 
-    def __init__(self, max_uptime_timeout_sec=0, access=None, protocols=None, env_vars=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_uptime_timeout_sec=0, access=None, protocols=None, env_vars=None, traffic_policy=None, local_vars_configuration=None):  # noqa: E501
         """ServiceConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class ServiceConfig(object):
         self._access = None
         self._protocols = None
         self._env_vars = None
+        self._traffic_policy = None
         self.discriminator = None
 
         if max_uptime_timeout_sec is not None:
@@ -66,6 +69,7 @@ class ServiceConfig(object):
             self.protocols = protocols
         if env_vars is not None:
             self.env_vars = env_vars
+        self.traffic_policy = traffic_policy
 
     @property
     def max_uptime_timeout_sec(self):
@@ -158,6 +162,29 @@ class ServiceConfig(object):
         """
 
         self._env_vars = env_vars
+
+    @property
+    def traffic_policy(self):
+        """Gets the traffic_policy of this ServiceConfig.  # noqa: E501
+
+        How the service splits its traffic and capacity across the cloud resources it runs on. Unset splits evenly.  # noqa: E501
+
+        :return: The traffic_policy of this ServiceConfig.  # noqa: E501
+        :rtype: TrafficPolicy
+        """
+        return self._traffic_policy
+
+    @traffic_policy.setter
+    def traffic_policy(self, traffic_policy):
+        """Sets the traffic_policy of this ServiceConfig.
+
+        How the service splits its traffic and capacity across the cloud resources it runs on. Unset splits evenly.  # noqa: E501
+
+        :param traffic_policy: The traffic_policy of this ServiceConfig.  # noqa: E501
+        :type: TrafficPolicy
+        """
+
+        self._traffic_policy = traffic_policy
 
     def to_dict(self):
         """Returns the model properties as a dict"""

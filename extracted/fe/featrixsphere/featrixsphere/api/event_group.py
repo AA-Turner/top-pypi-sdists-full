@@ -34,6 +34,97 @@ logger = logging.getLogger(__name__)
 UNCHANGED = object()
 
 
+# TargetReadiness.state values.
+READINESS_STATES = (
+    'collecting', 'insufficient_labels', 'training', 'early', 'trained', 'stale', 'failed', 'unassessed',
+)
+
+
+@dataclass
+class TargetReadiness:
+    """
+    Why one declared target has (or lacks) a model, and the numbers behind it.
+
+    state is one of:
+        collecting: the group has too few usable rows for any model yet
+            (usable_rows of rows_required).
+        insufficient_labels: enough rows, but the target's own values can't
+            train a model yet -- too few labelled rows, a single value, or a
+            class below the per-class minimum. reason says what more is needed.
+        training: dispatched; the result is pending.
+        early: trained on few examples; judged by its held-out predictions
+            on them.
+        trained: a model trained on the group's newest data serves.
+        stale: a model serves, but newer data could not be used --
+            blocked_by and reason say why; trained_at / events_trained_on
+            describe the model still serving.
+        failed: training was rejected or crashed; node_error has the reason.
+        unassessed: not checked yet since readiness tracking began.
+
+    Attributes:
+        target_column: The target this describes.
+        state: One of READINESS_STATES.
+        reason: Plain-language explanation, with the numbers.
+        checked_at: When this was last recorded.
+        trained_at: When the serving model finished training, if one serves.
+        events_trained_on: Events the serving (or in-training) model trained on.
+        session_id: The serving (or in-training) model's session.
+        class_counts: {label: count} of the labelled rows (classification).
+        labelled_rows: Rows carrying a value for this target.
+        usable_rows: Training rows the group's events make.
+        rows_required: The minimum the blocking check needs.
+        min_per_class: Per-class minimum (classification).
+        distinct_values: Distinct values seen, when fewer than 2.
+        blocked_by: For stale: the state that kept newer data out.
+        node_error: For failed (or stale after a failure): the node's reason.
+        raw: The full entry as the server sent it.
+    """
+
+    target_column: str
+    state: str
+    reason: str
+    checked_at: Optional[datetime] = None
+    trained_at: Optional[datetime] = None
+    events_trained_on: Optional[int] = None
+    session_id: Optional[str] = None
+    class_counts: Optional[Dict[str, int]] = None
+    labelled_rows: Optional[int] = None
+    usable_rows: Optional[int] = None
+    rows_required: Optional[int] = None
+    min_per_class: Optional[int] = None
+    distinct_values: Optional[int] = None
+    blocked_by: Optional[str] = None
+    node_error: Optional[str] = None
+    raw: Dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_response(cls, target_column: str, entry: Dict[str, Any]) -> 'TargetReadiness':
+        return cls(
+            target_column=target_column,
+            state=entry.get('state', 'unassessed'),
+            reason=entry.get('reason', ''),
+            checked_at=_parse_datetime(entry.get('checked_at')),
+            trained_at=_parse_datetime(entry.get('trained_at')),
+            events_trained_on=entry.get('events_trained_on'),
+            session_id=entry.get('session_id'),
+            class_counts=entry.get('class_counts'),
+            labelled_rows=entry.get('labelled_rows'),
+            usable_rows=entry.get('usable_rows'),
+            rows_required=entry.get('rows_required'),
+            min_per_class=entry.get('min_per_class'),
+            distinct_values=entry.get('distinct_values'),
+            blocked_by=entry.get('blocked_by'),
+            node_error=entry.get('node_error'),
+            raw=dict(entry),
+        )
+
+    @property
+    def has_model(self) -> bool:
+        """True when a model answers predictions for this target (trained_at
+        is the serving model's, carried on every state while one serves)."""
+        return self.trained_at is not None
+
+
 @dataclass
 class EventGroup:
     """
@@ -87,6 +178,8 @@ class EventGroup:
         auto_predictor_targets: Targets auto-trained on every rebuild.
         predictor_sessions: {target_column: {session_id, predictor_id, ...}}
             for the trained predictors.
+        target_readiness: {target_column: TargetReadiness} for every declared
+            target -- why it has (or lacks) a model, with the numbers.
 
     Usage:
         group = client.event_group("...")
@@ -124,6 +217,7 @@ class EventGroup:
     display_name: Optional[str] = None
     auto_predictor_targets: List[Dict[str, Any]] = field(default_factory=list)
     predictor_sessions: Dict[str, Any] = field(default_factory=dict)
+    target_readiness: Dict[str, TargetReadiness] = field(default_factory=dict)
 
     # Internal
     _ctx: Optional['ClientContext'] = field(default=None, repr=False)
@@ -155,6 +249,10 @@ class EventGroup:
             display_name=response.get('display_name'),
             auto_predictor_targets=response.get('auto_predictor_targets') or [],
             predictor_sessions=response.get('predictor_sessions') or {},
+            target_readiness={
+                tc: TargetReadiness.from_response(tc, entry)
+                for tc, entry in (response.get('target_readiness') or {}).items()
+            },
             _ctx=ctx,
         )
 
@@ -260,6 +358,7 @@ class EventGroup:
             'display_name': self.display_name,
             'auto_predictor_targets': self.auto_predictor_targets,
             'predictor_sessions': self.predictor_sessions,
+            'target_readiness': {tc: r.raw for tc, r in self.target_readiness.items()},
         }
 
     def __repr__(self) -> str:

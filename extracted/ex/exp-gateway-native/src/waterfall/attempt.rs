@@ -246,6 +246,12 @@ pub(super) async fn run_attempt(
         }
         relay.set_serialize_tool_calls(wire.serialize_tool_calls);
         relay.set_cache_writes_within_reads(wire.cache_writes_within_reads);
+        relay.set_twelve_hour_cache_writes(
+            wire.upstream_payload
+                .pointer("/prompt_cache_options/ttl")
+                .and_then(Value::as_str)
+                == Some("12h"),
+        );
         relay.set_gemini_cache_writes(wire.automatic_cache_written_tokens);
         relay.set_native_tool_translation(wire.native_tool_translation.clone());
         relay.set_tool_search_tool_name(ctx.tool_search.map(|search| search.tool_name.clone()));
@@ -341,6 +347,20 @@ pub(super) async fn run_attempt(
                 // retained-output and worker budgets; an image model signs each
                 // image with 1 to 2 MB (live 2026-10-19), far past the
                 // refusal-delta byte bound. The event-count bound still applies.
+                // A reasoning model streams `"logprobs": null` beside every
+                // private reasoning chunk; one held empty delta stands for a
+                // run of identical ones (aggregation is unchanged), so a long
+                // think no longer overflows the withheld bound (deepseek-v4-flash
+                // on Azure, 25 logprob requests failed in a day, 2026-10-19).
+                if let (
+                    Event::ChoiceLogprobsDelta(update),
+                    Some(Event::ChoiceLogprobsDelta(held)),
+                ) = (&event, withheld.last())
+                {
+                    if crate::logprobs::is_empty_delta(update) && update == held {
+                        continue;
+                    }
+                }
                 let event_bytes = match event {
                     Event::GeminiThoughtPart(_) => 0,
                     _ => crate::relay::event_retained_bytes(&event),

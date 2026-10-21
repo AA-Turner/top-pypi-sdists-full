@@ -355,7 +355,9 @@ class ExecutionResult:
         # Save configured catalog (input) if available
         if self.configured_catalog is not None:
             catalog_path = output_dir / "configured_catalog.json"
-            catalog_path.write_text(self.configured_catalog.model_dump_json(indent=2))
+            catalog_path.write_text(
+                self.configured_catalog.model_dump_json(indent=2, exclude_none=True)
+            )
             self.logger.info(f"Saved configured catalog to {catalog_path}")
 
         self.logger.info(f"Artifacts saved to {output_dir}")

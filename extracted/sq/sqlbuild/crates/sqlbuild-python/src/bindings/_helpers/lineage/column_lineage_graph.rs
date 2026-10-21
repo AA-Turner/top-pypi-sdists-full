@@ -10,10 +10,8 @@ use pyo3::{pyclass, pymethods};
 use sqlbuild_analysis::lineage_graph::main::edge_index::edge_index;
 use sqlbuild_analysis::lineage_graph::models::{EdgeIndex, EdgeKey};
 
+use crate::bindings::_helpers::lineage::lineage_facts::{confidence_member, transform_kind_member};
 use crate::bindings::_helpers::lineage::lineage_objects::LineageClasses;
-use crate::bindings::_helpers::record_behaviours::lineage_facts::{
-    confidence_member, transform_kind_member,
-};
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::fields::mapping_get;
 use crate::bindings::_helpers::records::fields::mapping_items;
@@ -56,6 +54,17 @@ enum EdgeParts {
         transform: Py<PyAny>,
         confidence: Py<PyAny>,
     },
+}
+
+positional_record! {
+    extract;
+    /// One compact lineage row: output name index, transform and confidence codes, sources.
+    struct CompactColumnRow<'py> {
+        name_index: Bound<'py, PyAny>,
+        transform_code: i64,
+        confidence_code: i64,
+        sources: Bound<'py, PyAny>,
+    }
 }
 
 /// Indexed edge records, materialised edges shared between equal records.
@@ -442,12 +451,12 @@ impl RecordBuilder {
             || native_field(columns, "resource_name_indexes")?.is_truthy()?;
         let mut members = CodeMembers::default();
         for row in native_field(columns, "rows")?.try_iter()? {
-            let (name_index, transform_code, confidence_code, sources): (
-                Bound<'_, PyAny>,
-                i64,
-                i64,
-                Bound<'_, PyAny>,
-            ) = row?.extract()?;
+            let CompactColumnRow {
+                name_index,
+                transform_code,
+                confidence_code,
+                sources,
+            }: CompactColumnRow<'_> = row?.extract()?;
             let output_column: String = pool.get_item(name_index)?.extract()?;
             for source in sources.try_iter()? {
                 let (kind, name, column): (Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>) =

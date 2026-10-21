@@ -17,14 +17,14 @@ from schemathesis.cli.commands.run.handlers.output import (
     warning_blocks,
 )
 from schemathesis.cli.events import LoadingFinished, LoadingStarted
-from schemathesis.cli.output import LOADER_ERROR_SUGGESTIONS, replay_command
-from schemathesis.cli.summary import running_time
-from schemathesis.core.errors import LoaderError, LoaderErrorKind
+from schemathesis.cli.output import loader_error_tip, replay_command
+from schemathesis.core.errors import LoaderError
 from schemathesis.core.output import format_response_payload
 from schemathesis.core.output.sanitization import sanitized
 from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.errors import EngineErrorInfo
 from schemathesis.engine.run import INTERNAL_PHASES, PhaseName, PhaseSkipReason
+from schemathesis.engine.summary import running_time
 from schemathesis.generation.stateful import STATEFUL_TESTS_LABEL
 from schemathesis.reporting.html.build import enabled_checks, failing_case, failure_titles, request_name
 from schemathesis.reporting.html.model import (
@@ -43,11 +43,10 @@ from schemathesis.reporting.html.model import (
 )
 
 if TYPE_CHECKING:
-    from schemathesis.cli.commands.run.handlers.output import WarningBlock
     from schemathesis.cli.context import BaseExecutionContext
-    from schemathesis.cli.summary import SummaryData
     from schemathesis.engine.recorder import RecordedScenario
     from schemathesis.engine.statistic import GroupedFailures, Statistic
+    from schemathesis.engine.summary import SummaryData, WarningBlock
     from schemathesis.generation.stateful.state_machine import ExtractionFailure
     from schemathesis.schemas import APIOperation
 
@@ -104,7 +103,7 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
             self._on_phase_started(event)
         elif isinstance(event, events.PhaseFinished):
             self._on_phase_finished(event)
-        elif isinstance(event, events.ScenarioFinished):
+        elif isinstance(event, events.ScenarioFinished) and event.is_test_scenario:
             self._on_scenario_finished(ctx, event)
         elif isinstance(event, events.FuzzScenarioFinished):
             self._on_fuzz_scenario_finished(ctx, event)
@@ -172,9 +171,7 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
     ) -> None:
         if self.started_at is None:
             return
-        if recorder is not None and not any(
-            check.failure_info is not None for checks in recorder.checks.values() for check in checks
-        ):
+        if recorder is not None and not recorder.failing_case_ids():
             return
         for groups in ctx.statistic.failures.values():
             for case_id in groups:
@@ -196,12 +193,9 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
     def _operation_rows(self, ctx: BaseExecutionContext) -> Rows:
         statistic = ctx.statistic
 
-        def find_operation(label: str) -> APIOperation | None:
-            return ctx.find_operation_by_label(label) if ctx.find_operation_by_label is not None else None
-
         def names_operation(label: str) -> bool:
             # An operation that failed to load cannot be looked up again, yet its error names it.
-            return label in self.errored_labels or find_operation(label) is not None
+            return label in self.errored_labels or ctx.find_operation(label) is not None
 
         operations: dict[str, APIOperation] = {}
         failing_cases: dict[str, list[FailingCase]] = {}
@@ -219,7 +213,7 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
                 else:
                     failed_directly.add(label)
                 # Run-level and undeclared-method failures carry labels that name no operation.
-                operation = find_operation(owner)
+                operation = ctx.find_operation(owner)
                 if operation is None:
                     unattributed_cases.append((label, case))
                     unattributed.update(failure.title for failure in group.failures)
@@ -304,7 +298,6 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
         from schemathesis.reporting.html import write_report
 
         sanitization = ctx.config.output.sanitization
-        sanitization_config = sanitization if sanitization.enabled else None
         summary = ctx.summary()
         rows = self._operation_rows(ctx)
         payload = self.finished.payload if self.finished is not None else None
@@ -327,9 +320,9 @@ class HtmlReportHandler(EventHandler["BaseExecutionContext"]):
         data = ReportData(
             meta=ReportMeta(
                 generated_at=datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
-                location=sanitized(self.location, sanitization_config),
-                base_url=sanitized(self.base_url, sanitization_config),
-                command=get_command_representation(sanitization_config),
+                location=sanitized(self.location, sanitization),
+                base_url=sanitized(self.base_url, sanitization),
+                command=get_command_representation(sanitization),
                 seed=ctx.config.seed,
             ),
             summary=summary,
@@ -466,12 +459,10 @@ def _by_count(counts: Counter[str]) -> list[tuple[str, int]]:
 
 def _fatal_entry(exception: Exception, *, wait_for_schema: float | int | None) -> ErrorEntry:
     if isinstance(exception, LoaderError):
-        tip = LOADER_ERROR_SUGGESTIONS.get(exception.kind)
-        # The run already waited for the schema, so suggesting a wait would repeat what failed.
-        if exception.kind == LoaderErrorKind.CONNECTION_OTHER and wait_for_schema is not None:
-            tip = None
         return ErrorEntry(
-            title="Failed to load specification", message="\n".join([exception.message, *exception.extras]), tip=tip
+            title="Failed to load specification",
+            message="\n".join([exception.message, *exception.extras]),
+            tip=loader_error_tip(exception, wait_for_schema=wait_for_schema),
         )
     info = EngineErrorInfo(error=exception)
     return ErrorEntry(title=info.title, message=info.message, tip=None)

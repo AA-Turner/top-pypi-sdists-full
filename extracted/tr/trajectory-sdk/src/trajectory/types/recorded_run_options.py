@@ -21,6 +21,10 @@ class RecordedRunOptions(BaseModel):
 
   train_on_timeout: bool | None = None
 
+  evaluation_enabled: bool | None = None
+
+  evaluation_frequency: int | None = None
+
   evaluation_max_samples: int | None = None
 
   evaluation_samples_per_task: int | None = None
@@ -48,6 +52,8 @@ class RecordedRunOptions(BaseModel):
   samples_per_instance: int | None = None
 
   max_active_rollouts: int | None = None
+
+  max_steps_off_policy: int | None = None
 
   execution_timeout_seconds: int | None = None
 

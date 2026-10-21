@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
@@ -30,7 +30,11 @@ from schemathesis.core.jsonschema.numeric import (
     resolve_inclusive_bounds,
 )
 from schemathesis.core.jsonschema.types import JsonSchema, JsonValue
-from schemathesis.core.media_types import FORM_MEDIA_TYPES, find_media_type_strategy
+from schemathesis.core.media_types import (
+    FORM_MEDIA_TYPES,
+    find_media_type_strategy,
+    iter_matching_media_type_strategies,
+)
 from schemathesis.core.mutations import Mutation, MutationMetadata
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.timing import Instant
@@ -54,7 +58,7 @@ from schemathesis.generation.meta import (
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.hooks import HookContext, HookDispatcher, apply_to_all_dispatchers
 from schemathesis.openapi.generation.filters import is_valid_urlencoded
-from schemathesis.resources import ExtraDataSource, PoolDraw, SemanticDraw
+from schemathesis.resources import PoolDraw, SemanticDraw
 from schemathesis.schemas import APIOperation
 from schemathesis.specs.openapi.adapter.parameters import (
     OpenApiBody,
@@ -91,7 +95,6 @@ if TYPE_CHECKING:
     from schemathesis.python._constants.pool import ConstantDraw, ConstantsPool
     from schemathesis.specs.openapi.schemas import OpenApiOperation
 
-SLASH = "/"
 # Probability of generating valid headers in negative mode
 VALID_HEADER_PROBABILITY = 0.95
 # Strategies that take no varying input are deterministic and reusable; allocating
@@ -105,10 +108,6 @@ _LOCATION_NAME_TO_ENUM: dict[str, ParameterLocation] = {
     "cookie": ParameterLocation.COOKIE,
     "body": ParameterLocation.BODY,
 }
-StrategyFactory = Callable[
-    [JsonSchema, str, ParameterLocation, str | None, GenerationConfig, type[jsonschema_rs.Validator]],
-    st.SearchStrategy,
-]
 
 
 def _draw(draw: st.DrawFn, strategy: st.SearchStrategy, operation: APIOperation) -> Any:
@@ -189,10 +188,8 @@ def openapi_cases(
             hooks,
             _mode_for(location, generation_mode, negated),
             generation_config,
-            extra_data_source=feedback.extra_data_source,
-            error_feedback=feedback.error_feedback,
+            feedback=feedback,
             mix_examples=mix_examples,
-            constants_value_source=feedback.constants_value_source,
             # Configured auth overwrites these on the wire, so drawing them only repeats the same request.
             exclude=feedback.auth_headers
             if location == ParameterLocation.HEADER and generation_mode.is_positive
@@ -217,10 +214,8 @@ def openapi_cases(
             hooks,
             _mode_for(ParameterLocation.BODY, generation_mode, negated),
             generation_config,
-            extra_data_source=feedback.extra_data_source,
-            error_feedback=feedback.error_feedback,
+            feedback=feedback,
             mix_examples=mix_examples,
-            constants_value_source=feedback.constants_value_source,
         )
     else:
         body_ = ValueContainer(value=body, location="body", generator=None, meta=None)
@@ -310,27 +305,24 @@ def _generate_body(
     generation_mode: GenerationMode,
     generation_config: GenerationConfig,
     *,
-    extra_data_source: ExtraDataSource | None,
-    error_feedback: ErrorFeedbackStore | None,
+    feedback: FeedbackSources,
     mix_examples: bool,
-    constants_value_source: ConstantsPool | None,
 ) -> tuple[ValueContainer, str]:
     """Draw a body and the media type it is sent with."""
     candidates, generation_mode = _body_candidates(operation.body.items, generation_mode)
     parameter = draw(st.sampled_from(candidates))
+    media_type = _draw_body_media_type(draw, operation, parameter)
     strategy = _get_body_strategy(
         parameter,
+        media_type,
         operation,
         generation_config,
         draw,
         generation_mode,
-        extra_data_source=extra_data_source,
-        error_feedback=error_feedback,
+        feedback=feedback,
         mix_examples=mix_examples,
-        constants_value_source=constants_value_source,
     )
     strategy = apply_hooks(operation, ctx, hooks, strategy, ParameterLocation.BODY)
-    media_type = _draw_body_media_type(draw, operation, parameter)
     if media_types.is_form_urlencoded(media_type):
         # The hybrid strategy wraps in `GeneratedValue` when it picks a captured pool
         # variant, so both positive and negative paths must unwrap before
@@ -623,10 +615,9 @@ def _build_form_strategy_with_encoding(
                 continue
             strategies_for_types = []
             for ct in content_types:
-                strategy = find_media_type_strategy(ct)
-                if strategy is not None:
+                for media_type, strategy in iter_matching_media_type_strategies(ct):
                     # Pair strategy with its content type so we know which was selected
-                    strategies_for_types.append(st.tuples(st.just(ct), strategy))
+                    strategies_for_types.append(st.tuples(st.just(media_type), strategy))
 
             if strategies_for_types:
                 # Store strategy that returns (content_type, data) tuple
@@ -699,14 +690,13 @@ def _build_form_strategy_with_encoding(
 
 def _get_body_strategy(
     parameter: OpenApiBody,
+    media_type: str,
     operation: APIOperation,
     generation_config: GenerationConfig,
     draw: st.DrawFn,
     generation_mode: GenerationMode,
-    extra_data_source: ExtraDataSource | None = None,
+    feedback: FeedbackSources = NO_FEEDBACK,
     mix_examples: bool = True,
-    error_feedback: ErrorFeedbackStore | None = None,
-    constants_value_source: ConstantsPool | None = None,
 ) -> st.SearchStrategy:
     # Check for custom encoding in form bodies (multipart/form-data or application/x-www-form-urlencoded)
     if parameter.media_type in FORM_MEDIA_TYPES:
@@ -715,13 +705,13 @@ def _get_body_strategy(
             operation,
             generation_config,
             generation_mode,
-            constants_value_source,
+            feedback.constants_value_source,
         )
         if custom_strategy is not None:
             return custom_strategy
 
     # Check for custom media type strategy
-    custom_strategy = find_media_type_strategy(parameter.media_type)
+    custom_strategy = find_media_type_strategy(media_type)
     if custom_strategy is not None:
         # Always use custom strategies for raw bodies - they produce transmittable bytes.
         # In negative mode, bypassing them would generate non-bytes values (e.g., integers)
@@ -733,12 +723,10 @@ def _get_body_strategy(
         operation,
         generation_config,
         generation_mode,
-        extra_data_source=extra_data_source,
-        error_feedback=error_feedback,
+        feedback=feedback,
         mix_examples=mix_examples,
-        constants_value_source=constants_value_source,
     )
-    return _maybe_set_optional_body(strategy, parameter, operation, draw, error_feedback)
+    return _maybe_set_optional_body(strategy, parameter, operation, draw, feedback.error_feedback)
 
 
 def get_parameters_value(
@@ -750,10 +738,8 @@ def get_parameters_value(
     hooks: HookDispatcher | None,
     generation_mode: GenerationMode,
     generation_config: GenerationConfig,
-    extra_data_source: ExtraDataSource | None = None,
+    feedback: FeedbackSources = NO_FEEDBACK,
     mix_examples: bool = True,
-    error_feedback: ErrorFeedbackStore | None = None,
-    constants_value_source: ConstantsPool | None = None,
     exclude: frozenset[str] = frozenset(),
 ) -> GeneratedValue:
     """Get the final value for the specified location.
@@ -768,10 +754,8 @@ def get_parameters_value(
             location,
             generation_config,
             exclude=exclude,
-            extra_data_source=extra_data_source,
+            feedback=feedback,
             mix_examples=mix_examples,
-            error_feedback=error_feedback,
-            constants_value_source=constants_value_source,
         )
         strategy = apply_hooks(operation, ctx, hooks, strategy, location)
         result = _draw(draw, strategy, operation)
@@ -785,10 +769,8 @@ def get_parameters_value(
         location,
         generation_config,
         exclude=value.keys() | exclude,
-        extra_data_source=extra_data_source,
-        error_feedback=error_feedback,
+        feedback=feedback,
         mix_examples=mix_examples,
-        constants_value_source=constants_value_source,
     )
     strategy = apply_hooks(operation, ctx, hooks, strategy, location)
     new = _draw(draw, strategy, operation)
@@ -902,10 +884,8 @@ def generate_parameter(
     hooks: HookDispatcher | None,
     generator: GenerationMode,
     generation_config: GenerationConfig,
-    extra_data_source: ExtraDataSource | None = None,
+    feedback: FeedbackSources = NO_FEEDBACK,
     mix_examples: bool = True,
-    error_feedback: ErrorFeedbackStore | None = None,
-    constants_value_source: ConstantsPool | None = None,
     exclude: frozenset[str] = frozenset(),
 ) -> ValueContainer:
     """Generate a value for a parameter.
@@ -928,10 +908,8 @@ def generate_parameter(
         hooks,
         generator,
         generation_config,
-        extra_data_source=extra_data_source,
-        error_feedback=error_feedback,
+        feedback=feedback,
         mix_examples=mix_examples,
-        constants_value_source=constants_value_source,
         exclude=exclude,
     )
     value = generated.value
@@ -1055,10 +1033,8 @@ def get_parameters_strategy(
     location: ParameterLocation,
     generation_config: GenerationConfig,
     exclude: Iterable[str] = (),
-    extra_data_source: ExtraDataSource | None = None,
+    feedback: FeedbackSources = NO_FEEDBACK,
     mix_examples: bool = True,
-    error_feedback: ErrorFeedbackStore | None = None,
-    constants_value_source: ConstantsPool | None = None,
 ) -> st.SearchStrategy:
     """Create a new strategy for the case's component from the API operation parameters."""
     container = cast(OpenApiParameterSet, operation.get_parameter_set(location))
@@ -1069,10 +1045,8 @@ def get_parameters_strategy(
             generation_config,
             generation_mode,
             exclude,
-            extra_data_source=extra_data_source,
+            feedback=feedback,
             mix_examples=mix_examples,
-            error_feedback=error_feedback,
-            constants_value_source=constants_value_source,
         )
     # No parameters defined for this location
     return _NONE_STRATEGY
@@ -1247,11 +1221,12 @@ def _drop_empty_float_branch(schema: dict[str, Any]) -> None:
 
 
 def _schema_has_float_format(node: object) -> bool:
-    if isinstance(node, dict):
-        return node.get("format") == "float" or any(_schema_has_float_format(value) for value in node.values())
-    if isinstance(node, list):
-        return any(_schema_has_float_format(item) for item in node)
-    return False
+    # Escaping keeps the marker from matching inside a string value, so this finds the same dicts as a walk.
+    try:
+        return '"format":"float"' in jsonschema_rs.canonical.json.to_string(node)
+    except (TypeError, ValueError):
+        # Generation reports such a schema as invalid, so there is nothing to snap.
+        return False
 
 
 def snapped_float32_clone(schema: JsonSchema) -> JsonSchema:

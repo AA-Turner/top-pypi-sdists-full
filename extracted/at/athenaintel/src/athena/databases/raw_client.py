@@ -18,12 +18,14 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.not_implemented_error import NotImplementedError
 from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
+from ..types.database_compute_settings_response_out import DatabaseComputeSettingsResponseOut
 from ..types.database_data_response import DatabaseDataResponse
 from ..types.database_mutation_response import DatabaseMutationResponse
 from ..types.database_sql_response import DatabaseSqlResponse
 from ..types.database_status_response import DatabaseStatusResponse
 from ..types.database_table_schema_response import DatabaseTableSchemaResponse
 from ..types.database_tables_response import DatabaseTablesResponse
+from ..types.database_wake_response_out import DatabaseWakeResponseOut
 from ..types.delete_data_request import DeleteDataRequest
 from .types.insert_data_request_data import InsertDataRequestData
 
@@ -43,10 +45,13 @@ class RawDatabasesClient:
 
         **Status Values:**
         - `running` - Database is active and accepting connections
-        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
-        - `starting` - Database is waking up
-        - `failed` - Database failed to start
-        - `unknown` - Status could not be determined
+        - `suspended` - Database is suspended (scale-to-zero). It wakes on `POST /databases/{asset_id}/wake` or on the first SQL request. When `reason` is `ComputeUnschedulable`, no node could host its compute size: waking it only restarts the same wait
+        - `starting` - Database is waking up, or its compute is being recreated
+        - `creating` - Database is being created; it has no compute yet
+        - `failed` - Database failed to start, or its creation failed (`message` says which)
+        - `unknown` - Status could not be determined (the control plane did not answer); retry
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
 
         Parameters
         ----------
@@ -927,6 +932,250 @@ class RawDatabasesClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def get_settings(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[DatabaseComputeSettingsResponseOut]:
+        """
+        Read the database's auto-suspend window, the same setting as auto-suspend in the database's Settings in Athena. Reading never wakes the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DatabaseComputeSettingsResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/settings",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DatabaseComputeSettingsResponseOut,
+                    parse_obj_as(
+                        type_=DatabaseComputeSettingsResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 501:
+                raise NotImplementedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def update_settings(
+        self, asset_id: str, *, suspend_timeout_seconds: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[DatabaseComputeSettingsResponseOut]:
+        """
+        Set the database's auto-suspend window: 0 keeps the database running (it never suspends, and keeps using compute capacity), otherwise 60 to 86400 seconds. The same setting, values and edit-access rule as auto-suspend in the database's Settings in Athena; the change applies at once and does not restart or wake the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        suspend_timeout_seconds : int
+            Seconds without activity after which the database suspends (scales to zero). 0 means it never suspends: the compute keeps running, and keeps using capacity, until you change this. Otherwise 60 to 86400 (24 hours). A new database starts with 1800 (30 minutes). The same setting as auto-suspend in the database's Settings in Athena.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DatabaseComputeSettingsResponseOut]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/settings",
+            method="PATCH",
+            json={
+                "suspend_timeout_seconds": suspend_timeout_seconds,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DatabaseComputeSettingsResponseOut,
+                    parse_obj_as(
+                        type_=DatabaseComputeSettingsResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 501:
+                raise NotImplementedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def execute_sql(
         self, asset_id: str, *, sql: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DatabaseSqlResponse]:
@@ -1052,6 +1301,123 @@ class RawDatabasesClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def wake(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[DatabaseWakeResponseOut]:
+        """
+        Start a suspended database's compute and answer at once, without waiting for it to run. Poll `GET /databases/{asset_id}/compute-status` until it reports `running`. Waking a running database resets its idle clock and answers 200 with `running`, so it is safe to call before every batch of work. The same action as Resume Database in Athena; it needs edit access to the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DatabaseWakeResponseOut]
+            The database was already running (idle clock reset)
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/wake",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DatabaseWakeResponseOut,
+                    parse_obj_as(
+                        type_=DatabaseWakeResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 501:
+                raise NotImplementedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
 
 class AsyncRawDatabasesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -1065,10 +1431,13 @@ class AsyncRawDatabasesClient:
 
         **Status Values:**
         - `running` - Database is active and accepting connections
-        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
-        - `starting` - Database is waking up
-        - `failed` - Database failed to start
-        - `unknown` - Status could not be determined
+        - `suspended` - Database is suspended (scale-to-zero). It wakes on `POST /databases/{asset_id}/wake` or on the first SQL request. When `reason` is `ComputeUnschedulable`, no node could host its compute size: waking it only restarts the same wait
+        - `starting` - Database is waking up, or its compute is being recreated
+        - `creating` - Database is being created; it has no compute yet
+        - `failed` - Database failed to start, or its creation failed (`message` says which)
+        - `unknown` - Status could not be determined (the control plane did not answer); retry
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
 
         Parameters
         ----------
@@ -1949,6 +2318,250 @@ class AsyncRawDatabasesClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def get_settings(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[DatabaseComputeSettingsResponseOut]:
+        """
+        Read the database's auto-suspend window, the same setting as auto-suspend in the database's Settings in Athena. Reading never wakes the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DatabaseComputeSettingsResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/settings",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DatabaseComputeSettingsResponseOut,
+                    parse_obj_as(
+                        type_=DatabaseComputeSettingsResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 501:
+                raise NotImplementedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def update_settings(
+        self, asset_id: str, *, suspend_timeout_seconds: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[DatabaseComputeSettingsResponseOut]:
+        """
+        Set the database's auto-suspend window: 0 keeps the database running (it never suspends, and keeps using compute capacity), otherwise 60 to 86400 seconds. The same setting, values and edit-access rule as auto-suspend in the database's Settings in Athena; the change applies at once and does not restart or wake the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        suspend_timeout_seconds : int
+            Seconds without activity after which the database suspends (scales to zero). 0 means it never suspends: the compute keeps running, and keeps using capacity, until you change this. Otherwise 60 to 86400 (24 hours). A new database starts with 1800 (30 minutes). The same setting as auto-suspend in the database's Settings in Athena.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DatabaseComputeSettingsResponseOut]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/settings",
+            method="PATCH",
+            json={
+                "suspend_timeout_seconds": suspend_timeout_seconds,
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DatabaseComputeSettingsResponseOut,
+                    parse_obj_as(
+                        type_=DatabaseComputeSettingsResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 501:
+                raise NotImplementedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def execute_sql(
         self, asset_id: str, *, sql: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DatabaseSqlResponse]:
@@ -2038,6 +2651,123 @@ class AsyncRawDatabasesClient:
                 )
             if _response.status_code == 500:
                 raise InternalServerError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 501:
+                raise NotImplementedError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def wake(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[DatabaseWakeResponseOut]:
+        """
+        Start a suspended database's compute and answer at once, without waiting for it to run. Poll `GET /databases/{asset_id}/compute-status` until it reports `running`. Waking a running database resets its idle clock and answers 200 with `running`, so it is safe to call before every batch of work. The same action as Resume Database in Athena; it needs edit access to the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DatabaseWakeResponseOut]
+            The database was already running (idle clock reset)
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/databases/{jsonable_encoder(asset_id)}/wake",
+            method="POST",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DatabaseWakeResponseOut,
+                    parse_obj_as(
+                        type_=DatabaseWakeResponseOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],

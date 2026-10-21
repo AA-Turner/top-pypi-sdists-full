@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: braintrust
-Version: 0.47.0
+Version: 0.48.0
 Summary: SDK for integrating Braintrust
 Author-email: Braintrust <sdk@braintrustdata.com>
 License-Expression: MIT
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: requests
 Requires-Dist: chevron
 Requires-Dist: tqdm
@@ -30,7 +31,7 @@ Requires-Dist: wrapt
 Provides-Extra: cli
 Requires-Dist: boto3; extra == "cli"
 Requires-Dist: python-dotenv; extra == "cli"
-Requires-Dist: uv; extra == "cli"
+Requires-Dist: uv>=0.13.4; extra == "cli"
 Requires-Dist: starlette; extra == "cli"
 Requires-Dist: uvicorn; extra == "cli"
 Provides-Extra: doc
@@ -54,7 +55,7 @@ Requires-Dist: orjson; platform_python_implementation != "PyPy" and extra == "al
 Requires-Dist: python-dotenv; extra == "all"
 Requires-Dist: starlette; extra == "all"
 Requires-Dist: temporalio>=1.19.0; python_version >= "3.10" and extra == "all"
-Requires-Dist: uv; extra == "all"
+Requires-Dist: uv>=0.13.4; extra == "all"
 Requires-Dist: uvicorn; extra == "all"
 
 # Braintrust Python SDK

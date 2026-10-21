@@ -52,6 +52,8 @@ from chalk._gen.chalk.server.v1.auth_pb2 import (
     UpdateLinkSessionResponse,
     UpdateSessionRequest,
     UpdateSessionResponse,
+    UpdateUserProfileRequest,
+    UpdateUserProfileResponse,
     UpdateUserRequest,
     UpdateUserResponse,
     UpsertUserByEmailRequest,
@@ -114,6 +116,10 @@ class AuthServiceStub:
     UpdateUser: UnaryUnaryMultiCallable[
         UpdateUserRequest,
         UpdateUserResponse,
+    ]
+    UpdateUserProfile: UnaryUnaryMultiCallable[
+        UpdateUserProfileRequest,
+        UpdateUserProfileResponse,
     ]
     LinkAccount: UnaryUnaryMultiCallable[
         LinkAccountRequest,
@@ -250,6 +256,12 @@ class AuthServiceServicer(metaclass=ABCMeta):
         request: UpdateUserRequest,
         context: ServicerContext,
     ) -> UpdateUserResponse: ...
+    @abstractmethod
+    def UpdateUserProfile(
+        self,
+        request: UpdateUserProfileRequest,
+        context: ServicerContext,
+    ) -> UpdateUserProfileResponse: ...
     @abstractmethod
     def LinkAccount(
         self,

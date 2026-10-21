@@ -66,6 +66,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetClusterGatewayDefaultResponse,
     GetClusterGatewayRequest,
     GetClusterGatewayResponse,
+    GetClusterNodepoolsRequest,
+    GetClusterNodepoolsResponse,
     GetClusterTimescaleDBRequest,
     GetClusterTimescaleDBResponse,
     GetClusterTimescaleDefaultRequest,
@@ -94,6 +96,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetSearchConfigResponse,
     GetTagWeightsRequest,
     GetTagWeightsResponse,
+    GetTelemetryDeploymentAvailabilityRequest,
+    GetTelemetryDeploymentAvailabilityResponse,
     GetTelemetryDeploymentRequest,
     GetTelemetryDeploymentResponse,
     IndexDeploymentRequest,
@@ -489,6 +493,10 @@ class BuilderServiceStub:
         GetTelemetryDeploymentRequest,
         GetTelemetryDeploymentResponse,
     ]
+    GetTelemetryDeploymentAvailability: UnaryUnaryMultiCallable[
+        GetTelemetryDeploymentAvailabilityRequest,
+        GetTelemetryDeploymentAvailabilityResponse,
+    ]
     ListTelemetryDeployments: UnaryUnaryMultiCallable[
         ListTelemetryDeploymentsRequest,
         ListTelemetryDeploymentsResponse,
@@ -544,6 +552,10 @@ class BuilderServiceStub:
     DeleteClusterBackgroundPersistence: UnaryUnaryMultiCallable[
         DeleteClusterBackgroundPersistenceRequest,
         DeleteClusterBackgroundPersistenceResponse,
+    ]
+    GetClusterNodepools: UnaryUnaryMultiCallable[
+        GetClusterNodepoolsRequest,
+        GetClusterNodepoolsResponse,
     ]
 
 class BuilderServiceServicer(metaclass=ABCMeta):
@@ -987,6 +999,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetTelemetryDeploymentResponse: ...
     @abstractmethod
+    def GetTelemetryDeploymentAvailability(
+        self,
+        request: GetTelemetryDeploymentAvailabilityRequest,
+        context: ServicerContext,
+    ) -> GetTelemetryDeploymentAvailabilityResponse: ...
+    @abstractmethod
     def ListTelemetryDeployments(
         self,
         request: ListTelemetryDeploymentsRequest,
@@ -1070,6 +1088,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: DeleteClusterBackgroundPersistenceRequest,
         context: ServicerContext,
     ) -> DeleteClusterBackgroundPersistenceResponse: ...
+    @abstractmethod
+    def GetClusterNodepools(
+        self,
+        request: GetClusterNodepoolsRequest,
+        context: ServicerContext,
+    ) -> GetClusterNodepoolsResponse: ...
 
 def add_BuilderServiceServicer_to_server(servicer: BuilderServiceServicer, server: Server) -> None: ...
 

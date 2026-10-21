@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import copy
 import datetime
 import itertools
 import random
+import threading
+import zoneinfo
 from collections.abc import Generator
 from typing import Any, Iterable, Iterator
 
@@ -13,6 +16,7 @@ import pytest
 from dateutil import rrule
 
 import ical.iter as iter_mod
+from ical.event import Event
 from ical.iter import (
     CachedTransitionTimeline,
     LazyCachedIterable,
@@ -22,6 +26,8 @@ from ical.iter import (
     RecurrenceError,
     RulesetIterable,
 )
+from ical.types.period import Period
+from ical.types.recur import Frequency, Recur
 
 EMPTY_LIST: list[bool] = []
 EMPTY_ITERATOR_LIST: list[Iterator[bool]] = []
@@ -364,3 +370,96 @@ def test_recurrence_cache_rule_lru_eviction(
         datetime.date(2021, 1, 1),
         datetime.date(2022, 1, 1),
     ]
+
+
+def test_recurrence_cache_distinct_timezones_with_same_initial_offset() -> None:
+    """Test that _RECURRENCE_CACHE does not collide across timezones with the same initial UTC offset."""
+    tz_ny = zoneinfo.ZoneInfo("America/New_York")
+    tz_cancun = zoneinfo.ZoneInfo("America/Cancun")
+
+    # On 2025-03-08 09:00, both America/New_York and America/Cancun are at UTC-5,
+    # so their dtstart datetimes compare equal (dt_ny == dt_cancun) and hash equal.
+    # On 2025-03-09, New York springs forward to EDT (UTC-4) while Cancun stays at EST (UTC-5).
+    e_ny = Event(
+        summary="NY",
+        dtstart=datetime.datetime(2025, 3, 8, 9, 0, tzinfo=tz_ny),
+        dtend=datetime.datetime(2025, 3, 8, 10, 0, tzinfo=tz_ny),
+        rrule=Recur(freq=Frequency.DAILY, count=3),
+    )
+    e_cancun = Event(
+        summary="Cancun",
+        dtstart=datetime.datetime(2025, 3, 8, 9, 0, tzinfo=tz_cancun),
+        dtend=datetime.datetime(2025, 3, 8, 10, 0, tzinfo=tz_cancun),
+        rrule=Recur(freq=Frequency.DAILY, count=3),
+    )
+    e_utc = Event(
+        summary="UTC",
+        dtstart=datetime.datetime(2025, 3, 8, 14, 0, tzinfo=datetime.timezone.utc),
+        dtend=datetime.datetime(2025, 3, 8, 15, 0, tzinfo=datetime.timezone.utc),
+        rrule=Recur(freq=Frequency.DAILY, count=3),
+    )
+
+    ny_rule = e_ny.as_rrule()
+    assert ny_rule is not None
+    ny_dates = list(ny_rule)
+    assert all(isinstance(d, datetime.datetime) and d.tzinfo is tz_ny for d in ny_dates)
+
+    cancun_rule = e_cancun.as_rrule()
+    assert cancun_rule is not None
+    cancun_dates = list(cancun_rule)
+    assert all(
+        isinstance(d, datetime.datetime) and d.tzinfo is tz_cancun for d in cancun_dates
+    )
+    # On March 9, 09:00 NY (UTC-4) != 09:00 Cancun (UTC-5)
+    assert ny_dates[1] != cancun_dates[1]
+
+    utc_rule = e_utc.as_rrule()
+    assert utc_rule is not None
+    utc_dates = list(utc_rule)
+    assert all(
+        isinstance(d, datetime.datetime) and d.tzinfo is datetime.timezone.utc
+        for d in utc_dates
+    )
+
+    # Also verify Period duration is part of the cache key
+    p1 = Period(
+        start=datetime.datetime(2025, 3, 10, 9, 0, tzinfo=tz_ny),
+        duration=datetime.timedelta(hours=1),
+    )
+    p2 = Period(
+        start=datetime.datetime(2025, 3, 10, 9, 0, tzinfo=tz_ny),
+        duration=datetime.timedelta(hours=2),
+    )
+    assert e_ny.dtstart is not None
+    assert iter_mod._rule_cache_key(
+        e_ny.dtstart, [], [p1], []
+    ) != iter_mod._rule_cache_key(e_ny.dtstart, [], [p2], [])
+
+
+def test_ruleset_iterable_concurrent_error() -> None:
+    """Test that concurrent consumers all receive RecurrenceError when a shared rule fails."""
+    iter_mod._RECURRENCE_CACHE.clear()
+    num_threads = 4
+    barrier = threading.Barrier(num_threads)
+
+    def consume_invalid() -> None:
+        recur_iter = RulesetIterable(
+            datetime.datetime(2022, 12, 19, 5, 0, 0),
+            [
+                rrule.rrule(
+                    freq=rrule.DAILY,
+                    dtstart=datetime.datetime(2022, 12, 19, 5, 0, 0),
+                    count=3,
+                )
+            ],
+            [datetime.date(2022, 12, 22)],
+            [datetime.date(2022, 12, 23)],
+        )
+        barrier.wait()
+        with pytest.raises(RecurrenceError):
+            list(recur_iter)
+
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(consume_invalid) for _ in range(num_threads)]
+        for f in futures:
+            f.result()

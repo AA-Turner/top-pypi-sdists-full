@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import builtins
-import ipaddress
 import logging
 import os
 import warnings
@@ -24,10 +23,15 @@ from pinecone._internal.config import (
     GRPC_SCHEMES,
     PineconeConfig,
     RetryConfig,
+    check_api_key_is_header_safe,
     resolve_grpc_scheme,
 )
 from pinecone._internal.constants import DATA_PLANE_API_VERSION, DEFAULT_MAX_CONCURRENCY
-from pinecone._internal.data_plane_helpers import _build_search_records_body, _validate_host
+from pinecone._internal.data_plane_helpers import (
+    _build_search_records_body,
+    _is_plaintext_safe_host,
+    _validate_host,
+)
 from pinecone._internal.dataframe import _resolve_on_error, extract_records
 from pinecone._internal.keyword_only import keyword_only_methods
 from pinecone._internal.validation import (
@@ -54,6 +58,7 @@ from pinecone._internal.validation import (
 from pinecone._internal.vector_factory import VectorFactory, validate_vector_dict
 from pinecone.errors.exceptions import (
     PineconeTimeoutError,
+    PineconeTypeError,
     PineconeValueError,
     ValidationError,
 )
@@ -96,12 +101,6 @@ from pinecone.models.vectors.vector import ScoredVector, Vector
 logger = logging.getLogger(__name__)
 
 
-_PLAINTEXT_SAFE_NETWORKS: tuple[ipaddress.IPv4Network, ...] = (
-    ipaddress.IPv4Network("10.0.0.0/8"),
-    ipaddress.IPv4Network("172.16.0.0/12"),
-    ipaddress.IPv4Network("192.168.0.0/16"),
-)
-
 _warned_about_plaintext_grpc = False
 
 
@@ -113,26 +112,6 @@ def _endpoint_hostname(host: str) -> str:
     if bare.count(":") > 1:
         return bare
     return bare.split(":", 1)[0]
-
-
-def _is_plaintext_safe_host(hostname: str) -> bool:
-    """Whether plaintext to *hostname* stays inside the caller's own network.
-
-    Loopback and the RFC 1918 ranges qualify. A hostname that is not an IP
-    address does not, apart from ``localhost``: a name has to be resolved to
-    know where it points, and assuming the best of an unresolvable one would
-    silence the warning exactly where it matters.
-    """
-    lowered = hostname.lower().rstrip(".")
-    if lowered == "localhost" or lowered.endswith(".localhost"):
-        return True
-    try:
-        address = ipaddress.ip_address(hostname)
-    except ValueError:
-        return False
-    if address.is_loopback:
-        return True
-    return any(address in network for network in _PLAINTEXT_SAFE_NETWORKS)
 
 
 def _warn_plaintext_grpc_once(host: str) -> None:
@@ -379,7 +358,8 @@ class GrpcIndex:
     something you ``await``; ``retry_config.retryable_status_codes`` has no
     effect, since this transport retries gRPC status codes rather than HTTP
     ones; and :meth:`upsert_records` and :meth:`search` still travel over REST,
-    because the gRPC API has no records operations. See :doc:`/guides/grpc`.
+    because the gRPC API has no records operations. See
+    `Using the gRPC client <https://sdk.pinecone.io/python/guides/grpc.html>`__.
 
     Args:
         host (str): The index-specific data plane host URL.
@@ -415,7 +395,7 @@ class GrpcIndex:
             unset on :class:`~pinecone.Pinecone` does not carry over here. Its
             ``retryable_status_codes`` field is **ignored on this transport**: it carries
             HTTP statuses, and the codes retried here are gRPC ones. See
-            :doc:`/guides/retries`.
+            `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__.
         proxy_url (str | None): HTTP proxy URL. gRPC traffic is tunnelled through it with
             HTTP CONNECT.
         limiter_registry (_AdaptiveLimiterRegistry | None): SDK-internal. Registry the
@@ -423,7 +403,9 @@ class GrpcIndex:
             :meth:`Pinecone.index`; not intended for user configuration.
 
     Raises:
-        :exc:`PineconeValueError`: If no API key can be resolved, the host is invalid,
+        :exc:`PineconeValueError`: If no API key can be resolved, the key is blank or
+            contains a control or non-ASCII character (leading and trailing spaces and
+            tabs are allowed and sent as given), the host is invalid,
             ``grpc_scheme`` names a scheme other than ``http`` or ``https``, or
             ``grpc_scheme="https"`` is combined with ``secure=False``.
 
@@ -471,8 +453,12 @@ class GrpcIndex:
 
     .. seealso::
        :class:`~pinecone.index.Index` — the REST client, and the better default
-       unless you are ingesting at volume. :doc:`/guides/grpc` compares the
-       two, and :doc:`/guides/retries` gives the full retry policy for both.
+       unless you are ingesting at volume.
+       `Using the gRPC client <https://sdk.pinecone.io/python/guides/grpc.html>`__
+       compares the
+       two, and
+       `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__
+       gives the full retry policy for both.
     """
 
     def __init__(
@@ -498,6 +484,8 @@ class GrpcIndex:
                 "No API key provided. Pass api_key='...' or set the "
                 "PINECONE_API_KEY environment variable."
             )
+        # gRPC metadata carries edge spaces and tabs, and the server accepts them.
+        check_api_key_is_header_safe(resolved_key.strip(" \t") or resolved_key)
 
         # Validate and normalize host
         self._request_timeout = timeout
@@ -508,6 +496,16 @@ class GrpcIndex:
         # Per-handle state is weaker than per-client but far better than none.
         self._limiter_registry = limiter_registry or _AdaptiveLimiterRegistry()
         self._source_tag = source_tag
+
+        # Built before the channel and executor so an invalid timeout raises
+        # before anything that needs closing exists.
+        rest_config = PineconeConfig(
+            api_key=resolved_key,
+            host=self._host,
+            timeout=timeout,
+            source_tag=source_tag or "",
+            ssl_verify=secure,
+        )
 
         # Build gRPC endpoint and create the Rust-backed channel
         endpoint = _build_grpc_endpoint(
@@ -554,17 +552,10 @@ class GrpcIndex:
 
         self._executor = ThreadPoolExecutor()
 
-        # REST HTTP client for records operations (integrated inference).
+        # REST HTTP client for records operations (legacy Records API).
         # upsert_records and search use REST endpoints with no gRPC equivalent.
         from pinecone._internal.http_client import HTTPClient
 
-        rest_config = PineconeConfig(
-            api_key=resolved_key,
-            host=self._host,
-            timeout=timeout,
-            source_tag=source_tag or "",
-            ssl_verify=secure,
-        )
         self._http = HTTPClient(rest_config, DATA_PLANE_API_VERSION)
         self._adapter = VectorsAdapter()
         self._imports_adapter = ImportsAdapter()
@@ -627,6 +618,7 @@ class GrpcIndex:
                 flight are awaited and never cancelled; unsent batches are
                 reported in ``failed_items``. ``None`` (default) means no
                 deadline.
+                Zero or a negative value raises :exc:`PineconeValueError`.
 
         Returns:
             :class:`~pinecone.models.vectors.responses.UpsertResponse` with ``upserted_count``. With
@@ -681,11 +673,12 @@ class GrpcIndex:
                     idx.upsert(vectors=response.failed_items, namespace="articles-en")
 
         .. seealso::
-           :meth:`upsert_records` — for an index with integrated inference,
+           :meth:`upsert_records` — for a legacy integrated index,
            where you send text and the server embeds it.
            :meth:`start_import` — for a one-off load of millions of vectors
            already sitting in cloud storage.
-           :doc:`/migration/v10-grpc-partial-failures` — how to read the
+           `gRPC partial failures <https://sdk.pinecone.io/python/migration/v10-grpc-partial-failures.html>`__
+           — how to read the
            partial-failure fields, and what changed for callers who expected a
            raise.
         """
@@ -792,7 +785,7 @@ class GrpcIndex:
                     print(match.id, match.score)
 
         .. seealso::
-           :meth:`search` — for an index with integrated inference, where you
+           :meth:`search` — for a legacy integrated index, where you
            send query text and the server embeds it.
            :meth:`query_namespaces` — to run the same query across several
            namespaces and merge the results.
@@ -1051,7 +1044,8 @@ class GrpcIndex:
         .. seealso::
            :meth:`fetch` — when you already know the IDs, and want them all in
            one response rather than a page at a time.
-           :doc:`/guides/pagination` — following ``pagination.next``.
+           `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+           — following ``pagination.next``.
         """
         if limit is not None:
             require_valid_fetch_by_metadata_limit("limit", limit)
@@ -1316,7 +1310,8 @@ class GrpcIndex:
 
         .. seealso::
            :meth:`list` — the same walk with the tokens handled for you.
-           :doc:`/guides/pagination` — when to drive the tokens yourself.
+           `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+           — when to drive the tokens yourself.
         """
         if prefix is not None:
             require_valid_id_prefix("prefix", prefix)
@@ -1382,7 +1377,8 @@ class GrpcIndex:
 
         .. seealso::
            :meth:`list_paginated` — one page at a time, when you need to
-           persist a token between calls. See :doc:`/guides/pagination`.
+           persist a token between calls. See
+           `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
         """
         pagination_token: str | None = None
         while True:
@@ -1525,7 +1521,10 @@ class GrpcIndex:
                 an :class:`~pinecone.models.vectors.responses.UpsertResponse`
                 carrying ``failed_item_count``, ``errors`` and
                 ``failed_items``, so the caller can retry only what failed —
-                the same contract the REST client has had since v9.0.0.
+                the same contract the REST client has had since v9.0.0. This
+                holds when every batch fails too: nothing raises, so check
+                ``if response.has_errors:`` rather than assuming the call
+                succeeded.
                 ``"raise"`` re-raises the lowest-indexed batch failure, after all
                 batches have settled, with the partial result attached to the
                 exception's ``response`` attribute. ``None`` (default) behaves as
@@ -1542,6 +1541,7 @@ class GrpcIndex:
                 :class:`~pinecone.models.vectors.responses.UpsertResponse` on its ``response``
                 attribute, whose ``failed_items`` are the rows that were never sent. ``None``
                 (default) means the ingest is bounded only by the per-batch deadlines.
+                Zero or a negative value raises :exc:`PineconeValueError`.
             timeout: Deadline in seconds for a single *attempt* of a single
                 batch — not for the batch, and not for the DataFrame. A batch
                 that keeps failing on a retryable code is retried, so its
@@ -1550,7 +1550,8 @@ class GrpcIndex:
                 attempt, so a larger *timeout* is the fix for a timeout and
                 ``max_retries`` is not. ``None`` (default) uses the ``timeout``
                 the index was constructed with. See the four timeout layers on
-                :class:`~pinecone.grpc.GrpcIndex` and :doc:`/guides/retries`.
+                :class:`~pinecone.grpc.GrpcIndex` and
+                `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__.
 
         Returns:
             :class:`~pinecone.models.vectors.responses.UpsertResponse`
@@ -1622,7 +1623,8 @@ class GrpcIndex:
 
         .. seealso::
            :meth:`upsert` — the same batching without the pandas dependency.
-           :doc:`/guides/bulk-ingest` — choosing ``batch_size``,
+           `How bulk ingest behaves <https://sdk.pinecone.io/python/guides/bulk-ingest.html>`__
+           — choosing ``batch_size``,
            ``max_concurrency``, and ``total_timeout``.
 
         .. versionchanged:: 10.0.0
@@ -1631,7 +1633,7 @@ class GrpcIndex:
            client. The old raise discarded the partial count, so no caller
            could tell what had landed. Pass ``on_error="raise"`` to keep the
            previous behavior. See
-           :doc:`/migration/v10-grpc-partial-failures`.
+           `gRPC partial failures <https://sdk.pinecone.io/python/migration/v10-grpc-partial-failures.html>`__.
         """
         try:
             import pandas as pd
@@ -2005,19 +2007,24 @@ class GrpcIndex:
         namespace: str,
         timeout: float | None = None,
     ) -> UpsertRecordsResponse:
-        """Upsert records for indexes with integrated inference.
+        """Upsert records for legacy integrated indexes (legacy Records API).
 
         Embeddings are generated server-side from the fields you provide, so
         each record carries source data (e.g. text) rather than precomputed
         vector values. Like :meth:`search`, this call travels over REST even on
         a ``GrpcIndex``, because the gRPC API has no records operations.
 
+        Part of the legacy Records API. For a new index, give a document index a
+        ``string`` field that uses integrated embedding and write through the REST
+        :attr:`Index.documents <pinecone.index.Index.documents>` instead;
+        ``GrpcIndex`` has no document operations.
+
         Args:
             records: List of record dicts. Each must contain an ``_id`` or
                 ``id`` field. Additional fields are passed through for
                 server-side embedding.
             namespace (str): Target namespace (required). Unlike :meth:`upsert`,
-                namespace has no default because the records API requires an
+                namespace has no default because the legacy Records API requires an
                 explicit namespace (must be non-empty).
             timeout (float | None): Per-request deadline in seconds. ``None``
                 uses the ``timeout`` the index was constructed with.
@@ -2101,12 +2108,18 @@ class GrpcIndex:
         query: SearchQuery | Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
-        """Search records by text, vector, or ID with optional reranking.
+        """Search records by text, vector, or ID with optional reranking (legacy Records API).
 
-        Use this on an index with integrated inference: you send query text and the server embeds
+        Use this on a legacy integrated index: you send query text and the server embeds
         it. This call travels over REST even on a ``GrpcIndex``, because the gRPC API has no records
         search — so a ``retry_config`` you passed to :class:`~pinecone.grpc.GrpcIndex` does not
-        govern it, and it retries on the REST data plane's own fixed terms (:doc:`/guides/retries`).
+        govern it, and it retries on the REST data plane's own fixed terms;
+        see `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__.
+
+        Part of the legacy Records API. On a document index, including one with
+        an integrated-embedding field, search through the REST
+        :attr:`Index.documents <pinecone.index.Index.documents>` instead;
+        ``GrpcIndex`` has no document operations.
 
         Args:
             namespace (str): Namespace to search in (required).
@@ -2225,7 +2238,7 @@ class GrpcIndex:
         query: SearchQuery | Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
-        """Alias for :meth:`search`, kept for callers written against the old name.
+        """Alias for :meth:`search` (legacy Records API), kept for callers of the old name.
 
         Identical arguments, identical behavior — it forwards straight to
         :meth:`search`, which is where the arguments are documented. Prefer
@@ -2298,7 +2311,7 @@ class GrpcIndex:
 
         .. seealso::
            :meth:`list_namespaces` — the same walk with the tokens handled for
-           you. See :doc:`/guides/pagination`.
+           you. See `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
         """
         if prefix is not None:
             require_valid_namespace_prefix("prefix", prefix)
@@ -2557,8 +2570,11 @@ class GrpcIndex:
             The validated string ID.
 
         Raises:
+            :exc:`PineconeTypeError`: If the ID is not a ``str`` or an ``int``.
             :exc:`PineconeValueError`: If the ID is empty or exceeds 1000 characters.
         """
+        if not isinstance(id, (str, int)):
+            raise PineconeTypeError(f"id must be a string or an integer, got {type(id).__name__}")
         str_id = str(id) if isinstance(id, int) else id
         if not str_id or len(str_id) > 1000:
             raise ValidationError(
@@ -2639,7 +2655,7 @@ class GrpcIndex:
         .. seealso::
            - :meth:`upsert` — for upserting vectors directly in small
              batches (single request per call).
-           - :meth:`upsert_records` — for indexes with integrated inference
+           - :meth:`upsert_records` — for legacy integrated indexes
              (text in, server-side embedding).
            - :meth:`upsert_from_dataframe` — for loading vectors from a
              pandas DataFrame with automatic batching.
@@ -2671,6 +2687,7 @@ class GrpcIndex:
             :class:`~pinecone.models.imports.model.ImportModel` with the import operation details.
 
         Raises:
+            :exc:`PineconeTypeError`: If the ID is not a ``str`` or an ``int``.
             :exc:`PineconeValueError`: If the ID is empty or exceeds 1000 characters.
 
         Examples:
@@ -2699,6 +2716,7 @@ class GrpcIndex:
             None — a successful cancellation returns no payload.
 
         Raises:
+            :exc:`PineconeTypeError`: If the ID is not a ``str`` or an ``int``.
             :exc:`PineconeValueError`: If the ID is empty or exceeds 1000 characters.
 
         Examples:
@@ -2743,7 +2761,8 @@ class GrpcIndex:
 
         .. seealso::
            :meth:`list_imports_paginated` — one page at a time, when you need
-           to persist a token between calls. See :doc:`/guides/pagination`.
+           to persist a token between calls. See
+           `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
         """
         params: dict[str, Any] = {}
         if limit is not None:
@@ -2793,7 +2812,7 @@ class GrpcIndex:
 
         .. seealso::
            :meth:`list_imports` — the same walk with the tokens handled for
-           you. See :doc:`/guides/pagination`.
+           you. See `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
         """
         params: dict[str, Any] = {}
         if limit is not None:

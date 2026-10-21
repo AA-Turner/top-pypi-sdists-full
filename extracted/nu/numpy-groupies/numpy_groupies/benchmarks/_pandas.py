@@ -8,13 +8,16 @@ import pandas as pd
 
 from numpy_groupies.aggregate_common import (
     DEFAULT_FILL_VALUE,
+    Registry,
+    Resolved,
     aggregate_common_doc,
-    build_dispatch,
+    custom_callable,
     funcs_no_separate_nan,
 )
 from numpy_groupies.aggregate_numpy import _aggregate_base
 from numpy_groupies.aggregate_numpy import aggregate as _aggregate_numpy
 from numpy_groupies.utils import (
+    RavelOrder,
     aliasing,
     allnan,
     anynan,
@@ -24,15 +27,15 @@ from numpy_groupies.utils import (
 
 
 def _wrapper(
-    group_idx: np.ndarray,
-    a: np.ndarray,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.number],
     size: int | tuple[int, ...] | None,
-    fill_value: Any,
+    fill_value: float,
     func: str | Callable[..., Any] = "sum",
     dtype: np.dtype | None = None,
     ddof: int = 0,
     **kwargs: Any,
-) -> np.ndarray:
+) -> npt.NDArray[np.number]:
     if len(group_idx) == 0:
         raise ValueError("group_idx must not be empty")
     # scalar input needs broadcasting before anything group-based can run
@@ -100,18 +103,16 @@ _supported_funcs = [
     "cummax",
     "cummin",
 ]
-_impl_dict: dict[str, Callable[..., Any]] = {fn: partial(_wrapper, func=fn) for fn in _supported_funcs}
-_impl_dict.update(
-    ("nan" + fn, partial(_wrapper, func=fn)) for fn in _supported_funcs if fn not in funcs_no_separate_nan
-)
+_op_dict: dict[str, Callable[..., Any]] = {fn: partial(_wrapper, func=fn) for fn in _supported_funcs}
+_op_dict.update(("nan" + fn, partial(_wrapper, func=fn)) for fn in _supported_funcs if fn not in funcs_no_separate_nan)
 # plain cumsum must propagate NaNs within their group (issue #91), which is
 # pandas skipna=False - nancumsum is handled inside _wrapper instead
-_impl_dict["cumsum"] = partial(_wrapper, func="cumsum", skipna=False)
-_impl_dict["nancumsum"] = partial(_wrapper, func="nancumsum")
+_op_dict["cumsum"] = partial(_wrapper, func="cumsum", skipna=False)
+_op_dict["nancumsum"] = partial(_wrapper, func="nancumsum")
 # plain median propagates NaNs like np.median - pandas skips them by default
 # and GroupBy.median() takes no skipna argument
-_impl_dict["median"] = partial(_wrapper, func="median", _nan_poison=True)
-_impl_dict.update(
+_op_dict["median"] = partial(_wrapper, func="median", _nan_poison=True)
+_op_dict.update(
     allnan=partial(_wrapper, func=allnan),
     anynan=partial(_wrapper, func=anynan),
     len=partial(_wrapper, func="count"),
@@ -120,20 +121,29 @@ _impl_dict.update(
     argmin=partial(_wrapper, func="idxmin"),
     nanargmax=partial(_wrapper, func="idxmax"),
     nanargmin=partial(_wrapper, func="idxmin"),
-    generic=_wrapper,
 )
 
 
-_dispatch = build_dispatch(_impl_dict, aliasing)
+def _custom_operation(func: Any) -> Resolved:
+    """The operation of a callable of the caller's own.
+
+    pandas' groupby machinery takes any callable, so the wrapper of this
+    backend runs it.
+    """
+    callable_ = custom_callable(func)
+    return Resolved(callable_, partial(_wrapper, func=callable_))
+
+
+_dispatch = Registry(_op_dict, aliasing, _custom_operation)
 
 
 def aggregate(
-    group_idx: npt.ArrayLike,
-    a: npt.ArrayLike,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.number],
     func: str | Callable[..., Any] = "sum",
     size: int | Sequence[int] | None = None,
     fill_value: Any = DEFAULT_FILL_VALUE,
-    order: str = "C",
+    order: RavelOrder = "C",
     dtype: npt.DTypeLike = None,
     axis: int | None = None,
     **kwargs: Any,
@@ -161,9 +171,8 @@ def aggregate(
         dtype=dtype,
         func=func,
         axis=axis,
-        _impl_dict=_impl_dict,
         _dispatch=_dispatch,
-        is_pandas=True,
+        len_counts_values=True,
         **kwargs,
     )
 

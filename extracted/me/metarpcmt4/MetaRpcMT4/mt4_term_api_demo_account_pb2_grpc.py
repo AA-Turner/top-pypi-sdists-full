@@ -17,6 +17,16 @@ class DemoAccountStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.FindCompanies = channel.unary_unary(
+                '/mt4_term_api.DemoAccount/FindCompanies',
+                request_serializer=mt4__term__api__gui__pb2.GuiDemoFindCompaniesRequest.SerializeToString,
+                response_deserializer=mt4__term__api__gui__pb2.GuiDemoFindCompaniesReply.FromString,
+                )
+        self.ServersAndAccountTypes = channel.unary_unary(
+                '/mt4_term_api.DemoAccount/ServersAndAccountTypes',
+                request_serializer=mt4__term__api__gui__pb2.GuiDemoServersAndTypesRequest.SerializeToString,
+                response_deserializer=mt4__term__api__gui__pb2.GuiDemoServersAndTypesReply.FromString,
+                )
         self.OpenDemoAccount = channel.unary_unary(
                 '/mt4_term_api.DemoAccount/OpenDemoAccount',
                 request_serializer=mt4__term__api__gui__pb2.GuiDemoOpenAccountRequest.SerializeToString,
@@ -35,8 +45,28 @@ class DemoAccountServicer(object):
     Does NOT require 'id' header — auto-picks any available terminal.
     """
 
+    def FindCompanies(self, request, context):
+        """Search for broker companies by name (reads the wizard's broker ListView).
+        [DefaultValues]
+        { "searchText": "MetaQuotes" }
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ServersAndAccountTypes(self, request, context):
+        """Get available servers and account types for a company.
+        [DefaultValues]
+        { "companyName": "MetaQuotes Ltd." }
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def OpenDemoAccount(self, request, context):
-        """Open a demo account. Full wizard flow: search -> select -> fill form -> register.
+        """Open a demo account. The wire protocol is tried first; when the trade server does not
+        accept it, the terminal's "Open an Account" wizard is driven instead, bounded by
+        timeoutSeconds (default 90). debugLog names the path that produced the account.
         [DefaultValues]
         { "company": "MetaQuotes Ltd.", "firstName": "Test", "lastName": "User",
         "email": "test@test.com", "phone": "+1234567890", "timeoutSeconds": "60" }
@@ -56,6 +86,16 @@ class DemoAccountServicer(object):
 
 def add_DemoAccountServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'FindCompanies': grpc.unary_unary_rpc_method_handler(
+                    servicer.FindCompanies,
+                    request_deserializer=mt4__term__api__gui__pb2.GuiDemoFindCompaniesRequest.FromString,
+                    response_serializer=mt4__term__api__gui__pb2.GuiDemoFindCompaniesReply.SerializeToString,
+            ),
+            'ServersAndAccountTypes': grpc.unary_unary_rpc_method_handler(
+                    servicer.ServersAndAccountTypes,
+                    request_deserializer=mt4__term__api__gui__pb2.GuiDemoServersAndTypesRequest.FromString,
+                    response_serializer=mt4__term__api__gui__pb2.GuiDemoServersAndTypesReply.SerializeToString,
+            ),
             'OpenDemoAccount': grpc.unary_unary_rpc_method_handler(
                     servicer.OpenDemoAccount,
                     request_deserializer=mt4__term__api__gui__pb2.GuiDemoOpenAccountRequest.FromString,
@@ -78,6 +118,40 @@ class DemoAccount(object):
     Win32 GUI automation (proxied to the terminal's Gui service).
     Does NOT require 'id' header — auto-picks any available terminal.
     """
+
+    @staticmethod
+    def FindCompanies(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/mt4_term_api.DemoAccount/FindCompanies',
+            mt4__term__api__gui__pb2.GuiDemoFindCompaniesRequest.SerializeToString,
+            mt4__term__api__gui__pb2.GuiDemoFindCompaniesReply.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ServersAndAccountTypes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/mt4_term_api.DemoAccount/ServersAndAccountTypes',
+            mt4__term__api__gui__pb2.GuiDemoServersAndTypesRequest.SerializeToString,
+            mt4__term__api__gui__pb2.GuiDemoServersAndTypesReply.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def OpenDemoAccount(request,

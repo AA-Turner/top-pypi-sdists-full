@@ -411,18 +411,21 @@ class ListModelScalingGroupsRequest(_message.Message):
     ) -> None: ...
 
 class ListModelScalingGroupsFilters(_message.Message):
-    __slots__ = ("statuses", "images", "model_name")
+    __slots__ = ("statuses", "images", "model_name", "created_by")
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     statuses: _containers.RepeatedScalarFieldContainer[str]
     images: _containers.RepeatedScalarFieldContainer[str]
     model_name: str
+    created_by: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         statuses: _Optional[_Iterable[str]] = ...,
         images: _Optional[_Iterable[str]] = ...,
         model_name: _Optional[str] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListModelScalingGroupsResponse(_message.Message):

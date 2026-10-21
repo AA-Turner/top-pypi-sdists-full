@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import MutableMapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import TYPE_CHECKING
@@ -414,7 +415,8 @@ def _apply_link_parameters(case: Case, link: CrashLink, previous_step_output: St
     # Re-extract each link parameter from the previous response into its container.
     for key, expression in link.parameters.items():
         location, _, name = key.partition(".")
-        container = getattr(case, ParameterLocation(location).container_name)
+        container = case.get_container(ParameterLocation(location))
+        assert isinstance(container, MutableMapping)
         value = evaluate(expression, previous_step_output)
         linked.append(
             LinkedValue(
@@ -587,7 +589,7 @@ def _build_case(operation: APIOperation, step: CrashStep) -> Case:
     )
     if step.meta is not None:
         case._meta = CaseMetadata.from_dict(step.meta)
-    object.__setattr__(case, "_freeze_metadata", True)
+    case.freeze_metadata()
     return case
 
 

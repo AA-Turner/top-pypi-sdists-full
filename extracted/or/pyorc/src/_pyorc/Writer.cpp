@@ -103,6 +103,7 @@ Writer::Writer(py::object fileo,
 {
     currentRow = 0;
     batchItem = 0;
+    closed = false;
     ORC_UNIQUE_PTR<orc::Type> type = createType(schema);
     orc::WriterOptions options;
     py::dict converters;
@@ -143,6 +144,16 @@ Writer::Writer(py::object fileo,
 void
 Writer::write(py::object row)
 {
+    UseFlag::Guard guard(useFlag);
+    if (closed) {
+        throw py::value_error("I/O operation on closed writer");
+    }
+    this->writeImpl(row);
+}
+
+void
+Writer::writeImpl(py::object row)
+{
     converter->write(batch.get(), batchItem, row);
     currentRow++;
     batchItem++;
@@ -157,10 +168,14 @@ Writer::write(py::object row)
 uint64_t
 Writer::writerows(py::iterable iter)
 {
+    UseFlag::Guard guard(useFlag);
     uint64_t rows = 0;
+    if (closed) {
+        throw py::value_error("I/O operation on closed writer");
+    }
     for (auto handle : iter) {
         auto obj = py::cast<py::object>(handle);
-        this->write(obj);
+        this->writeImpl(obj);
         ++rows;
     }
     return rows;
@@ -169,17 +184,22 @@ Writer::writerows(py::iterable iter)
 void
 Writer::close()
 {
-    if (batchItem != 0) {
-        writer->add(*batch);
-        converter->clear();
-        batchItem = 0;
+    UseFlag::Guard guard(useFlag);
+    if (!closed) {
+        if (batchItem != 0) {
+            writer->add(*batch);
+            converter->clear();
+            batchItem = 0;
+        }
+        writer->close();
+        closed = true;
     }
-    writer->close();
 }
 
 void
 Writer::addUserMetadata(py::str key, py::bytes value)
 {
+    UseFlag::Guard guard(useFlag);
     writer->addUserMetadata(key, value);
 }
 
@@ -187,6 +207,7 @@ Writer::addUserMetadata(py::str key, py::bytes value)
 uint64_t
 Writer::writeIntermediateFooter()
 {
+    UseFlag::Guard guard(useFlag);
     return writer->writeIntermediateFooter();
 }
 #endif

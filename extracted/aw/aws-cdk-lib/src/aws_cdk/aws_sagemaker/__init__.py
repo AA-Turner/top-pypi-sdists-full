@@ -5770,6 +5770,7 @@ class CfnCluster(
                 ),
                 current_count=123,
                 image_id="imageId",
+                image_release_version="imageReleaseVersion",
                 instance_requirements=sagemaker.CfnCluster.InstanceRequirementsProperty(
                     instance_types=["instanceTypes"]
                 ),
@@ -7096,6 +7097,7 @@ class CfnCluster(
             "capacity_requirements": "capacityRequirements",
             "current_count": "currentCount",
             "image_id": "imageId",
+            "image_release_version": "imageReleaseVersion",
             "instance_requirements": "instanceRequirements",
             "instance_storage_configs": "instanceStorageConfigs",
             "instance_type": "instanceType",
@@ -7122,6 +7124,7 @@ class CfnCluster(
             capacity_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ClusterCapacityRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             current_count: typing.Optional[jsii.Number] = None,
             image_id: typing.Optional[builtins.str] = None,
+            image_release_version: typing.Optional[builtins.str] = None,
             instance_requirements: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.InstanceRequirementsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             instance_storage_configs: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCluster.ClusterInstanceStorageConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             instance_type: typing.Optional[builtins.str] = None,
@@ -7145,6 +7148,7 @@ class CfnCluster(
             :param capacity_requirements: Specifies the capacity requirements configuration for an instance group.
             :param current_count: The number of instances that are currently in the instance group of a SageMaker HyperPod cluster.
             :param image_id: AMI Id to be used for launching EC2 instances - HyperPodPublicAmiId or CustomAmiId.
+            :param image_release_version: The version of the HyperPod-managed AMI for the instance group, in semantic version format MAJOR.MINOR.PATCH (for example, 1.2.3). Supported only for EKS-orchestrated clusters. If omitted at creation, the latest available version is used (or the version of an existing same-architecture instance group when adding a group). Changing this value on an existing instance group triggers a software update via UpdateClusterSoftware. Automatic patching (AutoPatchConfig) and out-of-band software updates can advance the running version past this value; CloudFormation does not revert such changes and may report the property as drifted. Only an explicit change to this value in the template triggers an update.
             :param instance_requirements: The instance requirements for the instance group. Specifies a list of instance types that can be used.
             :param instance_storage_configs: The configurations of additional storage specified to the instance group where the instance (node) is launched.
             :param instance_type: The instance type of the instance group of a SageMaker HyperPod cluster.
@@ -7209,6 +7213,7 @@ class CfnCluster(
                     ),
                     current_count=123,
                     image_id="imageId",
+                    image_release_version="imageReleaseVersion",
                     instance_requirements=sagemaker.CfnCluster.InstanceRequirementsProperty(
                         instance_types=["instanceTypes"]
                     ),
@@ -7301,6 +7306,7 @@ class CfnCluster(
                 check_type(argname="argument capacity_requirements", value=capacity_requirements, expected_type=type_hints["capacity_requirements"])
                 check_type(argname="argument current_count", value=current_count, expected_type=type_hints["current_count"])
                 check_type(argname="argument image_id", value=image_id, expected_type=type_hints["image_id"])
+                check_type(argname="argument image_release_version", value=image_release_version, expected_type=type_hints["image_release_version"])
                 check_type(argname="argument instance_requirements", value=instance_requirements, expected_type=type_hints["instance_requirements"])
                 check_type(argname="argument instance_storage_configs", value=instance_storage_configs, expected_type=type_hints["instance_storage_configs"])
                 check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
@@ -7327,6 +7333,8 @@ class CfnCluster(
                 self._values["current_count"] = current_count
             if image_id is not None:
                 self._values["image_id"] = image_id
+            if image_release_version is not None:
+                self._values["image_release_version"] = image_release_version
             if instance_requirements is not None:
                 self._values["instance_requirements"] = instance_requirements
             if instance_storage_configs is not None:
@@ -7424,6 +7432,15 @@ class CfnCluster(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-imageid
             '''
             result = self._values.get("image_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def image_release_version(self) -> typing.Optional[builtins.str]:
+            '''The version of the HyperPod-managed AMI for the instance group, in semantic version format MAJOR.MINOR.PATCH (for example, 1.2.3). Supported only for EKS-orchestrated clusters. If omitted at creation, the latest available version is used (or the version of an existing same-architecture instance group when adding a group). Changing this value on an existing instance group triggers a software update via UpdateClusterSoftware. Automatic patching (AutoPatchConfig) and out-of-band software updates can advance the running version past this value; CloudFormation does not revert such changes and may report the property as drifted. Only an explicit change to this value in the template triggers an update.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-imagereleaseversion
+            '''
+            result = self._values.get("image_release_version")
             return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
@@ -9522,6 +9539,7 @@ class CfnClusterProps:
                     ),
                     current_count=123,
                     image_id="imageId",
+                    image_release_version="imageReleaseVersion",
                     instance_requirements=sagemaker.CfnCluster.InstanceRequirementsProperty(
                         instance_types=["instanceTypes"]
                     ),
@@ -71358,6 +71376,7 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     capacity_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ClusterCapacityRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     current_count: typing.Optional[jsii.Number] = None,
     image_id: typing.Optional[builtins.str] = None,
+    image_release_version: typing.Optional[builtins.str] = None,
     instance_requirements: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.InstanceRequirementsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     instance_storage_configs: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCluster.ClusterInstanceStorageConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     instance_type: typing.Optional[builtins.str] = None,

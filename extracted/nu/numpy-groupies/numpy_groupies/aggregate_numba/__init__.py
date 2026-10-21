@@ -1,51 +1,72 @@
 """The numba implementation of aggregate: compiled per-dtype kernels behind
 one dispatch, with ``out=`` support and caching for custom callables."""
 
-import functools
 import typing
 from collections.abc import Callable, Sequence
 
 import numpy as np
 import numpy.typing as npt
 
-from numpy_groupies.aggregate_common import DEFAULT_FILL_VALUE, aggregate_common_doc, get_func
+from numpy_groupies.aggregate_common import (
+    DEFAULT_FILL_VALUE,
+    aggregate_common_doc,
+    funcs_collecting,
+    missing_impl_error,
+)
 from numpy_groupies.aggregate_numba.gather import unpack_into
-from numpy_groupies.aggregate_numba.ops import _dispatch, _impl_dict, build_generic_aggregate
+from numpy_groupies.aggregate_numba.ops import _dispatch
 from numpy_groupies.aggregate_numba.steps import step_count, step_indices
-from numpy_groupies.utils import aliasing
+from numpy_groupies.utils import AValue, RavelOrder
 
 __all__ = ["aggregate", "step_count", "step_indices", "unpack_into"]
 
 
 def aggregate(
-    group_idx: npt.ArrayLike,
-    a: npt.ArrayLike,
+    group_idx: npt.NDArray[np.integer],
+    a: AValue,
     func: str | Callable[..., typing.Any] = "sum",
     size: int | Sequence[int] | None = None,
     fill_value: typing.Any = DEFAULT_FILL_VALUE,
-    order: str = "C",
-    dtype: npt.DTypeLike = None,
+    order: RavelOrder = "C",
+    dtype: npt.DTypeLike | None = None,
     axis: int | None = None,
-    out: npt.NDArray[np.generic] | None = None,
+    out: npt.NDArray[np.number] | None = None,
     cache: bool = True,
     **kwargs: typing.Any,
-) -> typing.Any:
+) -> npt.NDArray[np.number]:
+    try:
+        funcname, op = _dispatch[func]
+    except TypeError:
+        # a func that cannot be a key of the table at all: it names no known
+        # function either, so the registry answers it as a callable of the
+        # caller's own
+        funcname, op = _dispatch.custom(func)
+
     # numba has no float16: the values survive the widening cast to float32
     # exactly, so the kernels run on float32 and an inexact result is rounded
     # back - like the numpy twin does, whose bincount accumulates in float64
     # and rounds once at the end
+    # the collecting functions are the exception: they hand out the values
+    # themselves, so they keep the dtype they came in with
     is16 = getattr(a, "dtype", None) == np.float16
-    if is16:
-        a = a.astype(np.float32)
-    try:
-        aggregate_op = _dispatch[func][1]
-    except (KeyError, TypeError):
-        # a custom callable, or an unknown name that get_func complains about
+    if is16 and funcname not in funcs_collecting:
+        # a float16 input is always an array - the getattr gate does not narrow the union
+        a = typing.cast("npt.NDArray[np.number]", a).astype(np.float32)
+
+    if op is None:
+        # a function that is known but not implemented here
+        raise missing_impl_error(funcname)
+    if isinstance(funcname, str):
+        ret = typing.cast("npt.NDArray[np.number]", op(group_idx, a, size, fill_value, order, dtype, axis, **kwargs))
+    else:
+        # a callable of the caller's own: it has no output array of its own,
+        # and its compiled loop is memoized where the cache policy says
         if out is not None:
             raise NotImplementedError("out= is only supported for named functions") from None
-        ret = _aggregate_custom(group_idx, a, func, size, fill_value, order, dtype, axis, cache, **kwargs)
-    else:
-        ret = aggregate_op(group_idx, a, size, fill_value, order, dtype, axis, **kwargs)
+        ret = typing.cast(
+            "npt.NDArray[np.number]",
+            op(group_idx, a, size, fill_value, order, dtype, axis, cache=cache, **kwargs),
+        )
     if is16 and dtype is None and ret.dtype.kind == "f":
         ret = ret.astype(np.float16)
     if out is not None:
@@ -56,43 +77,6 @@ def aggregate(
         out[...] = ret
         return out
     return ret
-
-
-def _aggregate_custom(
-    group_idx,
-    a,
-    func,
-    size,
-    fill_value,
-    order,
-    dtype,
-    axis,
-    cache,
-    **kwargs,
-):
-    """Slow dispatch path for custom callables and unknown function names."""
-    func = get_func(func, aliasing, _impl_dict)
-    if not isinstance(func, str):
-        if cache in (None, False):
-            # Keep None and False in order to accept empty dictionaries
-            aggregate_op = build_generic_aggregate(func)
-        elif cache is True:
-            aggregate_op = _get_cached_generic(func)
-        else:
-            aggregate_op = cache.get(func)
-            if aggregate_op is None:
-                aggregate_op = build_generic_aggregate(func)
-                cache[func] = aggregate_op
-        return aggregate_op(group_idx, a, size, fill_value, order, dtype, axis, **kwargs)
-    else:
-        func = _impl_dict[func]
-        return func(group_idx, a, size, fill_value, order, dtype, axis, **kwargs)
-
-
-@functools.lru_cache(maxsize=128)
-def _get_cached_generic(func):
-    """LRU-cache generic aggregate loops per user callable (bounded)."""
-    return build_generic_aggregate(func)
 
 
 aggregate.__doc__ = (

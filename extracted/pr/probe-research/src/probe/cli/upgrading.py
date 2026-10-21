@@ -164,6 +164,9 @@ def _perform_update(
 
     install = updater.detect_install()
     lines.append(f"Probe Research CLI {__version__}  (installed via: {install.method})")
+    from probe.cli import capy_retire
+
+    lines.extend(f"  {line}" for line in capy_retire.retire())
 
     res: updater.CliResult | None = None
     refused = ""
@@ -198,14 +201,9 @@ def _perform_update(
         # marketplace.
         pi_update = _update_pi_package()
         lines.extend(pi_update.lines)
-        # pi has no marketplace plugin, and a cloud agent (Capy) no plugin at
-        # all (its app updates itself): for them `pres` stays None, same bucket
-        # as `include_plugin=False`.
-        from probe.cli import cloud_agents
-
-        if cloud_agents.is_cloud(source):
-            lines.append(f"{cloud_agents.module(source).label()}: no Probe plugin to update; its app updates itself.")
-        elif source != "pi":
+        # pi has no marketplace plugin: for it `pres` stays None, same bucket as
+        # `include_plugin=False`.
+        if source != "pi":
             codex = source == "codex"
             kimi = source == plugin_cli.KIMI
             lines.append("Codex plugins:" if codex else "Kimi Code plugins:" if kimi else "Claude Code plugins:")

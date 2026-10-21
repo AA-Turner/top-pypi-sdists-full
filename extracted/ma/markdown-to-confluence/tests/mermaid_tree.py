@@ -88,7 +88,7 @@ class MermaidTreeExtension(MarketplaceExtension):
 
     @override
     def transform_image(self, absolute_path: Path, attrs: ImageAttributes) -> ElementType:
-        raise NotImplementedError()
+        raise NotImplementedError(f"transforming a Markdown image reference is not implemented for {self.__class__.__name__}")
 
     @override
     def transform_fenced(self, content: str) -> ElementType:

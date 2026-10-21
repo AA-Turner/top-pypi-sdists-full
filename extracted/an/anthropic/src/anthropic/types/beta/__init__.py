@@ -157,6 +157,7 @@ from .beta_computer_member_name import (
 from .beta_computer_type_config import BetaComputerTypeConfig as BetaComputerTypeConfig
 from .beta_computer_wait_config import BetaComputerWaitConfig as BetaComputerWaitConfig
 from .beta_computer_zoom_config import BetaComputerZoomConfig as BetaComputerZoomConfig
+from .beta_deleted_user_profile import BetaDeletedUserProfile as BetaDeletedUserProfile
 from .beta_dream_sessions_input import BetaDreamSessionsInput as BetaDreamSessionsInput
 from .beta_fallback_block_param import BetaFallbackBlockParam as BetaFallbackBlockParam
 from .beta_input_transformation import BetaInputTransformation as BetaInputTransformation
@@ -1675,8 +1676,14 @@ from .beta_managed_agents_web_fetch_url_source_tool_reference_param import (
 from .beta_text_editor_code_execution_str_replace_result_block_param import (
     BetaTextEditorCodeExecutionStrReplaceResultBlockParam as BetaTextEditorCodeExecutionStrReplaceResultBlockParam,
 )
+from .beta_webhook_user_profile_enforcement_action_opened_event_data import (
+    BetaWebhookUserProfileEnforcementActionOpenedEventData as BetaWebhookUserProfileEnforcementActionOpenedEventData,
+)
 from .beta_managed_agents_self_hosted_resources_unsupported_run_error import (
     BetaManagedAgentsSelfHostedResourcesUnsupportedRunError as BetaManagedAgentsSelfHostedResourcesUnsupportedRunError,
+)
+from .beta_webhook_user_profile_enforcement_action_resolved_event_data import (
+    BetaWebhookUserProfileEnforcementActionResolvedEventData as BetaWebhookUserProfileEnforcementActionResolvedEventData,
 )
 from .beta_managed_agents_agent_archived_deployment_paused_reason_error import (
     BetaManagedAgentsAgentArchivedDeploymentPausedReasonError as BetaManagedAgentsAgentArchivedDeploymentPausedReasonError,

@@ -117,6 +117,7 @@ __all__ = (
     "ServiceName",
     "SupportedS3RegionType",
     "SyntheticDataColumnTypeType",
+    "TableReferenceTypeType",
     "TargetProtectedJobStatusType",
     "TargetProtectedQueryStatusType",
     "WorkerComputeTypeType",
@@ -403,6 +404,7 @@ SupportedS3RegionType = Literal[
     "us-west-2",
 ]
 SyntheticDataColumnTypeType = Literal["CATEGORICAL", "NUMERICAL"]
+TableReferenceTypeType = Literal["ATHENA", "DATABRICKS", "GLUE", "SNOWFLAKE"]
 TargetProtectedJobStatusType = Literal["CANCELLED"]
 TargetProtectedQueryStatusType = Literal["CANCELLED"]
 WorkerComputeTypeType = Literal["CR.1X", "CR.4X", "CR.8X"]
@@ -487,6 +489,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -559,8 +562,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -589,6 +594,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -631,6 +637,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -683,6 +690,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -764,6 +772,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

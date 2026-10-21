@@ -694,6 +694,23 @@ def test_validator_flags_media_model_missing_basis():
     assert any(i.code == "missing_basis" and i.severity == "error" for i in issues)
 
 
+def test_validator_skips_unpriced_model_that_runs_on_device():
+    """A model with no ai.offering that ships as an on-device variant (whisper.cpp, Kokoro,
+    local diffusion) is never billed by a provider — no pricing rows is the truth. The same
+    model with runs_on_device=False is the real gap and must still error."""
+    from matrx_ai.config.usage_config import validate_model_pricing
+
+    caps = _caps("whisper-cpp-tiny.en", input=["audio"], output=["text"])
+    assert (
+        validate_model_pricing(
+            "whisper-cpp-tiny.en", "", caps, None, token_billed=False, runs_on_device=True
+        )
+        == []
+    )
+    issues = validate_model_pricing("whisper-cpp-tiny.en", "", caps, None, token_billed=False)
+    assert [i.code for i in issues] == ["no_pricing"]
+
+
 def test_validator_flags_character_price_scale_bug():
     from matrx_ai.config.usage_config import validate_model_pricing
 

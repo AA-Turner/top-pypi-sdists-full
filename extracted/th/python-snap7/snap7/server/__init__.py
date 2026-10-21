@@ -1129,14 +1129,10 @@ class Server:
             pi_service = params.get("pi_service", b"")
 
             # Check for PI service operations
-            if pi_service == b"_MSZL":
-                file_id = params.get("file_id", b"")
-                if file_id == b"P":
-                    # Copy RAM to ROM
-                    logger.info(f"Copy RAM to ROM requested from {client_address}")
-                else:
-                    # Compress memory
-                    logger.info(f"Compress memory requested from {client_address}")
+            if pi_service == b"_MODU":
+                logger.info(f"Copy RAM to ROM requested from {client_address}")
+            elif pi_service == b"_GARB":
+                logger.info(f"Compress memory requested from {client_address}")
             elif len(params) >= 2:
                 # Has restart type parameter - start operation
                 restart_type = params.get("restart_type", 1)
@@ -1411,9 +1407,10 @@ class Server:
             if b"P_PROGRAM" in param_data:
                 restart_type = 2 if b"C " in param_data else 1
                 return {"function_code": function_code, "restart_type": restart_type, "pi_service": b"P_PROGRAM"}
-            elif b"_MSZL" in param_data:
-                file_id = b"P" if b"P_MSZL" in param_data else b""
-                return {"function_code": function_code, "pi_service": b"_MSZL", "file_id": file_id}
+            elif b"_MODU" in param_data:
+                return {"function_code": function_code, "pi_service": b"_MODU", "file_id": b"EP"}
+            elif b"_GARB" in param_data:
+                return {"function_code": function_code, "pi_service": b"_GARB"}
             elif b"_DELE" in param_data:
                 return {"function_code": function_code, "pi_service": b"_DELE"}
             if len(param_data) >= 2 and param_data[1] in (1, 2):
@@ -1867,15 +1864,17 @@ class Server:
         """
         Handle get clock request - returns current server time.
 
-        Returns time in BCD format (8 bytes):
+        Returns time in BCD format (10 bytes, as native Snap7 ``TResDataGetTime``):
         - Byte 0: Reserved (0x00)
-        - Byte 1: Year (BCD, 0-99)
-        - Byte 2: Month (BCD, 1-12)
-        - Byte 3: Day (BCD, 1-31)
-        - Byte 4: Hour (BCD, 0-23)
-        - Byte 5: Minute (BCD, 0-59)
-        - Byte 6: Second (BCD, 0-59)
-        - Byte 7: Day of week (1=Monday)
+        - Byte 1: Century (0x19 for years 1990-1999, 0x20 for 2000-2089)
+        - Byte 2: Year (BCD, 0-99)
+        - Byte 3: Month (BCD, 1-12)
+        - Byte 4: Day (BCD, 1-31)
+        - Byte 5: Hour (BCD, 0-23)
+        - Byte 6: Minute (BCD, 0-59)
+        - Byte 7: Second (BCD, 0-59)
+        - Byte 8: Milliseconds hundreds/tens (BCD)
+        - Byte 9: Milliseconds ones (high nibble) and day of week (low nibble, 1=Sunday .. 7=Saturday)
         """
         from datetime import datetime
 
@@ -1885,16 +1884,19 @@ class Server:
             return ((value // 10) << 4) | (value % 10)
 
         year = now.year % 100
+        millisecond = now.microsecond // 1000
         bcd_time = struct.pack(
-            ">BBBBBBBB",
+            ">BBBBBBBBBB",
             0x00,  # Reserved
+            0x19 if now.year < 2000 else 0x20,  # Century
             to_bcd(year),  # Year (BCD)
             to_bcd(now.month),  # Month (BCD)
             to_bcd(now.day),  # Day (BCD)
             to_bcd(now.hour),  # Hour (BCD)
             to_bcd(now.minute),  # Minute (BCD)
             to_bcd(now.second),  # Second (BCD)
-            (now.weekday() + 1) & 0x0F,  # Day of week (1=Monday)
+            to_bcd(millisecond // 10),  # Milliseconds hundreds/tens (BCD)
+            ((millisecond % 10) << 4) | (now.isoweekday() % 7 + 1),  # Milliseconds ones, day of week (1=Sunday)
         )
 
         logger.debug(f"Get clock from {client_address}: returning {now}")
@@ -1940,8 +1942,8 @@ class Server:
 
         logger.info(f"Set clock from {client_address}: {timestamp}")
 
-        # Return success (empty response data)
-        return self._build_userdata_success_response(request, userdata_params, b"")
+        # Return success (null acknowledgement, as real PLCs send for set clock)
+        return self._build_userdata_success_response(request, userdata_params, b"", null_ack=True)
 
     def _handle_security(
         self, request: Dict[str, Any], userdata_params: Dict[str, Any], client_address: Tuple[str, int]
@@ -1953,7 +1955,7 @@ class Server:
         """
         logger.debug(f"Security request from {client_address} (returning success)")
         # Return success - emulator doesn't require password
-        return self._build_userdata_success_response(request, userdata_params, b"")
+        return self._build_userdata_success_response(request, userdata_params, b"", null_ack=True)
 
     def _handle_list_all_blocks(
         self, request: Dict[str, Any], userdata_params: Dict[str, Any], client_address: Tuple[str, int]
@@ -2098,13 +2100,13 @@ class Server:
         # Block type code constants
         block_db = 0x41  # Data Block
 
-        # Parse request: handle new format [0x30, type, 'A', ASCII_num(5)]
+        # Parse request: handle the Snap7 format [0x30, type, ASCII_num(5), 'A']
         # and old format [type, num(2), 0x41]
         if len(raw_data) >= 8 and raw_data[0] == 0x30:
-            # New format: 0x30 + type + 'A' + 5-digit ASCII number
+            # Snap7 format: 0x30 + type + 5-digit ASCII number + 'A'
             requested_type = raw_data[1]
             try:
-                block_number = int(raw_data[3:8].decode("ascii"))
+                block_number = int(raw_data[2:7].decode("ascii"))
             except (ValueError, UnicodeDecodeError):
                 block_number = 1
         elif len(raw_data) >= 3:
@@ -2198,7 +2200,9 @@ class Server:
 
         return header + param_data + data_section
 
-    def _build_userdata_success_response(self, request: Dict[str, Any], userdata_params: Dict[str, Any], data: bytes) -> bytes:
+    def _build_userdata_success_response(
+        self, request: Dict[str, Any], userdata_params: Dict[str, Any], data: bytes, null_ack: bool = False
+    ) -> bytes:
         """
         Build USER_DATA success response PDU.
 
@@ -2206,6 +2210,8 @@ class Server:
             request: Original request
             userdata_params: Parsed USER_DATA parameters
             data: Response data
+            null_ack: Acknowledge with the no-data form a real PLC uses for services that return nothing
+                (return code 0x0A, transport size 0, length 0) instead of 0xFF/0x09
 
         Returns:
             Success response PDU
@@ -2232,7 +2238,10 @@ class Server:
         )
 
         # Data section: return code (0xFF = success) + data
-        data_section = struct.pack(">BBH", 0xFF, 0x09, len(data)) + data
+        if null_ack:
+            data_section = struct.pack(">BBH", 0x0A, 0x00, 0)
+        else:
+            data_section = struct.pack(">BBH", 0xFF, 0x09, len(data)) + data
 
         # Build S7 header for USERDATA (10 bytes, no error_class/error_code in header)
         header = struct.pack(

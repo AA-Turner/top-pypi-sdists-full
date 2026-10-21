@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: johnnydep
-Version: 2.1.0
+Version: 2.1.1
 Summary: Display dependency tree of Python distribution
 Author-email: Wim Glenn <hey@wimglenn.com>
 License-Expression: MIT

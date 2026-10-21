@@ -72,9 +72,12 @@ class Document:
     operation asked for. An absent field raises :exc:`AttributeError` on attribute
     access, so use :meth:`get` when a field is optional.
 
-    The ``id``, ``_id``, ``score`` and ``_score`` properties always win over a document
-    field of the same name. If your data genuinely has a field called ``_score``, reach it
-    with ``doc.get("_score")`` or ``doc.to_dict()["_score"]``.
+    Seven attributes always win over a document field of the same name: the properties
+    ``id``, ``_id``, ``score`` and ``_score``, and the methods ``get``, ``to_dict`` and
+    ``to_json``. Python resolves a field through attribute access only when nothing else
+    has that name, so ``doc.get`` on a document with a ``get`` field is the method, not
+    your value. Read such a field with ``doc.get("name")`` or ``doc.to_dict()["name"]``,
+    for example ``doc.get("_score")`` for a field called ``_score``.
 
     Attributes:
         id (str): The document's identifier — the value the document was upserted under.
@@ -199,17 +202,26 @@ class Document:
 class DocumentRecord:
     """A document you are about to upsert, checked before it can reach the wire.
 
-    A record is one required reserved key, ``_id``, plus as many fields of your own as you
-    like. ``_id`` sits in the same dict as those fields but it is not one of them: it
-    names the document rather than storing anything, and the leading underscore is what
-    marks it as reserved. Passing keyword arguments instead of a dict makes the split
-    plain, since ``_id=`` reads as the argument it is.
+    A record is one reserved key, ``_id``, plus fields of your own. ``_id`` sits in the
+    same dict as those fields but it is not one of them: it names the document rather
+    than storing anything, and the leading underscore is what marks it as reserved.
+    Passing keyword arguments instead of a dict makes the split plain, since ``_id=``
+    reads as the argument it is.
 
     Your field values are the same shapes metadata takes — a string, a number, a boolean,
     or a list of strings. A field the index schema declares as ``dense_vector`` takes a
     list of floats, and one declared ``sparse_vector`` takes sparse values. Field values
     are checked against the index schema server-side, so a type mismatch surfaces on
     upsert rather than here.
+
+    The index schema also decides which fields every record must carry; read it with
+    ``pc.indexes.describe(name).schema``. Each ``dense_vector`` field is required, and so
+    is each ``string`` field declared with ``embed``, whose text Pinecone embeds on write.
+    ``sparse_vector`` fields, ``string`` fields with only ``sparse_embed`` or full-text
+    search, and metadata are optional, but a record needs at least one searchable schema
+    field: a vector field, or a ``string`` field with full-text search, ``embed`` or
+    ``sparse_embed``. A missing required field is likewise reported by the server on
+    upsert, as a 400 naming the field.
 
     Only the ``_id`` is validated on construction — a string of 1 to 512 ASCII characters
     — so a bad ID is reported at the line that wrote it.

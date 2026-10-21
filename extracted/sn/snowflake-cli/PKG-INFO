@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: snowflake-cli
-Version: 3.29.0
+Version: 3.30.0
 Summary: Snowflake CLI
 Project-URL: Source code, https://github.com/snowflakedb/snowflake-cli
 Project-URL: Bug Tracker, https://github.com/snowflakedb/snowflake-cli/issues
@@ -223,9 +223,12 @@ Classifier: Programming Language :: SQL
 Classifier: Topic :: Database
 Requires-Python: >=3.10
 Requires-Dist: click==8.1.8
-Requires-Dist: gitpython==3.1.62
+Requires-Dist: configobj==5.0.9
+Requires-Dist: gitpython==3.2.0
 Requires-Dist: id==1.5.0
+Requires-Dist: jaraco-context==6.1.2
 Requires-Dist: jinja2==3.1.6
+Requires-Dist: keyring==25.7.0
 Requires-Dist: packaging==25.0
 Requires-Dist: pip==26.2.1
 Requires-Dist: pluggy==1.6.0
@@ -237,7 +240,7 @@ Requires-Dist: pyyaml==6.0.2
 Requires-Dist: requests==2.33.0
 Requires-Dist: requirements-parser==0.13.0
 Requires-Dist: rich==14.0.0
-Requires-Dist: setuptools==80.8.0
+Requires-Dist: setuptools==84.0.0
 Requires-Dist: snowflake-connector-python[secure-local-storage]==4.7.5
 Requires-Dist: snowflake-core==1.10.0
 Requires-Dist: snowflake-snowpark-python==1.53.0

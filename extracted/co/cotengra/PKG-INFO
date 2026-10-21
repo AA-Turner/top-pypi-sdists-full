@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: cotengra
-Version: 0.8.2
+Version: 0.8.3
 Summary: Hyper optimized contraction trees for large tensor networks and einsums.
 Project-URL: Documentation, https://cotengra.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/cotengra/

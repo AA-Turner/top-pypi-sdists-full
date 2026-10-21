@@ -156,7 +156,7 @@ class AnomalyDetectorReference:
     def __init__(self, *, anomaly_detector_id: builtins.str) -> None:
         '''A reference to a AnomalyDetector resource.
 
-        :param anomaly_detector_id: The Id of the AnomalyDetector resource.
+        :param anomaly_detector_id: The AnomalyDetectorId of the AnomalyDetector resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -179,7 +179,7 @@ class AnomalyDetectorReference:
 
     @builtins.property
     def anomaly_detector_id(self) -> builtins.str:
-        '''The Id of the AnomalyDetector resource.'''
+        '''The AnomalyDetectorId of the AnomalyDetector resource.'''
         result = self._values.get("anomaly_detector_id")
         assert result is not None, "Required property 'anomaly_detector_id' is missing"
         return typing.cast(builtins.str, result)
@@ -718,6 +718,57 @@ class _IOTelEnrichmentRefProxy(
 typing.cast(typing.Any, IOTelEnrichmentRef).__jsii_proxy_class__ = lambda : _IOTelEnrichmentRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IResourceMetricsConfigurationRef"
+)
+class IResourceMetricsConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceMetricsConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceMetricsConfigurationRef")
+    def resource_metrics_configuration_ref(
+        self,
+    ) -> "ResourceMetricsConfigurationReference":
+        '''(experimental) A reference to a ResourceMetricsConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IResourceMetricsConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ResourceMetricsConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_cloudwatch.IResourceMetricsConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceMetricsConfigurationRef")
+    def resource_metrics_configuration_ref(
+        self,
+    ) -> "ResourceMetricsConfigurationReference":
+        '''(experimental) A reference to a ResourceMetricsConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ResourceMetricsConfigurationReference", jsii.get(self, "resourceMetricsConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourceMetricsConfigurationRef).__jsii_proxy_class__ = lambda : _IResourceMetricsConfigurationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.IViewRef")
 class IViewRef(
     _constructs_77d1e7e8.IConstruct,
@@ -995,6 +1046,55 @@ class OTelEnrichmentReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ResourceMetricsConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"resource_arn": "resourceArn"},
+)
+class ResourceMetricsConfigurationReference:
+    def __init__(self, *, resource_arn: builtins.str) -> None:
+        '''A reference to a ResourceMetricsConfiguration resource.
+
+        :param resource_arn: The ResourceArn of the ResourceMetricsConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_cloudwatch as interfaces_cloudwatch
+            
+            resource_metrics_configuration_reference = interfaces_cloudwatch.ResourceMetricsConfigurationReference(
+                resource_arn="resourceArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6f9ebe063604c60ac79278954c382c68f40c11bf77a8d558d7d5c2ab1d8751bb)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The ResourceArn of the ResourceMetricsConfiguration resource.'''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourceMetricsConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_cloudwatch.ViewReference",
     jsii_struct_bases=[],
     name_mapping={"view_arn": "viewArn", "view_name": "viewName"},
@@ -1069,11 +1169,13 @@ __all__ = [
     "ILogAlarmRef",
     "IMetricStreamRef",
     "IOTelEnrichmentRef",
+    "IResourceMetricsConfigurationRef",
     "IViewRef",
     "InsightRuleReference",
     "LogAlarmReference",
     "MetricStreamReference",
     "OTelEnrichmentReference",
+    "ResourceMetricsConfigurationReference",
     "ViewReference",
 ]
 
@@ -1146,6 +1248,13 @@ def _typecheckingstub__a72478b59e18716d7b088eea5376f19505d1e07e3dc74672316f85c01
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6f9ebe063604c60ac79278954c382c68f40c11bf77a8d558d7d5c2ab1d8751bb(
+    *,
+    resource_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__05ebab8b587ee4cf5b5a00c1b85685b2fcfa1e308f34bc1df1b2dece2a7c693f(
     *,
     view_arn: builtins.str,
@@ -1154,5 +1263,5 @@ def _typecheckingstub__05ebab8b587ee4cf5b5a00c1b85685b2fcfa1e308f34bc1df1b2dece2
     """Type checking stubs"""
     pass
 
-for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IViewRef]:
+for cls in [IAlarmMuteRuleRef, IAlarmRef, IAnomalyDetectorRef, ICompositeAlarmRef, IDashboardRef, IInsightRuleRef, ILogAlarmRef, IMetricStreamRef, IOTelEnrichmentRef, IResourceMetricsConfigurationRef, IViewRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

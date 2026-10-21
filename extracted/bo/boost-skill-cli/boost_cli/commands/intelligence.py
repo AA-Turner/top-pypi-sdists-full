@@ -13,6 +13,7 @@ import contextlib
 import difflib
 import fnmatch
 import json
+import os
 import re
 import shlex
 import sys
@@ -28,6 +29,7 @@ from ..core import (
     frontmatter,
     gitutil,
     imperative,
+    integrity,
     journal,
     jsonstate,
     lockfile,
@@ -130,14 +132,18 @@ def _save_state(fname: str, data: dict) -> None:
 
 
 def _save_generated_fallback(name: str, text: str, reason: str) -> None:
-    fallback = Path.cwd() / ("%s.SKILL.md" % name)
-    fallback.write_text(text, encoding="utf-8")
+    # Never over an existing <name>.SKILL.md: that file is the user's, and this
+    # runs on the very path where they just declined a replace.
+    fallback = util.write_unclaimed(Path.cwd(), name, ".SKILL.md", text)
     out.warn("not installed: %s" % reason)
     out.info("generated skill saved to %s" % _tilde(fallback))
 
 
-def _install_generated(name: str, text: str, yes: bool = False) -> None:
+def _install_generated(name: str, text: str, yes: bool = False) -> bool:
     """Write a generated SKILL.md to a tempdir and install it as `name`.
+
+    Returns False when the install did not happen (the generation is saved
+    beside the cwd instead), so the caller can exit non-zero.
 
     The tempdir is the only copy of a just-generated skill, so a refused install
     must not be allowed to propagate out of the ``with`` block and delete it —
@@ -161,7 +167,7 @@ def _install_generated(name: str, text: str, yes: bool = False) -> None:
             "%s is already installed from %s — replace it?" % (name, owner))):
         _save_generated_fallback(
             name, text, "%s is already installed from %s" % (name, owner))
-        return
+        return False
     with tempfile.TemporaryDirectory(prefix="boost-gen-") as td:
         src = Path(td) / name
         src.mkdir()
@@ -175,11 +181,12 @@ def _install_generated(name: str, text: str, yes: bool = False) -> None:
             res = store.install_from_path(src, name=name, tap_label="local")
         except BoostError as err:
             _save_generated_fallback(name, text, err.message)
-            return
+            return False
     out.ok("%s %s → %s" % ("replaced" if owner else "installed", name, _tilde(res.dest)))
     if res.linked:
         out.info(out.role("linked into: %s" % ", ".join(res.linked), "muted"))
     _warn_unwritable(res)
+    return True
 
 
 def _write_generated(dest: Path, text: str, yes: bool = False) -> bool:
@@ -213,14 +220,27 @@ def cmd_distill(argv: list[str]) -> int:
         description="Merge multiple skills into one deduplicated skill")
     ap.add_argument("names", nargs="+", metavar="NAME",
                     help="two or more skills to merge")
-    ap.add_argument("-o", "--output", metavar="NEWNAME",
-                    help="name for the merged skill (default: <first>-distilled)")
+    name_g = ap.add_mutually_exclusive_group()
+    name_g.add_argument("--name", metavar="NEWNAME",
+                        help="name for the merged skill (default: "
+                             "<first>-distilled)")
+    # Every sibling's -o/--output is a FILE; distill's has always been the
+    # skill NAME. Kept, so existing scripts run, but a path is refused rather
+    # than slugified into a directory in the cwd nobody asked for.
+    name_g.add_argument("-o", "--output", dest="name", metavar="NEWNAME",
+                        help="older spelling of --name (a name, not a path)")
     ap.add_argument("--install", action="store_true",
                     help="install the merged skill instead of writing a file")
     ap.add_argument("-y", "--yes", action="store_true",
                     help="skip the overwrite/replace confirmation prompt")
     args = ap.parse_args(argv)
 
+    if args.name and ("/" in args.name or os.sep in args.name
+                      or args.name.lower().endswith(".md")):
+        raise BoostError("distill takes a name for the merged skill, not a "
+                         "path: %s" % args.name,
+                         hint="pass `--name NEWNAME`; the skill is written to "
+                              "./NEWNAME/SKILL.md")
     names = list(dict.fromkeys(args.names))
     if len(names) < 2:
         raise BoostError("distill needs at least two distinct skills",
@@ -231,8 +251,12 @@ def cmd_distill(argv: list[str]) -> int:
         meta, body = frontmatter.parse(text)
         sources.append({"name": name, "origin": origin, "text": text,
                         "meta": meta, "body": body})
-    new = util.resolve_slug(args.output, what="output name") if args.output \
-        else names[0] + "-distilled"
+    # The default comes from the *bare* first name: `fx:tdd-workflow` would
+    # otherwise name the output `fx:tdd-workflow-distilled`, which the printed
+    # `boost import` hint then rejects as an invalid skill name.
+    new = util.resolve_slug(
+        args.name or catalog.split_name(names[0])[1] + "-distilled",
+        what="output name")
 
     out.heading("distilling %s → %s" % (", ".join(names), new))
     merged = _distill_ai(new, sources) if ai.available() else None
@@ -241,7 +265,8 @@ def cmd_distill(argv: list[str]) -> int:
         merged = _distill_merge(new, sources)
 
     if args.install:
-        _install_generated(new, merged, yes=args.yes)
+        if not _install_generated(new, merged, yes=args.yes):
+            return 1
     else:
         dest = Path.cwd() / new / "SKILL.md"
         if not _write_generated(dest, merged, yes=args.yes):
@@ -292,7 +317,7 @@ def _distill_merge(new: str, sources: list[dict]) -> str:
     """Mechanical merge: union tags, dedupe exact-duplicate body lines."""
     tags: list[str] = []
     for s in sources:
-        for t in s["meta"].get("tags") or []:
+        for t in frontmatter.tags_of(s["meta"]):
             if t not in tags:
                 tags.append(t)
     desc = next((str(s["meta"].get("description") or "").strip()
@@ -401,7 +426,8 @@ def cmd_infer(argv: list[str]) -> int:
                     help="codebase to analyze (default: current directory)")
     ap.add_argument("--name", default="project-conventions", metavar="N",
                     help="skill name (default: project-conventions)")
-    ap.add_argument("-o", "--output", metavar="FILE", help="write to a file")
+    ap.add_argument("-o", "--output", "--out", dest="output", metavar="FILE",
+                    help="write to a file")
     ap.add_argument("--install", action="store_true",
                     help="install the generated skill")
     ap.add_argument("-y", "--yes", action="store_true",
@@ -420,7 +446,8 @@ def cmd_infer(argv: list[str]) -> int:
         text = _infer_template(name, facts)
 
     if args.install:
-        _install_generated(name, text, yes=args.yes)
+        if not _install_generated(name, text, yes=args.yes):
+            return 1
         journal.log("infer", name, path=str(root))
     elif args.output:
         if not _write_generated(paths.expand(args.output), text, yes=args.yes):
@@ -641,24 +668,34 @@ def cmd_absorb(argv: list[str]) -> int:
         src = paths.expand(args.history)
         if not src.exists():
             raise BoostError("no history at %s" % _tilde(src))
+        sources = [src]
     else:
-        src = paths.home() / ".claude" / "history.jsonl"
-        if not src.exists():
-            src = paths.home() / ".claude" / "projects"
-        if not src.exists():
+        claude = paths.home() / ".claude"
+        # history.jsonl first (one row per typed prompt), then the session
+        # transcripts under projects/ when it yields nothing — a machine with
+        # an unparseable or prompt-free history.jsonl still has transcripts.
+        sources = [p for p in (claude / "history.jsonl", claude / "projects")
+                   if p.exists()]
+        if not sources:
             out.info("no chat history found under ~/.claude — nothing to absorb")
             out.info(out.role("point at a .jsonl file or directory with "
                            "--history PATH", "muted"))
             return 0
-    files = [src] if src.is_file() else sorted(src.rglob("*.jsonl"))
-    if not files:
-        out.info("no .jsonl history files under %s" % _tilde(src))
+    files: list[Path] = []
+    patterns: list[tuple[str, int]] = []
+    read = 0
+    for src in sources:
+        files = [src] if src.is_file() else sorted(src.rglob("*.jsonl"))
+        read += len(files)
+        patterns = _recurring_patterns(files, args.limit)
+        if patterns:
+            break
+    if not read:
+        out.info("no .jsonl history files under %s" % _tilde(sources[-1]))
         return 0
-
-    patterns = _recurring_patterns(files, args.limit)
     if not patterns:
         out.info("no recurring patterns in %d history file(s) — absorb needs "
-                 "the same request 3+ times" % len(files))
+                 "the same request 3+ times" % read)
         return 0
 
     name = "absorbed-patterns"
@@ -676,7 +713,8 @@ def cmd_absorb(argv: list[str]) -> int:
         _note_fallback()
         text = _absorb_template(name, patterns)
     if args.install:
-        _install_generated(name, text, yes=args.yes)
+        if not _install_generated(name, text, yes=args.yes):
+            return 1
     else:
         print(text, end="" if text.endswith("\n") else "\n")
     journal.log("absorb", name, patterns=len(patterns), files=len(files))
@@ -705,12 +743,29 @@ def _recurring_patterns(files: list[Path], limit: int) -> list[tuple[str, int]]:
     return hits[:limit]
 
 
+_PASTE_PLACEHOLDER = re.compile(
+    r"\[(?:Pasted text|Image|\.\.\.Truncated text) #\d+[^\]]*\]")
+
+
 def _user_texts(obj) -> list[str]:
     """Best-effort user-message text from one history event."""
     if not isinstance(obj, dict):
         return []
     node = obj["message"] if isinstance(obj.get("message"), dict) else obj
     role = node.get("role") or node.get("type") or obj.get("type") or obj.get("role")
+    if not role and isinstance(obj.get("display"), str):
+        # Claude Code's ~/.claude/history.jsonl: {display, pastedContents,
+        # project, sessionId, timestamp} — every row is a typed prompt, and
+        # none carries a role. Two shapes in it are not requests: a slash
+        # command (`/clear`, `/loop 5m /babysit`) and the placeholder Claude
+        # Code writes for a paste or an image (`[Pasted text #1 +12 lines]`),
+        # which normalises to "pasted text 1 12 lines" and would otherwise
+        # surface as the user's most recurring "instruction".
+        display = obj["display"].strip()
+        if display.startswith("/"):
+            return []
+        display = _PASTE_PLACEHOLDER.sub(" ", display).strip()
+        return [display] if display else []
     if role != "user":
         return []
     content = node.get("content", obj.get("content"))
@@ -787,6 +842,10 @@ def cmd_evolve(argv: list[str]) -> int:
                 % (args.name, found[0]),
                 hint="a %s has no editable store copy; it refreshes from its "
                      "tap via `boost update`" % found[0])
+        # `--apply` writes the store copy and pins the user lock; a project
+        # skill has neither, and the `boost install` hint below would add a
+        # user-scope duplicate of what the repo already holds.
+        integrity.refuse_project_only(args.name, "boost evolve")
         raise BoostError("%s is not installed — evolve works on installed "
                         "skills" % args.name,
                         hint="install it first with `boost install %s`" % args.name)
@@ -819,7 +878,13 @@ def cmd_evolve(argv: list[str]) -> int:
     # the generated-skill write above — nothing compares across machines
     # today, and the recorded digest should not depend on one either way.
     skill_md.write_text(new, encoding="utf-8", newline="\n")
-    entry["sha256"] = util.sha256_dir(store.skill_store_dir(args.name))
+    # Deliberately does NOT rewrite entry["sha256"] to the store's new hash,
+    # for the reason `boost edit` does not: drift compares the store against
+    # that field, and only consults the tap once they match. Rewriting it
+    # made store == lock != tap, which `boost drift` reported as
+    # "upstream-moved — boost update" for a tap that had not moved and an
+    # update that did nothing. Left alone, the revision reads as what it is,
+    # a local edit, and the lock keeps the digest of the tap copy it came from.
     entry["updated_at"] = util.now_iso()
     entry["version"] = new_ver
     # Pinned, because this revision exists nowhere but the store: once the
@@ -936,7 +1001,11 @@ def cmd_context(argv: list[str]) -> int:
         return _context_status(state,
                                getattr(args, "json", False) or args.top_json)
     if action == "map":
-        skills = [s.strip() for s in args.skills.split(",") if s.strip()]
+        # Stored bare: the lock keys by the bare name, and `apply`/`disable`
+        # look rules up in it, so a `tap:name` rule never matched anything.
+        skills = list(dict.fromkeys(
+            store.installed_name(s.strip())
+            for s in args.skills.split(",") if s.strip()))
         if not skills:
             raise BoostError("no skills given",
                             hint="e.g. `boost context map 'feature/*' tdd-workflow`")
@@ -1009,8 +1078,22 @@ def cmd_context(argv: list[str]) -> int:
     return _context_apply(state)
 
 
+def _rule_skill(name: str) -> str:
+    """The lock key a saved context rule's ``name`` refers to.
+
+    Rules saved before `map` stored bare names may hold ``tap:name``; one
+    whose qualifier no longer matches what is installed stays as written, so
+    it reports as not installed rather than aborting the whole apply.
+    """
+    try:
+        return store.installed_name(name)
+    except BoostError:
+        return name
+
+
 def _mentioned_skills(state: dict) -> set:
-    return {s for r in state.get("rules", []) for s in r.get("skills", [])}
+    return {_rule_skill(s) for r in state.get("rules", [])
+            for s in r.get("skills", [])}
 
 
 def _context_status(state: dict, as_json: bool) -> int:
@@ -1051,7 +1134,7 @@ def _context_apply(state: dict) -> int:
         return 0
     rules = state.get("rules", [])
     matched = [r for r in rules if fnmatch.fnmatch(branch, r.get("pattern", ""))]
-    active = {s for r in matched for s in r.get("skills", [])}
+    active = {_rule_skill(s) for r in matched for s in r.get("skills", [])}
     inst = lockfile.installed()
     linked, unlinked, missing, unswitchable = [], [], [], []
     for name in sorted(_mentioned_skills(state)):
@@ -1170,14 +1253,23 @@ def cmd_focus(argv: list[str]) -> int:
                     % (name, found[0]),
                     hint="rules and workflows have no links to sideline; "
                          "`boost quarantine` suspends one")
+            # Focus sidelines and restores user-scope links; a project skill
+            # is a real directory in the repo, with no link to restore.
+            integrity.refuse_project_only(name, "boost focus")
             raise BoostError("%s is not installed — focus works on installed "
                             "skills" % name, hint="see `boost list`")
         if entry.get("quarantined"):
             raise BoostError("%s is quarantined" % name,
-                            hint="release it first with `boost quarantine`")
+                            hint="release it first with `boost quarantine "
+                                 "--release %s`" % name)
     sidelined = 0
     for name, entry in sorted(inst.items()):
         if name in names or entry.get("quarantined"):
+            continue
+        # Already set aside by context or a profile: leave its flag alone.
+        # Restamping it "focus" made `--clear` relink it, undoing that
+        # mechanism, and count a restore this session never sidelined.
+        if entry.get("sidelined_by") not in (None, "focus"):
             continue
         if store.sideline(name, "focus"):
             sidelined += 1
@@ -1210,7 +1302,11 @@ def cmd_impact(argv: list[str]) -> int:
     in_repo = git.in_repo
     note = _IMPACT_NOTE if in_repo else _IMPACT_NOTE_NO_REPO
 
-    inst = lockfile.installed()
+    # The current project's `--local` skills count as installed — `boost
+    # list` shows them. A name in both scopes is the user row, as everywhere.
+    inst = lockfile.installed().copy()
+    for pname, pentry in integrity.project_skills()[1].items():
+        inst.setdefault(pname, pentry)
     if args.name:
         args.name = store.installed_name(args.name)
         if args.name not in inst:
@@ -1400,9 +1496,13 @@ def _chat_session(args) -> int:
     # With stdin piped nobody is typing, so the prompt and the typing hint are
     # only chrome in the answers a script captures — the same rule
     # output.confirm applies. A terminal is unchanged.
-    typing = sys.stdin.isatty()
+    typing = out.stdin_is_tty()
     if typing:
         out.info(out.role("ask about skills; blank line or Ctrl-D to exit", "muted"))
+    if sys.stdin is None:
+        # fd 0 closed at launch (`<&-`): input() would raise RuntimeError
+        # ("lost sys.stdin"), but this is just an EOF before the first line.
+        return 0
     history: list[chat_engine.Turn] = []
     while True:
         try:

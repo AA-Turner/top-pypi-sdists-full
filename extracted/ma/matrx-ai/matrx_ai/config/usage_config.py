@@ -2146,6 +2146,7 @@ def validate_model_pricing(
     pricing: Any,
     *,
     token_billed: bool,
+    runs_on_device: bool = False,
 ) -> list[PricingIssue]:
     """Validate one model's pricing against USAGE_BASIS_SPECS. Returns a list of
     issues (empty = clean). Pure + dependency-free so it runs in scripts, the
@@ -2155,6 +2156,12 @@ def validate_model_pricing(
     offering bills on real provider tokens, so a NULL ``usage_basis`` is intentional.
     It is never inferred from a wire_format / api_class / model name — that guess is
     how customers get mis-charged.
+
+    ``runs_on_device`` is the RECORDED fact that the model has no ``ai.offering`` at all
+    and ships as an ``ai.model_variant`` the user's own machine downloads and runs
+    (whisper.cpp, Kokoro, wake words, local diffusion, LoRAs). No provider ever bills it,
+    so "no pricing rows" is the truth, not a gap. The moment such a model gains a cloud
+    offering the caller passes that offering's pricing with ``runs_on_device=False``.
     """
     issues: list[PricingIssue] = []
     wire_format = wire_format or ""
@@ -2165,7 +2172,7 @@ def validate_model_pricing(
 
     tiers = pricing if isinstance(pricing, list) else []
     if not tiers:
-        if is_media:
+        if is_media and not runs_on_device:
             add("error", "no_pricing", "media model has no pricing rows — cost will be $0/None.")
         return issues
 

@@ -1,8 +1,8 @@
 """Operations with fully custom pass structures.
 
 ``median`` is an order statistic: values are placed group by group via a
-counting sort (O(n)) and the middle of each group is then *selected* via
-partition (O(n) on average) instead of sorting within the groups.
+counting sort (O(n)) and the middle of each group is then *selected* (O(n) on
+average) instead of sorting within the groups.
 ``sort`` uses the same counting-sort placement, but orders every group-block -
 by insertion sort while the block is small, by ``np.sort`` beyond that - and
 scatters the blocks back to the positions their group occupies in the input.
@@ -19,60 +19,49 @@ import numpy.typing as npt
 from numpy_groupies.aggregate_numba.compose import (
     build_custom_kernel,
     build_kernel,
+    complex_less,
     output_size,
     rule_float,
     rule_same,
 )
 from numpy_groupies.aggregate_numba.jit import njit_stable
-from numpy_groupies.aggregate_numpy import _aggregate_base
+from numpy_groupies.aggregate_numba.steps import group_count, group_place, group_starts
 
 
-def _numpy_fallback(group_idx, a, func, size, fill_value, order, dtype, axis):
-    """Hand an input dtype the compiled drivers cannot handle to numpy.
+def _median_valid_plain(
+    g: int,
+    a_sorted: npt.NDArray[np.number],
+    counts: npt.NDArray[np.int64],
+    starts: npt.NDArray[np.int64],
+) -> int:
+    """the number of usable values of group g, 0 if a nan poisons the group.
 
-    Reached for complex input of ``median``: numba can neither partition
-    complex values nor select a middle one of them.  ``sort`` does not need
-    this - ``np.sort`` of numba orders complex like numpy does.
+    The values stay where they are: the block of the group is contiguous
+    already, and the selection that follows copies it anyway - copying it
+    here as well would write every value twice (measured 1.6ms per 500k
+    values).  The nans are looked for in a loop instead of with a temporary
+    array, which would have to be allocated and filled for every group.
     """
-    return _aggregate_base(group_idx, a, func, size=size, fill_value=fill_value, order=order, dtype=dtype, axis=axis)
-
-
-def _group_count(group_idx, size):
-    """bounds-checked per-group element counts"""
-    counts = np.zeros(size, np.int64)
-    for i in range(len(group_idx)):
-        g = group_idx[i]
-        if g < 0:
-            raise ValueError("negative indices not supported")
-        if g >= size:
-            raise ValueError("one or more indices in group_idx are too large")
-        counts[g] += 1
-    return counts
-
-
-def _group_starts(counts):
-    """first index of each group-block"""
-    return np.cumsum(counts) - counts
-
-
-def _group_place(group_idx, a, cursor, a_sorted):
-    """scatter the values into their group-blocks"""
-    for i in range(len(group_idx)):
-        g = group_idx[i]
-        a_sorted[cursor[g]] = a[i]
-        cursor[g] += 1
-
-
-def _median_valid(g, a_sorted, counts, starts, buf, nans):
-    """copy group g into buf, returning the number of usable values;
-    groups with nans yield 0 for plain median (nan is contagious),
-    while nanmedian keeps the group with the nans filtered out"""
-    begin, size_g = starts[g], counts[g]
-    if not nans:
-        buf[:size_g] = a_sorted[begin : begin + size_g]
-        if np.sum(buf[:size_g] != buf[:size_g]) > 0:
+    begin: int = starts[g]
+    size_g: int = counts[g]
+    for i in range(size_g):
+        v = a_sorted[begin + i]
+        if v != v:
             return 0
-        return size_g
+    return size_g
+
+
+def _median_valid_nan(
+    g: int,
+    a_sorted: npt.NDArray[np.number],
+    counts: npt.NDArray[np.int64],
+    starts: npt.NDArray[np.int64],
+    buf: npt.NDArray[np.number],
+) -> int:
+    """copy the usable values of group g into buf, returning their number -
+    the nans are filtered out, so the group keeps its usable values"""
+    begin: int = starts[g]
+    size_g: int = counts[g]
     m = 0
     for i in range(size_g):
         v = a_sorted[begin + i]
@@ -82,27 +71,142 @@ def _median_valid(g, a_sorted, counts, starts, buf, nans):
     return m
 
 
-def _median_middle(values):
-    """select the middle value(s) of a group - no sorting needed"""
-    m = len(values)
-    part = np.partition(values, m // 2)
-    if m % 2 == 1:
-        return part[m // 2]
-    # the lower middle is the maximum of the unsorted left half; the 1.0
-    # promotes integral input to float64, just like np.median promotes
-    # before averaging - summing the two middles in their own dtype
-    # overflows (int64 2**62 + 2**62) and adds bool as a logical or
-    return (np.max(part[: m // 2]) * 1.0 + part[m // 2]) / 2
+# The number of partition passes a selection may make per power of two of the
+# length of the block it works on, before it orders the block instead: a
+# quickselect is O(n) on average, and the fallback keeps the worst case at
+# O(n log n).
+_SELECT_PASSES = 8
 
 
-def _median_driver_factory(nans):
-    _count = njit_stable(_group_count)
-    _starts = njit_stable(_group_starts)
-    _place = njit_stable(_group_place)
-    _valid = njit_stable(_median_valid)
-    _middle = njit_stable(_median_middle)
+def _select_kth(
+    arr: npt.NDArray[np.number],
+    lo: int,
+    hi: int,
+    k: int,
+) -> typing.Any:
+    """The k-th smallest of ``arr[lo:hi]``, the block reordered in place.
 
-    def driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, ddof):
+    A quickselect: the block is partitioned around a pivot until the position
+    of the wanted element is settled.  The pivot is the median of the first,
+    the middle and the last element of the range, which keeps the number of
+    passes logarithmic for the blocks a group is made of - sorted, reversed
+    and constant blocks alike.  A block that needs more passes than the limit
+    allows is ordered instead, so that the worst case stays at O(n log n).
+
+    ``k`` is an index into ``arr``, not an offset into the range.
+
+    Numba's ``np.partition`` would do the same job, but it copies every block
+    it is given and hands the copy back (measured 9.2ms against 1.2ms for
+    this, over 500k values in 1000 groups) - and the copy is not even needed,
+    since the block is a temporary that the median does not care about.
+
+    The values are compared with ``complex_less``, the ordering every other
+    kernel of this package compares with: numpy orders complex values
+    lexicographically, and the median of a complex group is the middle of that
+    order.  For the real dtypes the call is the plain comparison - the branch
+    on the dtype is settled when the kernel is compiled.
+    """
+    limit = _SELECT_PASSES
+    span = hi - lo
+    remaining = span
+    while remaining > 1:
+        remaining >>= 1
+        limit += 4
+    while span > 1:
+        limit -= 1
+        if limit <= 0:
+            # the fallback: order the range and take the element from there
+            arr[lo:hi].sort()
+            return arr[k]
+        mid = lo + span // 2
+        # the pivot: the median of the first, the middle and the last value of
+        # the range, with the ordering of the package - for the real dtypes
+        # that is the plain comparison, for complex values it is the
+        # lexicographic order numpy uses
+        x = arr[lo]
+        y = arr[mid]
+        z = arr[hi - 1]
+        if complex_less(x, y):
+            small, middle = x, y
+        else:
+            small, middle = y, x
+        if complex_less(middle, z):
+            pivot = middle
+        elif complex_less(small, z):
+            pivot = z
+        else:
+            pivot = small
+        i = lo - 1
+        j = hi
+        while True:
+            i += 1
+            while complex_less(arr[i], pivot):
+                i += 1
+            j -= 1
+            while complex_less(pivot, arr[j]):
+                j -= 1
+            if i >= j:
+                break
+            arr[i], arr[j] = arr[j], arr[i]
+        # everything in arr[lo..j] is at most the pivot and everything in
+        # arr[j+1..hi-1] is at least it, so the wanted element is in one of
+        # the two halves
+        if k <= j:
+            hi = j + 1
+        else:
+            lo = j + 1
+        span = hi - lo
+    return arr[k]
+
+
+def _median_driver_factory(nans: bool) -> typing.Any:
+    # every operation builds its own copies of the shared helpers - the
+    # compiled specialization of one must not reach into the other (see
+    # compose.build_kernel)
+    op_name = "nanmedian" if nans else "median"
+    _count = njit_stable(group_count)
+    _starts = njit_stable(group_starts)
+    _place = njit_stable(group_place)
+    _valid_plain = njit_stable(_median_valid_plain)
+    _valid_nan = njit_stable(_median_valid_nan)
+    # the selection and the middle that uses it: the middle closes over the
+    # selection, so that the compiled block belongs to the operation that uses
+    # it (see njit_stable)
+    _select = njit_stable(_select_kth, name=f"{op_name}_select")
+
+    def _middle(a_sorted: npt.NDArray[np.number], begin: int, m: int) -> typing.Any:
+        """the middle value(s) of the block at ``a_sorted[begin:begin+m]``.
+
+        No sorting needed: the wanted element is selected in place, and the
+        block is left in the order the selection put it in - the median does
+        not care about the order of the values it looks at.
+        """
+        k = m // 2
+        upper = _select(a_sorted, begin, begin + m, begin + k)
+        if m % 2 == 1:
+            return upper
+        # the lower middle is the largest of the left half, which the
+        # selection left in place; the 1.0 promotes integral input to float64,
+        # just like np.median promotes before averaging - summing the two
+        # middles in their own dtype overflows (int64 2**62 + 2**62) and adds
+        # bool as a logical or
+        lower = a_sorted[begin]
+        for i in range(begin + 1, begin + k):
+            if complex_less(lower, a_sorted[i]):
+                lower = a_sorted[i]
+        return (lower * 1.0 + upper) / 2
+
+    _middle = njit_stable(_middle, name=f"{op_name}_middle")
+
+    def driver(
+        group_idx: npt.NDArray[np.integer],
+        a: npt.NDArray[np.number],
+        size_arg: int,
+        out_dtype: np.dtype,
+        aux_dtype: np.dtype,
+        fill_value: float,
+        ddof: int,
+    ) -> npt.NDArray[np.number]:
         # median is order-insensitive and takes no ddof - both slots unused
         size = output_size(group_idx, size_arg)
         out = np.full(size, fill_value, out_dtype)
@@ -112,17 +216,32 @@ def _median_driver_factory(nans):
         # within a block is arbitrary, which the median ignores)
         a_sorted = np.empty(group_idx.size, a.dtype)
         _place(group_idx, a, starts.copy(), a_sorted)
-        buf = np.empty(group_idx.size, a.dtype)
+        # the nan variant filters the nans out into a buffer of its own, the
+        # plain one leaves the values where they are
+        buf = np.empty(group_idx.size, a.dtype) if nans else np.empty(0, a.dtype)
         for g in range(size):
             if counts[g] == 0:
                 continue  # untouched group, keeps the fill value
-            m = _valid(g, a_sorted, counts, starts, buf, nans)
-            if m == 0:
-                # all-nan group for nanmedian, or a nan-poisoned group
-                # for plain median (where any nan is contagious)
-                out[g] = fill_value if nans else np.nan
+            if nans:
+                m = _valid_nan(g, a_sorted, counts, starts, buf)
+                if m == 0:
+                    # all-nan group: it keeps the fill value
+                    out[g] = fill_value
+                else:
+                    out[g] = _middle(buf, 0, m)
             else:
-                out[g] = _middle(buf[:m])
+                m = _valid_plain(g, a_sorted, counts, starts)
+                if m == 0:
+                    # a nan-poisoned group for plain median (where any nan is
+                    # contagious) - the poison is shaped like the output, since
+                    # a plain nan written into a complex column leaves its
+                    # imaginary part at a zero the group never claimed to have.
+                    # The cell still holds the fill value, which is of the
+                    # output dtype, and a nan times a value of that dtype is a
+                    # nan in every part it has (for a real dtype: the plain nan)
+                    out[g] = out[g] * np.nan
+                else:
+                    out[g] = _middle(a_sorted, starts[g], m)
         return out
 
     return njit_stable(driver, name=f"{'nan' if nans else ''}median_driver")
@@ -133,7 +252,6 @@ median = build_custom_kernel(
     driver_factory=_median_driver_factory,
     rule=rule_float,
     fill_default=np.nan,
-    fallback=_numpy_fallback,
     doc="Median of the values of every group",
 )
 
@@ -151,7 +269,7 @@ _INSERTION_SORT_LIMIT = 32
 
 
 @njit_stable
-def _order_block(a_sorted, begin, size_g, reverse):
+def _order_block(a_sorted: npt.NDArray[np.number], begin: int, size_g: int, reverse: bool) -> npt.NDArray[np.number]:
     """order one group-block of the flat array, descending if ``reverse``.
 
     ``size_g`` is at least two, the caller leaves a block of a single value
@@ -207,14 +325,24 @@ def _order_block(a_sorted, begin, size_g, reverse):
     return a_sorted
 
 
-def _sort_blocks(a_sorted, counts, starts, reverse):
+def _sort_blocks(
+    a_sorted: npt.NDArray[np.number],
+    counts: npt.NDArray[np.int64],
+    starts: npt.NDArray[np.int64],
+    reverse: bool,
+) -> None:
     """order the values inside every group-block, the singletons left alone"""
     for g in range(len(counts)):
         if counts[g] > 1:
             _order_block(a_sorted, starts[g], counts[g], reverse)
 
 
-def _sort_scatter(group_idx, a_sorted, starts, out):
+def _sort_scatter(
+    group_idx: npt.NDArray[np.integer],
+    a_sorted: npt.NDArray[np.number],
+    starts: npt.NDArray[np.int64],
+    out: npt.NDArray[np.number],
+) -> None:
     """write the ordered blocks back to the positions their group occupies
     in the input - the j-th value of a group goes to its j-th appearance"""
     cursor = starts.copy()
@@ -224,14 +352,25 @@ def _sort_scatter(group_idx, a_sorted, starts, out):
         cursor[g] += 1
 
 
-def _sort_driver_factory(nans):
-    _count = njit_stable(_group_count)
-    _starts = njit_stable(_group_starts)
-    _place = njit_stable(_group_place)
+def _sort_driver_factory(nans: bool) -> typing.Any:
+    # every operation builds its own copies of the shared helpers - the
+    # compiled specialization of one must not reach into the other (see
+    # compose.build_kernel)
+    _count = njit_stable(group_count)
+    _starts = njit_stable(group_starts)
+    _place = njit_stable(group_place)
     _blocks = njit_stable(_sort_blocks)
     _scatter = njit_stable(_sort_scatter)
 
-    def driver(group_idx, a, size_arg, out_dtype, aux_dtype, fill_value, ddof):
+    def driver(
+        group_idx: npt.NDArray[np.integer],
+        a: npt.NDArray[np.number],
+        size_arg: int,
+        out_dtype: np.dtype,
+        aux_dtype: np.dtype,
+        fill_value: float,
+        ddof: int,
+    ) -> npt.NDArray[np.number]:
         # sort emits one value per input item, so neither the group count nor
         # the fill value is of any use here; the reverse flag arrives in the
         # slot trapezoid uses for its sample spacing
@@ -265,13 +404,21 @@ class TrapezoidState(typing.NamedTuple):
     values."""
 
     out: npt.NDArray[np.inexact]
-    prev: npt.NDArray[np.generic]
+    prev: npt.NDArray[np.number]
     pending: npt.NDArray[np.bool_]
     untouched: npt.NDArray[np.bool_]
     track: bool
 
 
-def _trapezoid_init(size, n_input, out_dtype, aux_dtype, in_dtype, fill_value, forced_fill):
+def _trapezoid_init(
+    size: int,
+    n_input: int,
+    out_dtype: np.dtype,
+    aux_dtype: np.dtype,
+    in_dtype: np.dtype,
+    fill_value: float,
+    forced_fill: float,
+) -> TrapezoidState:
     track = fill_value != forced_fill
     untouched = np.ones(size, np.bool_) if track else np.empty(0, np.bool_)
     return TrapezoidState(
@@ -283,7 +430,7 @@ def _trapezoid_init(size, n_input, out_dtype, aux_dtype, in_dtype, fill_value, f
     )
 
 
-def _trapezoid_update(st, ri, i, val, fill_value, ddof):
+def _trapezoid_update(st: TrapezoidState, ri: int, i: int, val: float, fill_value: float, ddof: int) -> None:
     if st.track:
         st.untouched[ri] = False
     if st.pending[ri]:
@@ -295,7 +442,7 @@ def _trapezoid_update(st, ri, i, val, fill_value, ddof):
     st.prev[ri] = val
 
 
-def _trapezoid_untouched(st):
+def _trapezoid_untouched(st: TrapezoidState) -> npt.NDArray[np.bool_]:
     return st.untouched
 
 

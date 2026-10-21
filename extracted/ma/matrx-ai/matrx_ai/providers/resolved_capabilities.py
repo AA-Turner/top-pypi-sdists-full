@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -24,6 +24,7 @@ from matrx_ai.media.video_reference_roles import normalize_video_limits
 from matrx_ai.providers.capability_vocabulary import (
     INTERACTION_MODES,
     VOCABULARY_FILE,
+    InteractionMode,
     normalize_capabilities,
 )
 
@@ -102,7 +103,7 @@ class ResolvedModelCapabilities(BaseModel):
     # "single" (one-shot image/video generation) or "agent" (provider-managed
     # background agent) into "turn" — the same silent-narrowing class as the
     # features drift, found by census rather than by a report.
-    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent", "decision"]
+    interaction: InteractionMode
     multilingual: bool
     # Image-generation reference roles this model takes: {role: max, "total": n}.
     # Empty = no roled reference image is accepted (the gate refuses).
@@ -117,7 +118,7 @@ class _DeclaredCapabilities(BaseModel):
     input: frozenset[str]
     output: frozenset[str]
     features: frozenset[str]
-    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent", "decision"]
+    interaction: InteractionMode
     multilingual: bool
     image_reference_limits: dict[str, int] = {}
     video_reference_limits: dict[str, int] = {}

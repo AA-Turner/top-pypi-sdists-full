@@ -777,6 +777,9 @@ class AnyscaleClientInterface(ABC):
     ) -> str:
         """Upload the provided directory to cloud storage and return a URI for it.
 
+        `cloud_resource_name` is the name or id of the cloud resource whose bucket
+        receives the upload, or None for the cloud's primary resource.
+
         The directory will be zipped and the resulting URI can be used in a Ray runtime_env.
 
         The upload is preformed using a pre-signed URL fetched from Anyscale, so no
@@ -799,6 +802,9 @@ class AnyscaleClientInterface(ABC):
     ) -> str:
         """Upload the provided directory to the object storage for each of the provided
         cloud resources and return the bucket path of the uploaded file.
+
+        Each entry of `cloud_resource_names` is a cloud resource's name or id, or
+        None for the cloud's primary resource.
 
         The directory will be zipped and the resulting bucket path will later be converted
         to a URI that can be used in a Ray runtime_env.

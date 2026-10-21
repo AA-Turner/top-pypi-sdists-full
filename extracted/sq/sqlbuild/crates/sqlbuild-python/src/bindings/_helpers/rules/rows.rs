@@ -28,13 +28,13 @@ use sqlbuild_rules::rule_cache::main::rules_bulk_cache_path::rules_bulk_cache_pa
 
 use crate::bindings::_helpers::boundary::keyword_request::Request;
 use crate::bindings::_helpers::boundary::panics::{compiler_guard, value_error};
+use crate::bindings::_helpers::boundary::python_calls::imported;
 use crate::bindings::_helpers::cache::native_store::current_code_identity;
-use crate::bindings::_helpers::compile_driver::python_calls::imported;
-use crate::bindings::_helpers::compiled_project::audit_views::NativeCompiledAudit;
 use crate::bindings::_helpers::compiled_project::project::NativeCompiledProject;
-use crate::bindings::_helpers::compiled_project::records::compiled_project_facts;
-use crate::bindings::_helpers::compiled_project::records::declaration_rows;
 use crate::bindings::_helpers::compiled_project::values::plain_value;
+use crate::bindings::_helpers::compiled_views::audit_views::NativeCompiledAudit;
+use crate::bindings::_helpers::compiled_views::records::compiled_project_facts;
+use crate::bindings::_helpers::compiled_views::records::declaration_rows;
 use crate::bindings::_helpers::records::construct::new_record_with;
 use crate::bindings::_helpers::records::fields::field;
 use crate::bindings::_helpers::records::ids::RecordId;
@@ -62,6 +62,16 @@ struct DeclarationRowPy<'py>(
     Option<String>,
     Option<String>,
 );
+
+/// The code, path, line, column and message that identify one fault.
+#[derive(Hash, PartialEq, Eq)]
+struct FaultIdentity {
+    code: String,
+    path: String,
+    line: u64,
+    column: u64,
+    message: String,
+}
 
 /// The request's project facts, which models, tests and scenarios are built beside.
 struct ProjectRows<'py> {
@@ -296,7 +306,7 @@ fn built_request(
         request.models = built_models(&rows, &request, model_rows)?;
         let request: EvaluateRequest =
             crate::bindings::_helpers::compile_delta::rules_rows::whole_project_request(request)?;
-        let delta: bool = crate::bindings::_helpers::compile_delta::context::injection().is_some();
+        let delta: bool = crate::bindings::_helpers::compile_context::delta::injection().is_some();
         let memo: Option<(String, PathBuf)> = rows
             .memo
             .take()
@@ -305,7 +315,7 @@ fn built_request(
         Ok(RowsRequest {
             request,
             memo,
-            retain: crate::bindings::_helpers::compile_delta::context::capturing(),
+            retain: crate::bindings::_helpers::compile_context::delta::capturing(),
         })
     })
 }
@@ -346,9 +356,9 @@ fn evaluated<'py>(
         RowsError::Io(error) => PyOSError::new_err(error.to_string()),
     })?;
     if let Some(retained) = evaluation.retained.take() {
-        crate::bindings::_helpers::compile_delta::context::capture(|capture| {
+        crate::bindings::_helpers::compile_context::delta::capture(|capture| {
             capture.rules =
-                Some(crate::bindings::_helpers::compile_delta::context::CapturedRules { retained });
+                Some(crate::bindings::_helpers::compile_context::delta::CapturedRules { retained });
         });
     }
     let classes = FindingClasses::new(py)?;
@@ -410,7 +420,7 @@ fn finalized<'py>(
         .str()?
         .to_str()?
         .to_owned();
-    let mut fixable: HashSet<(String, String, u64, u64, String)> = HashSet::new();
+    let mut fixable: HashSet<FaultIdentity> = HashSet::new();
     let mut faults: Vec<Fault> = Vec::with_capacity(findings.len());
     for finding in &findings {
         let fault: Fault = finding_fault(finding)?;
@@ -518,14 +528,14 @@ fn declaration_member((name, value): (String, Bound<'_, PyAny>)) -> PyResult<Dec
     })
 }
 
-fn fault_identity(fault: &Fault) -> (String, String, u64, u64, String) {
-    (
-        fault.code.clone(),
-        fault.path.clone(),
-        fault.line,
-        fault.column,
-        fault.message.clone(),
-    )
+fn fault_identity(fault: &Fault) -> FaultIdentity {
+    FaultIdentity {
+        code: fault.code.clone(),
+        path: fault.path.clone(),
+        line: fault.line,
+        column: fault.column,
+        message: fault.message.clone(),
+    }
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {

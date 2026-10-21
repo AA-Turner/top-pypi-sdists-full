@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from .._kana_utils import is_hiragana_word
 from ..openjtalk import OpenJTalk
 from ..types import MeCabMorph
 from . import diagnostics
@@ -331,10 +332,26 @@ def _find_dictionary_owned_quantity_ranges(
     while morph_index < len(morphs):
         morph = morphs[morph_index]
         features = morph["features"]
-        # 経過文脈の「一月」は MeCab 既定の ヒトツキ 読みを維持する
+        # 経過時間を表す文脈の「一月」は、既定の「ヒトツキ」という読みを維持する
         if _is_duration_month_morph(morphs, morph_index) is True:
             protected_ranges.append(morph["char_span"])
             morph_index += 1
+            continue
+
+        # 「1日中」の「日」と「中」は数詞に続く日数と「ジュウ」なので、1語の「日中」(「ニッチュウ」) を選ばせない
+        if (
+            morph_index + 2 < len(morphs)
+            and len(features) >= 3
+            and features[1:3] == ["名詞", "数"]
+            and morphs[morph_index + 1]["surface"] == "日"
+            and morphs[morph_index + 2]["surface"] == "中"
+            and morph["char_span"][1] == morphs[morph_index + 1]["char_span"][0]
+            and morphs[morph_index + 1]["char_span"][1] == morphs[morph_index + 2]["char_span"][0]
+        ):
+            protected_ranges.append(
+                (morphs[morph_index + 1]["char_span"][0], morphs[morph_index + 2]["char_span"][1])
+            )
+            morph_index += 3
             continue
 
         # 辞書が「何分」を1形態素にまとめる場合は、単独の時間量問いとして既定読みを維持する
@@ -343,7 +360,7 @@ def _find_dictionary_owned_quantity_ranges(
             morph_index += 1
             continue
 
-        # 十時間 / 何時間 など、辞書が1形態素にまとめた時間量は既定読みを維持する
+        # 「十時間」や「何時間」など、辞書が1形態素にまとめた時間量は既定読みを維持する
         if (
             _is_hour_duration_head_morph(morph) is True
             and morph["surface"].endswith("時間") is True
@@ -436,7 +453,7 @@ def _find_dictionary_owned_quantity_ranges(
                     morph_index += 4
                     continue
 
-            # 何 + 時 + まで + 後 は「何時まで (ナンジマデ) + 後 (ゴ)」の経路を維持する
+            # 「何」+「時」+「まで」+「後」は「何時まで」（「ナンジマデ」）+「後」（「ゴ」）の経路を維持する
             if morph_index + 3 < len(morphs):
                 hour_morph = morphs[morph_index + 1]
                 made_morph = morphs[morph_index + 2]
@@ -461,7 +478,7 @@ def _find_dictionary_owned_quantity_ranges(
                     morph_index += 3
                     continue
 
-            # 何 + 時 + 後 は「何時」単位の経過 (ナンジ + ゴ) を維持する
+            # 「何」+「時」+「後」は「何時」単位の経過（「ナンジ」+「ゴ」）を維持する
             if morph_index + 2 < len(morphs):
                 hour_morph = morphs[morph_index + 1]
                 following_morph = morphs[morph_index + 2]
@@ -638,8 +655,7 @@ def _resolve_selected_pronunciations(
             and morph_before_previous is not None
             and len(previous_morph["features"]) >= 3
             and previous_morph["features"][1:3] == ["名詞", "一般"]
-            and len(previous_morph["surface"]) > 0
-            and all("ぁ" <= character <= "ゖ" for character in previous_morph["surface"])
+            and is_hiragana_word(previous_morph["surface"]) is True
             and len(morph_before_previous["features"]) >= 2
             and morph_before_previous["features"][1] == "動詞"
             and morph_before_previous["char_span"][1] == previous_morph["char_span"][0]
@@ -779,9 +795,9 @@ def _resolve_selected_pronunciations(
 
 def select_mecab_features_with_tsqyomi(
     text: str,
-    jtalk: OpenJTalk,
     *,
     include_morphs: bool = True,
+    jtalk: OpenJTalk,
 ) -> tuple[list[str], list[MeCabMorph]]:
     """
     ロード済みの tsqyomi モデルで選んだ読みの MeCab feature 列を返す。
@@ -789,8 +805,8 @@ def select_mecab_features_with_tsqyomi(
 
     Args:
         text (str): 正規化済みの Unicode 日本語テキスト
-        jtalk (OpenJTalk): 候補解析に使う OpenJTalk インスタンス
         include_morphs (bool): 呼び出し元が詳細形態素列を必要とする場合は True
+        jtalk (OpenJTalk): 候補解析に使う OpenJTalk インスタンス
 
     Returns:
         tuple[list[str], list[MeCabMorph]]: NJD 入力用 MeCab feature 列と差し替え後の形態素列
@@ -808,7 +824,6 @@ def select_mecab_features_with_tsqyomi(
         if include_morphs is False:
             return jtalk.run_mecab(normalized_text), []
         return jtalk.run_mecab_detailed(normalized_text)
-
     processing_segments = _split_target_processing_segments(normalized_text, target_spans)
     if len(processing_segments) > 1:
         combined_features: list[str] = []
@@ -818,8 +833,8 @@ def select_mecab_features_with_tsqyomi(
             diagnostic_start_index = diagnostics.record_count()
             segment_features, segment_morphs = select_mecab_features_with_tsqyomi(
                 normalized_text[segment_start:segment_end],
-                jtalk,
                 include_morphs=include_morphs,
+                jtalk=jtalk,
             )
             diagnostics.rebase_recording_char_spans(diagnostic_start_index, segment_start)
             combined_features.extend(segment_features)
@@ -860,7 +875,8 @@ def select_mecab_features_with_tsqyomi(
             )
             continue
         # 数量表現の内部は最良経路の辞書読みで完結しており、部分表層ごとのモデル介入を行わない
-        if any(
+        ## 「二十三円」の「十三」のように数詞の並びの途中から始まるか途中で終わる対象も、地名などの語ではなく数の一部である
+        if _is_inside_numeral_run(analysis["morphs"], morph_range) is True or any(
             protected_start <= char_span[0] and char_span[1] <= protected_end
             for protected_start, protected_end in dictionary_owned_quantity_ranges
         ):
@@ -889,6 +905,7 @@ def select_mecab_features_with_tsqyomi(
             allowed_readings,
             nodes_by_id,
         )
+        span_paths = _filter_inflection_paths(analysis, morph_range, span_paths)
         pronunciations = tuple(dict.fromkeys(path["pronunciation"] for path in span_paths))
         # 候補グラフ上で読み候補が2件未満なら、辞書の最良経路をそのまま維持する
         if len(pronunciations) < 2:
@@ -969,6 +986,41 @@ def select_mecab_features_with_tsqyomi(
                             target.selected_pronunciation,
                             *target.pronunciations,
                         ),
+                        selected_pronunciation=target.selected_pronunciation,
+                        score_margin=target.score_margin,
+                        was_preserved=target.was_preserved,
+                    )
+                )
+                continue
+            # モデルが最良経路と同じ読みを選んだ対象は、差し替えずに最良経路の形態素の区切りを保つ
+            ## 候補は対象全体を覆う1語だけなので、差し替えると「十三人」の「十」+「三」が地名と同じ表記の「十三」の1語になり、数詞と助数詞のアクセントが崩れる
+            ## 読みは辞書の既定の経路から変わらないので、形態素に is_tsqyomi_selected の印も付けない
+            class_index_by_pronunciation = model.metadata.class_index_by_surface_and_pronunciation[
+                target.surface
+            ]
+            default_pronunciation = _default_path_pronunciation(
+                analysis["morphs"],
+                target.morph_range,
+            )
+            if (
+                target.selected_pronunciation is not None
+                and default_pronunciation is not None
+                and class_index_by_pronunciation.get(
+                    canonicalize_pronunciation(default_pronunciation)
+                )
+                == class_index_by_pronunciation[
+                    canonicalize_pronunciation(target.selected_pronunciation)
+                ]
+            ):
+                for morph in analysis["morphs"][target.morph_range[0] : target.morph_range[1]]:
+                    morph["is_tsqyomi_target"] = True
+                diagnostics.record(
+                    diagnostics.TargetDiagnostic(
+                        segment_text=analysis["normalized_text"],
+                        char_span=target.char_span,
+                        surface=target.surface,
+                        outcome="applied",
+                        reachable_pronunciations=target.pronunciations,
                         selected_pronunciation=target.selected_pronunciation,
                         score_margin=target.score_margin,
                         was_preserved=target.was_preserved,
@@ -1070,7 +1122,10 @@ def select_mecab_features_with_tsqyomi(
                 else:
                     link_cost = connection_costs[(previous_selected_node_id, path["node_ids"][0])]
                 cumulative_cost += link_cost
-                selected_morphs.append(_replace_morph(node, link_cost, cumulative_cost))
+                selected_morph = _replace_morph(node, link_cost, cumulative_cost)
+                selected_morph["is_tsqyomi_selected"] = True
+                selected_morph["is_tsqyomi_target"] = True
+                selected_morphs.append(selected_morph)
                 morph_index = target.morph_range[1]
                 previous_selected_node_id = path["node_ids"][-1]
                 pending_right_link_cost = path["right_link_cost"]
@@ -1084,13 +1139,12 @@ def select_mecab_features_with_tsqyomi(
                 else base_morph["link_cost"]
             )
             cumulative_cost += link_cost
-            selected_morphs.append(
-                _copy_morph(
-                    base_morph,
-                    link_cost=link_cost,
-                    node_cost=cumulative_cost,
-                )
+            copied_morph = _copy_morph(
+                base_morph,
+                link_cost=link_cost,
+                node_cost=cumulative_cost,
             )
+            selected_morphs.append(copied_morph)
             morph_index += 1
             previous_selected_node_id = None
             pending_right_link_cost = None
@@ -1243,6 +1297,45 @@ def _find_exact_morph_range(
     return None
 
 
+def _is_inside_numeral_run(
+    morphs: tuple[MeCabMorph, ...],
+    morph_range: tuple[int, int],
+) -> bool:
+    """
+    対象が、隙間なく続く数詞 (名詞,数) の並びの途中から始まるか、途中で終わるかを判定する。
+
+    Args:
+        morphs (tuple[MeCabMorph, ...]): MeCab の既定最良経路の形態素列
+        morph_range (tuple[int, int]): 対象表層の半開形態素添字区間
+
+    Returns:
+        bool: 対象の前か後ろに、同じ数詞の並びの形態素が隙間なく続く場合は True
+    """
+
+    start, end = morph_range
+    is_numeral = [
+        len(morph["features"]) >= 3 and morph["features"][1:3] == ["名詞", "数"]
+        for morph in morphs[max(start - 1, 0) : end + 1]
+    ]
+    first_index = start - max(start - 1, 0)
+    last_index = first_index + (end - start) - 1
+    # 対象の先頭の数詞が、直前の数詞に隙間なく続く (「二」+「十三」)
+    if (
+        start > 0
+        and is_numeral[first_index] is True
+        and is_numeral[first_index - 1] is True
+        and morphs[start - 1]["char_span"][1] == morphs[start]["char_span"][0]
+    ):
+        return True
+    # 対象の末尾の数詞に、直後の数詞が隙間なく続く (「十三」+「万」)
+    return (
+        end < len(morphs)
+        and is_numeral[last_index] is True
+        and is_numeral[last_index + 1] is True
+        and morphs[end - 1]["char_span"][1] == morphs[end]["char_span"][0]
+    )
+
+
 def _eligible_span_paths(
     analysis: ReadingAnalysis,
     char_span: tuple[int, int],
@@ -1278,6 +1371,71 @@ def _eligible_span_paths(
         if canonicalize_pronunciation(path["pronunciation"]) in allowed_readings
         and nodes_by_id[path["node_ids"][0]]["is_ignored"] is False
     ], False
+
+
+def _filter_inflection_paths(
+    analysis: ReadingAnalysis,
+    morph_range: tuple[int, int],
+    paths: list[CandidatePath],
+) -> list[CandidatePath]:
+    """
+    一段動詞の解析に対し、後続の「て」「た」「ず」へ接続できない活用の候補を外す。
+    連用中止では活用型の異なる動詞も成立するため、最良経路との活用型の一致は要求しない。
+
+    Args:
+        analysis (ReadingAnalysis): 最良経路と候補グラフ
+        morph_range (tuple[int, int]): 対象表層の半開形態素添字区間
+        paths (list[CandidatePath]): メタデータが許可する候補経路
+
+    Returns:
+        list[CandidatePath]: 後続形態素への接続と整合する候補経路
+    """
+
+    start, end = morph_range
+    if end - start != 1 or end == len(analysis["morphs"]):
+        return paths
+    morph = analysis["morphs"][start]
+    following = analysis["morphs"][end]
+    if (
+        morph["features"][1] != "動詞"
+        or morph["features"][5] != "一段"
+        or morph["char_span"][1] != following["char_span"][0]
+    ):
+        return paths
+    is_past_or_te_connection = morph["features"][6].startswith("連用") and (
+        (
+            following["surface"] in {"て", "で"}
+            and following["features"][1:3] == ["助詞", "接続助詞"]
+        )
+        or following["features"][5] == "特殊・タ"
+    )
+    is_negative_connection = (
+        morph["features"][6] == "未然形"
+        and following["features"][1] == "助動詞"
+        and following["features"][5] == "特殊・ヌ"
+    )
+    if not (is_past_or_te_connection or is_negative_connection):
+        return paths
+
+    compatible_paths: list[CandidatePath] = []
+    for path in paths:
+        if len(path["features"]) != 1:
+            continue
+        features = path["features"][0].split(",")
+        # 五段動詞はサ行を除いて音便形で接続する。「下り+て」を「クダリテ」にする候補は成立しない
+        ## 同じ発音を持つ名詞候補も除き、動詞の活用として実現できる読みだけをモデルへ渡す
+        expected_form = (
+            "未然形"
+            if is_negative_connection
+            else (
+                "連用タ接続"
+                if features[5].startswith("五段") and features[5] != "五段・サ行"
+                else "連用形"
+            )
+        )
+        if features[1] == "動詞" and features[6] == expected_form:
+            compatible_paths.append(path)
+    return compatible_paths
 
 
 def _group_adjacent_targets(
@@ -1397,6 +1555,8 @@ def _replace_morph(node: CandidateNode, link_cost: int, node_cost: int) -> MeCab
         is_unknown=node["is_unknown"],
         is_ignored=node["is_ignored"],
         dictionary_index=node["dictionary_index"],
+        is_tsqyomi_selected=False,
+        is_tsqyomi_target=False,
     )
 
 
@@ -1431,4 +1591,6 @@ def _copy_morph(
         is_unknown=morph["is_unknown"],
         is_ignored=morph["is_ignored"],
         dictionary_index=morph["dictionary_index"],
+        is_tsqyomi_selected=morph["is_tsqyomi_selected"],
+        is_tsqyomi_target=morph["is_tsqyomi_target"],
     )

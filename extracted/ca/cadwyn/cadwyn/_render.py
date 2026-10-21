@@ -2,7 +2,7 @@ import ast
 import inspect
 import textwrap
 from enum import Enum
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import typer
 from pydantic import BaseModel
@@ -11,7 +11,7 @@ from cadwyn._asts import get_fancy_repr, pop_docstring_from_cls_body
 from cadwyn._utils import lenient_issubclass
 from cadwyn.exceptions import CadwynRenderError
 from cadwyn.schema_generation import (
-    PydanticFieldWrapper,
+    SchemaGenerator,
     _EnumWrapper,
     _PydanticModelWrapper,
     generate_versioned_models,
@@ -80,7 +80,7 @@ def _render_model_from_ast(
     if isinstance(wrapper, _EnumWrapper):
         return _render_enum_model(wrapper, model_ast)
     else:
-        return _render_pydantic_model(wrapper, model_ast)
+        return _render_pydantic_model(wrapper, model_ast, generator)
 
 
 def _render_enum_model(wrapper: _EnumWrapper[Enum], original_cls_node: ast.ClassDef):
@@ -107,18 +107,22 @@ def _render_enum_model(wrapper: _EnumWrapper[Enum], original_cls_node: ast.Class
     return original_cls_node
 
 
-def _render_pydantic_model(wrapper: _PydanticModelWrapper[BaseModel], original_cls_node: ast.ClassDef):
+def _render_pydantic_model(
+    wrapper: _PydanticModelWrapper[BaseModel], original_cls_node: ast.ClassDef, generator: SchemaGenerator
+):
     # This is for possible schema renaming
     original_cls_node.name = wrapper.name
 
+    # The same fields as in the copies of the model
+    field_attributes, annotations = wrapper.get_field_attributes_and_annotations(generator.model_bundle.schemas)
     field_definitions = [
         ast.AnnAssign(
             target=ast.Name(name),
-            annotation=ast.Name(get_fancy_repr(field.annotation)),
-            value=_generate_field_ast(field),
+            annotation=ast.Name(get_fancy_repr(annotations[name])),
+            value=_generate_field_ast(attributes),
             simple=1,
         )
-        for name, field in wrapper.fields.items()
+        for name, attributes in field_attributes.items()
     ]
     validator_definitions = [
         ast.parse(textwrap.dedent(inspect.getsource(validator.func))).body[0]
@@ -135,13 +139,22 @@ def _render_pydantic_model(wrapper: _PydanticModelWrapper[BaseModel], original_c
         )
     ]
     docstring = pop_docstring_from_cls_body(old_body)
-    original_cls_node.body = docstring + field_definitions + validator_definitions + old_body
+    # We keep the docstring from the source unless an instruction changed it
+    if wrapper.doc != wrapper.cls.__doc__:
+        docstring = [ast.Expr(ast.Constant(wrapper.doc))] if wrapper.doc else []
+    body = field_definitions + validator_definitions + old_body
+    if not docstring:
+        # A string at the start of the body would become the docstring, e.g. the documentation of a ClassVar
+        # whose definition we do not render, so we skip such strings
+        while pop_docstring_from_cls_body(body):
+            pass
+    original_cls_node.body = docstring + body
     if not original_cls_node.body:
         original_cls_node.body = [ast.Pass()]
     return original_cls_node
 
 
-def _generate_field_ast(field: PydanticFieldWrapper) -> ast.Call:
+def _generate_field_ast(field_attributes: dict[str, Any]) -> ast.Call:
     return ast.Call(
         func=ast.Name("Field"),
         args=[],
@@ -150,6 +163,6 @@ def _generate_field_ast(field: PydanticFieldWrapper) -> ast.Call:
                 arg=attr,
                 value=ast.parse(get_fancy_repr(attr_value), mode="eval").body,
             )
-            for attr, attr_value in field.passed_field_attributes.items()
+            for attr, attr_value in field_attributes.items()
         ],
     )

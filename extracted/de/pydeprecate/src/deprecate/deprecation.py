@@ -19,12 +19,26 @@ import inspect
 import warnings
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Literal, Optional, Protocol, Union, cast
 
 from deprecate._dispatch import _reject_non_callable_source
 from deprecate._types import TargetMode
 from deprecate.messaging import _resolve_message_template_alias, _validate_message_template, deprecation_warning
-from deprecate.routine import deprecated_callable
+from deprecate.routine import _SourceT, deprecated_callable
+
+
+class _FrontDoorDecorator(Protocol):
+    """Decorator returned by :func:`deprecated`: every source keeps its own static type.
+
+    A class is wrapped in a proxy at runtime but stays typed as that class, like
+    :func:`~deprecate.proxy.deprecated_class` without a class ``target``; any other source keeps its own callable or
+    descriptor type. The decorator cannot see ``target``, so ``@deprecated(target=NewCls)`` on a class is *not* typed as
+    ``type[NewCls]`` — use ``deprecated_class(target=NewCls, ...)`` for that.
+
+    """
+
+    def __call__(self, source: _SourceT) -> _SourceT: ...
+
 
 # Classes that have already emitted the one-time ``@deprecated``-on-class dispatch notice.
 # Keyed by ``f"{__module__}.{__qualname__}"`` so a decoration loop warns once per class, not per
@@ -45,6 +59,7 @@ class _PackingClassArgs:
     args_mapping: Optional[dict[str, Optional[str]]]
     args_extra: Optional[dict[str, Any]]
     skip_if: Union[bool, Callable]
+    as_exception: Optional[bool]
     update_docstring: bool
     docstring_style: str
     _stacklevel: int
@@ -134,6 +149,7 @@ def _packing_class_source(
         args_mapping=pack_args.args_mapping,
         args_extra=pack_args.args_extra,
         skip_if=pack_args.skip_if,
+        as_exception=pack_args.as_exception,
         update_docstring=pack_args.update_docstring,
         docstring_style=pack_args.docstring_style,
         _misconfigured_override=class_misconfigured,
@@ -158,7 +174,9 @@ def deprecated(
     update_docstring: bool = False,
     docstring_style: Literal["auto", "rst", "mkdocs", "markdown"] = "auto",
     template_mgs: Optional[str] = None,
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    *,
+    as_exception: Optional[bool] = None,
+) -> _FrontDoorDecorator:
     """Deprecate a function, method, or class — the friendly front door.
 
     For a **callable** source (function, method, lambda, or descriptor) this forwards to the strict
@@ -222,6 +240,12 @@ def deprecated(
         template_mgs: Deprecated alias for ``message_template`` (renamed in ``v0.12``; the old spelling was a
             typo). Supplying it emits a :class:`FutureWarning` and its value is used as ``message_template``;
             supplying both raises :class:`TypeError`. Removed in ``v1.0``.
+        as_exception: Promote this deprecation from a warning to a raised
+            :class:`~deprecate._fatal.DeprecatedError` — see :func:`~deprecate.routine.deprecated_callable`'s
+            ``as_exception`` for the full contract (message text, ``num_warns`` bypass, ``stream=None`` and
+            ``skip_if`` interaction, and the monotonic precedence against ``deprecate.AS_EXCEPTIONS``).
+            ``None`` (default) follows the global switch, which is off unless ``DEPRECATE_AS_EXCEPTIONS`` is
+            set.
 
     Returns:
         Decorator that wraps the source callable, or the class proxy for a class source.
@@ -268,6 +292,7 @@ def deprecated(
         args_mapping=args_mapping,
         args_extra=args_extra,
         skip_if=skip_if,
+        as_exception=as_exception,
         update_docstring=update_docstring,
         docstring_style=docstring_style,
     )
@@ -276,7 +301,7 @@ def deprecated(
         source: Union[Callable, classmethod, staticmethod, property, cached_property],
         _stacklevel: int = 2,
         _is_static: bool = False,
-    ) -> Callable:
+    ) -> Union[Callable, classmethod, staticmethod, property, cached_property]:
         # Class sources delegate to ``deprecated_class`` (Phase 1 warn-and-delegate); every callable routes
         # to the strict ``deprecated_callable`` arm.  Delegating adds one frame between the user's decoration
         # site and ``deprecated_callable``'s ``packing``, so the callable path bumps ``_stacklevel`` by one.
@@ -306,6 +331,7 @@ def deprecated(
                     args_mapping=args_mapping,
                     args_extra=args_extra,
                     skip_if=skip_if,
+                    as_exception=as_exception,
                     update_docstring=update_docstring,
                     docstring_style=docstring_style,
                     _stacklevel=_stacklevel + 1,
@@ -316,6 +342,7 @@ def deprecated(
         _reject_non_callable_source(source, target)
         # ``_stacklevel``/``_is_static`` are internal parameters of ``deprecated_callable``'s ``packing``,
         # intentionally omitted from its public return annotation (hence the call-arg ignore).
-        return _callable_pack(source, _stacklevel + 1, _is_static)  # type: ignore[call-arg, arg-type]
+        return _callable_pack(source, _stacklevel + 1, _is_static)  # type: ignore[call-arg]
 
-    return packing
+    # ``packing`` also takes private ``_stacklevel``/``_is_static`` arguments; the public contract is the protocol.
+    return cast(_FrontDoorDecorator, packing)

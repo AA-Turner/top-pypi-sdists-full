@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yeptris
-Version: 0.6.32.1
+Version: 0.6.34.1
 Summary: YAML for Python at libleptris speed — an FFI-based (no C extension) binding over libyeptris, PyYAML-compatible
 Author-email: "Ribose Inc." <open.source@ribose.com>
 License: MIT
@@ -29,6 +29,14 @@ An FFI-based (no C extension) YAML library over
 [libyeptris](https://github.com/leptris/yeptris) — the YAML
 counterpart of libleptris. PyYAML-compatible semantics, one shared
 library, zero compilation at install.
+
+Part of the yeptris program: *the best (multiple dimensions)
+YAML/JSON parser/builder ever* — conformance, performance,
+safety/hardening, API surfaces, transport correctness, and trust,
+held simultaneously, in C, Ruby, Rust, and JS. This binding carries
+the PyYAML-compatible surface plus CBOR, tracking every libyeptris
+release in lockstep. The achievement program lives in the engine's
+PLAN.md ("The best-ever program").
 
 ## Install (development)
 

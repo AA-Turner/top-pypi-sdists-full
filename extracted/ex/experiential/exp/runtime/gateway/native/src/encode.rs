@@ -133,6 +133,16 @@ impl ReasoningCarrierState {
                 "Chat reasoning content requires complete unique tool calls.",
             ));
         }
+        // A custom (freeform) call returns to the gateway as an opaque
+        // `custom_tool_call` history item, never as a tool-call turn, so a
+        // carrier sealed over it could not be bound on the next request and its
+        // freeform input is no JSON object to digest. The turn serves without
+        // preserved reasoning, as a failover would (Codex `apply_patch` on
+        // Experiential Cloud failed every such completed turn at the terminal,
+        // production 2026-10-19).
+        if self.completed.values().any(|call| call.custom) {
+            return Ok(None);
+        }
         let route_sha256 = self.route_sha256.clone().ok_or_else(|| {
             invalid_provider_stream("Chat reasoning content omitted provider route identity.")
         })?;
@@ -615,6 +625,18 @@ pub(crate) fn annotate_image_tokens(details: &mut Value, usage: &Usage) {
     }
 }
 
+/// OpenAI's write-lifetime split (`ttl_30m_tokens`, `ttl_12h_tokens`), named
+/// only when a 12-hour count was observed: the two never overlap and sum to
+/// `cache_write_tokens` less any one-hour subset.
+pub(crate) fn cache_write_lifetimes(usage: &Usage) -> Option<Value> {
+    let half_day = usage.cache_creation_12h_input_tokens?;
+    let written = usage.cache_creation_input_tokens.unwrap_or(0);
+    let short = written
+        .saturating_sub(half_day)
+        .saturating_sub(usage.cache_creation_1h_input_tokens.unwrap_or(0));
+    Some(json!({"ttl_30m_tokens": short, "ttl_12h_tokens": half_day}))
+}
+
 /// Input subsets remain unknown when absent; cache writes are never invented.
 fn chat_input_details(usage: &Usage, streaming: bool) -> Value {
     let mut details = serde_json::Map::new();
@@ -629,6 +651,9 @@ fn chat_input_details(usage: &Usage, streaming: bool) -> Value {
     }
     if let Some(hour) = usage.cache_creation_1h_input_tokens {
         details.insert("cache_write_1h_tokens".into(), json!(hour));
+    }
+    if let Some(split) = cache_write_lifetimes(usage) {
+        details.insert("cache_write_tokens_details".into(), split);
     }
     if details.is_empty() {
         Value::Null

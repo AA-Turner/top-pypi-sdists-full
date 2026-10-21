@@ -8,9 +8,7 @@ from zipfile import ZipFile
 import regex as re
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, cast, TYPE_CHECKING
-# for python 3.10
-from typing_extensions import Self
+from typing import Any, cast, Self, TYPE_CHECKING
 from lxml import etree
 from xml.sax import SAXParseException
 from arelle import (XbrlConst, XmlUtil, UrlUtil, ValidateFilingText,
@@ -1314,8 +1312,8 @@ class ModelDocument(ModelDocumentBase):
     def contextDiscover(self, modelContext: ModelContext, setTargetModelXbrl: bool = False) -> None:
         if not self.skipDTS:
             xmlValidate(self.modelXbrl, modelContext, setTargetModelXbrl=setTargetModelXbrl) # validation may have not completed due to errors elsewhere
-        id = modelContext.id
-        self.modelXbrl.contexts[cast(str, id)] = modelContext
+        if modelContext.id is not None:
+            self.modelXbrl.contexts[modelContext.id] = modelContext
         for container in (("{http://www.xbrl.org/2003/instance}segment", modelContext.segDimValues, modelContext.segNonDimValues),
                           ("{http://www.xbrl.org/2003/instance}scenario", modelContext.scenDimValues, modelContext.scenNonDimValues)):
             containerName, containerDimValues, containerNonDimValues = container
@@ -1343,7 +1341,8 @@ class ModelDocument(ModelDocumentBase):
     def unitDiscover(self, unitElement: ModelUnit, setTargetModelXbrl: bool = False) -> None:
         if not self.skipDTS:
             xmlValidate(self.modelXbrl, unitElement, setTargetModelXbrl=setTargetModelXbrl) # validation may have not completed due to errors elsewhere
-        self.modelXbrl.units[cast(str, unitElement.id)] = unitElement
+        if unitElement.id is not None:
+            self.modelXbrl.units[unitElement.id] = unitElement
 
     def inlineXbrlDiscover(self, htmlElement: ModelObject) -> None:
         ixNS = None
@@ -1705,12 +1704,16 @@ def inlineIxdsDiscover(modelXbrl: ModelXbrl, modelIxdsDocument: ModelDocument, s
         for inlineElement in htmlElement.iterdescendants(tag=ixNStag + "resources"):
             for elt in inlineElement.iterchildren("{http://www.xbrl.org/2003/instance}context"):
                 contextId = elt.get("id")
+                if contextId is None:
+                    continue
                 if contextId in contextRefs:
                     modelIxdsDocument.contextDiscover(elt, setTargetModelXbrl)
                 elif contextId not in contextRefsForAllTargets:
                     modelXbrl.ixdsUnmappedContexts[contextId] = elt
             for elt in inlineElement.iterchildren("{http://www.xbrl.org/2003/instance}unit"):
                 unitId = elt.get("id")
+                if unitId is None:
+                    continue
                 if unitId in unitRefs:
                     modelIxdsDocument.unitDiscover(elt, setTargetModelXbrl)
                 elif unitId not in unitRefsForAllTargets:

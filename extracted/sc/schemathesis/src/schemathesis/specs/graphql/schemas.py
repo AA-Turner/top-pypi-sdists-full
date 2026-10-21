@@ -16,7 +16,6 @@ from unittest import SkipTest
 from urllib.parse import urlsplit, urlunsplit
 
 from hypothesis import strategies as st
-from requests.structures import CaseInsensitiveDict
 from typing_extensions import override
 
 from schemathesis import auths
@@ -27,6 +26,7 @@ from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.result import Ok, Result
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.timing import Instant
+from schemathesis.core.transforms import split_body_path
 from schemathesis.core.transport import CallOutcome, is_uninformative_status
 from schemathesis.filters import FilterUsage
 from schemathesis.generation import GenerationMode
@@ -52,6 +52,7 @@ from schemathesis.schemas import (
 )
 from schemathesis.transport.prepare import prepare_path
 
+from ._helpers import replace_node
 from .dictionaries import resolve_bindings, substitute_dictionaries
 from .extra_data_source import GraphQLResourcePool
 from .inference import RootType
@@ -68,7 +69,7 @@ if TYPE_CHECKING:
     from schemathesis.config import GenerationConfig
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.spec import ApiSchema, Scheduler
-    from schemathesis.core.transport import HttpMethod, Response
+    from schemathesis.core.transport import Response
     from schemathesis.engine.link_calibration import LinkCalibrationState
     from schemathesis.engine.observations import Observations
     from schemathesis.engine.run import Phase
@@ -405,34 +406,8 @@ class GraphQLSchema(BaseSchema):
         return []
 
     @override
-    def make_case(
-        self,
-        *,
-        operation: APIOperation,
-        method: HttpMethod | None = None,
-        path: str | None = None,
-        path_parameters: dict[str, Any] | None = None,
-        headers: dict[str, Any] | CaseInsensitiveDict | None = None,
-        cookies: dict[str, Any] | None = None,
-        query: dict[str, Any] | None = None,
-        body: Body = NOT_SET,
-        media_type: str | None = None,
-        multipart_content_types: dict[str, str] | None = None,
-        meta: CaseMetadata | None = None,
-    ) -> Case:
-        return Case(
-            operation=operation,
-            method=method or cast("HttpMethod", operation.method.upper()),
-            path=path or operation.path,
-            path_parameters=path_parameters or {},
-            headers=CaseInsensitiveDict() if headers is None else CaseInsensitiveDict(headers),
-            cookies=cookies or {},
-            query=query or {},
-            body=body,
-            media_type=media_type or "application/json",
-            multipart_content_types=multipart_content_types,
-            meta=meta,
-        )
+    def _case_media_type(self, operation: APIOperation, body: Body, media_type: str | None) -> str | None:
+        return media_type or "application/json"
 
     @override
     def get_tags(self, operation: APIOperation) -> list[str] | None:
@@ -441,6 +416,10 @@ class GraphQLSchema(BaseSchema):
     @override
     def get_operation_id(self, operation: APIOperation) -> str | None:
         return None
+
+    @override
+    def is_deprecated(self, operation: APIOperation) -> bool:
+        return operation.definition.raw.deprecation_reason is not None
 
     @override
     def validate(self) -> None:
@@ -597,7 +576,7 @@ def graphql_cases(
     phase: TestPhase = TestPhase.FUZZING,
     # GraphQL draws from the resource pool and extracted constants; it has no use for error feedback.
     feedback: FeedbackSources = NO_FEEDBACK,
-    mutate_ast: Callable[[graphql.OperationDefinitionNode, Random], None] | None = None,
+    mutate_ast: Callable[[graphql.OperationDefinitionNode, Random], graphql.OperationDefinitionNode] | None = None,
 ) -> Any:
     import graphql
     from hypothesis.errors import InvalidArgument
@@ -654,12 +633,13 @@ def graphql_cases(
     constants_draws: tuple[ConstantDraw, ...] = ()
     dictionary_draws: tuple[DictionaryDraw, ...] = ()
     if operation_node is not None:
+        original_operation_node = operation_node
         # A captured identifier would overwrite the argument the negative strategy deliberately
         # corrupted, turning the query valid and making the server's acceptance look like a bug.
         if isinstance(feedback.extra_data_source, GraphQLResourcePool) and effective_mode.is_positive:
             random_source = draw(st.randoms())
             if random_source.random() < SUBSTITUTION_PROBABILITY:
-                substitute_pool_values(
+                operation_node = substitute_pool_values(
                     operation_node=operation_node,
                     client_schema=operation.schema.client_schema,
                     pool=feedback.extra_data_source,
@@ -671,32 +651,36 @@ def graphql_cases(
         if effective_mode.is_positive:
             dictionary_bindings = resolve_bindings(operation, generation)
             if not dictionary_bindings.is_empty:
-                dictionary_draws = tuple(
-                    substitute_dictionaries(
-                        operation_node=operation_node,
-                        client_schema=operation.schema.client_schema,
-                        bindings=dictionary_bindings,
-                        operation_label=operation.label,
-                        random=draw(st.randoms()),
-                    )
-                )
-        if feedback.constants_value_source is not None and effective_mode.is_positive:
-            constants_draws = tuple(
-                substitute_constants(
+                operation_node, applied_dictionary_draws = substitute_dictionaries(
                     operation_node=operation_node,
                     client_schema=operation.schema.client_schema,
-                    pool=feedback.constants_value_source,
+                    bindings=dictionary_bindings,
+                    operation_label=operation.label,
                     random=draw(st.randoms()),
-                    skip=frozenset(
-                        tuple(draw_.body_path.lstrip("/").split("/"))
-                        for draw_ in dictionary_draws
-                        if draw_.body_path is not None
-                    ),
                 )
+                dictionary_draws = tuple(applied_dictionary_draws)
+        if feedback.constants_value_source is not None and effective_mode.is_positive:
+            operation_node, applied_constants_draws = substitute_constants(
+                operation_node=operation_node,
+                client_schema=operation.schema.client_schema,
+                pool=feedback.constants_value_source,
+                random=draw(st.randoms()),
+                skip=frozenset(
+                    tuple(split_body_path(draw_.body_path)) for draw_ in dictionary_draws if draw_.body_path is not None
+                ),
             )
+            constants_draws = tuple(applied_constants_draws)
         if mutate_ast is not None:
             # Hypothesis-driven randoms favor tiny values and would skip captured ids far above the exploration rate.
-            mutate_ast(operation_node, draw(st.randoms(use_true_random=True)))
+            operation_node = mutate_ast(operation_node, draw(st.randoms(use_true_random=True)))
+        if operation_node is not original_operation_node:
+            ast_node = replace_node(
+                ast_node,
+                definitions=tuple(
+                    operation_node if definition is original_operation_node else definition
+                    for definition in ast_node.definitions
+                ),
+            )
     body = graphql.print_ast(ast_node)
 
     path_parameters_ = _generate_parameter(

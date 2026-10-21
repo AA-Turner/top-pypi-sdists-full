@@ -6885,6 +6885,7 @@ class CfnCapability(
                     ),
         
                     # the properties below are optional
+                    endpoint_prefix="endpointPrefix",
                     namespace="namespace",
                     network_access=eks.CfnCapability.NetworkAccessProperty(
                         vpce_ids=["vpceIds"]
@@ -7285,6 +7286,7 @@ class CfnCapability(
         jsii_struct_bases=[],
         name_mapping={
             "aws_idc": "awsIdc",
+            "endpoint_prefix": "endpointPrefix",
             "namespace": "namespace",
             "network_access": "networkAccess",
             "rbac_role_mappings": "rbacRoleMappings",
@@ -7296,6 +7298,7 @@ class CfnCapability(
             self,
             *,
             aws_idc: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.AwsIdcProperty", typing.Dict[builtins.str, typing.Any]]],
+            endpoint_prefix: typing.Optional[builtins.str] = None,
             namespace: typing.Optional[builtins.str] = None,
             network_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.NetworkAccessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             rbac_role_mappings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCapability.ArgoCdRoleMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
@@ -7306,6 +7309,7 @@ class CfnCapability(
             This includes the Kubernetes namespace, IAM Identity Center integration, RBAC role mappings, and network access configuration.
 
             :param aws_idc: Configuration for integrating Argo CD with IAM Identity Center. This allows you to use your organization's identity provider for authentication to Argo CD.
+            :param endpoint_prefix: An optional prefix for the Argo CD server endpoint. When specified, EKS uses this prefix to generate the server endpoint; otherwise, the endpoint is generated automatically. This value cannot be changed after the capability is created.
             :param namespace: The Kubernetes namespace where Argo CD resources will be created. If not specified, the default namespace is used.
             :param network_access: Configuration for network access to the Argo CD capability's managed API server endpoint. By default, the Argo CD server is accessible via a public endpoint. You can optionally specify one or more VPC endpoint IDs to enable private connectivity from your VPCs.
             :param rbac_role_mappings: A list of role mappings that define which IAM Identity Center users or groups have which Argo CD roles. Each mapping associates an Argo CD role (ADMIN, EDITOR, or VIEWER) with one or more IAM Identity Center identities.
@@ -7330,6 +7334,7 @@ class CfnCapability(
                     ),
                 
                     # the properties below are optional
+                    endpoint_prefix="endpointPrefix",
                     namespace="namespace",
                     network_access=eks.CfnCapability.NetworkAccessProperty(
                         vpce_ids=["vpceIds"]
@@ -7347,6 +7352,7 @@ class CfnCapability(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__4dd514956ba9407bf8fbdec188d0163809209d4f0283595fe34f7c33f29754a8)
                 check_type(argname="argument aws_idc", value=aws_idc, expected_type=type_hints["aws_idc"])
+                check_type(argname="argument endpoint_prefix", value=endpoint_prefix, expected_type=type_hints["endpoint_prefix"])
                 check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
                 check_type(argname="argument network_access", value=network_access, expected_type=type_hints["network_access"])
                 check_type(argname="argument rbac_role_mappings", value=rbac_role_mappings, expected_type=type_hints["rbac_role_mappings"])
@@ -7354,6 +7360,8 @@ class CfnCapability(
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "aws_idc": aws_idc,
             }
+            if endpoint_prefix is not None:
+                self._values["endpoint_prefix"] = endpoint_prefix
             if namespace is not None:
                 self._values["namespace"] = namespace
             if network_access is not None:
@@ -7376,6 +7384,17 @@ class CfnCapability(
             result = self._values.get("aws_idc")
             assert result is not None, "Required property 'aws_idc' is missing"
             return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCapability.AwsIdcProperty"], result)
+
+        @builtins.property
+        def endpoint_prefix(self) -> typing.Optional[builtins.str]:
+            '''An optional prefix for the Argo CD server endpoint.
+
+            When specified, EKS uses this prefix to generate the server endpoint; otherwise, the endpoint is generated automatically. This value cannot be changed after the capability is created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-argocd.html#cfn-eks-capability-argocd-endpointprefix
+            '''
+            result = self._values.get("endpoint_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def namespace(self) -> typing.Optional[builtins.str]:
@@ -7659,6 +7678,7 @@ class CfnCapability(
                         ),
                 
                         # the properties below are optional
+                        endpoint_prefix="endpointPrefix",
                         namespace="namespace",
                         network_access=eks.CfnCapability.NetworkAccessProperty(
                             vpce_ids=["vpceIds"]
@@ -7919,6 +7939,7 @@ class CfnCapabilityProps:
                         ),
             
                         # the properties below are optional
+                        endpoint_prefix="endpointPrefix",
                         namespace="namespace",
                         network_access=eks.CfnCapability.NetworkAccessProperty(
                             vpce_ids=["vpceIds"]
@@ -28045,6 +28066,7 @@ def _typecheckingstub__0ade30aae0487651d2e896bdb6740cb0f5d668fa623457bf4eec2e64d
 def _typecheckingstub__4dd514956ba9407bf8fbdec188d0163809209d4f0283595fe34f7c33f29754a8(
     *,
     aws_idc: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.AwsIdcProperty, typing.Dict[builtins.str, typing.Any]]],
+    endpoint_prefix: typing.Optional[builtins.str] = None,
     namespace: typing.Optional[builtins.str] = None,
     network_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.NetworkAccessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rbac_role_mappings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCapability.ArgoCdRoleMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,

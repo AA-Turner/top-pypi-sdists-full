@@ -18,9 +18,9 @@ use sqlbuild_analysis::lineage_graph::main::analysis_dialect::analysis_dialect;
 use sqlbuild_analysis::lineage_graph::models::AnalysisDialect;
 use sqlbuild_analysis::semantic_validation::models as validation;
 
-use crate::bindings::_helpers::analysis::model_reads::star_flags;
 use crate::bindings::_helpers::boundary::panics::compiler_error;
-use crate::bindings::_helpers::compiled_project::compiled_model_view::NativeCompiledModel;
+use crate::bindings::_helpers::compiled_views::compiled_model_view::NativeCompiledModel;
+use crate::bindings::_helpers::compiled_views::model_reads::star_flags;
 use crate::bindings::_helpers::lineage::column_lineage_graph::{
     CompactColumns, CompactModel, ProjectColumnLineage,
 };
@@ -237,7 +237,7 @@ fn fast_lineage<'py>(
                 if model.expands_star {
                     let star_columns: Vec<LineageColumn> = outcomes
                         .next()
-                        .map(|outcome| outcome.into_parts().1)
+                        .map(|outcome| outcome.into_parts().columns)
                         .unwrap_or_default();
                     let mut expanded: Vec<Bound<'py, PyAny>> =
                         columns.try_iter()?.collect::<PyResult<_>>()?;

@@ -1472,12 +1472,26 @@ def test_fit_cad_tool_reports_the_capability(tmp_path):
         )
     )
     assert out["occt_available"] is has_occt()
-    if not has_occt():
-        assert out["error_type"] == "NotImplementedError"
-        assert "MESHIOPLUSPLUS_WITH_OCCT" in out["error"]
-        return
+    # Without OpenCASCADE the native backend builds the analytic solid.
+    assert out["backend"] == ("occt" if has_occt() else "native")
     assert out["valid"] is True
     assert out["num_plane"] == 6
+    assert out["num_faceted_faces"] == 0
+    if not has_occt():
+        bad = _dump(
+            _tools.call_tool(
+                "fit_cad",
+                {
+                    "input_path": src,
+                    "output_path": str(tmp_path / "x.step"),
+                    "backend": "occt",
+                },
+            )
+        )
+        assert bad["error_type"] == "NotImplementedError"
+        assert "MESHIOPLUSPLUS_WITH_OCCT" in bad["error"]
+        assert bad["occt_available"] is False
+        return
     assert out["num_split_patches"] == 0
     assert out["num_fillet"] == 0 and out["num_helical"] == 0
     assert out["num_variable_fillet"] == out["num_blend"] == 0
@@ -2066,6 +2080,60 @@ def test_every_tool_function_is_callable():
                 var.islower() and var in getattr(_tools, "__annotations__", {})
             ), f"{name}: unresolved global {var}"
         assert inspect.signature(fn) is not None
+
+
+def test_generator_tools(tmp_path):
+    """The seven parametric generators read no input and write a mesh."""
+    cases = [
+        ("rectangle", dict(dims=[3, 2], cell_type="triangle", split="center"), 24),
+        ("box", dict(dims=[2, 2, 2], cell_type="tetra", order=2), 48),
+        ("disk", dict(n=3, cell_type="triangle"), 54),
+        ("uv_sphere", dict(nu=8, nv=4, cell_type="quad"), 16 + 16),
+        ("icosa_sphere", dict(subdivisions=1, order=2), 80),
+        ("cylinder", dict(nxy=2, nz=2, cell_type="wedge"), 48),
+        ("reference_cells", dict(types=["tetra", "wedge"]), 2),
+    ]
+    for name, kwargs, num_cells in cases:
+        out = tmp_path / f"{name}.vtu"
+        report = getattr(_tools, f"tool_{name}")(str(out), **kwargs)
+        assert out.exists(), name
+        assert meshioplusplus.read(out).points.shape[0] == report["num_points"], name
+        assert report["num_cells"] == num_cells, name
+
+    with pytest.raises(ValueError, match="unknown cell_type"):
+        _tools.tool_box(str(tmp_path / "bad.vtu"), cell_type="quad")
+    with pytest.raises(ValueError, match="above the limit"):
+        _tools.tool_box(str(tmp_path / "big.vtu"), dims=[10, 10, 10], max_cells=50)
+
+
+def test_octree_tool(tmp_path):
+    skin = tmp_path / "skin.vtu"
+    meshioplusplus.write(
+        skin,
+        meshioplusplus.convert_cells(
+            meshioplusplus.extract_surface(meshioplusplus.grid([2, 2, 2])),
+            mode="simplexify",
+        ),
+    )
+    out = tmp_path / "tree.vtu"
+    report = _tools.tool_octree(str(skin), str(out), max_level=3, fill="inside")
+    assert out.exists()
+    assert report["dimension"] == 3
+    assert report["num_leaves"] > 0
+    assert "num_hanging" in report
+
+    with pytest.raises(ValueError, match="balance"):
+        _tools.tool_octree(str(skin), str(out), balance="bogus")
+
+    conforming = tmp_path / "conforming.vtu"
+    report = _tools.tool_octree(
+        str(skin), str(conforming), max_level=3, transition="templates"
+    )
+    assert report["num_hanging"] == 0
+    snapped = _tools.tool_octree(
+        str(skin), str(out), max_level=3, fill="inside", snap=True
+    )
+    assert "num_snapped" in snapped and "num_refused" in snapped
 
 
 def test_compute_sdf_tool(tmp_path):

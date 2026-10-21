@@ -1,5 +1,5 @@
 import base64
-import datetime
+import datetime as dt
 import hashlib
 import hmac
 import json
@@ -225,7 +225,7 @@ class FacebookAppOAuth2Test(BaseBackendTest):
 
     def callback_state(self) -> str:
         context = self.render_context()
-        state = self.strategy.session_get("facebook-app_state")
+        state = get_querystring(str(context["FACEBOOK_COMPLETE_URI"]))["redirect_state"]
         self.assertIsNotNone(state)
         self.assertEqual(
             get_querystring(str(context["FACEBOOK_COMPLETE_URI"]))["redirect_state"],
@@ -235,7 +235,7 @@ class FacebookAppOAuth2Test(BaseBackendTest):
 
     def test_auth_html_creates_redirect_state(self) -> None:
         context = self.render_context()
-        state = self.strategy.session_get("facebook-app_state")
+        state = get_querystring(str(context["FACEBOOK_COMPLETE_URI"]))["redirect_state"]
 
         self.assertIsNotNone(state)
         self.assertEqual(context["FACEBOOK_APP_NAMESPACE"], "a-key")
@@ -426,15 +426,13 @@ class FacebookLimitedLoginTest(OpenIdConnectTest[FacebookLimitedLogin]):
                 self.assertNotIn("access_token", partial.kwargs["response"])
                 self.strategy.session_set(step, value)
                 self.backend = FacebookLimitedLogin(self.strategy)
-                expired_time = datetime.datetime.fromtimestamp(
+                expired_time = dt.datetime.fromtimestamp(
                     claims["exp"] + self.backend.ID_TOKEN_MAX_AGE + 1,
-                    datetime.timezone.utc,
+                    dt.timezone.utc,
                 )
                 with (
                     patch("jwt.api_jwt.datetime") as jwt_datetime,
-                    patch(
-                        "social_core.backends.open_id_connect.datetime"
-                    ) as oidc_datetime,
+                    patch("social_core.backends.open_id_connect.dt") as oidc_datetime,
                     patch.object(
                         self.backend,
                         "validate_and_return_id_token",
@@ -459,9 +457,7 @@ class FacebookLimitedLoginTest(OpenIdConnectTest[FacebookLimitedLogin]):
     def test_invalid_token_login(self) -> None:
         # A reused backend must validate every fresh login.
         self.backend.do_auth(self.limited_login_token())
-        expired_time = datetime.datetime.now(
-            datetime.timezone.utc
-        ) - datetime.timedelta(seconds=30)
+        expired_time = dt.datetime.now(dt.timezone.utc) - dt.timedelta(seconds=30)
         for kwargs, message in (
             ({"expiration_datetime": expired_time}, "response_expired"),
             ({"tamper_message": True}, "invalid_signature"),
@@ -514,7 +510,9 @@ class FacebookLimitedLoginTest(OpenIdConnectTest[FacebookLimitedLogin]):
 
         with (
             patch.object(
-                self.backend, "authenticate", side_effect=RuntimeError("Resume failed")
+                FacebookLimitedLogin,
+                "authenticate",
+                side_effect=RuntimeError("Resume failed"),
             ),
             self.assertRaisesRegex(RuntimeError, "Resume failed"),
         ):

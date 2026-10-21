@@ -3294,6 +3294,776 @@ class CfnLicenseAssetRuleSetProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_licensemanager_19fc2853.ILicenseConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnLicenseConfiguration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseConfiguration",
+):
+    '''Resource schema for AWS::LicenseManager::LicenseConfiguration.
+
+    A license configuration is an abstraction of a customer license agreement that can be consumed and enforced by License Manager.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html
+    :cloudformationResource: AWS::LicenseManager::LicenseConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_licensemanager as licensemanager
+        
+        cfn_license_configuration = licensemanager.CfnLicenseConfiguration(self, "MyCfnLicenseConfiguration",
+            license_counting_type="licenseCountingType",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            disassociate_when_not_found=False,
+            license_count=123,
+            license_count_hard_limit=False,
+            license_expiry=123,
+            license_rules=["licenseRules"],
+            product_information_list=[licensemanager.CfnLicenseConfiguration.ProductInformationProperty(
+                product_information_filter_list=[licensemanager.CfnLicenseConfiguration.ProductInformationFilterProperty(
+                    product_information_filter_comparator="productInformationFilterComparator",
+                    product_information_filter_name="productInformationFilterName",
+        
+                    # the properties below are optional
+                    product_information_filter_value=["productInformationFilterValue"]
+                )],
+                resource_type="resourceType"
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        license_counting_type: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        disassociate_when_not_found: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        license_count: typing.Optional[jsii.Number] = None,
+        license_count_hard_limit: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        license_expiry: typing.Optional[jsii.Number] = None,
+        license_rules: typing.Optional[typing.Sequence[builtins.str]] = None,
+        product_information_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseConfiguration.ProductInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::LicenseManager::LicenseConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param license_counting_type: Dimension used to track the license inventory.
+        :param name: Name of the license configuration.
+        :param description: Description of the license configuration.
+        :param disassociate_when_not_found: When true, disassociates a resource when software is uninstalled.
+        :param license_count: Number of licenses managed by the license configuration.
+        :param license_count_hard_limit: Indicates whether hard or soft license enforcement is used. Exceeding a hard limit blocks the launch of new instances.
+        :param license_expiry: License configuration expiry as an epoch timestamp (seconds since 1970-01-01T00:00:00Z).
+        :param license_rules: License rules. The syntax is #name=value (for example, #allowedTenancy=EC2-DedicatedHost).
+        :param product_information_list: Product information.
+        :param tags: Tags to add to the license configuration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec08ebb9a0aed4c85414e3fbbbc3fd1950fa466b0f4800fb142b181f8b5ba50a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnLicenseConfigurationProps(
+            license_counting_type=license_counting_type,
+            name=name,
+            description=description,
+            disassociate_when_not_found=disassociate_when_not_found,
+            license_count=license_count,
+            license_count_hard_limit=license_count_hard_limit,
+            license_expiry=license_expiry,
+            license_rules=license_rules,
+            product_information_list=product_information_list,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForLicenseConfiguration")
+    @builtins.classmethod
+    def arn_for_license_configuration(
+        cls,
+        resource: "_aws_licensemanager_19fc2853.ILicenseConfigurationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__07f58b5a9e97321fa4280fff0368cbd3702630a00037f6973945309e508be33a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLicenseConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnLicenseConfiguration")
+    @builtins.classmethod
+    def is_cfn_license_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnLicenseConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eef122513cf1e79a76a974f42b456f76d4abbc83d3ff8f3ea29f040d07904347)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnLicenseConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__65bc2e685bd4573e593661cc62592ddeb69e61d8caf08e84f84f4448148a3756)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c2abfe4509c1fc99cb66c71e6fe07c1371b96c22a30da8cc651c2ce40678370a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLicenseConfigurationArn")
+    def attr_license_configuration_arn(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the license configuration.
+
+        :cloudformationAttribute: LicenseConfigurationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLicenseConfigurationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLicenseConfigurationId")
+    def attr_license_configuration_id(self) -> builtins.str:
+        '''Unique ID of the license configuration.
+
+        :cloudformationAttribute: LicenseConfigurationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLicenseConfigurationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOwnerAccountId")
+    def attr_owner_account_id(self) -> builtins.str:
+        '''Account ID of the owner of the license configuration.
+
+        :cloudformationAttribute: OwnerAccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOwnerAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''License configuration status.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseConfigurationRef")
+    def license_configuration_ref(
+        self,
+    ) -> "_aws_licensemanager_19fc2853.LicenseConfigurationReference":
+        '''A reference to a LicenseConfiguration resource.'''
+        return typing.cast("_aws_licensemanager_19fc2853.LicenseConfigurationReference", jsii.get(self, "licenseConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseCountingType")
+    def license_counting_type(self) -> builtins.str:
+        '''Dimension used to track the license inventory.'''
+        return typing.cast(builtins.str, jsii.get(self, "licenseCountingType"))
+
+    @license_counting_type.setter
+    def license_counting_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__052283e87b8529510100fcc6eeb37d75697c35b8bdb4032dec2c6e46638513c5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseCountingType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''Name of the license configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__561c01754ae8725f52d9079f1ba7d5453e89ce838d40a5176e29877da92ed70d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the license configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__456e5dbf29df334cca2c613345fd58295434b73e540420c8dac68ecfca0cfcc9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="disassociateWhenNotFound")
+    def disassociate_when_not_found(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When true, disassociates a resource when software is uninstalled.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "disassociateWhenNotFound"))
+
+    @disassociate_when_not_found.setter
+    def disassociate_when_not_found(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e84104b4def794bb828f53dbbf9ca9caccf12629d24cfdd174feb53d49acc29a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "disassociateWhenNotFound", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseCount")
+    def license_count(self) -> typing.Optional[jsii.Number]:
+        '''Number of licenses managed by the license configuration.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "licenseCount"))
+
+    @license_count.setter
+    def license_count(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f00e993c46fa8a91373052b0fadd845bc7ce62292d2352ed18240ca1ed0ecb36)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseCountHardLimit")
+    def license_count_hard_limit(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether hard or soft license enforcement is used.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "licenseCountHardLimit"))
+
+    @license_count_hard_limit.setter
+    def license_count_hard_limit(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6c39b148d33fd97ba3cbd918d1c07aa6415f135dac4931c2d07dec97f57cb90f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseCountHardLimit", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseExpiry")
+    def license_expiry(self) -> typing.Optional[jsii.Number]:
+        '''License configuration expiry as an epoch timestamp (seconds since 1970-01-01T00:00:00Z).'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "licenseExpiry"))
+
+    @license_expiry.setter
+    def license_expiry(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf3fa9490e4cf8227d33cece66aeae4b960cff110834143082d7632e06a2fa63)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseExpiry", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseRules")
+    def license_rules(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''License rules.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "licenseRules"))
+
+    @license_rules.setter
+    def license_rules(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__efffad35d55156ebde6452033a3bda13fffecf7e04c29380eae62836679ecc6a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "licenseRules", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="productInformationList")
+    def product_information_list(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseConfiguration.ProductInformationProperty"]]]]:
+        '''Product information.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseConfiguration.ProductInformationProperty"]]]], jsii.get(self, "productInformationList"))
+
+    @product_information_list.setter
+    def product_information_list(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseConfiguration.ProductInformationProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ab5dd094ee635ed5b23b1cca6cdf60d6497368b718a8581a087d80540f7faff1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "productInformationList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to add to the license configuration.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fed43dc6a2b9929f2c52445b6292c1f7e2263ee55af8b0c081b46d168c1b9739)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseConfiguration.ProductInformationFilterProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "product_information_filter_comparator": "productInformationFilterComparator",
+            "product_information_filter_name": "productInformationFilterName",
+            "product_information_filter_value": "productInformationFilterValue",
+        },
+    )
+    class ProductInformationFilterProperty:
+        def __init__(
+            self,
+            *,
+            product_information_filter_comparator: builtins.str,
+            product_information_filter_name: builtins.str,
+            product_information_filter_value: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Describes a product information filter.
+
+            :param product_information_filter_comparator: Logical operator.
+            :param product_information_filter_name: Filter name.
+            :param product_information_filter_value: Filter value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseconfiguration-productinformationfilter.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                product_information_filter_property = licensemanager.CfnLicenseConfiguration.ProductInformationFilterProperty(
+                    product_information_filter_comparator="productInformationFilterComparator",
+                    product_information_filter_name="productInformationFilterName",
+                
+                    # the properties below are optional
+                    product_information_filter_value=["productInformationFilterValue"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__0a4a9aa06d626843c7e136ee1f54e46087a52ae9b26781f1d3ba7a21f56caa3d)
+                check_type(argname="argument product_information_filter_comparator", value=product_information_filter_comparator, expected_type=type_hints["product_information_filter_comparator"])
+                check_type(argname="argument product_information_filter_name", value=product_information_filter_name, expected_type=type_hints["product_information_filter_name"])
+                check_type(argname="argument product_information_filter_value", value=product_information_filter_value, expected_type=type_hints["product_information_filter_value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "product_information_filter_comparator": product_information_filter_comparator,
+                "product_information_filter_name": product_information_filter_name,
+            }
+            if product_information_filter_value is not None:
+                self._values["product_information_filter_value"] = product_information_filter_value
+
+        @builtins.property
+        def product_information_filter_comparator(self) -> builtins.str:
+            '''Logical operator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseconfiguration-productinformationfilter.html#cfn-licensemanager-licenseconfiguration-productinformationfilter-productinformationfiltercomparator
+            '''
+            result = self._values.get("product_information_filter_comparator")
+            assert result is not None, "Required property 'product_information_filter_comparator' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def product_information_filter_name(self) -> builtins.str:
+            '''Filter name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseconfiguration-productinformationfilter.html#cfn-licensemanager-licenseconfiguration-productinformationfilter-productinformationfiltername
+            '''
+            result = self._values.get("product_information_filter_name")
+            assert result is not None, "Required property 'product_information_filter_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def product_information_filter_value(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Filter value.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseconfiguration-productinformationfilter.html#cfn-licensemanager-licenseconfiguration-productinformationfilter-productinformationfiltervalue
+            '''
+            result = self._values.get("product_information_filter_value")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProductInformationFilterProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseConfiguration.ProductInformationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "product_information_filter_list": "productInformationFilterList",
+            "resource_type": "resourceType",
+        },
+    )
+    class ProductInformationProperty:
+        def __init__(
+            self,
+            *,
+            product_information_filter_list: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseConfiguration.ProductInformationFilterProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            resource_type: builtins.str,
+        ) -> None:
+            '''Describes product information for a license configuration.
+
+            :param product_information_filter_list: A product information filter list.
+            :param resource_type: Resource type. The possible values are SSM_MANAGED | RDS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseconfiguration-productinformation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                product_information_property = licensemanager.CfnLicenseConfiguration.ProductInformationProperty(
+                    product_information_filter_list=[licensemanager.CfnLicenseConfiguration.ProductInformationFilterProperty(
+                        product_information_filter_comparator="productInformationFilterComparator",
+                        product_information_filter_name="productInformationFilterName",
+                
+                        # the properties below are optional
+                        product_information_filter_value=["productInformationFilterValue"]
+                    )],
+                    resource_type="resourceType"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b949ac2e09c9121daae80a989d28395c9b7a60074a3b4f6bc7151de1c0b062ab)
+                check_type(argname="argument product_information_filter_list", value=product_information_filter_list, expected_type=type_hints["product_information_filter_list"])
+                check_type(argname="argument resource_type", value=resource_type, expected_type=type_hints["resource_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "product_information_filter_list": product_information_filter_list,
+                "resource_type": resource_type,
+            }
+
+        @builtins.property
+        def product_information_filter_list(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseConfiguration.ProductInformationFilterProperty"]]]:
+            '''A product information filter list.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseconfiguration-productinformation.html#cfn-licensemanager-licenseconfiguration-productinformation-productinformationfilterlist
+            '''
+            result = self._values.get("product_information_filter_list")
+            assert result is not None, "Required property 'product_information_filter_list' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseConfiguration.ProductInformationFilterProperty"]]], result)
+
+        @builtins.property
+        def resource_type(self) -> builtins.str:
+            '''Resource type.
+
+            The possible values are SSM_MANAGED | RDS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-licenseconfiguration-productinformation.html#cfn-licensemanager-licenseconfiguration-productinformation-resourcetype
+            '''
+            result = self._values.get("resource_type")
+            assert result is not None, "Required property 'resource_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProductInformationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "license_counting_type": "licenseCountingType",
+        "name": "name",
+        "description": "description",
+        "disassociate_when_not_found": "disassociateWhenNotFound",
+        "license_count": "licenseCount",
+        "license_count_hard_limit": "licenseCountHardLimit",
+        "license_expiry": "licenseExpiry",
+        "license_rules": "licenseRules",
+        "product_information_list": "productInformationList",
+        "tags": "tags",
+    },
+)
+class CfnLicenseConfigurationProps:
+    def __init__(
+        self,
+        *,
+        license_counting_type: builtins.str,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        disassociate_when_not_found: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        license_count: typing.Optional[jsii.Number] = None,
+        license_count_hard_limit: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        license_expiry: typing.Optional[jsii.Number] = None,
+        license_rules: typing.Optional[typing.Sequence[builtins.str]] = None,
+        product_information_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnLicenseConfiguration.ProductInformationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnLicenseConfiguration``.
+
+        :param license_counting_type: Dimension used to track the license inventory.
+        :param name: Name of the license configuration.
+        :param description: Description of the license configuration.
+        :param disassociate_when_not_found: When true, disassociates a resource when software is uninstalled.
+        :param license_count: Number of licenses managed by the license configuration.
+        :param license_count_hard_limit: Indicates whether hard or soft license enforcement is used. Exceeding a hard limit blocks the launch of new instances.
+        :param license_expiry: License configuration expiry as an epoch timestamp (seconds since 1970-01-01T00:00:00Z).
+        :param license_rules: License rules. The syntax is #name=value (for example, #allowedTenancy=EC2-DedicatedHost).
+        :param product_information_list: Product information.
+        :param tags: Tags to add to the license configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_licensemanager as licensemanager
+            
+            cfn_license_configuration_props = licensemanager.CfnLicenseConfigurationProps(
+                license_counting_type="licenseCountingType",
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                disassociate_when_not_found=False,
+                license_count=123,
+                license_count_hard_limit=False,
+                license_expiry=123,
+                license_rules=["licenseRules"],
+                product_information_list=[licensemanager.CfnLicenseConfiguration.ProductInformationProperty(
+                    product_information_filter_list=[licensemanager.CfnLicenseConfiguration.ProductInformationFilterProperty(
+                        product_information_filter_comparator="productInformationFilterComparator",
+                        product_information_filter_name="productInformationFilterName",
+            
+                        # the properties below are optional
+                        product_information_filter_value=["productInformationFilterValue"]
+                    )],
+                    resource_type="resourceType"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__252142f8b5e121e6d87687e3cfcedadc6609f46ed351c4ac074ff80a323550c9)
+            check_type(argname="argument license_counting_type", value=license_counting_type, expected_type=type_hints["license_counting_type"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument disassociate_when_not_found", value=disassociate_when_not_found, expected_type=type_hints["disassociate_when_not_found"])
+            check_type(argname="argument license_count", value=license_count, expected_type=type_hints["license_count"])
+            check_type(argname="argument license_count_hard_limit", value=license_count_hard_limit, expected_type=type_hints["license_count_hard_limit"])
+            check_type(argname="argument license_expiry", value=license_expiry, expected_type=type_hints["license_expiry"])
+            check_type(argname="argument license_rules", value=license_rules, expected_type=type_hints["license_rules"])
+            check_type(argname="argument product_information_list", value=product_information_list, expected_type=type_hints["product_information_list"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "license_counting_type": license_counting_type,
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if disassociate_when_not_found is not None:
+            self._values["disassociate_when_not_found"] = disassociate_when_not_found
+        if license_count is not None:
+            self._values["license_count"] = license_count
+        if license_count_hard_limit is not None:
+            self._values["license_count_hard_limit"] = license_count_hard_limit
+        if license_expiry is not None:
+            self._values["license_expiry"] = license_expiry
+        if license_rules is not None:
+            self._values["license_rules"] = license_rules
+        if product_information_list is not None:
+            self._values["product_information_list"] = product_information_list
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def license_counting_type(self) -> builtins.str:
+        '''Dimension used to track the license inventory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-licensecountingtype
+        '''
+        result = self._values.get("license_counting_type")
+        assert result is not None, "Required property 'license_counting_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Name of the license configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the license configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def disassociate_when_not_found(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When true, disassociates a resource when software is uninstalled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-disassociatewhennotfound
+        '''
+        result = self._values.get("disassociate_when_not_found")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def license_count(self) -> typing.Optional[jsii.Number]:
+        '''Number of licenses managed by the license configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-licensecount
+        '''
+        result = self._values.get("license_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def license_count_hard_limit(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether hard or soft license enforcement is used.
+
+        Exceeding a hard limit blocks the launch of new instances.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-licensecounthardlimit
+        '''
+        result = self._values.get("license_count_hard_limit")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def license_expiry(self) -> typing.Optional[jsii.Number]:
+        '''License configuration expiry as an epoch timestamp (seconds since 1970-01-01T00:00:00Z).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-licenseexpiry
+        '''
+        result = self._values.get("license_expiry")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def license_rules(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''License rules.
+
+        The syntax is #name=value (for example, #allowedTenancy=EC2-DedicatedHost).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-licenserules
+        '''
+        result = self._values.get("license_rules")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def product_information_list(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseConfiguration.ProductInformationProperty"]]]]:
+        '''Product information.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-productinformationlist
+        '''
+        result = self._values.get("product_information_list")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnLicenseConfiguration.ProductInformationProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to add to the license configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-licenseconfiguration.html#cfn-licensemanager-licenseconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnLicenseConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_licensemanager.CfnLicenseProps",
     jsii_struct_bases=[],
@@ -3574,6 +4344,706 @@ class CfnLicenseProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_licensemanager_19fc2853.IReportGeneratorRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnReportGenerator(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnReportGenerator",
+):
+    '''A report generator that creates periodic reports about your AWS License Manager license configurations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html
+    :cloudformationResource: AWS::LicenseManager::ReportGenerator
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_licensemanager as licensemanager
+        
+        cfn_report_generator = licensemanager.CfnReportGenerator(self, "MyCfnReportGenerator",
+            report_context=licensemanager.CfnReportGenerator.ReportContextProperty(
+                license_asset_group_arns=["licenseAssetGroupArns"],
+                license_configuration_arns=["licenseConfigurationArns"],
+                report_end_date="reportEndDate",
+                report_start_date="reportStartDate"
+            ),
+            report_frequency=licensemanager.CfnReportGenerator.ReportFrequencyProperty(
+                period="period",
+                value=123
+            ),
+            report_generator_name="reportGeneratorName",
+            report_type=["reportType"],
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        report_context: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReportGenerator.ReportContextProperty", typing.Dict[builtins.str, typing.Any]]],
+        report_frequency: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReportGenerator.ReportFrequencyProperty", typing.Dict[builtins.str, typing.Any]]],
+        report_generator_name: builtins.str,
+        report_type: typing.Sequence[builtins.str],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::LicenseManager::ReportGenerator``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param report_context: Details of the license configurations and asset groups that this generator reports on.
+        :param report_frequency: Details about how frequently reports are generated.
+        :param report_generator_name: Name of the report generator.
+        :param report_type: Type of reports to generate. The report type determines the data reported on.
+        :param description: Description of the report generator.
+        :param tags: An array of key-value pairs to apply to this resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f99376ce1c6ae477b612ebfd6c4cf948b03a03b6d4d907afa0f1897644d2b8bf)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnReportGeneratorProps(
+            report_context=report_context,
+            report_frequency=report_frequency,
+            report_generator_name=report_generator_name,
+            report_type=report_type,
+            description=description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForReportGenerator")
+    @builtins.classmethod
+    def arn_for_report_generator(
+        cls,
+        resource: "_aws_licensemanager_19fc2853.IReportGeneratorRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0ac7c4991d894a997fdbeb77f79c5d5f20669cfbc08ec16b3644441fc7601b2b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForReportGenerator", [resource]))
+
+    @jsii.member(jsii_name="isCfnReportGenerator")
+    @builtins.classmethod
+    def is_cfn_report_generator(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnReportGenerator.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3ca503e047b74ceab3c7e7ae080af5d5251b9786cc3446c0a26f2ef4c8dcbf92)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnReportGenerator", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a9be353d4c2e1f95e84f1c41ce1710e5ca997c7ab3eb28ac387305f67343e138)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8c2eb52d22b75e0734e0426452101effea56345b2aecdf06c1840c5415498a5e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Amazon Resource Name (ARN) of the report generator.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreateTime")
+    def attr_create_time(self) -> builtins.str:
+        '''Time the report was created.
+
+        :cloudformationAttribute: CreateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrReportCreatorAccount")
+    def attr_report_creator_account(self) -> builtins.str:
+        '''The AWS account ID used to create the report generator.
+
+        :cloudformationAttribute: ReportCreatorAccount
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrReportCreatorAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrS3Location")
+    def attr_s3_location(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Details of the S3 bucket that report generator reports are published to.
+
+        :cloudformationAttribute: S3Location
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrS3Location"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reportGeneratorRef")
+    def report_generator_ref(
+        self,
+    ) -> "_aws_licensemanager_19fc2853.ReportGeneratorReference":
+        '''A reference to a ReportGenerator resource.'''
+        return typing.cast("_aws_licensemanager_19fc2853.ReportGeneratorReference", jsii.get(self, "reportGeneratorRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="reportContext")
+    def report_context(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportContextProperty"]:
+        '''Details of the license configurations and asset groups that this generator reports on.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportContextProperty"], jsii.get(self, "reportContext"))
+
+    @report_context.setter
+    def report_context(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportContextProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__938bf612b6cf7d7944f8abf3b7a102876cf17e9a7cde505f1cb36af2f7538be4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reportContext", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="reportFrequency")
+    def report_frequency(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportFrequencyProperty"]:
+        '''Details about how frequently reports are generated.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportFrequencyProperty"], jsii.get(self, "reportFrequency"))
+
+    @report_frequency.setter
+    def report_frequency(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportFrequencyProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__71a315c579f1f65d36f0518071e38b00713645d515b817350ae03b89bd5eb6f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reportFrequency", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="reportGeneratorName")
+    def report_generator_name(self) -> builtins.str:
+        '''Name of the report generator.'''
+        return typing.cast(builtins.str, jsii.get(self, "reportGeneratorName"))
+
+    @report_generator_name.setter
+    def report_generator_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f03e876ebedaabb72ec22d6df8cb5ead950e541a6a13e97f66be0feaf8d53a74)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reportGeneratorName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="reportType")
+    def report_type(self) -> typing.List[builtins.str]:
+        '''Type of reports to generate.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "reportType"))
+
+    @report_type.setter
+    def report_type(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5cb0aafcad43651ac6633556dc398491d156fc9c9ba14e62914c2020380d938e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "reportType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the report generator.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a5d6fb9f5b9f2e69164901bd90653c0dc8e6e406dd24ab4048fa6d25c330eb7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0f89f2e4c58d960256c208a2b99012c5d584fa8f397fba2174d7832572b599ea)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnReportGenerator.ReportContextProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "license_asset_group_arns": "licenseAssetGroupArns",
+            "license_configuration_arns": "licenseConfigurationArns",
+            "report_end_date": "reportEndDate",
+            "report_start_date": "reportStartDate",
+        },
+    )
+    class ReportContextProperty:
+        def __init__(
+            self,
+            *,
+            license_asset_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+            license_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+            report_end_date: typing.Optional[builtins.str] = None,
+            report_start_date: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details of the license configurations and asset groups that this generator reports on.
+
+            :param license_asset_group_arns: Amazon Resource Names (ARNs) of the license asset groups to include in the report.
+            :param license_configuration_arns: Amazon Resource Names (ARNs) of the license configurations that this generator reports on.
+            :param report_end_date: End date for the report data collection period.
+            :param report_start_date: Start date for the report data collection period.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportcontext.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                report_context_property = licensemanager.CfnReportGenerator.ReportContextProperty(
+                    license_asset_group_arns=["licenseAssetGroupArns"],
+                    license_configuration_arns=["licenseConfigurationArns"],
+                    report_end_date="reportEndDate",
+                    report_start_date="reportStartDate"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d18252aef04c922d21d362823448dc0f060c03fbf0d86ce80d29c9f171efa55b)
+                check_type(argname="argument license_asset_group_arns", value=license_asset_group_arns, expected_type=type_hints["license_asset_group_arns"])
+                check_type(argname="argument license_configuration_arns", value=license_configuration_arns, expected_type=type_hints["license_configuration_arns"])
+                check_type(argname="argument report_end_date", value=report_end_date, expected_type=type_hints["report_end_date"])
+                check_type(argname="argument report_start_date", value=report_start_date, expected_type=type_hints["report_start_date"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if license_asset_group_arns is not None:
+                self._values["license_asset_group_arns"] = license_asset_group_arns
+            if license_configuration_arns is not None:
+                self._values["license_configuration_arns"] = license_configuration_arns
+            if report_end_date is not None:
+                self._values["report_end_date"] = report_end_date
+            if report_start_date is not None:
+                self._values["report_start_date"] = report_start_date
+
+        @builtins.property
+        def license_asset_group_arns(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Amazon Resource Names (ARNs) of the license asset groups to include in the report.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportcontext.html#cfn-licensemanager-reportgenerator-reportcontext-licenseassetgrouparns
+            '''
+            result = self._values.get("license_asset_group_arns")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def license_configuration_arns(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Amazon Resource Names (ARNs) of the license configurations that this generator reports on.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportcontext.html#cfn-licensemanager-reportgenerator-reportcontext-licenseconfigurationarns
+            '''
+            result = self._values.get("license_configuration_arns")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def report_end_date(self) -> typing.Optional[builtins.str]:
+            '''End date for the report data collection period.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportcontext.html#cfn-licensemanager-reportgenerator-reportcontext-reportenddate
+            '''
+            result = self._values.get("report_end_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def report_start_date(self) -> typing.Optional[builtins.str]:
+            '''Start date for the report data collection period.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportcontext.html#cfn-licensemanager-reportgenerator-reportcontext-reportstartdate
+            '''
+            result = self._values.get("report_start_date")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReportContextProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnReportGenerator.ReportFrequencyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"period": "period", "value": "value"},
+    )
+    class ReportFrequencyProperty:
+        def __init__(
+            self,
+            *,
+            period: typing.Optional[builtins.str] = None,
+            value: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Details about how frequently reports are generated.
+
+            :param period: Time period between each report. The period can be daily, weekly, or monthly.
+            :param value: Number of times within the frequency period that a report is generated. The only supported value is 1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportfrequency.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                report_frequency_property = licensemanager.CfnReportGenerator.ReportFrequencyProperty(
+                    period="period",
+                    value=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__63695ad7a82143856f5494f6adef57e5039a63f984c34d22936b88af1d23bcb0)
+                check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if period is not None:
+                self._values["period"] = period
+            if value is not None:
+                self._values["value"] = value
+
+        @builtins.property
+        def period(self) -> typing.Optional[builtins.str]:
+            '''Time period between each report.
+
+            The period can be daily, weekly, or monthly.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportfrequency.html#cfn-licensemanager-reportgenerator-reportfrequency-period
+            '''
+            result = self._values.get("period")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def value(self) -> typing.Optional[jsii.Number]:
+            '''Number of times within the frequency period that a report is generated.
+
+            The only supported value is 1.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-reportfrequency.html#cfn-licensemanager-reportgenerator-reportfrequency-value
+            '''
+            result = self._values.get("value")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReportFrequencyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_licensemanager.CfnReportGenerator.S3LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"bucket": "bucket", "key_prefix": "keyPrefix"},
+    )
+    class S3LocationProperty:
+        def __init__(
+            self,
+            *,
+            bucket: typing.Optional[builtins.str] = None,
+            key_prefix: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Details of the S3 bucket that report generator reports are published to.
+
+            :param bucket: Name of the S3 bucket reports are published to.
+            :param key_prefix: Prefix of the S3 bucket reports are published to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-s3location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_licensemanager as licensemanager
+                
+                s3_location_property = licensemanager.CfnReportGenerator.S3LocationProperty(
+                    bucket="bucket",
+                    key_prefix="keyPrefix"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__88c4e06798fbd893b98564bee14c980e4af816c95857d32c3b3f3e73dadd424f)
+                check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+                check_type(argname="argument key_prefix", value=key_prefix, expected_type=type_hints["key_prefix"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if bucket is not None:
+                self._values["bucket"] = bucket
+            if key_prefix is not None:
+                self._values["key_prefix"] = key_prefix
+
+        @builtins.property
+        def bucket(self) -> typing.Optional[builtins.str]:
+            '''Name of the S3 bucket reports are published to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-s3location.html#cfn-licensemanager-reportgenerator-s3location-bucket
+            '''
+            result = self._values.get("bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def key_prefix(self) -> typing.Optional[builtins.str]:
+            '''Prefix of the S3 bucket reports are published to.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-licensemanager-reportgenerator-s3location.html#cfn-licensemanager-reportgenerator-s3location-keyprefix
+            '''
+            result = self._values.get("key_prefix")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_licensemanager.CfnReportGeneratorProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "report_context": "reportContext",
+        "report_frequency": "reportFrequency",
+        "report_generator_name": "reportGeneratorName",
+        "report_type": "reportType",
+        "description": "description",
+        "tags": "tags",
+    },
+)
+class CfnReportGeneratorProps:
+    def __init__(
+        self,
+        *,
+        report_context: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReportGenerator.ReportContextProperty", typing.Dict[builtins.str, typing.Any]]],
+        report_frequency: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnReportGenerator.ReportFrequencyProperty", typing.Dict[builtins.str, typing.Any]]],
+        report_generator_name: builtins.str,
+        report_type: typing.Sequence[builtins.str],
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnReportGenerator``.
+
+        :param report_context: Details of the license configurations and asset groups that this generator reports on.
+        :param report_frequency: Details about how frequently reports are generated.
+        :param report_generator_name: Name of the report generator.
+        :param report_type: Type of reports to generate. The report type determines the data reported on.
+        :param description: Description of the report generator.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_licensemanager as licensemanager
+            
+            cfn_report_generator_props = licensemanager.CfnReportGeneratorProps(
+                report_context=licensemanager.CfnReportGenerator.ReportContextProperty(
+                    license_asset_group_arns=["licenseAssetGroupArns"],
+                    license_configuration_arns=["licenseConfigurationArns"],
+                    report_end_date="reportEndDate",
+                    report_start_date="reportStartDate"
+                ),
+                report_frequency=licensemanager.CfnReportGenerator.ReportFrequencyProperty(
+                    period="period",
+                    value=123
+                ),
+                report_generator_name="reportGeneratorName",
+                report_type=["reportType"],
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bb9bd8ab7a34a427906d6eac5ddd17b0fbf9c9621d90fc65ad03c107d4b8f29d)
+            check_type(argname="argument report_context", value=report_context, expected_type=type_hints["report_context"])
+            check_type(argname="argument report_frequency", value=report_frequency, expected_type=type_hints["report_frequency"])
+            check_type(argname="argument report_generator_name", value=report_generator_name, expected_type=type_hints["report_generator_name"])
+            check_type(argname="argument report_type", value=report_type, expected_type=type_hints["report_type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "report_context": report_context,
+            "report_frequency": report_frequency,
+            "report_generator_name": report_generator_name,
+            "report_type": report_type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def report_context(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportContextProperty"]:
+        '''Details of the license configurations and asset groups that this generator reports on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html#cfn-licensemanager-reportgenerator-reportcontext
+        '''
+        result = self._values.get("report_context")
+        assert result is not None, "Required property 'report_context' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportContextProperty"], result)
+
+    @builtins.property
+    def report_frequency(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportFrequencyProperty"]:
+        '''Details about how frequently reports are generated.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html#cfn-licensemanager-reportgenerator-reportfrequency
+        '''
+        result = self._values.get("report_frequency")
+        assert result is not None, "Required property 'report_frequency' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnReportGenerator.ReportFrequencyProperty"], result)
+
+    @builtins.property
+    def report_generator_name(self) -> builtins.str:
+        '''Name of the report generator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html#cfn-licensemanager-reportgenerator-reportgeneratorname
+        '''
+        result = self._values.get("report_generator_name")
+        assert result is not None, "Required property 'report_generator_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def report_type(self) -> typing.List[builtins.str]:
+        '''Type of reports to generate.
+
+        The report type determines the data reported on.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html#cfn-licensemanager-reportgenerator-reporttype
+        '''
+        result = self._values.get("report_type")
+        assert result is not None, "Required property 'report_type' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Description of the report generator.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html#cfn-licensemanager-reportgenerator-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-licensemanager-reportgenerator.html#cfn-licensemanager-reportgenerator-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnReportGeneratorProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnGrant",
     "CfnGrantProps",
@@ -3582,7 +5052,11 @@ __all__ = [
     "CfnLicenseAssetGroupProps",
     "CfnLicenseAssetRuleSet",
     "CfnLicenseAssetRuleSetProps",
+    "CfnLicenseConfiguration",
+    "CfnLicenseConfigurationProps",
     "CfnLicenseProps",
+    "CfnReportGenerator",
+    "CfnReportGeneratorProps",
 ]
 
 publication.publish()
@@ -4088,6 +5562,141 @@ def _typecheckingstub__c715e4e583b24c76ec87ab806ef270df3fcb252fd77e33889db896b62
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ec08ebb9a0aed4c85414e3fbbbc3fd1950fa466b0f4800fb142b181f8b5ba50a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    license_counting_type: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    disassociate_when_not_found: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    license_count: typing.Optional[jsii.Number] = None,
+    license_count_hard_limit: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    license_expiry: typing.Optional[jsii.Number] = None,
+    license_rules: typing.Optional[typing.Sequence[builtins.str]] = None,
+    product_information_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseConfiguration.ProductInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__07f58b5a9e97321fa4280fff0368cbd3702630a00037f6973945309e508be33a(
+    resource: _aws_licensemanager_19fc2853.ILicenseConfigurationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eef122513cf1e79a76a974f42b456f76d4abbc83d3ff8f3ea29f040d07904347(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65bc2e685bd4573e593661cc62592ddeb69e61d8caf08e84f84f4448148a3756(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2abfe4509c1fc99cb66c71e6fe07c1371b96c22a30da8cc651c2ce40678370a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__052283e87b8529510100fcc6eeb37d75697c35b8bdb4032dec2c6e46638513c5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__561c01754ae8725f52d9079f1ba7d5453e89ce838d40a5176e29877da92ed70d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__456e5dbf29df334cca2c613345fd58295434b73e540420c8dac68ecfca0cfcc9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e84104b4def794bb828f53dbbf9ca9caccf12629d24cfdd174feb53d49acc29a(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f00e993c46fa8a91373052b0fadd845bc7ce62292d2352ed18240ca1ed0ecb36(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c39b148d33fd97ba3cbd918d1c07aa6415f135dac4931c2d07dec97f57cb90f(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf3fa9490e4cf8227d33cece66aeae4b960cff110834143082d7632e06a2fa63(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__efffad35d55156ebde6452033a3bda13fffecf7e04c29380eae62836679ecc6a(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab5dd094ee635ed5b23b1cca6cdf60d6497368b718a8581a087d80540f7faff1(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnLicenseConfiguration.ProductInformationProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fed43dc6a2b9929f2c52445b6292c1f7e2263ee55af8b0c081b46d168c1b9739(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a4a9aa06d626843c7e136ee1f54e46087a52ae9b26781f1d3ba7a21f56caa3d(
+    *,
+    product_information_filter_comparator: builtins.str,
+    product_information_filter_name: builtins.str,
+    product_information_filter_value: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b949ac2e09c9121daae80a989d28395c9b7a60074a3b4f6bc7151de1c0b062ab(
+    *,
+    product_information_filter_list: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseConfiguration.ProductInformationFilterProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    resource_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__252142f8b5e121e6d87687e3cfcedadc6609f46ed351c4ac074ff80a323550c9(
+    *,
+    license_counting_type: builtins.str,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    disassociate_when_not_found: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    license_count: typing.Optional[jsii.Number] = None,
+    license_count_hard_limit: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    license_expiry: typing.Optional[jsii.Number] = None,
+    license_rules: typing.Optional[typing.Sequence[builtins.str]] = None,
+    product_information_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicenseConfiguration.ProductInformationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a1d549419287a5a545bf5eecdc65cd6b52387eb01953f3d4ff24a43da333c424(
     *,
     beneficiary: builtins.str,
@@ -4101,6 +5710,118 @@ def _typecheckingstub__a1d549419287a5a545bf5eecdc65cd6b52387eb01953f3d4ff24a43da
     validity: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicense.ValidityDateFormatProperty, typing.Dict[builtins.str, typing.Any]]],
     license_metadata: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnLicense.MetadataProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     status: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f99376ce1c6ae477b612ebfd6c4cf948b03a03b6d4d907afa0f1897644d2b8bf(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    report_context: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReportGenerator.ReportContextProperty, typing.Dict[builtins.str, typing.Any]]],
+    report_frequency: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReportGenerator.ReportFrequencyProperty, typing.Dict[builtins.str, typing.Any]]],
+    report_generator_name: builtins.str,
+    report_type: typing.Sequence[builtins.str],
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ac7c4991d894a997fdbeb77f79c5d5f20669cfbc08ec16b3644441fc7601b2b(
+    resource: _aws_licensemanager_19fc2853.IReportGeneratorRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ca503e047b74ceab3c7e7ae080af5d5251b9786cc3446c0a26f2ef4c8dcbf92(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9be353d4c2e1f95e84f1c41ce1710e5ca997c7ab3eb28ac387305f67343e138(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c2eb52d22b75e0734e0426452101effea56345b2aecdf06c1840c5415498a5e(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__938bf612b6cf7d7944f8abf3b7a102876cf17e9a7cde505f1cb36af2f7538be4(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReportGenerator.ReportContextProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71a315c579f1f65d36f0518071e38b00713645d515b817350ae03b89bd5eb6f1(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnReportGenerator.ReportFrequencyProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f03e876ebedaabb72ec22d6df8cb5ead950e541a6a13e97f66be0feaf8d53a74(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cb0aafcad43651ac6633556dc398491d156fc9c9ba14e62914c2020380d938e(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5d6fb9f5b9f2e69164901bd90653c0dc8e6e406dd24ab4048fa6d25c330eb7b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f89f2e4c58d960256c208a2b99012c5d584fa8f397fba2174d7832572b599ea(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d18252aef04c922d21d362823448dc0f060c03fbf0d86ce80d29c9f171efa55b(
+    *,
+    license_asset_group_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    license_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    report_end_date: typing.Optional[builtins.str] = None,
+    report_start_date: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__63695ad7a82143856f5494f6adef57e5039a63f984c34d22936b88af1d23bcb0(
+    *,
+    period: typing.Optional[builtins.str] = None,
+    value: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__88c4e06798fbd893b98564bee14c980e4af816c95857d32c3b3f3e73dadd424f(
+    *,
+    bucket: typing.Optional[builtins.str] = None,
+    key_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bb9bd8ab7a34a427906d6eac5ddd17b0fbf9c9621d90fc65ad03c107d4b8f29d(
+    *,
+    report_context: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReportGenerator.ReportContextProperty, typing.Dict[builtins.str, typing.Any]]],
+    report_frequency: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnReportGenerator.ReportFrequencyProperty, typing.Dict[builtins.str, typing.Any]]],
+    report_generator_name: builtins.str,
+    report_type: typing.Sequence[builtins.str],
+    description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

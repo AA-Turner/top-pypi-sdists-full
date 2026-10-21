@@ -1,4 +1,5 @@
 from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as _backfill_pb2
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2

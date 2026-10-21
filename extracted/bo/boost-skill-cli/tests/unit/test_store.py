@@ -218,6 +218,20 @@ class TestInstall:
         assert "max_skills limit (0) reached" in ei.value.message
         assert lockfile.get_skill("brainstorming") is None
 
+    def test_max_skills_at_cap_still_reinstalls_an_installed_skill(
+            self, tap, entry):
+        # Replacing a skill already counted adds none: at exactly the cap,
+        # `boost update` and `boost reinstall` were refused.
+        store.install(entry)
+        policy.save({"max_skills": 1})
+        store.install(entry, force=True)
+        assert lockfile.get_skill("brainstorming") is not None
+
+    def test_count_others(self):
+        assert store._count_others({"a": {}, "b": {}}, "a") == 1
+        assert store._count_others({"a": {}, "b": {}}, "c") == 2
+        assert store._count_others({}, "a") == 0
+
     def test_only_agents_links_subset(self, tap, entry):
         res = store.install(entry, only_agents=["claude-code"])
         assert res.linked == ["claude-code"]
@@ -276,6 +290,15 @@ class TestInstallVia:
         store.install(_workflow_entry(tap), via="protocol")
         ev = journal.events(action="install")[0]
         assert ev["via"] == "protocol"
+
+    def test_project_skill_install_records_tap_url(self, tap, entry, tmp_path):
+        from boost_cli.core import projectlock
+        repo = tmp_path / "proj-tapurl"
+        (repo / ".git").mkdir(parents=True)
+        store.install(entry, scope="project", base=str(repo))
+        rec = projectlock.get_skill(repo, "brainstorming")
+        assert rec is not None
+        assert rec["tap_url"] == tap.url
 
     def test_project_skill_install_records_via(self, entry, tmp_path):
         repo = tmp_path / "proj"
@@ -784,6 +807,75 @@ class TestInstallFromPath:
         store.install_from_path(src)
         assert lockfile.get_skill("no-pin")["pinned"] is False
 
+    # ── a rename reaches the frontmatter: agents list a skill by its
+    # frontmatter name, so renaming only the dir and lock key left the agent
+    # calling it by the old name and `boost adapt` printing a banner for it.
+
+    def test_a_rename_rewrites_only_the_name_line_of_the_store_copy(
+            self, sandbox, tmp_path):
+        fm = "---\nname: alpha\ndescription: \"Use it: now\"\nversion: 1.0.0\n---"
+        src = self._src(tmp_path, fm, extras=False)
+        before = (src / "SKILL.md").read_text(encoding="utf-8")
+        res = store.install_from_path(src, name="beta")
+        copy = (res.dest / "SKILL.md").read_text(encoding="utf-8")
+        assert copy == before.replace("name: alpha", "name: beta", 1)
+        assert (src / "SKILL.md").read_text(encoding="utf-8") == before
+        # The lock hash describes the rewritten copy, not the source.
+        assert lockfile.get_skill("beta")["sha256"] == util.sha256_dir(res.dest)
+
+    def test_an_unrenamed_import_copies_the_file_byte_for_byte(
+            self, sandbox, tmp_path):
+        src = self._src(tmp_path, "---\nname: alpha\n---", extras=False)
+        res = store.install_from_path(src, name="alpha")
+        assert ((res.dest / "SKILL.md").read_bytes()
+                == (src / "SKILL.md").read_bytes())
+
+    def test_rename_frontmatter_reports_whether_it_wrote(self, tmp_path):
+        md = tmp_path / "SKILL.md"
+        md.write_text("---\nname: alpha\n---\n\nbody\n", encoding="utf-8")
+        assert store._rename_frontmatter(md, "alpha", {"name": "alpha"}) is False
+        assert store._rename_frontmatter(md, "beta", {"name": "alpha"}) is True
+        assert md.read_text(encoding="utf-8") == "---\nname: beta\n---\n\nbody\n"
+        # No name field yet: one is added, since the agent would otherwise
+        # fall back to a dir name boost no longer uses.
+        md.write_text("---\nversion: 1\n---\n\nbody", encoding="utf-8")
+        assert store._rename_frontmatter(md, "beta", {"version": 1}) is True
+        assert md.read_text(encoding="utf-8") == (
+            "---\nversion: 1\nname: beta\n---\n\nbody")
+        # No frontmatter block to carry a name: left exactly as it was.
+        md.write_text("# just a heading\n", encoding="utf-8")
+        assert store._rename_frontmatter(md, "beta", {}) is False
+        assert md.read_text(encoding="utf-8") == "# just a heading\n"
+
+    def test_a_rename_keeps_every_other_byte_of_the_copy(self, tmp_path):
+        # `set_field` would add a blank line after the fence and fold CRLF;
+        # the copy must differ from its source by the name line alone.
+        md = tmp_path / "SKILL.md"
+        md.write_bytes(b"---\r\nname: alpha\r\nmeta:\r\n  name: inner\r\n"
+                       b"---\r\nbody\r\n")
+        assert store._rename_frontmatter(md, "beta", {"name": "alpha"}) is True
+        assert md.read_bytes() == (b"---\r\nname: beta\r\nmeta:\r\n"
+                                   b"  name: inner\r\n---\r\nbody\r\n")
+
+    def test_rename_frontmatter_leaves_an_unclosed_or_undecodable_file(
+            self, tmp_path):
+        md = tmp_path / "SKILL.md"
+        md.write_bytes(b"---\nname: alpha\nbody\n")
+        assert store._rename_frontmatter(md, "beta", {"name": "alpha"}) is False
+        assert md.read_bytes() == b"---\nname: alpha\nbody\n"
+        md.write_bytes(b"---\nname: alpha\n---\n\xff\n")
+        assert store._rename_frontmatter(md, "beta", {"name": "alpha"}) is False
+        assert md.read_bytes() == b"---\nname: alpha\n---\n\xff\n"
+
+    def test_splice_field_adds_a_missing_key_before_the_fence(self):
+        from boost_cli.core import frontmatter
+        assert (frontmatter.splice_field("\ufeff---\r\nv: 1\r\n---\r\nb",
+                                         "name", "x")
+                == "\ufeff---\r\nv: 1\r\nname: x\r\n---\r\nb")
+        assert (frontmatter.splice_field("---\nv: 1\n...\nb", "name", "x")
+                == "---\nv: 1\nname: x\n...\nb")
+        assert frontmatter.splice_field("# no fence\n", "name", "x") == "# no fence\n"
+
     def test_blocklist_policy_refuses(self, sandbox, tmp_path):
         policy.save({"blocked_skills": ["blocked-one"]})
         src = self._src(tmp_path, "---\nname: blocked-one\nversion: 1.0.0\n---")
@@ -1215,7 +1307,8 @@ class TestSyncPlan:
     EMPTY: ClassVar[dict] = {"missing_store": [], "missing_links": [],
              "blocked_links": [], "stale_links": [], "adoptable_store": [],
              "older_copies": [], "foreign_store": [], "not_skill_store": [],
-             "unreadable_store": [], "misnamed_store": [],
+             "unreadable_store": [], "misnamed_store": [], "workflow_copies": [],
+             "rule_blocks": [],
              "plugin_duplicates": [], "unrecorded_store": [],
              "missing_materializations": [], "out_of_scope_links": []}
 
@@ -1845,8 +1938,19 @@ class TestRuleInstall:
         repo2.mkdir()
         entry = _rule_entry(tap)
         store.install(entry, scope="project", base=str(repo1))
-        with pytest.raises(BoostError, match="already installed at project scope"):
-            store.install(entry, scope="project", base=str(repo2))
+        for force in (False, True):
+            with pytest.raises(BoostError) as ei:
+                store.install(entry, scope="project", base=str(repo2),
+                              force=force)
+            # The same scope, another repo: the message names the real limit,
+            # not a scope mismatch that is not there.
+            assert ei.value.message == (
+                "team-conventions is already installed --local in %s, and a "
+                "rule can be installed --local into only one repo per machine"
+                % paths.tilde(repo1))
+            assert ei.value.hint == ("`boost uninstall team-conventions` from "
+                                     "that repo first; --force cannot move it")
+        assert lockfile.get_rule("team-conventions")["base"] == str(repo1)
 
     def test_only_agents_limits_materialization(self, tap):
         res = store.install(_rule_entry(tap), only_agents=["cursor"])
@@ -2347,7 +2451,10 @@ class TestCheckScopeConflict:
             store._check_scope_conflict(
                 "x", existing, "project", Path("/repo2"), force=True)
         assert ei.value.message == (
-            "x is already installed at project scope (%s)" % tmp_path)
+            "x is already installed --local in %s, and a rule or workflow can "
+            "be installed --local into only one repo per machine"
+            % paths.tilde(tmp_path))
+        assert "different scope" not in ei.value.hint
 
     def test_cross_scope_hint_points_at_uninstalling_the_other_location(self):
         existing = {"scope": "user", "base": None}
@@ -3431,6 +3538,55 @@ class TestProjectSkills:
         actions = store.project_sync_apply(
             store.project_sync_plan(base=str(repo)), base=str(repo))
         assert any("source is gone" in a for a in actions)
+        # heal and sync print it as a warning, and heal exits 1 over it.
+        gone = [a for a in actions if "source is gone" in a]
+        assert gone and all(store.is_unrepaired(a) for a in gone)
+        assert not store.is_unrepaired("re-materialized brainstorming from t")
+
+    def test_sync_preview_names_a_restorable_copy_and_writes_nothing(
+            self, entry, tmp_path):
+        repo, _ = self._install(entry, tmp_path)
+        gone = repo / ".claude" / "skills" / "brainstorming"
+        shutil.rmtree(gone)
+        lines = store.project_sync_preview(
+            store.project_sync_plan(base=str(repo)), base=str(repo))
+        tap_name = entry["tap"]
+        assert lines == ["would re-materialize project skill brainstorming "
+                         "→ claude-code from %s" % tap_name]
+        assert not any(store.is_unrepaired(x) for x in lines)
+        assert not gone.exists()
+
+    def test_sync_preview_warns_where_apply_would_report_gone(
+            self, entry, tmp_path):
+        """The preview and the run must agree on an unrestorable copy."""
+        from boost_cli.core import projectlock
+        repo, _ = self._install(entry, tmp_path)
+        shutil.rmtree(repo / ".claude" / "skills" / "brainstorming")
+        rec = projectlock.get_skill(repo, "brainstorming")
+        rec["tap"] = "no-such-tap-preview"
+        projectlock.set_skill(repo, "brainstorming", rec)
+        plan = store.project_sync_plan(base=str(repo))
+        lines = store.project_sync_preview(plan, base=str(repo))
+        assert lines == ["brainstorming is missing from the project but its "
+                         "source is gone — run `boost update` or reinstall"]
+        assert all(store.is_unrepaired(x) for x in lines)
+        assert store.project_sync_apply(plan, base=str(repo)) == lines
+
+    def test_sync_preview_treats_a_local_row_as_gone(self, entry, tmp_path):
+        from boost_cli.core import projectlock
+        repo, _ = self._install(entry, tmp_path)
+        shutil.rmtree(repo / ".claude" / "skills" / "brainstorming")
+        rec = projectlock.get_skill(repo, "brainstorming")
+        rec["tap"] = "local"
+        projectlock.set_skill(repo, "brainstorming", rec)
+        lines = store.project_sync_preview(
+            store.project_sync_plan(base=str(repo)), base=str(repo))
+        assert len(lines) == 1 and store.is_unrepaired(lines[0])
+
+    def test_sync_preview_is_empty_with_nothing_missing(self, entry, tmp_path):
+        repo, _ = self._install(entry, tmp_path)
+        assert store.project_sync_preview(
+            store.project_sync_plan(base=str(repo)), base=str(repo)) == []
 
     # ── the committed-lock contract ──────────────────────────────────────
 
@@ -4024,7 +4180,18 @@ class TestPreservedAgentScope:
         assert store.preserved_agent_scope(
             None, {"agents": ["claude-code"]}) == ["claude-code"]
 
-    def test_a_rule_s_scope_comes_from_its_materializations(self):
+    def test_a_rule_s_rows_are_not_its_scope(self):
+        # Rows record what was written, which is the agents enabled at
+        # install time. Replaying them froze an undeclared install out of
+        # every agent enabled afterwards, so only a declaration narrows.
+        existing = {"materializations": [{"agent": "cursor", "path": "/x"},
+                                         {"agent": "windsurf", "path": "/y"}],
+                    "only_agents": None}
+        assert store.preserved_agent_scope(None, existing) is None
+
+    def test_a_legacy_rule_s_scope_comes_from_its_materializations(self):
+        # No `only_agents` key: written before rules recorded one, so the rows
+        # are the only record of a narrowing and are still replayed.
         existing = {"materializations": [{"agent": "cursor", "path": "/x"},
                                          {"agent": "windsurf", "path": "/y"}]}
         assert store.preserved_agent_scope(None, existing) == ["cursor", "windsurf"]
@@ -4032,6 +4199,12 @@ class TestPreservedAgentScope:
     def test_a_materialization_row_with_no_agent_is_dropped(self):
         existing = {"materializations": [{"agent": "cursor"}, {"path": "/y"}]}
         assert store.preserved_agent_scope(None, existing) == ["cursor"]
+
+    def test_a_rule_s_scope_comes_from_its_declaration(self):
+        existing = {"materializations": [{"agent": "cursor", "path": "/x"},
+                                         {"agent": "windsurf", "path": "/y"}],
+                    "only_agents": ["windsurf"]}
+        assert store.preserved_agent_scope(None, existing) == ["windsurf"]
 
     def test_an_empty_record_means_every_agent_not_no_agent(self):
         # Nothing was linked last time (no agents enabled, or all conflicted).
@@ -5499,7 +5672,9 @@ class TestAnUnwritableRuleOrWorkflowDirIsSkipped:
         locked = self._locked(kind, entry["name"])
         agents_ = [m["agent"] for m in locked["materializations"]]
         assert agents_.count("cursor") == 1
-        assert "cursor" in store.preserved_agent_scope(None, locked)
+        # Undeclared, so the next install tries every agent, cursor included.
+        assert store.preserved_agent_scope(None, locked) is None
+        assert locked["only_agents"] is None
 
     @pytest.mark.parametrize("kind", ["rule", "workflow"])
     def test_sync_does_not_claim_a_repair_the_dir_still_refuses(self, tap, kind):
@@ -6157,3 +6332,372 @@ class TestARowForADisabledAgentIsNotRot:
         locked = lockfile.get_rule("team-conventions")
         assert store.materialization_is_written(
             "rule", locked, {"mode": "file", "path": "/nope"})
+
+
+def _set_enabled(agent, on):
+    cfg = config.load()
+    cfg["agents"][agent]["enabled"] = on
+    config.save(cfg)
+
+
+class TestAnAgentEnabledLaterGetsRulesAndWorkflows:
+    """A rule or workflow installed while cursor was disabled has no cursor
+    row. Its rows used to be replayed as the re-install scope, so enabling
+    cursor afterwards left it out of `sync`, `reinstall`, `update` and
+    `install --force` for good, while doctor called it fully materialized."""
+
+    CURSOR: ClassVar[dict[str, tuple[str, str]]] = {
+        "rule": ("rules", "team-conventions.mdc"),
+        "workflow": ("commands", "ship-it.md")}
+    NAME: ClassVar[dict[str, str]] = {"rule": "team-conventions",
+                                      "workflow": "ship-it"}
+
+    def _entry(self, tap, kind):
+        entry = _rule_entry(tap) if kind == "rule" else _workflow_entry(tap)
+        catalog.rebuild_tap(tap)          # so sync's repair can find it
+        return entry
+
+    def _locked(self, kind):
+        get = lockfile.get_rule if kind == "rule" else lockfile.get_workflow
+        return get(self.NAME[kind])
+
+    def _cursor_file(self, kind):
+        sub, leaf = self.CURSOR[kind]
+        return paths.home() / ".cursor" / sub / leaf
+
+    def _install_without_cursor(self, tap, kind, **kw):
+        entry = self._entry(tap, kind)
+        _set_enabled("cursor", False)
+        store.install(entry, **kw)
+        _set_enabled("cursor", True)
+        return entry
+
+    @pytest.mark.parametrize("kind", ["rule", "workflow"])
+    def test_the_missing_agent_is_named_and_sync_writes_it(self, tap, kind):
+        self._install_without_cursor(tap, kind)
+        locked = self._locked(kind)
+        assert locked["only_agents"] is None
+        assert store.unmaterialized_agents(kind, locked) == ["cursor"]
+        assert store.sync_plan()["missing_materializations"] == [
+            (kind, self.NAME[kind])]
+
+        store.sync_apply(store.sync_plan())
+
+        assert self._cursor_file(kind).is_file()
+        assert store.unmaterialized_agents(kind, self._locked(kind)) == []
+        assert store.sync_plan()["missing_materializations"] == []
+
+    @pytest.mark.parametrize("kind", ["rule", "workflow"])
+    def test_a_bare_force_reinstall_writes_it_too(self, tap, kind):
+        entry = self._install_without_cursor(tap, kind)
+        res = store.install(entry, force=True)
+        assert "cursor" in res.linked
+        assert self._cursor_file(kind).is_file()
+
+    @pytest.mark.parametrize("kind", ["rule", "workflow"])
+    def test_a_declared_narrowing_is_not_a_gap(self, tap, kind):
+        entry = self._entry(tap, kind)
+        store.install(entry, only_agents=["claude-code"])
+        locked = self._locked(kind)
+        assert locked["only_agents"] == ["claude-code"]
+        assert store.unmaterialized_agents(kind, locked) == []
+        assert store.sync_plan()["missing_materializations"] == []
+        # And it survives a bare re-install, which writes claude-code alone.
+        res = store.install(entry, force=True)
+        assert res.linked == ["claude-code"]
+        assert self._locked(kind)["only_agents"] == ["claude-code"]
+        assert not self._cursor_file(kind).exists()
+
+    def test_a_declared_agent_enabled_later_is_a_gap(self, tap):
+        entry = self._entry(tap, "rule")
+        _set_enabled("cursor", False)
+        store.install(entry, only_agents=["claude-code", "cursor"])
+        _set_enabled("cursor", True)
+        assert store.unmaterialized_agents(
+            "rule", self._locked("rule")) == ["cursor"]
+
+    def test_quarantined_rowless_and_disabled_are_not_gaps(self, tap):
+        self._install_without_cursor(tap, "rule")
+        locked = self._locked("rule")
+        assert store.unmaterialized_agents(
+            "rule", {**locked, "quarantined": True}) == []
+        assert store.unmaterialized_agents(
+            "rule", {**locked, "materializations": []}) == []
+        _set_enabled("cursor", False)
+        assert store.unmaterialized_agents("rule", locked) == []
+
+    def test_a_legacy_entry_is_not_read_for_gaps(self, tap):
+        self._install_without_cursor(tap, "rule")
+        locked = self._locked("rule")
+        del locked["only_agents"]
+        assert store.unmaterialized_agents("rule", locked) == []
+
+    def test_a_legacy_entry_is_not_given_the_field(self, tap):
+        # Writing `only_agents: None` onto it would widen its narrowing on the
+        # next update, so a re-install leaves the field off.
+        entry = self._entry(tap, "rule")
+        store.install(entry, only_agents=["claude-code"])
+        locked = self._locked("rule")
+        del locked["only_agents"]
+        lockfile.set_rule("team-conventions", locked)
+        res = store.install(entry, force=True)
+        assert res.linked == ["claude-code"]
+        assert "only_agents" not in self._locked("rule")
+
+    def test_a_foreign_row_counts_as_present(self, tap):
+        self._install_without_cursor(tap, "workflow")
+        locked = self._locked("workflow")
+        locked["foreign"] = [{"agent": "cursor", "slot": "commands",
+                              "path": str(self._cursor_file("workflow"))}]
+        assert store.unmaterialized_agents("workflow", locked) == []
+
+    def test_doctor_names_it_instead_of_fully_materialized(self, tap, capsys):
+        from boost_cli.commands import quality
+        self._install_without_cursor(tap, "rule")
+        assert quality.cmd_doctor([]) == 1
+        out = " ".join(capsys.readouterr().out.split())
+        assert ("rule team-conventions was never written for cursor — run "
+                "`boost sync`") in out
+        assert "fully materialized" not in out
+
+
+class TestAnUpgradeThatSkipsAnAgentMarksItsCopyStale:
+    """`boost update` with windsurf disabled carried windsurf's v1 row into
+    the v2 record, old digest and all, so its old file passed every check:
+    after re-enabling windsurf, doctor, verify, drift and sync all said in
+    sync."""
+
+    WINDSURF: ClassVar[dict[str, tuple[str, str]]] = {
+        "rule": ("rules", "team-conventions.md"),
+        "workflow": ("commands", "ship-it.md")}
+    NAME: ClassVar[dict[str, str]] = {"rule": "team-conventions",
+                                      "workflow": "ship-it"}
+
+    def _entry(self, tap, kind, body=None):
+        if kind == "rule":
+            entry = _rule_entry(tap)
+            if body is not None:
+                (tap.path / entry["skill_md"]).write_text(body, encoding="utf-8")
+        else:
+            entry = (_workflow_entry(tap) if body is None
+                     else _workflow_entry(tap, body=body))
+        catalog.rebuild_tap(tap)
+        return entry
+
+    def _locked(self, kind):
+        get = lockfile.get_rule if kind == "rule" else lockfile.get_workflow
+        return get(self.NAME[kind])
+
+    def _row(self, kind, agent):
+        return next(m for m in self._locked(kind)["materializations"]
+                    if m.get("agent") == agent)
+
+    def _upgrade_without_windsurf(self, tap, kind):
+        store.install(self._entry(tap, kind))
+        old = self._row(kind, "windsurf")
+        _set_enabled("windsurf", False)
+        title = "Team Conventions" if kind == "rule" else "ship-it"
+        v2 = self._entry(tap, kind,
+                         body="---\nname: %s\n---\n\nV2 body.\n" % title)
+        store.install(v2, force=True)
+        return old, v2
+
+    @pytest.mark.parametrize("kind", ["rule", "workflow"])
+    def test_the_carried_row_is_stale_and_keeps_its_digest(self, tap, kind):
+        old, _v2 = self._upgrade_without_windsurf(tap, kind)
+        row = self._row(kind, "windsurf")
+        assert row == {**old, "stale": True}
+        assert "stale" not in self._row(kind, "claude-code")
+        # Disabled, so nothing is asked of it yet.
+        assert store.sync_plan()["missing_materializations"] == []
+
+    @pytest.mark.parametrize("kind", ["rule", "workflow"])
+    def test_re_enabled_every_check_sees_it_and_sync_writes_v2(self, tap, kind):
+        self._upgrade_without_windsurf(tap, kind)
+        _set_enabled("windsurf", True)
+        from boost_cli.core import integrity
+        name = self.NAME[kind]
+        assert integrity.materialized_status(
+            name, self._locked(kind), kind) == integrity.STATUS_OUTDATED
+        assert store.sync_plan()["missing_materializations"] == [(kind, name)]
+        from boost_cli.commands import quality
+        assert quality._drift_status_materialized(
+            kind, name, self._locked(kind)) == "outdated"
+        assert quality._drift_hint(name, "outdated") == "boost sync"
+        assert not integrity.verification_passed(
+            integrity.STATUS_OUTDATED, [], None)
+
+        store.sync_apply(store.sync_plan())
+
+        sub, leaf = self.WINDSURF[kind]
+        text = (paths.home() / ".windsurf" / sub / leaf).read_text(
+            encoding="utf-8")
+        assert "V2 body." in text
+        assert "stale" not in self._row(kind, "windsurf")
+        assert integrity.materialized_status(
+            name, self._locked(kind), kind) == integrity.STATUS_OK
+        assert store.sync_plan()["missing_materializations"] == []
+
+    def test_an_unchanged_source_marks_nothing(self, tap):
+        entry = self._entry(tap, "rule")
+        store.install(entry)
+        _set_enabled("windsurf", False)
+        store.install(entry, force=True)
+        assert "stale" not in self._row("rule", "windsurf")
+
+    @pytest.mark.parametrize("kind", ["rule", "workflow"])
+    def test_a_row_outside_a_declared_narrowing_is_never_stale(self, tap,
+                                                               kind):
+        # Sync writes only the narrowed agents, so a stale flag on windsurf
+        # here was a "run `boost sync`" that sync could never satisfy.
+        store.install(self._entry(tap, kind))
+        store.install(self._entry(tap, kind), force=True,
+                      only_agents=["claude-code"])
+        title = "Team Conventions" if kind == "rule" else "ship-it"
+        store.install(self._entry(
+            tap, kind, body="---\nname: %s\n---\n\nV2 body.\n" % title),
+            force=True)
+        assert "stale" not in self._row(kind, "windsurf")
+        assert store.sync_plan()["missing_materializations"] == []
+
+    def test_narrowing_away_from_a_stale_row_clears_it(self, tap):
+        _old, v2 = self._upgrade_without_windsurf(tap, "rule")
+        assert self._row("rule", "windsurf")["stale"] is True
+        store.install(v2, force=True, only_agents=["claude-code"])
+        _set_enabled("windsurf", True)
+        assert "stale" not in self._row("rule", "windsurf")
+        assert store.sync_plan()["missing_materializations"] == []
+
+    def test_a_stale_row_stays_stale_until_written(self, tap):
+        _old, v2 = self._upgrade_without_windsurf(tap, "rule")
+        store.install(v2, force=True)        # same source, windsurf still off
+        assert self._row("rule", "windsurf")["stale"] is True
+
+    def test_a_hand_edit_is_still_modified_not_outdated(self, tap):
+        from boost_cli.core import integrity
+        self._upgrade_without_windsurf(tap, "rule")
+        _set_enabled("windsurf", True)
+        sub, leaf = self.WINDSURF["rule"]
+        (paths.home() / ".windsurf" / sub / leaf).write_text(
+            "mine\n", encoding="utf-8")
+        assert integrity.materialized_status(
+            "team-conventions", self._locked("rule"), "rule") == \
+            integrity.STATUS_MODIFIED
+
+    def test_doctor_names_it(self, tap, capsys):
+        from boost_cli.commands import quality
+        self._upgrade_without_windsurf(tap, "rule")
+        _set_enabled("windsurf", True)
+        assert quality.cmd_doctor([]) == 1
+        out = " ".join(capsys.readouterr().out.split())
+        assert ("rule team-conventions for windsurf is older than the "
+                "installed v1.0.0 — run `boost sync`") in out
+        assert "fully materialized" not in out
+
+
+# ── reinstall_candidates / uninstall(project_fallback=) ──────────────────
+
+class TestReinstallCandidates:
+    """Which rows `boost reinstall --scope/--local/--global` addresses."""
+
+    def _seed(self, repo: Path, other: Path) -> None:
+        from boost_cli.core import projectlock
+        lockfile.set_skill("user-skill", {"tap": "t"})
+        lockfile.set_rule("user-rule", {"tap": "t", "scope": "user"})
+        lockfile.set_rule("repo-rule", {"tap": "t", "scope": "project",
+                                        "base": str(repo)})
+        lockfile.set_workflow("other-wf", {"tap": "t", "scope": "project",
+                                           "base": str(other)})
+        lockfile.set_workflow("nobase-wf", {"tap": "t", "scope": "project"})
+        projectlock.set_skill(repo, "repo-skill", {"tap": "t"})
+
+    def test_none_is_the_whole_user_lock_in_section_order(self, sandbox,
+                                                          tmp_path):
+        self._seed(tmp_path / "repo", tmp_path / "other")
+        got = [(k, n) for k, n, _ in store.reinstall_candidates(None)]
+        assert got == [("skill", "user-skill"), ("rule", "repo-rule"),
+                       ("rule", "user-rule"), ("workflow", "nobase-wf"),
+                       ("workflow", "other-wf")]
+
+    def test_user_keeps_only_rows_recorded_at_user_scope(self, sandbox,
+                                                         tmp_path):
+        self._seed(tmp_path / "repo", tmp_path / "other")
+        got = [(k, n) for k, n, _ in store.reinstall_candidates("user")]
+        assert got == [("skill", "user-skill"), ("rule", "user-rule")]
+
+    def test_project_is_that_repo_only(self, sandbox, tmp_path):
+        repo = tmp_path / "repo"
+        self._seed(repo, tmp_path / "other")
+        got = store.reinstall_candidates("project", repo)
+        assert [(k, n) for k, n, _ in got] == [("skill", "repo-skill"),
+                                               ("rule", "repo-rule")]
+        # A project skill's row is stamped with its scope so the caller can
+        # route it to a project reinstall.
+        assert got[0][2] == {"tap": "t", "scope": "project"}
+
+    def test_project_without_a_base_is_empty(self, sandbox, tmp_path):
+        self._seed(tmp_path / "repo", tmp_path / "other")
+        assert store.reinstall_candidates("project", None) == []
+
+
+def test_uninstall_without_project_fallback_names_the_local_flag(
+        sandbox, tmp_path, monkeypatch):
+    from boost_cli.core import projectlock
+    from boost_cli.errors import BoostError
+    repo = tmp_path / "repo"
+    (repo / ".git").mkdir(parents=True)
+    monkeypatch.chdir(repo)
+    projectlock.set_skill(repo, "only-here", {"tap": "t"})
+    with pytest.raises(BoostError) as exc:
+        store.uninstall("only-here", project_fallback=False)
+    assert exc.value.message == "only-here is not installed"
+    assert exc.value.hint == ("only this repo has it — `boost uninstall "
+                              "--local only-here`")
+    assert projectlock.get_skill(repo, "only-here") == {"tap": "t"}
+    with pytest.raises(BoostError) as exc:
+        store.uninstall("nowhere", project_fallback=False)
+    assert exc.value.hint == "see what is with `boost list`"
+
+
+def test_reinstall_candidates_project_ignores_a_relative_base(sandbox,
+                                                              tmp_path,
+                                                              monkeypatch):
+    # "." resolved against the cwd would make one row belong to every repo;
+    # scopes.owns refuses a relative base, and so must this.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.chdir(repo)
+    lockfile.set_rule("dot-rule", {"tap": "t", "scope": "project",
+                                   "base": "."})
+    lockfile.set_rule("abs-rule", {"tap": "t", "scope": "project",
+                                   "base": str(repo)})
+    got = [n for _, n, _ in store.reinstall_candidates("project", repo)]
+    assert got == ["abs-rule"]
+
+
+@pytest.mark.parametrize("kind", ["rule", "workflow"])
+def test_uninstall_without_project_fallback_keeps_a_repo_rule_or_workflow(
+        sandbox, tmp_path, kind):
+    from boost_cli.errors import BoostError
+    repo = tmp_path / "repo"
+    row = {"tap": "t", "scope": "project", "base": str(repo),
+           "materializations": []}
+    setter = lockfile.set_rule if kind == "rule" else lockfile.set_workflow
+    getter = lockfile.get_rule if kind == "rule" else lockfile.get_workflow
+    setter("in-repo", row)
+    with pytest.raises(BoostError) as exc:
+        store.uninstall("in-repo", project_fallback=False)
+    assert exc.value.message == "in-repo is not installed in your user config"
+    assert exc.value.hint == ("it was installed into %s — `boost uninstall "
+                              "--local in-repo` from there"
+                              % paths.tilde(repo))
+    assert getter("in-repo") == row
+
+
+def test_uninstall_without_project_fallback_still_removes_a_user_rule(
+        sandbox):
+    lockfile.set_rule("mine", {"tap": "t", "scope": "user",
+                               "materializations": []})
+    info = store.uninstall("mine", project_fallback=False)
+    assert info["kind"] == "rule"
+    assert lockfile.get_rule("mine") is None

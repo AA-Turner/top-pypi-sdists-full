@@ -34,6 +34,7 @@ from matrx_ai.config.finish_reason import (
     truncation_marker,
     truncation_notice,
 )
+from matrx_ai.config.typed_text_last import typed_words_of
 from matrx_ai.context.app_context import get_app_context
 from matrx_ai.db import (
     ensure_conversation_exists,
@@ -3828,8 +3829,9 @@ def _schedule_labeling_if_new(exec_ctx: Any, config: UnifiedConfig) -> None:
             user_variables = _project_picklist_labels(exec_ctx.initial_variables) or None
             for msg in reversed(messages):
                 if isinstance(msg, dict) and msg.get("role") == "user":
-                    content = msg.get("content", "")
-                    user_prompt = content if isinstance(content, str) else str(content)
+                    # The person's own words, never the Python repr of a block list
+                    # (the titler quoted "[{'type': 'text', ...}]" until 2026-10-20).
+                    user_prompt = typed_words_of(msg.get("content", ""))
                     break
 
         schedule_conversation_labeling(
@@ -4190,6 +4192,39 @@ async def _record_snapshot_capture_failure(exc: BaseException, context: dict[str
         pass
 
 
+async def _agent_version_for_snapshot(exec_ctx: Any) -> str | None:
+    """THE agent version that ran, for every door (L48, defect 79).
+
+    A pinned run carries ``ctx.agent_version_id``. A floating (latest) run carries only
+    ``ctx.agent_id`` - its version is the master's live one. A continuation or child whose
+    context names neither falls back to the version its conversation was opened under.
+    NULL only for a call made outside any agent. Never raises (best-effort attribution)."""
+    pinned = getattr(exec_ctx, "agent_version_id", None)
+    if pinned:
+        return str(pinned)
+
+    # A client host owns conversation persistence in its injected store and
+    # does not write a server request snapshot. If this shared helper is
+    # reached on that path, its opaque conversation id cannot be resolved
+    # through the server ORM.
+    from matrx_ai.client_host import get_conversation_store
+
+    if get_conversation_store() is not None:
+        return None
+
+    from matrx_ai.db import persistence
+
+    agent_id = getattr(exec_ctx, "agent_id", None)
+    if agent_id:
+        found = await persistence.live_version_id_for_agent(str(agent_id))
+        if found:
+            return found
+    conversation_id = getattr(exec_ctx, "conversation_id", None)
+    if conversation_id:
+        return await persistence.conversation_agent_version_id(str(conversation_id))
+    return None
+
+
 async def _write_request_snapshot(
     *,
     exec_ctx: Any,
@@ -4367,7 +4402,7 @@ async def _write_request_snapshot(
             # NULL is HONEST, never "missing": a call made outside any agent
             # has no agent version, and a run started from a FLOATING
             # definition pins no workflow version row.
-            "agent_definition_version": getattr(exec_ctx, "agent_version_id", None) or None,
+            "agent_definition_version": await _agent_version_for_snapshot(exec_ctx),
             "workflow_definition_version": (
                 getattr(exec_ctx, "workflow_definition_version_id", None) or None
             ),

@@ -787,22 +787,31 @@ class CreateModelVersionFromArtifactResponse(_message.Message):
     def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
 
 class ListModelArtifactsRequest(_message.Message):
-    __slots__ = ("script_task_id", "training_run_id", "cursor", "limit")
+    __slots__ = ("script_task_id", "training_run_id", "cursor", "limit", "filters")
     SCRIPT_TASK_ID_FIELD_NUMBER: _ClassVar[int]
     TRAINING_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     script_task_id: str
     training_run_id: str
     cursor: str
     limit: int
+    filters: ListModelArtifactsFilters
     def __init__(
         self,
         script_task_id: _Optional[str] = ...,
         training_run_id: _Optional[str] = ...,
         cursor: _Optional[str] = ...,
         limit: _Optional[int] = ...,
+        filters: _Optional[_Union[ListModelArtifactsFilters, _Mapping]] = ...,
     ) -> None: ...
+
+class ListModelArtifactsFilters(_message.Message):
+    __slots__ = ("created_by",)
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    created_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, created_by: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ListModelArtifactsResponse(_message.Message):
     __slots__ = ("model_artifacts", "next_cursor")
@@ -829,7 +838,13 @@ class GetModelArtifactResponse(_message.Message):
     def __init__(self, model_artifact: _Optional[_Union[ModelArtifact, _Mapping]] = ...) -> None: ...
 
 class ListModelsFilters(_message.Message):
-    __slots__ = ("statuses",)
+    __slots__ = ("statuses", "created_by")
     STATUSES_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     statuses: _containers.RepeatedScalarFieldContainer[ListModelsStatus]
-    def __init__(self, statuses: _Optional[_Iterable[_Union[ListModelsStatus, str]]] = ...) -> None: ...
+    created_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        statuses: _Optional[_Iterable[_Union[ListModelsStatus, str]]] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...

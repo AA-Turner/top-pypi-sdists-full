@@ -90,7 +90,7 @@ def sync(
     This operation performs the following actions:
     1. Any existing objects are looked up in Benchling by the provided entity registry ID.
     2. Then, all objects are either created or updated accordingly, temporarily skipping any schema field links between objects.
-    3. Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the [Field](#/components/schemas/FieldWithResolution) resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value). You may link to objects being created in the same operation.
+    3. Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the `Field` resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value). You may link to objects being created in the same operation.
     4. Entities are registered, using the provided name and entity registry ID.
 
     If any action fails, the whole operation is canceled and no objects are created or updated.
@@ -134,7 +134,7 @@ async def asyncio(
     This operation performs the following actions:
     1. Any existing objects are looked up in Benchling by the provided entity registry ID.
     2. Then, all objects are either created or updated accordingly, temporarily skipping any schema field links between objects.
-    3. Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the [Field](#/components/schemas/FieldWithResolution) resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value). You may link to objects being created in the same operation.
+    3. Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the `Field` resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value). You may link to objects being created in the same operation.
     4. Entities are registered, using the provided name and entity registry ID.
 
     If any action fails, the whole operation is canceled and no objects are created or updated.

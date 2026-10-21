@@ -88,9 +88,10 @@ class Training(APIResource):
     Args:
       base_model_slug: Registered base model for the run, distinct from a deployment model slug.
 
-      idempotency_key: Required. A missing, blank or over-long key is rejected, including an SDK call
-        that passes `idempotency_key=None`. Reuse this key when retrying a submission; the
-        SDK generates one per call and reuses it across automatic retries.
+      idempotency_key: Optional. Without a key the API generates one, so a retried submission creates a
+        second resource. A blank or over-long key is rejected. Reuse this key when
+        retrying a submission; the SDK generates one per call and reuses it across
+        automatic retries.
 
       bench_id: Benchmark ID; use instead of agent_name and benchmark_name.
 

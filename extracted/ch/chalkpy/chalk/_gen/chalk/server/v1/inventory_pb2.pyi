@@ -52,6 +52,7 @@ class GetProjectNavbarCountsResponse(_message.Message):
         "notebook_kernels",
         "images",
         "models",
+        "model_deployments",
         "open_incidents",
         "webhooks",
         "integrations",
@@ -79,6 +80,7 @@ class GetProjectNavbarCountsResponse(_message.Message):
     NOTEBOOK_KERNELS_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
     MODELS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_DEPLOYMENTS_FIELD_NUMBER: _ClassVar[int]
     OPEN_INCIDENTS_FIELD_NUMBER: _ClassVar[int]
     WEBHOOKS_FIELD_NUMBER: _ClassVar[int]
     INTEGRATIONS_FIELD_NUMBER: _ClassVar[int]
@@ -105,6 +107,7 @@ class GetProjectNavbarCountsResponse(_message.Message):
     notebook_kernels: int
     images: int
     models: int
+    model_deployments: int
     open_incidents: int
     webhooks: int
     integrations: int
@@ -133,6 +136,7 @@ class GetProjectNavbarCountsResponse(_message.Message):
         notebook_kernels: _Optional[int] = ...,
         images: _Optional[int] = ...,
         models: _Optional[int] = ...,
+        model_deployments: _Optional[int] = ...,
         open_incidents: _Optional[int] = ...,
         webhooks: _Optional[int] = ...,
         integrations: _Optional[int] = ...,

@@ -16,7 +16,12 @@ from pinecone._internal.index_migration import (
     reject_legacy_configure_kwargs,
     reject_legacy_create_kwargs,
 )
-from pinecone._internal.indexes_helpers import poll_index_until_ready, resolve_enum_value
+from pinecone._internal.indexes_helpers import (
+    poll_index_until_ready,
+    poll_sleep_seconds,
+    resolve_enum_value,
+    validate_wait_timeout,
+)
 from pinecone._internal.legacy_index_translation import (
     legacy_pod_scaling,
     legacy_vector_schema,
@@ -63,7 +68,8 @@ def _require_fields_dict(param: str, schema: dict[str, Any] | IndexSchema) -> No
         raise PineconeValueError(
             f"{param} must be a dict of the form {{'fields': {{'<field-name>': "
             "{...}}}} mapping field names to searched-field configurations "
-            "(dense_vector, sparse_vector, or string with full_text_search). "
+            "(dense_vector, sparse_vector, or string with full_text_search, embed, "
+            "or sparse_embed). "
             "Metadata-only fields are not declared at create time in the 2026-07 "
             "API; they are indexed automatically at upsert."
         )
@@ -71,7 +77,7 @@ def _require_fields_dict(param: str, schema: dict[str, Any] | IndexSchema) -> No
         raise PineconeValueError(
             f"{param}['fields'] cannot be empty: the 2026-07 API requires at least "
             "one searched field (dense_vector, sparse_vector, or string with "
-            "full_text_search)."
+            "full_text_search, embed, or sparse_embed)."
         )
 
 
@@ -98,7 +104,8 @@ def _reject_legacy_metadata_schema(schema: dict[str, Any] | IndexSchema) -> None
         raise PineconeValueError(
             f"schema={schema!r} looks like a 9.x metadata schema: none of its fields "
             "carry a 'type' key. At 2026-07, schema= declares searched fields instead "
-            "(dense_vector, sparse_vector, or string with full_text_search) — metadata "
+            "(dense_vector, sparse_vector, or string with full_text_search, embed, or "
+            "sparse_embed) — metadata "
             "fields are no longer declared at create time; they are indexed "
             "automatically at upsert. If you meant to declare a searched field, add "
             "'type': 'dense_vector' | 'sparse_vector' | 'string' to each field. See "
@@ -130,7 +137,8 @@ class Indexes:
        :meth:`Pinecone.index(name) <pinecone.Pinecone.index>` — the data-plane
        client for reads and writes against one index.
 
-       :doc:`/guides/error-handling` — the exceptions any method here can
+       `Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__
+       — the exceptions any method here can
        raise, and how to handle them.
 
     .. versionchanged:: 10.0
@@ -169,7 +177,7 @@ class Indexes:
                 integer; ``None`` (the default) yields every index.
             pagination_token: Token from an earlier call, to resume where that
                 call stopped; ``None`` starts from the beginning. See
-                :doc:`/guides/pagination`.
+                `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
 
         Returns:
             :class:`~pinecone.models.pagination.Paginator` over
@@ -278,9 +286,12 @@ class Indexes:
                 Use ``None`` (default) to poll indefinitely until the index
                 is gone. Use a positive int to poll with a deadline.
                 Use ``-1`` to return immediately without polling.
+                Any other negative value raises :exc:`PineconeValueError`
+                before a request is sent.
 
         Raises:
-            :exc:`PineconeValueError`: If *name* is empty.
+            :exc:`PineconeValueError`: If *name* is empty or *timeout* is a
+                negative value other than ``-1``.
             :exc:`NotFoundError`: If the index does not exist.
             :exc:`ForbiddenError`: If deletion protection is enabled — clear
                 it with :meth:`configure` first.
@@ -306,6 +317,7 @@ class Indexes:
             down when the call returns.
         """
         require_non_empty("name", name)
+        validate_wait_timeout(timeout)
         logger.info("Deleting index %r", name)
         self._http.delete(f"/indexes/{quote(name, safe='')}")
         self._host_cache.pop(name, None)
@@ -325,7 +337,7 @@ class Indexes:
                 elapsed = time.monotonic() - start
                 if elapsed >= timeout:
                     raise PineconeTimeoutError(f"Index '{name}' still exists after {timeout}s")
-            time.sleep(_POLL_INTERVAL_SECONDS)
+            time.sleep(poll_sleep_seconds(_POLL_INTERVAL_SECONDS, timeout, start))
 
     def create(
         self,
@@ -349,11 +361,14 @@ class Indexes:
         An index's field layout is declared as a ``schema`` of named, typed
         fields. Every field in the schema must be one that gets searched —
         ``dense_vector``, ``sparse_vector``, or ``string`` with
-        ``full_text_search`` enabled. Metadata-only fields aren't declared
-        here; they're indexed automatically the first time they appear on an
-        upserted record. The schema can't change once the index exists, and
-        the call blocks until the index is ready unless you pass
-        ``timeout=-1``.
+        ``full_text_search``, ``embed`` or ``sparse_embed``. A string field
+        with ``embed`` or ``sparse_embed`` supports integrated embedding: Pinecone
+        embeds its text on write and the query text on search. The result is
+        a document index; read and write it through ``index.documents``.
+        Metadata-only fields aren't declared here; they're indexed
+        automatically the first time they appear on an upserted record. The
+        schema can't change once the index exists, and the call blocks until
+        the index is ready unless you pass ``timeout=-1``.
 
         Args:
             schema: The index's field schema. Required unless the
@@ -364,12 +379,19 @@ class Indexes:
 
                     {
                         "fields": {
-                            "embedding": {"type": "dense_vector",
-                                          "dimension": 1536, "metric": "cosine"},
+                            "your_vector": {"type": "dense_vector",
+                                            "dimension": 1536, "metric": "cosine"},
                             "body": {"type": "string",
-                                     "full_text_search": {"language": "en"}},
+                                     "full_text_search": {"language": "en",
+                                                          "stemming": True}},
                         }
                     }
+
+                A ``metric`` written in capitals, on a dense vector field or in
+                a string field's ``embed`` config, is lowercased before the
+                request goes out. The server accepts ``"EUCLIDEAN"`` at create
+                but then fails every write to the index with a ``500``, and a
+                field's metric cannot be changed afterwards.
 
                 Also accepts the dict produced by
                 :class:`~pinecone.schema_builder.SchemaBuilder` or an
@@ -403,9 +425,11 @@ class Indexes:
                 20 pairs. Pass ``None`` (the default) to attach none.
             cmek_id: ID of a customer-managed encryption key to encrypt the
                 index with, e.g. ``"key-abc123"``.
-            timeout: How long to wait, in seconds, for the index to become
-                ready before returning. ``None`` (default) waits
-                indefinitely; ``-1`` returns immediately without waiting.
+            timeout: Seconds to wait for the index to become ready before
+                returning. ``None`` (default) waits indefinitely, ``-1``
+                returns immediately without waiting, and a positive number
+                waits up to that many seconds. Any other negative value
+                raises :exc:`PineconeValueError` before a request is sent.
             spec: **Deprecated.** A
                 :class:`~pinecone.models.indexes.specs.ServerlessSpec`,
                 :class:`~pinecone.models.indexes.specs.PodSpec`,
@@ -445,7 +469,8 @@ class Indexes:
             :exc:`PineconeValueError`: If neither ``schema=`` nor
                 ``dimension=`` is given, or mutually exclusive arguments
                 (``schema=`` with a legacy vector kwarg, or ``deployment=``
-                with ``spec=``) are combined.
+                with ``spec=``) are combined, or *timeout* is a negative value
+                other than ``-1``.
             :exc:`PineconeTypeError`: If an unsupported legacy keyword (e.g.
                 ``pods=``) or ``spec=IntegratedSpec(...)`` is passed.
             :exc:`IndexInitFailedError`: If the index fails to initialize.
@@ -459,7 +484,7 @@ class Indexes:
 
             >>> index = pc.indexes.create(
             ...     name="movie-recommendations",
-            ...     schema={"fields": {"embedding": {
+            ...     schema={"fields": {"your_vector": {
             ...         "type": "dense_vector", "dimension": 1536, "metric": "cosine"}}},
             ... )
             >>> index.status.ready
@@ -473,11 +498,12 @@ class Indexes:
             >>> index = pc.indexes.create(
             ...     name="support-articles",
             ...     schema={"fields": {
-            ...         "embedding": {"type": "dense_vector",
-            ...                       "dimension": 1024, "metric": "cosine"},
+            ...         "your_vector": {"type": "dense_vector",
+            ...                         "dimension": 1024, "metric": "cosine"},
             ...         "keywords": {"type": "sparse_vector"},
             ...         "body": {"type": "string",
-            ...                  "full_text_search": {"language": "en"}},
+            ...                  "full_text_search": {"language": "en",
+            ...                                       "stemming": True}},
             ...     }},
             ...     deployment={"deployment_type": "managed",
             ...                 "cloud": "aws", "region": "us-west-2"},
@@ -491,11 +517,13 @@ class Indexes:
            only the sparse upserts are refused later. The field
            cannot be added by ``configure()``, so an index created
            without one has to be recreated. See
-           :doc:`/migration/v10-migration`.
+           `Migrating to V10 <https://sdk.pinecone.io/python/migration/v10-migration.html>`__.
 
         .. seealso::
-           :meth:`create_for_model` — creates an index with an integrated
-           embedding model, so you upsert and query text instead of vectors.
+           :meth:`create_for_model` — creates a legacy integrated index, which
+           requires the legacy Records API. For integrated embedding in a
+           document index, declare ``embed`` / ``sparse_embed`` on a
+           ``string`` field here instead.
 
         .. versionchanged:: 10.0
            ``spec=``, ``dimension=``, ``metric=``, and ``vector_type=`` are
@@ -503,8 +531,11 @@ class Indexes:
            ``deployment=`` arguments. ``pods=``, ``metadata_config=``,
            ``source_collection=``, ``source_backup_id=``, and
            ``spec=IntegratedSpec(...)`` have no equivalent here; use
-           :meth:`create_for_model` for integrated embedding.
+           :meth:`create_for_model` for a legacy integrated index, or
+           ``embed`` / ``sparse_embed`` on a ``string`` field for integrated
+           embedding in a document index.
         """
+        validate_wait_timeout(timeout)
         reject_legacy_create_kwargs(legacy_kwargs, name)
         reject_integrated_spec_create(spec, name)
 
@@ -540,7 +571,8 @@ class Indexes:
             raise PineconeValueError(
                 "schema is required: pass schema={'fields': {'<field-name>': {...}}} "
                 "declaring at least one searched field (dense_vector, sparse_vector, "
-                "or string with full_text_search), or, for backward compatibility, "
+                "or string with full_text_search, embed, or sparse_embed), or, for "
+                "backward compatibility, "
                 "the deprecated dimension= keyword argument (optionally with metric= "
                 "and vector_type=)."
             )
@@ -611,13 +643,20 @@ class Indexes:
         read_capacity: dict[str, Any] | None = None,
         timeout: int | None = None,
     ) -> IndexModel:
-        """Create a serverless index with an integrated embedding model.
+        """Create a legacy integrated index, served by the legacy Records API.
 
         Pinecone embeds text written to the mapped field automatically at
         upsert time and embeds queries at read time using the same model. In
         the returned index, the embedding configuration surfaces as a
         ``semantic_text`` field in ``schema``, named after the ``field_map``
         text entry.
+
+        This creates a legacy integrated index, and legacy integrated indexes
+        require the legacy Records API (``index.upsert_records`` and
+        ``index.search``). For new work, create a document index with
+        integrated embedding instead: pass :meth:`create` a ``string`` field
+        with ``embed`` or ``sparse_embed`` and use ``index.documents``, which
+        adds full-text search on the same fields and ``score_by``.
 
         Args:
             name: Name for the index — 1-45 characters, lowercase
@@ -640,9 +679,11 @@ class Indexes:
                 ``{"fields": {"genre": {"filterable": True}}}``. A bare field
                 map is wrapped in ``{"fields": ...}`` for you.
             read_capacity: Read capacity for the index — see :meth:`create`.
-            timeout: How long to wait, in seconds, for the index to become
-                ready before returning. ``None`` (default) waits
-                indefinitely; ``-1`` returns immediately without waiting.
+            timeout: Seconds to wait for the index to become ready before
+                returning. ``None`` (default) waits indefinitely, ``-1``
+                returns immediately without waiting, and a positive number
+                waits up to that many seconds. Any other negative value
+                raises :exc:`PineconeValueError` before a request is sent.
 
         Returns:
             :class:`IndexModel` describing the created index — ready, unless
@@ -650,7 +691,8 @@ class Indexes:
 
         Raises:
             :exc:`PineconeValueError`: If *name*, *cloud*, *region*, *embed*,
-                *tags*, or *deletion_protection* fail client-side validation.
+                *tags*, *deletion_protection*, or *timeout* (a negative value
+                other than ``-1``) fail client-side validation.
 
         Examples:
             The ``field_map`` text entry names the record field Pinecone
@@ -672,6 +714,7 @@ class Indexes:
            yourself, declaring them as ``dense_vector``/``sparse_vector``
            fields in ``schema=``.
         """
+        validate_wait_timeout(timeout)
         require_valid_resource_name("name", name)
         cloud_str = resolve_enum_value(cloud)
         region_str = resolve_enum_value(region)
@@ -704,10 +747,10 @@ class Indexes:
         if read_capacity is not None:
             body["read_capacity"] = read_capacity
 
-        logger.info("Creating integrated index name=%r", name)
+        logger.info("Creating legacy integrated index name=%r", name)
         response = self._http.post("/indexes/create-for-model", json=body)
         model = self._adapter.to_index_model(response.content)
-        logger.debug("Created integrated index %r", model.name)
+        logger.debug("Created legacy integrated index %r", model.name)
 
         if timeout != -1:
             model = self._poll_until_ready(model.name, timeout)
@@ -737,13 +780,18 @@ class Indexes:
         Args:
             name: Name of the index to configure.
             deployment: Pod-scaling updates for pod-based indexes —
-                ``{"replicas": int, "pod_type": str}`` (either or both). Must
-                not include ``"deployment_type"``: deployment type,
-                cloud/region, and environment cannot be changed after
-                creation.
-            schema: Schema updates. Only ``semantic_text`` field parameters
-                (``read_parameters``/``write_parameters``) are updatable
-                server-side; see the note after the examples.
+                ``{"replicas": int, "pod_type": str}`` (either or both). Only
+                those two keys are accepted; any other key is rejected by the
+                server. ``"deployment_type"`` raises :exc:`PineconeValueError`
+                client-side, since deployment type, cloud/region, and
+                environment cannot be changed after creation.
+            schema: Schema updates. On an index created with
+                ``create(schema=...)`` the schema is fixed: nothing in it can
+                be changed, including the ``embed``/``sparse_embed``
+                parameters of a ``string`` field. On an index created with
+                :meth:`create_for_model`, only ``semantic_text`` field
+                parameters (``read_parameters``/``write_parameters``) can be
+                updated; see the note after the examples.
             read_capacity: Updated read capacity dict —
                 ``{"mode": "OnDemand"}`` or ``{"mode": "Dedicated",
                 "dedicated": {...}}``. Applies to managed and BYOC indexes.
@@ -782,6 +830,12 @@ class Indexes:
                 neither has a translation here, and the message shows the
                 equivalent current call where one exists.
             :exc:`NotFoundError`: If the index does not exist.
+            :exc:`ApiError`: Typically status 422 or 400, if *schema* is passed
+                for an index created with ``create(schema=...)`` (even
+                unchanged fields are refused), or if *deployment* has a key
+                other than ``replicas`` or ``pod_type``. The message comes
+                from the server and can read as a raw deserialization error
+                rather than naming the field.
 
         Examples:
             Scale a pod-based index. Pod scaling is applied in the
@@ -806,7 +860,9 @@ class Indexes:
            field types can't be added, removed, or retyped after creation.
            Since :meth:`create` cannot declare a ``semantic_text`` field
            directly, this only applies to indexes created with
-           :meth:`create_for_model`.
+           :meth:`create_for_model`. On an index created with
+           ``create(schema=...)`` the schema is fixed, and passing ``schema=``
+           is rejected.
 
         .. versionchanged:: 10.0
            Before/after:
@@ -977,7 +1033,7 @@ class Indexes:
             pagination_token: Token from an earlier call, to resume where that
                 call stopped. *limit* still caps the total yield, but it is
                 not sent alongside a token — see above. See
-                :doc:`/guides/pagination`.
+                `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
             include_deleted: When ``True``, include backups of every index
                 that has ever used *index_name*, deleted ones included; those
                 backups carry a non-``None``

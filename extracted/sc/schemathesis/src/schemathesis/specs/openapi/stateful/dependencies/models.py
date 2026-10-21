@@ -12,7 +12,11 @@ from typing import Any, TypeAlias
 from schemathesis.core.jsonschema.resolver import Resolver
 from schemathesis.core.parameters import ParameterLocation, iter_path_parameters
 from schemathesis.core.text import to_pascal_case
-from schemathesis.core.transforms import encode_pointer, get_template_fields, iter_decoded_pointer_segments
+from schemathesis.core.transforms import (
+    encode_pointer,
+    get_template_fields,
+    iter_decoded_pointer_segments,
+)
 from schemathesis.resources.descriptors import Cardinality
 from schemathesis.specs.openapi.adapter.references import maybe_resolve_with_resolver
 from schemathesis.specs.openapi.stateful.dependencies.naming import (
@@ -46,6 +50,7 @@ class DependencyGraph:
                     del input["is_listed_identifier"]
                 if not input["is_parent_key"]:
                     del input["is_parent_key"]
+                del input["body_path"]
             for output in operation["outputs"]:
                 output["resource"] = output["resource"]["name"]
                 del output["response_fields"]
@@ -221,10 +226,9 @@ class DependencyGraph:
                         request_body: dict[str, Any] | list = {}
                         # Data is extracted from response body
                         if input_slot.parameter_location == ParameterLocation.BODY:
-                            if isinstance(input_slot.parameter_name, int):
-                                request_body = [value_expr]
-                            else:
-                                request_body = _build_nested_body(input_slot.parameter_name, value_expr)
+                            request_body = build_nested_body(
+                                input_slot.body_path or (input_slot.parameter_name,), value_expr
+                            )
                         else:
                             parameters = {
                                 f"{input_slot.parameter_location.value}.{input_slot.parameter_name}": value_expr,
@@ -232,7 +236,7 @@ class DependencyGraph:
                         existing = links.get(link_name)
                         if existing is not None:
                             existing.parameters.update(parameters)
-                            existing.request_body = _merge_request_body(existing.request_body, request_body)
+                            existing.request_body = merge_request_body(existing.request_body, request_body)
                             continue
                         links[link_name] = LinkDefinition(
                             operation_ref=f"#/paths/{consumer_path}/{consumer.method}",
@@ -651,48 +655,24 @@ def _key_kind(parameter_name: str | int) -> KeyKind | None:
     return key_kind(parameter_name)
 
 
-def _build_nested_body(path: str, value: str) -> dict[str, Any] | list[Any]:
-    """Build a nested dict structure from a path like 'shipping/warehouse_id'.
+def build_nested_body(path: BodyPath, value: object) -> dict[str, Any] | list[Any]:
+    """Build a body holding `value` at `path`, integers marking array items.
 
     Examples:
-        _build_nested_body("customer_id", "$val") -> {"customer_id": "$val"}
-        _build_nested_body("shipping/warehouse_id", "$val") -> {"shipping": {"warehouse_id": "$val"}}
-        _build_nested_body("items/0/product_id", "$val") -> {"items": [{"product_id": "$val"}]}
-        _build_nested_body("0/product_id", "$val") -> [{"product_id": "$val"}]
+        build_nested_body(("customer_id",), "$val") -> {"customer_id": "$val"}
+        build_nested_body(("shipping", "warehouse_id"), "$val") -> {"shipping": {"warehouse_id": "$val"}}
+        build_nested_body(("items", 0, "product_id"), "$val") -> {"items": [{"product_id": "$val"}]}
+        build_nested_body((0, "product_id"), "$val") -> [{"product_id": "$val"}]
 
     """
-    index, _, rest = path.partition("/")
-    if index.isdigit() and rest:
-        return [_build_nested_body(rest, value)]
-    if "/" not in path:
-        return {path: value}
-
-    parts = path.split("/")
-    result: dict[str, Any] = {}
-    current = result
-
-    for i, part in enumerate(parts[:-1]):
-        next_part = parts[i + 1]
-        # Check if next part is an array index
-        if next_part.isdigit():
-            current[part] = [{}]
-            current = current[part][0]
-        elif part.isdigit():
-            # Skip array indices - we're already inside the array
-            continue
-        else:
-            current[part] = {}
-            current = current[part]
-
-    # Set the final value
-    final_key = parts[-1]
-    if not final_key.isdigit():
-        current[final_key] = value
-
-    return result
+    *parents, leaf = path
+    body: dict[str, Any] | list[Any] = [value] if isinstance(leaf, int) else {leaf: value}
+    for step in reversed(parents):
+        body = [body] if isinstance(step, int) else {step: body}
+    return body
 
 
-def _merge_request_body(
+def merge_request_body(
     target: dict[str, Any] | list[Any], source: dict[str, Any] | list[Any]
 ) -> dict[str, Any] | list[Any]:
     """Deep merge `source` into `target` and return the result; `source` wins when the shapes differ."""
@@ -810,6 +790,10 @@ class OperationNode:
     outputs: list[OutputSlot]
 
 
+# A body field location, integers marking array items.
+BodyPath: TypeAlias = tuple[str | int, ...]
+
+
 @dataclass(slots=True)
 class InputSlot:
     """A required input for an operation."""
@@ -832,6 +816,8 @@ class InputSlot:
     is_listed_identifier: bool = False
     # Whether this input takes the key of the parent an item lives under, read from the item (`Shipment.warehouseId`)
     is_parent_key: bool = False
+    # Where a nested body field lands, e.g. `("items", 0, "product_id")`; empty for a top-level parameter
+    body_path: BodyPath = ()
 
 
 @dataclass(slots=True)

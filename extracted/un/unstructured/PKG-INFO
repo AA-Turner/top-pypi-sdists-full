@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: unstructured
-Version: 0.27.30
+Version: 0.27.32
 Summary: A library that prepares raw documents for downstream ML tasks.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -47,7 +47,6 @@ Provides-Extra: all-docs
 Requires-Dist: google-cloud-vision<4.0.0,>=3.12.1; extra == 'all-docs'
 Requires-Dist: markdown<4.0.0,>=3.10.1; extra == 'all-docs'
 Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'all-docs'
-Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'all-docs'
 Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'all-docs'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'all-docs'
 Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'all-docs'
@@ -99,7 +98,6 @@ Provides-Extra: local-inference
 Requires-Dist: google-cloud-vision<4.0.0,>=3.12.1; extra == 'local-inference'
 Requires-Dist: markdown<4.0.0,>=3.10.1; extra == 'local-inference'
 Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'local-inference'
-Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'local-inference'
 Requires-Dist: openai-whisper<20270000,>=20231117; extra == 'local-inference'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'local-inference'
 Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'local-inference'
@@ -153,7 +151,6 @@ Provides-Extra: tsv
 Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'tsv'
 Provides-Extra: xlsx
 Requires-Dist: msoffcrypto-tool<7.0.0,>=6.0.0; extra == 'xlsx'
-Requires-Dist: networkx<4.0.0,>=3.2.0; extra == 'xlsx'
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'xlsx'
 Requires-Dist: pandas<3.0.0,>=2.0.0; extra == 'xlsx'
 Requires-Dist: xlrd<3.0.0,>=2.0.1; extra == 'xlsx'

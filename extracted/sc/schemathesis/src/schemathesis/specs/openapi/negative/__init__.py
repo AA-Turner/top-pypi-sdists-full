@@ -18,13 +18,14 @@ from schemathesis.core.jsonschema import (
     CANONICALIZE_DRAFT_BY_VALIDATOR,
     DRAFT4_SUPPLEMENTAL_FORMATS,
     FANCY_REGEX_OPTIONS,
+    STANDARD_FORMATS,
     VALIDATED_FORMATS_BY_DRAFT,
 )
 from schemathesis.core.jsonschema.types import JsonSchema, JsonSchemaObject, JsonValue
 from schemathesis.core.media_types import is_json
 from schemathesis.core.mutations import MutationMetadata, OperatorKind
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.core.transforms import deepclone
+from schemathesis.core.transforms import deepclone, to_wire_string
 from schemathesis.generation.jsonschema.builder import build
 from schemathesis.generation.jsonschema.context import Alphabet, FormatLengths
 from schemathesis.generation.jsonschema.strategy import DECLINED
@@ -175,10 +176,6 @@ def _is_unconstrained_binary_schema(schema: JsonSchema) -> bool:
     return schema.get("format") in _ALWAYS_INVALID_FORMATS and "type" not in schema
 
 
-# Formats with a standard definition; servers validate them that way whatever draft the schema declares.
-_STANDARD_FORMATS = VALIDATED_FORMATS_BY_DRAFT[jsonschema_rs.Draft202012Validator]
-
-
 @lru_cache
 def _standard_format_check(name: str) -> Callable[[str], bool]:
     return jsonschema_rs.Draft202012Validator({"format": name}, validate_formats=True).is_valid
@@ -192,7 +189,7 @@ def get_validator(cache_key: CacheKey) -> jsonschema_rs.Validator:
         formats.update(DRAFT4_SUPPLEMENTAL_FORMATS)
     natively_validated = VALIDATED_FORMATS_BY_DRAFT.get(cache_key.validator_cls, frozenset())
     for name in cache_key.custom_format_names - _ALWAYS_INVALID_FORMATS - natively_validated - formats.keys():
-        formats[name] = _standard_format_check(name) if name in _STANDARD_FORMATS else _always_invalid
+        formats[name] = _standard_format_check(name) if name in STANDARD_FORMATS else _always_invalid
     return cache_key.validator_cls(
         cache_key.schema,
         formats=formats,
@@ -323,16 +320,12 @@ def negative_schema(
         }
 
     def parameter_reads_as_valid(name: str | int, item: object, validator: jsonschema_rs.Validator) -> bool:
-        if isinstance(item, bool):
-            text = "true" if item else "false"
-        elif item is None:
-            text = "null"
-        elif isinstance(item, (str, int, float)):
-            text = str(item)
-        else:
+        if item is not None and not isinstance(item, (str, int, float)):
             return False
         return sent_text_is_valid(
-            text, lambda reading: validator.is_valid({name: reading}), types_by_parameter.get(str(name), [])
+            to_wire_string(item),
+            lambda reading: validator.is_valid({name: reading}),
+            types_by_parameter.get(str(name), []),
         )
 
     def mutated_parameter_reads_as_valid(

@@ -11,22 +11,25 @@ use sqlbuild_core::dlt_destination::models::{
     DltDataset, DltDatasetName, DltDestinationPlan, DltDestinationRequest, DltValue,
 };
 use sqlbuild_core::loader_connection::models::LoaderConnection;
+use sqlbuild_host::entries::models::ThirdPartyHost;
 
-use crate::bindings::_helpers::compile_driver::python_calls::imported;
+use crate::bindings::_helpers::boundary::python_calls::imported;
 use crate::bindings::_helpers::load::ingestr_command::connection;
 use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::native_host::third_party::ThirdPartyHost;
 use crate::bindings::_helpers::records::fields::mapping_get_or;
 
 const DLT_ERROR: ThirdPartyHost = ThirdPartyHost::DltIntegrationError;
 
-/// `(factory, arguments, options, dataset_name)` of one dlt destination.
-type DestinationCall<'py> = (
-    &'static str,
-    Bound<'py, PyDict>,
-    Bound<'py, PyDict>,
-    Bound<'py, PyAny>,
-);
+positional_record! {
+    into;
+    /// `(factory, arguments, options, dataset_name)` of one dlt destination.
+    struct DestinationCall<'py> {
+        factory: &'static str,
+        arguments: Bound<'py, PyDict>,
+        options: Bound<'py, PyDict>,
+        dataset: Bound<'py, PyAny>,
+    }
+}
 
 /// A `DltIntegrationError`, or the failure to construct one.
 fn dlt_error(py: Python<'_>, message: String) -> PyErr {
@@ -110,12 +113,12 @@ fn dlt_destination_arguments<'py>(
         DltDataset::Given => dataset_name.clone(),
         DltDataset::Default(name) => PyString::new(py, name).into_any(),
     };
-    Ok((
-        plan.factory,
-        arguments(&plan.arguments, connection_config)?,
+    Ok(DestinationCall {
+        factory: plan.factory,
+        arguments: arguments(&plan.arguments, connection_config)?,
         options,
         dataset,
-    ))
+    })
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {

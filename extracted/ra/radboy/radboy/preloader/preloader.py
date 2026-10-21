@@ -178,6 +178,16 @@ preloader={
             'desc':'calculate total expense using Total_Expense=((Price+CRV)*TaxRate)+(Price+CRV)'
             	},
     f'{uuid1()}':{
+            'cmds':['trip time',"ttm",'time=distance/speed','t=d/s'],
+            'exec':trip_time,
+            'desc':'calculate time it takes to cross a distance at a speed using How Much Time will be needed to cross a distance Y at Speed of X Time=(Distance/Speed)'
+            	},
+    f'{uuid1()}':{
+            'cmds':['trip time 2',"ttm2",'time=distance/speed normalized','t=d/s nml'],
+            'exec':trip_time2,
+            'desc':'normalized calculate time it takes to cross a distance at a speed using How Much Time will be needed to cross a distance Y at Speed of X Time=(Distance/Speed)'
+            	},
+    f'{uuid1()}':{
             'cmds':['xp nm cn',"customer name","cn",],
             'exec':customer_name,
             'desc':'create new name for entry\'s where customer is needed'

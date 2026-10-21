@@ -80,10 +80,7 @@ def send_cmd(
     else:
         resolved = agent_session.session_agent_from_env()
         if resolved is None:
-            from probe.cli.capabilities import cloud_agent_refusal
-
-            _fail(cloud_agent_refusal("probe feedback")
-                  or "not sent: no coding-agent session here to ask the person in. Run it from the agent's session.")
+            _fail("not sent: no coding-agent session here to ask the person in. Run it from the agent's session.")
         harness, session_id = resolved
         source = fb.Source.AGENT
     if session_marker.session_state(session_id) == session_marker.STATE_OFF:

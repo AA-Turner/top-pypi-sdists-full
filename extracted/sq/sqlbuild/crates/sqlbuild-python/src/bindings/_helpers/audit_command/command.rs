@@ -10,18 +10,19 @@ use sqlbuild_core::audit_command::main::render_audit_header::render_audit_header
 use sqlbuild_core::audit_command::main::render_audit_summary::render_audit_summary;
 use sqlbuild_core::audit_command::models::AuditCounts;
 use sqlbuild_core::cli_text::models::CliStyle;
+use sqlbuild_host::entries::models::ExecutorHost;
 
+use crate::bindings::_helpers::boundary::python_calls::{call_with, keywords, within};
 use crate::bindings::_helpers::build_progress::audit_progress::AuditProgressReporter;
-use crate::bindings::_helpers::cli::progress::current_native_progress_projector;
-use crate::bindings::_helpers::cli::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::cli::progress_text::write_execution_header;
+use crate::bindings::_helpers::build_progress::progress::current_native_progress_projector;
+use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
+use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
+use crate::bindings::_helpers::command_runtime::concurrency::resolve_concurrency;
 use crate::bindings::_helpers::command_runtime::invocation::resolve_reported_command_invocation;
 use crate::bindings::_helpers::compile_driver::pipeline_entries::build_static_pipeline_result;
-use crate::bindings::_helpers::compile_driver::python_calls::{call_with, keywords, within};
-use crate::bindings::_helpers::compile_driver::selection_phases::compile_static_command_context;
+use crate::bindings::_helpers::compile_driver::static_context::compile_static_command_context;
 use crate::bindings::_helpers::cost_telemetry::context::CostContext;
 use crate::bindings::_helpers::dbt_interop::reference_resolver::resolve_external_sql_reference_resolver;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_entries::command_plans::build_audit_command_plan;
 use crate::bindings::_helpers::records::construct::{new_record_with, record_class};
@@ -184,15 +185,12 @@ fn prepare_run<'py>(
     let py: Python<'py> = request.py();
     let entries: Bound<'py, PyAny> =
         native_field(pipeline, "plan_output")?.getattr("audit_entries")?;
-    let requested: Bound<'py, PyAny> = native_field(request, "concurrency")?;
-    let concurrency: i64 = if requested.is_none() {
-        native_field(pipeline, "project")?
-            .getattr("settings")?
-            .getattr("concurrency")?
-            .extract::<i64>()?
-    } else {
-        requested.extract::<i64>()?
-    };
+    let concurrency: i64 = resolve_concurrency(
+        &native_field(request, "concurrency")?,
+        &native_field(invocation, "discovered_inputs")?,
+        &native_field(request, "selected_target")?,
+    )?
+    .limit;
     let audit_count: usize = entries.len()?;
     let worker_count: i64 = concurrency.min(i64::try_from(audit_count).unwrap_or(i64::MAX));
     let stream: Bound<'py, PyAny> = native_field(invocation, "progress_stream")?;

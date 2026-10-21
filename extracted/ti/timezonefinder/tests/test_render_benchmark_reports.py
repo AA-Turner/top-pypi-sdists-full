@@ -4,6 +4,7 @@ import re
 
 import pytest
 
+from benchmarks.candidate_comparison import CandidateComparison
 from scripts.benchmark_utils import BenchmarkReporter, add_system_status_section
 from scripts.configs import (
     COMPARISON_REPORT_FILE,
@@ -22,6 +23,8 @@ from scripts.render_benchmark_reports import (
     add_ci_tracking_note,
     add_fastest_slowest_bullet,
     add_headline_section,
+    _acceleration_headline,
+    _fastest_path_headline,
     format_duration,
     format_ratio,
     format_rate,
@@ -309,12 +312,32 @@ def test_interpreted_kernel_labels_name_the_measuring_environment_and_restore():
     assert FUNCTION_LABELS["test_pt_in_poly_python_packed"] == before
 
 
+def _fake_startup(*, using_numba: bool) -> dict:
+    """One `scripts._startup_probe` aggregate, numba twice as expensive per step."""
+    factor = 2 if using_numba else 1
+    return {
+        "repetitions": 3,
+        "numba_installed": using_numba,
+        # both environments bind the extension now, so this is false either way
+        "using_numba": False,
+        "using_clang_pip": True,
+        "import_rss": 10 * 1024**2 * factor,
+        "init_rss": 2 * 1024**2 * factor,
+        "first_query_rss": 1024**2 * factor,
+        "ready_rss": 20 * 1024**2 * factor,
+        "import_seconds": 0.1 * factor,
+        "init_seconds": 0.02 * factor,
+        "first_query_seconds": 0.5 * factor,
+    }
+
+
 def _fake_acceleration_run(
     path: str,
     *,
     cpu: str = "Apple M1 Pro",
     baseline: float = 1.0,
     clock: str = "3.2 GHz",
+    startup: bool = True,
 ) -> dict:
     """One `scripts.measure_acceleration_paths` report, with one row per section."""
     comparison = {
@@ -339,6 +362,7 @@ def _fake_acceleration_run(
         },
         "kernels": {"small": comparison},
         "lookups": {"random": comparison},
+        **({"startup": _fake_startup(using_numba=path == "numba")} if startup else {}),
     }
 
 
@@ -355,6 +379,89 @@ def test_acceleration_page_reports_each_pair_against_its_own_clang_baseline(tmp_
     assert page.count("2.00x") >= 2
     # and the page must say, in so many words, that it does not cross the two runs
     assert "third ratio is not derived" in page
+
+
+def test_acceleration_page_opens_with_the_fastest_path_and_reads_faster_than(
+    tmp_path,
+):
+    output = tmp_path / "acceleration.rst"
+
+    render_acceleration_paths(
+        [_fake_acceleration_run("numba"), _fake_acceleration_run("python")], output
+    )
+
+    page = output.read_text(encoding="utf-8")
+    body = page.split("\n\n", 2)[-1].lstrip()
+    # the glance line comes first, before either per-path headline
+    assert body.startswith("**Fastest measured: the C extension")
+    # the faster side is the subject, so the multiple never reads backwards
+    assert "**The C extension is 2.00x faster than Numba JIT**" in page
+    assert "**The C extension is 2.00x faster than pure Python**" in page
+    assert "2.00x the C extension" not in page
+    # the tables use the same framing, with the challenger's wins named as such
+    assert "     - The C extension is 2.00x faster\n" in page
+    assert "Rounds Numba JIT won" in page and "Rounds pure Python won" in page
+    assert "Relative to clang" not in page
+
+
+def test_acceleration_headline_names_a_faster_challenger_or_no_difference():
+    base = {
+        "baseline_name": "clang",
+        "challenger_name": "numba",
+        "rounds": 15,
+        "batch_size": 2500,
+        "threshold": 0.03,
+        "win_margin": 0.10,
+        "best_baseline": 2.0,
+    }
+    faster = CandidateComparison(**base, best_challenger=1.0, challenger_wins=15)
+    tied = CandidateComparison(**base, best_challenger=2.0, challenger_wins=7)
+    assert faster.verdict == "faster"
+    assert tied.verdict != "slower"
+
+    assert _acceleration_headline("Numba JIT", faster).startswith(
+        "**Numba JIT is 2.00x faster than the C extension**"
+    )
+    assert _acceleration_headline("pure Python", tied).startswith(
+        "**Pure Python and the C extension are indistinguishable**"
+    )
+    assert "Fastest measured: Numba JIT" in _fastest_path_headline(
+        {"numba": faster, "python": tied}
+    )
+
+
+def test_acceleration_page_prices_the_numba_extra_before_any_query(tmp_path):
+    output = tmp_path / "acceleration.rst"
+
+    render_acceleration_paths(
+        [_fake_acceleration_run("numba"), _fake_acceleration_run("python")], output
+    )
+
+    page = output.read_text(encoding="utf-8")
+    assert "What installing Numba costs before any query" in page
+    # the plain install is the first column, so the extra's cost is an addition
+    assert page.index("Plain install") < page.index("With Numba")
+    # 20 MiB against 40 MiB in the fixture, and the difference stated as such
+    assert "+20.0 MiB" in page
+    # the three timed steps, summed rather than measured: 0.62s against 1.24s
+    assert "+620ms" in page
+
+
+def test_acceleration_page_omits_the_startup_section_when_a_run_predates_it(tmp_path):
+    output = tmp_path / "acceleration.rst"
+
+    render_acceleration_paths(
+        [
+            _fake_acceleration_run("numba"),
+            _fake_acceleration_run("python", startup=False),
+        ],
+        output,
+    )
+
+    page = output.read_text(encoding="utf-8")
+    assert "What installing Numba costs before any query" not in page
+    # the rest of the page is unaffected
+    assert "Numba JIT" in page
 
 
 def test_acceleration_page_refuses_runs_from_two_machines(tmp_path):
@@ -521,9 +628,10 @@ def test_rendered_system_status_stamps_the_input_provenance():
 @pytest.mark.parametrize(
     "using_numba, using_clang_pip, expected",
     [
-        # utils.py prefers Numba when both are importable, so "both true" is
-        # the Numba path and not an ambiguous state
-        (True, True, "Numba JIT"),
+        # utils.py binds the C extension wherever it loaded, so "both true" is a
+        # clang run in a process that also holds Numba - not an ambiguous state, and
+        # not a Numba run
+        (True, True, "C extension (clang)"),
         (True, False, "Numba JIT"),
         (False, True, "C extension (clang)"),
         (False, False, "pure Python"),
@@ -553,17 +661,39 @@ def test_is_ci_tracked_configuration(using_numba, using_clang_pip, expected):
 
 
 def test_headline_section_warns_when_the_run_is_not_the_ci_tracked_one():
-    # the committed reports are rendered from a developer machine, so this is
-    # the branch that ships: a reader must not compare these tables against the
-    # trend chart, which measures a different implementation
+    # a process holding Numba is not the tracked configuration even though it binds
+    # the same kernel - it imports and compiles `utils_numba` - so this is the branch
+    # that ships from a developer machine, and a reader must not compare these tables
+    # against the trend chart
     reporter = BenchmarkReporter(title="t", output_path="/dev/null")
 
-    add_headline_section(reporter, _FAKE_SYSTEM_INFO | {"using_numba": True}, [])
+    add_headline_section(
+        reporter,
+        _FAKE_SYSTEM_INFO | {"using_numba": True, "using_clang_pip": False},
+        [],
+    )
 
     (banner,) = _texts(reporter)
     assert "Numba JIT" in banner
     assert "not comparable to the trend chart" in banner
     assert ":doc:`benchmarking_methodology`" in banner
+
+
+def test_headline_section_warns_on_a_clang_run_that_also_holds_numba():
+    """The configuration the dispatch change created, and the one that reads as tracked.
+
+    Same kernel as a plain install, but the process imported and compiled
+    ``utils_numba`` as well, so its timings and its footprint describe something else.
+    The banner has to say so, and naming the path from the binding is what keeps the
+    label honest while the warning still fires.
+    """
+    reporter = BenchmarkReporter(title="t", output_path="/dev/null")
+
+    add_headline_section(reporter, _FAKE_SYSTEM_INFO | {"using_numba": True}, [])
+
+    (banner,) = _texts(reporter)
+    assert "C extension (clang)" in banner
+    assert "not comparable to the trend chart" in banner
 
 
 def test_headline_section_says_so_when_the_run_is_the_ci_tracked_one():
@@ -881,3 +1011,33 @@ def test_write_report_writes_exactly_what_render_returned(tmp_path):
     assert (
         output_path.read_text(encoding="utf-8") == reporter.render().rstrip("\n") + "\n"
     )
+
+
+def test_render_comparison_states_bulk_lookups_beside_the_single_call_rows(tmp_path):
+    """The batched row answers a different question from the single-call table -
+    tzfpy has no batch API - so it gets its own section and headline sentence rather
+    than a column in the one-lookup-against-one-lookup table."""
+    data = _fake_benchmark_json(
+        "benchmarks/test_comparison.py::test_lookup_tzfpy[random]"
+    )
+    for name, seconds in (
+        ("test_lookup_timezonefinder[random]", 3.0),
+        ("test_lookup_timezonefinder_batch[random]", 0.5),
+    ):
+        data["benchmarks"].append(
+            {
+                **_fake_bench(name, mean=seconds),
+                "fullname": f"benchmarks/test_comparison.py::{name}",
+            }
+        )
+    output_path = tmp_path / "report.rst"
+
+    render_comparison(data, output_path)
+
+    text = output_path.read_text(encoding="utf-8")
+    assert "Bulk Lookups" in text
+    assert "For bulk lookups, ``timezone_names_at()``" in text
+    # the single-call table still compares single calls only
+    section = text.split("\nLookup Throughput\n")[1]
+    single_call_table = section.split("\nBulk Lookups\n")[0]
+    assert "timezone_names_at() (in-memory)" not in single_call_table

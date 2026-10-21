@@ -6,12 +6,15 @@ import numpy.typing as npt
 
 from numpy_groupies.aggregate_common import (
     DEFAULT_FILL_VALUE,
+    Registry,
+    Resolved,
     aggregate_common_doc,
-    build_dispatch,
-    get_func,
+    custom_callable,
+    missing_impl_error,
 )
 from numpy_groupies.aggregate_numpy import _aggregate_base
 from numpy_groupies.utils import (
+    RavelOrder,
     aliasing,
     check_boolean,
     maxval,
@@ -150,7 +153,7 @@ def _max(
     return ret
 
 
-_impl_dict = {
+_op_dict = {
     "min": _min,
     "max": _max,
     "sum": _sum,
@@ -162,29 +165,41 @@ _impl_dict = {
     "len": _len,
 }
 
-_dispatch = build_dispatch(_impl_dict, aliasing)
+
+def _custom_operation(func: Any) -> Resolved:
+    """The ufunc backend has no operation for a callable of the caller's own.
+
+    A ufunc dispatch needs a function of numpy's own, so a callable of the
+    caller's own is nothing this backend can do - and a func that named
+    nothing at all says so first.
+    """
+    custom_callable(func)
+    raise NotImplementedError("No such ufunc available") from None
+
+
+_dispatch = Registry(_op_dict, aliasing, _custom_operation)
 
 
 def aggregate(
-    group_idx: npt.ArrayLike,
-    a: npt.ArrayLike,
+    group_idx: npt.NDArray[np.integer],
+    a: npt.NDArray[np.number],
     func: str | Callable[..., Any] = "sum",
     size: int | Sequence[int] | None = None,
     fill_value: Any = DEFAULT_FILL_VALUE,
-    order: str = "C",
+    order: RavelOrder = "C",
     dtype: npt.DTypeLike = None,
     axis: int | None = None,
     **kwargs: Any,
 ) -> npt.NDArray[np.generic]:
-    funcname: str | Callable[..., Any]
     try:
-        funcname, _ = _dispatch[func]
-    except (KeyError, TypeError):
-        # a custom callable is not supported here - get_func raises for
-        # unknown names, and any callable it returns is not a ufunc impl
-        funcname = get_func(func, aliasing, _impl_dict)
-        if not isinstance(funcname, str):
-            raise NotImplementedError("No such ufunc available")
+        funcname, op = _dispatch[func]
+    except TypeError:
+        # a func that cannot be a key of the table at all: the registry answers
+        # it as a callable of the caller's own, which a ufunc dispatch cannot do
+        funcname, op = _dispatch.custom(func)
+    if op is None:
+        # a name that is known elsewhere says which one is missing here
+        raise missing_impl_error(funcname)
     return _aggregate_base(
         group_idx,
         a,
@@ -194,7 +209,6 @@ def aggregate(
         dtype=dtype,
         func=funcname,
         axis=axis,
-        _impl_dict=_impl_dict,
         _dispatch=_dispatch,
         **kwargs,
     )

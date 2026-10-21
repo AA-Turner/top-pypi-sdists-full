@@ -1,18 +1,14 @@
-"""
-    pytest config for sphinx extensions
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+from __future__ import annotations
 
-    :copyright: Copyright 2007-2019 by the Sphinx team, see AUTHORS.
-    :license: BSD, see LICENSE for details.
-"""
+from pathlib import Path
 
 import pytest
 
-from sphinx.testing.path import path
-
-pytest_plugins = 'sphinx.testing.fixtures'
+pytest_plugins = (
+    'sphinx.testing.fixtures',
+)
 
 
 @pytest.fixture(scope='session')
-def rootdir():
-    return path(__file__).parent.abspath() / 'roots'
+def rootdir() -> Path:
+    return Path(__file__).resolve().parent / 'roots'

@@ -23,6 +23,7 @@ from pystac_client.warnings import (
     FallbackToPystac,
     MissingLink,
     NoConformsTo,
+    PystacClientWarning,
     strict,
 )
 
@@ -41,7 +42,7 @@ class TestAPI:
 
     @pytest.mark.vcr
     def test_links(self) -> None:
-        api = Client.open(STAC_URLS["PLANETARY-COMPUTER"])
+        api = Client.open(STAC_URLS["EARTH-SEARCH"])
 
         # Should be able to get collections via links as with a typical PySTAC Catalog
         collection_links = api.get_links("child")
@@ -434,7 +435,11 @@ class TestAPI:
 class TestAPISearch:
     @pytest.fixture(scope="function")
     def api(self) -> Client:
-        return Client.from_file(str(TEST_DATA / "planetary-computer-root.json"))
+        api = Client.from_file(str(TEST_DATA / "planetary-computer-root.json"))
+        search_link = api.get_search_link()
+        assert search_link
+        search_link.extra_fields["method"] = "POST"
+        return api
 
     def test_search_conformance_error(self, api: Client) -> None:
         # Remove item search conformance
@@ -492,6 +497,69 @@ class TestAPISearch:
         search_link.media_type = MediaType.JSON
         api.add_link(search_link)
         api.search(limit=1, max_items=1, collections="naip")
+
+    @pytest.mark.parametrize(
+        ("advertised_method", "requested_method", "available_method"),
+        [
+            (None, "POST", "GET"),
+            ("GET", "POST", "GET"),
+            ("POST", "GET", "POST"),
+            ("GET", None, "GET"),
+        ],
+    )
+    def test_search_warns_if_method_is_not_advertised(
+        self,
+        api: Client,
+        advertised_method: str | None,
+        requested_method: str | None,
+        available_method: str,
+    ) -> None:
+        search_link = api.get_search_link()
+        assert search_link
+        search_link.extra_fields = (
+            {"method": advertised_method} if advertised_method else {}
+        )
+
+        requested_method_name = requested_method or "POST"
+        with pytest.warns(
+            PystacClientWarning,
+            match=(
+                f"requested method '{requested_method_name}'.*"
+                f"Available methods: {available_method}"
+            ),
+        ):
+            api.search(method=requested_method)
+
+    @pytest.mark.parametrize(
+        ("advertised_methods", "requested_method"),
+        [
+            (("GET", "POST"), "GET"),
+            (("GET", "POST"), "POST"),
+            (("POST",), None),
+        ],
+    )
+    def test_search_does_not_warn_if_method_is_advertised(
+        self,
+        api: Client,
+        advertised_methods: tuple[str, ...],
+        requested_method: str | None,
+    ) -> None:
+        search_link = api.get_search_link()
+        assert search_link
+        api.remove_links("search")
+        for method in advertised_methods:
+            api.add_link(
+                pystac.Link(
+                    rel="search",
+                    target=search_link.target,
+                    media_type=search_link.media_type,
+                    extra_fields={"method": method},
+                )
+            )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", PystacClientWarning)
+            api.search(method=requested_method)
 
     @pytest.mark.vcr
     def test_search_max_items_unlimited_default(self, api: Client) -> None:
@@ -615,6 +683,7 @@ class TestQueryables:
         with pytest.warns(MissingLink, match="queryables"):
             col = api.get_collection("3dep-seamless")
             assert isinstance(col, CollectionClient)
+            col.remove_links("http://www.opengis.net/def/rel/ogc/1.0/queryables")
             tdep_seamless_props = col.get_queryables()["properties"]
             col = api.get_collection("fia")
             assert isinstance(col, CollectionClient)
@@ -716,10 +785,10 @@ def test_collections_are_clients() -> None:
     catalog = Client.open(
         "https://planetarycomputer.microsoft.com/api/stac/v1/",
     )
-    item = catalog.get_collection("cil-gdpcir-cc-by").get_item(
-        "cil-gdpcir-NUIST-NESM3-ssp585-r1i1p1f1-day"
-    )
-    assert item
+    collection = catalog.get_collection("cil-gdpcir-cc-by")
+    assert collection is not None
+    item = collection.get_item("cil-gdpcir-NUIST-NESM3-ssp585-r1i1p1f1-day")
+    assert item is not None
     item.get_collection()
 
 
@@ -747,6 +816,8 @@ def test_fallback_strategy() -> None:
         "https://planetarycomputer.microsoft.com/api/stac/v1/",
     )
     col = client.get_collection("landsat-c2-l2")
+    assert col is not None
+
     item = next(col.get_items())
 
     item_href = item.self_href
@@ -786,19 +857,37 @@ def test_get_collection_fallback_strategy_for_static_catalogs() -> None:
 
     with pytest.warns(FallbackToPystac):
         area_1_1 = client.get_collection("area-1-1")
+        assert area_1_1 is not None
 
     with pytest.warns(FallbackToPystac):
         area_1_2 = client.get_collection("area-1-2")
+        assert area_1_2 is not None
 
     assert area_1_1.id == "area-1-1"
     assert area_1_2.id == "area-1-2"
 
 
-def test_get_collection_for_static_catalogs_raise_if_not_found() -> None:
+def test_get_collection_for_static_catalogs_returns_none_if_not_found() -> None:
     client = Client.from_file(str(TEST_DATA / "test-case-1" / "catalog.json"))
-    with pytest.raises(KeyError, match="not found on catalog"):
-        with pytest.warns(FallbackToPystac):
-            client.get_collection("country-1")
+    with pytest.warns(FallbackToPystac):
+        collection = client.get_collection("country-1")
+        assert collection is None
+
+
+def test_get_collection_raises_if_collection_id_is_empty() -> None:
+    client = Client.from_file(str(TEST_DATA / "test-case-1" / "catalog.json"))
+    with pytest.raises(ValueError, match="A `collection_id` must be provided"):
+        client.get_collection("")
+
+    with pytest.raises(ValueError, match="A `collection_id` must be provided"):
+        client.get_collection(None)
+
+
+@pytest.mark.vcr
+def test_get_collection_returns_none_if_not_found() -> None:
+    client = Client.open(STAC_URLS["EARTH-SEARCH"])
+    collection = client.get_collection("foo")
+    assert collection is None
 
 
 @pytest.mark.vcr

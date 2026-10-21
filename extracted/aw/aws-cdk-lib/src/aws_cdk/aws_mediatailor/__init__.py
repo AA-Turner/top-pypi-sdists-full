@@ -3583,6 +3583,14 @@ class CfnPlaybackConfiguration(
                 mode="mode",
                 value="value"
             ),
+            beaconing_configuration=mediatailor.CfnPlaybackConfiguration.BeaconingConfigurationProperty(
+                client_side=mediatailor.CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty(
+                    reporting_mode="reportingMode",
+        
+                    # the properties below are optional
+                    additional_event_types=["additionalEventTypes"]
+                )
+            ),
             bumper=mediatailor.CfnPlaybackConfiguration.BumperProperty(
                 end_url="endUrl",
                 start_url="startUrl"
@@ -3656,6 +3664,7 @@ class CfnPlaybackConfiguration(
         ads_personalization_concurrency: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ads_personalization_timeouts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         avail_suppression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        beaconing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BeaconingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bumper: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cdn_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -3683,6 +3692,7 @@ class CfnPlaybackConfiguration(
         :param ads_personalization_concurrency: The settings that control how many concurrent requests MediaTailor makes to the ad decision server (ADS).
         :param ads_personalization_timeouts: The ad decision server (ADS) request timeouts and personalization time budgets for live, VOD, and prefetch workflows.
         :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
+        :param beaconing_configuration: The beaconing configuration for a playback configuration. Beaconing controls whether AWS Elemental MediaTailor includes its own beacons in the ad tracking response, in addition to the ad server beacons. If you omit this setting, MediaTailor uses INSIGHTS.
         :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
         :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
@@ -3711,6 +3721,7 @@ class CfnPlaybackConfiguration(
             ads_personalization_concurrency=ads_personalization_concurrency,
             ads_personalization_timeouts=ads_personalization_timeouts,
             avail_suppression=avail_suppression,
+            beaconing_configuration=beaconing_configuration,
             bumper=bumper,
             cdn_configuration=cdn_configuration,
             configuration_aliases=configuration_aliases,
@@ -3988,6 +3999,24 @@ class CfnPlaybackConfiguration(
             type_hints = cached_type_hints(_typecheckingstub__ace1eb1809c3c05a0b25523b0f61020aa7d5a69057cdffb522c74d7881b0c1c8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availSuppression", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="beaconingConfiguration")
+    def beaconing_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BeaconingConfigurationProperty"]]:
+        '''The beaconing configuration for a playback configuration.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BeaconingConfigurationProperty"]], jsii.get(self, "beaconingConfiguration"))
+
+    @beaconing_configuration.setter
+    def beaconing_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BeaconingConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__30a5357b69c6aa36e64d43145388555d6bfa18e90827f5e84a31820909bca818)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "beaconingConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="bumper")
@@ -4807,6 +4836,72 @@ class CfnPlaybackConfiguration(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.BeaconingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"client_side": "clientSide"},
+    )
+    class BeaconingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            client_side: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The beaconing configuration for a playback configuration.
+
+            Beaconing controls whether AWS Elemental MediaTailor includes its own beacons in the ad tracking response, in addition to the ad server beacons. If you omit this setting, MediaTailor uses INSIGHTS.
+
+            :param client_side: The beaconing settings that apply to client-side reporting sessions: whether AWS Elemental MediaTailor includes its beacons in the ad tracking response, and which player operation events it reports on. If you omit this object, MediaTailor uses INSIGHTS reporting mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-beaconingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                beaconing_configuration_property = mediatailor.CfnPlaybackConfiguration.BeaconingConfigurationProperty(
+                    client_side=mediatailor.CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty(
+                        reporting_mode="reportingMode",
+                
+                        # the properties below are optional
+                        additional_event_types=["additionalEventTypes"]
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c0a7a9bbd404f2f61cc5f712fdbba3d974af805035ba73ff315f845c5ed4289d)
+                check_type(argname="argument client_side", value=client_side, expected_type=type_hints["client_side"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if client_side is not None:
+                self._values["client_side"] = client_side
+
+        @builtins.property
+        def client_side(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty"]]:
+            '''The beaconing settings that apply to client-side reporting sessions: whether AWS Elemental MediaTailor includes its beacons in the ad tracking response, and which player operation events it reports on.
+
+            If you omit this object, MediaTailor uses INSIGHTS reporting mode.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-beaconingconfiguration.html#cfn-mediatailor-playbackconfiguration-beaconingconfiguration-clientside
+            '''
+            result = self._values.get("client_side")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BeaconingConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.BumperProperty",
         jsii_struct_bases=[],
         name_mapping={"end_url": "endUrl", "start_url": "startUrl"},
@@ -4952,6 +5047,88 @@ class CfnPlaybackConfiguration(
 
         def __repr__(self) -> str:
             return "CdnConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_mediatailor.CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "reporting_mode": "reportingMode",
+            "additional_event_types": "additionalEventTypes",
+        },
+    )
+    class ClientSideBeaconingConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            reporting_mode: builtins.str,
+            additional_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''The beaconing settings that apply to client-side reporting sessions: whether AWS Elemental MediaTailor includes its beacons in the ad tracking response, and which player operation events it reports on.
+
+            If you omit this object, MediaTailor uses INSIGHTS reporting mode.
+
+            :param reporting_mode: Specifies whether MediaTailor includes its beacons in the ad tracking response. INSIGHTS includes MediaTailor beacons; DISABLED does not. Values are case-sensitive. This setting is required when ClientSide is present. If BeaconingConfiguration or ClientSide is omitted, MediaTailor uses INSIGHTS. To keep beaconing off, retain DISABLED in subsequent updates.
+            :param additional_event_types: The player operation events to report on, in addition to the ad progress events that MediaTailor always reports on. Valid values are MUTE, UNMUTE, PAUSE, and SKIP. The default is an empty list. This parameter is valid only when ReportingMode is INSIGHTS. MediaTailor rejects the request if you specify a value while ReportingMode is DISABLED, or if you specify duplicate values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-clientsidebeaconingconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_mediatailor as mediatailor
+                
+                client_side_beaconing_configuration_property = mediatailor.CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty(
+                    reporting_mode="reportingMode",
+                
+                    # the properties below are optional
+                    additional_event_types=["additionalEventTypes"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__b9dbbe0682a63539812d7eab4782e563d7701d0c2c8bbab092dc91d809788f1c)
+                check_type(argname="argument reporting_mode", value=reporting_mode, expected_type=type_hints["reporting_mode"])
+                check_type(argname="argument additional_event_types", value=additional_event_types, expected_type=type_hints["additional_event_types"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "reporting_mode": reporting_mode,
+            }
+            if additional_event_types is not None:
+                self._values["additional_event_types"] = additional_event_types
+
+        @builtins.property
+        def reporting_mode(self) -> builtins.str:
+            '''Specifies whether MediaTailor includes its beacons in the ad tracking response.
+
+            INSIGHTS includes MediaTailor beacons; DISABLED does not. Values are case-sensitive. This setting is required when ClientSide is present. If BeaconingConfiguration or ClientSide is omitted, MediaTailor uses INSIGHTS. To keep beaconing off, retain DISABLED in subsequent updates.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-clientsidebeaconingconfiguration.html#cfn-mediatailor-playbackconfiguration-clientsidebeaconingconfiguration-reportingmode
+            '''
+            result = self._values.get("reporting_mode")
+            assert result is not None, "Required property 'reporting_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def additional_event_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The player operation events to report on, in addition to the ad progress events that MediaTailor always reports on.
+
+            Valid values are MUTE, UNMUTE, PAUSE, and SKIP. The default is an empty list. This parameter is valid only when ReportingMode is INSIGHTS. MediaTailor rejects the request if you specify a value while ReportingMode is DISABLED, or if you specify duplicate values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-clientsidebeaconingconfiguration.html#cfn-mediatailor-playbackconfiguration-clientsidebeaconingconfiguration-additionaleventtypes
+            '''
+            result = self._values.get("additional_event_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClientSideBeaconingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -5748,6 +5925,7 @@ class CfnPlaybackConfiguration(
         "ads_personalization_concurrency": "adsPersonalizationConcurrency",
         "ads_personalization_timeouts": "adsPersonalizationTimeouts",
         "avail_suppression": "availSuppression",
+        "beaconing_configuration": "beaconingConfiguration",
         "bumper": "bumper",
         "cdn_configuration": "cdnConfiguration",
         "configuration_aliases": "configurationAliases",
@@ -5776,6 +5954,7 @@ class CfnPlaybackConfigurationProps:
         ads_personalization_concurrency: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ads_personalization_timeouts: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         avail_suppression: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.AvailSuppressionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        beaconing_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BeaconingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         bumper: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.BumperProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         cdn_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPlaybackConfiguration.CdnConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
@@ -5801,6 +5980,7 @@ class CfnPlaybackConfigurationProps:
         :param ads_personalization_concurrency: The settings that control how many concurrent requests MediaTailor makes to the ad decision server (ADS).
         :param ads_personalization_timeouts: The ad decision server (ADS) request timeouts and personalization time budgets for live, VOD, and prefetch workflows.
         :param avail_suppression: The configuration for avail suppression, also known as ad suppression. For more information about ad suppression, see `Ad Suppression <https://docs.aws.amazon.com/mediatailor/latest/ug/ad-behavior.html>`_ .
+        :param beaconing_configuration: The beaconing configuration for a playback configuration. Beaconing controls whether AWS Elemental MediaTailor includes its own beacons in the ad tracking response, in addition to the ad server beacons. If you omit this setting, MediaTailor uses INSIGHTS.
         :param bumper: The configuration for bumpers. Bumpers are short audio or video clips that play at the start or before the end of an ad break. To learn more about bumpers, see `Bumpers <https://docs.aws.amazon.com/mediatailor/latest/ug/bumpers.html>`_ .
         :param cdn_configuration: The configuration for using a content delivery network (CDN), like Amazon CloudFront, for content and ad segment management.
         :param configuration_aliases: The player parameters and aliases used as dynamic variables during session initialization. For more information, see `Domain Variables <https://docs.aws.amazon.com/mediatailor/latest/ug/variables-domain.html>`_ .
@@ -5865,6 +6045,14 @@ class CfnPlaybackConfigurationProps:
                     fill_policy="fillPolicy",
                     mode="mode",
                     value="value"
+                ),
+                beaconing_configuration=mediatailor.CfnPlaybackConfiguration.BeaconingConfigurationProperty(
+                    client_side=mediatailor.CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty(
+                        reporting_mode="reportingMode",
+            
+                        # the properties below are optional
+                        additional_event_types=["additionalEventTypes"]
+                    )
                 ),
                 bumper=mediatailor.CfnPlaybackConfiguration.BumperProperty(
                     end_url="endUrl",
@@ -5935,6 +6123,7 @@ class CfnPlaybackConfigurationProps:
             check_type(argname="argument ads_personalization_concurrency", value=ads_personalization_concurrency, expected_type=type_hints["ads_personalization_concurrency"])
             check_type(argname="argument ads_personalization_timeouts", value=ads_personalization_timeouts, expected_type=type_hints["ads_personalization_timeouts"])
             check_type(argname="argument avail_suppression", value=avail_suppression, expected_type=type_hints["avail_suppression"])
+            check_type(argname="argument beaconing_configuration", value=beaconing_configuration, expected_type=type_hints["beaconing_configuration"])
             check_type(argname="argument bumper", value=bumper, expected_type=type_hints["bumper"])
             check_type(argname="argument cdn_configuration", value=cdn_configuration, expected_type=type_hints["cdn_configuration"])
             check_type(argname="argument configuration_aliases", value=configuration_aliases, expected_type=type_hints["configuration_aliases"])
@@ -5964,6 +6153,8 @@ class CfnPlaybackConfigurationProps:
             self._values["ads_personalization_timeouts"] = ads_personalization_timeouts
         if avail_suppression is not None:
             self._values["avail_suppression"] = avail_suppression
+        if beaconing_configuration is not None:
+            self._values["beaconing_configuration"] = beaconing_configuration
         if bumper is not None:
             self._values["bumper"] = bumper
         if cdn_configuration is not None:
@@ -6083,6 +6274,19 @@ class CfnPlaybackConfigurationProps:
         '''
         result = self._values.get("avail_suppression")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.AvailSuppressionProperty"]], result)
+
+    @builtins.property
+    def beaconing_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BeaconingConfigurationProperty"]]:
+        '''The beaconing configuration for a playback configuration.
+
+        Beaconing controls whether AWS Elemental MediaTailor includes its own beacons in the ad tracking response, in addition to the ad server beacons. If you omit this setting, MediaTailor uses INSIGHTS.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-playbackconfiguration.html#cfn-mediatailor-playbackconfiguration-beaconingconfiguration
+        '''
+        result = self._values.get("beaconing_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPlaybackConfiguration.BeaconingConfigurationProperty"]], result)
 
     @builtins.property
     def bumper(
@@ -9626,6 +9830,48 @@ class CfnSourceLocation(
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSourceLocation", [resource]))
 
+    @jsii.member(jsii_name="fromSourceLocationArn")
+    @builtins.classmethod
+    def from_source_location_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_mediatailor_60404695.ISourceLocationRef":
+        '''Creates a new ISourceLocationRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_mediatailor_60404695.ISourceLocationRef", jsii.sinvoke(cls, "fromSourceLocationArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromSourceLocationName")
+    @builtins.classmethod
+    def from_source_location_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        source_location_name: builtins.str,
+    ) -> "_aws_mediatailor_60404695.ISourceLocationRef":
+        '''Creates a new ISourceLocationRef from a sourceLocationName.
+
+        :param scope: -
+        :param id: -
+        :param source_location_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument source_location_name", value=source_location_name, expected_type=type_hints["source_location_name"])
+        return typing.cast("_aws_mediatailor_60404695.ISourceLocationRef", jsii.sinvoke(cls, "fromSourceLocationName", [scope, id, source_location_name]))
+
     @jsii.member(jsii_name="isCfnSourceLocation")
     @builtins.classmethod
     def is_cfn_source_location(cls, x: typing.Any) -> builtins.bool:
@@ -11295,6 +11541,7 @@ def _typecheckingstub__3dcfb97a898a80ee6a7b069e26028183e8a797f0c48fdbd4fe6ecb8ad
     ads_personalization_concurrency: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ads_personalization_timeouts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     avail_suppression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    beaconing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BeaconingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bumper: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cdn_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
@@ -11381,6 +11628,12 @@ def _typecheckingstub__13ee4b8d1ac254be276c7782458b9e78d24c83f92c6f56af8e12ac5df
 
 def _typecheckingstub__ace1eb1809c3c05a0b25523b0f61020aa7d5a69057cdffb522c74d7881b0c1c8(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.AvailSuppressionProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30a5357b69c6aa36e64d43145388555d6bfa18e90827f5e84a31820909bca818(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPlaybackConfiguration.BeaconingConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11527,6 +11780,13 @@ def _typecheckingstub__8b4195a89a44a68af7fade1bdaaea19a0b3104ca5fc40a34ac2c5440a
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c0a7a9bbd404f2f61cc5f712fdbba3d974af805035ba73ff315f845c5ed4289d(
+    *,
+    client_side: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.ClientSideBeaconingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d4d8e62c25a38e7667cc4c7f67e131b03585a6b02ccb1e6956572e91491c2565(
     *,
     end_url: typing.Optional[builtins.str] = None,
@@ -11539,6 +11799,14 @@ def _typecheckingstub__11ed9c00b014872bf1ce7a32f613cee3497f59c3a8f8ed7c34d59e731
     *,
     ad_segment_url_prefix: typing.Optional[builtins.str] = None,
     content_segment_url_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9dbbe0682a63539812d7eab4782e563d7701d0c2c8bbab092dc91d809788f1c(
+    *,
+    reporting_mode: builtins.str,
+    additional_event_types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11633,6 +11901,7 @@ def _typecheckingstub__935886ab495203cc213786b925e7fd8fe4acd3f9db5864d4f1f5c0115
     ads_personalization_concurrency: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationConcurrencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     ads_personalization_timeouts: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AdsPersonalizationTimeoutsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     avail_suppression: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.AvailSuppressionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    beaconing_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BeaconingConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     bumper: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.BumperProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     cdn_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPlaybackConfiguration.CdnConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     configuration_aliases: typing.Optional[typing.Union[typing.Mapping[builtins.str, typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
@@ -12051,6 +12320,22 @@ def _typecheckingstub__dd693d384196965a6e6e42aa969746fa450f3a5099e7be68c145dcc9f
 
 def _typecheckingstub__a0d17f619c660f9b6fd1fb2b7aeb5e9f11758a50027ed09924fa2715dfe61616(
     resource: _aws_mediatailor_60404695.ISourceLocationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e847088619cd1680f1c77248b1fed78fe233ca2f074624e89178586546d9d84(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cd94b00014bdca4702dc78995645d4b320302bddf764516a46f2651c266da0e3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    source_location_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

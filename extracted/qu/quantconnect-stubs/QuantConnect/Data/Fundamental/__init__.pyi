@@ -78281,7 +78281,12 @@ class CompanyProfile(QuantConnect.Data.Fundamental.FundamentalTimeDependentPrope
 
     @property
     def market_cap(self) -> int:
-        """Price * Total SharesOutstanding. The most current market cap for example, would be the most recent closing price x the most recent reported shares outstanding. For ADR share classes, market cap is price * (ordinary shares outstanding / adr ratio)."""
+        """The market capitalization of the company: the latest closing price of each share class times its shares outstanding, summed over the company's share classes. ShareClassMarketCap holds one class alone."""
+        ...
+
+    @property
+    def share_class_market_cap(self) -> int:
+        """The market capitalization of this share class alone: its latest closing price times its own shares outstanding. MarketCap holds the whole company."""
         ...
 
     @property

@@ -39,7 +39,7 @@ from orbax.checkpoint.experimental.v1._src.synchronization import synchronizatio
 from orbax.checkpoint.experimental.v1._src.synchronization import thread_utils
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
 from orbax.checkpoint.experimental.v1._src.tree import types as tree_types
-from typing_extensions import deprecated  # pytype: disable=not-supported-yet
+from typing_extensions import deprecated
 
 
 STATE_CHECKPOINTABLE_KEY = checkpoint_layout.STATE_CHECKPOINTABLE_KEY
@@ -317,6 +317,11 @@ def load_checkpointables(
     abstract_checkpointables: A dictionary of abstract checkpointables.
       Dictionary keys represent the names of the checkpointables, while the
       values are the abstract checkpointable objects themselves.
+
+  With no requested checkpointables, items pending deletion are excluded with
+  a warning. An explicit request containing such an item raises
+  DeletionInProgressError, even when its files still exist. Reads do not
+  finish deletion or modify its recovery record.
 
   Returns:
     A dictionary of checkpointables. Dictionary keys represent the names of the

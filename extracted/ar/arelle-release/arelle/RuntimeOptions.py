@@ -124,6 +124,7 @@ class RuntimeOptions:
     redirectFallbacks: Optional[dict[re.Pattern[str], str]] = None
     relationshipCols: Optional[int] = None
     reportPackage: bool = False
+    requireInlineXbrl: bool = False
     roleTypesFile: Optional[str] = None
     rssReport: Optional[str] = None
     rssReportCols: Optional[int] = None
@@ -152,6 +153,7 @@ class RuntimeOptions:
     validateDuplicateFacts: Optional[str] = None
     validateXmlOim: bool = False
     validateTableConstraintsSkipLoading: bool = False
+    skipPackageContentLoading: bool = False
     validateEFM: Optional[bool] = None
     validateEFMCalcTree: Optional[bool] = None
     validateHMRC: Optional[bool] = None

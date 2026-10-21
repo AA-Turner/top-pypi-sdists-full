@@ -5,8 +5,10 @@ name: Deploy AG-UI Chat
 # - repository_dispatch (`deploy-agui`) - Auto-deploy to preview, fired by the
 #   publish-image workflows in airbytehq/airbyte-agui-server and
 #   airbytehq/airbyte-agui-sdk after they push a `main-<sha>` or release image.
-#   Payload keys: `server-tag`, `playground-tag`. Dispatches always deploy to
-#   preview — production requires a manual workflow_dispatch.
+#   Payload keys: `server-tag`, `playground-tag`. After a successful preview
+#   deploy, any `server-tag` (agui-server `main-<sha>` and release images) is
+#   promoted by dispatching this workflow with `target: production`. agui-sdk
+#   playground tags still need a manual production dispatch.
 
 on:
   workflow_dispatch:
@@ -166,3 +168,26 @@ jobs:
             printf "AG-UI chat deployed (target: %s).\n" "$TARGET"
             printf "%s: %s\n" "$SERVICE" "$IMAGE"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  promote-server:
+    name: Promote server to production
+    needs: deploy
+    # Every agui-server image (merge `main-<sha>` and release tags) is promoted;
+    # agui-sdk playground-only dispatches stay preview-only.
+    if: github.event_name == 'repository_dispatch' && github.event.client_payload.server-tag != ''
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch production deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh workflow run deploy-agui-command.yml
+          --repo "${{ github.repository }}"
+          --ref main
+          -f server-tag="$SERVER_TAG"
+          -f target=production
+      - name: Summarize promotion
+        run: printf 'Dispatched a production deploy of agui-server %s.\n' "$SERVER_TAG" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -20,7 +20,10 @@ alone cannot say whether a name is used on a line a test ran.
 """
 
 import ast
+import os
+import sys
 from collections import defaultdict
+from pathlib import Path
 
 from import_deps import ModuleSet
 
@@ -28,6 +31,7 @@ from import_deps import ModuleSet
 def import_edges(paths):
     """{path: {line: the paths it depends on if that line ran}}."""
     modules = ModuleSet(sorted(path for path in paths if path.endswith(".py")))
+    _alias_sys_path_names(modules)
     edges = {}
 
     for path, module in modules.by_path.items():
@@ -81,6 +85,44 @@ def _resolve(modules, name):
         module = modules.by_name.get(f"{name}.__init__")
     # PyModule.path is a pathlib.Path; every path here is a string.
     return str(module.path) if module else None
+
+
+def _alias_sys_path_names(modules):
+    """Add every sys.path-relative dotted name as an extra alias for its module.
+
+    import_deps names a module only by walking up through ancestor
+    __init__.py files, with no notion of sys.path. A package that exists
+    above the real import root pytest resolves absolute imports against (a
+    `pythonpath` entry, a Django project root) makes that walk prepend a
+    name no import statement uses, so it never resolves. Aliasing by
+    sys.path instead of renaming leaves a module's own fqn, which relative
+    imports resolve against, untouched -- this can only add resolvable
+    names, never take one away or change what one already meant.
+    """
+    for module in modules.by_path.values():
+        for fqn in _sys_path_fqns(module.path):
+            if fqn == ["__init__"]:
+                continue
+            name = ".".join(fqn)
+            modules.by_name.setdefault(name, module)
+            if fqn[-1] == "__init__":
+                modules.pkgs.add(".".join(fqn[:-1]))
+
+
+def _sys_path_fqns(path):
+    """`path`'s dotted name under each sys.path entry that contains it,
+    returned in sys.path order.
+    """
+    resolved = path.resolve()
+    for entry in sys.path:
+        try:
+            root = Path(entry or os.getcwd()).resolve()
+            rel = resolved.relative_to(root).with_suffix("")
+        except (OSError, ValueError):
+            continue
+        if not rel.parts:
+            continue
+        yield list(rel.parts)
 
 
 def _parse(path):

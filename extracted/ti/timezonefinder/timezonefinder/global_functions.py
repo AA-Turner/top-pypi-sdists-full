@@ -11,14 +11,15 @@ Thread Safety:
     synchronization. The singleton is initialized exactly once using double-checked locking,
     even under high concurrency.
 
-    However, for performance-critical parallel workloads, consider creating separate
-    TimezoneFinder instances for each thread to avoid singleton overhead:
+    Lookups on the shared instance are safe as well; see ``TimezoneFinder``. For
+    performance-critical parallel workloads, still create a TimezoneFinder per thread:
+    threads sharing one instance contend on it and gain far less from parallelism.
 
         import threading
         from timezonefinder import TimezoneFinder
 
         def lookup_in_thread(lng, lat):
-            # Each thread creates its own instance (faster for parallel work)
+            # Each thread creates its own instance (scales with the thread count)
             tf = TimezoneFinder(in_memory=True)
             return tf.timezone_at(lng=lng, lat=lat)
 
@@ -43,13 +44,16 @@ from timezonefinder.configs import CoordArrayLike, CoordPairs, CoordLists, OnInv
 
 __all__ = [
     "timezone_at",
+    "timezone_id_at",
     "timezone_ids_at",
     "timezone_names_at",
     "timezone_at_land",
+    "timezone_id_at_land",
     "timezone_ids_at_land",
     "timezone_names_at_land",
     "unique_timezone_at",
     "certain_timezone_at",
+    "timezones_at",
     "get_geometry",
     "zoneinfo_at",
     "utc_offset_at",
@@ -98,16 +102,30 @@ def timezone_at(*, lng: float, lat: float) -> str | None:
     :return: The timezone name of a matching polygon, or None if no match found
 
     Thread Safety:
-        This function is thread-safe for concurrent calls. The underlying global
-        TimezoneFinder instance uses a thread-safe singleton pattern. However, for
-        performance-critical parallel workloads, create separate TimezoneFinder
-        instances per thread to avoid singleton overhead.
+        This function is safe to call concurrently: the global TimezoneFinder is
+        created once under a lock, and lookups on it are safe. For
+        performance-critical parallel workloads, create a TimezoneFinder per thread
+        instead, because threads sharing one instance contend on it.
 
     Example:
         >>> timezone_at(lng=13.4, lat=52.5)
         'Europe/Berlin'
     """
     return _get_tf_instance().timezone_at(lng=lng, lat=lat)
+
+
+def timezone_id_at(*, lng: float, lat: float) -> int | None:
+    """Look up one coordinate using the global singleton, answering with a zone id.
+
+    Equivalent to :meth:`TimezoneFinder.timezone_id_at`, which documents the
+    dataset-local id contract and every error raised.
+
+    :param lng: Longitude of the point in degrees (-180.0 to 180.0)
+    :param lat: Latitude of the point in degrees (-90.0 to 90.0)
+    :return: the id of the zone :func:`timezone_at` names, or ``None`` where that
+        function answers ``None``
+    """
+    return _get_tf_instance().timezone_id_at(lng=lng, lat=lat)
 
 
 def timezone_ids_at(
@@ -170,12 +188,26 @@ def timezone_at_land(*, lng: float, lat: float) -> str | None:
     :return: The timezone name for land locations, or None for ocean areas
 
     Thread Safety:
-        This function is thread-safe for concurrent calls. The underlying global
-        TimezoneFinder instance uses a thread-safe singleton pattern. However, for
-        performance-critical parallel workloads, create separate TimezoneFinder
-        instances per thread to avoid singleton overhead.
+        This function is safe to call concurrently: the global TimezoneFinder is
+        created once under a lock, and lookups on it are safe. For
+        performance-critical parallel workloads, create a TimezoneFinder per thread
+        instead, because threads sharing one instance contend on it.
     """
     return _get_tf_instance().timezone_at_land(lng=lng, lat=lat)
+
+
+def timezone_id_at_land(*, lng: float, lat: float) -> int | None:
+    """Look up one coordinate using the global singleton, answering with a land id.
+
+    Equivalent to :meth:`TimezoneFinder.timezone_id_at_land`, which documents the
+    dataset-local id contract and every error raised.
+
+    :param lng: Longitude of the point in degrees (-180.0 to 180.0)
+    :param lat: Latitude of the point in degrees (-90.0 to 90.0)
+    :return: the id of the zone :func:`timezone_at_land` names, or ``None`` where that
+        function answers ``None``
+    """
+    return _get_tf_instance().timezone_id_at_land(lng=lng, lat=lat)
 
 
 def timezone_ids_at_land(
@@ -231,21 +263,21 @@ def unique_timezone_at(*, lng: float, lat: float) -> str | None:
     """
     Get the timezone for a coordinate if the shortcut zone is unambiguous.
 
-    Returns None if the H3 shortcut cell contains multiple timezones or no zones.
+    Returns None if the shortcut cell contains multiple timezones or no zones.
 
     :param lng: Longitude of the point in degrees (-180.0 to 180.0)
     :param lat: Latitude of the point in degrees (-90.0 to 90.0)
     :return: The timezone name if the shortcut contains exactly one zone, None otherwise
 
     Thread Safety:
-        This function is thread-safe for concurrent calls. The underlying global
-        TimezoneFinder instance uses a thread-safe singleton pattern. However, for
-        performance-critical parallel workloads, create separate TimezoneFinder
-        instances per thread to avoid singleton overhead.
+        This function is safe to call concurrently: the global TimezoneFinder is
+        created once under a lock, and lookups on it are safe. For
+        performance-critical parallel workloads, create a TimezoneFinder per thread
+        instead, because threads sharing one instance contend on it.
 
     Note:
         This is faster than timezone_at() but may return None even for valid coordinates
-        if the H3 cell spans multiple timezones.
+        if the cell spans multiple timezones.
     """
     return _get_tf_instance().unique_timezone_at(lng=lng, lat=lat)
 
@@ -262,10 +294,10 @@ def certain_timezone_at(*, lng: float, lat: float) -> str | None:
     :return: The timezone name if definitely matched, None if not in any polygon
 
     Thread Safety:
-        This function is thread-safe for concurrent calls. The underlying global
-        TimezoneFinder instance uses a thread-safe singleton pattern. However, for
-        performance-critical parallel workloads, create separate TimezoneFinder
-        instances per thread to avoid singleton overhead.
+        This function is safe to call concurrently: the global TimezoneFinder is
+        created once under a lock, and lookups on it are safe. For
+        performance-critical parallel workloads, create a TimezoneFinder per thread
+        instead, because threads sharing one instance contend on it.
 
     Note:
         For the standard global dataset, this is equivalent to timezone_at() since
@@ -273,6 +305,32 @@ def certain_timezone_at(*, lng: float, lat: float) -> str | None:
         This is primarily useful with custom timezone data.
     """
     return _get_tf_instance().certain_timezone_at(lng=lng, lat=lat)
+
+
+def timezones_at(*, lng: float, lat: float) -> list[str]:
+    """
+    Get every timezone whose polygons contain a coordinate, not only the one that wins.
+
+    The packaged dataset ships genuinely overlapping zones - ``Asia/Urumqi`` inside
+    ``Asia/Shanghai``, and a handful of disputed or dual-administered areas - where
+    ``timezone_at()`` has to pick one without reporting that it did.
+
+    :param lng: Longitude of the point in degrees (-180.0 to 180.0)
+    :param lat: Latitude of the point in degrees (-90.0 to 90.0)
+    :return: The names of every containing zone, with ``timezone_at()``'s answer first.
+        Empty only where that function returns ``None``.
+
+    Thread Safety:
+        This function is safe to call concurrently: the global TimezoneFinder is
+        created once under a lock, and lookups on it are safe. For
+        performance-critical parallel workloads, create a TimezoneFinder per thread
+        instead, because threads sharing one instance contend on it.
+
+    Note:
+        See :meth:`~timezonefinder.TimezoneFinder.timezones_at` for the ordering
+        contract and for what bounds the answer's completeness.
+    """
+    return _get_tf_instance().timezones_at(lng=lng, lat=lat)
 
 
 def zoneinfo_at(*, lng: float, lat: float) -> ZoneInfo | None:
@@ -340,8 +398,8 @@ def get_geometry(
     Retrieves the geometry of a timezone polygon.
     Uses the global TimezoneFinder instance.
 
-    Note: This function is not thread-safe. For multi-threaded environments,
-    create separate TimezoneFinder instances.
+    Note: Safe to call concurrently. The zone index this reads on first use is
+    stored once as an immutable array, identical whichever thread stores it.
 
     :param tz_name: one of the names in ``timezone_names.txt`` or ``self.timezone_names``
     :param tz_id: the id of the timezone (=index in ``self.timezone_names``)

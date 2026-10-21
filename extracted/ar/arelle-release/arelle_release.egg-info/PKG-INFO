@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arelle-release
-Version: 2.46.1
+Version: 2.47.0
 Summary: An open source XBRL platform.
 Author-email: "arelle.org" <support@arelle.org>
 License-Expression: Apache-2.0
@@ -18,14 +18,13 @@ Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Text Processing :: Markup :: XML
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: bottle<0.14,>=0.13
@@ -37,14 +36,14 @@ Requires-Dist: jsonschema<5,>=4
 Requires-Dist: lxml!=6.0.0,<7,>=4
 Requires-Dist: numpy<3,>=1
 Requires-Dist: openpyxl<4,>=3
-Requires-Dist: pillow<13,>=10
+Requires-Dist: pillow<14,>=10
 Requires-Dist: pyparsing<4,>=3
 Requires-Dist: python-dateutil<3,>=2
 Requires-Dist: regex
 Requires-Dist: truststore<1,>=0
 Requires-Dist: typing-extensions<5,>=4
 Provides-Extra: crypto
-Requires-Dist: pycryptodome<4,>=3; extra == "crypto"
+Requires-Dist: pycryptodome<5,>=3; extra == "crypto"
 Provides-Extra: db
 Requires-Dist: oracledb<27,>=3; extra == "db"
 Requires-Dist: pg8000<2,>=1; extra == "db"
@@ -135,7 +134,6 @@ Need help with Arelle? Go check out [our documentation][read-the-docs].
 - Support for XF text-based Formula and XULE validation rules.
 - The Web Service API allows XBRL integration with applications, such as those in
   Excel, Java or Oracle.
-- Instance creation is supported using forms defined by the table linkbase.
 - Support for reading/monitoring US SEC XBRL RSS feeds (RSS Watch).
 
 [viewer]: https://github.com/Arelle/ixbrl-viewer

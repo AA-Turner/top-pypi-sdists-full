@@ -2223,8 +2223,27 @@ step('partition: refined hexahedra decompose into 2 balanced pieces', () => {
     }
 });
 
-step('partition: kahip is compiled out of both WASM builds and says so', () => {
-    assert.throws(() => m.partition(cube, 2, 'kahip'), /MESHIOPLUSPLUS_WITH_KAHIP/);
+step('partition: kahip runs in the full artifact, stays compiled out of the lean pair', () => {
+    if (!full) {
+        assert.throws(() => m.partition(cube, 2, 'kahip'), /MESHIOPLUSPLUS_WITH_KAHIP/);
+        return;
+    }
+    assert.equal(m.hasKahip(), true, 'the full artifact links KaHIP');
+    const grid = m.refine(cube);  // 8 hexahedra, as in the SFC step above
+    const pieces = m.partition(grid, 2, 'kahip');
+    assert.equal(pieces.length, 2);
+    let total = 0;
+    for (const piece of pieces) {
+        assert.equal(piece.mesh.cells.length, grid.cells.length);
+        total += piece.mesh.cells[0].data.length / 8;
+    }
+    assert.equal(total, 8);
+    const labels = m.partitionLabels(grid, 2, 'kahip');
+    assert.equal(labels.length, 1);
+    assert.equal(labels[0].length, 8);
+    for (const p of labels[0]) {
+        assert.ok(p >= 0 && p < 2);
+    }
 });
 
 // The unit cube as a closed, outward-wound triangle surface: the distance
@@ -2256,6 +2275,39 @@ step('grid builds a lattice from nothing', () => {
     assert.equal(g.cells[0].type, 'hexahedron');
     // An empty lattice is a legal request, not a throw.
     assert.equal(m.grid([0, 0, 0]).points.length, 0);
+});
+
+step('the parametric generators build meshes and refuse bad requests', () => {
+    const box = m.box([2, 2, 2], null, null, 'tetra', 2);
+    assert.equal(box.cells[0].type, 'tetra10');
+    const sphere = m.uvSphere(1, 8, 4, null, 'quad');
+    assert.deepEqual(sphere.cells.map((c) => c.type), ['quad', 'triangle']);
+    assert.equal(m.rectangle([3, 2], null, null, 'triangle', 'center').points.length, 18 * 3);
+    assert.equal(m.icosaSphere(1, 1).points.length, 42 * 3);
+    assert.equal(m.disk(1, 3, null, 'triangle').cells[0].type, 'triangle');
+    assert.equal(m.cylinder(1, 1, 2, 2, null, 'wedge').cells[0].type, 'wedge');
+    assert.deepEqual(m.referenceCells(['tetra', 'wedge']).cells.map((c) => c.type),
+        ['tetra', 'wedge']);
+    assert.equal(m.referenceCells(null, true).cells.length, 7);
+    assert.throws(() => m.box([2, 2, 2], null, null, 'blob'));
+    assert.throws(() => m.box([100, 100, 100], null, null, 'hexahedron', 1, 1000));
+});
+
+step('octree is fine only where the skin is', () => {
+    const tree = m.octree(cubeSurface, null, 0, 3,
+        [-0.5, -0.5, -0.5, 1.5, 1.5, 1.5], 0, 0, 0, 0, 'face', 'inside', 'pseudonormal',
+        false, false, 20000000, 'off');
+    assert.equal(tree.dimension, 3);
+    assert.ok(tree.numLeaves > 0);
+    assert.equal(tree.finestLevel, 3);
+    assert.equal(tree.mesh.cells[0].type, 'hexahedron');
+    assert.throws(() => m.octree(cubeSurface, null, 0, 3, null, 0, 0, 0, 0, 'diagonal'));
+    const conforming = m.octree(cubeSurface, null, 0, 3,
+        [-0.5, -0.5, -0.5, 1.5, 1.5, 1.5], 0, 0, 0, 0, 'face', 'all', 'pseudonormal',
+        false, false, 20000000, 'off', 'templates');
+    assert.equal(conforming.numHanging, 0);
+    assert.throws(() => m.octree(cubeSurface, null, 0, 3, null, 0, 0, 0, 0, 'face', 'all',
+        'pseudonormal', false, false, 20000000, 'off', 'wedges'));
 });
 
 step('voxelize keeps the whole box, the shell, or the interior', () => {
@@ -2477,6 +2529,7 @@ step('every binding is reachable through the wrapper', () => {
         // that takes no input mesh: it creates one.
         'grid',
         'voxelize',
+        'octree',
         'surfaceWatertightCheck',
         'sampleDistance',
         'distanceToSurface',
@@ -2613,12 +2666,13 @@ step('availableFormats reports what this build can read and write', () => {
 
 step('the stays-out set is exactly what this artifact reports (roadmap 6.2.4)', () => {
     // One table per artifact: what each links, and what neither does. KaHIP
-    // (no port, and a partitioner in every bundle), ADIOS2 (vtx), TecIO
+    // (the full artifact only), ADIOS2 (vtx), TecIO
     // (szplt, redistribution terms), the Kokkos backend and memory mapping
-    // stay out of both; the full artifact adds OpenCASCADE and the codecs.
+    // stay out of the lean pair; the full artifact adds OpenCASCADE, the codecs
+    // and KaHIP.
     const expected = full
-        ? { hasOcct: true, hasZstd: true, hasLz4: true, hasBzip2: true }
-        : { hasOcct: false, hasZstd: false, hasLz4: false, hasBzip2: false };
+        ? { hasOcct: true, hasZstd: true, hasLz4: true, hasBzip2: true, hasKahip: true }
+        : { hasOcct: false, hasZstd: false, hasLz4: false, hasBzip2: false, hasKahip: false };
     for (const [name, value] of Object.entries(expected))
         assert.equal(m[name](), value, name);
     assert.equal(m.hasCgnslib(), true);
@@ -2626,12 +2680,17 @@ step('the stays-out set is exactly what this artifact reports (roadmap 6.2.4)', 
     const { readers, writers } = m.availableFormats();
     for (const fmt of ['vtx', 'szplt'])
         assert.ok(!readers.includes(fmt) && !writers.includes(fmt), fmt);
-    assert.throws(() => m.partition(cube, 2, 'kahip'), /MESHIOPLUSPLUS_WITH_KAHIP/);
     if (!full) {
         // The lean artifact names the full one rather than a CMake flag.
         m.FS.writeFile('/lean.step', 'ISO-10303-21;\nEND-ISO-10303-21;\n');
         assert.throws(() => m.readMesh('/lean.step'), /full: true/);
-        assert.throws(() => m.fitCad(cubeSurface), /full: true/);
+        assert.throws(() => m.fitCad(cubeSurface, { backend: 'occt' }), /full: true/);
+        // Without OpenCASCADE, fitCad runs the kernel-free native backend.
+        const native = m.fitCad(cubeSurface, { stepPath: '/lean_cube.step' });
+        assert.equal(native.backend, 'native');
+        assert.equal(native.valid, true);
+        assert.equal(native.numPlane, 6);
+        assert.ok(m.FS.readFile('/lean_cube.step', { encoding: 'utf8' }).includes('PLANE('));
     }
 });
 

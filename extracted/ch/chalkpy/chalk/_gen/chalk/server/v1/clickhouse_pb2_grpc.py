@@ -30,20 +30,40 @@ class ClickhouseServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsResponse.FromString,
         )
+        self.SetClusterClickhouseOtelTtls = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/SetClusterClickhouseOtelTtls",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClusterClickhouseOtelTtlsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClusterClickhouseOtelTtlsResponse.FromString,
+        )
         self.GetClickhouseInfo = channel.unary_unary(
             "/chalk.server.v1.ClickhouseService/GetClickhouseInfo",
             request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoResponse.FromString,
+        )
+        self.GetClusterClickhouseInfo = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/GetClusterClickhouseInfo",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseInfoRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseInfoResponse.FromString,
         )
         self.GetClickhouseRetentionHistory = channel.unary_unary(
             "/chalk.server.v1.ClickhouseService/GetClickhouseRetentionHistory",
             request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryResponse.FromString,
         )
+        self.GetClusterClickhouseRetentionHistory = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/GetClusterClickhouseRetentionHistory",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseRetentionHistoryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseRetentionHistoryResponse.FromString,
+        )
         self.GetClickhouseAdminDiagnostics = channel.unary_unary(
             "/chalk.server.v1.ClickhouseService/GetClickhouseAdminDiagnostics",
             request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsResponse.FromString,
+        )
+        self.GetClusterClickhouseAdminDiagnostics = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/GetClusterClickhouseAdminDiagnostics",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseAdminDiagnosticsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseAdminDiagnosticsResponse.FromString,
         )
 
 
@@ -68,8 +88,20 @@ class ClickhouseServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def SetClusterClickhouseOtelTtls(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetClickhouseInfo(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClusterClickhouseInfo(self, request, context):
+        """Returns the current ClickHouse storage and health snapshot for an owned cluster."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -82,11 +114,25 @@ class ClickhouseServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetClusterClickhouseRetentionHistory(self, request, context):
+        """Charts the cluster manager's ClickHouse gauges for an owned cluster.
+        The cluster and environment endpoints intentionally share the same chart contract.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetClickhouseAdminDiagnostics(self, request, context):
         """Returns query-level performance data and physical table configuration.
         Keep this separate from GetClickhouseInfo so non-admin readers never receive
         normalized query text or operational schema details.
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClusterClickhouseAdminDiagnostics(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -109,20 +155,40 @@ def add_ClickhouseServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsResponse.SerializeToString,
         ),
+        "SetClusterClickhouseOtelTtls": grpc.unary_unary_rpc_method_handler(
+            servicer.SetClusterClickhouseOtelTtls,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClusterClickhouseOtelTtlsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClusterClickhouseOtelTtlsResponse.SerializeToString,
+        ),
         "GetClickhouseInfo": grpc.unary_unary_rpc_method_handler(
             servicer.GetClickhouseInfo,
             request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoResponse.SerializeToString,
+        ),
+        "GetClusterClickhouseInfo": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterClickhouseInfo,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseInfoRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseInfoResponse.SerializeToString,
         ),
         "GetClickhouseRetentionHistory": grpc.unary_unary_rpc_method_handler(
             servicer.GetClickhouseRetentionHistory,
             request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseRetentionHistoryResponse.SerializeToString,
         ),
+        "GetClusterClickhouseRetentionHistory": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterClickhouseRetentionHistory,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseRetentionHistoryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseRetentionHistoryResponse.SerializeToString,
+        ),
         "GetClickhouseAdminDiagnostics": grpc.unary_unary_rpc_method_handler(
             servicer.GetClickhouseAdminDiagnostics,
             request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsResponse.SerializeToString,
+        ),
+        "GetClusterClickhouseAdminDiagnostics": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterClickhouseAdminDiagnostics,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseAdminDiagnosticsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseAdminDiagnosticsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ClickhouseService", rpc_method_handlers)
@@ -221,6 +287,35 @@ class ClickhouseService(object):
         )
 
     @staticmethod
+    def SetClusterClickhouseOtelTtls(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/SetClusterClickhouseOtelTtls",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClusterClickhouseOtelTtlsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClusterClickhouseOtelTtlsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetClickhouseInfo(
         request,
         target,
@@ -239,6 +334,35 @@ class ClickhouseService(object):
             "/chalk.server.v1.ClickhouseService/GetClickhouseInfo",
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseInfoResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterClickhouseInfo(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/GetClusterClickhouseInfo",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseInfoRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseInfoResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -279,6 +403,35 @@ class ClickhouseService(object):
         )
 
     @staticmethod
+    def GetClusterClickhouseRetentionHistory(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/GetClusterClickhouseRetentionHistory",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseRetentionHistoryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseRetentionHistoryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetClickhouseAdminDiagnostics(
         request,
         target,
@@ -297,6 +450,35 @@ class ClickhouseService(object):
             "/chalk.server.v1.ClickhouseService/GetClickhouseAdminDiagnostics",
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseAdminDiagnosticsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterClickhouseAdminDiagnostics(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/GetClusterClickhouseAdminDiagnostics",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseAdminDiagnosticsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClusterClickhouseAdminDiagnosticsResponse.FromString,
             options,
             channel_credentials,
             insecure,

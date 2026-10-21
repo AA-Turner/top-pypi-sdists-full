@@ -27,6 +27,7 @@ from inspect_ai.tool import (
     MCPServerConfig,
     MCPServerConfigHTTP,
     Skill,
+    Tool,
     install_skills,
     read_skills,
 )
@@ -36,6 +37,7 @@ from inspect_ai.util._sandbox import ExecRemoteAwaitableOptions
 from typing_extensions import Unpack
 
 from inspect_swe._util._async import is_callable_coroutine
+from inspect_swe._util.bridged_tools import resolve_bridged_tools
 from inspect_swe._util.centaur import CentaurOptions, run_centaur
 from inspect_swe._util.mcp_ready import (
     DEFAULT_MCP_READY_TIMEOUT,
@@ -50,10 +52,12 @@ from inspect_swe._util.trace import trace
 from .._util.agentbinary import ensure_agent_binary_installed
 from ._events.consumer import CodexConsumer
 from .agentbinary import (
+    codex_alignment_catalog,
     codex_binary_version,
     codex_cli_binary_source,
-    codex_models_catalog,
+    codex_version_models_catalog,
 )
+from .code_mode import check_codex_code_mode_bridged_tools
 from .config import (
     MCP_STARTUP_TIMEOUT_SEC,
     CodexApprovalPolicy,
@@ -97,7 +101,7 @@ def codex_cli(
     model_config: str | None = None,
     skills: Sequence[str | Path | Skill] | None = None,
     mcp_servers: Sequence[MCPServerConfig] | None = None,
-    bridged_tools: Sequence[BridgedToolsSpec] | None = None,
+    bridged_tools: Sequence[Tool | BridgedToolsSpec] | None = None,
     mcp_ready_timeout: float = DEFAULT_MCP_READY_TIMEOUT,
     mcp_startup_timeout: int | None = MCP_STARTUP_TIMEOUT_SEC,
     web_search: CodexWebSearch = "live",
@@ -147,7 +151,14 @@ def codex_cli(
         mcp_servers: MCP servers to make available to the agent.
         bridged_tools: Host-side Inspect tools to expose to the agent via MCP.
             Each BridgedToolsSpec creates an MCP server that makes the specified
-            tools available to the agent running in the sandbox.
+            tools available to the agent running in the sandbox. Plain Tools
+            are grouped into one MCP server named `tools`. In Codex code
+            mode (models whose catalog entry sets `tool_mode = "code_mode_only"`)
+            the model calls these tools from code it writes rather than
+            proposing each call, so the agent raises before launch unless each
+            spec sets `require_proposal=False`. The check is skipped when
+            `config_overrides` sets `features`, `model_catalog_json` or
+            `profile` keys.
         mcp_ready_timeout: Seconds to wait for bridged MCP endpoints to serve
             tools before the agent launch errors.
         mcp_startup_timeout: Seconds Codex waits for bridged MCP server startup.
@@ -352,6 +363,9 @@ def codex_cli(
                 "config_overrides={'approvals_reviewer': ...}."
             )
 
+    # resolve plain Tools into specs once, so bad input fails at construction
+    bridged_tools_specs = resolve_bridged_tools(bridged_tools)
+
     async def execute(state: AgentState) -> AgentState:
         # determine port (use new port for each execution of agent on sample)
         MODEL_PORT = "codex_cli_model_port"
@@ -381,7 +395,7 @@ def codex_cli(
                 sandbox=sandbox,
                 retry_refusals=retry_refusals,
                 port=port,
-                bridged_tools=bridged_tools,
+                bridged_tools=bridged_tools_specs,
                 web_search=effective_web_search != "disabled",
                 model_event_sink=consumer,
                 checkpointer=cp,
@@ -480,8 +494,15 @@ def codex_cli(
             # resolve working directory (home dir if sandbox default is '/')
             agent_cwd = await resolve_agent_cwd(sbox, user, cwd)
 
-            # align Codex's `--model` slug to the real bridged model
-            codex_model = await resolve_codex_model(model, model_config, codex_version)
+            # align Codex's `--model` slug to the real bridged model, and fail
+            # before launch if code mode would deny every bridged tool call
+            codex_model = await _resolve_codex_model_checked(
+                model,
+                model_config,
+                codex_version,
+                config_overrides,
+                bridged_tools_specs,
+            )
 
             # determine CODEX_HOME (default to agent working dir)
             if home_dir is None:
@@ -830,10 +851,30 @@ async def _stage_prompt_images(
     return files
 
 
-async def resolve_codex_model(
+async def _resolve_codex_model_checked(
     model: str | None,
     model_config: str | None,
     codex_version: str | None,
+    config_overrides: dict[str, str] | None,
+    bridged_tools: Sequence[BridgedToolsSpec] | None,
+) -> str:
+    """Resolve the `--model` slug, then run the code-mode check on bridged tools.
+
+    The release catalog is fetched once and shared by both, so an offline run
+    pays for one failed fetch, not two.
+    """
+    version_catalog = await codex_version_models_catalog(codex_version)
+    codex_model = await resolve_codex_model(model, model_config, version_catalog)
+    check_codex_code_mode_bridged_tools(
+        codex_model, version_catalog, config_overrides, bridged_tools
+    )
+    return codex_model
+
+
+async def resolve_codex_model(
+    model: str | None,
+    model_config: str | None,
+    version_catalog: dict[str, Any] | None,
 ) -> str:
     """Resolve the Codex `--model` slug aligned to the real bridged model.
 
@@ -844,7 +885,9 @@ async def resolve_codex_model(
     `service_model_name()` rather than the registry name — so a custom `otter`
     provider reporting `gpt-5.5` aligns to that catalog entry. "latest"/codename
     models (per the provider's `is_latest()`) align to the latest catalog profile
-    rather than Codex's generic fallback.
+    rather than Codex's generic fallback. `version_catalog` is the installed
+    release's `models.json` (`None` when unknown, which aligns against the
+    bundled snapshot).
     """
     resolved_model = get_model(model)
     real_model = ModelName(resolved_model)
@@ -854,11 +897,10 @@ async def resolve_codex_model(
     # service_model_name() (e.g. a custom 'otter' provider -> 'gpt-5.5'); align to
     # that, not the registry name ('otter'), which Codex wouldn't recognize.
     model_name = openai_service_model_name(api, real_model.name)
-    codex_catalog = await codex_models_catalog(codex_version)
     resolution = resolve_codex_model_slug(
         model_name,
         api=real_api,
-        catalog=codex_catalog,
+        catalog=codex_alignment_catalog(version_catalog),
         override=model_config,
         is_latest=is_latest_openai_model(api),
     )

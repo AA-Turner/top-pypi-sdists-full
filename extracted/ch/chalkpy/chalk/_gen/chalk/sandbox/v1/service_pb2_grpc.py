@@ -271,6 +271,11 @@ class CustomImageServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.GetImagePullCredentials = channel.unary_unary(
+            "/chalk.sandbox.v1.CustomImageService/GetImagePullCredentials",
+            request_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.GetImagePullCredentialsRequest.SerializeToString,
+            response_deserializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.GetImagePullCredentialsResponse.FromString,
+        )
         self.BuildCustomImage = channel.unary_unary(
             "/chalk.sandbox.v1.CustomImageService/BuildCustomImage",
             request_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.BuildCustomImageRequest.SerializeToString,
@@ -320,6 +325,12 @@ class CustomImageServiceStub(object):
 
 class CustomImageServiceServicer(object):
     """CustomImageService manages custom container image builds independently of sandboxes."""
+
+    def GetImagePullCredentials(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def BuildCustomImage(self, request, context):
         """BuildCustomImage builds a container image from a declarative ImageSpec."""
@@ -397,6 +408,11 @@ class CustomImageServiceServicer(object):
 
 def add_CustomImageServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "GetImagePullCredentials": grpc.unary_unary_rpc_method_handler(
+            servicer.GetImagePullCredentials,
+            request_deserializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.GetImagePullCredentialsRequest.FromString,
+            response_serializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.GetImagePullCredentialsResponse.SerializeToString,
+        ),
         "BuildCustomImage": grpc.unary_unary_rpc_method_handler(
             servicer.BuildCustomImage,
             request_deserializer=chalk_dot_sandbox_dot_v1_dot_service__pb2.BuildCustomImageRequest.FromString,
@@ -450,6 +466,35 @@ def add_CustomImageServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class CustomImageService(object):
     """CustomImageService manages custom container image builds independently of sandboxes."""
+
+    @staticmethod
+    def GetImagePullCredentials(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.sandbox.v1.CustomImageService/GetImagePullCredentials",
+            chalk_dot_sandbox_dot_v1_dot_service__pb2.GetImagePullCredentialsRequest.SerializeToString,
+            chalk_dot_sandbox_dot_v1_dot_service__pb2.GetImagePullCredentialsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def BuildCustomImage(

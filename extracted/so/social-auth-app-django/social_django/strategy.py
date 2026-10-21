@@ -17,10 +17,10 @@ from django.utils.datastructures import MultiValueDict
 from django.utils.encoding import force_str
 from django.utils.functional import Promise
 from django.utils.translation import get_language
-from social_core.exceptions import AuthConfigurationError
+from social_core.exceptions import AuthConfigurationError, AuthSessionError
 from social_core.groups import group_sync_targets
 from social_core.strategy import BaseStrategy, BaseTemplateStrategy
-from social_core.utils import PARTIAL_TOKEN_PENDING_CONFIRMATION_SESSION_NAME
+from social_core.utils import PARTIAL_TOKEN_PENDING_CONFIRMATION_SESSION_NAME, user_is_authenticated
 
 if TYPE_CHECKING:
     from django.contrib.sessions.backends.base import SessionBase
@@ -29,6 +29,11 @@ if TYPE_CHECKING:
 
 
 PARTIAL_PIPELINE_CONFIRMATION_NONCE_PARAMETER = "partial_pipeline_confirm_nonce"
+_SESSION_VALUE_MARKER = "__social_django_session_value__"
+
+
+def _is_model_reference(value: Any) -> bool:
+    return isinstance(value, dict) and value.keys() == {"pk", "ctype"} and type(value["ctype"]) is int
 
 
 def render_template_string(request, html, context=None):
@@ -262,28 +267,45 @@ class DjangoStrategy(BaseStrategy):
     def random_string(self, length=12, chars=BaseStrategy.ALLOWED_CHARS):
         return get_random_string(length, chars)
 
-    def to_session_value(self, val):
-        """
-        Converts values that are instance of Model to a dictionary
-        with enough information to retrieve the instance back later.
-        """
+    def to_session_value(self, val: Any) -> Any:
+        """Encode model references and escape dictionaries that resemble encoded values."""
         if isinstance(val, MultiValueDict):
             val = val.dict()
-        elif isinstance(val, Model):
-            val = {"pk": val.pk, "ctype": ContentType.objects.get_for_model(val).pk}
+        if isinstance(val, Model):
+            return {
+                _SESSION_VALUE_MARKER: 1,
+                "kind": "model",
+                "value": {"pk": val.pk, "ctype": ContentType.objects.get_for_model(val).pk},
+            }
+        if isinstance(val, dict) and (_SESSION_VALUE_MARKER in val or {"pk", "ctype"} <= val.keys()):
+            return {_SESSION_VALUE_MARKER: 1, "kind": "plain", "value": val}
         return val
 
-    def from_session_value(self, val):
-        """Converts back the instance saved by self._ctype function."""
-        if isinstance(val, dict) and "pk" in val and "ctype" in val:
-            ctype = ContentType.objects.get_for_id(val["ctype"])
-            model_class = ctype.model_class()
-            if model_class is None:
-                msg = f"Content type {ctype.pk} does not reference a model"
-                raise TypeError(msg)
-            val = model_class._default_manager.get(pk=val["pk"])
+    def from_session_value(self, val: Any) -> Any:
+        """Decode one saved value, including model references from older partials."""
+        if isinstance(val, dict) and _SESSION_VALUE_MARKER in val:
+            if (
+                val.keys() != {_SESSION_VALUE_MARKER, "kind", "value"}
+                or type(val[_SESSION_VALUE_MARKER]) is not int
+                or val[_SESSION_VALUE_MARKER] != 1
+            ):
+                return val
+            payload = val["value"]
+            if val["kind"] == "plain" and isinstance(payload, dict):
+                # Do not decode again: the payload may itself resemble a reference.
+                return payload
+            if val["kind"] != "model" or not _is_model_reference(payload):
+                return val
+            val = payload
+        elif not _is_model_reference(val):
+            return val
 
-        return val
+        ctype = ContentType.objects.get_for_id(val["ctype"])
+        model_class = ctype.model_class()
+        if model_class is None:
+            msg = f"Content type {ctype.pk} does not reference a model"
+            raise TypeError(msg)
+        return model_class._default_manager.get(pk=val["pk"])
 
     def get_language(self):
         """Return current language"""
@@ -296,11 +318,19 @@ class DjangoStrategy(BaseStrategy):
 
     def restore_session(self, session_id: str, kwargs: dict[str, Any]) -> None:
         request = self._require_request()
-        # Load session
-        request.session = self.session = create_session(session_id)
-        # Update request user
-        request.user = get_user(request)
-        if "user" in kwargs and request.user.is_authenticated:
-            kwargs["user"] = request.user
+        restored_session = create_session(session_id)
+        restored_request = HttpRequest()
+        restored_request.session = restored_session
+        restored_user = get_user(restored_request)
+        incoming_user = kwargs.get("user")
+        if user_is_authenticated(incoming_user) and (
+            not restored_user.is_authenticated or incoming_user != restored_user
+        ):
+            raise AuthSessionError(code="user_mismatch", stage="callback")
+
+        request.session = self.session = restored_session
+        request.user = restored_user
+        if "user" in kwargs:
+            kwargs["user"] = restored_user if restored_user.is_authenticated else None
         # Rotate session key to avoid reuse
         self.session.cycle_key()

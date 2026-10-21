@@ -148,6 +148,55 @@ class CustomDBEngineVersionReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_rds.DBClusterEndpointReference",
+    jsii_struct_bases=[],
+    name_mapping={"db_cluster_endpoint_arn": "dbClusterEndpointArn"},
+)
+class DBClusterEndpointReference:
+    def __init__(self, *, db_cluster_endpoint_arn: builtins.str) -> None:
+        '''A reference to a DBClusterEndpoint resource.
+
+        :param db_cluster_endpoint_arn: The DBClusterEndpointArn of the DBClusterEndpoint resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_rds as interfaces_rds
+            
+            d_b_cluster_endpoint_reference = interfaces_rds.DBClusterEndpointReference(
+                db_cluster_endpoint_arn="dbClusterEndpointArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__97f7dedd741f1e80b1cfdb5902e53026d3f3807604d124dfb32c705af1e1cb50)
+            check_type(argname="argument db_cluster_endpoint_arn", value=db_cluster_endpoint_arn, expected_type=type_hints["db_cluster_endpoint_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "db_cluster_endpoint_arn": db_cluster_endpoint_arn,
+        }
+
+    @builtins.property
+    def db_cluster_endpoint_arn(self) -> builtins.str:
+        '''The DBClusterEndpointArn of the DBClusterEndpoint resource.'''
+        result = self._values.get("db_cluster_endpoint_arn")
+        assert result is not None, "Required property 'db_cluster_endpoint_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DBClusterEndpointReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_rds.DBClusterParameterGroupReference",
     jsii_struct_bases=[],
     name_mapping={"db_cluster_parameter_group_name": "dbClusterParameterGroupName"},
@@ -1034,6 +1083,51 @@ class _ICustomDBEngineVersionRefProxy(
 typing.cast(typing.Any, ICustomDBEngineVersionRef).__jsii_proxy_class__ = lambda : _ICustomDBEngineVersionRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rds.IDBClusterEndpointRef")
+class IDBClusterEndpointRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBClusterEndpoint.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterEndpointRef")
+    def db_cluster_endpoint_ref(self) -> "DBClusterEndpointReference":
+        '''(experimental) A reference to a DBClusterEndpoint resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDBClusterEndpointRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a DBClusterEndpoint.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_rds.IDBClusterEndpointRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterEndpointRef")
+    def db_cluster_endpoint_ref(self) -> "DBClusterEndpointReference":
+        '''(experimental) A reference to a DBClusterEndpoint resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DBClusterEndpointReference", jsii.get(self, "dbClusterEndpointRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDBClusterEndpointRef).__jsii_proxy_class__ = lambda : _IDBClusterEndpointRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_rds.IDBClusterParameterGroupRef")
 class IDBClusterParameterGroupRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1855,6 +1949,7 @@ class OptionGroupReference:
 __all__ = [
     "ClusterSnapshotReference",
     "CustomDBEngineVersionReference",
+    "DBClusterEndpointReference",
     "DBClusterParameterGroupReference",
     "DBClusterReference",
     "DBInstanceReference",
@@ -1871,6 +1966,7 @@ __all__ = [
     "GlobalClusterReference",
     "IClusterSnapshotRef",
     "ICustomDBEngineVersionRef",
+    "IDBClusterEndpointRef",
     "IDBClusterParameterGroupRef",
     "IDBClusterRef",
     "IDBInstanceRef",
@@ -1904,6 +2000,13 @@ def _typecheckingstub__d7bfade17c85355120dd78174c103b342d9dc394e0d82f07c3b078366
     *,
     engine: builtins.str,
     engine_version: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97f7dedd741f1e80b1cfdb5902e53026d3f3807604d124dfb32c705af1e1cb50(
+    *,
+    db_cluster_endpoint_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2026,5 +2129,5 @@ def _typecheckingstub__e07097ee5cec4d621b125e688e72d708a650095ae041c832d8307f3a2
     """Type checking stubs"""
     pass
 
-for cls in [IClusterSnapshotRef, ICustomDBEngineVersionRef, IDBClusterParameterGroupRef, IDBClusterRef, IDBInstanceRef, IDBParameterGroupRef, IDBProxyEndpointRef, IDBProxyRef, IDBProxyTargetGroupRef, IDBSecurityGroupIngressRef, IDBSecurityGroupRef, IDBShardGroupRef, IDBSnapshotRef, IDBSubnetGroupRef, IEventSubscriptionRef, IGlobalClusterRef, IIntegrationRef, IOptionGroupRef]:
+for cls in [IClusterSnapshotRef, ICustomDBEngineVersionRef, IDBClusterEndpointRef, IDBClusterParameterGroupRef, IDBClusterRef, IDBInstanceRef, IDBParameterGroupRef, IDBProxyEndpointRef, IDBProxyRef, IDBProxyTargetGroupRef, IDBSecurityGroupIngressRef, IDBSecurityGroupRef, IDBShardGroupRef, IDBSnapshotRef, IDBSubnetGroupRef, IEventSubscriptionRef, IGlobalClusterRef, IIntegrationRef, IOptionGroupRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

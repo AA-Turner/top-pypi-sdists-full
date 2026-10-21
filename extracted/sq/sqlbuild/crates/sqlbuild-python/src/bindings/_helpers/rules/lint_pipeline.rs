@@ -19,31 +19,32 @@ use sqlbuild_rules::dsl_headers::models::{
     HeaderRulesConfig, HeaderSeverity, HeaderSpan, HeaderViolation,
 };
 use sqlbuild_rules::lint_text::constants::SUPPRESSION_CODE;
-use sqlbuild_rules::lint_text::main::apply_suppressions::apply_suppressions;
 use sqlbuild_rules::lint_text::main::dependency_sites::dependency_sites;
 use sqlbuild_rules::lint_text::main::first_header_only::first_header_only;
 use sqlbuild_rules::lint_text::main::lint_sql_bodies::lint_sql_bodies;
 use sqlbuild_rules::lint_text::main::named_declaration_role_kind::named_declaration_role_kind;
 use sqlbuild_rules::lint_text::main::neutralize_audit_parameters::neutralize_audit_parameters;
 use sqlbuild_rules::lint_text::main::neutralize_context_interpolation::neutralize_context_interpolation;
+use sqlbuild_rules::lint_text::main::reject_inline_suppressions::reject_inline_suppressions;
 use sqlbuild_rules::lint_text::models::{
     AuthoredDiagnostic, ExpansionSpan, InterpolationSite, LintSqlBody, LintSqlOptions, Neutralized,
-    RetainedViolation, SuppressibleViolation, SuppressionFinding,
+    SuppressionFinding,
 };
 use sqlbuild_rules::project_tree::main::project_real_path::project_real_path;
 use sqlbuild_rules::project_tree::main::project_real_paths::project_real_paths;
+use sqlbuild_rules::sql_lint::main::fill_finding_path::fill_finding_path;
 use sqlbuild_rules::sql_lint::main::preparation::prepare;
 use sqlbuild_rules::sql_lint::types::PreparedSql;
 
 use crate::bindings::_helpers::boundary::panics::value_error;
-use crate::bindings::_helpers::compile_attachment::sql_expansion_context::SqlExpansionInputs;
-use crate::bindings::_helpers::compile_driver::python_calls::call_with;
+use crate::bindings::_helpers::boundary::python_calls::call_with;
 use crate::bindings::_helpers::records::construct::error_class;
 use crate::bindings::_helpers::records::construct::{new_record_with, record_class};
 use crate::bindings::_helpers::records::fields::field as record_field;
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
+use crate::bindings::_helpers::render::authored_sql::SqlExpansionInputs;
 use crate::bindings::_helpers::render::authored_sql::{AuthoredExpansion, expand_with_inputs};
-use crate::bindings::_helpers::render::declaration_expansion::SpanRow;
+use crate::bindings::_helpers::render::macro_call_rows::SpanRow;
 use crate::bindings::_helpers::rules::dsl_headers::header_violations;
 use crate::bindings::_helpers::rules::native_header_parser::{
     HeaderFailure, NativeHeaderParser, external_identifiers,
@@ -68,7 +69,6 @@ pub(crate) struct LintSettings {
     pub(crate) header_rules_enabled: bool,
     pub(crate) header_rules: HeaderRulesConfig,
     pub(crate) sql: LintSqlOptions,
-    pub(crate) allow_suppressions: bool,
     /// Declared keys of each relation, in declaration order.
     pub(crate) relation_keys: Vec<(String, Vec<Vec<String>>)>,
 }
@@ -89,7 +89,6 @@ impl Default for LintSettings {
                 max_literal_length: 100,
                 max_ranking_order_by: 5,
             },
-            allow_suppressions: true,
             relation_keys: Vec::new(),
         }
     }
@@ -119,7 +118,6 @@ impl LintSettings {
                 max_literal_length: record_field(config, "max_literal_length")?.extract()?,
                 max_ranking_order_by: record_field(config, "max_ranking_order_by")?.extract()?,
             },
-            allow_suppressions: record_field(config, "allow_suppressions")?.is_truthy()?,
             relation_keys,
         })
     }
@@ -213,14 +211,12 @@ impl CompiledSource {
 /// Expansion span rows as lint spans.
 pub(crate) fn span_pass(rows: &[SpanRow]) -> Vec<ExpansionSpan> {
     rows.iter()
-        .map(
-            |&(source_start, source_end, output_start, output_end)| ExpansionSpan {
-                source_start: offset(source_start),
-                source_end: offset(source_end),
-                output_start: offset(output_start),
-                output_end: offset(output_end),
-            },
-        )
+        .map(|row| ExpansionSpan {
+            source_start: offset(row.source_start),
+            source_end: offset(row.source_end),
+            output_start: offset(row.output_start),
+            output_end: offset(row.output_end),
+        })
         .collect()
 }
 
@@ -645,7 +641,7 @@ pub(crate) fn lint(
         check_stop(py, request.stop)?;
     }
     let violations: Vec<LintViolationRow> =
-        suppressed(&files, rows, request.settings.allow_suppressions)?;
+        with_directive_findings(&files, request.project_dir, rows)?;
     Ok(LintOutcome {
         files,
         violations,
@@ -809,12 +805,10 @@ pub(crate) fn prepare_single_body(request: &SingleBodyRequest<'_, '_>) -> PyResu
         role,
         dialect,
     } = request;
-    let (context, file_path, range, dialect): (
-        &SqlExpansionInputs,
-        &Bound<'_, PyAny>,
-        (usize, usize),
-        &str,
-    ) = (context, file_path, *range, dialect);
+    let context: &SqlExpansionInputs = context;
+    let file_path: &Bound<'_, PyAny> = file_path;
+    let range: (usize, usize) = *range;
+    let dialect: &str = dialect;
     let py: Python<'_> = file_path.py();
     let text: Vec<char> = contents.chars().collect();
     let planned: PlannedBody = plan_body(&text, range, neutralizer(role), None);
@@ -1071,28 +1065,6 @@ fn lint_body(
     body: PendingBody,
     (lint_text, prepared_sites, externally_referenced_ctes): PreparedSql,
 ) -> PyResult<(LintSqlBody, Vec<(String, String)>)> {
-    let prepared_sites: Vec<InterpolationSite> = prepared_sites
-        .into_iter()
-        .map(
-            |(
-                sentinel,
-                neutralized_start,
-                neutralized_end,
-                original_start,
-                original_end,
-                original_text,
-            )| {
-                InterpolationSite {
-                    sentinel,
-                    neutralized_start,
-                    neutralized_end,
-                    original_start,
-                    original_end,
-                    original_text,
-                }
-            },
-        )
-        .collect();
     let dependencies = dependency_sites(&prepared_sites).map_err(value_error)?;
     let mut passes: Vec<Vec<ExpansionSpan>> = Vec::with_capacity(body.passes.len() + 2);
     passes.push(sentinel_spans(&body.sites));
@@ -1110,8 +1082,32 @@ fn lint_body(
         allows_dynamic_output_star: traits.dynamic_star,
         allows_empty_fixture_star: traits.ceremonial,
         relation_keys: Vec::new(),
+        relation_names: relation_names(&dependencies.relations),
     };
     Ok((body, dependencies.relations))
+}
+
+/// `path` relative to `project_dir` with `/` separators, or as given outside the project.
+pub(crate) fn project_relative_path(path: &Path, project_dir: &Path) -> String {
+    let relative: &Path = path.strip_prefix(project_dir).unwrap_or(path);
+    relative
+        .components()
+        .map(|part| part.as_os_str().to_string_lossy().into_owned())
+        .collect::<Vec<String>>()
+        .join("/")
+}
+
+/// The relation name each dependency sentinel stands for, without its `kind:` prefix.
+pub(crate) fn relation_names(relations: &[(String, String)]) -> Vec<(String, String)> {
+    relations
+        .iter()
+        .map(|(sentinel, identity)| {
+            let name: &str = identity
+                .split_once(':')
+                .map_or(identity.as_str(), |(_, name)| name);
+            (sentinel.clone(), name.to_owned())
+        })
+        .collect()
 }
 
 /// The declared keys of each dependency relation that declares any, by its sentinel.
@@ -1145,33 +1141,31 @@ fn sentinel_spans(sites: &[InterpolationSite]) -> Vec<ExpansionSpan> {
         .collect()
 }
 
-/// `rows` without suppressed violations, with suppression findings, sorted by path then place.
-fn suppressed(
+/// `rows` with file paths in their help and a finding per inline directive, sorted by place.
+fn with_directive_findings(
     files: &[LintFile],
-    rows: Vec<LintViolationRow>,
-    allow_suppressions: bool,
+    project_dir: &Path,
+    mut violations: Vec<LintViolationRow>,
 ) -> PyResult<Vec<LintViolationRow>> {
-    let keys: Vec<SuppressibleViolation> = rows
+    let paths: Vec<String> = files
         .iter()
-        .map(|row| SuppressibleViolation {
-            file: row.file,
-            line: usize::try_from(row.line).unwrap_or(usize::MAX),
-            code: row.code.clone(),
-            native: row.engine == NATIVE_ENGINE,
-        })
+        .map(|file| project_relative_path(&file.path, project_dir))
         .collect();
-    let texts: Vec<&str> = files.iter().map(|file| file.contents.as_str()).collect();
-    let retained: Vec<RetainedViolation> = catch_compiler_panic(|| {
-        apply_suppressions(&texts, &keys, allow_suppressions).map_err(|error| error.to_string())
+    let sources: Vec<(&str, &str)> = paths
+        .iter()
+        .zip(files)
+        .map(|(path, file)| (path.as_str(), file.contents.as_str()))
+        .collect();
+    let findings: Vec<SuppressionFinding> = catch_compiler_panic(|| {
+        reject_inline_suppressions(&sources).map_err(|error| error.to_string())
     })
     .map_err(value_error)?;
-    let mut violations: Vec<LintViolationRow> = retained
-        .into_iter()
-        .map(|item| match item {
-            RetainedViolation::Existing(index) => rows[index].clone(),
-            RetainedViolation::Added(finding) => LintViolationRow::suppression(finding),
-        })
-        .collect();
+    for violation in &mut violations {
+        if let Some(remediation) = &mut violation.remediation {
+            *remediation = fill_finding_path(remediation, &paths[violation.file]);
+        }
+    }
+    violations.extend(findings.into_iter().map(LintViolationRow::suppression));
     violations.sort_by(|left, right| {
         (
             files[left.file].path.to_string_lossy(),

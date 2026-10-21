@@ -87,7 +87,7 @@ def sync(
     returning: Union[Unset, str] = UNSET,
 ) -> Optional[Union[Analysis, ForbiddenError, NotFoundError]]:
     """Get an Analysis and the Data Framess and Files it contains. You can download the Analysis data with the corresponding
-    [Get a data frame](#/Data%20Frames/getDataFrame) and [Get a file](#/Files/getFile) endpoints.
+    [Get a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/get-data-frame) and [Get a file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/get-file) endpoints.
 
     For more details and examples on building Analysis integrations, see our [developer guide](https://docs.benchling.com/docs/analyses-api-developer-guide).
     """
@@ -124,7 +124,7 @@ async def asyncio(
     returning: Union[Unset, str] = UNSET,
 ) -> Optional[Union[Analysis, ForbiddenError, NotFoundError]]:
     """Get an Analysis and the Data Framess and Files it contains. You can download the Analysis data with the corresponding
-    [Get a data frame](#/Data%20Frames/getDataFrame) and [Get a file](#/Files/getFile) endpoints.
+    [Get a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/get-data-frame) and [Get a file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/get-file) endpoints.
 
     For more details and examples on building Analysis integrations, see our [developer guide](https://docs.benchling.com/docs/analyses-api-developer-guide).
     """

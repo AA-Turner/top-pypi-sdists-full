@@ -17,6 +17,8 @@ from .upload import (
 
 
 class MinIOClient:
+    upload_type: typing.ClassVar[str] = "minio"
+
     def __init__(
         self,
         settings: ContainerSettings,
@@ -26,7 +28,7 @@ class MinIOClient:
         self.client = None
         self._timeout_clients = TimeoutClientCache(self._close_client)
         self.logger = logger
-        if self.settings.upload.type == "minio":
+        if self.settings.upload.type == self.upload_type:
             self.client = self._create_client()
 
     def provision_bucket(self) -> None:
@@ -60,6 +62,12 @@ class MinIOClient:
         except Exception as e:
             self.logger.warning_msg(str(e))
             self.logger.warning_msg(f"error creating bucket [{self.settings.upload.bucket}]")
+
+    def _region(self) -> typing.Optional[str]:
+        return self.settings.upload.get_region()
+
+    def _part_size(self, length: int) -> int:
+        return 0
 
     def _create_client(
         self,
@@ -112,7 +120,7 @@ class MinIOClient:
             endpoint,
             access_key=self.settings.upload.get_key(),
             secret_key=self.settings.upload.get_secret(),
-            region=self.settings.upload.get_region(),
+            region=self._region(),
             session_token=self.settings.upload.get_token(),
             secure=secure,
             http_client=urllib3.PoolManager(**pool_kwargs),
@@ -297,6 +305,9 @@ class MinIOClient:
                         res["ETag"] = response.etag
                     if response.last_modified:
                         res["LastModified"] = str(response.last_modified.timestamp())
+                    size = getattr(response, "size", None)
+                    if size is not None:
+                        res["ContentLength"] = str(size)
                     return res
                 except S3Error as e:
                     self.logger.error_msg(f"Failed to get object from [{url}] [{self.parse_url(url)}]: {str(e)}")
@@ -350,6 +361,7 @@ class MinIOClient:
                 object_name=key,
                 data=io.BytesIO(data),
                 length=len(data),
+                part_size=self._part_size(len(data)),
                 content_type=content_type,
             )
         except S3Error as e:
@@ -444,6 +456,7 @@ class MinIOClient:
                     "object_name": key,
                     "data": io.BytesIO(data),
                     "length": len(data),
+                    "part_size": self._part_size(len(data)),
                     "content_type": content_type,
                 }
                 if minio_object_tags is not None:

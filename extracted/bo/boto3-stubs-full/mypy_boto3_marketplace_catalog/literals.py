@@ -33,6 +33,8 @@ __all__ = (
     "DataProductSortByType",
     "DataProductVisibilityStringType",
     "DescribeAssessmentPaginatorName",
+    "ExpressPrivateOfferConfigurationSortByType",
+    "ExpressPrivateOfferConfigurationStateStringType",
     "FailureCodeType",
     "IntentType",
     "ListAssessmentsPaginatorName",
@@ -74,6 +76,10 @@ ControlAssessmentResultType = Literal["EXEMPTION_PASS", "FAIL", "NOT_EXECUTED", 
 DataProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 DataProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted", "Unavailable"]
 DescribeAssessmentPaginatorName = Literal["describe_assessment"]
+ExpressPrivateOfferConfigurationSortByType = Literal[
+    "EntityId", "LastModifiedDate", "ProductId", "State"
+]
+ExpressPrivateOfferConfigurationStateStringType = Literal["ACTIVE", "INACTIVE"]
 FailureCodeType = Literal["CLIENT_ERROR", "SERVER_FAULT"]
 IntentType = Literal["APPLY", "VALIDATE"]
 ListAssessmentsPaginatorName = Literal["list_assessments"]

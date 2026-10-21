@@ -18,8 +18,16 @@ from chalk._gen.chalk.server.v1.clickhouse_pb2 import (
     GetClickhouseRetentionHistoryResponse,
     GetClickhouseUriRequest,
     GetClickhouseUriResponse,
+    GetClusterClickhouseAdminDiagnosticsRequest,
+    GetClusterClickhouseAdminDiagnosticsResponse,
+    GetClusterClickhouseInfoRequest,
+    GetClusterClickhouseInfoResponse,
+    GetClusterClickhouseRetentionHistoryRequest,
+    GetClusterClickhouseRetentionHistoryResponse,
     SetClickhouseOtelTtlsRequest,
     SetClickhouseOtelTtlsResponse,
+    SetClusterClickhouseOtelTtlsRequest,
+    SetClusterClickhouseOtelTtlsResponse,
 )
 from grpc import (
     Channel,
@@ -43,16 +51,32 @@ class ClickhouseServiceStub:
         SetClickhouseOtelTtlsRequest,
         SetClickhouseOtelTtlsResponse,
     ]
+    SetClusterClickhouseOtelTtls: UnaryUnaryMultiCallable[
+        SetClusterClickhouseOtelTtlsRequest,
+        SetClusterClickhouseOtelTtlsResponse,
+    ]
     GetClickhouseInfo: UnaryUnaryMultiCallable[
         GetClickhouseInfoRequest,
         GetClickhouseInfoResponse,
     ]
+    GetClusterClickhouseInfo: UnaryUnaryMultiCallable[
+        GetClusterClickhouseInfoRequest,
+        GetClusterClickhouseInfoResponse,
+    ]
+    """Returns the current ClickHouse storage and health snapshot for an owned cluster."""
     GetClickhouseRetentionHistory: UnaryUnaryMultiCallable[
         GetClickhouseRetentionHistoryRequest,
         GetClickhouseRetentionHistoryResponse,
     ]
     """Charts the retention, disk, and server-health gauges the cluster manager
     publishes for the environment's telemetry ClickHouse, read from VictoriaMetrics.
+    """
+    GetClusterClickhouseRetentionHistory: UnaryUnaryMultiCallable[
+        GetClusterClickhouseRetentionHistoryRequest,
+        GetClusterClickhouseRetentionHistoryResponse,
+    ]
+    """Charts the cluster manager's ClickHouse gauges for an owned cluster.
+    The cluster and environment endpoints intentionally share the same chart contract.
     """
     GetClickhouseAdminDiagnostics: UnaryUnaryMultiCallable[
         GetClickhouseAdminDiagnosticsRequest,
@@ -62,6 +86,10 @@ class ClickhouseServiceStub:
     Keep this separate from GetClickhouseInfo so non-admin readers never receive
     normalized query text or operational schema details.
     """
+    GetClusterClickhouseAdminDiagnostics: UnaryUnaryMultiCallable[
+        GetClusterClickhouseAdminDiagnosticsRequest,
+        GetClusterClickhouseAdminDiagnosticsResponse,
+    ]
 
 class ClickhouseServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -84,11 +112,24 @@ class ClickhouseServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> SetClickhouseOtelTtlsResponse: ...
     @abstractmethod
+    def SetClusterClickhouseOtelTtls(
+        self,
+        request: SetClusterClickhouseOtelTtlsRequest,
+        context: ServicerContext,
+    ) -> SetClusterClickhouseOtelTtlsResponse: ...
+    @abstractmethod
     def GetClickhouseInfo(
         self,
         request: GetClickhouseInfoRequest,
         context: ServicerContext,
     ) -> GetClickhouseInfoResponse: ...
+    @abstractmethod
+    def GetClusterClickhouseInfo(
+        self,
+        request: GetClusterClickhouseInfoRequest,
+        context: ServicerContext,
+    ) -> GetClusterClickhouseInfoResponse:
+        """Returns the current ClickHouse storage and health snapshot for an owned cluster."""
     @abstractmethod
     def GetClickhouseRetentionHistory(
         self,
@@ -97,6 +138,15 @@ class ClickhouseServiceServicer(metaclass=ABCMeta):
     ) -> GetClickhouseRetentionHistoryResponse:
         """Charts the retention, disk, and server-health gauges the cluster manager
         publishes for the environment's telemetry ClickHouse, read from VictoriaMetrics.
+        """
+    @abstractmethod
+    def GetClusterClickhouseRetentionHistory(
+        self,
+        request: GetClusterClickhouseRetentionHistoryRequest,
+        context: ServicerContext,
+    ) -> GetClusterClickhouseRetentionHistoryResponse:
+        """Charts the cluster manager's ClickHouse gauges for an owned cluster.
+        The cluster and environment endpoints intentionally share the same chart contract.
         """
     @abstractmethod
     def GetClickhouseAdminDiagnostics(
@@ -108,5 +158,11 @@ class ClickhouseServiceServicer(metaclass=ABCMeta):
         Keep this separate from GetClickhouseInfo so non-admin readers never receive
         normalized query text or operational schema details.
         """
+    @abstractmethod
+    def GetClusterClickhouseAdminDiagnostics(
+        self,
+        request: GetClusterClickhouseAdminDiagnosticsRequest,
+        context: ServicerContext,
+    ) -> GetClusterClickhouseAdminDiagnosticsResponse: ...
 
 def add_ClickhouseServiceServicer_to_server(servicer: ClickhouseServiceServicer, server: Server) -> None: ...

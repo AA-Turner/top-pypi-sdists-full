@@ -109,7 +109,7 @@ class TableUiBlockDatasetSource:
 
     @property
     def dataset_id(self) -> Optional[str]:
-        """`datasetId` of an uploaded dataset (see [Create Data Frame endpoint](https://benchling.com/api/v2-beta/reference#/Data%20Frames)). Note: Canvas tables currently support only text-type columns. Datasets are currently undergoing re-work. datasetId will refer to a DataFrame until Dataset APIs are stable. Prefer `TableUiBlockDataFrameSource` meanwhile."""
+        """`datasetId` of an uploaded dataset (see [Create Data Frame endpoint](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame)). Note: Canvas tables currently support only text-type columns. Datasets are currently undergoing re-work. datasetId will refer to a DataFrame until Dataset APIs are stable. Prefer `TableUiBlockDataFrameSource` meanwhile."""
         if isinstance(self._dataset_id, Unset):
             raise NotPresentError(self, "dataset_id")
         return self._dataset_id

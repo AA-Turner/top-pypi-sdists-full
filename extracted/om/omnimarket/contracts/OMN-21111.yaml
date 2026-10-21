@@ -1,0 +1,226 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-21111"
+title: "TA.9 replay evaluation scoring node (omnimarket node slice)"
+summary: "A pure compute node, node_context_replay_eval_compute, scores a compaction replay evaluation from caller-supplied inputs: exact-word presence of each expected ruling in a package, package-versus-native next-action match counts with candidate_id identity across runs, and per-boundary capacity with the review-row sizing of decision D10 (the shortest oldest-first set of carried prompts whose removal fits the budget, or does not fit) and a positive control for a zero fallback share. It consumes onex.cmd.omniintelligence.context-replay-eval-requested.v1 and publishes onex.evt.omnimarket.context-replay-eval-completed.v1, whose result carries ids, counts and verdicts only. The runner that builds each real case's package through node_context_pack_orchestrator in pinned mode and asks the model, and the report over the real sessions, are not in this slice."
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+requirements:
+  - id: "req-replay-eval-scoring-node"
+    statement: "The scoring node of plan task TA.9: ruling presence, answer and identity comparison, capacity and review-row sizing, and its topic pair."
+    acceptance:
+      - id: "AC1"
+        statement: "AC1: a case passes ruling presence only when every expected statement's exact words (curly quotes folded) are in the package text; a missing or unscorable statement fails the case and is listed -- falsifier: a case passing with a statement missing."
+      - id: "AC2"
+        statement: "AC2: per run the package and native match counts are reported, a run with fewer package matches than native ones fails, and a case whose candidate_id differs between runs or is absent from a run is listed; one run reports determinism unchecked -- falsifier: a differing candidate_id not listed."
+      - id: "AC3"
+        statement: "AC3: per boundary the node reports the OPERATOR_WORDS_UNRECORDED and required-factor token estimates, whether they exceed the budget, and the shortest oldest-first set of carried prompts whose removal fits, or does not fit, and an independent re-sum with exactly those prompts removed reproduces the claim -- falsifier: a fits claim the re-sum does not reproduce, or a named prompt that is not a carried prompt."
+      - id: "AC4"
+        statement: "AC4: the fallback share excludes control boundaries, and a zero fallback share without a control boundary exceeding its reduced budget is reported as a falsifier -- falsifier: a zero share accepted with no positive control."
+      - id: "AC5"
+        statement: "AC5: the contract subscribes the restricted onex.cmd.omniintelligence request topic, publishes one onex.evt.omnimarket result topic, resolves its three handlers and models, and the node is an onex.nodes entry point -- falsifier: a contract test failure."
+  - id: "req-lane-brief-profile"
+    statement: "A lane_brief context profile, data only, so the shared pack nodes build a lane-brief pack with a profile change and no bespoke code (finding of the 2026-10-19 replay evaluation)."
+    acceptance:
+      - id: "AC6"
+        statement: "AC6: the lane_brief profile resolves by name with the packaged routing contract, the shared builder assembles lane_rules ahead of operator_rulings, and a build without lane_rules fails with required_factor_missing -- falsifier: a resolve failure, a different chunk order, or a pack built without lane_rules."
+  - id: "req-required-tier-selection"
+    statement: "Selection inside a required context tier and a revision per tier in node_context_pack_orchestrator (finding of the 2026-10-19 replay evaluation)."
+    acceptance:
+      - id: "AC7"
+        statement: "AC7: when the required tiers alone are over the budget, a required tier over its share keeps the entries the request cites (by source_ref or by ledger row stamp) first, then the newest, whole entries only, and its tier status reports trimmed_entry_count -- falsifier: a cited entry dropped, an older uncited entry kept ahead of a newer one, or a wrong trimmed count."
+      - id: "AC8"
+        statement: "AC8: cited entries that do not fit their tier's share fail the build TOKEN_BUDGET_EXCEEDED and are never dropped; operator_words_unrecorded is carried whole and never trimmed -- falsifier: a build that succeeds with a cited entry missing, or an operator_words_unrecorded tier trimmed."
+      - id: "AC9"
+        statement: "AC9: a tier named in tier_revisions is read at that revision and every other tier at the request-wide revision, and tier_revisions enter candidate_id only when set -- falsifier: a source request at the wrong revision, or the same candidate_id with and without tier_revisions."
+  - id: "req-context-source-nodes"
+    statement: "Canonical source nodes for the factors the 2026-10-19 replay evaluation filled with scratch adapters: open_work and orchestration_state from the work ledger, lane_rules and architecture_patterns from the guidance files, and a live-mode operator_words_unrecorded read of the session transcript."
+    acceptance:
+      - id: "AC10"
+        statement: "AC10: node_context_source_work_state_effect returns, at a row-stamp watermark, each unanswered MSG addressed to the session lanes (self-sent by default) and each open CLAIM of those lanes or naming them as parent, as whole ledger rows; an ACKed message, a closed claim, a row after the watermark or one older than the horizon is not returned -- falsifier: any of those returned, or a named open row missing."
+      - id: "AC11"
+        statement: "AC11: node_context_source_guidance_effect returns exactly the guidance sections its contract names for lane_rules and architecture_patterns, each equal to the GuidanceSectionParser section text, reading the caller repository's file for a repository path and nothing outside the root -- falsifier: a section that differs from the parser's, an unnamed section returned, or a read outside the root."
+      - id: "AC12"
+        statement: "AC12: live mode of node_session_context_sources_effect carries each operator-typed transcript prompt at or before the watermark that no covers row, review row or RULING/OPERATOR-CONSENT quote records, and never a tool result, meta record, compaction summary or sidechain record -- falsifier: a recorded prompt carried, an unrecorded one dropped, or a non-operator record carried."
+evidence_requirements:
+  - kind: "tests"
+    description: "AC1 to AC5 in the node tests and the golden chain."
+    command: "uv run pytest tests/nodes/node_context_replay_eval_compute tests/test_golden_chain_context_replay_eval_compute.py -q -p no:randomly --no-cov"
+  - kind: "tests"
+    description: "AC7 to AC9 in the orchestrator handler tests."
+    command: "uv run pytest tests/nodes/node_context_pack_orchestrator/test_handler_context_pack_orchestrator.py -q -p no:randomly --no-cov"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-omn21111-ac1"
+    description: "AC1: exact words present, curly quotes folded, a missing or unscorable statement fails the case and is listed in input order."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_replay_eval_compute/test_context_replay_eval.py -q -p no:randomly --no-cov -k 'exact_words or all_cases_must_pass'"
+    binds_ac: ["AC1"]
+  - id: "dod-omn21111-ac2"
+    description: "AC2: match counts per run, unavailable is not a match, a failing run fails next action, differing and absent candidate ids are listed."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_replay_eval_compute/test_context_replay_eval.py -q -p no:randomly --no-cov -k 'match_counts or unavailable_is_not or identical_candidates or differing_and_absent or failing_run or duplicate_case_id or duplicate_run_id'"
+    binds_ac: ["AC2"]
+  - id: "dod-omn21111-ac3"
+    description: "AC3: under budget, oldest-first prefix, shortest prefix with tie break, does not fit, zero-token prompts and the validators."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_replay_eval_compute/test_context_replay_eval.py -q -p no:randomly --no-cov -k 'under_and_exactly or two_oldest or shortest_prefix or does_not_fit or zero_token or session_rows or invalid_boundary or invalid_prompt'"
+    binds_ac: ["AC3"]
+  - id: "dod-omn21111-ac4"
+    description: "AC4: a control boundary is excluded from the shares, and a zero share without an exceeding control is a falsifier."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_replay_eval_compute/test_context_replay_eval.py -q -p no:randomly --no-cov -k 'zero_fallback or positive_control or shares_and_sorted'"
+    binds_ac: ["AC4"]
+  - id: "dod-omn21111-ac5"
+    description: "AC5: contract topics, handler and model resolution, entry point, and the golden and error chains."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/test_golden_chain_context_replay_eval_compute.py -q -p no:randomly --no-cov"
+    binds_ac: ["AC5"]
+  - id: "dod-omn21111-ac6"
+    description: "AC6: the lane_brief profile resolves, builds rules first through the shared builder, and fails closed without lane_rules."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/pack/test_lane_brief_profile.py -q -p no:randomly --no-cov"
+    binds_ac: ["AC6"]
+  - id: "dod-omn21111-ac7"
+    description: "AC7: required tiers over budget keep cited entries by source_ref or ledger row stamp first, then the newest whole entries, and report trimmed_entry_count."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_pack_orchestrator/test_handler_context_pack_orchestrator.py -q -p no:randomly --no-cov -k 'required_tier_over_budget_keeps_cited_then_newest or required_tier_trim_cites_a_row_by_its_stamp or required_tier_trim_without_citations_keeps_newest_first'"
+    binds_ac: ["AC7"]
+  - id: "dod-omn21111-ac8"
+    description: "AC8: cited entries that exceed their tier's share fail with TOKEN_BUDGET_EXCEEDED and are never dropped; operator_words_unrecorded is carried whole and never trimmed. The carry-rule test also passes at the merge base as a regression guard; the cited-overflow test is the one that fails there."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_pack_orchestrator/test_handler_context_pack_orchestrator.py -q -p no:randomly --no-cov -k 'cited_entries_over_the_tier_budget_fail_never_dropped or operator_words_unrecorded_is_carried_whole_never_trimmed'"
+    binds_ac: ["AC8"]
+  - id: "dod-omn21111-ac9"
+    description: "AC9: each tier reads its named revision or the request-wide revision, and tier_revisions change candidate_id only when set."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_pack_orchestrator/test_handler_context_pack_orchestrator.py -q -p no:randomly --no-cov -k 'each_tier_reads_its_own_revision or tier_revisions_change_the_candidate'"
+    binds_ac: ["AC9"]
+  - id: "dod-omn21111-deploy-hosted-score"
+    description: "Hosted deploy probe. The hosted runner runs uv run --frozen --no-dev in the checkout and sizes one over-budget boundary through the product handler, asserting the two oldest carried prompts are named and the re-sum reproduces, then scores one package that lacks an expected quote and asserts the case fails. It fails at the merge base, which has no such handler. The hosted runner can run it; no lab route is required."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          uv run --frozen --no-dev python -c '
+          from omnimarket.nodes.node_context_replay_eval_compute.handlers import HandlerReviewRowSizing as S, HandlerRulingPresence as P
+          from omnimarket.nodes.node_context_replay_eval_compute.models import ModelReviewRowSizingRequest as R, ModelRulingPresenceRequest as Q
+          p = [{"prompt_id": f"p{i}", "captured_at": f"2026-10-15T00:0{i}:00Z", "token_estimate": 30} for i in (3, 1, 2)]
+          r = S().handle(R.model_validate({"budget_tokens": 100, "boundaries": [{"session_id": "s", "boundary_id": "b", "boundary_at": "2026-10-15T01:00:00Z", "other_required_tokens": {"OPERATOR_RULINGS": 50}, "carried_prompts": p}]}))
+          b = r.boundaries[0]
+          assert b.verdict.value == "FITS_AFTER_REVIEW" and b.named_prompt_ids == ("p1", "p2") and b.replay_reproduces and r.fallback_share == 1.0, r
+          q = P().handle(Q.model_validate({"cases": [{"case_id": "c", "package_text": "other words", "expected": [{"statement_id": "s1", "quote": "keep the merge queue"}]}]}))
+          assert not q.all_present and q.falsifiers == ("case c: statement s1 MISSING",), q
+          print(b.named_prompt_ids, q.falsifiers)'
+  - id: "dod-omn21111-deploy-hosted-source"
+    description: "Hosted deploy source probe: GitHub serves the replay scoring handler at the checked-out commit. The content read must contain both scoring handler classes; it fails at the merge base where the handler is absent. This checks source identity, not a running deployment. The preceding behavioral probe exercises the handlers."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "gh api \"repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_context_replay_eval_compute/handlers/handler_replay_eval.py?ref=$(git rev-parse HEAD)\" --jq '.content | gsub(\"\\n\";\"\") | @base64d | contains(\"class HandlerReviewRowSizing:\") and contains(\"class HandlerRulingPresence:\")' | grep -qx true"
+  - id: "dod-omn21111-deploy-hosted-tier-selection"
+    description: "Hosted deploy probe. The hosted runner runs uv run --frozen --no-dev in the checkout and builds an agent_spawn pack through the product orchestrator with a 300-token budget override, five lane_rules rows of about 100 tokens, cited_refs row/1 and tier_revisions for lane_rules; it asserts the build is ok, keeps rows 1, 4 and 5 with trimmed_entry_count 2, reads lane_rules at the named revision and invariants at head. It fails at the merge base, whose request model forbids cited_refs and tier_revisions. The hosted runner can run it; no lab route is required."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          uv run --frozen --no-dev python -c 'import hashlib
+          from datetime import UTC, datetime
+          from pathlib import Path
+          import omnimarket
+          from omnibase_core.enums.enum_context_factor import EnumContextFactor as F
+          from omnibase_core.enums.enum_context_source_status import EnumContextSourceStatus as S
+          from omnibase_core.models.context.model_context_access import ModelContextAccess
+          from omnibase_core.models.context.model_context_source_entry import ModelContextSourceEntry as E
+          from omnibase_core.models.context.model_context_source_result import ModelContextSourceResult as R
+          from omnimarket.models.context_pack_orchestrator import ModelContextPackCommand as C, ModelContextPackRequest as Q
+          from omnimarket.nodes.node_context_pack_orchestrator.handlers.handler_context_pack_orchestrator import HandlerContextPackOrchestrator as O
+          from omnimarket.nodes.node_context_pack_render_compute.handlers.handler_context_pack_render import RENDER_CONTRACT_VERSION as V
+          from omnimarket.nodes.node_context_profile_resolver_effect.handlers.handler_context_profile_resolver import HandlerContextProfileResolver as P
+          class Src:
+              synchronous_execution = True
+              def __init__(self, f, rows): self.f, self.rows, self.revisions = f, rows, []
+              def handle(self, req):
+                  self.revisions.append(req.revision)
+                  return R(status=S.RESOLVED, entries=tuple(E(factor=self.f, text=t, source_ref=ref, text_sha256=hashlib.sha256(t.encode()).hexdigest(), status=S.RESOLVED, as_of=at) for t, at, ref in self.rows))
+          at = datetime(2026, 10, 17, tzinfo=UTC)
+          src = {f: Src(f, ((f"{f.value} probe entry", at, f"probe/{f.value}"),)) for f in (F.INVARIANTS,)}
+          src[F.LANE_RULES] = Src(F.LANE_RULES, tuple((f"2026-10-1{d}T00:00:00Z | MSG | day-{d} " + "w" * 360, datetime(2026, 10, 10 + d, tzinfo=UTC), f"row/{d}") for d in range(1, 6)))
+          h = O(src, profile_resolver=P(Path(omnimarket.__file__).parent / "pack" / "profiles"), implementation_identity=lambda: {"omnimarket.version": "0.0.0"}, render_contract_version=V)
+          b = h.handle(C(request=Q.model_validate({"profile_name": "agent_spawn", "token_budget_override": 300, "cited_refs": ["row/1"], "tier_revisions": {"lane_rules": "2026-10-19T07:36:00Z"}}), access=ModelContextAccess(tenant_id="probe")))
+          text = "\n".join(m.text for m in b.messages)
+          kept = sorted(d for d in range(1, 6) if f"day-{d} " in text)
+          tier = {t.factor: t for t in b.tier_statuses}[F.LANE_RULES]
+          assert b.status.value == "ok" and kept == [1, 4, 5] and tier.trimmed_entry_count == 2, (b.status, b.errors, kept)
+          assert src[F.LANE_RULES].revisions == ["2026-10-19T07:36:00Z"] and src[F.INVARIANTS].revisions == ["head"], {f.value: s.revisions for f, s in src.items()}
+          print("kept", kept, "trimmed", tier.trimmed_entry_count, "revisions", {f.value: s.revisions for f, s in src.items()})
+          '
+  - id: "dod-omn21111-ac10"
+    description: "AC10: open work and orchestration state from folded ledger rows, with the watermark, horizon, tenant and failed-read cases."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_context_source_work_state_effect/test_context_source_work_state.py -q -p no:randomly --no-cov"
+    binds_ac: ["AC10"]
+  - id: "dod-omn21111-ac11"
+    description: "AC11: named guidance sections whole, the repository placeholder, and reads outside the root refused."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_context_source_guidance_effect/test_context_source_guidance.py -q -p no:randomly --no-cov"
+    binds_ac: ["AC11"]
+  - id: "dod-omn21111-ac12"
+    description: "AC12: live operator words from a transcript, recorded by covers rows and ruling quotes, with the typed refusals."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_session_context_sources_effect/test_session_context_sources.py -q -p no:randomly --no-cov -k live"
+    binds_ac: ["AC12"]
+  - id: "dod-omn21111-deploy-hosted-sources"
+    description: "Hosted deploy probe. The hosted runner runs uv run --frozen --no-dev in the checkout, folds a two-row ledger through the work-state source and asserts the unanswered self-addressed MSG comes back whole while the ACKed one does not, then reads a one-prompt transcript in live mode and asserts the prompt a ruling quotes is not carried. It fails at the merge base, which has no work-state node and refuses live mode. The hosted runner can run it; no lab route is required."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          uv run --frozen --no-dev python -c '
+          import json, pathlib, tempfile
+          from omnibase_core.enums.enum_context_factor import EnumContextFactor as F
+          from omnibase_core.models.context.model_context_access import ModelContextAccess as A
+          from omnibase_core.models.context.model_context_caller_scope import ModelContextCallerScope as C
+          from omnibase_core.models.context.model_context_source_request import ModelContextSourceRequest as Q
+          from omnimarket.nodes.node_context_source_ledger_effect.handlers.ledger_row_reader import MarkdownLedgerRowReader as M
+          from omnimarket.nodes.node_context_source_work_state_effect import HandlerContextSourceWorkState as W
+          from omnimarket.nodes.node_session_context_sources_effect.handlers.handler_session_context_sources import HandlerSessionContextSources as S
+          d = pathlib.Path(tempfile.mkdtemp())
+          rows = ["2026-10-19T07:00:00Z | MSG | from=o | id=2026-10-19T07:00:00Z-o | to=o | ticket=OMN-1 | open note", "2026-10-19T07:01:00Z | MSG | from=o | id=2026-10-19T07:01:00Z-o | to=o | ticket=OMN-1 | answered note", "2026-10-19T07:02:00Z | ACK | lane=o | re=2026-10-19T07:01:00Z-o | ticket=OMN-1 | ok", "2026-10-19T07:03:00Z | RULING | lane=o | ticket=OMN-1 | kind=decision | \"ship it\" | x"]
+          (d / "L.md").write_text("\n".join(rows) + "\n")
+          r = W(reader=M([d / "L.md"]), tenant_ids=["t"]).handle(Q(factor=F.OPEN_WORK, scopes=(), caller_scope=C(lane="o"), access=A(tenant_id="t"), revision="2026-10-19T08:00:00Z"))
+          assert [e.text for e in r.entries] == [rows[0]], r
+          (d / "s").mkdir()
+          u = lambda i, t, c: json.dumps({"type": "user", "uuid": i, "timestamp": t, "message": {"content": c}})
+          (d / "s" / "x.jsonl").write_text(u("a", "2026-10-19T06:00:00Z", "ship it") + "\n" + u("b", "2026-10-19T06:01:00Z", "keep this") + "\n")
+          o = S(env={"ONEX_SESSION_TRANSCRIPT_ROOT": str(d / "s"), "ONEX_LEDGER_PATH": str(d / "L.md")}).handle(Q(factor=F.OPERATOR_WORDS_UNRECORDED, scopes=("session:x",), access=A(tenant_id="t"), revision="2026-10-19T08:00:00Z"))
+          assert [e.text for e in o.entries] == ["keep this"], o
+          print(len(r.entries), len(o.entries))'

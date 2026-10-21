@@ -37,7 +37,7 @@ Architecture Overview:
 """
 
 import math
-from typing import Annotated, Any
+from typing import Annotated
 
 import jax
 from jax import lax
@@ -151,19 +151,6 @@ def _get_q_staging_slots(
     head_dim: int, block_q: int, block_kv: int, stages_k: int
 ) -> int:
   return head_dim // _CHUNK_SIZE if block_q <= stages_k * block_kv else 1
-
-
-def _create_tiled_smem(shape: tuple[int, ...], dtype: jnp.dtype) -> Any:
-  bits = jnp.dtype(dtype).itemsize * 8
-  swizzle = plgpu.find_swizzle(shape[-1] * bits)
-  return plgpu.SMEM(
-      shape,
-      dtype,
-      transforms=(
-          plgpu.TilingTransform((8, 8 * swizzle // bits)),
-          plgpu.SwizzleTransform(swizzle),
-      ),
-  )
 
 
 def _async_copy_gmem_to_smem(src, dst):
@@ -314,18 +301,6 @@ def _load_q_to_registers(
   return chunks
 
 
-def _compute_k_range_minmax(
-    k_range_ref: jax.Array | None, block_q: int
-) -> tuple[jax.Array | None, jax.Array | None]:
-  """Extracts block-level min and max bounds for k_start / k_end."""
-  if k_range_ref is None:
-    return None, None
-  if k_range_ref.shape[-1] == 1:
-    return k_range_ref, k_range_ref
-  reshaped = k_range_ref.reshape(*k_range_ref.shape[:-1], -1, block_q)
-  return reshaped.min(-1), reshaped.max(-1)
-
-
 @jaxtyping.jaxtyped
 def flash_attention_kernel(
     q: Float[Array, "T H D"],
@@ -395,15 +370,10 @@ def flash_attention_kernel(
   as_2d = lambda x: None if x is None else jax.lax.broadcast_to_rank(x, 2)
   k_start, k_end = map(as_2d, (k_start, k_end))
 
-  if k_start is not None and k_start.shape[-1] != 1:
-    k_start = shape_lib.pad_to_next_multiple_of(k_start, block_q, -1, kv_seq)
-  if k_end is not None and k_end.shape[-1] != 1:
-    k_end = shape_lib.pad_to_next_multiple_of(k_end, block_q, -1, 0)
-
   use_q_smem_resident = config.q_smem
   num_p_slots = config.num_p_slots
-  k_start_min, _ = _compute_k_range_minmax(k_start, block_q)
-  _, k_end_max = _compute_k_range_minmax(k_end, block_q)
+  k_start_minmax = common.k_range_block_minmax(k_start, kv_seq, block_q)
+  k_end_minmax = common.k_range_block_minmax(k_end, kv_seq, block_q)
   v_split0 = config.v_split0
   v_split1 = head_dim - v_split0
 
@@ -428,8 +398,8 @@ def flash_attention_kernel(
       bias_gmem,
       k_start_gmem,
       k_end_gmem,
-      k_start_min_gmem,
-      k_end_max_gmem,
+      k_start_minmax_gmems,
+      k_end_minmax_gmems,
       *output_gmems,
       qk_smem,
       v0_smem,
@@ -462,10 +432,12 @@ def flash_attention_kernel(
         else num_kv_blocks
     )
     lb = 0
-    if k_start_min_gmem is not None:
+    if k_start_minmax_gmems is not None:
+      k_start_min_gmem, _ = k_start_minmax_gmems
       val = common.load_bcast(k_start_min_gmem, (hi, qi), layout=None)
       lb = lax.max(lb, lax.div(val, block_kv))
-    if k_end_max_gmem is not None:
+    if k_end_minmax_gmems is not None:
+      _, k_end_max_gmem = k_end_minmax_gmems
       val = common.load_bcast(k_end_max_gmem, (hi, qi), layout=None)
       ub = jnp.minimum(ub, pl.cdiv(val, block_kv))
 
@@ -714,23 +686,22 @@ def flash_attention_kernel(
 
     _split_head_pipeline()
 
-  k_smem_type = _create_tiled_smem((1, stages_k, block_kv, head_dim), dtype)
+  tiled_smem = mgpu_lib.tiled_swizzled_smem
+  k_scratch = tiled_smem((1, stages_k, block_kv, head_dim), dtype)
   if use_q_smem_resident:
-    qk_smem = (_create_tiled_smem((block_q, head_dim), dtype), k_smem_type)
+    qk_scratch = (tiled_smem((block_q, head_dim), dtype), k_scratch)
   else:
-    q_stage_shape = (1, num_staging_slots, block_q, _CHUNK_SIZE)
-    q_stage_type = _create_tiled_smem(q_stage_shape, dtype)
-    qk_smem = plgpu.RefUnion((q_stage_type,), (k_smem_type,))
-
+    q_scratch = tiled_smem((1, num_staging_slots, block_q, _CHUNK_SIZE), dtype)
+    qk_scratch = plgpu.RefUnion((q_scratch,), (k_scratch,))
+  if v_split0:
+    v0_scratch = tiled_smem((1, stages_v, block_kv, v_split0), dtype)
+  else:
+    v0_scratch = None
   scratch_allocations = dict(
-      qk_smem=qk_smem,
-      v0_smem=(
-          _create_tiled_smem((1, stages_v, block_kv, v_split0), dtype)
-          if v_split0
-          else None
-      ),
-      v1_smem=_create_tiled_smem((stages_v, block_kv, v_split1), dtype),
-      p_smem=_create_tiled_smem((num_p_slots, block_q, block_kv), dtype),
+      qk_smem=qk_scratch,
+      v0_smem=v0_scratch,
+      v1_smem=tiled_smem((stages_v, block_kv, v_split1), dtype),
+      p_smem=tiled_smem((num_p_slots, block_q, block_kv), dtype),
       al_smem=plgpu.SMEM((num_p_slots + 1, block_q), jnp.float32),
       p_ready_barrier=plgpu.Barrier(num_arrivals=1, num_barriers=num_p_slots),
       p_done_barrier=plgpu.Barrier(num_arrivals=1, num_barriers=num_p_slots),
@@ -754,7 +725,7 @@ def flash_attention_kernel(
           lowering_semantics=plgpu.LoweringSemantics.Lane,
       ),
       kernel_name="flash_attention_sm80_split_head",
-  )(q, k, v, mask, bias, k_start, k_end, k_start_min, k_end_max)
+  )(q, k, v, mask, bias, k_start, k_end, k_start_minmax, k_end_minmax)
 
   out = jnp.swapaxes(out, -3, -2)[:orig_q_seq_len, :, :orig_head_dim_out]
   residuals = tuple(res[..., :orig_q_seq_len] for res in residuals)

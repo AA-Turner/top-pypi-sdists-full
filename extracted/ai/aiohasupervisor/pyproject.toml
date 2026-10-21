@@ -23,26 +23,26 @@ dependencies = [
     "mashumaro>=3.11,<4.0",
     "orjson>=3.6.1,<4.0.0",
 ]
-version = "0.7.0"
+version = "0.8.0"
 
 [project.license]
 text = "Apache-2.0"
 
 [project.optional-dependencies]
 dev = [
-    "aiohttp==3.14.4",
+    "aiohttp==3.14.5",
     "mashumaro==3.23",
-    "orjson==3.12.0",
-    "aiointercept==0.1.12",
+    "orjson==3.13.0",
+    "aiointercept==1.0.0",
     "codespell==2.4.3",
     "coverage==7.16.2",
     "mypy==2.4.0",
-    "pre-commit==4.6.2",
+    "pre-commit==4.7.0",
     "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
     "pytest-timeout==2.4.0",
     "pytest==9.1.1",
-    "ruff==0.16.10",
+    "ruff==0.17.1",
     "yamllint==1.38.0",
 ]
 

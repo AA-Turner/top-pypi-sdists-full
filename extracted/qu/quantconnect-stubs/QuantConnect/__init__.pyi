@@ -6204,7 +6204,7 @@ class Extensions(System.Object):
         Business day here is defined as any day of the week that is not saturday or sunday
         
         :param date: The date to be examined
-        :returns: A bool indicating wether the datetime is a weekday or not.
+        :returns: A bool indicating whether the datetime is a weekday or not.
         """
         ...
 
@@ -7384,7 +7384,7 @@ class Currencies(System.Object):
         """
         Checks whether or not certain symbol is a StableCoin without pair in a given market
         
-        :param symbol: The Symbol from wich we want to know if it's a StableCoin without pair
+        :param symbol: The Symbol from which we want to know if it's a StableCoin without pair
         :param market: The market in which we want to search for that StableCoin
         :returns: True if the given symbol is a StableCoin without pair in the given market.
         """

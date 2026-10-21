@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-import datetime
+import datetime as dt
 import json
 from typing import Protocol, cast
 from unittest.mock import patch
@@ -140,6 +140,13 @@ class BaseOpenIdConnectTest(
     def test_partial_pipeline(self) -> None:
         self.do_partial_pipeline()
 
+    def test_partial_pipeline_saves_validated_claims(self) -> None:
+        resume = self.resume_partial_pipeline
+        with patch.object(self, "resume_partial_pipeline", side_effect=resume) as mock:
+            self.do_partial_pipeline()
+        saved = [c.args[0].kwargs.get(PARTIAL_ID_TOKEN_KEY) for c in mock.mock_calls]
+        self.assertEqual(saved, [self.backend.id_token] * 2)
+
     def test_partial_pipeline_before_details_and_uid(self) -> None:
         self.pipeline_settings()
         pipeline = list(self.strategy.get_pipeline(self.backend))
@@ -171,13 +178,13 @@ class BaseOpenIdConnectTest(
 
         def resume_after_expiration(partial):
             claims = partial.kwargs[PARTIAL_ID_TOKEN_KEY]
-            expired_time = datetime.datetime.fromtimestamp(
+            expired_time = dt.datetime.fromtimestamp(
                 claims["exp"] + self.backend.ID_TOKEN_MAX_AGE + 1,
-                datetime.timezone.utc,
+                dt.timezone.utc,
             )
             with (
                 patch("jwt.api_jwt.datetime") as jwt_datetime,
-                patch("social_core.backends.open_id_connect.datetime") as oidc_datetime,
+                patch("social_core.backends.open_id_connect.dt") as oidc_datetime,
             ):
                 jwt_datetime.now.return_value = expired_time
                 oidc_datetime.datetime.now.return_value = expired_time
@@ -360,18 +367,14 @@ class BaseOpenIdConnectTest(
         )
 
     def test_refresh_rejects_expired_id_token(self) -> None:
-        expiration_datetime = datetime.datetime.now(
-            datetime.timezone.utc
-        ) - datetime.timedelta(days=1)
+        expiration_datetime = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=1)
         self.assert_refresh_rejected(
             self.refresh_response(expiration_datetime=expiration_datetime),
             "response_expired",
         )
 
     def test_refresh_rejects_stale_issue_time(self) -> None:
-        issue_datetime = datetime.datetime.now(
-            datetime.timezone.utc
-        ) - datetime.timedelta(
+        issue_datetime = dt.datetime.now(dt.timezone.utc) - dt.timedelta(
             seconds=self.backend.ID_TOKEN_MAX_AGE * 2,
         )
         self.assert_refresh_rejected(
@@ -805,7 +808,7 @@ class ExampleOpenIdConnectAcrValuesTest(OpenIdConnectTest):
         self.do_login()
 
     def test_acr_values_in_auth_params(self) -> None:
-        params = self.backend.auth_params(state="test-state")
+        params = self.backend.auth_params(state=self.backend.get_or_create_state())
         self.assertEqual(params["acr_values"], "urn:mace:incommon:iap:silver")
 
 
@@ -845,7 +848,7 @@ class ExampleOpenIdConnectLoginHintTest(OpenIdConnectTest):
         self.do_login()
 
     def test_login_hint_in_auth_params(self) -> None:
-        params = self.backend.auth_params(state="test-state")
+        params = self.backend.auth_params(state=self.backend.get_or_create_state())
         self.assertEqual(params["login_hint"], "user@example.com")
 
 
@@ -885,7 +888,7 @@ class ExampleOpenIdConnectIdTokenHintTest(OpenIdConnectTest):
         self.do_login()
 
     def test_id_token_hint_in_auth_params(self) -> None:
-        params = self.backend.auth_params(state="test-state")
+        params = self.backend.auth_params(state=self.backend.get_or_create_state())
         self.assertEqual(
             params["id_token_hint"],
             "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.fake",
@@ -928,7 +931,7 @@ class ExampleOpenIdConnectUiLocalesTest(OpenIdConnectTest):
         self.do_login()
 
     def test_ui_locales_in_auth_params(self) -> None:
-        params = self.backend.auth_params(state="test-state")
+        params = self.backend.auth_params(state=self.backend.get_or_create_state())
         self.assertEqual(params["ui_locales"], "en-US fr-CA")
 
 
@@ -962,7 +965,7 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
                     f"SOCIAL_AUTH_{self.backend.name.upper().replace('-', '_')}_ACR_VALUES": "",
                 }
             )
-            self.backend.auth_params(state="test-state")
+            self.backend.auth_params(state=self.backend.get_or_create_state())
 
     def test_empty_login_hint_raises_error(self) -> None:
         with self.assertRaises(AuthConfigurationError):
@@ -972,7 +975,7 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
                     f"SOCIAL_AUTH_{self.backend.name.upper().replace('-', '_')}_LOGIN_HINT": "",
                 }
             )
-            self.backend.auth_params(state="test-state")
+            self.backend.auth_params(state=self.backend.get_or_create_state())
 
     def test_empty_id_token_hint_raises_error(self) -> None:
         with self.assertRaises(AuthConfigurationError):
@@ -982,7 +985,7 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
                     f"SOCIAL_AUTH_{self.backend.name.upper().replace('-', '_')}_ID_TOKEN_HINT": "",
                 }
             )
-            self.backend.auth_params(state="test-state")
+            self.backend.auth_params(state=self.backend.get_or_create_state())
 
     def test_empty_ui_locales_raises_error(self) -> None:
         with self.assertRaises(AuthConfigurationError):
@@ -992,4 +995,4 @@ class ExampleOpenIdConnectInvalidParamsTest(OpenIdConnectTest):
                     f"SOCIAL_AUTH_{self.backend.name.upper().replace('-', '_')}_UI_LOCALES": "",
                 }
             )
-            self.backend.auth_params(state="test-state")
+            self.backend.auth_params(state=self.backend.get_or_create_state())

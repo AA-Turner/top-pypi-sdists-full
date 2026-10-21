@@ -7,17 +7,17 @@ use sqlbuild_discovery::declaration_files::main::discover_declaration_collection
 use sqlbuild_discovery::declaration_files::main::retained_collection::retained_collection;
 use sqlbuild_discovery::declaration_files::models::{
     AuditBlock, AuditFile, CollectionFailure, CollectionKind, CollectionRequest, ConstantFile,
-    DeclarationCollection, DeclarationFileOptions, DiscoverySession, EnumFile, FileScope,
-    FunctionFile, HookFile, MacroFile, SchemaFile, ScopedFile,
+    DeclarationCollection, DiscoverySession, EnumFile, FileScope, FunctionFile, HookFile,
+    MacroFile, SchemaFile, ScopedFile,
 };
 use sqlbuild_discovery::declaration_files::types::Collection;
 use sqlbuild_discovery::models::{FileOutcome, LineColumnSpan};
 use sqlbuild_discovery::tree::models::ProjectTree;
+use sqlbuild_host::entries::models::FacadeHost;
 use sqlbuild_sqltext::compiler::models::AuthoredValue;
 use std::sync::Arc;
 
-use crate::bindings::_helpers::compile_driver::python_calls::{imported, keywords};
-use crate::bindings::_helpers::discovery::constants;
+use crate::bindings::_helpers::boundary::python_calls::{imported, keywords};
 use crate::bindings::_helpers::discovery::faults::{FileFaults, record_tuple};
 use crate::bindings::_helpers::discovery::header_declarations::typed_constant_record;
 use crate::bindings::_helpers::discovery::project_files::path_object;
@@ -25,15 +25,14 @@ use crate::bindings::_helpers::discovery::raised::{failure_error, read_error, st
 use crate::bindings::_helpers::discovery::snapshot::{
     in_snapshot, project_root, project_tree, snapshot_memo,
 };
-use crate::bindings::_helpers::discovery::sorted_keys::sorted_keys;
 use crate::bindings::_helpers::model_config::header_columns::schema_columns;
-use crate::bindings::_helpers::native_host::facade::FacadeHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::construct::{enum_from_value, new_record, new_record_with};
 use crate::bindings::_helpers::records::fields::mapping_get;
 use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::sqltext::authored_values::map_to_python;
 use crate::bindings::models::{NativeDiscoverySession, NativeProjectTree};
+use sqlbuild_discovery::declaration_files::main::declaration_file_options::declaration_file_options;
 
 const PATHLIB_MODULE: &str = "pathlib";
 const SESSION_MEMO_KEY: &str = "native_discovery_session";
@@ -377,14 +376,7 @@ pub(crate) fn discovery_session<'py>(
     let created: Bound<'py, NativeDiscoverySession> = Bound::new(
         py,
         NativeDiscoverySession {
-            inner: DiscoverySession::new(
-                project_root(project_dir)?,
-                DeclarationFileOptions {
-                    function_keys: sorted_keys(&constants::SQL_FUNCTION_HEADER_KEYS),
-                    audit_keys: sorted_keys(&constants::SQL_AUDIT_HEADER_KEYS),
-                    hook_keys: sorted_keys(&constants::SQL_HOOK_HEADER_KEYS),
-                },
-            ),
+            inner: DiscoverySession::new(project_root(project_dir)?, declaration_file_options()),
         },
     )?;
     memo.set_item(SESSION_MEMO_KEY, &created)?;

@@ -12,14 +12,16 @@ use sqlbuild_core::query_command::main::render_query_json::render_query_json;
 use sqlbuild_core::query_command::main::render_query_long::render_query_long;
 use sqlbuild_core::query_command::main::render_query_table::render_query_table;
 use sqlbuild_core::query_command::models::QueryDisplay;
+use sqlbuild_host::entries::models::AdapterHost;
 
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, call_with};
 use crate::bindings::_helpers::command_runtime::connection::resolve_project_connection_config;
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
-use crate::bindings::_helpers::compile_driver::python_calls::{KeywordArguments, call_with};
-use crate::bindings::_helpers::native_host::adapter::AdapterHost;
 use crate::bindings::_helpers::native_host::connections::connection_failure;
 use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::query_command::project::{ProjectAdapter, project_adapter};
+use crate::bindings::_helpers::query_command::project::{
+    ProjectAdapter, ProjectInputs, project_adapter,
+};
 use crate::bindings::_helpers::query_command::query_values::{
     csv_text, display_text, json_cell, python_json_rows, strict_width,
 };
@@ -323,7 +325,11 @@ pub(crate) fn run_query_command(
             Some("pass a non-negative integer or use --no-limit"),
         ));
     }
-    let project: ProjectAdapter<'_> = project_adapter(py, Some(arguments.value("project_dir")?))?;
+    let project: ProjectAdapter<'_> = project_adapter(
+        py,
+        Some(arguments.value("project_dir")?),
+        ProjectInputs::Configuration,
+    )?;
     let result: Bound<'_, PyAny> = run_sql(
         &project,
         Some(arguments.value("selected_target")?),

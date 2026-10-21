@@ -136,7 +136,7 @@ class TestFollowupRequestBuilder:
         # Extract param_len and data_len from header
         param_len = struct.unpack(">H", pdu[6:8])[0]
         data_len = struct.unpack(">H", pdu[8:10])[0]
-        assert param_len == 8
+        assert param_len == 12
         assert data_len == 4
 
         # Parameter section starts at offset 10
@@ -144,11 +144,12 @@ class TestFollowupRequestBuilder:
         assert params[0] == 0x00  # Reserved
         assert params[1] == 0x01  # Param count
         assert params[2] == 0x12  # Type header
-        assert params[3] == 0x04  # Length
-        assert params[4] == 0x11  # Method (request)
+        assert params[3] == 0x08  # Length
+        assert params[4] == 0x12  # Method, as engineering tools send for continuation requests
         assert params[5] == 0x44  # Type(4) | Group(4=SZL)
         assert params[6] == 0x01  # Subfunction
         assert params[7] == 0x02  # DataRef = sequence_number
+        assert params[8:12] == bytes(4)
 
         # Data section
         data = pdu[10 + param_len :]
@@ -441,3 +442,13 @@ class TestTPDUSize:
         conn = ISOTCPConnection("127.0.0.1", tpdu_size=TPDUSize.S_2048)
         cr_pdu = conn._build_cotp_cr()
         assert cr_pdu[-3:] == bytes([0xC0, 0x01, TPDUSize.S_2048])
+
+
+@pytest.mark.parametrize("last", [0x02, 0xFF])
+def test_userdata_invalid_last_data_unit_rejected(last: int) -> None:
+    """Only 0x00 and 0x01 are valid last-data-unit values."""
+    params = bytes([0, 1, 0x12, 8, 0x12, 0x84, 1, 1, 0, last, 0, 0])
+    data = bytes([0xFF, 9, 0, 4]) + b"abcd"
+    pdu = struct.pack(">BBHHHH", 0x32, 7, 0, 1, len(params), len(data)) + params + data
+    with pytest.raises(S7ProtocolError):
+        S7Protocol().parse_response(pdu)

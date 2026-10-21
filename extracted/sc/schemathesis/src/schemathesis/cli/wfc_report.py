@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import json
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -16,11 +15,11 @@ from schemathesis.core.failures import (
     MalformedJson,
     ResponseTimeExceeded,
     ServerError,
-    format_failures,
 )
 from schemathesis.core.shell import ShellType, detect_shell
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine.events import EngineFinished, EngineStarted, ScenarioFinished
+from schemathesis.engine.summary import running_time
 from schemathesis.openapi.checks import (
     AllowHeaderMismatch,
     AuthScenario,
@@ -187,14 +186,7 @@ def export_failures(
                 continue
             found_faults.extend(fault for _, fault in faults)
             distinct_faults.update(key for key, _ in faults)
-            explanation = format_failures(
-                case_id=f"{index}. Test Case ID: {group.case_id}",
-                response=group.response,
-                failures=group.failures,
-                curl=None,
-                auth_identity=group.auth_identity,
-                config=config,
-            )
+            explanation = group.format(index=index, curl=None, config=config)
             lines.append("")
             start = len(lines)
             lines.append(f"# {label}")
@@ -256,7 +248,7 @@ class WfcReportHandler(EventHandler["BaseExecutionContext"]):
             self.started_at = event.timestamp
         elif isinstance(event, EngineFinished):
             self.finished = event
-        elif isinstance(event, ScenarioFinished):
+        elif isinstance(event, ScenarioFinished) and event.is_test_scenario:
             self._record(event.recorder)
 
     def _record(self, recorder: ScenarioRecorder) -> None:
@@ -268,18 +260,12 @@ class WfcReportHandler(EventHandler["BaseExecutionContext"]):
             if endpoint in self.endpoint_ids:
                 status = interaction.response.status_code if interaction.response is not None else None
                 self.covered.setdefault(endpoint, set()).add(status)
-        for case_id, checks in recorder.checks.items():
-            if any(check.failure_info is not None for check in checks):
-                case = recorder.cases[case_id].value
-                self.failing_endpoints[case_id] = (_case_operation_id(case), f"{case.method.upper()} {case.path}")
+        for case_id in recorder.failing_case_ids():
+            case = recorder.cases[case_id].value
+            self.failing_endpoints[case_id] = (_case_operation_id(case), f"{case.method.upper()} {case.path}")
 
     def shutdown(self, ctx: BaseExecutionContext) -> None:
-        if self.finished is not None:
-            elapsed = self.finished.running_time
-        elif self.started_at is not None:
-            elapsed = time.time() - self.started_at
-        else:
-            elapsed = 0.0
+        elapsed = running_time(self.started_at, self.finished) or 0.0
         script_path = self.output.with_suffix(".sh")
         exported = export_failures(ctx.statistic, self.failing_endpoints, ctx.config.output, script_path.name)
         document = {

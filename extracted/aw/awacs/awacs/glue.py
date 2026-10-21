@@ -24,6 +24,7 @@ class ARN(BaseARN):
         )
 
 
+AccessDataQualityRuntimeConfiguration = Action("AccessDataQualityRuntimeConfiguration")
 AuthorizeInboundIntegration = Action("AuthorizeInboundIntegration")
 BatchCreatePartition = Action("BatchCreatePartition")
 BatchDeleteConnection = Action("BatchDeleteConnection")
@@ -201,6 +202,8 @@ GetStages = Action("GetStages")
 GetStatement = Action("GetStatement")
 GetStorage = Action("GetStorage")
 GetStorageUnit = Action("GetStorageUnit")
+GetSystemLogsForJobRun = Action("GetSystemLogsForJobRun")
+GetSystemLogsForSession = Action("GetSystemLogsForSession")
 GetTable = Action("GetTable")
 GetTableOptimizer = Action("GetTableOptimizer")
 GetTableVersion = Action("GetTableVersion")

@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: adafruit-circuitpython-typing
-Version: 1.12.3
+Version: 1.13.0
 Summary: Types needed for type annotation that are not in `typing`
 Author-email: Adafruit Industries <circuitpython@adafruit.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/adafruit/Adafruit_CircuitPython_Typing
 Keywords: adafruit,blinka,circuitpython,micropython,circuitpython_typing
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Embedded Systems
 Classifier: Topic :: System :: Hardware
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst

@@ -7,20 +7,18 @@ use sqlbuild_core::build_command::constants::{
     EXECUTION_LIMIT_DBT_NOTE, MISSING_ORIGIN_DBT_HELP, RETENTION_DECREASE_DBT_HELP,
     SNAPSHOT_FULL_REFRESH_DBT_HELP, TABLE_TYPE_DOWNGRADE_DBT_HELP,
 };
+use sqlbuild_host::entries::models::ExecutorHost;
 
+use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, call_with, keywords};
 use crate::bindings::_helpers::build_command::policies::enforce_plan_safety_policies_binding;
 use crate::bindings::_helpers::build_command::support::{
     boolean, emit, joined, keyword_relay, none, text, tuple,
 };
 use crate::bindings::_helpers::build_progress::build_callbacks::BuildProgressCallbacks;
 use crate::bindings::_helpers::build_progress::footer::format_build_footer;
-use crate::bindings::_helpers::cli::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::cli::progress_text::format_execution_header;
-use crate::bindings::_helpers::compile_driver::python_calls::{
-    KeywordArguments, call_with, keywords,
-};
+use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
+use crate::bindings::_helpers::build_progress::progress_text::format_execution_header;
 use crate::bindings::_helpers::compile_outputs::runtime_target::write_runtime_target;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::presentation_text::style::PythonCliStyle;
 use crate::bindings::_helpers::records::construct::{new_record_with, record_class};
@@ -138,7 +136,7 @@ pub(crate) fn execute_dbt_sqlbuild_work<'py>(
             native_field(&command, "value")?.extract::<String>()?
         )
     };
-    let concurrency = native_field(&project, "settings")?.getattr("concurrency")?;
+    let concurrency = native_field(&context, "concurrency")?;
     let header = pyo3::IntoPyObjectExt::into_bound_py_any(
         format_execution_header(
             &text(py, &display).extract::<String>()?,

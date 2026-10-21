@@ -24,6 +24,8 @@ from chalk._gen.chalk.sandbox.v1.service_pb2 import (
     GetCustomImageBuildWorkflowResponse,
     GetCustomImageRequest,
     GetCustomImageResponse,
+    GetImagePullCredentialsRequest,
+    GetImagePullCredentialsResponse,
     GetOrBuildCustomImageRequest,
     GetOrBuildCustomImageResponse,
     GetSandboxRequest,
@@ -128,6 +130,10 @@ class CustomImageServiceStub:
     """CustomImageService manages custom container image builds independently of sandboxes."""
 
     def __init__(self, channel: Channel) -> None: ...
+    GetImagePullCredentials: UnaryUnaryMultiCallable[
+        GetImagePullCredentialsRequest,
+        GetImagePullCredentialsResponse,
+    ]
     BuildCustomImage: UnaryUnaryMultiCallable[
         BuildCustomImageRequest,
         BuildCustomImageResponse,
@@ -196,6 +202,12 @@ class CustomImageServiceStub:
 class CustomImageServiceServicer(metaclass=ABCMeta):
     """CustomImageService manages custom container image builds independently of sandboxes."""
 
+    @abstractmethod
+    def GetImagePullCredentials(
+        self,
+        request: GetImagePullCredentialsRequest,
+        context: ServicerContext,
+    ) -> GetImagePullCredentialsResponse: ...
     @abstractmethod
     def BuildCustomImage(
         self,

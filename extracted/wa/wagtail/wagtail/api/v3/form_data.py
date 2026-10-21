@@ -7,12 +7,16 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from django.db.models import Model
 from django.forms import BaseForm, Field
+from django.forms.formsets import ORDERING_FIELD_NAME
 from django.utils.datastructures import MultiValueDict
 from ninja.schema import BaseModel
 from permissionedforms import PermissionedForm
+from taggit.forms import TagField, TagWidget
+from taggit.models import Tag
 
 from wagtail.admin.forms.models import WagtailAdminModelForm
 from wagtail.admin.panels import Panel, get_edit_handler, get_form_for_model
+from wagtail.api.conf import get_model_field
 from wagtail.api.rich_text import APIRichText
 from wagtail.api.v3.errors import as_validation_error
 from wagtail.api.v3.registry import ContentTypeRegistration, registry
@@ -49,7 +53,7 @@ def filter_form_options(
     for name, formset_options in formsets.items():
         if name not in writable_fields:
             continue
-        child_model = cast(type[Model], model._meta.get_field(name).related_model)
+        child_model = cast(type[Model], get_model_field(model, name).related_model)
         child_schema = create_generator.get_child_relation_schema(child_model)
         filtered_formsets[name] = {
             **formset_options,
@@ -347,6 +351,17 @@ def _set_field_value(field: Field, name: str, value: Any, data: MultiValueDict) 
         # `from_database_format` contract - core ships only Draftail, but
         # third-party editors may implement the same converter pattern).
         data[name] = field.widget.format_value(value)
+    elif isinstance(field, TagField):
+        # The API takes a list of tag names, but the widget expects the same
+        # single edit string the admin renders. The widget's format_value()
+        # builds that from tag instances via taggit's edit_string_for_tags()
+        # (quoting names containing commas or spaces), which is the inverse
+        # of the parse_tags() the field runs on submission.
+        if isinstance(value, list):
+            tag_model = getattr(field, "tag_model", Tag)
+            widget = cast(TagWidget, field.widget)
+            value = widget.format_value([tag_model(name=n) for n in value])
+        data[name] = value
     else:
         data[name] = value
 
@@ -374,13 +389,14 @@ def build_form_data(
     edited. This replaces the relation's whole set rather than trying to
     diff it item by item: every one of ``instance``'s current rows
     for that relation becomes an initial form, and each submitted item
-    either binds to the existing row whose pk matches its own ``id`` (an
-    edit in place) or, lacking a matching ``id``, becomes a new
-    (non-initial) form. Any existing row no *submitted* item's ``id``
-    refers to is marked for deletion. Without this, the submitted items
-    would be added *alongside* the existing rows instead of replacing them,
-    since an all-zero ``INITIAL_FORMS`` (correct when there's no
-    ``instance``, i.e. on create) tells the formset there's
+    either binds to the existing row whose pk matches its own pk (an edit
+    in place) or, lacking a matching pk, becomes a new (non-initial) form.
+    Any existing row no *submitted* item's pk refers to is marked for
+    deletion. The pk is keyed by its field's own name (e.g. ``id`` or
+    ``custom_id``), as it is in the read schema and the formset. Without
+    this, the submitted items would be added *alongside* the existing rows
+    instead of replacing them, since an all-zero ``INITIAL_FORMS`` (correct
+    when there's no ``instance``, i.e. on create) tells the formset there's
     nothing existing to reconcile against.
     """
     data = MultiValueDict()
@@ -399,16 +415,17 @@ def build_form_data(
         existing = (
             list(getattr(instance, rel_name).all()) if instance is not None else []
         )
-        existing_by_pk = {obj.pk: obj for obj in existing}
+        existing_by_pk = {obj.pk: obj for obj in existing if obj.pk is not None}
         matched_pks: set[Any] = set()
 
+        pk_name = formset_class.model._meta.pk.name
         data[f"{prefix}-INITIAL_FORMS"] = str(len(existing))
         for i, obj in enumerate(existing):
-            data[f"{prefix}-{i}-id"] = obj.pk
+            data[f"{prefix}-{i}-{pk_name}"] = obj.pk
 
         new_items = []
-        for item in items:
-            matched_pk = item.get("id")
+        for position, item in enumerate(items):
+            matched_pk = item.get(pk_name)
             if matched_pk in existing_by_pk and matched_pk not in matched_pks:
                 matched_pks.add(matched_pk)
                 item_index = next(
@@ -416,8 +433,15 @@ def build_form_data(
                 )
                 item_prefix = f"{prefix}-{item_index}"
             else:
-                new_items.append(item)
+                new_items.append((position, item))
                 continue
+            if formset_class.can_order:
+                # Existing rows keep their original form index, so set each
+                # item's ORDER to its position in the submitted list instead.
+                # ORDER is 1-based, like the formset's initial values - a form
+                # whose ORDER matches its initial value is considered unchanged
+                # and wouldn't have its sort order saved.
+                data[f"{item_prefix}-{ORDERING_FIELD_NAME}"] = str(position + 1)
             for field_name, field in child_fields.items():
                 if field_name in item:
                     _set_field_value(
@@ -429,8 +453,10 @@ def build_form_data(
                 data[f"{prefix}-{i}-DELETE"] = "on"
 
         data[f"{prefix}-TOTAL_FORMS"] = str(len(existing) + len(new_items))
-        for j, item in enumerate(new_items):
+        for j, (position, item) in enumerate(new_items):
             item_prefix = f"{prefix}-{len(existing) + j}"
+            if formset_class.can_order:
+                data[f"{item_prefix}-{ORDERING_FIELD_NAME}"] = str(position + 1)
             for field_name, field in child_fields.items():
                 if field_name in item:
                     _set_field_value(

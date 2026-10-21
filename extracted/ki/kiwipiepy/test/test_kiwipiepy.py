@@ -105,6 +105,20 @@ def test_blocklist():
     tokens = kiwi.tokenize("고마움을", blocklist=ms)
     assert tokens[0].form == "고맙"
 
+def test_blocklist_after_rebuild_while_old_instance_is_in_use():
+    # A batch still being consumed keeps the instance it started with alive. A word added
+    # meanwhile rebuilds Kiwi, and the blocklist must then block the new instance's morphemes
+    # while the pending batch keeps blocking the old instance's.
+    kiwi = Kiwi(num_workers=2)
+    ms = MorphemeSet(kiwi, ['고마움'])
+    pending = kiwi.tokenize(["고마움을"] * 200, blocklist=ms)
+    assert next(pending)[0].form == "고맙"
+
+    kiwi.add_user_word('TEST1', 'NNP')
+    assert kiwi.tokenize("고마움을", blocklist=ms)[0].form == "고맙"
+    assert list(kiwi.tokenize(["고마움을"] * 4, blocklist=ms))[-1][0].form == "고맙"
+    assert all(tokens[0].form == "고맙" for tokens in pending)
+
 def test_pretokenized():
     kiwi = Kiwi(load_multi_dict=False)
     text = "드디어패트와 매트가 2017년에 국내 개봉했다. 패트와매트는 2016년..."
@@ -369,6 +383,16 @@ def test_user_value():
     assert tokens[0].tag == 'SPECIAL'
     assert tokens[0].user_value == {'tag':'SPECIAL'}
     assert sum(1 for t in tokens if t.user_value is not None) == 1
+
+def test_dropped_tokens_release_their_user_value():
+    kiwi = Kiwi()
+    value = ['user_value']
+    kiwi.add_user_word('사용자단어', user_value=value)
+    assert kiwi.tokenize('사용자단어')[0].user_value is value
+    before = sys.getrefcount(value)
+    for _ in range(10):
+        kiwi.tokenize('사용자단어')
+    assert sys.getrefcount(value) == before
 
 def test_user_value_issue168():
     kiwi = Kiwi()
@@ -845,6 +869,14 @@ def test_space():
     ]))
     assert res_a == [res0, res1, res2]
 
+def test_dropping_a_batch_whose_analyses_failed():
+    kiwi = Kiwi(num_workers=2)
+    batch = kiwi.tokenize(["가나다라마바사"] * 3, pretokenized=lambda text: [(0, 4), (2, 6)])
+    with pytest.raises(ValueError):
+        next(batch)
+    # The analyses still queued failed too; dropping them must not abort the process.
+    del batch
+
 def test_space_with_multiword_token():
     kiwi = Kiwi()
     kiwi.add_user_word('구미 1동', 'NNP', 10)
@@ -952,6 +984,22 @@ def test_typo_correction():
     assert ret[3].form == 'ᆫ대'
     print(ret)
 
+def test_typo_transformer_change_after_use():
+    if sys.maxsize <= 2**32:
+        print("[skipped this test in 32bit OS.]", file=sys.stderr)
+        return
+    kiwi = Kiwi()
+    typos = TypoTransformer([])
+    assert kiwi.tokenize("외않됀대?", typos=typos)[0].form != '왜'
+    assert typos.generate("외") == [("외", 0.0)]
+
+    typos |= basic_typos
+    assert kiwi.tokenize("외않됀대?", typos=typos)[0].form == '왜'
+    assert any(form == "왜" for form, _ in typos.generate("외"))
+
+    typos.scale_cost(100)
+    assert kiwi.tokenize("외않됀대?", typos=typos)[0].form != '왜'
+
 def test_continual_typo():
     kiwi = Kiwi()
     tokens = kiwi.tokenize('오늘사무시레서', typos='continual')
@@ -992,6 +1040,16 @@ def test_issue_92():
 def test_unicode():
     kiwi = Kiwi()
     print(repr(kiwi.tokenize("결 론 189   참고문헌 191   󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝󰠝")))
+
+def test_empty_template():
+    kiwi = Kiwi()
+    tpl = kiwi.template("")
+
+    assert tpl.format() == ""
+    assert tpl.format("unused", name="unused") == ""
+    assert kiwi.template("").format() == ""
+    assert kiwi.template("", cache=False).format() == ""
+
 
 def test_template():
     kiwi = Kiwi()

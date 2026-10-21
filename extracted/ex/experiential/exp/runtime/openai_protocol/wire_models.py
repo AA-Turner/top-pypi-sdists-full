@@ -631,20 +631,11 @@ class _ChatRequest(_WireModel):
 
     @model_validator(mode="after")
     def _require_coherent_options(self) -> _ChatRequest:
-        """Reject conflicting token ceilings and orphaned logprob options.
+        """Reject orphaned logprob options.
 
-        ``stream_options`` on a non-streaming call is removed with disclosure
-        before validation (``client_field_repairs``)."""
-        if (
-            sum(
-                v is not None
-                for v in (self.max_tokens, self.max_completion_tokens, self.max_output_tokens)
-            )
-            > 1
-        ):
-            raise ValueError(
-                "max_tokens, max_completion_tokens and max_output_tokens are mutually exclusive"
-            )
+        Several output-limit spellings together are reconciled after validation
+        (``client_field_repairs.chat_output_cap``), and ``stream_options`` on a
+        non-streaming call is removed with disclosure before it."""
         if self.top_logprobs is not None and self.logprobs is not True:
             raise ValueError("top_logprobs requires logprobs=true")
         return self
@@ -923,7 +914,7 @@ _ResponsesInputItem = _ResponseMessage | _ResponsesOutputItem
 
 
 class _PromptCacheOptions(_WireModel):
-    """Responses prompt-cache selector, accepted only in its implicit mode.
+    """Responses prompt-cache selector: implicit mode and a minimum cache lifetime.
 
     VS Code Copilot's custom-endpoint provider hardcodes
     ``{"mode": "implicit"}`` on every Responses request (wire-captured
@@ -931,9 +922,17 @@ class _PromptCacheOptions(_WireModel):
     already do, so the value is accepted as already satisfied; any other
     mode names behavior this gateway does not provide and stays a closed
     rejection.
+
+    Attributes:
+        mode: ``"implicit"`` or omitted (OpenAI's default for GPT-5.6 and later).
+        ttl: OpenAI's minimum cache lifetime. ``"30m"`` is the provider default
+            and is accepted as already satisfied. ``"12h"`` is forwarded only to
+            rungs that declare ``supports_prompt_cache_ttl_12h``, and is refused
+            when none does. Any other value is refused here, as OpenAI refuses it.
     """
 
-    mode: Literal["implicit"]
+    mode: Literal["implicit"] | None = None
+    ttl: Literal["30m", "12h"] | None = None
 
 
 class _ResponsesRequest(_WireModel):

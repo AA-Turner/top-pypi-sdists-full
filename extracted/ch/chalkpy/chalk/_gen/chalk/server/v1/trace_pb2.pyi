@@ -518,12 +518,16 @@ class TraceCallGraph(_message.Message):
     ) -> None: ...
 
 class GetTraceRequest(_message.Message):
-    __slots__ = ("operation_id", "trace_id")
+    __slots__ = ("operation_id", "trace_id", "cluster_id")
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     trace_id: str
-    def __init__(self, operation_id: _Optional[str] = ..., trace_id: _Optional[str] = ...) -> None: ...
+    cluster_id: str
+    def __init__(
+        self, operation_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., cluster_id: _Optional[str] = ...
+    ) -> None: ...
 
 class GetTraceResponse(_message.Message):
     __slots__ = ("trace",)
@@ -907,6 +911,7 @@ class GetTraceCallGraphRequest(_message.Message):
         "resource_attribute_filters",
         "cursor",
         "query",
+        "cluster_id",
     )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -916,6 +921,7 @@ class GetTraceCallGraphRequest(_message.Message):
     RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
@@ -924,6 +930,7 @@ class GetTraceCallGraphRequest(_message.Message):
     resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     cursor: str
     query: str
+    cluster_id: str
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -934,6 +941,7 @@ class GetTraceCallGraphRequest(_message.Message):
         resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
         cursor: _Optional[str] = ...,
         query: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetTraceCallGraphResponse(_message.Message):
@@ -985,6 +993,7 @@ class ListSpanRequest(_message.Message):
         "span_kind",
         "resource_attribute_filters",
         "query",
+        "cluster_id",
     )
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -1001,6 +1010,7 @@ class ListSpanRequest(_message.Message):
     SPAN_KIND_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     QUERY_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -1016,6 +1026,7 @@ class ListSpanRequest(_message.Message):
     span_kind: ChalkSpanKind
     resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     query: str
+    cluster_id: str
     def __init__(
         self,
         trace_id: _Optional[str] = ...,
@@ -1033,6 +1044,7 @@ class ListSpanRequest(_message.Message):
         span_kind: _Optional[_Union[ChalkSpanKind, str]] = ...,
         resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
         query: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListSpanResponse(_message.Message):
@@ -1046,21 +1058,24 @@ class ListSpanResponse(_message.Message):
     ) -> None: ...
 
 class GetSpanLatencyDistributionRequest(_message.Message):
-    __slots__ = ("trace_id", "span_ids", "start_time", "end_time")
+    __slots__ = ("trace_id", "span_ids", "start_time", "end_time", "cluster_id")
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     SPAN_IDS_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     span_ids: _containers.RepeatedScalarFieldContainer[str]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
+    cluster_id: str
     def __init__(
         self,
         trace_id: _Optional[str] = ...,
         span_ids: _Optional[_Iterable[str]] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class SpanLatencyDistribution(_message.Message):

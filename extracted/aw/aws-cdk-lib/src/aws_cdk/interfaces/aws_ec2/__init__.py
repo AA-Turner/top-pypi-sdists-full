@@ -4707,6 +4707,51 @@ class _IRouteTableRefProxy(
 typing.cast(typing.Any, IRouteTableRef).__jsii_proxy_class__ = lambda : _IRouteTableRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISecondaryNetworkRef")
+class ISecondaryNetworkRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecondaryNetwork.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="secondaryNetworkRef")
+    def secondary_network_ref(self) -> "SecondaryNetworkReference":
+        '''(experimental) A reference to a SecondaryNetwork resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ISecondaryNetworkRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a SecondaryNetwork.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ec2.ISecondaryNetworkRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="secondaryNetworkRef")
+    def secondary_network_ref(self) -> "SecondaryNetworkReference":
+        '''(experimental) A reference to a SecondaryNetwork resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("SecondaryNetworkReference", jsii.get(self, "secondaryNetworkRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ISecondaryNetworkRef).__jsii_proxy_class__ = lambda : _ISecondaryNetworkRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ec2.ISecurityGroupEgressRef")
 class ISecurityGroupEgressRef(
     _constructs_77d1e7e8.IConstruct,
@@ -9469,6 +9514,55 @@ class RouteTableReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ec2.SecondaryNetworkReference",
+    jsii_struct_bases=[],
+    name_mapping={"secondary_network_arn": "secondaryNetworkArn"},
+)
+class SecondaryNetworkReference:
+    def __init__(self, *, secondary_network_arn: builtins.str) -> None:
+        '''A reference to a SecondaryNetwork resource.
+
+        :param secondary_network_arn: The SecondaryNetworkArn of the SecondaryNetwork resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ec2 as interfaces_ec2
+            
+            secondary_network_reference = interfaces_ec2.SecondaryNetworkReference(
+                secondary_network_arn="secondaryNetworkArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5d70e613b79fe83694cfb0b634a6f609d172951367a43ea6e04ed93d4f2f8a6d)
+            check_type(argname="argument secondary_network_arn", value=secondary_network_arn, expected_type=type_hints["secondary_network_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "secondary_network_arn": secondary_network_arn,
+        }
+
+    @builtins.property
+    def secondary_network_arn(self) -> builtins.str:
+        '''The SecondaryNetworkArn of the SecondaryNetwork resource.'''
+        result = self._values.get("secondary_network_arn")
+        assert result is not None, "Required property 'secondary_network_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SecondaryNetworkReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ec2.SecurityGroupEgressReference",
     jsii_struct_bases=[],
     name_mapping={"security_group_egress_id": "securityGroupEgressId"},
@@ -12797,6 +12891,7 @@ __all__ = [
     "IRouteServerPropagationRef",
     "IRouteServerRef",
     "IRouteTableRef",
+    "ISecondaryNetworkRef",
     "ISecurityGroupEgressRef",
     "ISecurityGroupIngressRef",
     "ISecurityGroupRef",
@@ -12889,6 +12984,7 @@ __all__ = [
     "RouteServerPropagationReference",
     "RouteServerReference",
     "RouteTableReference",
+    "SecondaryNetworkReference",
     "SecurityGroupEgressReference",
     "SecurityGroupIngressReference",
     "SecurityGroupReference",
@@ -13430,6 +13526,13 @@ def _typecheckingstub__188eecb4e01c772367f802e75fe78a87fe1af4420eb919a629db4f794
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5d70e613b79fe83694cfb0b634a6f609d172951367a43ea6e04ed93d4f2f8a6d(
+    *,
+    secondary_network_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a0be0b2564d7c31d9bc03311d9327527e8e38438583c1dddcc84256ea3117542(
     *,
     security_group_egress_id: builtins.str,
@@ -13859,5 +13962,5 @@ def _typecheckingstub__5bdce5af9d1e135e7564b00f4d9b2945ac4e23e3d35d3e993e24d29db
     """Type checking stubs"""
     pass
 
-for cls in [IApplicationStatusCheckRef, ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IFpgaImageRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IIPv4PoolRef, IInstanceConnectEndpointRef, IInstanceEventWindowRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IIpamExternalResourceVerificationTokenRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetCidrReservationRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableEntryRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
+for cls in [IApplicationStatusCheckRef, ICapacityManagerDataExportRef, ICapacityReservationFleetRef, ICapacityReservationRef, ICarrierGatewayRef, IClientVpnAuthorizationRuleRef, IClientVpnEndpointRef, IClientVpnRouteRef, IClientVpnTargetNetworkAssociationRef, ICustomerGatewayRef, IDHCPOptionsRef, IEC2FleetRef, IEIPAssociationRef, IEIPRef, IEgressOnlyInternetGatewayRef, IEnclaveCertificateIamRoleAssociationRef, IFlowLogRef, IFpgaImageRef, IGatewayRouteTableAssociationRef, IHostRef, IIPAMAllocationRef, IIPAMPoolCidrRef, IIPAMPoolRef, IIPAMPrefixListResolverRef, IIPAMPrefixListResolverTargetRef, IIPAMRef, IIPAMResourceDiscoveryAssociationRef, IIPAMResourceDiscoveryRef, IIPAMScopeRef, IIPv4PoolRef, IInstanceConnectEndpointRef, IInstanceEventWindowRef, IInstanceRef, IInternetGatewayRef, IIpPoolRouteTableAssociationRef, IIpamExternalResourceVerificationTokenRef, IKeyPairRef, ILaunchTemplateRef, ILocalGatewayRouteRef, ILocalGatewayRouteTableRef, ILocalGatewayRouteTableVPCAssociationRef, ILocalGatewayRouteTableVirtualInterfaceGroupAssociationRef, ILocalGatewayVirtualInterfaceGroupRef, ILocalGatewayVirtualInterfaceRef, INatGatewayRef, INetworkAclEntryRef, INetworkAclRef, INetworkInsightsAccessScopeAnalysisRef, INetworkInsightsAccessScopeRef, INetworkInsightsAnalysisRef, INetworkInsightsPathRef, INetworkInterfaceAttachmentRef, INetworkInterfacePermissionRef, INetworkInterfaceRef, INetworkPerformanceMetricSubscriptionRef, IPlacementGroupRef, IPrefixListRef, IRouteRef, IRouteServerAssociationRef, IRouteServerEndpointRef, IRouteServerPeerRef, IRouteServerPropagationRef, IRouteServerRef, IRouteTableRef, ISecondaryNetworkRef, ISecurityGroupEgressRef, ISecurityGroupIngressRef, ISecurityGroupRef, ISecurityGroupVpcAssociationRef, ISnapshotBlockPublicAccessRef, ISpotFleetRef, ISqlHaStandbyDetectedInstanceRef, ISubnetCidrBlockRef, ISubnetCidrReservationRef, ISubnetNetworkAclAssociationRef, ISubnetRef, ISubnetRouteTableAssociationRef, ITrafficMirrorFilterRef, ITrafficMirrorFilterRuleRef, ITrafficMirrorSessionRef, ITrafficMirrorTargetRef, ITransitGatewayAttachmentRef, ITransitGatewayConnectPeerRef, ITransitGatewayConnectRef, ITransitGatewayMeteringPolicyEntryRef, ITransitGatewayMeteringPolicyRef, ITransitGatewayMulticastDomainAssociationRef, ITransitGatewayMulticastDomainRef, ITransitGatewayMulticastGroupMemberRef, ITransitGatewayMulticastGroupSourceRef, ITransitGatewayPeeringAttachmentRef, ITransitGatewayPolicyTableAssociationRef, ITransitGatewayPolicyTableEntryRef, ITransitGatewayPolicyTableRef, ITransitGatewayRef, ITransitGatewayRouteRef, ITransitGatewayRouteTableAssociationRef, ITransitGatewayRouteTablePropagationRef, ITransitGatewayRouteTableRef, ITransitGatewayVpcAttachmentRef, IVPCBlockPublicAccessExclusionRef, IVPCBlockPublicAccessOptionsRef, IVPCCidrBlockRef, IVPCDHCPOptionsAssociationRef, IVPCEncryptionControlRef, IVPCEndpointConnectionNotificationRef, IVPCEndpointRef, IVPCEndpointServicePermissionsRef, IVPCEndpointServiceRef, IVPCGatewayAttachmentRef, IVPCPeeringConnectionRef, IVPCRef, IVPNConcentratorRef, IVPNConnectionRef, IVPNConnectionRouteRef, IVPNGatewayRef, IVPNGatewayRoutePropagationRef, IVerifiedAccessEndpointRef, IVerifiedAccessGroupRef, IVerifiedAccessInstanceRef, IVerifiedAccessTrustProviderRef, IVolumeAttachmentRef, IVolumeRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

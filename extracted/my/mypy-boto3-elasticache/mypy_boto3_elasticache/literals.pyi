@@ -80,6 +80,7 @@ __all__ = (
     "SlaMetType",
     "SourceTypeType",
     "StorageEncryptionTypeType",
+    "TlsModeType",
     "TransitEncryptionModeType",
     "UpdateActionStatusType",
     "WaiterName",
@@ -154,6 +155,7 @@ SourceTypeType = Literal[
     "user-group",
 ]
 StorageEncryptionTypeType = Literal["none", "sse-elasticache", "sse-kms"]
+TlsModeType = Literal["none", "verify-ca"]
 TransitEncryptionModeType = Literal["preferred", "required"]
 UpdateActionStatusType = Literal[
     "complete",
@@ -320,6 +322,7 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
     "eventbridgev2",
@@ -394,6 +397,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -528,6 +532,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

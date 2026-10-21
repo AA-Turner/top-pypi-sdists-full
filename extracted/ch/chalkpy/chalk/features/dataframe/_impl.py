@@ -60,6 +60,7 @@ from chalk.utils.pl_helpers import (
     polars_csv_renames_before_selection,
     polars_group_by_instead_of_groupby,
     polars_hist_column_is_breakpoint,
+    polars_join_has_maintain_order,
     polars_lazy_frame_collect_schema,
     polars_name_dot_suffix_instead_of_suffix,
     polars_uses_schema_overrides,
@@ -1132,11 +1133,19 @@ class DataFrame(metaclass=DataFrameMeta):
         how: Literal["inner", "left", "outer"] = "left",
     ) -> DataFrame:
         on = ensure_tuple(on)
-        p = self._underlying.join(
-            df._underlying,
-            on=[str(t) for t in on],
-            how=how,
-        )
+        on_names = [str(t) for t in on]
+        if polars_join_has_maintain_order:
+            # Newer polars does not guarantee join output order unless asked to. Preserve the
+            # left frame's row order (and append unmatched right rows for outer joins) so that
+            # results are deterministic.
+            p = self._underlying.join(
+                df._underlying,
+                on=on_names,
+                how=how,
+                maintain_order="left_right" if how == "outer" else "left",
+            )
+        else:
+            p = self._underlying.join(df._underlying, on=on_names, how=how)
         return DataFrame(p)
 
     def vstack(self, other: DataFrame) -> DataFrame:

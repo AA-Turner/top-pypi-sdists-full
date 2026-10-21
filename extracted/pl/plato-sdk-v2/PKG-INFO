@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: plato-sdk-v2
-Version: 2.177.0
+Version: 2.179.0
 Summary: Python SDK for the Plato API
 Author-email: Plato <support@plato.so>
 License-Expression: MIT
@@ -65,14 +65,16 @@ Python SDK for the Plato platform.
 
 ## Installation
 
+The package is private — install it from the Plato package index (it upstreams PyPI, so dependencies resolve normally):
+
 ```bash
-pip install plato-sdk-v2
+pip install plato-sdk-v2 --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"
 ```
 
 Or with uv:
 
 ```bash
-uv add plato-sdk-v2
+uv add plato-sdk-v2 --index "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"
 ```
 
 Agent support is in the base package — there is no `[agents]` extra. The declared

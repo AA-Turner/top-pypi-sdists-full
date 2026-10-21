@@ -261,7 +261,10 @@ class Case(Generic[OperationT]):
         # Only track components that were actually generated
         for location in self._meta.components:
             value = self.get_container(location)
-            hash_value = self._hash_container(value)
+            if location in self._meta._initial_hashes:
+                hash_value = self._meta._initial_hashes[location]
+            else:
+                hash_value = self._hash_container(value)
             self._meta.update_validated_hash(location, hash_value)
             # Snapshot the wire-form hash so revalidation can tell whether the
             # container is still the unmodified value produced by generation.
@@ -357,6 +360,41 @@ class Case(Generic[OperationT]):
                 self._revalidate_metadata()
         return self._meta
 
+    def freeze_metadata(self) -> None:
+        object.__setattr__(self, "_freeze_metadata", True)
+
+    def derive(
+        self,
+        *,
+        headers: CaseInsensitiveDict | None = None,
+        query: dict[str, Any] | None = None,
+        cookies: dict[str, Any] | None = None,
+        keep_auth: bool = False,
+    ) -> Case[OperationT]:
+        """Copy this case's request data under a fresh id.
+
+        Containers not passed are shallow-copied. Auth stays behind unless `keep_auth` is set, so a request
+        derived to probe the API never inherits the original's credentials by accident.
+        """
+        derived = Case(
+            operation=self.operation,
+            method=self.method,
+            path=self.path,
+            path_parameters=self.path_parameters.copy(),
+            headers=headers if headers is not None else self.headers.copy(),
+            cookies=cookies if cookies is not None else self.cookies.copy(),
+            query=query if query is not None else self.query.copy(),
+            body=self.body.copy() if isinstance(self.body, (list, dict)) else self.body,
+            media_type=self.media_type,
+            multipart_content_types=self.multipart_content_types,
+            meta=self.meta,
+        )
+        if keep_auth:
+            derived._auth = self._auth
+            derived._has_explicit_auth = self._has_explicit_auth
+            derived._auth_identity = self._auth_identity
+        return derived
+
     @property
     def formatted_path(self) -> str:
         """Path template with variables substituted (e.g., /users/{user_id} -> /users/123)."""
@@ -430,7 +468,7 @@ class Case(Generic[OperationT]):
             self._revalidate_metadata()
 
         # Freeze metadata to prevent revalidation after request preparation transforms the body
-        object.__setattr__(self, "_freeze_metadata", True)
+        self.freeze_metadata()
         object.__setattr__(self, "_base_url", base_url)
 
         if self.operation.app is not None:
@@ -537,7 +575,7 @@ class Case(Generic[OperationT]):
         )
         if not checks:
             # Default set: built-ins enabled in config + max_response_time + response checks.
-            checks = list(ctx._checks)
+            checks = list(ctx.internals.checks)
         checks = [
             check for check in list(checks) + list(additional_checks or []) if check not in set(excluded_checks or [])
         ]
@@ -584,8 +622,9 @@ class Case(Generic[OperationT]):
         if failures:
             _failures = list(failures)
             message = failure_report_title(_failures) + "\n"
-            verify = getattr(response, "verify", True)
-            curl = self.as_curl_command(headers=dict(response.request.headers), verify=verify, base_url=sent_base_url)
+            curl = self.as_curl_command(
+                headers=dict(response.request.headers), verify=response.verify, base_url=sent_base_url
+            )
             message += format_failures(
                 case_id=None,
                 response=response,

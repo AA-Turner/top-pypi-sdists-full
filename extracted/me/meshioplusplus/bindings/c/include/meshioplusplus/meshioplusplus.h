@@ -254,7 +254,7 @@ typedef struct mio_region_info {
  * project(... VERSION ...), so the copies cannot drift.
  */
 #define MIO_VERSION_MAJOR 17
-#define MIO_VERSION_MINOR 7
+#define MIO_VERSION_MINOR 10
 #define MIO_VERSION_PATCH 0
 #define MIO_VERSION (MIO_VERSION_MAJOR * 10000 + MIO_VERSION_MINOR * 100 + MIO_VERSION_PATCH)
 
@@ -2686,6 +2686,97 @@ MIO_API void mio_voxel_opts_init(mio_voxel_opts* opts);
 MIO_API mio_mesh* mio_grid(const int64_t dims[3], const double origin[3], const double spacing[3],
                            int64_t max_cells);
 
+/* ------------------------------------------------------------------------- */
+/* Parametric generators                                                     */
+/*                                                                           */
+/* mio_rectangle, mio_box, mio_disk, mio_uv_sphere, mio_icosa_sphere and      */
+/* mio_cylinder build a shape from parameters, like mio_grid, and              */
+/* mio_reference_cells builds one cell of each type in reference coordinates. */
+/* They share one options struct; each shape reads the fields its name        */
+/* suggests and ignores the rest. Boundaries come back as named side regions  */
+/* (xmin..zmax on a box, rim on a disk, side/top/bottom on a cylinder) and    */
+/* order 2 places the mid-edge nodes on the exact geometry. See               */
+/* doc/primitives.md for the point and cell order of every shape.             */
+/* ------------------------------------------------------------------------- */
+
+/** Which cell type a generator builds (MIO_GEN_DEFAULT is the shape's own default). */
+typedef enum mio_gen_cell {
+    MIO_GEN_DEFAULT = 0,    /**< the shape's default */
+    MIO_GEN_QUAD = 1,       /**< quad (rectangle, disk) or the quad body of a uv_sphere */
+    MIO_GEN_TRIANGLE = 2,   /**< triangle (rectangle, disk, uv_sphere) */
+    MIO_GEN_HEXAHEDRON = 3, /**< hexahedron (box, cylinder) */
+    MIO_GEN_TETRA = 4,      /**< tetra: six Kuhn tetrahedra per box cell */
+    MIO_GEN_WEDGE = 5       /**< wedge (box, cylinder) */
+} mio_gen_cell;
+
+/** How mio_rectangle splits a quad into triangles (MIO_GEN_TRIANGLE only). */
+typedef enum mio_gen_split {
+    MIO_GEN_SPLIT_ZIGZAG = 0, /**< alternating diagonals (the default) */
+    MIO_GEN_SPLIT_UP = 1,     /**< the diagonal from the lo corner */
+    MIO_GEN_SPLIT_DOWN = 2,   /**< the other diagonal */
+    MIO_GEN_SPLIT_CENTER = 3  /**< four triangles around a cell-centre node */
+} mio_gen_split;
+
+/**
+ * Options for the parametric generators.
+ *
+ * ABI NOTE: append-only, with a zeroed reserved tail. Always initialize
+ * through mio_gen_opts_init().
+ *
+ * Which fields each shape reads:
+ *  - mio_rectangle:   counts[0..1] (nx, ny), size[0..1], origin (lo corner);
+ *                     cell_type QUAD or TRIANGLE; split.
+ *  - mio_box:         counts[0..2], size[0..2], origin (lo corner); cell_type
+ *                     HEXAHEDRON, TETRA or WEDGE.
+ *  - mio_disk:        radius, counts[0] (n), origin (centre); cell_type QUAD or
+ *                     TRIANGLE.
+ *  - mio_uv_sphere:   radius, counts[0..1] (nu, nv), origin (centre); cell_type
+ *                     TRIANGLE or QUAD.
+ *  - mio_icosa_sphere: radius, counts[0] (subdivisions), origin (centre).
+ *  - mio_cylinder:    radius, height, counts[0..1] (nxy, nz), origin (centre);
+ *                     cell_type HEXAHEDRON or WEDGE.
+ * Every shape reads order and max_cells.
+ */
+typedef struct mio_gen_opts {
+    int64_t counts[3];   /**< cell or division counts; see the table above */
+    double size[3];      /**< side lengths of a rectangle or box */
+    double origin[3];    /**< lo corner of a rectangle or box, centre of the round shapes */
+    double radius;       /**< radius of a disk, sphere or cylinder */
+    double height;       /**< height of a cylinder */
+    int64_t max_cells;   /**< refuse above this many cells; 0 or less lifts the limit */
+    int32_t cell_type;   /**< a mio_gen_cell */
+    int32_t split;       /**< a mio_gen_split */
+    int32_t order;       /**< 1 (or 0) for linear cells, 2 for quadratic ones */
+    int32_t pad;         /**< must be zero */
+    int64_t reserved[6]; /**< must be zero; room for additive growth */
+} mio_gen_opts;
+
+/** Zero-initialize generator options: counts 8, unit size and radius, order 1. */
+MIO_API void mio_gen_opts_init(mio_gen_opts* opts);
+
+/** A regular 2-D grid of quads or triangles at z = origin[2]. @p opts NULL means defaults. */
+MIO_API mio_mesh* mio_rectangle(const mio_gen_opts* opts);
+/** A regular 3-D grid of hexahedra, tetrahedra or wedges. @p opts NULL means defaults. */
+MIO_API mio_mesh* mio_box(const mio_gen_opts* opts);
+/** A disk of quads (squircle map) or triangles (hexagonal rings). */
+MIO_API mio_mesh* mio_disk(const mio_gen_opts* opts);
+/** A latitude / longitude sphere surface, oriented outward. */
+MIO_API mio_mesh* mio_uv_sphere(const mio_gen_opts* opts);
+/** An icosahedron-based sphere surface, 20 * 4^subdivisions triangles. */
+MIO_API mio_mesh* mio_icosa_sphere(const mio_gen_opts* opts);
+/** A solid cylinder along z. */
+MIO_API mio_mesh* mio_cylinder(const mio_gen_opts* opts);
+/**
+ * One cell of each requested type in reference coordinates, side by side.
+ *
+ * @param types comma-separated meshio type names (for example
+ *              "tetra,hexahedron20,polyhedron"), or NULL or "" for every
+ *              supported type.
+ * @param pairs nonzero for two cells sharing a facet instead of one (linear
+ *              types only).
+ */
+MIO_API mio_mesh* mio_reference_cells(const char* types, int32_t pairs);
+
 /**
  * Build a regular grid around a mesh and keep the cells its fill rule selects.
  *
@@ -2702,6 +2793,104 @@ MIO_API mio_mesh* mio_grid(const int64_t dims[3], const double origin[3], const 
 MIO_API mio_mesh* mio_voxelize(const mio_mesh* mesh, const mio_voxel_opts* opts,
                                int64_t dims_out[3], double origin_out[3], double spacing_out[3],
                                int64_t* num_occupied);
+
+/** How strictly neighbouring octree leaves must agree in size. */
+typedef enum mio_octree_balance {
+    MIO_OCTREE_BALANCE_NONE = 0, /**< no balancing */
+    MIO_OCTREE_BALANCE_FACE = 1, /**< 2:1 across faces (edges in 2-D) */
+    MIO_OCTREE_BALANCE_FULL = 2  /**< 2:1 across faces, edges and corners */
+} mio_octree_balance;
+
+/** What the octree looks like where a fine leaf meets a coarse one. */
+typedef enum mio_octree_transition {
+    MIO_OCTREE_HANGING = 0,   /**< plain cells with hanging nodes (octree:hanging) */
+    MIO_OCTREE_POLYHEDRA = 1, /**< conforming split-hex polyhedra (polygons in 2-D) */
+    MIO_OCTREE_TEMPLATES = 2  /**< conforming hexahedra, pyramids and tetrahedra */
+} mio_octree_transition;
+
+/** The plane of a 2-D skin. */
+typedef enum mio_planar_plane {
+    MIO_PLANE_AUTO = 0, /**< the axis with zero extent, else z */
+    MIO_PLANE_XY = 1,
+    MIO_PLANE_XZ = 2,
+    MIO_PLANE_YZ = 3
+} mio_planar_plane;
+
+/**
+ * Options for mio_octree.
+ *
+ * ABI NOTE: the same append-only discipline as mio_voxel_opts. Always
+ * zero-initialize through mio_octree_opts_init().
+ */
+typedef struct mio_octree_opts {
+    /** Root cells per axis (three entries), or NULL for a single root cell. */
+    const int64_t* root_cells;
+    /** Explicit bounds {xlo, ylo, zlo, xhi, yhi, zhi}, or NULL for the skin's own. */
+    const double* bounds;
+    /** Grow the box by this on every side, in world units. */
+    double padding;
+    /** Grow the box by this fraction of its diagonal on every side. */
+    double padding_relative;
+    /** Refine further within this distance of the skin; 0 for only where it cuts. */
+    double sample_distance;
+    /** Every leaf is split down to at least this level. */
+    int64_t min_level;
+    /** No leaf is split beyond this level (at most 20). */
+    int64_t max_level;
+    /** 2 for a planar skin (quadtree), 3 for a surface, 0 to decide from the cells. */
+    int64_t dimension;
+    /** Refuse above this many leaves; 0 or less lifts the limit. */
+    int64_t max_cells;
+    int32_t balance;          /**< a mio_octree_balance */
+    int32_t fill;             /**< a mio_voxel_fill */
+    int32_t attach_distance;  /**< nonzero to attach sdf:distance at leaf centres */
+    int32_t even_odd;         /**< nonzero: the 2-D even-odd rule instead of winding */
+    int32_t sign;             /**< a mio_sdf_sign, used by MIO_VOXEL_INSIDE in 3-D */
+    int32_t watertight_check; /**< a mio_sdf_watertight_check */
+    /** Name of a point_data array of target edge lengths, or NULL. */
+    const char* size_array;
+    /** Refine to max_level where |mean curvature| exceeds this (3-D); 0 disables. */
+    double curvature_threshold;
+    /** Refine to max_level along edges sharper than this many degrees (3-D); 0 disables. */
+    double feature_angle;
+    /** Cut leaves are split down to this level; negative means max_level. */
+    int64_t surface_level;
+    int32_t transition; /**< a mio_octree_transition */
+    int32_t snap;       /**< nonzero to move the outer nodes onto the skin */
+    int32_t plane;      /**< a mio_planar_plane (2-D skins) */
+    int32_t reserved32; /**< must be zero */
+    int64_t reserved[4]; /**< must be zero; room for additive growth */
+} mio_octree_opts;
+
+/** What mio_octree reports about the tree it built. */
+typedef struct mio_octree_report {
+    int64_t dimension;     /**< 2 (quadtree) or 3 (octree) */
+    int64_t num_leaves;    /**< leaves kept */
+    int64_t num_hanging;   /**< hanging nodes in the output */
+    int64_t finest_level;  /**< deepest level present */
+    double origin[3];      /**< lo corner of the root lattice */
+    double root_size;      /**< edge length of a root cell */
+    int64_t num_snapped;   /**< outer nodes moved onto the skin */
+    int64_t num_refused;   /**< outer nodes left in place to keep a leaf valid */
+    int64_t reserved[2];   /**< zeroed */
+} mio_octree_report;
+
+/** Zero-initialize octree options (every field its default). */
+MIO_API void mio_octree_opts_init(mio_octree_opts* opts);
+
+/**
+ * Build an octree (quadtree for a planar `line` skin) around a mesh: leaves are
+ * fine only where the skin is. The result is an ordinary mesh of hexahedra
+ * (quads) in Morton order with `octree:level` and `octree:cut` cell data and
+ * `octree:hanging` point data.
+ *
+ * @param mesh   the skin.
+ * @param opts   options, or NULL for the defaults.
+ * @param report receives the tree's summary, or NULL.
+ * @return the leaves (free with mio_mesh_free), or NULL on failure.
+ */
+MIO_API mio_mesh* mio_octree(const mio_mesh* mesh, const mio_octree_opts* opts,
+                             mio_octree_report* report);
 
 /**
  * Report what is wrong with a surface, without computing any distances.
@@ -4462,10 +4651,30 @@ typedef struct mio_segment_opts {
     double curvature_tolerance;
     /** Patches with fewer cells merge into a neighbour; >= 1. */
     int64_t min_patch_cells;
-    int64_t reserved[6]; /**< must be zero; room for additive growth */
+    /** How a patch ends (v17.9.0, was reserved): a mio_segment_method; 0
+     *  (MIO_SEGMENT_ANGLE) is the behaviour before the field existed. */
+    int32_t method;
+    int32_t reserved32; /**< must be zero */
+    /** MIO_SEGMENT_PRIMITIVE only (v17.9.0, was reserved): how far a point
+     *  may lie from its patch's primitive, relative to the bounding-box
+     *  diagonal; <= 0 takes 1e-3. */
+    double tolerance;
+    int64_t reserved[4]; /**< must be zero; room for additive growth */
 } mio_segment_opts;
 
-/** Initialize segment options: 30 degrees, no tolerances, min_patch_cells 1. */
+/** mio_segment_opts.method (v17.9.0). */
+typedef enum mio_segment_method {
+    /** By angles alone: a patch grows across every smooth edge. */
+    MIO_SEGMENT_ANGLE = 0,
+    /** By the surfaces the facets lie on: a smooth area one plane, sphere,
+     *  cylinder, cone or torus explains is one patch, any other is split into
+     *  the regions primitives explain (a fillet apart from its tangent
+     *  planes); see doc/segment.md. */
+    MIO_SEGMENT_PRIMITIVE = 1
+} mio_segment_method;
+
+/** Initialize segment options: 30 degrees, no tolerances, min_patch_cells 1,
+ *  the angle method, a primitive tolerance of 1e-3. */
 MIO_API void mio_segment_opts_init(mio_segment_opts* opts);
 
 /** What mio_segment found. */
@@ -4596,13 +4805,35 @@ typedef struct mio_fit_cad_opts {
      *  tried as a straight-flank thread face ("fit_cad:type" 8). On after
      *  mio_fit_cad_opts_init; a zero-filled struct keeps it off. */
     int32_t threads;
-    int32_t reserved1;   /**< must be zero */
-    int64_t reserved[2]; /**< must be zero; room for additive growth */
+    /** Nonzero: faces on one surface are merged and collinear edges joined
+     *  once the solid is built, kept only when it stays valid (v17.9.0, was
+     *  reserved). On after mio_fit_cad_opts_init; a zero-filled struct keeps
+     *  it off. */
+    int32_t merge_faces;
+    /** The engine, a mio_fit_cad_backend (v17.9.0, was reserved); 0
+     *  (MIO_FIT_CAD_AUTO) is OpenCASCADE when the library carries it, else
+     *  the kernel-free native backend. */
+    int32_t backend;
+    int32_t reserved32;  /**< must be zero */
+    int64_t reserved[1]; /**< must be zero; room for additive growth */
 } mio_fit_cad_opts;
+
+/** mio_fit_cad_opts.backend (v17.9.0). */
+typedef enum mio_fit_cad_backend {
+    /** OpenCASCADE when this library carries it, else MIO_FIT_CAD_NATIVE. */
+    MIO_FIT_CAD_AUTO = 0,
+    /** OpenCASCADE: trimmed, sewn and checked faces, freeform, fillet and
+     *  thread faces; fails in a build without it. */
+    MIO_FIT_CAD_OCCT = 1,
+    /** No CAD kernel: the fitted patches become analytic STEP faces and the
+     *  rest coplanar polygons; the returned mesh is the skin itself. */
+    MIO_FIT_CAD_NATIVE = 2
+} mio_fit_cad_backend;
 
 /** Initialize fit_cad options: automatic tolerance and deflection, 8 rounds,
  *  exact edges, every type, freeform faces of degree 3 on up to 64 x 64,
- *  freeform splitting, fillet faces and thread faces. */
+ *  freeform splitting, fillet faces, thread faces, merged faces and the
+ *  automatic backend. */
 MIO_API void mio_fit_cad_opts_init(mio_fit_cad_opts* opts);
 
 /** What mio_fit_cad built. */
@@ -4647,11 +4878,15 @@ typedef struct mio_fit_cad_report_ex {
     int64_t num_conic_blend;  /**< of the fillet faces, the conic blends */
     int64_t num_tapered_thread;        /**< of the helical faces, those cut on a taper */
     int64_t num_variable_pitch_thread; /**< of the helical faces, those of varying pitch */
-    int64_t reserved[11];              /**< zero; room for additive growth */
+    /** The engine that built the solid: MIO_FIT_CAD_OCCT or MIO_FIT_CAD_NATIVE
+     *  (v17.9.0, was reserved). */
+    int64_t backend;
+    int64_t reserved[10]; /**< zero; room for additive growth */
 } mio_fit_cad_report_ex;
 
 /** Nonzero when this library was built with the OpenCASCADE backend
- *  (-DMESHIOPLUSPLUS_WITH_OCCT=ON) that mio_fit_cad needs. */
+ *  (-DMESHIOPLUSPLUS_WITH_OCCT=ON) that mio_fit_cad's MIO_FIT_CAD_OCCT
+ *  backend needs. */
 MIO_API int mio_has_occt(void);
 
 /**
@@ -4660,14 +4895,19 @@ MIO_API int mio_has_occt(void);
  * 1 to 5, as mio_fit_type), a patch no primitive explains a rolling-ball
  * fillet or conic blend (7), thread flank (8), chamfer (10) or freeform
  * B-spline (6) face where one fits, a corner where three or more blends meet
- * a vertex blend (9), the rest planar facets (0), sewn and checked by
+ * a vertex blend (9), the rest coplanar polygons (0), sewn and checked by
  * OpenCASCADE; a face that fails the check or
- * strays beyond the tolerance is demoted to facets. Without "segment:patch" or
- * the "fit:patch_*" table, segment and fit_primitives run first with their
+ * strays beyond the tolerance is demoted to facets. Without "segment:patch",
+ * segment runs first with the primitive method and fit_primitives at its
+ * tolerance; without the "fit:patch_*" table, fit_primitives with its
  * defaults. See doc/fit_cad.md.
  *
- * Fails (NULL, with mio_last_error() naming -DMESHIOPLUSPLUS_WITH_OCCT=ON) in
- * a build without OpenCASCADE; mio_has_occt() tells in advance.
+ * Without OpenCASCADE (or with MIO_FIT_CAD_NATIVE), the native backend writes
+ * the fitted patches as analytic STEP faces and the rest as coplanar polygons,
+ * and returns the skin itself with the "fit_cad:*" cell data; its volumes
+ * are NaN. MIO_FIT_CAD_OCCT fails (NULL, with mio_last_error() naming
+ * -DMESHIOPLUSPLUS_WITH_OCCT=ON) in a build without it; mio_has_occt() tells
+ * in advance.
  *
  * @param mesh      a closed, consistently wound surface mesh.
  * @param step_path write the solid here as AP214 STEP; NULL or "" writes nothing.

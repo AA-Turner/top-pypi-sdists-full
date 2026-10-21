@@ -22,6 +22,7 @@ Timing and memory are measured in the same job and travel in the same two
 artifacts, so the counts pinned below cover both.
 """
 
+import json
 from pathlib import Path
 import re
 from types import SimpleNamespace
@@ -125,7 +126,15 @@ def _make_recipe(target: str) -> str:
 # timings: importing numba costs resident memory, so a `memory-ci` run in a
 # development environment - which has numba, because `make install` syncs
 # --all-groups - records a footprint the plain install never has.
-MEASUREMENT_TARGETS = ("benchmarks", "benchmarks-ci", "latency", "memory", "memory-ci")
+MEASUREMENT_TARGETS = (
+    "benchmarks",
+    "benchmarks-ci",
+    "latency",
+    "memory",
+    "memory-ci",
+    "batch-break-even",
+    "shortcut-calibration",
+)
 
 
 @pytest.mark.unit
@@ -134,6 +143,23 @@ def test_every_measurement_target_asserts_its_acceleration_path(target: str) -> 
     assert "scripts.assert_acceleration_path" in _make_recipe(target), (
         f"make {target} can measure whichever backend the caller's environment "
         "happens to bind instead of refusing a report for the wrong implementation"
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("target", MEASUREMENT_TARGETS)
+def test_every_measurement_target_also_refuses_a_numba_environment(target: str) -> None:
+    """``--expect clang`` stopped implying "and no numba" when the dispatch changed.
+
+    The C extension now outranks numba, so a stray numba install binds clang all the
+    same and the active-path assertion passes - while the process still imports numba,
+    which inflates the footprint ``memory`` records and JIT-compiles the kernels
+    ``benchmarks`` times under trend-chart node ids. Only the interpreted half of the
+    assertion can refuse that environment now.
+    """
+    assert "--expect-interpreted" in _make_recipe(target), (
+        f"make {target} accepts an environment with numba installed, whose resident "
+        "memory and utils_numba kernels are not the tracked configuration's"
     )
 
 
@@ -156,6 +182,29 @@ def test_the_report_job_uploads_read_only_commit_bound_pages(
     assert '--commit "$GITHUB_SHA"' in scripts
     uploads = _steps_using(benchmark_workflow, "render-reports", UPLOAD_ACTION)
     assert [step["with"]["name"] for step in uploads] == ["benchmark-pages"]
+
+
+@pytest.mark.unit
+def test_the_report_job_renders_the_selected_groups_and_stages_exactly_those(
+    benchmark_workflow: dict[Any, Any],
+) -> None:
+    """Measuring one set of groups and staging another would install pages the run
+    never measured, or drop the ones it did."""
+    dispatch_inputs = benchmark_workflow[True]["workflow_dispatch"]["inputs"]
+    assert dispatch_inputs["reports"]["default"] == "all"
+    steps = benchmark_workflow["jobs"]["render-reports"]["steps"]
+    render = next(step for step in steps if "make reports" in str(step.get("run", "")))
+    stage = next(
+        step
+        for step in steps
+        if "benchmark_report_artifact stage" in str(step.get("run", ""))
+    )
+    for step in (render, stage):
+        # free text from the dispatch form, so through env and never interpolated
+        assert step["env"]["REPORTS"] == "${{ inputs.reports || 'all' }}"
+        assert "${{" not in step["run"]
+    assert 'REPORTS="$REPORTS"' in render["run"]
+    assert '--reports "$REPORTS"' in stage["run"]
 
 
 @pytest.mark.unit
@@ -226,9 +275,25 @@ TRIGGER_TABLE: tuple[tuple[str, dict[str, Any], set[str]], ...] = (
         },
         {"render-reports"},
     ),
+    (
+        "shortcut calibration dispatch",
+        {
+            "event_name": "workflow_dispatch",
+            "ref": "refs/heads/master",
+            "inputs": {"calibrate_shortcuts": True},
+        },
+        {"calibrate-shortcuts"},
+    ),
 )
 
-GATED_JOBS = ("plan", "measure", "track", "noise", "render-reports")
+GATED_JOBS = (
+    "plan",
+    "measure",
+    "track",
+    "noise",
+    "render-reports",
+    "calibrate-shortcuts",
+)
 
 _EXPRESSION_TOKENS = (("&&", " and "), ("||", " or "), ("!", " not "))
 
@@ -249,9 +314,13 @@ def _evaluate(expression: str, context: dict[str, Any]) -> bool:
         body = body.replace(token, python)
     namespace = {
         "github": SimpleNamespace(event_name=context["event_name"], ref=context["ref"]),
-        "inputs": SimpleNamespace(**(context["inputs"] or {}))
-        if context["inputs"]
-        else SimpleNamespace(render_reports=None),
+        "inputs": SimpleNamespace(
+            **{
+                "render_reports": None,
+                "calibrate_shortcuts": None,
+                **(context["inputs"] or {}),
+            }
+        ),
         "startsWith": lambda value, prefix: str(value).startswith(prefix),
     }
     return bool(eval(body, {"__builtins__": {}}, namespace))  # noqa: S307
@@ -308,6 +377,38 @@ def test_the_manual_report_dispatch_survives(
     condition = str(benchmark_workflow["jobs"]["render-reports"]["if"])
     assert "inputs.render_reports" in condition
     assert "render_reports" in benchmark_workflow[True]["workflow_dispatch"]["inputs"]
+
+
+@pytest.mark.unit
+def test_shortcut_calibration_is_an_explicit_measurement_never_a_gate(
+    benchmark_workflow: dict[Any, Any],
+) -> None:
+    # Ordering never changes an answer, so a stale calibration costs speed, not
+    # correctness: no job that runs on its own may fail on it.
+    for name, job in benchmark_workflow["jobs"].items():
+        if name != "calibrate-shortcuts":
+            assert "shortcut-calibration" not in json.dumps(job), name
+    job = benchmark_workflow["jobs"]["calibrate-shortcuts"]
+    scripts = "\n".join(str(step.get("run", "")) for step in job["steps"])
+    assert "make shortcut-calibration" in scripts
+    assert "assert_acceleration_path" in scripts
+    uploads = _steps_using(benchmark_workflow, "calibrate-shortcuts", UPLOAD_ACTION)
+    assert [step["with"]["name"] for step in uploads] == [
+        "shortcut-ordering-calibration"
+    ]
+
+
+@pytest.mark.unit
+def test_shortcut_calibration_pins_plain_clang_and_current_data() -> None:
+    recipe = _make_recipe("shortcut-calibration")
+    assert "$(BENCHMARK_ENV_PLAIN)" in recipe
+    assert "scripts.assert_acceleration_path" in recipe
+    target = (
+        MAKEFILE.read_text(encoding="utf-8")
+        .split("shortcut-calibration:", maxsplit=1)[1]
+        .splitlines()[0]
+    )
+    assert "check-data" in target
 
 
 @pytest.mark.unit
@@ -505,3 +606,62 @@ def test_the_comparison_is_posted_anew_rather_than_edited_in_place(
         "before posting the new one. A failure in between then leaves the "
         "pull request with no comparison at all - post first, delete after."
     )
+
+
+@pytest.mark.unit
+def test_the_benchmark_workflow_asserts_both_halves_of_the_path() -> None:
+    """Both measured checkouts, head and merge base, or the comparison is not paired.
+
+    The workflow asserts the path itself rather than trusting its own
+    ``uv sync --group test``, for the reason the Makefile does; since the extension
+    outranks numba, that assertion needs the interpreted half too.
+    """
+    workflow = BENCHMARK_WORKFLOW.read_text(encoding="utf-8")
+
+    assertions = workflow.count("scripts.assert_acceleration_path")
+    assert assertions, "benchmark.yml no longer asserts the acceleration path at all"
+    assert workflow.count("--expect-interpreted") == assertions, (
+        "an acceleration-path assertion in benchmark.yml no longer refuses an "
+        "environment with numba installed"
+    )
+
+
+# What the per-pull-request comparison measures can only move when one of these does.
+# Anything wider runs a 2-pass, double-build job on changes that cannot move a number;
+# anything narrower lets a change to the measured path go unmeasured.
+MEASURED_INPUT_PATHS = {
+    "timezonefinder/**",
+    "packages/timezonefinder-data/**",
+    "benchmarks/conftest.py",
+    "benchmarks/test_timezone_finding.py",
+    "tests/fixtures/benchmarks/**",
+    "tests/auxiliaries.py",
+    "scripts/measure_memory.py",
+    "scripts/_memory_probe.py",
+    "setup.py",
+    "pyproject.toml",
+    "uv.lock",
+    ".github/workflows/benchmark.yml",
+}
+
+
+@pytest.mark.unit
+def test_the_comparison_runs_only_when_a_measured_input_changes(
+    benchmark_workflow: dict[Any, Any],
+) -> None:
+    paths = benchmark_workflow[True]["pull_request"]["paths"]
+    assert set(paths) == MEASURED_INPUT_PATHS
+    assert len(paths) == len(set(paths))
+
+
+@pytest.mark.unit
+def test_every_core_benchmark_lives_in_a_file_the_filter_watches() -> None:
+    """A `benchmark_core` case moved to another file would stop triggering the
+    comparison that tracks it, with nothing red anywhere."""
+    holding_core = {
+        f"benchmarks/{path.name}"
+        for path in (PROJECT_ROOT / "benchmarks").glob("test_*.py")
+        if "pytest.mark.benchmark_core" in path.read_text(encoding="utf-8")
+    }
+    assert holding_core
+    assert holding_core <= MEASURED_INPUT_PATHS

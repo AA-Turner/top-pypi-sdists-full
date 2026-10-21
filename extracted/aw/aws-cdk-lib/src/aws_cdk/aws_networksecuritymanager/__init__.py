@@ -241,6 +241,15 @@ class CfnDeployment(
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''An ISO 8601 timestamp indicating when the deployment was last modified.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrVersion")
     def attr_version(self) -> builtins.str:
         '''The version number.
@@ -689,6 +698,743 @@ class CfnDeploymentProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networksecuritymanager_a06671e9.IPolicyRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnPolicy(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_networksecuritymanager.CfnPolicy",
+):
+    '''Resource Type definition for AWS::NetworkSecurityManager::Policy.
+
+    Creates and manages a Network Security Manager policy.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html
+    :cloudformationResource: AWS::NetworkSecurityManager::Policy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_networksecuritymanager as networksecuritymanager
+        
+        cfn_policy = networksecuritymanager.CfnPolicy(self, "MyCfnPolicy",
+            firewall_type="firewallType",
+            policy_configuration=networksecuritymanager.CfnPolicy.PolicyConfigurationProperty(
+                remediation_enabled=False,
+                resources_clean_up=False,
+                waf_config=networksecuritymanager.CfnPolicy.WafConfigProperty(
+                    conflict_resolution="conflictResolution",
+                    existing_customer_web_acl_resolution="existingCustomerWebAclResolution"
+                )
+            ),
+            policy_name="policyName",
+            priority=123,
+        
+            # the properties below are optional
+            associated_template_and_rule_list=[networksecuritymanager.CfnPolicy.AssociatedTemplateAndRuleProperty(
+                rule_arn="ruleArn",
+                template_arn="templateArn"
+            )],
+            policy_description="policyDescription",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        firewall_type: builtins.str,
+        policy_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.PolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        policy_name: builtins.str,
+        priority: jsii.Number,
+        associated_template_and_rule_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.AssociatedTemplateAndRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policy_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::NetworkSecurityManager::Policy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param firewall_type: The type of firewall.
+        :param policy_configuration: Configuration settings for policy behavior.
+        :param policy_name: The name of the policy.
+        :param priority: The priority of the policy.
+        :param associated_template_and_rule_list: List of templates and rules associated with this policy.
+        :param policy_description: A description of the policy.
+        :param tags: The tags associated with the policy.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e455d8af87a638174f344d9a93d7603b20ba5eb09596bb904ec2fd74cc5ce3d3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPolicyProps(
+            firewall_type=firewall_type,
+            policy_configuration=policy_configuration,
+            policy_name=policy_name,
+            priority=priority,
+            associated_template_and_rule_list=associated_template_and_rule_list,
+            policy_description=policy_description,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForPolicy")
+    @builtins.classmethod
+    def arn_for_policy(
+        cls,
+        resource: "_aws_networksecuritymanager_a06671e9.IPolicyRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b095f3e022eeefa5110592d7571739da7549a8be5f0b8f265c1d56889317f795)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPolicy", [resource]))
+
+    @jsii.member(jsii_name="isCfnPolicy")
+    @builtins.classmethod
+    def is_cfn_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__81843608d40596bdfec2ed93e7c070999c60ed3e2284da5ff4b6c29cc53a6c21)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6081c17a0ed16f1abac4add790966f09c5b4b231547e20dd99297f1697845f8c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__556b5797c35eb8b15df7dc91407356bbde61e40e66a67ad5e88c22a5f93e6962)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyArn")
+    def attr_policy_arn(self) -> builtins.str:
+        '''The ARN of the policy.
+
+        :cloudformationAttribute: PolicyArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyId")
+    def attr_policy_id(self) -> builtins.str:
+        '''The unique identifier of the policy.
+
+        :cloudformationAttribute: PolicyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the policy.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''An ISO 8601 timestamp indicating when the policy was last modified.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersion")
+    def attr_version(self) -> builtins.str:
+        '''The version number.
+
+        :cloudformationAttribute: Version
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrVersion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "_aws_networksecuritymanager_a06671e9.PolicyReference":
+        '''A reference to a Policy resource.'''
+        return typing.cast("_aws_networksecuritymanager_a06671e9.PolicyReference", jsii.get(self, "policyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="firewallType")
+    def firewall_type(self) -> builtins.str:
+        '''The type of firewall.'''
+        return typing.cast(builtins.str, jsii.get(self, "firewallType"))
+
+    @firewall_type.setter
+    def firewall_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3689b76c694f1cbcb15847ed12fcc71fc4de945907b84ec480460ddd342006b7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "firewallType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyConfiguration")
+    def policy_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.PolicyConfigurationProperty"]:
+        '''Configuration settings for policy behavior.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.PolicyConfigurationProperty"], jsii.get(self, "policyConfiguration"))
+
+    @policy_configuration.setter
+    def policy_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.PolicyConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__85fe1123c733f774b5881dc32e28c60085600f5f2e10cb5b3f86b0fff3a71536)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @policy_name.setter
+    def policy_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d056ce533e7118a721b0fd7f581ee6faad5d0ab568d8a8407a8a3ab7c926ad8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="priority")
+    def priority(self) -> jsii.Number:
+        '''The priority of the policy.'''
+        return typing.cast(jsii.Number, jsii.get(self, "priority"))
+
+    @priority.setter
+    def priority(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5af51aaf48b615b9d972230f14ae3e9998750105fde8b6cf6a663950a85eea6c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "priority", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="associatedTemplateAndRuleList")
+    def associated_template_and_rule_list(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.AssociatedTemplateAndRuleProperty"]]]]:
+        '''List of templates and rules associated with this policy.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.AssociatedTemplateAndRuleProperty"]]]], jsii.get(self, "associatedTemplateAndRuleList"))
+
+    @associated_template_and_rule_list.setter
+    def associated_template_and_rule_list(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.AssociatedTemplateAndRuleProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5d6d0649064408e9f07375e685a9c0f377b816a338cedfde7d5ad3ba47b631dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "associatedTemplateAndRuleList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDescription")
+    def policy_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "policyDescription"))
+
+    @policy_description.setter
+    def policy_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__146edd331f95c9894b839e912f3c5e3c9e5db99b266e9f6c120c8877f57a54d3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the policy.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__317966e71a07d6489f5a99a868ec2bf13dae386c29fc0f76d96a686f90b0de86)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networksecuritymanager.CfnPolicy.AssociatedTemplateAndRuleProperty",
+        jsii_struct_bases=[],
+        name_mapping={"rule_arn": "ruleArn", "template_arn": "templateArn"},
+    )
+    class AssociatedTemplateAndRuleProperty:
+        def __init__(
+            self,
+            *,
+            rule_arn: typing.Optional[builtins.str] = None,
+            template_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Associates either a template or a rule with a policy.
+
+            :param rule_arn: ARN of the associated rule.
+            :param template_arn: ARN of the associated template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-associatedtemplateandrule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networksecuritymanager as networksecuritymanager
+                
+                associated_template_and_rule_property = networksecuritymanager.CfnPolicy.AssociatedTemplateAndRuleProperty(
+                    rule_arn="ruleArn",
+                    template_arn="templateArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__22f88dff79c8071f59256fe33147daa14194ec6b52ee1ee0552d8d7b1587e6f0)
+                check_type(argname="argument rule_arn", value=rule_arn, expected_type=type_hints["rule_arn"])
+                check_type(argname="argument template_arn", value=template_arn, expected_type=type_hints["template_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if rule_arn is not None:
+                self._values["rule_arn"] = rule_arn
+            if template_arn is not None:
+                self._values["template_arn"] = template_arn
+
+        @builtins.property
+        def rule_arn(self) -> typing.Optional[builtins.str]:
+            '''ARN of the associated rule.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-associatedtemplateandrule.html#cfn-networksecuritymanager-policy-associatedtemplateandrule-rulearn
+            '''
+            result = self._values.get("rule_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def template_arn(self) -> typing.Optional[builtins.str]:
+            '''ARN of the associated template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-associatedtemplateandrule.html#cfn-networksecuritymanager-policy-associatedtemplateandrule-templatearn
+            '''
+            result = self._values.get("template_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AssociatedTemplateAndRuleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networksecuritymanager.CfnPolicy.PolicyConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "remediation_enabled": "remediationEnabled",
+            "resources_clean_up": "resourcesCleanUp",
+            "waf_config": "wafConfig",
+        },
+    )
+    class PolicyConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            remediation_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            resources_clean_up: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            waf_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.WafConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration settings for policy behavior.
+
+            :param remediation_enabled: Controls automatic remediation of non-compliant resources.
+            :param resources_clean_up: Controls automatic cleanup of unused resources.
+            :param waf_config: WAF-specific policy settings. Populated only for WAF firewall type policies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-policyconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networksecuritymanager as networksecuritymanager
+                
+                policy_configuration_property = networksecuritymanager.CfnPolicy.PolicyConfigurationProperty(
+                    remediation_enabled=False,
+                    resources_clean_up=False,
+                    waf_config=networksecuritymanager.CfnPolicy.WafConfigProperty(
+                        conflict_resolution="conflictResolution",
+                        existing_customer_web_acl_resolution="existingCustomerWebAclResolution"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__759ff63568a360d5f4dd2fd4ebfa70ddb6c3ad174bf1a984add0075380b24d7a)
+                check_type(argname="argument remediation_enabled", value=remediation_enabled, expected_type=type_hints["remediation_enabled"])
+                check_type(argname="argument resources_clean_up", value=resources_clean_up, expected_type=type_hints["resources_clean_up"])
+                check_type(argname="argument waf_config", value=waf_config, expected_type=type_hints["waf_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if remediation_enabled is not None:
+                self._values["remediation_enabled"] = remediation_enabled
+            if resources_clean_up is not None:
+                self._values["resources_clean_up"] = resources_clean_up
+            if waf_config is not None:
+                self._values["waf_config"] = waf_config
+
+        @builtins.property
+        def remediation_enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Controls automatic remediation of non-compliant resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-policyconfiguration.html#cfn-networksecuritymanager-policy-policyconfiguration-remediationenabled
+            '''
+            result = self._values.get("remediation_enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def resources_clean_up(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Controls automatic cleanup of unused resources.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-policyconfiguration.html#cfn-networksecuritymanager-policy-policyconfiguration-resourcescleanup
+            '''
+            result = self._values.get("resources_clean_up")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def waf_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.WafConfigProperty"]]:
+            '''WAF-specific policy settings.
+
+            Populated only for WAF firewall type policies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-policyconfiguration.html#cfn-networksecuritymanager-policy-policyconfiguration-wafconfig
+            '''
+            result = self._values.get("waf_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.WafConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_networksecuritymanager.CfnPolicy.WafConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "conflict_resolution": "conflictResolution",
+            "existing_customer_web_acl_resolution": "existingCustomerWebAclResolution",
+        },
+    )
+    class WafConfigProperty:
+        def __init__(
+            self,
+            *,
+            conflict_resolution: builtins.str,
+            existing_customer_web_acl_resolution: builtins.str,
+        ) -> None:
+            '''WAF-specific policy settings.
+
+            Populated only for WAF firewall type policies.
+
+            :param conflict_resolution: Conflict-resolution strategy applied to AWS WAF policies.
+            :param existing_customer_web_acl_resolution: Controls how Network Security Manager handles remediation when a resource already has a customer-created WebACL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-wafconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_networksecuritymanager as networksecuritymanager
+                
+                waf_config_property = networksecuritymanager.CfnPolicy.WafConfigProperty(
+                    conflict_resolution="conflictResolution",
+                    existing_customer_web_acl_resolution="existingCustomerWebAclResolution"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e9462811bb77e5368b20d6847fd3b99806812e7301d7f6f435c3011ad7ce461c)
+                check_type(argname="argument conflict_resolution", value=conflict_resolution, expected_type=type_hints["conflict_resolution"])
+                check_type(argname="argument existing_customer_web_acl_resolution", value=existing_customer_web_acl_resolution, expected_type=type_hints["existing_customer_web_acl_resolution"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "conflict_resolution": conflict_resolution,
+                "existing_customer_web_acl_resolution": existing_customer_web_acl_resolution,
+            }
+
+        @builtins.property
+        def conflict_resolution(self) -> builtins.str:
+            '''Conflict-resolution strategy applied to AWS WAF policies.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-wafconfig.html#cfn-networksecuritymanager-policy-wafconfig-conflictresolution
+            '''
+            result = self._values.get("conflict_resolution")
+            assert result is not None, "Required property 'conflict_resolution' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def existing_customer_web_acl_resolution(self) -> builtins.str:
+            '''Controls how Network Security Manager handles remediation when a resource already has a customer-created WebACL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-networksecuritymanager-policy-wafconfig.html#cfn-networksecuritymanager-policy-wafconfig-existingcustomerwebaclresolution
+            '''
+            result = self._values.get("existing_customer_web_acl_resolution")
+            assert result is not None, "Required property 'existing_customer_web_acl_resolution' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WafConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_networksecuritymanager.CfnPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "firewall_type": "firewallType",
+        "policy_configuration": "policyConfiguration",
+        "policy_name": "policyName",
+        "priority": "priority",
+        "associated_template_and_rule_list": "associatedTemplateAndRuleList",
+        "policy_description": "policyDescription",
+        "tags": "tags",
+    },
+)
+class CfnPolicyProps:
+    def __init__(
+        self,
+        *,
+        firewall_type: builtins.str,
+        policy_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.PolicyConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        policy_name: builtins.str,
+        priority: jsii.Number,
+        associated_template_and_rule_list: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnPolicy.AssociatedTemplateAndRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policy_description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicy``.
+
+        :param firewall_type: The type of firewall.
+        :param policy_configuration: Configuration settings for policy behavior.
+        :param policy_name: The name of the policy.
+        :param priority: The priority of the policy.
+        :param associated_template_and_rule_list: List of templates and rules associated with this policy.
+        :param policy_description: A description of the policy.
+        :param tags: The tags associated with the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_networksecuritymanager as networksecuritymanager
+            
+            cfn_policy_props = networksecuritymanager.CfnPolicyProps(
+                firewall_type="firewallType",
+                policy_configuration=networksecuritymanager.CfnPolicy.PolicyConfigurationProperty(
+                    remediation_enabled=False,
+                    resources_clean_up=False,
+                    waf_config=networksecuritymanager.CfnPolicy.WafConfigProperty(
+                        conflict_resolution="conflictResolution",
+                        existing_customer_web_acl_resolution="existingCustomerWebAclResolution"
+                    )
+                ),
+                policy_name="policyName",
+                priority=123,
+            
+                # the properties below are optional
+                associated_template_and_rule_list=[networksecuritymanager.CfnPolicy.AssociatedTemplateAndRuleProperty(
+                    rule_arn="ruleArn",
+                    template_arn="templateArn"
+                )],
+                policy_description="policyDescription",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__95fd24ed0adaea48b3049483dea0605c0cf80984e5a6644c8acad0107be40dab)
+            check_type(argname="argument firewall_type", value=firewall_type, expected_type=type_hints["firewall_type"])
+            check_type(argname="argument policy_configuration", value=policy_configuration, expected_type=type_hints["policy_configuration"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument priority", value=priority, expected_type=type_hints["priority"])
+            check_type(argname="argument associated_template_and_rule_list", value=associated_template_and_rule_list, expected_type=type_hints["associated_template_and_rule_list"])
+            check_type(argname="argument policy_description", value=policy_description, expected_type=type_hints["policy_description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "firewall_type": firewall_type,
+            "policy_configuration": policy_configuration,
+            "policy_name": policy_name,
+            "priority": priority,
+        }
+        if associated_template_and_rule_list is not None:
+            self._values["associated_template_and_rule_list"] = associated_template_and_rule_list
+        if policy_description is not None:
+            self._values["policy_description"] = policy_description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def firewall_type(self) -> builtins.str:
+        '''The type of firewall.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html#cfn-networksecuritymanager-policy-firewalltype
+        '''
+        result = self._values.get("firewall_type")
+        assert result is not None, "Required property 'firewall_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def policy_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.PolicyConfigurationProperty"]:
+        '''Configuration settings for policy behavior.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html#cfn-networksecuritymanager-policy-policyconfiguration
+        '''
+        result = self._values.get("policy_configuration")
+        assert result is not None, "Required property 'policy_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.PolicyConfigurationProperty"], result)
+
+    @builtins.property
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html#cfn-networksecuritymanager-policy-policyname
+        '''
+        result = self._values.get("policy_name")
+        assert result is not None, "Required property 'policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def priority(self) -> jsii.Number:
+        '''The priority of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html#cfn-networksecuritymanager-policy-priority
+        '''
+        result = self._values.get("priority")
+        assert result is not None, "Required property 'priority' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def associated_template_and_rule_list(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.AssociatedTemplateAndRuleProperty"]]]]:
+        '''List of templates and rules associated with this policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html#cfn-networksecuritymanager-policy-associatedtemplateandrulelist
+        '''
+        result = self._values.get("associated_template_and_rule_list")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnPolicy.AssociatedTemplateAndRuleProperty"]]]], result)
+
+    @builtins.property
+    def policy_description(self) -> typing.Optional[builtins.str]:
+        '''A description of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html#cfn-networksecuritymanager-policy-policydescription
+        '''
+        result = self._values.get("policy_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-networksecuritymanager-policy.html#cfn-networksecuritymanager-policy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_networksecuritymanager_a06671e9.IRuleRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRule(
     _aws_cdk_0cae9daa.CfnResource,
@@ -845,6 +1591,15 @@ class CfnRule(
         :cloudformationAttribute: Status
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''An ISO 8601 timestamp indicating when the rule was last modified.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
 
     @builtins.property
     @jsii.member(jsii_name="attrVersion")
@@ -1254,6 +2009,15 @@ class CfnScope(
         return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''An ISO 8601 timestamp indicating when the scope was last modified.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrVersion")
     def attr_version(self) -> builtins.str:
         '''The version number of the scope.
@@ -1609,6 +2373,15 @@ class CfnTemplate(
         return typing.cast(builtins.str, jsii.get(self, "attrTemplateId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''An ISO 8601 timestamp indicating when the template was last modified.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrVersion")
     def attr_version(self) -> builtins.str:
         '''The version number.
@@ -1901,6 +2674,8 @@ class CfnTemplateProps:
 __all__ = [
     "CfnDeployment",
     "CfnDeploymentProps",
+    "CfnPolicy",
+    "CfnPolicyProps",
     "CfnRule",
     "CfnRuleProps",
     "CfnScope",
@@ -2013,6 +2788,125 @@ def _typecheckingstub__4da69db68df96fa3214f35b58941f59f95df427e723ef1e2e8933c6e7
     associated_scope_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.AssociatedScopeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     deployment_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDeployment.DeploymentConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deployment_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e455d8af87a638174f344d9a93d7603b20ba5eb09596bb904ec2fd74cc5ce3d3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    firewall_type: builtins.str,
+    policy_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.PolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    policy_name: builtins.str,
+    priority: jsii.Number,
+    associated_template_and_rule_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.AssociatedTemplateAndRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policy_description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b095f3e022eeefa5110592d7571739da7549a8be5f0b8f265c1d56889317f795(
+    resource: _aws_networksecuritymanager_a06671e9.IPolicyRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__81843608d40596bdfec2ed93e7c070999c60ed3e2284da5ff4b6c29cc53a6c21(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6081c17a0ed16f1abac4add790966f09c5b4b231547e20dd99297f1697845f8c(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__556b5797c35eb8b15df7dc91407356bbde61e40e66a67ad5e88c22a5f93e6962(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3689b76c694f1cbcb15847ed12fcc71fc4de945907b84ec480460ddd342006b7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85fe1123c733f774b5881dc32e28c60085600f5f2e10cb5b3f86b0fff3a71536(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPolicy.PolicyConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d056ce533e7118a721b0fd7f581ee6faad5d0ab568d8a8407a8a3ab7c926ad8c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5af51aaf48b615b9d972230f14ae3e9998750105fde8b6cf6a663950a85eea6c(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5d6d0649064408e9f07375e685a9c0f377b816a338cedfde7d5ad3ba47b631dc(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnPolicy.AssociatedTemplateAndRuleProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__146edd331f95c9894b839e912f3c5e3c9e5db99b266e9f6c120c8877f57a54d3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__317966e71a07d6489f5a99a868ec2bf13dae386c29fc0f76d96a686f90b0de86(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22f88dff79c8071f59256fe33147daa14194ec6b52ee1ee0552d8d7b1587e6f0(
+    *,
+    rule_arn: typing.Optional[builtins.str] = None,
+    template_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__759ff63568a360d5f4dd2fd4ebfa70ddb6c3ad174bf1a984add0075380b24d7a(
+    *,
+    remediation_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    resources_clean_up: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    waf_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.WafConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e9462811bb77e5368b20d6847fd3b99806812e7301d7f6f435c3011ad7ce461c(
+    *,
+    conflict_resolution: builtins.str,
+    existing_customer_web_acl_resolution: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95fd24ed0adaea48b3049483dea0605c0cf80984e5a6644c8acad0107be40dab(
+    *,
+    firewall_type: builtins.str,
+    policy_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.PolicyConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    policy_name: builtins.str,
+    priority: jsii.Number,
+    associated_template_and_rule_list: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnPolicy.AssociatedTemplateAndRuleProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    policy_description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

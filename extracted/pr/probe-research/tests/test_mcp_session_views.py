@@ -389,4 +389,4 @@ def test_transcript_agents_cover_every_capture_source():
     from probe.harness import get_registry
 
     assert set(_TRANSCRIPT_AGENTS) == {h.id for h in get_registry().captured()}
-    assert set(_TRANSCRIPT_AGENTS) == {"claude_code", "codex", "pi", "kimi_code", "capy"}
+    assert set(_TRANSCRIPT_AGENTS) == {"claude_code", "codex", "pi", "kimi_code"}

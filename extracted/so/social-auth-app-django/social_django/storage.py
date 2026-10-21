@@ -19,6 +19,7 @@ from django.db.models.fields.json import KeyTextTransform
 from django.db.models.functions import Cast
 from django.db.utils import IntegrityError
 from django.utils import timezone
+from social_core.backends.utils import load_backends
 from social_core.exceptions import AuthAssociationError
 from social_core.identifiers import identifier_matches
 from social_core.storage import (
@@ -111,7 +112,17 @@ class DjangoUserMixin(UserMixin):
         qs = qs.filter(user=user)
 
         valid_password = user.has_usable_password() if hasattr(user, "has_usable_password") else True
-        return valid_password or qs.exists()
+        if valid_password:
+            return True
+        # Association-only backends link provider access to an already
+        # authenticated user; they never log anyone in, so they are no fallback.
+        login_backends = {
+            name
+            for name, backend in load_backends(settings.AUTHENTICATION_BACKENDS).items()
+            if not getattr(backend, "ASSOCIATION_ONLY", False)
+        }
+        providers = qs.values_list("provider", flat=True)
+        return any(provider in login_backends for provider in providers)
 
     @classmethod
     def disconnect(cls, entry):
@@ -292,7 +303,7 @@ class DjangoUserMixin(UserMixin):
         if provider:
             qs = qs.filter(provider=provider)
 
-        if id:
+        if id is not None:
             qs = qs.filter(id=id)
         return qs
 
@@ -342,21 +353,27 @@ class DjangoUserMixin(UserMixin):
 
 class DjangoNonceMixin(NonceMixin):
     objects: ClassVar[Manager[Model]]
+    DoesNotExist: ClassVar[type[ObjectDoesNotExist]]
 
     @classmethod
     def use(cls, server_url, timestamp, salt):
         return cls.objects.get_or_create(server_url=server_url, timestamp=timestamp, salt=salt)[1]
 
     @classmethod
-    def get(cls, server_url, salt):
-        return cls.objects.get(
-            server_url=server_url,
-            salt=salt,
-        )
+    def get(cls, server_url: str, salt: str) -> Model | None:
+        try:
+            return cls.objects.get(server_url=server_url, salt=salt)
+        except cls.DoesNotExist:
+            return None
 
     @classmethod
     def delete(cls, nonce):
         nonce.delete()
+
+    @classmethod
+    def consume(cls, server_url: str, timestamp: int, salt: str) -> bool:
+        deleted, _ = cls.objects.filter(server_url=server_url, timestamp=timestamp, salt=salt).delete()
+        return deleted == 1
 
 
 class DjangoAssociationMixin(AssociationMixin):

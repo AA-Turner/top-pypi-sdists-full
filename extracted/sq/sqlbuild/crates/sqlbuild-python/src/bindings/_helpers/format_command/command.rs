@@ -15,12 +15,10 @@ use sqlbuild_core::format_command::models::LintReport;
 use sqlbuild_rules::lint_text::main::scan_fixture_null_candidates::scan_fixture_null_candidates;
 
 use crate::bindings::_helpers::boundary::panics::value_error;
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, call_with, imported};
 use crate::bindings::_helpers::build_progress::transient_status::status_reporter;
 use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
-use crate::bindings::_helpers::compile_driver::python_calls::{
-    KeywordArguments, call_with, imported,
-};
 use crate::bindings::_helpers::format_command::config::{FormatConfig, format_config, lint_config};
 use crate::bindings::_helpers::format_command::files::FormatChange;
 use crate::bindings::_helpers::format_command::report::lint_report;
@@ -43,6 +41,7 @@ struct FormatFlags {
     fix: bool,
     json_output: bool,
     use_color: bool,
+    no_cache: bool,
 }
 
 /// The adapter, selected files and discovered inputs a run formats with.
@@ -229,6 +228,7 @@ fn run_command(
         fixtures_only: flags.fixtures_only,
         write: !(flags.check || flags.diff),
         fix: flags.fix,
+        cache: !(flags.no_cache || flags.fix),
     };
     let (outcome, status, elapsed) = format_with_status(py, &request, flags.use_color)?;
     let root: PathBuf = project_dir.extract()?;
@@ -281,6 +281,7 @@ pub(crate) fn run_format_command<'py>(
                 "fix",
                 "json_output",
                 "no_color",
+                "no_cache",
             ],
         ),
     )?;
@@ -298,6 +299,7 @@ pub(crate) fn run_format_command<'py>(
         fix: arguments.flag("fix")?,
         json_output: arguments.flag("json_output")?,
         use_color,
+        no_cache: arguments.flag("no_cache")?,
     };
     let select: Vec<String> = string_tuple(&arguments.value("select")?)?;
     let exclude: Vec<String> = string_tuple(&arguments.value("exclude")?)?;

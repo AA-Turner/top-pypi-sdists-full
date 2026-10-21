@@ -32,12 +32,20 @@ from chalk._gen.chalk.server.v1.billing_pb2 import (
     GetResourceGroupServiceDetailResponse,
     GetUsageChartRequest,
     GetUsageChartResponse,
+    GetUsageChartV2Request,
+    GetUsageChartV2Response,
+    GetUsageFacetValuesRequest,
+    GetUsageFacetValuesResponse,
+    GetUsageFacetsRequest,
+    GetUsageFacetsResponse,
     GetUtilizationRatesRequest,
     GetUtilizationRatesResponse,
     PublishNodeUsageRequest,
     PublishNodeUsageResponse,
     PublishPodUsageRequest,
     PublishPodUsageResponse,
+    PublishProductAnalyticsEventsRequest,
+    PublishProductAnalyticsEventsResponse,
     SyncUtilizationRequest,
     SyncUtilizationResponse,
 )
@@ -82,6 +90,15 @@ class BillingServiceStub:
         PublishPodUsageResponse,
     ]
     """PublishPodUsage republishes pod usage messages to the billing Pub/Sub topic."""
+    PublishProductAnalyticsEvents: UnaryUnaryMultiCallable[
+        PublishProductAnalyticsEventsRequest,
+        PublishProductAnalyticsEventsResponse,
+    ]
+    """PublishProductAnalyticsEvents republishes a self-hosted deployment's
+    product analytics events to the product analytics Pub/Sub topic. Only a
+    self-hosted license key may call it; the receiver stamps the key's id and
+    team onto every event.
+    """
     GetUsageChart: UnaryUnaryMultiCallable[
         GetUsageChartRequest,
         GetUsageChartResponse,
@@ -90,6 +107,21 @@ class BillingServiceStub:
     end period. The usage can be grouped by UsageChartPeriod for daily or
     monthly usage, and by UsageChartGrouping for instance type or cluster usage.
     """
+    GetUsageChartV2: UnaryUnaryMultiCallable[
+        GetUsageChartV2Request,
+        GetUsageChartV2Response,
+    ]
+    """GetUsageChartV2 buckets Chalk credit usage by period, grouped and filtered by usage facets."""
+    GetUsageFacets: UnaryUnaryMultiCallable[
+        GetUsageFacetsRequest,
+        GetUsageFacetsResponse,
+    ]
+    """GetUsageFacets lists the columns GetUsageChartV2 can group and filter by."""
+    GetUsageFacetValues: UnaryUnaryMultiCallable[
+        GetUsageFacetValuesRequest,
+        GetUsageFacetValuesResponse,
+    ]
+    """GetUsageFacetValues lists a usage facet's values from the team's infrastructure and Chalk's catalogs, alphabetically."""
     GetUtilizationRates: UnaryUnaryMultiCallable[
         GetUtilizationRatesRequest,
         GetUtilizationRatesResponse,
@@ -199,6 +231,17 @@ class BillingServiceServicer(metaclass=ABCMeta):
     ) -> PublishPodUsageResponse:
         """PublishPodUsage republishes pod usage messages to the billing Pub/Sub topic."""
     @abstractmethod
+    def PublishProductAnalyticsEvents(
+        self,
+        request: PublishProductAnalyticsEventsRequest,
+        context: ServicerContext,
+    ) -> PublishProductAnalyticsEventsResponse:
+        """PublishProductAnalyticsEvents republishes a self-hosted deployment's
+        product analytics events to the product analytics Pub/Sub topic. Only a
+        self-hosted license key may call it; the receiver stamps the key's id and
+        team onto every event.
+        """
+    @abstractmethod
     def GetUsageChart(
         self,
         request: GetUsageChartRequest,
@@ -208,6 +251,27 @@ class BillingServiceServicer(metaclass=ABCMeta):
         end period. The usage can be grouped by UsageChartPeriod for daily or
         monthly usage, and by UsageChartGrouping for instance type or cluster usage.
         """
+    @abstractmethod
+    def GetUsageChartV2(
+        self,
+        request: GetUsageChartV2Request,
+        context: ServicerContext,
+    ) -> GetUsageChartV2Response:
+        """GetUsageChartV2 buckets Chalk credit usage by period, grouped and filtered by usage facets."""
+    @abstractmethod
+    def GetUsageFacets(
+        self,
+        request: GetUsageFacetsRequest,
+        context: ServicerContext,
+    ) -> GetUsageFacetsResponse:
+        """GetUsageFacets lists the columns GetUsageChartV2 can group and filter by."""
+    @abstractmethod
+    def GetUsageFacetValues(
+        self,
+        request: GetUsageFacetValuesRequest,
+        context: ServicerContext,
+    ) -> GetUsageFacetValuesResponse:
+        """GetUsageFacetValues lists a usage facet's values from the team's infrastructure and Chalk's catalogs, alphabetically."""
     @abstractmethod
     def GetUtilizationRates(
         self,

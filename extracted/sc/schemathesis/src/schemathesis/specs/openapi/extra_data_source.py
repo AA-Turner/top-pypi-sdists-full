@@ -13,7 +13,8 @@ from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, make_validator, sch
 from schemathesis.core.jsonschema.bundler import BundleError
 from schemathesis.core.jsonschema.types import JsonSchema
 from schemathesis.core.parameters import ParameterLocation, plain_str_values
-from schemathesis.core.transforms import UNRESOLVABLE, resolve_path
+from schemathesis.core.transforms import UNRESOLVABLE, format_body_key, resolve_path, split_body_key
+from schemathesis.core.transport import response_content_type
 from schemathesis.generation import GenerationMode
 from schemathesis.resources import ExtraDataSource, PoolDraw, PoolPick
 from schemathesis.resources.repository import ResourceInstance, ResourceRepository
@@ -22,8 +23,8 @@ from schemathesis.specs.openapi.semantic_pool import SemanticValueIndex, iter_in
 from schemathesis.specs.openapi.stateful.dependencies.models import (
     DependencyGraph,
     InputSlot,
-    _build_nested_body,
-    _merge_request_body,
+    build_nested_body,
+    merge_request_body,
 )
 from schemathesis.specs.openapi.stateful.dependencies.naming import normalize_for_matching, referenced_values
 
@@ -307,15 +308,15 @@ class _VariantSlot:
 
     @property
     def lookup_key(self) -> str:
-        return "/".join(map(str, self.path))
+        return format_body_key(self.path)
 
 
 def _assemble_variant(slots: list[_VariantSlot], values_by_lookup_key: dict[str, Any]) -> dict[str, Any] | list[Any]:
     variant: dict[str, Any] | list[Any] = {}
     for slot in slots:
         if slot.lookup_key in values_by_lookup_key:
-            overlay = _build_nested_body(slot.lookup_key, values_by_lookup_key[slot.lookup_key])
-            variant = _merge_request_body(variant, overlay)
+            overlay = build_nested_body(slot.path, values_by_lookup_key[slot.lookup_key])
+            variant = merge_request_body(variant, overlay)
     return variant
 
 
@@ -371,10 +372,10 @@ class OpenApiExtraDataSource(ExtraDataSource):
         # Values that have been successfully DELETEd; pool draws skip them.
         self._tombstoned: set[tuple[str, Any]] = set()
         # Body fields below the top level, e.g. `data/0/groupId`, by operation label.
-        self._nested_body_requirements: dict[str, list[tuple[tuple[str | int, ...], ParameterRequirement]]] = {}
+        self._nested_body_requirements: dict[str, list[tuple[tuple[str, ...], ParameterRequirement]]] = {}
         for (label, location, name), requirement in requirements.items():
             if location == ParameterLocation.BODY and "/" in name:
-                path = tuple(int(segment) if segment.isdigit() else segment for segment in name.split("/"))
+                path = tuple(split_body_key(name))
                 self._nested_body_requirements.setdefault(label, []).append((path, requirement))
 
     # Opaque repr so Hypothesis' argument rendering never walks the live pool that concurrent workers mutate.
@@ -435,9 +436,9 @@ class OpenApiExtraDataSource(ExtraDataSource):
             for path, requirement in self._nested_body_requirements.get(operation.label, ()):
                 if path[0] in bound:
                     continue
-                leaf_schema = _walk_to_property(schema, path, bundled)
-                if leaf_schema is not None:
-                    slots.append(_VariantSlot(path, leaf_schema, requirement))
+                found = _walk_to_property(schema, path, bundled)
+                if found is not None:
+                    slots.append(_VariantSlot(*found, requirement))
 
         if not slots:
             return None
@@ -447,7 +448,7 @@ class OpenApiExtraDataSource(ExtraDataSource):
             slot = slots[0]
             variants = [
                 CapturedVariant(
-                    overlay=_build_nested_body(slot.lookup_key, value),
+                    overlay=build_nested_body(slot.path, value),
                     draws=(
                         _build_pool_draw_from_requirement(
                             location=location,
@@ -761,10 +762,9 @@ class OpenApiExtraDataSource(ExtraDataSource):
         )
         if not has_descriptors and not semantic_active:
             return
-        content_types = response.headers.get("content-type")
-        if not content_types:
+        content_type = response_content_type(response)
+        if content_type is None:
             return
-        content_type = content_types[0]
         context = deserialization.DeserializationContext(operation=operation, case=case)
         try:
             payload = deserialization.deserialize_response(response, content_type, context=context)

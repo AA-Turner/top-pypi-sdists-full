@@ -13,11 +13,12 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from chalk._gen.chalk.aggregate.v1 import timeseries_pb2 as chalk_dot_aggregate_dot_v1_dot_timeseries__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n2chalk/server/v1/materialized_aggregate_tiles.proto\x12\x0f\x63halk.server.v1\x1a\x1fgoogle/protobuf/timestamp.proto"\xc7\x01\n)MaterializedAggregateTileTimelineInterval\x12L\n\x14\x63overage_lower_bound\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x12\x63overageLowerBound\x12L\n\x14\x63overage_upper_bound\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x12\x63overageUpperBound"\xba\x03\n!MaterializedAggregateTileTimeline\x12\x38\n\x18materialization_key_hash\x18\x01 \x01(\tR\x16materializationKeyHash\x12 \n\x0b\x61ggregation\x18\x02 \x01(\tR\x0b\x61ggregation\x12!\n\x0c\x61ggregate_on\x18\x03 \x01(\tR\x0b\x61ggregateOn\x12\x19\n\x08group_by\x18\x04 \x01(\tR\x07groupBy\x12\x1b\n\tbucket_on\x18\x05 \x01(\tR\x08\x62ucketOn\x12V\n\x08\x63overage\x18\x06 \x01(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\x08\x63overage\x12X\n\tintervals\x18\x08 \x03(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\tintervals\x12,\n\x12\x62ucket_duration_ms\x18\t \x01(\x03R\x10\x62ucketDurationMs"\xf5\x01\n&MaterializedAggregateTileTimelineGroup\x12!\n\x0c\x61ggregate_on\x18\x01 \x01(\tR\x0b\x61ggregateOn\x12P\n\ttimelines\x18\x02 \x03(\x0b\x32\x32.chalk.server.v1.MaterializedAggregateTileTimelineR\ttimelines\x12V\n\x08\x63overage\x18\x03 \x01(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\x08\x63overage"\xa0\x01\n,ListMaterializedAggregateTileTimelinesFilter\x12\x33\n\x13\x61ggregate_on_prefix\x18\x01 \x01(\tH\x00R\x11\x61ggregateOnPrefix\x88\x01\x01\x12\x19\n\x05query\x18\x02 \x01(\tH\x01R\x05query\x88\x01\x01\x42\x16\n\x14_aggregate_on_prefixB\x08\n\x06_query"\xe3\x01\n-ListMaterializedAggregateTileTimelinesRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12Z\n\x06\x66ilter\x18\x03 \x01(\x0b\x32=.chalk.server.v1.ListMaterializedAggregateTileTimelinesFilterH\x02R\x06\x66ilter\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limitB\t\n\x07_filter"\xc8\x01\n.ListMaterializedAggregateTileTimelinesResponse\x12`\n\x0ftimeline_groups\x18\x01 \x03(\x0b\x32\x37.chalk.server.v1.MaterializedAggregateTileTimelineGroupR\x0etimelineGroups\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"r\n\tTileFacet\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12=\n\nfacet_type\x18\x03 \x01(\x0e\x32\x1e.chalk.server.v1.TileFacetTypeR\tfacetType"+\n)GetMaterializedAggregateTileFacetsRequest"`\n*GetMaterializedAggregateTileFacetsResponse\x12\x32\n\x06\x66\x61\x63\x65ts\x18\x01 \x03(\x0b\x32\x1a.chalk.server.v1.TileFacetR\x06\x66\x61\x63\x65ts"\xd0\x01\n.GetMaterializedAggregateTileFacetValuesRequest\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12Z\n\x06\x66ilter\x18\x03 \x01(\x0b\x32=.chalk.server.v1.ListMaterializedAggregateTileTimelinesFilterH\x01R\x06\x66ilter\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_filter"X\n\x16TileTimelineFacetValue\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x14\n\x05\x63ount\x18\x03 \x01(\x03R\x05\x63ount"r\n/GetMaterializedAggregateTileFacetValuesResponse\x12?\n\x06values\x18\x01 \x03(\x0b\x32\'.chalk.server.v1.TileTimelineFacetValueR\x06values*J\n\rTileFacetType\x12\x1f\n\x1bTILE_FACET_TYPE_UNSPECIFIED\x10\x00\x12\x18\n\x14TILE_FACET_TYPE_LIST\x10\x01\x42\xa8\x01\n\x13\x63om.chalk.server.v1B\x1fMaterializedAggregateTilesProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n2chalk/server/v1/materialized_aggregate_tiles.proto\x12\x0f\x63halk.server.v1\x1a#chalk/aggregate/v1/timeseries.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xc7\x01\n)MaterializedAggregateTileTimelineInterval\x12L\n\x14\x63overage_lower_bound\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x12\x63overageLowerBound\x12L\n\x14\x63overage_upper_bound\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x12\x63overageUpperBound"\x8a\x04\n!MaterializedAggregateTileTimeline\x12\x38\n\x18materialization_key_hash\x18\x01 \x01(\tR\x16materializationKeyHash\x12 \n\x0b\x61ggregation\x18\x02 \x01(\tR\x0b\x61ggregation\x12!\n\x0c\x61ggregate_on\x18\x03 \x01(\tR\x0b\x61ggregateOn\x12\x19\n\x08group_by\x18\x04 \x01(\tR\x07groupBy\x12\x1b\n\tbucket_on\x18\x05 \x01(\tR\x08\x62ucketOn\x12V\n\x08\x63overage\x18\x06 \x01(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\x08\x63overage\x12X\n\tintervals\x18\x08 \x03(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\tintervals\x12,\n\x12\x62ucket_duration_ms\x18\t \x01(\x03R\x10\x62ucketDurationMs\x12N\n\x10reading_features\x18\n \x03(\x0b\x32#.chalk.server.v1.TileReadingFeatureR\x0freadingFeatures"v\n\x12TileReadingFeature\x12\x10\n\x03\x66qn\x18\x01 \x01(\tR\x03\x66qn\x12+\n\x11windowed_features\x18\x02 \x03(\tR\x10windowedFeatures\x12!\n\x0cseries_count\x18\x03 \x01(\x05R\x0bseriesCount"\xf5\x01\n&MaterializedAggregateTileTimelineGroup\x12!\n\x0c\x61ggregate_on\x18\x01 \x01(\tR\x0b\x61ggregateOn\x12P\n\ttimelines\x18\x02 \x03(\x0b\x32\x32.chalk.server.v1.MaterializedAggregateTileTimelineR\ttimelines\x12V\n\x08\x63overage\x18\x03 \x01(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\x08\x63overage"\xa0\x01\n,ListMaterializedAggregateTileTimelinesFilter\x12\x33\n\x13\x61ggregate_on_prefix\x18\x01 \x01(\tH\x00R\x11\x61ggregateOnPrefix\x88\x01\x01\x12\x19\n\x05query\x18\x02 \x01(\tH\x01R\x05query\x88\x01\x01\x42\x16\n\x14_aggregate_on_prefixB\x08\n\x06_query"\xe3\x01\n-ListMaterializedAggregateTileTimelinesRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12Z\n\x06\x66ilter\x18\x03 \x01(\x0b\x32=.chalk.server.v1.ListMaterializedAggregateTileTimelinesFilterH\x02R\x06\x66ilter\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limitB\t\n\x07_filter"\xc8\x01\n.ListMaterializedAggregateTileTimelinesResponse\x12`\n\x0ftimeline_groups\x18\x01 \x03(\x0b\x32\x37.chalk.server.v1.MaterializedAggregateTileTimelineGroupR\x0etimelineGroups\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"r\n\tTileFacet\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12=\n\nfacet_type\x18\x03 \x01(\x0e\x32\x1e.chalk.server.v1.TileFacetTypeR\tfacetType"+\n)GetMaterializedAggregateTileFacetsRequest"`\n*GetMaterializedAggregateTileFacetsResponse\x12\x32\n\x06\x66\x61\x63\x65ts\x18\x01 \x03(\x0b\x32\x1a.chalk.server.v1.TileFacetR\x06\x66\x61\x63\x65ts"\x89\x02\n.GetMaterializedAggregateTileFacetValuesRequest\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12Z\n\x06\x66ilter\x18\x03 \x01(\x0b\x32=.chalk.server.v1.ListMaterializedAggregateTileTimelinesFilterH\x01R\x06\x66ilter\x88\x01\x01\x12&\n\x0cvalue_search\x18\x04 \x01(\tH\x02R\x0bvalueSearch\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_filterB\x0f\n\r_value_search"X\n\x16TileTimelineFacetValue\x12\x12\n\x04path\x18\x01 \x01(\tR\x04path\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x14\n\x05\x63ount\x18\x03 \x01(\x03R\x05\x63ount"r\n/GetMaterializedAggregateTileFacetValuesResponse\x12?\n\x06values\x18\x01 \x03(\x0b\x32\'.chalk.server.v1.TileTimelineFacetValueR\x06values"\xef\x01\n\x11TileSeriesSummary\x12\x38\n\x18materialization_key_hash\x18\x01 \x01(\tR\x16materializationKeyHash\x12"\n\x0c\x61ggregations\x18\x02 \x03(\tR\x0c\x61ggregations\x12,\n\x12\x62ucket_duration_ms\x18\x03 \x01(\x03R\x10\x62ucketDurationMs\x12N\n\x10reading_features\x18\x04 \x03(\x0b\x32#.chalk.server.v1.TileReadingFeatureR\x0freadingFeatures"\xa6\x01\n\x1e\x46\x65\x61tureMaterializedAggregation\x12?\n\x06series\x18\x01 \x01(\x0b\x32\'.chalk.aggregate.v1.AggregateTimeSeriesR\x06series\x12\x43\n\x0btile_series\x18\x02 \x03(\x0b\x32".chalk.server.v1.TileSeriesSummaryR\ntileSeries"L\n)GetFeatureMaterializedAggregationsRequest\x12\x1f\n\x0b\x66\x65\x61ture_fqn\x18\x01 \x01(\tR\nfeatureFqn"\xb0\x02\n*GetFeatureMaterializedAggregationsResponse\x12M\n\tcomputing\x18\x01 \x03(\x0b\x32/.chalk.server.v1.FeatureMaterializedAggregationR\tcomputing\x12I\n\x07reading\x18\x02 \x03(\x0b\x32/.chalk.server.v1.FeatureMaterializedAggregationR\x07reading\x12\x16\n\x06\x65rrors\x18\x03 \x03(\tR\x06\x65rrors\x12P\n\x0emapping_status\x18\x04 \x01(\x0e\x32).chalk.server.v1.TileFeatureMappingStatusR\rmappingStatus"\xc3\x02\n\x12TileSeriesCoverage\x12\x38\n\x18materialization_key_hash\x18\x01 \x01(\tR\x16materializationKeyHash\x12,\n\x12\x62ucket_duration_ms\x18\x02 \x01(\x03R\x10\x62ucketDurationMs\x12V\n\x08\x63overage\x18\x03 \x01(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\x08\x63overage\x12N\n\x04gaps\x18\x04 \x03(\x0b\x32:.chalk.server.v1.MaterializedAggregateTileTimelineIntervalR\x04gaps\x12\x1d\n\ntile_count\x18\x05 \x01(\x05R\ttileCount"\x91\x01\n\x13TileFeatureCoverage\x12\x10\n\x03\x66qn\x18\x01 \x01(\tR\x03\x66qn\x12+\n\x11windowed_features\x18\x02 \x03(\tR\x10windowedFeatures\x12;\n\x06series\x18\x03 \x03(\x0b\x32#.chalk.server.v1.TileSeriesCoverageR\x06series"v\n\x1eListTileFeatureCoverageFilters\x12"\n\nfqn_search\x18\x01 \x01(\tH\x00R\tfqnSearch\x88\x01\x01\x12!\n\x0c\x66\x65\x61ture_fqns\x18\x02 \x03(\tR\x0b\x66\x65\x61tureFqnsB\r\n\x0b_fqn_search"\xc9\x01\n\x1eListTileFeatureCoverageRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12N\n\x07\x66ilters\x18\x03 \x01(\x0b\x32/.chalk.server.v1.ListTileFeatureCoverageFiltersH\x02R\x07\x66ilters\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limitB\n\n\x08_filters"\xeb\x01\n\x1fListTileFeatureCoverageResponse\x12@\n\x08\x66\x65\x61tures\x18\x01 \x03(\x0b\x32$.chalk.server.v1.TileFeatureCoverageR\x08\x66\x65\x61tures\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x12P\n\x0emapping_status\x18\x03 \x01(\x0e\x32).chalk.server.v1.TileFeatureMappingStatusR\rmappingStatusB\x0e\n\x0c_next_cursor*J\n\rTileFacetType\x12\x1f\n\x1bTILE_FACET_TYPE_UNSPECIFIED\x10\x00\x12\x18\n\x14TILE_FACET_TYPE_LIST\x10\x01*\xdc\x01\n\x18TileFeatureMappingStatus\x12+\n\'TILE_FEATURE_MAPPING_STATUS_UNSPECIFIED\x10\x00\x12)\n%TILE_FEATURE_MAPPING_STATUS_AVAILABLE\x10\x01\x12\x34\n0TILE_FEATURE_MAPPING_STATUS_NO_ACTIVE_DEPLOYMENT\x10\x02\x12\x32\n.TILE_FEATURE_MAPPING_STATUS_ENGINE_UNSUPPORTED\x10\x03\x42\xa8\x01\n\x13\x63om.chalk.server.v1B\x1fMaterializedAggregateTilesProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -28,30 +29,52 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\037MaterializedAggregateTilesProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
-    _globals["_TILEFACETTYPE"]._serialized_start = 2271
-    _globals["_TILEFACETTYPE"]._serialized_end = 2345
-    _globals["_MATERIALIZEDAGGREGATETILETIMELINEINTERVAL"]._serialized_start = 105
-    _globals["_MATERIALIZEDAGGREGATETILETIMELINEINTERVAL"]._serialized_end = 304
-    _globals["_MATERIALIZEDAGGREGATETILETIMELINE"]._serialized_start = 307
-    _globals["_MATERIALIZEDAGGREGATETILETIMELINE"]._serialized_end = 749
-    _globals["_MATERIALIZEDAGGREGATETILETIMELINEGROUP"]._serialized_start = 752
-    _globals["_MATERIALIZEDAGGREGATETILETIMELINEGROUP"]._serialized_end = 997
-    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESFILTER"]._serialized_start = 1000
-    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESFILTER"]._serialized_end = 1160
-    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESREQUEST"]._serialized_start = 1163
-    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESREQUEST"]._serialized_end = 1390
-    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESRESPONSE"]._serialized_start = 1393
-    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESRESPONSE"]._serialized_end = 1593
-    _globals["_TILEFACET"]._serialized_start = 1595
-    _globals["_TILEFACET"]._serialized_end = 1709
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSREQUEST"]._serialized_start = 1711
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSREQUEST"]._serialized_end = 1754
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSRESPONSE"]._serialized_start = 1756
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSRESPONSE"]._serialized_end = 1852
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESREQUEST"]._serialized_start = 1855
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESREQUEST"]._serialized_end = 2063
-    _globals["_TILETIMELINEFACETVALUE"]._serialized_start = 2065
-    _globals["_TILETIMELINEFACETVALUE"]._serialized_end = 2153
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESRESPONSE"]._serialized_start = 2155
-    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESRESPONSE"]._serialized_end = 2269
+    _globals["_TILEFACETTYPE"]._serialized_start = 4397
+    _globals["_TILEFACETTYPE"]._serialized_end = 4471
+    _globals["_TILEFEATUREMAPPINGSTATUS"]._serialized_start = 4474
+    _globals["_TILEFEATUREMAPPINGSTATUS"]._serialized_end = 4694
+    _globals["_MATERIALIZEDAGGREGATETILETIMELINEINTERVAL"]._serialized_start = 142
+    _globals["_MATERIALIZEDAGGREGATETILETIMELINEINTERVAL"]._serialized_end = 341
+    _globals["_MATERIALIZEDAGGREGATETILETIMELINE"]._serialized_start = 344
+    _globals["_MATERIALIZEDAGGREGATETILETIMELINE"]._serialized_end = 866
+    _globals["_TILEREADINGFEATURE"]._serialized_start = 868
+    _globals["_TILEREADINGFEATURE"]._serialized_end = 986
+    _globals["_MATERIALIZEDAGGREGATETILETIMELINEGROUP"]._serialized_start = 989
+    _globals["_MATERIALIZEDAGGREGATETILETIMELINEGROUP"]._serialized_end = 1234
+    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESFILTER"]._serialized_start = 1237
+    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESFILTER"]._serialized_end = 1397
+    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESREQUEST"]._serialized_start = 1400
+    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESREQUEST"]._serialized_end = 1627
+    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESRESPONSE"]._serialized_start = 1630
+    _globals["_LISTMATERIALIZEDAGGREGATETILETIMELINESRESPONSE"]._serialized_end = 1830
+    _globals["_TILEFACET"]._serialized_start = 1832
+    _globals["_TILEFACET"]._serialized_end = 1946
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSREQUEST"]._serialized_start = 1948
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSREQUEST"]._serialized_end = 1991
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSRESPONSE"]._serialized_start = 1993
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETSRESPONSE"]._serialized_end = 2089
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESREQUEST"]._serialized_start = 2092
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESREQUEST"]._serialized_end = 2357
+    _globals["_TILETIMELINEFACETVALUE"]._serialized_start = 2359
+    _globals["_TILETIMELINEFACETVALUE"]._serialized_end = 2447
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESRESPONSE"]._serialized_start = 2449
+    _globals["_GETMATERIALIZEDAGGREGATETILEFACETVALUESRESPONSE"]._serialized_end = 2563
+    _globals["_TILESERIESSUMMARY"]._serialized_start = 2566
+    _globals["_TILESERIESSUMMARY"]._serialized_end = 2805
+    _globals["_FEATUREMATERIALIZEDAGGREGATION"]._serialized_start = 2808
+    _globals["_FEATUREMATERIALIZEDAGGREGATION"]._serialized_end = 2974
+    _globals["_GETFEATUREMATERIALIZEDAGGREGATIONSREQUEST"]._serialized_start = 2976
+    _globals["_GETFEATUREMATERIALIZEDAGGREGATIONSREQUEST"]._serialized_end = 3052
+    _globals["_GETFEATUREMATERIALIZEDAGGREGATIONSRESPONSE"]._serialized_start = 3055
+    _globals["_GETFEATUREMATERIALIZEDAGGREGATIONSRESPONSE"]._serialized_end = 3359
+    _globals["_TILESERIESCOVERAGE"]._serialized_start = 3362
+    _globals["_TILESERIESCOVERAGE"]._serialized_end = 3685
+    _globals["_TILEFEATURECOVERAGE"]._serialized_start = 3688
+    _globals["_TILEFEATURECOVERAGE"]._serialized_end = 3833
+    _globals["_LISTTILEFEATURECOVERAGEFILTERS"]._serialized_start = 3835
+    _globals["_LISTTILEFEATURECOVERAGEFILTERS"]._serialized_end = 3953
+    _globals["_LISTTILEFEATURECOVERAGEREQUEST"]._serialized_start = 3956
+    _globals["_LISTTILEFEATURECOVERAGEREQUEST"]._serialized_end = 4157
+    _globals["_LISTTILEFEATURECOVERAGERESPONSE"]._serialized_start = 4160
+    _globals["_LISTTILEFEATURECOVERAGERESPONSE"]._serialized_end = 4395
 # @@protoc_insertion_point(module_scope)

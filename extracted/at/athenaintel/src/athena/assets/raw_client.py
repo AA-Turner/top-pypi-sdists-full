@@ -23,6 +23,7 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.activity_clock_range_in import ActivityClockRangeIn
 from ..types.archive_asset_response_out import ArchiveAssetResponseOut
+from ..types.asset_access_out import AssetAccessOut
 from ..types.asset_activity_delta_response_out import AssetActivityDeltaResponseOut
 from ..types.asset_activity_response_out import AssetActivityResponseOut
 from ..types.collab_token_response import CollabTokenResponse
@@ -277,13 +278,14 @@ class RawAssetsClient:
         parent_folder_id: typing.Optional[str] = OMIT,
         provider: typing.Optional[str] = OMIT,
         skill_config: typing.Optional[PublicSkillConfigIn] = OMIT,
+        suspend_timeout_seconds: typing.Optional[int] = OMIT,
         template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended.
 
         Parameters
         ----------
@@ -316,6 +318,9 @@ class RawAssetsClient:
 
         skill_config : typing.Optional[PublicSkillConfigIn]
             skill only. The skill's SKILL.md content. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
+
+        suspend_timeout_seconds : typing.Optional[int]
+            Database only. Seconds without activity after which the database suspends (scales to zero): 0 means it never suspends (the compute keeps running, and keeps using capacity), otherwise 60 to 86400 (24 hours). Defaults to 1800 (30 minutes). Applied while the database is provisioned; if it cannot be applied, the database is not created and compute-status reports failed. Read or change it later with GET/PATCH /api/v0/databases/{asset_id}/settings.
 
         template : typing.Optional[str]
             Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
@@ -352,6 +357,7 @@ class RawAssetsClient:
                 "skill_config": convert_and_respect_annotation_metadata(
                     object_=skill_config, annotation=typing.Optional[PublicSkillConfigIn], direction="write"
                 ),
+                "suspend_timeout_seconds": suspend_timeout_seconds,
                 "template": template,
                 "title": title,
                 "workspace_id": workspace_id,
@@ -840,6 +846,99 @@ class RawAssetsClient:
                 )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def get_access(
+        self,
+        asset_id: str,
+        *,
+        user_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[AssetAccessOut]:
+        """
+        Read the access that you, or another user, have on an asset, and every grant that gives it. The level is what Athena's permission checks decide for the user in the asset's own workspace, whichever workspace is active for your key: 'view' can open the asset, 'edit' can also change it and manage its sharing, 'owner' created it and can edit it, and 'none' cannot open it. Each source names one grant: 'owner', 'direct' (shared with the user), 'group' (shared with a workspace group the user belongs to), 'workspace' (shared with the whole workspace), 'drive' (a role on the drive) or 'other' (access the share list does not hold, for example an environment admin). A folder's sharing reaches each asset inside it as that asset's own share, so a 'workspace' source on a sub-folder shows that a share of its parent folder reached it. Without user_id the route reads your own access; you need view access to the asset and membership in its workspace. To read another user's access, pass their user_id; you need edit access to the asset, as for sharing it. A user who is not a member of the asset's workspace, or who does not exist, reads as 'none' with is_member false. A suspended member reads as 'none' with no sources, and is_member still reports their membership. When a permission check cannot be answered (for example on an asset in a drive while the authorization service is unavailable), the route answers 503 and never a level. The route never changes a permission.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the asset
+
+        user_id : typing.Optional[str]
+            The user whose access to read. Leave it out to read your own. Reading another user's access needs edit access to the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[AssetAccessOut]
+            The user's effective access on the asset
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/access",
+            method="GET",
+            params={
+                "user_id": user_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetAccessOut,
+                    parse_obj_as(
+                        type_=AssetAccessOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],
@@ -2160,13 +2259,14 @@ class AsyncRawAssetsClient:
         parent_folder_id: typing.Optional[str] = OMIT,
         provider: typing.Optional[str] = OMIT,
         skill_config: typing.Optional[PublicSkillConfigIn] = OMIT,
+        suspend_timeout_seconds: typing.Optional[int] = OMIT,
         template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CreateAssetResponseOut]:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended.
 
         Parameters
         ----------
@@ -2199,6 +2299,9 @@ class AsyncRawAssetsClient:
 
         skill_config : typing.Optional[PublicSkillConfigIn]
             skill only. The skill's SKILL.md content. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
+
+        suspend_timeout_seconds : typing.Optional[int]
+            Database only. Seconds without activity after which the database suspends (scales to zero): 0 means it never suspends (the compute keeps running, and keeps using capacity), otherwise 60 to 86400 (24 hours). Defaults to 1800 (30 minutes). Applied while the database is provisioned; if it cannot be applied, the database is not created and compute-status reports failed. Read or change it later with GET/PATCH /api/v0/databases/{asset_id}/settings.
 
         template : typing.Optional[str]
             Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
@@ -2235,6 +2338,7 @@ class AsyncRawAssetsClient:
                 "skill_config": convert_and_respect_annotation_metadata(
                     object_=skill_config, annotation=typing.Optional[PublicSkillConfigIn], direction="write"
                 ),
+                "suspend_timeout_seconds": suspend_timeout_seconds,
                 "template": template,
                 "title": title,
                 "workspace_id": workspace_id,
@@ -2723,6 +2827,99 @@ class AsyncRawAssetsClient:
                 )
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def get_access(
+        self,
+        asset_id: str,
+        *,
+        user_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[AssetAccessOut]:
+        """
+        Read the access that you, or another user, have on an asset, and every grant that gives it. The level is what Athena's permission checks decide for the user in the asset's own workspace, whichever workspace is active for your key: 'view' can open the asset, 'edit' can also change it and manage its sharing, 'owner' created it and can edit it, and 'none' cannot open it. Each source names one grant: 'owner', 'direct' (shared with the user), 'group' (shared with a workspace group the user belongs to), 'workspace' (shared with the whole workspace), 'drive' (a role on the drive) or 'other' (access the share list does not hold, for example an environment admin). A folder's sharing reaches each asset inside it as that asset's own share, so a 'workspace' source on a sub-folder shows that a share of its parent folder reached it. Without user_id the route reads your own access; you need view access to the asset and membership in its workspace. To read another user's access, pass their user_id; you need edit access to the asset, as for sharing it. A user who is not a member of the asset's workspace, or who does not exist, reads as 'none' with is_member false. A suspended member reads as 'none' with no sources, and is_member still reports their membership. When a permission check cannot be answered (for example on an asset in a drive while the authorization service is unavailable), the route answers 503 and never a level. The route never changes a permission.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the asset
+
+        user_id : typing.Optional[str]
+            The user whose access to read. Leave it out to read your own. Reading another user's access needs edit access to the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[AssetAccessOut]
+            The user's effective access on the asset
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v0/assets/{jsonable_encoder(asset_id)}/access",
+            method="GET",
+            params={
+                "user_id": user_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    AssetAccessOut,
+                    parse_obj_as(
+                        type_=AssetAccessOut,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        typing.Optional[typing.Any],
+                        parse_obj_as(
+                            type_=typing.Optional[typing.Any],  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 503:
+                raise ServiceUnavailableError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         typing.Optional[typing.Any],

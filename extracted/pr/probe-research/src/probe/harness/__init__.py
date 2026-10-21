@@ -1,7 +1,6 @@
 """The harness registry: every coding agent Probe integrates with (see `registry`)."""
 
 from probe.harness.registry import (
-    FAMILY_CLOUD,
     FAMILY_EXTENSION,
     FAMILY_HOOK_PLUGIN,
     Capture,
@@ -13,7 +12,6 @@ from probe.harness.registry import (
 )
 
 __all__ = [
-    "FAMILY_CLOUD",
     "FAMILY_EXTENSION",
     "FAMILY_HOOK_PLUGIN",
     "Capture",

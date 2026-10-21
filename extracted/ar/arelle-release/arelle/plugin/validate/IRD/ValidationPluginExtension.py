@@ -23,6 +23,14 @@ def tcQn(local: str) -> QName:
     return QName.fromParts(local, TC_NAMESPACE)
 
 
+def fsQn(local: str) -> QName:
+    return QName.fromParts(local, FS_NAMESPACE)
+
+
+def fsPeQn(local: str) -> QName:
+    return QName.fromParts(local, FS_PE_NAMESPACE)
+
+
 class ValidationPluginExtension(ValidationPlugin):
     def newPluginData(
         self,
@@ -35,6 +43,18 @@ class ValidationPluginExtension(ValidationPlugin):
         validTc = frozenset([
             f"{BASE}ird_tc_entry_point_2026-04-01.xsd",
             f"{BASE}ird_tc-zh-hk_entry_point_2026-04-01.xsd",
+        ])
+        validFs = frozenset([
+            f"{BASE}ird_fs_entry_point_2026-04-01.xsd",
+        ])
+        validFsPe = frozenset([
+            f"{BASE}ird_fs_pe_entry_point_2026-04-01.xsd",
+        ])
+
+        releasedVersionDates = frozenset([
+            "2024-04-01",
+            "2025-04-01",
+            "2026-04-01",
         ])
 
         # Concepts that must NOT appear in a BIR51 (corporation) filing
@@ -235,6 +255,10 @@ class ValidationPluginExtension(ValidationPlugin):
 
             # entry points
             validTcEntryPoints=validTc,
+            validFsEntryPoints=validFs,
+            validFsPeEntryPoints=validFsPe,
+            latestVersionDate="2026-04-01",
+            releasedVersionDates=releasedVersionDates,
 
             # mandatory element sets
             mandatoryTcBir51Qns=mandatoryBir51,
@@ -306,6 +330,26 @@ class ValidationPluginExtension(ValidationPlugin):
             epMachineryDetailsQn=tcQn("DetailsOfExpenditureIncurredOnAndProceedsFromTheSaleOfEnvironmentalProtectionMachinery"),
             epMachineryTaxAdjQn=tcQn("ExpenditureOnEnvironmentalProtectionMachineryTaxAdjustment"),
 
+            # special flags
+            advanceRulingDetailsQn=tcQn("AdvanceRulingDetails"),
+            advanceRulingQn=tcQn("AdvanceRuling"),
+            hongKongPracticeUnitQn=tcQn("HongKongPracticeUnit"),
+            permanentEstablishmentQn=tcQn("PermanentEstablishmentHongKongNonHongKongResidentPerson"),
+            practisingCertificateNumberQn=tcQn("PractisingCertificateNumber"),
+            transactionsWithOtherPartsQn=tcQn("TransactionsWithOtherPartsNonHongKongResidentPerson"),
+
+            # lifecycle
+            businessCessationDateQn=tcQn("BusinessCessationDate"),
+            businessCessationDeathOfProprietorQn=tcQn("BusinessCessationDeathOfProprietor"),
+            businessCessationProprietorDeathDateQn=tcQn("BusinessCessationProprietorDeathDate"),
+            businessCessationQn=tcQn("BusinessCessation"),
+            businessCessationTransfereeBusinessNatureQn=tcQn("BusinessCessationTransfereeBusinessNature"),
+            businessCessationTransfereeQn=tcQn("BusinessCessationTransferee"),
+            businessCessationTransferredAssetsAssociatedQn=tcQn("BusinessCessationTransferredAssetsAssociated"),
+            businessCessationTransferredQn=tcQn("BusinessCessationTransferred"),
+            businessCommencementDateQn=tcQn("BusinessCommencementDate"),
+            businessCommencementQn=tcQn("BusinessCommencement"),
+
             # BIR51 corporate
             privateCompanyQn=tcQn("PrivateCompany"),
             shareholderChangeQn=tcQn("ShareholderChange"),
@@ -329,6 +373,20 @@ class ValidationPluginExtension(ValidationPlugin):
             bir52PartnerHkidOrBrnQn=tcQn("BIR52ProprietorPartnerHKIDOrBRNumber"),
             bir52PartnerDateEnteredQn=tcQn("BIR52ProprietorPartnerDateEntered"),
             bir52PartnerDateLeftQn=tcQn("BIR52ProprietorPartnerDateLeft"),
+
+            # combined / FS
+            accountsPreparedAtConsolidatedLevelQn=tcQn("AccountsPreparedAtConsolidatedLevel"),
+            fsAssetsQn=fsQn("Assets"),
+            fsEquityAndLiabilitiesQn=fsQn("EquityAndLiabilities"),
+            fsEquityQn=fsQn("Equity"),
+            fsPeAssetsQn=fsPeQn("Assets"),
+            fsPeEquityAndLiabilitiesQn=fsPeQn("EquityAndLiabilities"),
+            fsPeEquityQn=fsPeQn("Equity"),
+            fsPeProfitLossBeforeTaxQn=fsPeQn("ProfitLossBeforeTax"),
+            fsPeRevenueQn=fsPeQn("Revenue"),
+            fsProfitLossBeforeTaxQn=fsQn("ProfitLossBeforeTax"),
+            fsRevenueQn=fsQn("Revenue"),
+            tcProfitLossBeforeTaxQn=tcQn("ProfitLossBeforeTax"),
 
             # HKSIC
             hksicCodeQn=tcQn("HongKongStandardIndustrialClassificationCode"),

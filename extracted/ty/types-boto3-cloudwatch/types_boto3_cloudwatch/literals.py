@@ -28,6 +28,8 @@ __all__ = (
     "AlarmMuteRuleExistsWaiterName",
     "AlarmMuteRuleStatusType",
     "AlarmTypeType",
+    "AnomalyDetectorAdaptationSpeedType",
+    "AnomalyDetectorOutlierFilteringStrengthType",
     "AnomalyDetectorStateValueType",
     "AnomalyDetectorTypeType",
     "CloudWatchServiceName",
@@ -64,6 +66,8 @@ AlarmExistsWaiterName = Literal["alarm_exists"]
 AlarmMuteRuleExistsWaiterName = Literal["alarm_mute_rule_exists"]
 AlarmMuteRuleStatusType = Literal["ACTIVE", "EXPIRED", "SCHEDULED"]
 AlarmTypeType = Literal["CompositeAlarm", "LogAlarm", "MetricAlarm"]
+AnomalyDetectorAdaptationSpeedType = Literal["FAST", "NORMAL", "SLOW"]
+AnomalyDetectorOutlierFilteringStrengthType = Literal["MINIMAL", "MODERATE", "STRICT"]
 AnomalyDetectorStateValueType = Literal["PENDING_TRAINING", "TRAINED", "TRAINED_INSUFFICIENT_DATA"]
 AnomalyDetectorTypeType = Literal["METRIC_MATH", "SINGLE_METRIC"]
 ComparisonOperatorType = Literal[

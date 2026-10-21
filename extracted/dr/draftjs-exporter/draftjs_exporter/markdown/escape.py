@@ -195,7 +195,7 @@ def code_span_delimiters(content: str) -> tuple[str, str]:
     return ticks + pad, pad + ticks
 
 
-def code_block_fence(content: str, fence_char: str) -> str:
+def md_code_block_fence(content: str, fence_char: str) -> str:
     """Compute a code fence that cannot be broken by the content.
 
     The fence is one character longer than the longest run of the fence
@@ -209,3 +209,9 @@ def code_block_fence(content: str, fence_char: str) -> str:
         The fence string.
     """
     return fence_char * max(3, longest_run(content, fence_char) + 1)
+
+
+# Deprecated spelling of ``md_code_block_fence``, kept so callers using the
+# previous name keep working.
+code_block_fence = md_code_block_fence
+"""Compatibility alias for :func:`md_code_block_fence`."""

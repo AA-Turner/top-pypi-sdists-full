@@ -1,3 +1,5 @@
+from chalk._gen.chalk.auth.v1 import agent_pb2 as _agent_pb2
+from chalk._gen.chalk.auth.v1 import featurepermission_pb2 as _featurepermission_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import snapshot_compatibility_pb2 as _snapshot_compatibility_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
@@ -16,6 +18,17 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class ExecutionBackend(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    EXECUTION_BACKEND_UNSPECIFIED: _ClassVar[ExecutionBackend]
+    EXECUTION_BACKEND_ENVIRONMENT: _ClassVar[ExecutionBackend]
+    EXECUTION_BACKEND_SERVERLESS: _ClassVar[ExecutionBackend]
+
+class ResourceDetector(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    RESOURCE_DETECTOR_UNSPECIFIED: _ClassVar[ResourceDetector]
+    RESOURCE_DETECTOR_GITHUB_PULL_REQUESTS: _ClassVar[ResourceDetector]
 
 class ComputeClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -43,6 +56,17 @@ class ProcessState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PROCESS_STATE_FAILED: _ClassVar[ProcessState]
     PROCESS_STATE_TIMED_OUT: _ClassVar[ProcessState]
 
+class IdentityMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    IDENTITY_MODE_UNSPECIFIED: _ClassVar[IdentityMode]
+    IDENTITY_MODE_CREATOR_IDENTITY: _ClassVar[IdentityMode]
+    IDENTITY_MODE_WORKLOAD_PRINCIPAL: _ClassVar[IdentityMode]
+
+EXECUTION_BACKEND_UNSPECIFIED: ExecutionBackend
+EXECUTION_BACKEND_ENVIRONMENT: ExecutionBackend
+EXECUTION_BACKEND_SERVERLESS: ExecutionBackend
+RESOURCE_DETECTOR_UNSPECIFIED: ResourceDetector
+RESOURCE_DETECTOR_GITHUB_PULL_REQUESTS: ResourceDetector
 COMPUTE_CLASS_UNSPECIFIED: ComputeClass
 COMPUTE_CLASS_K8S: ComputeClass
 COMPUTE_CLASS_HOST: ComputeClass
@@ -57,6 +81,9 @@ PROCESS_STATE_RUNNING: ProcessState
 PROCESS_STATE_EXITED: ProcessState
 PROCESS_STATE_FAILED: ProcessState
 PROCESS_STATE_TIMED_OUT: ProcessState
+IDENTITY_MODE_UNSPECIFIED: IdentityMode
+IDENTITY_MODE_CREATOR_IDENTITY: IdentityMode
+IDENTITY_MODE_WORKLOAD_PRINCIPAL: IdentityMode
 
 class ResourceLimits(_message.Message):
     __slots__ = ("cpu", "memory", "gpu")
@@ -169,6 +196,8 @@ class ChalkContainerSpec(_message.Message):
         "restore_from_snapshot_id",
         "snapshot_requirements",
         "host_placement",
+        "execution_target",
+        "resource_detection",
     )
     class TagsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -221,6 +250,8 @@ class ChalkContainerSpec(_message.Message):
     RESTORE_FROM_SNAPSHOT_ID_FIELD_NUMBER: _ClassVar[int]
     SNAPSHOT_REQUIREMENTS_FIELD_NUMBER: _ClassVar[int]
     HOST_PLACEMENT_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_TARGET_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_DETECTION_FIELD_NUMBER: _ClassVar[int]
     name: str
     image: str
     entrypoint: _containers.RepeatedScalarFieldContainer[str]
@@ -246,6 +277,8 @@ class ChalkContainerSpec(_message.Message):
     restore_from_snapshot_id: str
     snapshot_requirements: _snapshot_compatibility_pb2.SnapshotCompatibilityRequirements
     host_placement: HostPlacementOptions
+    execution_target: ExecutionTarget
+    resource_detection: ResourceDetectionConfig
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -275,7 +308,21 @@ class ChalkContainerSpec(_message.Message):
             _Union[_snapshot_compatibility_pb2.SnapshotCompatibilityRequirements, _Mapping]
         ] = ...,
         host_placement: _Optional[_Union[HostPlacementOptions, _Mapping]] = ...,
+        execution_target: _Optional[_Union[ExecutionTarget, _Mapping]] = ...,
+        resource_detection: _Optional[_Union[ResourceDetectionConfig, _Mapping]] = ...,
     ) -> None: ...
+
+class ResourceDetectionConfig(_message.Message):
+    __slots__ = ("detectors",)
+    DETECTORS_FIELD_NUMBER: _ClassVar[int]
+    detectors: _containers.RepeatedScalarFieldContainer[ResourceDetector]
+    def __init__(self, detectors: _Optional[_Iterable[_Union[ResourceDetector, str]]] = ...) -> None: ...
+
+class ExecutionTarget(_message.Message):
+    __slots__ = ("backend",)
+    BACKEND_FIELD_NUMBER: _ClassVar[int]
+    backend: ExecutionBackend
+    def __init__(self, backend: _Optional[_Union[ExecutionBackend, str]] = ...) -> None: ...
 
 class StartupProbe(_message.Message):
     __slots__ = ("http", "grpc")
@@ -499,6 +546,7 @@ class ContainerResponse(_message.Message):
         "region",
         "created_by",
         "status_details",
+        "cluster_id",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -517,6 +565,7 @@ class ContainerResponse(_message.Message):
     REGION_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: str
@@ -534,6 +583,7 @@ class ContainerResponse(_message.Message):
     region: str
     created_by: str
     status_details: str
+    cluster_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -553,6 +603,7 @@ class ContainerResponse(_message.Message):
         region: _Optional[str] = ...,
         created_by: _Optional[str] = ...,
         status_details: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class RunContainerRequest(_message.Message):
@@ -951,25 +1002,40 @@ class ListSessionsResponse(_message.Message):
     def __init__(self, sessions: _Optional[_Iterable[_Union[SessionInfo, _Mapping]]] = ...) -> None: ...
 
 class ContainerHostInfo(_message.Message):
-    __slots__ = ("host_id",)
+    __slots__ = ("host_id", "host_pool_id")
     HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    HOST_POOL_ID_FIELD_NUMBER: _ClassVar[int]
     host_id: str
-    def __init__(self, host_id: _Optional[str] = ...) -> None: ...
+    host_pool_id: str
+    def __init__(self, host_id: _Optional[str] = ..., host_pool_id: _Optional[str] = ...) -> None: ...
 
 class UpdateContainerStatusRequest(_message.Message):
-    __slots__ = ("container_id", "status", "status_message", "host_info", "observed_at", "status_details")
+    __slots__ = (
+        "container_id",
+        "status",
+        "status_message",
+        "host_info",
+        "observed_at",
+        "status_details",
+        "execution_started_at",
+        "execution_stopped_at",
+    )
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     HOST_INFO_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
     STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    EXECUTION_STOPPED_AT_FIELD_NUMBER: _ClassVar[int]
     container_id: str
     status: str
     status_message: str
     host_info: ContainerHostInfo
     observed_at: _timestamp_pb2.Timestamp
     status_details: str
+    execution_started_at: _timestamp_pb2.Timestamp
+    execution_stopped_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         container_id: _Optional[str] = ...,
@@ -978,6 +1044,8 @@ class UpdateContainerStatusRequest(_message.Message):
         host_info: _Optional[_Union[ContainerHostInfo, _Mapping]] = ...,
         observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         status_details: _Optional[str] = ...,
+        execution_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        execution_stopped_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateContainerStatusResponse(_message.Message):
@@ -1155,9 +1223,43 @@ class CreateContainerDebugTTYResponse(_message.Message):
     closed: bool
     def __init__(self, data: _Optional[bytes] = ..., error: _Optional[str] = ..., closed: bool = ...) -> None: ...
 
+class WorkloadPrincipalIdentity(_message.Message):
+    __slots__ = ("permissions", "feature_permissions", "customer_claims")
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    feature_permissions: _featurepermission_pb2.FeaturePermissions
+    customer_claims: _containers.RepeatedCompositeFieldContainer[_agent_pb2.CustomClaim]
+    def __init__(
+        self,
+        permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+        feature_permissions: _Optional[_Union[_featurepermission_pb2.FeaturePermissions, _Mapping]] = ...,
+        customer_claims: _Optional[_Iterable[_Union[_agent_pb2.CustomClaim, _Mapping]]] = ...,
+    ) -> None: ...
+
 class ChalkWorkloadIdentity(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("mode", "workload_principal", "oidc_token_files")
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_PRINCIPAL_FIELD_NUMBER: _ClassVar[int]
+    OIDC_TOKEN_FILES_FIELD_NUMBER: _ClassVar[int]
+    mode: IdentityMode
+    workload_principal: WorkloadPrincipalIdentity
+    oidc_token_files: _containers.RepeatedCompositeFieldContainer[OIDCTokenFile]
+    def __init__(
+        self,
+        mode: _Optional[_Union[IdentityMode, str]] = ...,
+        workload_principal: _Optional[_Union[WorkloadPrincipalIdentity, _Mapping]] = ...,
+        oidc_token_files: _Optional[_Iterable[_Union[OIDCTokenFile, _Mapping]]] = ...,
+    ) -> None: ...
+
+class OIDCTokenFile(_message.Message):
+    __slots__ = ("audience", "env_var")
+    AUDIENCE_FIELD_NUMBER: _ClassVar[int]
+    ENV_VAR_FIELD_NUMBER: _ClassVar[int]
+    audience: str
+    env_var: str
+    def __init__(self, audience: _Optional[str] = ..., env_var: _Optional[str] = ...) -> None: ...
 
 class HostPlacementOptions(_message.Message):
     __slots__ = ("host_pool_id",)

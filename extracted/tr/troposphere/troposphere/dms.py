@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -61,7 +61,6 @@ class DataMigration(AWSObject):
     resource_type = "AWS::DMS::DataMigration"
 
     props: PropsDictType = {
-        "DataMigrationIdentifier": (str, False),
         "DataMigrationName": (str, False),
         "DataMigrationSettings": (DataMigrationSettings, False),
         "DataMigrationType": (str, True),
@@ -94,7 +93,9 @@ class IbmDb2LuwSettings(AWSProperty):
     props: PropsDictType = {
         "CertificateArn": (str, False),
         "DatabaseName": (str, True),
+        "EncryptionAlgorithm": (integer, False),
         "Port": (integer, True),
+        "SecurityMechanism": (integer, False),
         "ServerName": (str, True),
         "SslMode": (str, True),
     }
@@ -340,13 +341,13 @@ class DataProvider(AWSObject):
     resource_type = "AWS::DMS::DataProvider"
 
     props: PropsDictType = {
-        "DataProviderIdentifier": (str, False),
         "DataProviderName": (str, False),
         "Description": (str, False),
         "Engine": (str, True),
         "ExactSettings": (boolean, False),
         "Settings": (Settings, False),
         "Tags": (Tags, False),
+        "Virtual": (boolean, False),
     }
 
 
@@ -622,7 +623,6 @@ class InstanceProfile(AWSObject):
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
         "Description": (str, False),
-        "InstanceProfileIdentifier": (str, False),
         "InstanceProfileName": (str, False),
         "KmsKeyArn": (str, False),
         "NetworkType": (str, False),
@@ -667,10 +667,7 @@ class MigrationProject(AWSObject):
 
     props: PropsDictType = {
         "Description": (str, False),
-        "InstanceProfileArn": (str, False),
         "InstanceProfileIdentifier": (str, False),
-        "InstanceProfileName": (str, False),
-        "MigrationProjectIdentifier": (str, False),
         "MigrationProjectName": (str, False),
         "SchemaConversionApplicationAttributes": (
             SchemaConversionApplicationAttributes,

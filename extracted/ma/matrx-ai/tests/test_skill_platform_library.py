@@ -421,3 +421,81 @@ async def test_dry_run_links_nothing(tmp_path, monkeypatch):
     _patch(monkeypatch, defs, cats)
     await ingest_library_set(_set(tmp_path), admin_user_id=str(uuid4()), dry_run=True)
     assert "our_version" not in parent.config
+
+
+_PUBLISHED_SKILL = """---
+name: web-skill
+description: A skill whose file declares its web lane.
+{web}---
+
+# Web skill
+
+Body.
+"""
+
+
+def _write_skill(root, web_line):
+    d = root / ".claude" / "skills" / "web-skill"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "SKILL.md").write_text(_PUBLISHED_SKILL.format(web=web_line), encoding="utf-8")
+    return d / "SKILL.md"
+
+
+@pytest.mark.asyncio
+async def test_reingest_of_a_skill_declaring_published_to_web_true_leaves_it_published(
+    tmp_path, monkeypatch
+):
+    """Live 2026-10-20: re-ingesting credential-login unpublished a published row."""
+    from matrx_ai.skills.ingest import ingest_filesystem
+
+    path = _write_skill(tmp_path, "published_to_web: true\n")
+    row = _Row(
+        id=uuid4(), skill_id="web-skill", body="old", is_active=True, published_to_web=True,
+        config={"ingested_from": "filesystem", "source_path": str(path)},
+    )
+    defs, cats = _Defs([row]), _Cats()
+    _patch(monkeypatch, defs, cats)
+    rep = await ingest_filesystem([tmp_path], admin_user_id=str(uuid4()), dry_run=False)
+    assert rep["errors"] == []
+    assert defs.rows[0].published_to_web is True
+
+
+@pytest.mark.asyncio
+async def test_undeclared_web_lane_keeps_the_row_as_it_is_and_new_rows_start_unpublished(
+    tmp_path, monkeypatch
+):
+    from matrx_ai.skills.ingest import ingest_filesystem
+
+    path = _write_skill(tmp_path, "")
+    published = _Row(
+        id=uuid4(), skill_id="web-skill", body="old", is_active=True, published_to_web=True,
+        config={"ingested_from": "filesystem", "source_path": str(path)},
+    )
+    defs, cats = _Defs([published]), _Cats()
+    _patch(monkeypatch, defs, cats)
+    await ingest_filesystem([tmp_path], admin_user_id=str(uuid4()), dry_run=False)
+    assert defs.rows[0].published_to_web is True  # absent = leave it
+
+    fresh, cats2 = _Defs(), _Cats()
+    _patch(monkeypatch, fresh, cats2)
+    await ingest_filesystem([tmp_path], admin_user_id=str(uuid4()), dry_run=False)
+    assert fresh.rows[0].published_to_web is False  # a new row starts unpublished
+
+
+@pytest.mark.asyncio
+async def test_declared_false_unpublishes_and_a_non_boolean_is_refused(tmp_path, monkeypatch):
+    from matrx_ai.skills.ingest import ingest_filesystem
+
+    path = _write_skill(tmp_path, "published_to_web: false\n")
+    row = _Row(
+        id=uuid4(), skill_id="web-skill", body="old", is_active=True, published_to_web=True,
+        config={"ingested_from": "filesystem", "source_path": str(path)},
+    )
+    defs, cats = _Defs([row]), _Cats()
+    _patch(monkeypatch, defs, cats)
+    await ingest_filesystem([tmp_path], admin_user_id=str(uuid4()), dry_run=False)
+    assert defs.rows[0].published_to_web is False
+
+    bad = _write_skill(tmp_path, "published_to_web: maybe\n")
+    rep = await ingest_filesystem([tmp_path], admin_user_id=str(uuid4()), dry_run=False)
+    assert bad.exists() and rep["parsed"] == 0

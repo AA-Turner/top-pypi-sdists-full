@@ -244,6 +244,8 @@ def FISTA(
         y_max = float(np.max(np.abs(y))) if SMatrix.isComplexSMatrix else float(np.max(y))
         if y_max > 0:
             y_norm = y / y_max
+        else:
+            y_norm = y
 
         y_flat = xp.asarray(y_norm.T.flatten().astype(data_dtype))
 
@@ -291,12 +293,15 @@ def FISTA(
         lambda_bar = xp.zeros(ZX, dtype=xp.float32)
         t = 1.0
 
+        Ax = xp.zeros_like(y_flat)
+        Alambda_bar = xp.zeros_like(y_flat)
+
         residual_buffer = xp.empty_like(y_flat)
 
         save_indices = np.unique(np.append(np.arange(0, numIterations, max(1, numIterations // max_saves)), numIterations - 1)).tolist()
         saved_lambda = []
         saved_indices_list = []
-        cost_history = [] if isCostFunction else None
+        cost_history = []
         window_history = []
 
         prec_str = preconditioner.get_name()
@@ -311,12 +316,12 @@ def FISTA(
         # ==========================================================
         for it in iterator:
             prev_lambda = lambda_flat.copy()
+            prev_Ax = Ax 
 
-            Alambda_bar = forward_projection(SMatrix, lambda_bar)
             xp.subtract(Alambda_bar, y_flat, out=residual_buffer)
 
             # --- PRIOR GRADIENT --- ∇U(λ_bar)
-            grad_U, _, _ = get_potential_function(potential_type, SMatrix, lambda_bar, beta=beta_int, delta=delta_int, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=isCostFunction, use_surrogate_hessian=False)
+            grad_U, _, _ = get_potential_function(potential_type, SMatrix, lambda_bar, beta=beta_int, delta=delta_int, shape=potential_shape, radius=potential_radius, compute_grad=True, compute_hess=False, compute_energy=False, use_surrogate_hessian=False)
 
             # --- DATA FIDELITY GRADIENT WITH PRECONDITIONING ---
             grad_fidelity_prec = xp.ascontiguousarray(preconditioner.apply_inverse(xp.real(backward_projection(SMatrix, residual_buffer))), dtype=xp.float32)
@@ -338,8 +343,11 @@ def FISTA(
 
             t = t_next
 
-            if isCostFunction:
-                Ax = forward_projection(SMatrix, lambda_flat)
+            # --- UNIQUE FORWARD PROJECTION & LINEAR EXTRAPOLATION ---
+            Ax = forward_projection(SMatrix, lambda_flat)
+            Alambda_bar = Ax + float(momentum) * (Ax - prev_Ax)
+
+            if isCostFunction or stop_criterion == StopCriterionType.COST_FUNCTION:
                 _, _, U_x = get_potential_function(potential_type, SMatrix, lambda_flat, beta=beta_int, delta=delta_int, shape=potential_shape, radius=potential_radius, compute_grad=False, compute_hess=False, compute_energy=True, use_surrogate_hessian=False)
                 fidelity = 0.5 * float(xp.vdot(Ax - y_flat, Ax - y_flat).real)
                 cost_history.append(fidelity + U_x)
@@ -351,11 +359,14 @@ def FISTA(
                     ground_truth = SMatrix.experiment.OpticImage.phantom if withTumor else SMatrix.experiment.OpticImage.laser.intensity
                 gradient_for_stop = total_grad if stop_criterion == StopCriterionType.GRADIENT_NORM else None
                 isStop, val = check_stopping_criterion(SMatrix, lambda_flat, prev_lambda, stop_criterion, stop_threshold, window_size=stop_window_size, history=cost_history, ground_truth=ground_truth, gradient=gradient_for_stop, window_history=window_history)
+                
                 if show_logs and show_criterion:
                     iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
+                
                 if isStop:
                     if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
-                    cost_history.pop() if isCostFunction else None
+                    if not isCostFunction and stop_criterion == StopCriterionType.COST_FUNCTION:
+                        cost_history.pop() if cost_history else None
                     break
 
             if isSavingEachIteration and it in save_indices:

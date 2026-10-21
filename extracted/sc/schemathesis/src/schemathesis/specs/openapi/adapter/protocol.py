@@ -20,11 +20,11 @@ if TYPE_CHECKING:
     from schemathesis.core.transport import Response
     from schemathesis.schemas import APIOperation
     from schemathesis.specs.openapi.adapter.responses import ResponseSchemaCache
+    from schemathesis.specs.openapi.adapter.security import SecurityParameter
 
 IterResponseExamples = Callable[[Mapping[str, Any], str], Iterator[tuple[str, object]]]
 ExtractRawResponseSchema = Callable[[Mapping[str, Any]], Union["JsonSchema", None]]
 ExtractHeaderSchema = Callable[[Mapping[str, Any], "Resolver", str, str], "Bundle"]
-GetDefaultResponseMediaType = Callable[[Mapping[str, Any]], str | None]
 ResolveResponseMediaType = Callable[[Mapping[str, Any], str | None], str | None]
 ExtractSchemaForMediaType = Callable[
     [Mapping[str, Any], str | None, "Resolver", str, str, "ResponseSchemaCache"], Union["Bundle", None]
@@ -32,7 +32,7 @@ ExtractSchemaForMediaType = Callable[
 ExtractParameterSchema = Callable[[Mapping[str, Any]], "JsonSchema"]
 ExtractSecurityParameters = Callable[
     [Mapping[str, Any], Mapping[str, Any], "Resolver"],
-    Iterator[Mapping[str, Any]],
+    Iterator["SecurityParameter"],
 ]
 PrepareMultipart = Callable[
     ["APIOperation", dict[str, Any], dict[str, str] | None],
@@ -101,7 +101,6 @@ class ResponseAdapter(SchemaVocabulary, Protocol):
     # Function to extract response schema from specification
     extract_raw_response_schema: ExtractRawResponseSchema
     # Functions for handling multiple media types in responses
-    get_default_response_media_type: GetDefaultResponseMediaType
     resolve_response_media_type: ResolveResponseMediaType
     extract_schema_for_media_type: ExtractSchemaForMediaType
     # Schema of a sequential media type that covers the whole stream, read as an array

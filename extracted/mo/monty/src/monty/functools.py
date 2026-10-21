@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import builtins
 import cProfile
 import pstats
 import signal
 import sys
 import tempfile
-from functools import partial, wraps
+from functools import cached_property, partial, update_wrapper, wraps
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -15,66 +16,29 @@ if TYPE_CHECKING:
     from typing import Any, Union
 
 
-class _HashedSeq(list):
-    """Cache key wrapper that ensures ``hash()`` is called at most once per element.
-
-    ``lru_cache`` hashes the key multiple times on a cache miss; storing the
-    precomputed hash avoids repeating that work.
-    """
-
-    __slots__ = ("hashvalue",)
-
-    def __init__(self, tup: tuple, hashfunc: Callable = hash) -> None:
-        """Initialize the hashed sequence.
-
-        Args:
-            tup: Tuple.
-            hashfunc: Hash function.
-
-        """
-        self[:] = tup
-        self.hashvalue: int = hashfunc(tup)
-
-    def __hash__(self) -> int:  # type: ignore[override]
-        return self.hashvalue
+def _mangle(name: str, cls: type) -> str:
+    """Apply Python's private name mangling of ``name`` within class ``cls``."""
+    if name.startswith("__") and not name.endswith("__"):
+        return f"_{cls.__name__.lstrip('_')}{name}"
+    return name
 
 
-def _make_key(
-    args: tuple,
-    kwds: dict,
-    typed: bool,
-    kwd_mark: tuple[object] = (object(),),
-    fasttypes=None,
-) -> Any:
-    """Make a cache key from optionally typed positional and keyword arguments.
-
-    The key is constructed in a way that is flat as possible rather than
-    as a nested structure that would take more memory.
-
-    If there is only a single argument and its data type is known to cache
-    its hash value, then that argument is returned without a wrapper.  This
-    saves space and improves lookup speed.
-    """
-    key = args
-    if kwds:
-        sorted_items = sorted(kwds.items())
-        key += kwd_mark
-        for item in sorted_items:
-            key += item
-    if typed:
-        key += tuple(type(v) for v in args)
-        if kwds:
-            key += tuple(type(v) for k, v in sorted_items)
-    elif len(key) == 1 and isinstance(key[0], fasttypes):
-        return key[0]
-    return _HashedSeq(key)
-
-
-class lazy_property:
+class lazy_property(cached_property):
     """Descriptor that turns a method into a lazily evaluated attribute.
 
     The wrapped function is called once on first access; the returned value
     is cached on the instance's ``__dict__`` for subsequent lookups.
+
+    Built on ``functools.cached_property``, with these differences:
+
+    - The value is cached under the (mangled) name of the wrapped function,
+      so a descriptor may be bound to several names, or set on a class after
+      creation.
+    - Objects without a ``__dict__`` (e.g. ``__slots__`` classes) raise
+      ``AttributeError`` rather than ``TypeError``.
+    - ``__name__``, ``__qualname__``, ``__module__`` and ``__doc__`` are
+      copied from the wrapped function.
+    - Cached values can be cleared with :meth:`invalidate`.
     """
 
     def __init__(self, func: Callable) -> None:
@@ -84,31 +48,27 @@ class lazy_property:
             func: Function to decorate.
 
         """
-        self.__func = func
-        wraps(self.__func)(self)  # type: ignore[arg-type]
+        super().__init__(func)
+        update_wrapper(self, func)  # type: ignore[arg-type]
 
-    def __get__(self, inst: Any, inst_cls) -> Any:
+    def __set_name__(self, owner: type, name: str) -> None:
+        if self.attrname is None:
+            self.attrname = _mangle(self.func.__name__, owner)
+
+    def __get__(self, inst: Any, owner: type | None = None) -> Any:
         if inst is None:
             return self
 
-        # Fast access via type(inst).__dict__ — avoids the descriptor-walking
-        # cost of ``hasattr(inst, "__dict__")`` for the common case (almost
-        # all classes have ``__dict__``) while still cheaply detecting
-        # slots-only objects without computing the value.
         try:
-            inst_dict = inst.__dict__
+            inst.__dict__  # noqa: B018
         except AttributeError as exc:
             raise AttributeError(
-                f"'{inst_cls.__name__}' object has no attribute '__dict__'"
+                f"'{type(inst).__name__}' object has no attribute '__dict__'"
             ) from exc
 
-        name = self.__name__  # type: ignore[attr-defined]  # pylint: disable=E1101
-        if name.startswith("__") and not name.endswith("__"):
-            name = f"_{inst_cls.__name__}{name}"
-
-        value = self.__func(inst)
-        inst_dict[name] = value
-        return value
+        if self.attrname is None:
+            self.attrname = _mangle(self.func.__name__, type(inst))
+        return super().__get__(inst, owner)
 
     @classmethod
     def invalidate(cls, inst: object, name: str) -> None:
@@ -124,16 +84,14 @@ class lazy_property:
                 f"'{inst_cls.__name__}' object has no attribute '__dict__'"
             )
 
-        if name.startswith("__") and not name.endswith("__"):
-            name = f"_{inst_cls.__name__}{name}"
+        name = _mangle(name, inst_cls)
 
         if not isinstance(getattr(inst_cls, name), cls):
             raise AttributeError(
                 f"'{inst_cls.__name__}.{name}' is not a {cls.__name__} attribute"
             )
 
-        if name in inst.__dict__:
-            del inst.__dict__[name]
+        inst.__dict__.pop(name, None)
 
 
 def return_if_raise(
@@ -166,9 +124,11 @@ def return_if_raise(
     # we need a tuple of exceptions.
     if isinstance(exception_tuple, list):
         exception_tuple = tuple(exception_tuple)
-    elif not isinstance(exception_tuple, tuple):
+    elif isinstance(exception_tuple, type) and issubclass(
+        exception_tuple, BaseException
+    ):
         exception_tuple = (exception_tuple,)
-    else:
+    elif not isinstance(exception_tuple, tuple):
         raise TypeError(f"Wrong exception_tuple {type(exception_tuple)}")
 
     def decorator(func):
@@ -240,8 +200,12 @@ class timeout:
         signal.alarm(0)
 
 
-class TimeoutError(Exception):
-    """Exception class for timeouts."""
+class TimeoutError(builtins.TimeoutError):
+    """Exception raised by :class:`timeout` when the time limit is exceeded.
+
+    Subclasses the built-in ``TimeoutError``, so ``except TimeoutError``
+    catches it without importing it from monty.
+    """
 
     def __init__(self, message: str):
         """Initialize the exception.
@@ -250,6 +214,7 @@ class TimeoutError(Exception):
             message: Error message.
 
         """
+        super().__init__(message)
         self.message = message
 
 

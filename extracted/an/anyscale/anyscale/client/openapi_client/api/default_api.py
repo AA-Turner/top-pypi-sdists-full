@@ -1386,6 +1386,124 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def apply_group_suggestion_api_v2_iam_migration_group_suggestions_apply_post(self, apply_group_suggestion_request, **kwargs):  # noqa: E501
+        """Apply Group Suggestion  # noqa: E501
+
+        Create the suggested user group under the name given, add its users and bind it to the suggestion's role bindings. For a cluster, delete the users' own copies of them; for a merge, delete the groups it replaces.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.apply_group_suggestion_api_v2_iam_migration_group_suggestions_apply_post(apply_group_suggestion_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ApplyGroupSuggestionRequest apply_group_suggestion_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ApplygroupsuggestionresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.apply_group_suggestion_api_v2_iam_migration_group_suggestions_apply_post_with_http_info(apply_group_suggestion_request, **kwargs)  # noqa: E501
+
+    def apply_group_suggestion_api_v2_iam_migration_group_suggestions_apply_post_with_http_info(self, apply_group_suggestion_request, **kwargs):  # noqa: E501
+        """Apply Group Suggestion  # noqa: E501
+
+        Create the suggested user group under the name given, add its users and bind it to the suggestion's role bindings. For a cluster, delete the users' own copies of them; for a merge, delete the groups it replaces.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.apply_group_suggestion_api_v2_iam_migration_group_suggestions_apply_post_with_http_info(apply_group_suggestion_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ApplyGroupSuggestionRequest apply_group_suggestion_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ApplygroupsuggestionresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'apply_group_suggestion_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method apply_group_suggestion_api_v2_iam_migration_group_suggestions_apply_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'apply_group_suggestion_request' is set
+        if self.api_client.client_side_validation and ('apply_group_suggestion_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['apply_group_suggestion_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `apply_group_suggestion_request` when calling `apply_group_suggestion_api_v2_iam_migration_group_suggestions_apply_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'apply_group_suggestion_request' in local_var_params:
+            body_params = local_var_params['apply_group_suggestion_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/group_suggestions/apply', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ApplygroupsuggestionresultResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def apply_policy_api_v2_role_bindings_resource_type_resource_id_policy_put(self, resource_type, resource_id, role_binding_policy, **kwargs):  # noqa: E501
         """Apply Policy  # noqa: E501
 
@@ -5041,6 +5159,120 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='OauthAuthUrlResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def convert_iam_api_v2_iam_migration_convert_post(self, **kwargs):  # noqa: E501
+        """Convert Iam  # noqa: E501
+
+        Create what the preview of the option names, recommended when none is given, or the draft its edits make, record the option, and turn off auto_add_user on the auto-add clouds. A conversion that would change anyone's access is a conflict, except Start fresh and edits sent with accept_access_changes; edits whose result is invalid are unprocessable. Converting a converted organization is a conflict. Members who join afterwards are added to All users. Converting archives the Anyscale managed user groups, so they grant nothing and access comes from role bindings only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.convert_iam_api_v2_iam_migration_convert_post(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ConvertIamRequest convert_iam_request:
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ConvertiamresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.convert_iam_api_v2_iam_migration_convert_post_with_http_info(**kwargs)  # noqa: E501
+
+    def convert_iam_api_v2_iam_migration_convert_post_with_http_info(self, **kwargs):  # noqa: E501
+        """Convert Iam  # noqa: E501
+
+        Create what the preview of the option names, recommended when none is given, or the draft its edits make, record the option, and turn off auto_add_user on the auto-add clouds. A conversion that would change anyone's access is a conflict, except Start fresh and edits sent with accept_access_changes; edits whose result is invalid are unprocessable. Converting a converted organization is a conflict. Members who join afterwards are added to All users. Converting archives the Anyscale managed user groups, so they grant nothing and access comes from role bindings only.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.convert_iam_api_v2_iam_migration_convert_post_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param ConvertIamRequest convert_iam_request:
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ConvertiamresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'convert_iam_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method convert_iam_api_v2_iam_migration_convert_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'convert_iam_request' in local_var_params:
+            body_params = local_var_params['convert_iam_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/convert', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ConvertiamresultResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -14244,6 +14476,239 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def dismiss_group_suggestion_api_v2_iam_migration_group_suggestions_suggestion_id_dismiss_post(self, suggestion_id, **kwargs):  # noqa: E501
+        """Dismiss Group Suggestion  # noqa: E501
+
+        Stop suggesting a user group, until the organization is converted again.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.dismiss_group_suggestion_api_v2_iam_migration_group_suggestions_suggestion_id_dismiss_post(suggestion_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str suggestion_id: The suggestion to stop showing. (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.dismiss_group_suggestion_api_v2_iam_migration_group_suggestions_suggestion_id_dismiss_post_with_http_info(suggestion_id, **kwargs)  # noqa: E501
+
+    def dismiss_group_suggestion_api_v2_iam_migration_group_suggestions_suggestion_id_dismiss_post_with_http_info(self, suggestion_id, **kwargs):  # noqa: E501
+        """Dismiss Group Suggestion  # noqa: E501
+
+        Stop suggesting a user group, until the organization is converted again.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.dismiss_group_suggestion_api_v2_iam_migration_group_suggestions_suggestion_id_dismiss_post_with_http_info(suggestion_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str suggestion_id: The suggestion to stop showing. (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: None
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'suggestion_id'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method dismiss_group_suggestion_api_v2_iam_migration_group_suggestions_suggestion_id_dismiss_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'suggestion_id' is set
+        if self.api_client.client_side_validation and ('suggestion_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['suggestion_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `suggestion_id` when calling `dismiss_group_suggestion_api_v2_iam_migration_group_suggestions_suggestion_id_dismiss_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'suggestion_id' in local_var_params:
+            path_params['suggestion_id'] = local_var_params['suggestion_id']  # noqa: E501
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/group_suggestions/{suggestion_id}/dismiss', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def dissolve_user_group_api_v2_user_groups_group_id_dissolve_post(self, group_id, **kwargs):  # noqa: E501
+        """Dissolve User Group  # noqa: E501
+
+        Grant each member the user group's role bindings directly, but the ones they already hold directly, then delete the group. Nobody's access changes. A directory-synced group and All users are conflicts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.dissolve_user_group_api_v2_user_groups_group_id_dissolve_post(group_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param bool dry_run: Return what the operation would do without writing.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: UsergroupoperationresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.dissolve_user_group_api_v2_user_groups_group_id_dissolve_post_with_http_info(group_id, **kwargs)  # noqa: E501
+
+    def dissolve_user_group_api_v2_user_groups_group_id_dissolve_post_with_http_info(self, group_id, **kwargs):  # noqa: E501
+        """Dissolve User Group  # noqa: E501
+
+        Grant each member the user group's role bindings directly, but the ones they already hold directly, then delete the group. Nobody's access changes. A directory-synced group and All users are conflicts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.dissolve_user_group_api_v2_user_groups_group_id_dissolve_post_with_http_info(group_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param bool dry_run: Return what the operation would do without writing.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(UsergroupoperationresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'group_id',
+            'dry_run'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method dissolve_user_group_api_v2_user_groups_group_id_dissolve_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'group_id' is set
+        if self.api_client.client_side_validation and ('group_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['group_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `group_id` when calling `dissolve_user_group_api_v2_user_groups_group_id_dissolve_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'group_id' in local_var_params:
+            path_params['group_id'] = local_var_params['group_id']  # noqa: E501
+
+        query_params = []
+        if 'dry_run' in local_var_params and local_var_params['dry_run'] is not None:  # noqa: E501
+            query_params.append(('dry_run', local_var_params['dry_run']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/user_groups/{group_id}/dissolve', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='UsergroupoperationresultResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def download_aggregated_instance_usage_csv_api_v2_aggregated_instance_usage_download_csv_get(self, start_date, end_date, **kwargs):  # noqa: E501
         """Download Aggregated Instance Usage Csv  # noqa: E501
 
@@ -14508,6 +14973,256 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type=None,  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def draft_iam_migration_api_v2_iam_migration_draft_post(self, iam_migration_draft_request, **kwargs):  # noqa: E501
+        """Draft Iam Migration  # noqa: E501
+
+        The wizard's draft: the option's preview with the edits applied in order, the positions of the edits that change nothing any more, and, given an action, that action run over the draft with the checks and answers of its own endpoint, its changes returned as edits to keep. Nothing is written.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.draft_iam_migration_api_v2_iam_migration_draft_post(iam_migration_draft_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param IamMigrationDraftRequest iam_migration_draft_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: IammigrationdraftResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.draft_iam_migration_api_v2_iam_migration_draft_post_with_http_info(iam_migration_draft_request, **kwargs)  # noqa: E501
+
+    def draft_iam_migration_api_v2_iam_migration_draft_post_with_http_info(self, iam_migration_draft_request, **kwargs):  # noqa: E501
+        """Draft Iam Migration  # noqa: E501
+
+        The wizard's draft: the option's preview with the edits applied in order, the positions of the edits that change nothing any more, and, given an action, that action run over the draft with the checks and answers of its own endpoint, its changes returned as edits to keep. Nothing is written.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.draft_iam_migration_api_v2_iam_migration_draft_post_with_http_info(iam_migration_draft_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param IamMigrationDraftRequest iam_migration_draft_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(IammigrationdraftResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'iam_migration_draft_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method draft_iam_migration_api_v2_iam_migration_draft_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'iam_migration_draft_request' is set
+        if self.api_client.client_side_validation and ('iam_migration_draft_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['iam_migration_draft_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `iam_migration_draft_request` when calling `draft_iam_migration_api_v2_iam_migration_draft_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'iam_migration_draft_request' in local_var_params:
+            body_params = local_var_params['iam_migration_draft_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/draft', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='IammigrationdraftResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def duplicate_user_group_api_v2_user_groups_group_id_duplicate_post(self, group_id, duplicate_user_group_request, **kwargs):  # noqa: E501
+        """Duplicate User Group  # noqa: E501
+
+        Create a user group with the group's members and role bindings, under the name given. Only platform user groups: a directory-synced group or All users is a conflict.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.duplicate_user_group_api_v2_user_groups_group_id_duplicate_post(group_id, duplicate_user_group_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param DuplicateUserGroupRequest duplicate_user_group_request: (required)
+        :param bool dry_run: Return what the operation would do without writing.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: UsergroupoperationresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.duplicate_user_group_api_v2_user_groups_group_id_duplicate_post_with_http_info(group_id, duplicate_user_group_request, **kwargs)  # noqa: E501
+
+    def duplicate_user_group_api_v2_user_groups_group_id_duplicate_post_with_http_info(self, group_id, duplicate_user_group_request, **kwargs):  # noqa: E501
+        """Duplicate User Group  # noqa: E501
+
+        Create a user group with the group's members and role bindings, under the name given. Only platform user groups: a directory-synced group or All users is a conflict.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.duplicate_user_group_api_v2_user_groups_group_id_duplicate_post_with_http_info(group_id, duplicate_user_group_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param DuplicateUserGroupRequest duplicate_user_group_request: (required)
+        :param bool dry_run: Return what the operation would do without writing.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(UsergroupoperationresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'group_id',
+            'duplicate_user_group_request',
+            'dry_run'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method duplicate_user_group_api_v2_user_groups_group_id_duplicate_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'group_id' is set
+        if self.api_client.client_side_validation and ('group_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['group_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `group_id` when calling `duplicate_user_group_api_v2_user_groups_group_id_duplicate_post`")  # noqa: E501
+        # verify the required parameter 'duplicate_user_group_request' is set
+        if self.api_client.client_side_validation and ('duplicate_user_group_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['duplicate_user_group_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `duplicate_user_group_request` when calling `duplicate_user_group_api_v2_user_groups_group_id_duplicate_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'group_id' in local_var_params:
+            path_params['group_id'] = local_var_params['group_id']  # noqa: E501
+
+        query_params = []
+        if 'dry_run' in local_var_params and local_var_params['dry_run'] is not None:  # noqa: E501
+            query_params.append(('dry_run', local_var_params['dry_run']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'duplicate_user_group_request' in local_var_params:
+            body_params = local_var_params['duplicate_user_group_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/user_groups/{group_id}/duplicate', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='UsergroupoperationresultResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -14867,6 +15582,124 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='CloudresourceResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def evaluate_iam_migration_plan_api_v2_iam_migration_evaluate_post(self, evaluate_plan_request, **kwargs):  # noqa: E501
+        """Evaluate Iam Migration Plan  # noqa: E501
+
+        What converting the option with the wizard draft's edits would create, counted, how each user's and group's roles compare with the legacy rows, and what is wrong with the result: unknown users, groups, roles or resources, and blank, duplicate or taken group names. Nothing is written.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.evaluate_iam_migration_plan_api_v2_iam_migration_evaluate_post(evaluate_plan_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param EvaluatePlanRequest evaluate_plan_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: PlanevaluationResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.evaluate_iam_migration_plan_api_v2_iam_migration_evaluate_post_with_http_info(evaluate_plan_request, **kwargs)  # noqa: E501
+
+    def evaluate_iam_migration_plan_api_v2_iam_migration_evaluate_post_with_http_info(self, evaluate_plan_request, **kwargs):  # noqa: E501
+        """Evaluate Iam Migration Plan  # noqa: E501
+
+        What converting the option with the wizard draft's edits would create, counted, how each user's and group's roles compare with the legacy rows, and what is wrong with the result: unknown users, groups, roles or resources, and blank, duplicate or taken group names. Nothing is written.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.evaluate_iam_migration_plan_api_v2_iam_migration_evaluate_post_with_http_info(evaluate_plan_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param EvaluatePlanRequest evaluate_plan_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(PlanevaluationResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'evaluate_plan_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method evaluate_iam_migration_plan_api_v2_iam_migration_evaluate_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'evaluate_plan_request' is set
+        if self.api_client.client_side_validation and ('evaluate_plan_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['evaluate_plan_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `evaluate_plan_request` when calling `evaluate_iam_migration_plan_api_v2_iam_migration_evaluate_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'evaluate_plan_request' in local_var_params:
+            body_params = local_var_params['evaluate_plan_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/evaluate', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='PlanevaluationResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -24079,6 +24912,221 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='GpumetrictimeseriesResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_iam_migration_preview_api_v2_iam_migration_preview_get(self, **kwargs):  # noqa: E501
+        """Get Iam Migration Preview  # noqa: E501
+
+        What converting with the option would create, with nothing written: its user groups, named, with their members and role bindings, its direct role bindings, and how each user's and group's roles compare with the legacy rows. recommended groups users by the bindings they share, structured makes one group per legacy role on each resource, and fresh keeps only the organization's owners.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_iam_migration_preview_api_v2_iam_migration_preview_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param IamMigrationOption option: The option to preview.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: IammigrationpreviewResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_iam_migration_preview_api_v2_iam_migration_preview_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_iam_migration_preview_api_v2_iam_migration_preview_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Iam Migration Preview  # noqa: E501
+
+        What converting with the option would create, with nothing written: its user groups, named, with their members and role bindings, its direct role bindings, and how each user's and group's roles compare with the legacy rows. recommended groups users by the bindings they share, structured makes one group per legacy role on each resource, and fresh keeps only the organization's owners.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_iam_migration_preview_api_v2_iam_migration_preview_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param IamMigrationOption option: The option to preview.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(IammigrationpreviewResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'option'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_iam_migration_preview_api_v2_iam_migration_preview_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'option' in local_var_params and local_var_params['option'] is not None:  # noqa: E501
+            query_params.append(('option', local_var_params['option']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/preview', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='IammigrationpreviewResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def get_iam_migration_status_api_v2_iam_migration_status_get(self, **kwargs):  # noqa: E501
+        """Get Iam Migration Status  # noqa: E501
+
+        Whether the organization's legacy IAM is converted into role bindings, and who converted it and when.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_iam_migration_status_api_v2_iam_migration_status_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: IammigrationstatusResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_iam_migration_status_api_v2_iam_migration_status_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_iam_migration_status_api_v2_iam_migration_status_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Iam Migration Status  # noqa: E501
+
+        Whether the organization's legacy IAM is converted into role bindings, and who converted it and when.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_iam_migration_status_api_v2_iam_migration_status_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(IammigrationstatusResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_iam_migration_status_api_v2_iam_migration_status_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/status', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='IammigrationstatusResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -40381,6 +41429,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def list_group_suggestions_api_v2_iam_migration_group_suggestions_get(self, **kwargs):  # noqa: E501
+        """List Group Suggestions  # noqa: E501
+
+        Up to 20 user groups that would replace role bindings or user groups, most saved first. A cluster groups users' direct role bindings: users with identical bindings, users who share two or more bindings, and one binding held by three or more users. A merge replaces two or more platform user groups with the same members, or the same role bindings, with one; directory-synced groups and All users are never merged. Dismissed suggestions are left out. Empty until the organization is converted.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_group_suggestions_api_v2_iam_migration_group_suggestions_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GroupsuggestionListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_group_suggestions_api_v2_iam_migration_group_suggestions_get_with_http_info(**kwargs)  # noqa: E501
+
+    def list_group_suggestions_api_v2_iam_migration_group_suggestions_get_with_http_info(self, **kwargs):  # noqa: E501
+        """List Group Suggestions  # noqa: E501
+
+        Up to 20 user groups that would replace role bindings or user groups, most saved first. A cluster groups users' direct role bindings: users with identical bindings, users who share two or more bindings, and one binding held by three or more users. A merge replaces two or more platform user groups with the same members, or the same role bindings, with one; directory-synced groups and All users are never merged. Dismissed suggestions are left out. Empty until the organization is converted.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_group_suggestions_api_v2_iam_migration_group_suggestions_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GroupsuggestionListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_group_suggestions_api_v2_iam_migration_group_suggestions_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/group_suggestions', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GroupsuggestionListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def list_instance_usage_budgets_api_v2_instance_usage_budgets_get(self, **kwargs):  # noqa: E501
         """List Instance Usage Budgets  # noqa: E501
 
@@ -45175,6 +46328,124 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def list_staged_group_suggestions_api_v2_iam_migration_group_suggestions_staged_post(self, staged_group_suggestions_request, **kwargs):  # noqa: E501
+        """List Staged Group Suggestions  # noqa: E501
+
+        The group suggestions over the wizard's draft, made and ranked as for the organization: the draft's groups stand in for the platform groups, its All users group for All users, and its direct bindings for the users'. A group is named by its draft key. The dismissed suggestions given are left out. Nothing is written.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_staged_group_suggestions_api_v2_iam_migration_group_suggestions_staged_post(staged_group_suggestions_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param StagedGroupSuggestionsRequest staged_group_suggestions_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: GroupsuggestionListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_staged_group_suggestions_api_v2_iam_migration_group_suggestions_staged_post_with_http_info(staged_group_suggestions_request, **kwargs)  # noqa: E501
+
+    def list_staged_group_suggestions_api_v2_iam_migration_group_suggestions_staged_post_with_http_info(self, staged_group_suggestions_request, **kwargs):  # noqa: E501
+        """List Staged Group Suggestions  # noqa: E501
+
+        The group suggestions over the wizard's draft, made and ranked as for the organization: the draft's groups stand in for the platform groups, its All users group for All users, and its direct bindings for the users'. A group is named by its draft key. The dismissed suggestions given are left out. Nothing is written.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_staged_group_suggestions_api_v2_iam_migration_group_suggestions_staged_post_with_http_info(staged_group_suggestions_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param StagedGroupSuggestionsRequest staged_group_suggestions_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(GroupsuggestionListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'staged_group_suggestions_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_staged_group_suggestions_api_v2_iam_migration_group_suggestions_staged_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'staged_group_suggestions_request' is set
+        if self.api_client.client_side_validation and ('staged_group_suggestions_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['staged_group_suggestions_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `staged_group_suggestions_request` when calling `list_staged_group_suggestions_api_v2_iam_migration_group_suggestions_staged_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'staged_group_suggestions_request' in local_var_params:
+            body_params = local_var_params['staged_group_suggestions_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/group_suggestions/staged', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='GroupsuggestionListResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def list_tables_in_schema_api_v2_data_catalogs_connections_connection_id_catalogs_catalog_id_schemas_schema_id_tables_get(self, connection_id, catalog_id, schema_id, **kwargs):  # noqa: E501
         """List Tables In Schema  # noqa: E501
 
@@ -47550,6 +48821,111 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='DebugmessageresultResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def preview_iam_restore_api_v2_iam_migration_restore_preview_post(self, **kwargs):  # noqa: E501
+        """Preview Iam Restore  # noqa: E501
+
+        What restoring the organization to the Keep your current structure plan recorded at conversion would do, with nothing written: whose roles change, the user groups deleted and created, every role binding removed and added, the bindings on clouds and projects created since, and the users who have left. Only an Organization owner of an organization the migration wizard converted can restore, and only when they stay Organization owner. A directory-synced group the recorded structure names that no longer exists is a conflict.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.preview_iam_restore_api_v2_iam_migration_restore_preview_post(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: RestorepreviewResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.preview_iam_restore_api_v2_iam_migration_restore_preview_post_with_http_info(**kwargs)  # noqa: E501
+
+    def preview_iam_restore_api_v2_iam_migration_restore_preview_post_with_http_info(self, **kwargs):  # noqa: E501
+        """Preview Iam Restore  # noqa: E501
+
+        What restoring the organization to the Keep your current structure plan recorded at conversion would do, with nothing written: whose roles change, the user groups deleted and created, every role binding removed and added, the bindings on clouds and projects created since, and the users who have left. Only an Organization owner of an organization the migration wizard converted can restore, and only when they stay Organization owner. A directory-synced group the recorded structure names that no longer exists is a conflict.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.preview_iam_restore_api_v2_iam_migration_restore_preview_post_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(RestorepreviewResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method preview_iam_restore_api_v2_iam_migration_restore_preview_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/restore/preview', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='RestorepreviewResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -51338,6 +52714,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def reset_iam_api_v2_iam_migration_reset_post(self, **kwargs):  # noqa: E501
+        """Reset Iam  # noqa: E501
+
+        Delete every role binding in the organization except its Organization owner bindings and the bindings of user groups synced from an identity provider, and every user group conversion created except All users and the groups that hold Organization owner. When no Organization owner binding is left, the caller becomes one. The Anyscale managed user groups stay archived.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.reset_iam_api_v2_iam_migration_reset_post(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: ResetiamresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.reset_iam_api_v2_iam_migration_reset_post_with_http_info(**kwargs)  # noqa: E501
+
+    def reset_iam_api_v2_iam_migration_reset_post_with_http_info(self, **kwargs):  # noqa: E501
+        """Reset Iam  # noqa: E501
+
+        Delete every role binding in the organization except its Organization owner bindings and the bindings of user groups synced from an identity provider, and every user group conversion created except All users and the groups that hold Organization owner. When no Organization owner binding is left, the caller becomes one. The Anyscale managed user groups stay archived.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.reset_iam_api_v2_iam_migration_reset_post_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(ResetiamresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method reset_iam_api_v2_iam_migration_reset_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/reset', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='ResetiamresultResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def reset_password_api_v2_users_reset_password_post(self, reset_password_params, **kwargs):  # noqa: E501
         """Reset Password  # noqa: E501
 
@@ -51568,6 +53049,124 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='Decoratedproductionservicev2ApimodelResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def restore_iam_api_v2_iam_migration_restore_post(self, restore_iam_request, **kwargs):  # noqa: E501
+        """Restore Iam  # noqa: E501
+
+        Restore the organization to the structure its preview with this digest shows: create its user groups with their members, grant their role bindings and the direct ones, then delete every other role binding and platform user group. Directory-synced groups keep their members and get their recorded role bindings back. A digest the current preview no longer has is a conflict.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.restore_iam_api_v2_iam_migration_restore_post(restore_iam_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param RestoreIamRequest restore_iam_request: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: RestoreiamresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.restore_iam_api_v2_iam_migration_restore_post_with_http_info(restore_iam_request, **kwargs)  # noqa: E501
+
+    def restore_iam_api_v2_iam_migration_restore_post_with_http_info(self, restore_iam_request, **kwargs):  # noqa: E501
+        """Restore Iam  # noqa: E501
+
+        Restore the organization to the structure its preview with this digest shows: create its user groups with their members, grant their role bindings and the direct ones, then delete every other role binding and platform user group. Directory-synced groups keep their members and get their recorded role bindings back. A digest the current preview no longer has is a conflict.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.restore_iam_api_v2_iam_migration_restore_post_with_http_info(restore_iam_request, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param RestoreIamRequest restore_iam_request: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(RestoreiamresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'restore_iam_request'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method restore_iam_api_v2_iam_migration_restore_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'restore_iam_request' is set
+        if self.api_client.client_side_validation and ('restore_iam_request' not in local_var_params or  # noqa: E501
+                                                        local_var_params['restore_iam_request'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `restore_iam_request` when calling `restore_iam_api_v2_iam_migration_restore_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'restore_iam_request' in local_var_params:
+            body_params = local_var_params['restore_iam_request']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/iam_migration/restore', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='RestoreiamresultResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
@@ -54973,6 +56572,125 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='ShowotpsourcereturnapimodelResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def split_user_group_api_v2_user_groups_group_id_split_post(self, group_id, **kwargs):  # noqa: E501
+        """Split User Group  # noqa: E501
+
+        Replace the user group with one group per resource it holds role bindings on, each named \"<group> · <resource>\", with the same members and the bindings on that resource, then delete it. Nobody's access changes. A group with bindings on fewer than two resources, a directory-synced group and All users are conflicts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.split_user_group_api_v2_user_groups_group_id_split_post(group_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param bool dry_run: Return what the operation would do without writing.
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: UsergroupoperationresultResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.split_user_group_api_v2_user_groups_group_id_split_post_with_http_info(group_id, **kwargs)  # noqa: E501
+
+    def split_user_group_api_v2_user_groups_group_id_split_post_with_http_info(self, group_id, **kwargs):  # noqa: E501
+        """Split User Group  # noqa: E501
+
+        Replace the user group with one group per resource it holds role bindings on, each named \"<group> · <resource>\", with the same members and the bindings on that resource, then delete it. Nobody's access changes. A group with bindings on fewer than two resources, a directory-synced group and All users are conflicts.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.split_user_group_api_v2_user_groups_group_id_split_post_with_http_info(group_id, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param str group_id: (required)
+        :param bool dry_run: Return what the operation would do without writing.
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(UsergroupoperationresultResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'group_id',
+            'dry_run'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method split_user_group_api_v2_user_groups_group_id_split_post" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'group_id' is set
+        if self.api_client.client_side_validation and ('group_id' not in local_var_params or  # noqa: E501
+                                                        local_var_params['group_id'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `group_id` when calling `split_user_group_api_v2_user_groups_group_id_split_post`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+        if 'group_id' in local_var_params:
+            path_params['group_id'] = local_var_params['group_id']  # noqa: E501
+
+        query_params = []
+        if 'dry_run' in local_var_params and local_var_params['dry_run'] is not None:  # noqa: E501
+            query_params.append(('dry_run', local_var_params['dry_run']))  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/user_groups/{group_id}/split', 'POST',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='UsergroupoperationresultResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

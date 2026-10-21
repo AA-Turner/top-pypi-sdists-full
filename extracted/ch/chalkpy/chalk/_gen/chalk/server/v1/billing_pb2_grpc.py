@@ -36,10 +36,30 @@ class BillingServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageResponse.FromString,
         )
+        self.PublishProductAnalyticsEvents = channel.unary_unary(
+            "/chalk.server.v1.BillingService/PublishProductAnalyticsEvents",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishProductAnalyticsEventsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishProductAnalyticsEventsResponse.FromString,
+        )
         self.GetUsageChart = channel.unary_unary(
             "/chalk.server.v1.BillingService/GetUsageChart",
             request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartResponse.FromString,
+        )
+        self.GetUsageChartV2 = channel.unary_unary(
+            "/chalk.server.v1.BillingService/GetUsageChartV2",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartV2Request.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartV2Response.FromString,
+        )
+        self.GetUsageFacets = channel.unary_unary(
+            "/chalk.server.v1.BillingService/GetUsageFacets",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetsResponse.FromString,
+        )
+        self.GetUsageFacetValues = channel.unary_unary(
+            "/chalk.server.v1.BillingService/GetUsageFacetValues",
+            request_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetValuesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetValuesResponse.FromString,
         )
         self.GetUtilizationRates = channel.unary_unary(
             "/chalk.server.v1.BillingService/GetUtilizationRates",
@@ -138,11 +158,39 @@ class BillingServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def PublishProductAnalyticsEvents(self, request, context):
+        """PublishProductAnalyticsEvents republishes a self-hosted deployment's
+        product analytics events to the product analytics Pub/Sub topic. Only a
+        self-hosted license key may call it; the receiver stamps the key's id and
+        team onto every event.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetUsageChart(self, request, context):
         """GetUsageChart shows the Chalk credit usage between a provided start and
         end period. The usage can be grouped by UsageChartPeriod for daily or
         monthly usage, and by UsageChartGrouping for instance type or cluster usage.
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetUsageChartV2(self, request, context):
+        """GetUsageChartV2 buckets Chalk credit usage by period, grouped and filtered by usage facets."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetUsageFacets(self, request, context):
+        """GetUsageFacets lists the columns GetUsageChartV2 can group and filter by."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetUsageFacetValues(self, request, context):
+        """GetUsageFacetValues lists a usage facet's values from the team's infrastructure and Chalk's catalogs, alphabetically."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -255,10 +303,30 @@ def add_BillingServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishPodUsageResponse.SerializeToString,
         ),
+        "PublishProductAnalyticsEvents": grpc.unary_unary_rpc_method_handler(
+            servicer.PublishProductAnalyticsEvents,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishProductAnalyticsEventsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.PublishProductAnalyticsEventsResponse.SerializeToString,
+        ),
         "GetUsageChart": grpc.unary_unary_rpc_method_handler(
             servicer.GetUsageChart,
             request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartResponse.SerializeToString,
+        ),
+        "GetUsageChartV2": grpc.unary_unary_rpc_method_handler(
+            servicer.GetUsageChartV2,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartV2Request.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartV2Response.SerializeToString,
+        ),
+        "GetUsageFacets": grpc.unary_unary_rpc_method_handler(
+            servicer.GetUsageFacets,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetsResponse.SerializeToString,
+        ),
+        "GetUsageFacetValues": grpc.unary_unary_rpc_method_handler(
+            servicer.GetUsageFacetValues,
+            request_deserializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetValuesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetValuesResponse.SerializeToString,
         ),
         "GetUtilizationRates": grpc.unary_unary_rpc_method_handler(
             servicer.GetUtilizationRates,
@@ -446,6 +514,35 @@ class BillingService(object):
         )
 
     @staticmethod
+    def PublishProductAnalyticsEvents(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/PublishProductAnalyticsEvents",
+            chalk_dot_server_dot_v1_dot_billing__pb2.PublishProductAnalyticsEventsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.PublishProductAnalyticsEventsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetUsageChart(
         request,
         target,
@@ -464,6 +561,93 @@ class BillingService(object):
             "/chalk.server.v1.BillingService/GetUsageChart",
             chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetUsageChartV2(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/GetUsageChartV2",
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartV2Request.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageChartV2Response.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetUsageFacets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/GetUsageFacets",
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetUsageFacetValues(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BillingService/GetUsageFacetValues",
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetValuesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_billing__pb2.GetUsageFacetValuesResponse.FromString,
             options,
             channel_credentials,
             insecure,

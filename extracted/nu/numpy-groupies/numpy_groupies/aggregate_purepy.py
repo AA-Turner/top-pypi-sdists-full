@@ -3,18 +3,21 @@ import math
 import numbers
 import operator
 from collections.abc import Callable, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from numpy_groupies.aggregate_common import (
     DEFAULT_FILL_VALUE,
     EXACT_FLOAT64_INTEGER_LIMIT,
     INT64_DEVIATION_LIMIT,
+    Registry,
+    Resolved,
     aggregate_common_doc,
-    build_dispatch,
     check_complex_dtype,
+    check_fixed_fill_value,
+    custom_callable,
     funcs_no_separate_nan,
-    get_func,
     is_scalar_input,
+    missing_impl_error,
     raise_integer_mean_overflow,
     raise_integer_variance_span_overflow,
     resolve_fill_value,
@@ -24,7 +27,10 @@ from numpy_groupies.aggregate_common import (
 )
 
 if TYPE_CHECKING:
+    import numpy as np
     import numpy.typing as npt
+
+    from numpy_groupies.utils import AValue, RavelOrder
 
 
 # min, max, all, any - builtin
@@ -63,8 +69,12 @@ def _mean(x: Sequence[Any]) -> Any:
 
 def _median(x: Sequence[Any]) -> Any:
     if any(v != v for v in x):
-        # like np.median, any nan poisons the whole group
-        return math.nan
+        # like np.median, any nan poisons the whole group - and the poison is
+        # shaped like the values it poisons: a plain nan answers a complex group
+        # with a float, whose imaginary part states a zero the group never
+        # claimed, while the other two implementations answer a nan in both parts
+        # (and for real values the product is the plain nan all three agree on)
+        return x[0] * math.nan
     srt = sorted(x)
     mid = len(srt) // 2
     if len(srt) % 2 == 1:
@@ -121,46 +131,60 @@ def _allnan(x: Sequence[Any]) -> bool:
     return all(xx != xx for xx in x)
 
 
-def _argmax(x_and_idx) -> Any:
+def _argmax(x_and_idx: Sequence[tuple[Any, Any]]) -> Any:
     return max(x_and_idx, key=operator.itemgetter(1))[0]
 
 
 _argmax.x_and_idx = True  # type: ignore[attr-defined]  # tell aggregate what to use as first arg
 
 
-def _argmin(x_and_idx) -> Any:
+def _argmin(x_and_idx: Sequence[tuple[Any, Any]]) -> Any:
     return min(x_and_idx, key=operator.itemgetter(1))[0]
 
 
 _argmin.x_and_idx = True  # type: ignore[attr-defined]  # tell aggregate what to use as first arg
 
 
-def _sort(group_idx, a: Any, reverse: bool = False) -> list[Any]:
-    def _argsort(unordered):
+def _sort(group_idx: Sequence[int], a: Sequence[Any], reverse: bool = False) -> list[Any]:
+    def _argsort(unordered: Sequence[Any]) -> list[int]:
         return sorted(range(len(unordered)), key=lambda k: unordered[k])
 
     # ascending in both directions: a descending key would have to negate the
     # values, which is not order reversing for the integral dtypes (the smallest
     # signed value survives negation as itself, and a zero of an unsigned one
     # stays the smallest key) - and plain python lists cannot be negated at all
-    sortidx = _argsort(list(zip(group_idx, a)))
+
+    # a nan has no place in the order python sees: it compares neither smaller nor
+    # greater, so sorted() leaves it wherever it happened to sit, while numpy orders
+    # it as the largest value there is.  Asking for the nan before the value settles
+    # every comparison of a nan with a value before the two of them come up, and
+    # moves the nans of a group behind its values
+    poisoned = [val != val for val in a]
+    sortidx = _argsort(list(zip(group_idx, poisoned, a)))
     revidx = _argsort(_argsort(group_idx))
     a_srt = [a[si] for si in sortidx]
     if reverse:
         # flip each group's run of values instead - the labels are sorted, so
         # every group is one contiguous run of the result
         labels = [group_idx[si] for si in sortidx]
+        trailing = [poisoned[si] for si in sortidx]
         begin = 0
         while begin < len(a_srt):
             end = begin
             while end + 1 < len(a_srt) and labels[end + 1] == labels[begin]:
                 end += 1
-            a_srt[begin : end + 1] = reversed(a_srt[begin : end + 1])
+            # only the ordered part of the run is flipped: a nan is not made the
+            # smallest value by asking for the order the other way round, so it
+            # stays where the ascending order put it
+            last = end + 1
+            while last > begin and trailing[last - 1]:
+                last -= 1
+            a_srt[begin:last] = reversed(a_srt[begin:last])
             begin = end + 1
     return [a_srt[ri] for ri in revidx]
 
 
-def _propagate_nan(reduction):
+def _propagate_nan(reduction: Callable[[Sequence[Any]], Any]) -> Callable[[Sequence[Any]], Any]:
     """Let a nan of the group win over its other values, like np.min and np.max do.
 
     The builtin reductions only do that when the nan happens to be the first
@@ -169,7 +193,7 @@ def _propagate_nan(reduction):
     `aggregate` filters the nans out before handing the group over.
     """
 
-    def reduction_with_nan(values):
+    def reduction_with_nan(values: Sequence[Any]) -> Any:
         for val in values:
             if val != val:  # val != val - np.isnan does not cover ints and objects
                 return val
@@ -178,7 +202,7 @@ def _propagate_nan(reduction):
     return reduction_with_nan
 
 
-_impl_dict = {
+_op_dict: dict[str, Callable[..., Any]] = {
     "min": _propagate_nan(min),
     "max": _propagate_nan(max),
     "sum": _sum,
@@ -200,9 +224,20 @@ _impl_dict = {
     "argmin": _argmin,
     "len": len,
 }
-_impl_dict.update(("nan" + k, v) for k, v in list(_impl_dict.items()) if k not in funcs_no_separate_nan)
+_op_dict.update(("nan" + k, v) for k, v in list(_op_dict.items()) if k not in funcs_no_separate_nan)
 
-_dispatch = build_dispatch(_impl_dict, aliasing)
+
+def _custom_operation(func: Any) -> Resolved:
+    """The operation of a callable of the caller's own.
+
+    The pure python implementation runs any callable, so the callable is its
+    own implementation.
+    """
+    callable_ = custom_callable(func)
+    return Resolved(callable_, callable_)
+
+
+_dispatch = Registry(_op_dict, aliasing, _custom_operation)
 
 
 def _a_dtype(a: Sequence[Any]) -> type:
@@ -242,29 +277,35 @@ def _check_integer_precision(a: Sequence[Any], func: Callable[..., Any]) -> None
 
 
 def aggregate(
-    group_idx: "npt.ArrayLike",
-    a: "npt.ArrayLike",
+    group_idx: "npt.NDArray[np.integer]",
+    a: "AValue",
     func: str | Callable[..., Any] = "sum",
     size: int | None = None,
     fill_value: Any = DEFAULT_FILL_VALUE,
-    order: str = "C",
-    dtype: "npt.DTypeLike" = None,
+    order: "RavelOrder" = "C",
+    dtype: "npt.DTypeLike | None" = None,
     axis: int | None = None,
     **kwargs: Any,
 ) -> list[Any]:
+    # the pure python path reads both arguments purely as sized iterables of the
+    # values - a sequence of labels and a sequence of values, which is what these
+    # casts say without rejecting anything; the scalar that the signature of
+    # ``a`` also admits is refused below, as is anything not sized
+    idx: Sequence[Any] = cast(Sequence[Any], group_idx)
+    vals: Sequence[Any] = cast(Sequence[Any], a)
     if axis is not None:
         raise NotImplementedError("axis arg not supported in purepy implementation.")
-    if len(group_idx) == 0:
+    if len(idx) == 0:
         raise ValueError("group_idx must not be empty")
 
     # Check for 2d group_idx
     if size is None:
         try:
-            size = 1 + int(max(group_idx))
+            size = 1 + int(max(idx))
         except (TypeError, ValueError):
             raise NotImplementedError("pure python implementation doesn't accept ndim idx input.")
 
-    for i in group_idx:
+    for i in idx:
         try:
             i = int(i)
         except (TypeError, ValueError):
@@ -282,58 +323,76 @@ def aggregate(
                 raise ValueError("group_idx contains negative value")
 
     try:
-        func = _dispatch[func][0]
-    except (KeyError, TypeError):
-        func = get_func(func, aliasing, _impl_dict)
-    if is_scalar_input(a):
-        if func not in ("sum", "prod", "len"):
+        funcname, op = _dispatch[func]
+    except TypeError:
+        # a func that cannot be a key of the table at all: it names no known
+        # function either, so the registry answers it as a callable of the
+        # caller's own
+        funcname, op = _dispatch.custom(func)
+    if op is None:
+        # a function that is known but not implemented here - the registry
+        # answers that too, and says it before a single group is aggregated
+        raise missing_impl_error(funcname)
+    if is_scalar_input(vals):
+        if funcname not in ("sum", "prod", "len"):
             raise ValueError("scalar inputs are supported only for 'sum', 'prod' and 'len'")
         # a 0d array stands in for the numpy scalar it holds and the list wants
         # values, not 0d arrays - [()] is the dtype preserving way to get one
         # out (item() would drop back to a python number), and python numbers
         # have no shape to index at all
-        a = [a[()] if hasattr(a, "shape") else a] * len(group_idx)
-    elif len(group_idx) != len(a):
+        vals = [cast(Any, vals)[()] if hasattr(vals, "shape") else vals] * len(idx)
+    elif len(idx) != len(vals):
         raise ValueError("group_idx and a must be of the same length")
 
     # the datatype rule of the numpy implementations: nan is only a sensible
     # default where the output datatype can hold it
-    fill_value = resolve_fill_value(func, fill_value, _a_dtype(a))
-    if dtype is not None and isinstance(func, str):
+    fill_value = resolve_fill_value(funcname, fill_value, _a_dtype(vals))
+    # the numpy implementations look the fill value against the datatype of the
+    # result, not of the values: neither a count nor a boolean answer holds a nan
+    check_fixed_fill_value(funcname, fill_value)
+    if dtype is not None and isinstance(funcname, str):
         # python numbers carry no dtype at all, so this is the one place where
         # the pure python implementation has to reject a non-complex dtype
-        check_complex_dtype(_a_dtype(a), dtype, func)
+        check_complex_dtype(_a_dtype(vals), dtype, funcname)
 
-    if isinstance(func, str):
-        if func.startswith("nan"):
-            func = func[3:]
-            # remove nans (works for complex values, where math.isnan fails) -
-            # a group of nothing but nans loses every one of its values and is
-            # then left to the fill value, exactly like a group missing from
-            # group_idx, which is what the numpy implementations make of such a
-            # group too.  Without the case below there is nothing left to
-            # unpack once every value was a nan
-            kept = [(ix, val) for ix, val in zip(group_idx, a) if val == val]
-            if not kept:
-                return [fill_value] * size
-            group_idx, a = zip(*kept)
+    # the position of every value in the input, which is the position the
+    # reductions reporting one have to name.  Taken before the nan filter below
+    # shortens the input, or those positions would count the removed values too
+    pos: Sequence[int] = range(len(vals))
 
-        func = _impl_dict[func]
-    if func is _sort:
-        return _sort(group_idx, a, reverse=kwargs.get("reverse", False))
-    if func in (_mean, _var, _std):
-        _check_integer_precision(a, func)
+    if isinstance(funcname, str) and funcname.startswith("nan"):
+        # remove nans (works for complex values, where math.isnan fails) -
+        # a group of nothing but nans loses every one of its values and is
+        # then left to the fill value, exactly like a group missing from
+        # group_idx, which is what the numpy implementations make of such a
+        # group too.  Without the case below there is nothing left to
+        # unpack once every value was a nan
+        kept = [(p, ix, val) for p, ix, val in zip(pos, idx, vals) if val == val]
+        if not kept:
+            return [fill_value] * size
+        pos, idx, vals = zip(*kept)
+
+    if op is _sort:
+        return _sort(idx, vals, reverse=kwargs.get("reverse", False))
+    if op in (_mean, _var, _std):
+        _check_integer_precision(vals, op)
 
     # sort data and evaluate function on groups
     ret = [fill_value] * size
-    if not getattr(func, "x_and_idx", False):
-        data = sorted(zip(group_idx, a), key=operator.itemgetter(0))
+    if not getattr(op, "x_and_idx", False):
+        data: list[tuple[Any, ...]] = sorted(zip(idx, vals), key=operator.itemgetter(0))
         for ix, group in itertools.groupby(data, key=operator.itemgetter(0)):
-            ret[ix] = func([val for _, val in group], **kwargs)  # type: ignore[operator]
+            ret[ix] = op([val for _, val in group], **kwargs)
     else:
-        data = sorted(zip(range(len(a)), group_idx, a), key=operator.itemgetter(1))  # type: ignore[arg-type]
+        # a group holding a nan has no extreme to point at, and so no position to
+        # name either: the vectorised kernels leave such a group to the fill
+        # value, and the nan counterparts reach here with none of them left
+        poisoned = {ix for ix, val in zip(idx, vals) if val != val}
+        data = sorted(zip(pos, idx, vals), key=operator.itemgetter(1))
         for ix, group in itertools.groupby(data, key=operator.itemgetter(1)):
-            ret[ix] = func([(val_idx, val) for val_idx, _, val in group], **kwargs)  # type: ignore[operator,misc]
+            if ix in poisoned:
+                continue  # stays at the fill value
+            ret[ix] = op([(p, val) for p, _, val in group], **kwargs)
 
     return ret
 

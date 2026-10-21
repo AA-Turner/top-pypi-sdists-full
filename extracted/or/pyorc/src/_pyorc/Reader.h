@@ -7,6 +7,7 @@
 #include "orc/OrcFile.hh"
 
 #include "Converter.h"
+#include "UseGuard.h"
 
 namespace py = pybind11;
 
@@ -26,6 +27,8 @@ class ORCFileLikeObject
     std::unique_ptr<Converter> converter;
     py::dict convDict;
     py::object timezoneInfo;
+    std::shared_ptr<UseFlag> useFlag = std::make_shared<UseFlag>();
+    py::object nextImpl();
     py::dict buildStatistics(const orc::Type*, const orc::ColumnStatistics*) const;
     const orc::Type* findColumnType(const orc::Type*, uint64_t) const;
 
@@ -39,7 +42,8 @@ class ORCFileLikeObject
     const orc::RowReaderOptions getRowReaderOptions() const { return rowReaderOpts; };
     const py::dict getConverterDict() const { return convDict; }
     const py::object getTimeZoneInfo() const { return timezoneInfo; }
-    virtual ~ORCFileLikeObject(){};
+    std::shared_ptr<UseFlag> getUseFlag() const { return useFlag; }
+    virtual ~ORCFileLikeObject() {};
 };
 
 class Stripe; /* Forward declaration */
@@ -82,7 +86,7 @@ class Reader : public ORCFileLikeObject
     const uint64_t getBatchSize() const { return batchSize; }
     const unsigned int getStructKind() const { return structKind; }
     const py::object getNullValue() const { return nullValue; }
-    ~Reader(){};
+    ~Reader() {};
 };
 
 class Stripe : public ORCFileLikeObject
@@ -100,7 +104,7 @@ class Stripe : public ORCFileLikeObject
     uint64_t offset() const;
     py::tuple statistics(uint64_t);
     std::string writerTimezone();
-    ~Stripe(){};
+    ~Stripe() {};
 };
 
 #endif

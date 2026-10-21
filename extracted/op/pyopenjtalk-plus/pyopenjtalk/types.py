@@ -1,4 +1,46 @@
+from typing import Literal, TypeAlias
+
 from typing_extensions import TypedDict
+
+
+# Unicode 正規化方式
+NormalizeMode: TypeAlias = Literal["None", "NFC", "NFKC"]
+# 「言う」や「という」などの定型表現に含まれる「イウ」を、どう発音するかの方式
+IuPronunciation: TypeAlias = Literal["Iu", "Yuu", "KanjiIu", "KanjiYuu", "YuuBase", "KanjiYuuBase"]
+# 形態素の読みをどこで決めたか (既定辞書の最良経路、ユーザー辞書の行、tsqyomi の判定、後処理の規則)
+ReadingSource: TypeAlias = Literal["Dictionary", "UserDictionary", "Tsqyomi", "Rule"]
+# 韻律付きのマッピングで、各モーラが高いか低いか
+ProsodyPitch: TypeAlias = Literal["Low", "High"]
+# g2p_prosody() のピッチ表記方式
+ProsodyFormat: TypeAlias = Literal["Default", "Prefix", "Numeric"]
+# 韻律の区切りの種類 (アクセント句の境界、短ポーズ、疑問、感嘆)
+ProsodicMarkerKind: TypeAlias = Literal[
+    "AccentPhraseBoundary",
+    "Pause",
+    "Interrogative",
+    "Exclamatory",
+]
+
+
+class ProsodicPhone(TypedDict):
+    """
+    高低の情報を持つ通常の音素。
+    """
+
+    kind: Literal["Phoneme"]  # 通常音素を表す固定値
+    phoneme: str  # OpenJTalk 音素
+    pitch: ProsodyPitch | None  # 属するモーラの高低 (未知語と空白はモーラがないので None)
+
+
+class ProsodicMarker(TypedDict):
+    """
+    アクセント句の境界か、句読点から来た韻律の記号。
+    """
+
+    kind: ProsodicMarkerKind  # アクセント句境界、短ポーズ、疑問符、感嘆符の区分
+
+
+ProsodicPhoneme: TypeAlias = ProsodicPhone | ProsodicMarker
 
 
 class NJDFeature(TypedDict):
@@ -36,6 +78,9 @@ class NJDFeature(TypedDict):
     ## -1: njd_set_accent_phrase がループの先頭ノードを処理しないため残る初期値。0 と同義
     ##  0: 新しいアクセント句の開始（前の語とは別のアクセント句）
     ##  1: 前の語と同じアクセント句に連結（助詞・助動詞・接尾語など）
+    is_reading_protected: bool  # ユーザー辞書の読みを後段の読み補正から守るか
+    is_reading_rewritten: bool  # 後処理の規則が読み (read) を書き換えたか
+    # is_reading_rewritten: 読みを変えずに発音だけを書き換えた形態素 (外来語の表記の復元など) は含めない
 
 
 class MeCabMorph(TypedDict):
@@ -61,6 +106,8 @@ class MeCabMorph(TypedDict):
     is_ignored: bool  # OpenJTalk パイプラインで無視されるトークンか ("記号,空白")
     # 0 はシステム辞書、1..N は userdic の読込順、255 は未知語・制御ノード
     dictionary_index: int
+    is_tsqyomi_selected: bool  # tsqyomi が既定の経路と違う読みを選んで差し替えた形態素か (use_tsqyomi=False では常に False)
+    is_tsqyomi_target: bool  # tsqyomi の読み選択の対象か (診断の "applied" と同じ)
 
 
 class MeCabNBestPath(TypedDict):
@@ -121,6 +168,7 @@ class JPCommonMappingEntry(TypedDict):
     mora_count: int  # モーラ数
     chain_rule: str  # アクセント結合規則 (C1-C5/F1-F5/P1-P2 等)
     chain_flag: int  # アクセント句連結フラグ
+    is_reading_rewritten: bool  # 後処理の規則が読み (read) を書き換えたか (NJDFeature と同じ)
 
 
 class SurfacePhonemeMapping(TypedDict):
@@ -142,6 +190,23 @@ class SurfacePhonemeMapping(TypedDict):
     省略すれば MeCab 正規化本文上の半開区間になる。
     morphs を省略した make_phoneme_mapping() では、NJD 後処理後の surface を先頭から連結した
     文字列上の半開区間になる。これは入力文の座標系ではない。
+
+    NOTE: reading_source は、g2p を持たない音声合成へ読みを渡す呼び出し元が、形態素をそのまま渡すか、
+    仮名に書き崩して渡すかを選ぶための材料で、その形態素の読みを最後に決めた段を表す。
+    1つの形態素に複数の段が当たる場合は、後の段ほど優先して "Rule" > "Tsqyomi" > "UserDictionary" > "Dictionary" の順に1つを返す。
+    呼び出し元は、"Rule" と "Tsqyomi" により、読みが辞書から変わった語を判別できる。
+    "Rule" は後処理の規則 (前後の語で決まる読み、未知の漢字の読みの補完、踊り字の展開、
+    「何」の読みの推定、Sudachi による読みの補正など) が読み (read) を書き換えた形態素で、読み保護により元の読みへ戻った形態素は含めない。
+    外来語の表記の復元や無声化の記号の付け直しのように、読みを変えずに発音だけを書き換えた形態素は "Rule" にしない。
+    "Tsqyomi" は tsqyomi が辞書の既定の経路と違う読みを選んで差し替えた形態素で、
+    tsqyomi が判定しても既定の経路と同じ読みを選んだ形態素は含めない (tsqyomi の診断の "applied" より狭い)。
+    is_tsqyomi_target は、tsqyomi が2つ以上の読み候補を比べて読みを選んだ形態素を示し、診断の "applied" と同じ範囲になる。
+    既定と同じ読みを選んだ場合も True になるので、選ばれた読みを音声合成へ確実に指定したい呼び出し元は is_tsqyomi_target を使う。
+    結合された形態素では、重なる入力のいずれかが対象なら True にする。
+    tsqyomi を使わない呼び出しと、morphs を省略した make_phoneme_mapping() では False になる。
+    "UserDictionary" はユーザー辞書の行から来た形態素、"Dictionary" はそれ以外の、既定辞書の最良経路の読みのままの形態素である。
+    NJD の数詞処理が作る読み (位取りや助数詞の音便) は "Dictionary" とする。
+    morphs を省略した make_phoneme_mapping() では、"Rule" と "Dictionary" だけを判定する。
     """
 
     surface: str  # NJD 後処理後の表層形
@@ -172,6 +237,43 @@ class SurfacePhonemeMapping(TypedDict):
     # --- 未知語・無視トークン情報 ---
     is_unknown: bool  # MeCab が未知語と判定したか
     is_ignored: bool  # OpenJTalk が音素を生成しなかったか（元の音素列が空）
+    # --- 読みの出どころ ---
+    reading_source: ReadingSource  # 読みを最後に決めた段 (優先順はクラスの NOTE を参照)
+    is_tsqyomi_target: bool  # tsqyomi の読み選択の対象か (既定と同じ読みでも True)
+    user_dictionary_path: str | None  # 形態素の行が来たユーザー辞書 (.dic) のパス (既定辞書の行や未知語は None) # fmt: skip
+    # user_dictionary_path: reading_source が "Rule" や "Tsqyomi" でも、行がユーザー辞書から来ていればそのパスを返す
+
+
+class SurfaceProsodyMapping(TypedDict):
+    """
+    表層形態素と韻律情報付き音素列のマッピング。
+
+    `SurfacePhonemeMapping` と同じ表層・MeCab・NJD 情報を保持し、
+    `phonemes` だけをピッチと境界情報を含む `ProsodicPhoneme` へ置き換える。
+    """
+
+    surface: str  # NJD 後処理後の表層形
+    phonemes: list[ProsodicPhoneme]  # ピッチと韻律境界を付与した音素列
+    features: list[str]  # MeCab feature 文字列の分割リスト
+    char_span: tuple[int, int]  # 呼び出し元入力文上の半開区間
+    pos: str  # 品詞
+    pos_group1: str  # 品詞細分類1
+    pos_group2: str  # 品詞細分類2
+    pos_group3: str  # 品詞細分類3
+    ctype: str  # 活用型
+    cform: str  # 活用形
+    orig: str  # 原形
+    read: str  # 読み
+    pron: str  # 発音形式
+    accent_nucleus: int  # アクセント核位置
+    mora_count: int  # モーラ数
+    chain_rule: str  # アクセント結合規則
+    chain_flag: int  # アクセント句連結フラグ
+    is_unknown: bool  # MeCab が未知語と判定したか
+    is_ignored: bool  # 元の詳細マッピングで無視する形態素と判定されたか
+    reading_source: ReadingSource  # 読みを最後に決めた段 (SurfacePhonemeMapping と同じ)
+    is_tsqyomi_target: bool  # tsqyomi の読み選択の対象か (SurfacePhonemeMapping と同じ)
+    user_dictionary_path: str | None  # 形態素の行が来たユーザー辞書 (.dic) のパス
 
 
 class UserDictionaryEntry(TypedDict):
@@ -180,4 +282,4 @@ class UserDictionaryEntry(TypedDict):
     """
 
     dic_path: str  # ユーザー辞書ファイル (.dic) のパス
-    is_reading_protected: bool  # tsqyomi による MeCab feature 差し替えから保護するか
+    is_reading_protected: bool  # このユーザー辞書の読みを後段の読み補正から守るか

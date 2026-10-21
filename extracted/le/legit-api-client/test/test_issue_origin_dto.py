@@ -38,7 +38,9 @@ class TestIssueOriginDto(unittest.TestCase):
                 origin_type = 'Collaborator',
                 origin_id = '',
                 origin_name = '',
-                is_deleted = True
+                is_deleted = True,
+                repository_id = '',
+                branch_name = ''
             )
         else:
             return IssueOriginDto(

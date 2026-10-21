@@ -296,34 +296,34 @@ class SafetyPolicy(_common.CaseInSensitiveEnum):
   """SafetyPolicy"""
 
   SAFETY_POLICY_UNSPECIFIED = 'SAFETY_POLICY_UNSPECIFIED'
-  """Unspecified safety policy. This value should not be used."""
+  """The safety policy is unspecified."""
   FINANCIAL_TRANSACTIONS = 'FINANCIAL_TRANSACTIONS'
-  """Financial transactions safety policy."""
+  """Policy that restricts financial transactions."""
   SENSITIVE_DATA_MODIFICATION = 'SENSITIVE_DATA_MODIFICATION'
-  """Sensitive data modification safety policy."""
+  """Policy that restricts modification of sensitive data."""
   COMMUNICATION_TOOL = 'COMMUNICATION_TOOL'
-  """Communication tool safety policy."""
+  """Policy that restricts the use of communication tools."""
   ACCOUNT_CREATION = 'ACCOUNT_CREATION'
-  """Account creation safety policy."""
+  """Policy that restricts the creation of accounts."""
   DATA_MODIFICATION = 'DATA_MODIFICATION'
-  """Data modification safety policy."""
+  """Policy that restricts general data modification."""
   USER_CONSENT_MANAGEMENT = 'USER_CONSENT_MANAGEMENT'
-  """User consent management safety policy."""
+  """Policy that restricts user consent management."""
   LEGAL_TERMS_AND_AGREEMENTS = 'LEGAL_TERMS_AND_AGREEMENTS'
-  """Legal terms and agreements safety policy."""
+  """Policy that restricts interaction with legal terms and agreements."""
 
 
 class Environment(_common.CaseInSensitiveEnum):
-  """The environment being operated."""
+  """The target environment where the computer use tool operates."""
 
   ENVIRONMENT_UNSPECIFIED = 'ENVIRONMENT_UNSPECIFIED'
-  """Defaults to browser."""
+  """The environment is unspecified."""
   ENVIRONMENT_BROWSER = 'ENVIRONMENT_BROWSER'
-  """Operates in a web browser."""
+  """The tool operates in a web browser."""
   ENVIRONMENT_MOBILE = 'ENVIRONMENT_MOBILE'
-  """Operates in a mobile environment."""
+  """The tool operates in a mobile environment."""
   ENVIRONMENT_DESKTOP = 'ENVIRONMENT_DESKTOP'
-  """Operates in a desktop environment."""
+  """The tool operates in a desktop environment."""
 
 
 class PhishBlockThreshold(_common.CaseInSensitiveEnum):
@@ -4574,39 +4574,40 @@ RetrievalOrDict = Union[Retrieval, RetrievalDict]
 
 
 class ComputerUse(_common.BaseModel):
-  """Tool to support computer use."""
+  """A tool that enables the model to interact directly with a computer environment."""
 
   environment: Optional[Environment] = Field(
-      default=None, description="""Required. The environment being operated."""
+      default=None,
+      description="""Required. The target environment where the computer use tool operates.""",
   )
   excluded_predefined_functions: Optional[list[str]] = Field(
       default=None,
-      description="""Optional. By default, [predefined functions](https://cloud.google.com/vertex-ai/generative-ai/docs/computer-use#supported-actions) are included in the final model call. Some of them can be explicitly excluded from being automatically included. This can serve two purposes: 1. Using a more restricted / different action space. 2. Improving the definitions / instructions of predefined functions.""",
+      description="""Optional. A list of predefined functions to explicitly exclude from the model call. By default, [predefined functions](https://cloud.google.com/vertex-ai/generative-ai/docs/computer-use#supported-actions) are included. Excluding functions allows for a more restricted action space or custom definitions for predefined functions.""",
   )
   enable_prompt_injection_detection: Optional[bool] = Field(
       default=None,
-      description="""Optional. Enables the prompt injection detection check on computer-use request.""",
+      description="""Optional. Whether to enable the prompt injection detection check on the computer use request.""",
   )
   disabled_safety_policies: Optional[list[SafetyPolicy]] = Field(
       default=None,
-      description="""Optional. Disabled safety policies for computer use.""",
+      description="""Optional. A list of safety policies to disable for the computer use tool.""",
   )
 
 
 class ComputerUseDict(TypedDict, total=False):
-  """Tool to support computer use."""
+  """A tool that enables the model to interact directly with a computer environment."""
 
   environment: Optional[Environment]
-  """Required. The environment being operated."""
+  """Required. The target environment where the computer use tool operates."""
 
   excluded_predefined_functions: Optional[list[str]]
-  """Optional. By default, [predefined functions](https://cloud.google.com/vertex-ai/generative-ai/docs/computer-use#supported-actions) are included in the final model call. Some of them can be explicitly excluded from being automatically included. This can serve two purposes: 1. Using a more restricted / different action space. 2. Improving the definitions / instructions of predefined functions."""
+  """Optional. A list of predefined functions to explicitly exclude from the model call. By default, [predefined functions](https://cloud.google.com/vertex-ai/generative-ai/docs/computer-use#supported-actions) are included. Excluding functions allows for a more restricted action space or custom definitions for predefined functions."""
 
   enable_prompt_injection_detection: Optional[bool]
-  """Optional. Enables the prompt injection detection check on computer-use request."""
+  """Optional. Whether to enable the prompt injection detection check on the computer use request."""
 
   disabled_safety_policies: Optional[list[SafetyPolicy]]
-  """Optional. Disabled safety policies for computer use."""
+  """Optional. A list of safety policies to disable for the computer use tool."""
 
 
 ComputerUseOrDict = Union[ComputerUse, ComputerUseDict]
@@ -5931,6 +5932,37 @@ class ImageConfigDict(TypedDict, total=False):
 ImageConfigOrDict = Union[ImageConfig, ImageConfigDict]
 
 
+class GenerationOutputConfig(_common.BaseModel):
+  """Configuration for persisting output assets to external storage."""
+
+  output_uri_prefix: Optional[str] = Field(
+      default=None,
+      description="""Optional. The Cloud Storage URI prefix or directory where
+      generated media assets should be written (e.g. "gs://my-bucket/prefix/").
+      Supported URI schemes: "gs://". When set, media bytes are written directly
+      to this location and returned as FileData with a file_uri instead of raw
+      inline bytes.
+      """,
+  )
+
+
+class GenerationOutputConfigDict(TypedDict, total=False):
+  """Configuration for persisting output assets to external storage."""
+
+  output_uri_prefix: Optional[str]
+  """Optional. The Cloud Storage URI prefix or directory where
+      generated media assets should be written (e.g. "gs://my-bucket/prefix/").
+      Supported URI schemes: "gs://". When set, media bytes are written directly
+      to this location and returned as FileData with a file_uri instead of raw
+      inline bytes.
+      """
+
+
+GenerationOutputConfigOrDict = Union[
+    GenerationOutputConfig, GenerationOutputConfigDict
+]
+
+
 class FileStatus(_common.BaseModel):
   """Status of a File that uses a common error model."""
 
@@ -6755,6 +6787,12 @@ class GenerateContentConfig(_common.BaseModel):
       billing apply to each request. Set to false to turn this off.
       """,
   )
+  generation_output_config: Optional[GenerationOutputConfig] = Field(
+      default=None,
+      description="""Optional. Configuration for persisting output assets to external
+      storage.
+      """,
+  )
 
   @pydantic.field_validator('response_schema', mode='before')
   @classmethod
@@ -6987,6 +7025,11 @@ class GenerateContentConfigDict(TypedDict, total=False):
       `CONTINUATION`, the SDK sends the same request again with the response's
       continuation token until the model finishes. Timeouts, retries and
       billing apply to each request. Set to false to turn this off.
+      """
+
+  generation_output_config: Optional[GenerationOutputConfigDict]
+  """Optional. Configuration for persisting output assets to external
+      storage.
       """
 
 
@@ -8405,9 +8448,7 @@ class Candidate(_common.BaseModel):
   )
   continuation_token: Optional[bytes] = Field(
       default=None,
-      description="""An opaque continuation token returned when `finish_reason` is
-      `CONTINUATION`. Pass it in a subsequent request to continue generation.
-      """,
+      description="""Output only. An optional opaque continuation token returned when `finish_reason` is `CONTINUATION`. Clients can pass this token in a subsequent `GenerateContentRequest` to continue generation.""",
   )
 
 
@@ -8456,9 +8497,7 @@ class CandidateDict(TypedDict, total=False):
   """Output only. Metadata returned when the model uses the `url_context` tool to get information from a user-provided URL."""
 
   continuation_token: Optional[bytes]
-  """An opaque continuation token returned when `finish_reason` is
-      `CONTINUATION`. Pass it in a subsequent request to continue generation.
-      """
+  """Output only. An optional opaque continuation token returned when `finish_reason` is `CONTINUATION`. Clients can pass this token in a subsequent `GenerateContentRequest` to continue generation."""
 
 
 CandidateOrDict = Union[Candidate, CandidateDict]
@@ -21586,6 +21625,81 @@ LiveClientToolResponseOrDict = Union[
 ]
 
 
+class LiveClientContextUpdateTools(_common.BaseModel):
+  """A wrapper around the list of tools.
+
+  This wrapper exists because a bare `repeated Tool` field cannot tell apart
+  "not sending a tools update" from "clearing all tools": an unset repeated
+  field and an empty repeated field look identical on the wire. Wrapping the
+  list in a message adds a presence bit, so the two cases become: - `tools`
+  field unset: no update; keep the previously provided tools. - `tools` field
+  set (even with an empty list): replace the current tools with the provided
+  list, which may be empty to clear all tools.
+  """
+
+  tools: Optional[ToolListUnion] = Field(
+      default=None,
+      description="""The list of tools the model may use to generate the next response.""",
+  )
+
+
+class LiveClientContextUpdateToolsDict(TypedDict, total=False):
+  """A wrapper around the list of tools.
+
+  This wrapper exists because a bare `repeated Tool` field cannot tell apart
+  "not sending a tools update" from "clearing all tools": an unset repeated
+  field and an empty repeated field look identical on the wire. Wrapping the
+  list in a message adds a presence bit, so the two cases become: - `tools`
+  field unset: no update; keep the previously provided tools. - `tools` field
+  set (even with an empty list): replace the current tools with the provided
+  list, which may be empty to clear all tools.
+  """
+
+  tools: Optional[ToolListUnionDict]
+  """The list of tools the model may use to generate the next response."""
+
+
+LiveClientContextUpdateToolsOrDict = Union[
+    LiveClientContextUpdateTools, LiveClientContextUpdateToolsDict
+]
+
+
+class LiveClientContextUpdate(_common.BaseModel):
+  """Updates to the context of the current session.
+
+  Only fields that are set will be updated. Updates are guaranteed to be
+  processed *in order* with the rest of the inputs.
+  """
+
+  system_instruction: Optional[ContentUnion] = Field(
+      default=None,
+      description="""Updated system instruction for the model. If set, overrides `BidiGenerateContentSetup.system_instruction`. The system instructions are part of the model preamble, so updating them invalidates the prefix cache. Clients should only update this field when strictly necessary as it might have a performance impact on the model generation.""",
+  )
+  tools: Optional[LiveClientContextUpdateTools] = Field(
+      default=None,
+      description="""An updated list of tools the model may use to generate the subsequent responses. If set, this list replaces the previously provided tools. The tools are part of the model preamble, so updating them invalidates the prefix cache. Clients should only update this field when strictly necessary as it might have a performance impact on the model generation.""",
+  )
+
+
+class LiveClientContextUpdateDict(TypedDict, total=False):
+  """Updates to the context of the current session.
+
+  Only fields that are set will be updated. Updates are guaranteed to be
+  processed *in order* with the rest of the inputs.
+  """
+
+  system_instruction: Optional[ContentUnionDict]
+  """Updated system instruction for the model. If set, overrides `BidiGenerateContentSetup.system_instruction`. The system instructions are part of the model preamble, so updating them invalidates the prefix cache. Clients should only update this field when strictly necessary as it might have a performance impact on the model generation."""
+
+  tools: Optional[LiveClientContextUpdateToolsDict]
+  """An updated list of tools the model may use to generate the subsequent responses. If set, this list replaces the previously provided tools. The tools are part of the model preamble, so updating them invalidates the prefix cache. Clients should only update this field when strictly necessary as it might have a performance impact on the model generation."""
+
+
+LiveClientContextUpdateOrDict = Union[
+    LiveClientContextUpdate, LiveClientContextUpdateDict
+]
+
+
 class LiveClientMessage(_common.BaseModel):
   """Messages sent by the client in the API call."""
 
@@ -21604,6 +21718,10 @@ class LiveClientMessage(_common.BaseModel):
       default=None,
       description="""Response to a `ToolCallMessage` received from the server.""",
   )
+  context_update: Optional[LiveClientContextUpdate] = Field(
+      default=None,
+      description="""Updates to the context of the current session.""",
+  )
 
 
 class LiveClientMessageDict(TypedDict, total=False):
@@ -21620,6 +21738,9 @@ class LiveClientMessageDict(TypedDict, total=False):
 
   tool_response: Optional[LiveClientToolResponseDict]
   """Response to a `ToolCallMessage` received from the server."""
+
+  context_update: Optional[LiveClientContextUpdateDict]
+  """Updates to the context of the current session."""
 
 
 LiveClientMessageOrDict = Union[LiveClientMessage, LiveClientMessageDict]
@@ -23191,6 +23312,10 @@ class PredefinedMetricSpec(_common.BaseModel):
       default=None,
       description="""The parameters needed to run the pre-defined metric.""",
   )
+  step_autorater_configs: Optional[dict[str, AutoraterConfig]] = Field(
+      default=None,
+      description="""Optional. Per-step autorater overrides for this predefined metric. Keys are evaluation stage names (snake_case). Valid keys: "intent_extraction", "rubric_generation", "rubric_validation". Unknown keys return INVALID_ARGUMENT.""",
+  )
 
 
 class PredefinedMetricSpecDict(TypedDict, total=False):
@@ -23202,6 +23327,9 @@ class PredefinedMetricSpecDict(TypedDict, total=False):
 
   metric_spec_parameters: Optional[dict[str, Any]]
   """The parameters needed to run the pre-defined metric."""
+
+  step_autorater_configs: Optional[dict[str, AutoraterConfigDict]]
+  """Optional. Per-step autorater overrides for this predefined metric. Keys are evaluation stage names (snake_case). Valid keys: "intent_extraction", "rubric_generation", "rubric_validation". Unknown keys return INVALID_ARGUMENT."""
 
 
 PredefinedMetricSpecOrDict = Union[

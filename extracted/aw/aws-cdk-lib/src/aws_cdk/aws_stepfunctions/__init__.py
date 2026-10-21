@@ -12920,7 +12920,7 @@ class StateMachineFragment(
         '''Creates a new construct node.
 
         :param scope: The scope in which to define this construct.
-        :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``), then it will be replaced by double dash ``--``.
+        :param id: The scoped construct ID. Must be unique amongst siblings. If the ID includes a path separator (``/``) or a newline, then it will be replaced by double dash ``--``.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1c5c1191e0b1af51b303ad19000be8e5c4e97e8491eb40cd68c462fa7e42f03)

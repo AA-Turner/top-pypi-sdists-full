@@ -35,6 +35,7 @@ from websockets.protocol import State
 
 import centrifuge.protocol.client_pb2 as protocol_pb2
 
+from tests.centrifugo import require_centrifugo
 from tests.fake_server import FakeCentrifugoServer
 
 logging.basicConfig(
@@ -43,6 +44,13 @@ logging.basicConfig(
 )
 cf_logger = logging.getLogger("centrifuge")
 cf_logger.setLevel(logging.DEBUG)
+
+
+def setUpModule():
+    # Most tests here talk to the Centrifugo from docker-compose.yml and wait
+    # on futures without a timeout, so a missing server means a hang. Fail here
+    # instead, with a message saying what to start.
+    require_centrifugo()
 
 
 def base64url_encode(data):
@@ -1127,9 +1135,9 @@ class TestConnectionLeak(unittest.IsolatedAsyncioTestCase):
         client._loop.call_later = tracking_call_later
 
         try:
-            # Set up client state to allow reconnect scheduling
-            client.state = centrifuge.client.ClientState.DISCONNECTED
-            client._need_reconnect = True
+            # Set up client state to allow reconnect scheduling: only a connecting
+            # client reconnects.
+            client.state = centrifuge.client.ClientState.CONNECTING
 
             # Call _schedule_reconnect() multiple times rapidly
             await client._schedule_reconnect()

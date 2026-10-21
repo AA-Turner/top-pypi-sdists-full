@@ -98,8 +98,6 @@ dh_viewer_sandbox/org_id,ws_id:
     - r:decision_history/org_id,ws_id,{env=test}
 dh_viewer_live/org_id,ws_id:
     - dh_viewer_sandbox/org_id,ws_id
-    # legacy env-unaware string: old call sites grant all envs, so live-only
-    - r:workspace_decision_history/org_id,ws_id
     - r:decision_history/org_id,ws_id,{env=live}
 # delete carved the same way from ws_admin and api_key_history_admin
 dh_deleter_sandbox/org_id,ws_id:
@@ -107,8 +105,6 @@ dh_deleter_sandbox/org_id,ws_id:
     - d:decision_history/org_id,ws_id,{env=test}
 dh_deleter_live/org_id,ws_id:
     - dh_deleter_sandbox/org_id,ws_id
-    # legacy env-unaware string: old call sites delete in all envs, so live-only
-    - d:workspace_decision_history/org_id,ws_id
     - d:decision_history/org_id,ws_id,{env=live}
 
 # P141c chart roles (Insights)
@@ -188,7 +184,7 @@ file_user_live/org_id,ws_id:
 file_user/org_id,ws_id:
     - r+w:workspace_file/org_id,ws_id,{env=*}
 
-# P141c combined data & case personas (composition only)
+# P141c combined data & case personas
 data_case_viewer/org_id,ws_id:
     - data_viewer/org_id,ws_id
     - case_reviewer/org_id,ws_id
@@ -197,6 +193,8 @@ data_case_viewer/org_id,ws_id:
     - copilot_user/org_id,ws_id
     - file_user_sandbox/org_id,ws_id
     - file_user_live/org_id,ws_id
+    # not in data_viewer, which ws_viewer and sandbox API keys inherit
+    - r:workspace_record/org_id,ws_id,{env=live,type=entity}
 data_case_editor/org_id,ws_id:
     - data_editor/org_id,ws_id
     - case_editor/org_id,ws_id

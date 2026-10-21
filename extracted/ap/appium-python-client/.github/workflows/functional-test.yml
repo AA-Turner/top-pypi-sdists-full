@@ -67,7 +67,7 @@ jobs:
         defaults write com.apple.iphonesimulator PasteboardAutomaticSync -bool false
         open -Fn "$(xcode-select --print-path)/Applications/Simulator.app"
     - name: Prepare iOS simulator
-      uses: futureware-tech/simulator-action@v5
+      uses: futureware-tech/simulator-action@v6
       with:
         model: ${{ env.IPHONE_MODEL }}
         os_version: ${{ env.IOS_VERSION }}
@@ -83,7 +83,7 @@ jobs:
         python-version: 3.14
 
     - name: Set up uv
-      uses: astral-sh/setup-uv@v10.1.0
+      uses: astral-sh/setup-uv@v10.3.0
       with:
         enable-cache: true
         python-version: '3.14'
@@ -129,7 +129,7 @@ jobs:
     steps:
     - uses: actions/checkout@v7
 
-    - uses: actions/setup-java@v6.0.1
+    - uses: actions/setup-java@v6.1.0
       with:
         distribution: 'temurin'
         java-version: '17'
@@ -190,7 +190,7 @@ jobs:
         python-version: 3.14
 
     - name: Set up uv
-      uses: astral-sh/setup-uv@v10.1.0
+      uses: astral-sh/setup-uv@v10.3.0
       with:
         enable-cache: true
         python-version: '3.14'
@@ -253,7 +253,7 @@ jobs:
 
     - uses: actions/checkout@v7
 
-    - uses: actions/setup-java@v6.0.1
+    - uses: actions/setup-java@v6.1.0
       if: matrix.e2e-tests == 'flutter-android'
       with:
         distribution: 'zulu'
@@ -306,7 +306,7 @@ jobs:
         log_file: appium-${{ matrix.e2e-tests }}.log
 
     - name: Set up uv
-      uses: astral-sh/setup-uv@v10.1.0
+      uses: astral-sh/setup-uv@v10.3.0
       with:
         enable-cache: true
         python-version: '3.14'
@@ -328,7 +328,7 @@ jobs:
         defaults write com.apple.iphonesimulator PasteboardAutomaticSync -bool false
         open -Fn "$(xcode-select --print-path)/Applications/Simulator.app"
 
-    - uses: futureware-tech/simulator-action@v5
+    - uses: futureware-tech/simulator-action@v6
       if: matrix.e2e-tests == 'flutter-ios'
       with:
         # https://github.com/actions/runner-images/blob/main/images/macos/macos-14-arm64-Readme.md

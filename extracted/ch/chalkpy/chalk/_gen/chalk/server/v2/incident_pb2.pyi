@@ -35,6 +35,10 @@ class DataSourceIncidentBody(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class FeatureDriftIncidentBody(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class MonitorIncident(_message.Message):
     __slots__ = (
         "id",
@@ -48,6 +52,10 @@ class MonitorIncident(_message.Message):
         "logs_incident",
         "sql_bad_rows_incident",
         "data_source_incident",
+        "feature_drift_incident",
+        "name",
+        "snapshot",
+        "archived_at",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     MONITOR_ID_FIELD_NUMBER: _ClassVar[int]
@@ -60,6 +68,10 @@ class MonitorIncident(_message.Message):
     LOGS_INCIDENT_FIELD_NUMBER: _ClassVar[int]
     SQL_BAD_ROWS_INCIDENT_FIELD_NUMBER: _ClassVar[int]
     DATA_SOURCE_INCIDENT_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_DRIFT_INCIDENT_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
     id: str
     monitor_id: str
     started_at: _timestamp_pb2.Timestamp
@@ -71,6 +83,10 @@ class MonitorIncident(_message.Message):
     logs_incident: LogsIncidentBody
     sql_bad_rows_incident: SqlBadRowsIncidentBody
     data_source_incident: DataSourceIncidentBody
+    feature_drift_incident: FeatureDriftIncidentBody
+    name: str
+    snapshot: _incident_pb2.IncidentSnapshot
+    archived_at: _timestamp_pb2.Timestamp
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -84,4 +100,8 @@ class MonitorIncident(_message.Message):
         logs_incident: _Optional[_Union[LogsIncidentBody, _Mapping]] = ...,
         sql_bad_rows_incident: _Optional[_Union[SqlBadRowsIncidentBody, _Mapping]] = ...,
         data_source_incident: _Optional[_Union[DataSourceIncidentBody, _Mapping]] = ...,
+        feature_drift_incident: _Optional[_Union[FeatureDriftIncidentBody, _Mapping]] = ...,
+        name: _Optional[str] = ...,
+        snapshot: _Optional[_Union[_incident_pb2.IncidentSnapshot, _Mapping]] = ...,
+        archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...

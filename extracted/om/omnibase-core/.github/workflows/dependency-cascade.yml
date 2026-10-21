@@ -178,6 +178,53 @@ jobs:
         with:
           python-version: '3.12'
 
+      # OMN-17427: job log 118551249071 shows omninode_infra's uv lock
+      # fetching private omnibase_internal from uv's cache without credentials;
+      # app-token covers only the downstream repo. Probe git sources outside
+      # the checkout and mint read access only for private sources. Public
+      # sources get no token, so legs with only public git sources are unchanged.
+      - name: Find private OmniNode git sources (OMN-17427)
+        id: git_sources
+        if: steps.token_check.outputs.has_token == 'true'
+        env:
+          REPO_NAME: ${{ matrix.repo }}
+        run: |
+          sources=$(
+            for file in pyproject.toml uv.lock; do
+              if [ -f "$file" ]; then
+                grep -Eo 'git\+https://github\.com/OmniNode-ai/[A-Za-z0-9._-]+|git[[:space:]]*=[[:space:]]*"https://github\.com/OmniNode-ai/[A-Za-z0-9._-]+' "$file" || true
+              fi
+            done | sed -E 's@^.*https://github\.com/OmniNode-ai/@@; s/\.git$//' | LC_ALL=C sort -u
+          )
+          private_repos=()
+          while IFS= read -r name; do
+            if [ -z "$name" ] || [ "$name" = "$REPO_NAME" ]; then
+              continue
+            fi
+            if (
+              cd "${RUNNER_TEMP:-/tmp}"
+              GIT_TERMINAL_PROMPT=0 git -c credential.helper= ls-remote --exit-code "https://github.com/OmniNode-ai/${name}" HEAD >/dev/null 2>&1
+            ); then
+              echo "CASCADE-GIT-SOURCE name=${name} access=public"
+            else
+              echo "CASCADE-GIT-SOURCE name=${name} access=private"
+              private_repos+=("$name")
+            fi
+          done <<< "$sources"
+          repos=$(IFS=','; echo "${private_repos[*]}")
+          echo "repos=${repos}" >> "$GITHUB_OUTPUT"
+
+      - name: Mint read token for private git sources (OMN-17427)
+        id: git-source-token
+        if: steps.token_check.outputs.has_token == 'true' && steps.git_sources.outputs.repos != ''
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.onexbot-occ-app-id }}
+          private-key: ${{ secrets.onexbot-occ-private-key }}
+          owner: OmniNode-ai
+          repositories: ${{ steps.git_sources.outputs.repos }}
+          permission-contents: read
+
       - name: Set branch and PR variables
         if: steps.token_check.outputs.has_token == 'true'
         id: vars
@@ -307,6 +354,10 @@ jobs:
       # rewrite a stale exact `==` pin to the target first or every exact-pin
       # leg would fail. A range cap is untouched by the exact-only regex and
       # still fails this guard.
+      # OMN-17427: release run 39298434472 failed in omnibase_infra because
+      # project-aware `uv run` re-locked the rewritten exact pin before the
+      # index wait. This text-only check needs only packaging, so run outside
+      # the downstream project to avoid syncing or re-locking it.
       - name: Check dependency is movable
         if: steps.token_check.outputs.has_token == 'true'
         env:
@@ -314,7 +365,7 @@ jobs:
           TARGET_VERSION: ${{ steps.vars.outputs.version }}
           REPO_NAME: ${{ matrix.repo }}
         run: |
-          if ! uv run python "${GITHUB_WORKSPACE}/_dep_provenance_gate/scripts/check_dep_provenance.py" \
+          if ! uv run --no-project --with packaging python "${GITHUB_WORKSPACE}/_dep_provenance_gate/scripts/check_dep_provenance.py" \
             --pyproject pyproject.toml \
             --check-movable "$PKG_HYPHEN" \
             --target-version "$TARGET_VERSION"; then
@@ -408,7 +459,11 @@ jobs:
         if: steps.token_check.outputs.has_token == 'true'
         env:
           BUMP_PACKAGE: ${{ steps.vars.outputs.package }}
+          PKG_HYPHEN: ${{ steps.vars.outputs.pkg_hyphen }}
+          RESOLVED: ${{ steps.vars.outputs.version }}
           REPO_NAME: ${{ matrix.repo }}
+          GIT_SOURCE_TOKEN: ${{ steps.git-source-token.outputs.token }}
+          GIT_SOURCE_REPOS: ${{ steps.git_sources.outputs.repos }}
           # Explicitly cleared so no ambient runner-level mirror config
           # (env var OR user/project uv.toml, once --no-config is also
           # passed below) can leak into a lock this workflow commits.
@@ -417,10 +472,32 @@ jobs:
           UV_INDEX_URL: ""
           UV_EXTRA_INDEX_URL: ""
         run: |
+          # OMN-17427: pass repo-scoped auth to git fetches from uv's cache.
+          if [ -n "${GIT_SOURCE_TOKEN:-}" ] && [ -n "${GIT_SOURCE_REPOS:-}" ]; then
+            auth=$(printf 'x-access-token:%s' "$GIT_SOURCE_TOKEN" | base64 | tr -d '\n')
+            echo "::add-mask::${auth}"
+            n=0
+            IFS=',' read -r -a git_source_repos <<< "$GIT_SOURCE_REPOS"
+            for name in "${git_source_repos[@]}"; do
+              for suffix in "" ".git"; do
+                export "GIT_CONFIG_KEY_${n}=http.https://github.com/OmniNode-ai/${name}${suffix}.extraheader"
+                export "GIT_CONFIG_VALUE_${n}=AUTHORIZATION: basic ${auth}"
+                n=$((n + 1))
+              done
+            done
+            export GIT_CONFIG_COUNT="$n"
+            echo "CASCADE-GIT-SOURCE-AUTH repos=${GIT_SOURCE_REPOS}"
+          fi
+
           # Upgrade the package in the lockfile. pyproject.toml's exact pin
           # (if any) was already brought forward by the previous step, so
           # this can now actually resolve to the new version instead of
           # being capped by a stale `==` requirement.
+          #
+          # OMN-17427: in release run 39298434472, omnimemory's index probe
+          # passed but uv still selected 0.47.48 instead of the admitted
+          # 0.47.49. Request the exact release and retry only on uv's own
+          # "no version of <pkg>==<version>" answer, not a blind retry.
           #
           # --no-config: ignore any ambient uv.toml (user- or
           # workspace-level) on the runner -- the sanitized env vars above
@@ -434,7 +511,35 @@ jobs:
           # observed the version present. uv documents that --upgrade-package
           # implies --refresh-package; the explicit flag keeps this guarantee
           # from depending on that implication.
-          uv lock --no-config --default-index https://pypi.org/simple --upgrade-package "$BUMP_PACKAGE" --refresh-package "$BUMP_PACKAGE"
+          CASCADE_WAIT_INTERVAL_S="${CASCADE_WAIT_INTERVAL_S:-10}"
+          CASCADE_WAIT_TOTAL_S="${CASCADE_WAIT_TOTAL_S:-600}"
+          started_us="${EPOCHREALTIME/[.,]/}"
+          while true; do
+            if out=$(
+              uv lock --no-config --default-index https://pypi.org/simple --upgrade-package "${BUMP_PACKAGE}==${RESOLVED}" --refresh-package "$BUMP_PACKAGE" 2>&1
+            ); then
+              status=0
+            else
+              status=$?
+            fi
+            printf '%s\n' "$out"
+            now_us="${EPOCHREALTIME/[.,]/}"
+            waited=$(( (now_us - started_us) / 1000000 ))
+            if [ "$status" -eq 0 ]; then
+              echo "CASCADE-UV-INDEX-WAIT-OK package=${PKG_HYPHEN} version=${RESOLVED} waited_s=${waited}"
+              break
+            fi
+            normalized=$(printf '%s' "$out" | tr '[:space:]' ' ' | tr -s ' ')
+            if [[ "$normalized" != *"no version of ${PKG_HYPHEN}==${RESOLVED}"* ]]; then
+              exit "$status"
+            fi
+            if [ "$waited" -ge "$CASCADE_WAIT_TOTAL_S" ]; then
+              echo "CASCADE-UV-INDEX-WAIT-TIMEOUT package=${PKG_HYPHEN} version=${RESOLVED} waited_s=${waited}"
+              echo "::error::uv cannot resolve released version ${PKG_HYPHEN}==${RESOLVED} after ${waited} seconds."
+              exit 1
+            fi
+            sleep "$CASCADE_WAIT_INTERVAL_S"
+          done
 
           # Check if anything changed in either file -- a pin-only bump with
           # no lockfile delta (or vice versa) is still a real change to land.

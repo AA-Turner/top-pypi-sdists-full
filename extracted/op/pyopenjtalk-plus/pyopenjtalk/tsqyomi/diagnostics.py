@@ -7,7 +7,7 @@ from typing import Literal, get_args
 
 # 対象がモデル推論や feature 差し替えに至らなかった理由、または適用結果の分類
 TargetDiagnosticOutcome = Literal[
-    "applied",  # モデル選択が特徴列へ適用された
+    "applied",  # モデル選択が特徴列へ適用された (最良経路と同じ読みなら最良経路の形態素を保つ)
     "no_exact_morph_range",  # 最良経路の形態素境界が対象範囲と一致しない
     "reading_protected",  # ユーザー辞書の保護候補が範囲に混在し差し替えを止めた
     "dictionary_default_protected",  # 形態素構造だけで確定する辞書既定読みを維持
@@ -128,6 +128,35 @@ def rebase_recording_char_spans(start_index: int, char_offset: int) -> None:
                     char_span=(
                         diagnostic.char_span[0] + char_offset,
                         diagnostic.char_span[1] + char_offset,
+                    ),
+                )
+                for diagnostic in records[start_index:]
+            ),
+        )
+    )
+
+
+def remap_recording_char_spans(start_index: int, char_positions: list[int]) -> None:
+    """
+    空白を除いた本文で収集した診断位置を元の本文位置へ戻す。
+
+    Args:
+        start_index (int): 位置を変換する診断の開始添字
+        char_positions (list[int]): 空白を除いた本文の各文字が元の本文で始まる位置
+    """
+
+    records = _records.get()
+    if records is None:
+        return
+    _records.set(
+        (
+            *records[:start_index],
+            *(
+                replace(
+                    diagnostic,
+                    char_span=(
+                        char_positions[diagnostic.char_span[0]],
+                        char_positions[diagnostic.char_span[1] - 1] + 1,
                     ),
                 )
                 for diagnostic in records[start_index:]

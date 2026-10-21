@@ -104,6 +104,8 @@ class CfnRegistry(
                 auto_approval_rules=["autoApprovalRules"]
             ),
             authorizer_type="authorizerType",
+            auto_detection_enabled=False,
+            auto_detection_scope="autoDetectionScope",
             description="description",
             discovery_configuration=agentregistry.CfnRegistry.DiscoveryConfigurationProperty(
                 authorizer_configuration=agentregistry.CfnRegistry.AuthorizerConfigurationProperty(
@@ -128,6 +130,9 @@ class CfnRegistry(
                     )
                 )
             ),
+            encryption_configuration=agentregistry.CfnRegistry.EncryptionConfigurationProperty(
+                kms_key_arn="kmsKeyArn"
+            ),
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -143,8 +148,11 @@ class CfnRegistry(
         name: builtins.str,
         approval_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.ApprovalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         authorizer_type: typing.Optional[builtins.str] = None,
+        auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        auto_detection_scope: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         discovery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.DiscoveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::AgentRegistry::Registry``.
@@ -154,8 +162,11 @@ class CfnRegistry(
         :param name: The name of the registry.
         :param approval_configuration: Configuration for the registry's record approval workflow.
         :param authorizer_type: The type of authorizer that controls how consumers access the registry's search and MCP invoke operations.
+        :param auto_detection_enabled: Specifies whether auto-detection is requested for the registry. Must be specified together with AutoDetectionScope. Setting this to true is necessary but not sufficient for auto-detection to become active; the preconditions of the configured scope must also be met. To turn auto-detection off, explicitly set this to false - removing AutoDetectionEnabled and AutoDetectionScope from the template is a no-op and leaves the existing auto-detection settings unchanged. A registry cannot be deleted while auto-detection is enabled: set this to false and update the stack before deleting the registry.
+        :param auto_detection_scope: The source from which resources are detected. ORGANIZATION sources resources from all member accounts of an AWS Organization.
         :param description: The description of the registry.
         :param discovery_configuration: Discovery configuration for the registry. Controls how consumers are authorized to search the registry and invoke its MCP endpoint.
+        :param encryption_configuration: The server-side encryption configuration for a registry. Specifies a customer managed key used to encrypt the registry's content. When omitted, the registry's content is encrypted with an AWS owned key. You cannot change the encryption configuration after registry creation. Specifying a different KMS key, adding this property to an existing registry, or removing it replaces the registry: CloudFormation creates a new registry with a new Amazon Resource Name (ARN) and then deletes the original, including all registry records it contains. Registry records that are not managed by the stack are not re-created in the new registry, and if any remain in the original registry its deletion fails and it is left behind.
         :param tags: Tags to assign to the registry.
         '''
         if __debug__:
@@ -166,8 +177,11 @@ class CfnRegistry(
             name=name,
             approval_configuration=approval_configuration,
             authorizer_type=authorizer_type,
+            auto_detection_enabled=auto_detection_enabled,
+            auto_detection_scope=auto_detection_scope,
             description=description,
             discovery_configuration=discovery_configuration,
+            encryption_configuration=encryption_configuration,
             tags=tags,
         )
 
@@ -228,6 +242,17 @@ class CfnRegistry(
     def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
         '''The CloudFormation resource type name for this resource class.'''
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAutoDetectionStatus")
+    def attr_auto_detection_status(self) -> builtins.str:
+        '''The current auto-detection status.
+
+        ACTIVE indicates that the registry is actively being populated with detected resources. INACTIVE indicates that the preconditions required at the configured scope are not currently met.
+
+        :cloudformationAttribute: AutoDetectionStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAutoDetectionStatus"))
 
     @builtins.property
     @jsii.member(jsii_name="attrCreatedAt")
@@ -341,6 +366,37 @@ class CfnRegistry(
         jsii.set(self, "authorizerType", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="autoDetectionEnabled")
+    def auto_detection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether auto-detection is requested for the registry.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "autoDetectionEnabled"))
+
+    @auto_detection_enabled.setter
+    def auto_detection_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a96c6d354e8928325f1d6d60db3334e5c2866551a0c5ed7e7992d8cdb9448c92)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "autoDetectionEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="autoDetectionScope")
+    def auto_detection_scope(self) -> typing.Optional[builtins.str]:
+        '''The source from which resources are detected.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "autoDetectionScope"))
+
+    @auto_detection_scope.setter
+    def auto_detection_scope(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__debc64dc04165d35e6c03757c993f317c665ad78f4ea3e2a0a6d5bda6ef9b23e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "autoDetectionScope", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the registry.'''
@@ -370,6 +426,24 @@ class CfnRegistry(
             type_hints = cached_type_hints(_typecheckingstub__5a1b96b5514172fb57ca62002ae3be655be2839d81eff8747ebaecd2ee280ce9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "discoveryConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionConfiguration")
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.EncryptionConfigurationProperty"]]:
+        '''The server-side encryption configuration for a registry.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.EncryptionConfigurationProperty"]], jsii.get(self, "encryptionConfiguration"))
+
+    @encryption_configuration.setter
+    def encryption_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.EncryptionConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b01cec69ebf6f7b032abcd9f676e1d7b40718f0a257ebf0b6d7204f16a7af528)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="tags")
@@ -988,6 +1062,62 @@ class CfnRegistry(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistry.EncryptionConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kms_key_arn": "kmsKeyArn"},
+    )
+    class EncryptionConfigurationProperty:
+        def __init__(self, *, kms_key_arn: builtins.str) -> None:
+            '''The server-side encryption configuration for a registry.
+
+            Specifies a customer managed key used to encrypt the registry's content. When omitted, the registry's content is encrypted with an AWS owned key. You cannot change the encryption configuration after registry creation. Specifying a different KMS key, adding this property to an existing registry, or removing it replaces the registry: CloudFormation creates a new registry with a new Amazon Resource Name (ARN) and then deletes the original, including all registry records it contains. Registry records that are not managed by the stack are not re-created in the new registry, and if any remain in the original registry its deletion fails and it is left behind.
+
+            :param kms_key_arn: The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the registry's content. The key must be a symmetric encryption key in the same AWS account and Region as the registry. Multi-Region keys are not supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-encryptionconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_agentregistry as agentregistry
+                
+                encryption_configuration_property = agentregistry.CfnRegistry.EncryptionConfigurationProperty(
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5bb8dca691770be1d18258851da6d95495436ebd6378e717de544fe439b3126d)
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "kms_key_arn": kms_key_arn,
+            }
+
+        @builtins.property
+        def kms_key_arn(self) -> builtins.str:
+            '''The Amazon Resource Name (ARN) of the customer-managed AWS KMS key used to encrypt the registry's content.
+
+            The key must be a symmetric encryption key in the same AWS account and Region as the registry. Multi-Region keys are not supported.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-encryptionconfiguration.html#cfn-agentregistry-registry-encryptionconfiguration-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            assert result is not None, "Required property 'kms_key_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EncryptionConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryProps",
@@ -996,8 +1126,11 @@ class CfnRegistry(
         "name": "name",
         "approval_configuration": "approvalConfiguration",
         "authorizer_type": "authorizerType",
+        "auto_detection_enabled": "autoDetectionEnabled",
+        "auto_detection_scope": "autoDetectionScope",
         "description": "description",
         "discovery_configuration": "discoveryConfiguration",
+        "encryption_configuration": "encryptionConfiguration",
         "tags": "tags",
     },
 )
@@ -1008,8 +1141,11 @@ class CfnRegistryProps:
         name: builtins.str,
         approval_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.ApprovalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         authorizer_type: typing.Optional[builtins.str] = None,
+        auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        auto_detection_scope: typing.Optional[builtins.str] = None,
         description: typing.Optional[builtins.str] = None,
         discovery_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.DiscoveryConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistry.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRegistry``.
@@ -1017,8 +1153,11 @@ class CfnRegistryProps:
         :param name: The name of the registry.
         :param approval_configuration: Configuration for the registry's record approval workflow.
         :param authorizer_type: The type of authorizer that controls how consumers access the registry's search and MCP invoke operations.
+        :param auto_detection_enabled: Specifies whether auto-detection is requested for the registry. Must be specified together with AutoDetectionScope. Setting this to true is necessary but not sufficient for auto-detection to become active; the preconditions of the configured scope must also be met. To turn auto-detection off, explicitly set this to false - removing AutoDetectionEnabled and AutoDetectionScope from the template is a no-op and leaves the existing auto-detection settings unchanged. A registry cannot be deleted while auto-detection is enabled: set this to false and update the stack before deleting the registry.
+        :param auto_detection_scope: The source from which resources are detected. ORGANIZATION sources resources from all member accounts of an AWS Organization.
         :param description: The description of the registry.
         :param discovery_configuration: Discovery configuration for the registry. Controls how consumers are authorized to search the registry and invoke its MCP endpoint.
+        :param encryption_configuration: The server-side encryption configuration for a registry. Specifies a customer managed key used to encrypt the registry's content. When omitted, the registry's content is encrypted with an AWS owned key. You cannot change the encryption configuration after registry creation. Specifying a different KMS key, adding this property to an existing registry, or removing it replaces the registry: CloudFormation creates a new registry with a new Amazon Resource Name (ARN) and then deletes the original, including all registry records it contains. Registry records that are not managed by the stack are not re-created in the new registry, and if any remain in the original registry its deletion fails and it is left behind.
         :param tags: Tags to assign to the registry.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registry.html
@@ -1039,6 +1178,8 @@ class CfnRegistryProps:
                     auto_approval_rules=["autoApprovalRules"]
                 ),
                 authorizer_type="authorizerType",
+                auto_detection_enabled=False,
+                auto_detection_scope="autoDetectionScope",
                 description="description",
                 discovery_configuration=agentregistry.CfnRegistry.DiscoveryConfigurationProperty(
                     authorizer_configuration=agentregistry.CfnRegistry.AuthorizerConfigurationProperty(
@@ -1063,6 +1204,9 @@ class CfnRegistryProps:
                         )
                     )
                 ),
+                encryption_configuration=agentregistry.CfnRegistry.EncryptionConfigurationProperty(
+                    kms_key_arn="kmsKeyArn"
+                ),
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -1074,8 +1218,11 @@ class CfnRegistryProps:
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument approval_configuration", value=approval_configuration, expected_type=type_hints["approval_configuration"])
             check_type(argname="argument authorizer_type", value=authorizer_type, expected_type=type_hints["authorizer_type"])
+            check_type(argname="argument auto_detection_enabled", value=auto_detection_enabled, expected_type=type_hints["auto_detection_enabled"])
+            check_type(argname="argument auto_detection_scope", value=auto_detection_scope, expected_type=type_hints["auto_detection_scope"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument discovery_configuration", value=discovery_configuration, expected_type=type_hints["discovery_configuration"])
+            check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "name": name,
@@ -1084,10 +1231,16 @@ class CfnRegistryProps:
             self._values["approval_configuration"] = approval_configuration
         if authorizer_type is not None:
             self._values["authorizer_type"] = authorizer_type
+        if auto_detection_enabled is not None:
+            self._values["auto_detection_enabled"] = auto_detection_enabled
+        if auto_detection_scope is not None:
+            self._values["auto_detection_scope"] = auto_detection_scope
         if description is not None:
             self._values["description"] = description
         if discovery_configuration is not None:
             self._values["discovery_configuration"] = discovery_configuration
+        if encryption_configuration is not None:
+            self._values["encryption_configuration"] = encryption_configuration
         if tags is not None:
             self._values["tags"] = tags
 
@@ -1122,6 +1275,30 @@ class CfnRegistryProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def auto_detection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Specifies whether auto-detection is requested for the registry.
+
+        Must be specified together with AutoDetectionScope. Setting this to true is necessary but not sufficient for auto-detection to become active; the preconditions of the configured scope must also be met. To turn auto-detection off, explicitly set this to false - removing AutoDetectionEnabled and AutoDetectionScope from the template is a no-op and leaves the existing auto-detection settings unchanged. A registry cannot be deleted while auto-detection is enabled: set this to false and update the stack before deleting the registry.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registry.html#cfn-agentregistry-registry-autodetectionenabled
+        '''
+        result = self._values.get("auto_detection_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def auto_detection_scope(self) -> typing.Optional[builtins.str]:
+        '''The source from which resources are detected.
+
+        ORGANIZATION sources resources from all member accounts of an AWS Organization.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registry.html#cfn-agentregistry-registry-autodetectionscope
+        '''
+        result = self._values.get("auto_detection_scope")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the registry.
 
@@ -1142,6 +1319,19 @@ class CfnRegistryProps:
         '''
         result = self._values.get("discovery_configuration")
         return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.DiscoveryConfigurationProperty"]], result)
+
+    @builtins.property
+    def encryption_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.EncryptionConfigurationProperty"]]:
+        '''The server-side encryption configuration for a registry.
+
+        Specifies a customer managed key used to encrypt the registry's content. When omitted, the registry's content is encrypted with an AWS owned key. You cannot change the encryption configuration after registry creation. Specifying a different KMS key, adding this property to an existing registry, or removing it replaces the registry: CloudFormation creates a new registry with a new Amazon Resource Name (ARN) and then deletes the original, including all registry records it contains. Registry records that are not managed by the stack are not re-created in the new registry, and if any remain in the original registry its deletion fails and it is left behind.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registry.html#cfn-agentregistry-registry-encryptionconfiguration
+        '''
+        result = self._values.get("encryption_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistry.EncryptionConfigurationProperty"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
@@ -3756,8 +3946,11 @@ def _typecheckingstub__c92eab34b9759c9076b623bf33eca391e46a29b4416fcb07c7b30302f
     name: builtins.str,
     approval_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.ApprovalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     authorizer_type: typing.Optional[builtins.str] = None,
+    auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    auto_detection_scope: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     discovery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.DiscoveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -3805,6 +3998,18 @@ def _typecheckingstub__e5ae93a351cc6e0a318dbf92458f45de0b6b96efd086af7f4205c7e00
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a96c6d354e8928325f1d6d60db3334e5c2866551a0c5ed7e7992d8cdb9448c92(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__debc64dc04165d35e6c03757c993f317c665ad78f4ea3e2a0a6d5bda6ef9b23e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3b008aa20d30be0120e5d8a8866b7968949e2929088e43770aa94ebee678edbc(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -3813,6 +4018,12 @@ def _typecheckingstub__3b008aa20d30be0120e5d8a8866b7968949e2929088e43770aa94ebee
 
 def _typecheckingstub__5a1b96b5514172fb57ca62002ae3be655be2839d81eff8747ebaecd2ee280ce9(
     value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRegistry.DiscoveryConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b01cec69ebf6f7b032abcd9f676e1d7b40718f0a257ebf0b6d7204f16a7af528(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnRegistry.EncryptionConfigurationProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3880,13 +4091,23 @@ def _typecheckingstub__0075ca34f0469a75f3909e5eaf6a881ca07aa3e497e1be371bc34bb15
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5bb8dca691770be1d18258851da6d95495436ebd6378e717de544fe439b3126d(
+    *,
+    kms_key_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b98476a5662bfac6fbe3ddd43ef77bef00711e71c235f99e97057616ec96a16e(
     *,
     name: builtins.str,
     approval_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.ApprovalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     authorizer_type: typing.Optional[builtins.str] = None,
+    auto_detection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    auto_detection_scope: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
     discovery_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.DiscoveryConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistry.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

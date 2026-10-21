@@ -467,6 +467,27 @@ class DateTimeJsonConverter:
         ...
 
 
+class ParameterDictionaryJsonConverter:
+    """Reads a parameter name to value dictionary from either the {name: value} or the <{"key": key, "value": value}> format"""
+
+    @property
+    def can_write(self) -> bool:
+        """Writes are handled by the default serializer, using the {name: value} format"""
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """Determines whether this instance can convert the specified object type"""
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Reads the parameters dictionary from the JSON"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Not used, see can_write"""
+        ...
+
+
 class ColorJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[System.Drawing.Color, str]):
     """
     A JsonConverter implementation that serializes a Color as a string.

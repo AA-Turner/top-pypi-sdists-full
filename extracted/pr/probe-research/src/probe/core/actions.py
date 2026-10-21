@@ -50,7 +50,6 @@ WIZARD_DEFAULTS: dict[str, Any] = {
     "capture": None,
     "auto_update": None,
     "agent_rules": None,
-    "capy_project": None,
     "channel": None,
     "uninstall": False,
     "action": None,

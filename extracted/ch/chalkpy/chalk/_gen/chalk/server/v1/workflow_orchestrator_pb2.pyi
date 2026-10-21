@@ -1,4 +1,7 @@
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -345,16 +348,41 @@ class GetWorkflowOrchestratorConnectionDetailsRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class GetWorkflowOrchestratorConnectionDetailsResponse(_message.Message):
-    __slots__ = ("endpoint", "temporal_namespace", "default_task_queue")
+    __slots__ = ("endpoint", "temporal_namespace", "default_task_queue", "access_token")
     ENDPOINT_FIELD_NUMBER: _ClassVar[int]
     TEMPORAL_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_TASK_QUEUE_FIELD_NUMBER: _ClassVar[int]
+    ACCESS_TOKEN_FIELD_NUMBER: _ClassVar[int]
     endpoint: str
     temporal_namespace: str
     default_task_queue: str
+    access_token: str
     def __init__(
         self,
         endpoint: _Optional[str] = ...,
         temporal_namespace: _Optional[str] = ...,
         default_task_queue: _Optional[str] = ...,
+        access_token: _Optional[str] = ...,
     ) -> None: ...
+
+class SendWorkflowMessageRequest(_message.Message):
+    __slots__ = ("workflow_id", "run_id", "name", "payload")
+    WORKFLOW_ID_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_FIELD_NUMBER: _ClassVar[int]
+    workflow_id: str
+    run_id: str
+    name: str
+    payload: _struct_pb2.Value
+    def __init__(
+        self,
+        workflow_id: _Optional[str] = ...,
+        run_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        payload: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...,
+    ) -> None: ...
+
+class SendWorkflowMessageResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

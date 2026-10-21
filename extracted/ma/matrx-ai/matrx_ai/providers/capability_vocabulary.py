@@ -33,7 +33,7 @@ its feature list. It is relocated to ``input`` as ``document``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, get_args
 
 # ── the vocabulary ────────────────────────────────────────────────────────
 
@@ -41,9 +41,15 @@ CONTENT_TYPES: frozenset[str] = frozenset(
     {"text", "image", "audio", "video", "document", "entities", "embedding", "decision"}
 )
 
-INTERACTION_MODES: frozenset[str] = frozenset(
-    {"turn", "single", "extraction", "realtime", "embedding", "agent", "decision", "adapter", "detection"}
-)
+#: The ONE list of interaction modes. ``INTERACTION_MODES`` and every pydantic model that types
+#: ``interaction`` derive from it, so the set and the models cannot drift apart again (they did
+#: twice: "single"/"agent" coerced to "turn" until 2026-09-12, and "detection" — the wake-word
+#: models of 2026-10-17 — crashed every capability resolve until 2026-10-20).
+InteractionMode = Literal[
+    "turn", "single", "extraction", "realtime", "embedding", "agent", "decision", "adapter", "detection"
+]
+
+INTERACTION_MODES: frozenset[str] = frozenset(get_args(InteractionMode))
 
 #: Every feature token the canonical column may carry. Keep in lockstep with
 #: ``FEATURE_KEYS`` in matrx-frontend/features/ai-models/capabilities/types.ts;
@@ -443,6 +449,7 @@ __all__ = [
     "VIDEO_REFERENCE_ROLES_KEY",
     "INTERACTION_ALIASES",
     "INTERACTION_MODES",
+    "InteractionMode",
     "VOCABULARY_FILE",
     "CapabilitiesNormalization",
     "normalize_capabilities",

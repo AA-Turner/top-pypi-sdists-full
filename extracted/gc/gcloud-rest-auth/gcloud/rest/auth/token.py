@@ -125,7 +125,13 @@ def get_service_data(
                 )
 
         service = os.path.join(sdkpath, 'application_default_credentials.json')
-        set_explicitly = bool(cloudsdk_config)
+        # CLOUDSDK_CONFIG only relocates gcloud CLI's config directory; it is
+        # not an ADC directive. Match google-auth's
+        # _get_gcloud_sdk_credentials(), which silently returns None when the
+        # well-known file is absent so ADC falls through to the GCE metadata
+        # service. Only GOOGLE_APPLICATION_CREDENTIALS (handled above) counts
+        # as explicit user intent.
+        set_explicitly = False
     else:
         set_explicitly = True
 
@@ -162,6 +168,20 @@ def get_service_data(
 class TokenResponse:
     value: str
     expires_in: int  # Token TTL in seconds
+
+
+def _infer_credential_source_type(credential_source: dict[str, Any]) -> str:
+    # Configs made by `gcloud iam workload-identity-pools create-cred-config`
+    # have no `type`, so infer it from the keys the way google-auth does.
+    if str(credential_source.get('environment_id', '')).startswith('aws'):
+        raise ValueError('aws credential_source is not supported')
+    if 'executable' in credential_source:
+        raise ValueError('executable credential_source is not supported')
+    if 'file' in credential_source:
+        return 'file'
+    if 'url' in credential_source:
+        return 'url'
+    raise ValueError('credential_source is missing type field')
 
 
 class BaseToken(ABC):
@@ -441,12 +461,10 @@ class Token(BaseToken):
         self, credential_source: dict[str, Any], timeout: int
     ) -> str:
         # pylint: disable=too-complex
-        source_type = credential_source.get('type')
-        if not source_type:
-            # TODO: looks like sometimes the type can be found elsewhere or
-            # needs to be infered.
-            # https://github.com/talkiq/gcloud-rest/pull/906/changes#r2206959538
-            raise ValueError('credential_source is missing type field')
+        source_type = (
+            credential_source.get('type')
+            or _infer_credential_source_type(credential_source)
+        )
 
         if source_type == 'url':
             url = credential_source['url']

@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.activity_clock_range_in import ActivityClockRangeIn
 from ..types.archive_asset_response_out import ArchiveAssetResponseOut
+from ..types.asset_access_out import AssetAccessOut
 from ..types.asset_activity_delta_response_out import AssetActivityDeltaResponseOut
 from ..types.asset_activity_response_out import AssetActivityResponseOut
 from ..types.collab_token_response import CollabTokenResponse
@@ -184,13 +185,14 @@ class AssetsClient:
         parent_folder_id: typing.Optional[str] = OMIT,
         provider: typing.Optional[str] = OMIT,
         skill_config: typing.Optional[PublicSkillConfigIn] = OMIT,
+        suspend_timeout_seconds: typing.Optional[int] = OMIT,
         template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended.
 
         Parameters
         ----------
@@ -223,6 +225,9 @@ class AssetsClient:
 
         skill_config : typing.Optional[PublicSkillConfigIn]
             skill only. The skill's SKILL.md content. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
+
+        suspend_timeout_seconds : typing.Optional[int]
+            Database only. Seconds without activity after which the database suspends (scales to zero): 0 means it never suspends (the compute keeps running, and keeps using capacity), otherwise 60 to 86400 (24 hours). Defaults to 1800 (30 minutes). Applied while the database is provisioned; if it cannot be applied, the database is not created and compute-status reports failed. Read or change it later with GET/PATCH /api/v0/databases/{asset_id}/settings.
 
         template : typing.Optional[str]
             Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
@@ -266,6 +271,7 @@ class AssetsClient:
             parent_folder_id=parent_folder_id,
             provider=provider,
             skill_config=skill_config,
+            suspend_timeout_seconds=suspend_timeout_seconds,
             template=template,
             title=title,
             workspace_id=workspace_id,
@@ -484,6 +490,47 @@ class AssetsClient:
         _response = self._raw_client.rename(
             asset_id, title=title, expected_title=expected_title, request_options=request_options
         )
+        return _response.data
+
+    def get_access(
+        self,
+        asset_id: str,
+        *,
+        user_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AssetAccessOut:
+        """
+        Read the access that you, or another user, have on an asset, and every grant that gives it. The level is what Athena's permission checks decide for the user in the asset's own workspace, whichever workspace is active for your key: 'view' can open the asset, 'edit' can also change it and manage its sharing, 'owner' created it and can edit it, and 'none' cannot open it. Each source names one grant: 'owner', 'direct' (shared with the user), 'group' (shared with a workspace group the user belongs to), 'workspace' (shared with the whole workspace), 'drive' (a role on the drive) or 'other' (access the share list does not hold, for example an environment admin). A folder's sharing reaches each asset inside it as that asset's own share, so a 'workspace' source on a sub-folder shows that a share of its parent folder reached it. Without user_id the route reads your own access; you need view access to the asset and membership in its workspace. To read another user's access, pass their user_id; you need edit access to the asset, as for sharing it. A user who is not a member of the asset's workspace, or who does not exist, reads as 'none' with is_member false. A suspended member reads as 'none' with no sources, and is_member still reports their membership. When a permission check cannot be answered (for example on an asset in a drive while the authorization service is unavailable), the route answers 503 and never a level. The route never changes a permission.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the asset
+
+        user_id : typing.Optional[str]
+            The user whose access to read. Leave it out to read your own. Reading another user's access needs edit access to the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetAccessOut
+            The user's effective access on the asset
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.assets.get_access(
+            asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+        )
+        """
+        _response = self._raw_client.get_access(asset_id, user_id=user_id, request_options=request_options)
         return _response.data
 
     def list_activity(
@@ -1161,13 +1208,14 @@ class AsyncAssetsClient:
         parent_folder_id: typing.Optional[str] = OMIT,
         provider: typing.Optional[str] = OMIT,
         skill_config: typing.Optional[PublicSkillConfigIn] = OMIT,
+        suspend_timeout_seconds: typing.Optional[int] = OMIT,
         template: typing.Optional[str] = OMIT,
         title: typing.Optional[str] = OMIT,
         workspace_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateAssetResponseOut:
         """
-        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied.
+        Create a new asset such as a spreadsheet, document, folder, database, computer, user interface, skill, collab agent, or generic doc (admin-only) in your workspace with your current permissions. Computer assets return 202 after durable submission, which commits the asset and initialization delivery intent together. Runtime provisioning continues asynchronously. Inspect the returned asset ID for progress instead of repeating creation. Computers accept the same configuration as the Athena UI's creation dialog: template, provider, cpu, memory (GiB), disk (GiB) and env_vars. Sizes must be offered by the environment's computer resource policy, and only admins may pick a size other than the template default (403 otherwise). In capability enforce mode, computer creation requires computer.create and returns 403 when denied. Databases accept suspend_timeout_seconds, the auto-suspend window from the database's Settings in Athena: 0 keeps the database running (it never suspends, and keeps using capacity), otherwise 60 to 86400 seconds. A database is provisioned in the background: poll GET /api/v0/databases/{asset_id}/compute-status until it reports running or suspended.
 
         Parameters
         ----------
@@ -1200,6 +1248,9 @@ class AsyncAssetsClient:
 
         skill_config : typing.Optional[PublicSkillConfigIn]
             skill only. The skill's SKILL.md content. Created as a draft; publish it with POST /api/v0/assets/{asset_id}/publish.
+
+        suspend_timeout_seconds : typing.Optional[int]
+            Database only. Seconds without activity after which the database suspends (scales to zero): 0 means it never suspends (the compute keeps running, and keeps using capacity), otherwise 60 to 86400 (24 hours). Defaults to 1800 (30 minutes). Applied while the database is provisioned; if it cannot be applied, the database is not created and compute-status reports failed. Read or change it later with GET/PATCH /api/v0/databases/{asset_id}/settings.
 
         template : typing.Optional[str]
             Computer only. Template key to create the computer from, as picked in the Athena UI's computer creation dialog (e.g. 'default'), or an 'environment:<asset_id>' reference to a saved environment. Defaults to the default template. Also accepted as 'snapshot'.
@@ -1251,6 +1302,7 @@ class AsyncAssetsClient:
             parent_folder_id=parent_folder_id,
             provider=provider,
             skill_config=skill_config,
+            suspend_timeout_seconds=suspend_timeout_seconds,
             template=template,
             title=title,
             workspace_id=workspace_id,
@@ -1501,6 +1553,55 @@ class AsyncAssetsClient:
         _response = await self._raw_client.rename(
             asset_id, title=title, expected_title=expected_title, request_options=request_options
         )
+        return _response.data
+
+    async def get_access(
+        self,
+        asset_id: str,
+        *,
+        user_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AssetAccessOut:
+        """
+        Read the access that you, or another user, have on an asset, and every grant that gives it. The level is what Athena's permission checks decide for the user in the asset's own workspace, whichever workspace is active for your key: 'view' can open the asset, 'edit' can also change it and manage its sharing, 'owner' created it and can edit it, and 'none' cannot open it. Each source names one grant: 'owner', 'direct' (shared with the user), 'group' (shared with a workspace group the user belongs to), 'workspace' (shared with the whole workspace), 'drive' (a role on the drive) or 'other' (access the share list does not hold, for example an environment admin). A folder's sharing reaches each asset inside it as that asset's own share, so a 'workspace' source on a sub-folder shows that a share of its parent folder reached it. Without user_id the route reads your own access; you need view access to the asset and membership in its workspace. To read another user's access, pass their user_id; you need edit access to the asset, as for sharing it. A user who is not a member of the asset's workspace, or who does not exist, reads as 'none' with is_member false. A suspended member reads as 'none' with no sources, and is_member still reports their membership. When a permission check cannot be answered (for example on an asset in a drive while the authorization service is unavailable), the route answers 503 and never a level. The route never changes a permission.
+
+        Parameters
+        ----------
+        asset_id : str
+            Unique identifier of the asset
+
+        user_id : typing.Optional[str]
+            The user whose access to read. Leave it out to read your own. Reading another user's access needs edit access to the asset.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AssetAccessOut
+            The user's effective access on the asset
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.assets.get_access(
+                asset_id="asset_92492920-d118-42d3-95b4-00eccfe0754f",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_access(asset_id, user_id=user_id, request_options=request_options)
         return _response.data
 
     async def list_activity(

@@ -409,8 +409,8 @@ NOT_RESEARCH = frozenset(
         # `probe ask` files a question for the daemon's reader in a local mailbox
         # (daemon reads); it writes nothing to Probe.
         "ask",
-        # `probe capy` connects and syncs Capy session capture: transcripts go
-        # through the capture upload, never a research write.
+        # `probe capy` is hidden: it only takes down what removed Capy capture
+        # left on a machine, never a research write.
         "capy",
         "commits",
         "companion",

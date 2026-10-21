@@ -74,6 +74,7 @@ sources:
       - src/omnimarket/configs/task_class_contracts.v1.yaml
     overlay: TASK_CLASS_CONTRACT_PATH pin of a complete file; there is no node overlay for this file
     resolution_sites:
+      - "src/omnimarket/nodes/node_context_profile_resolver_effect/handlers/handler_context_profile_resolver.py:resolve_path_config(TASK_CLASS_CONTRACT_PATH_ENV_KEY)"
       - "src/omnimarket/nodes/node_delegation_orchestrator/handlers/handler_delegation_workflow.py:resolve_path_config(TASK_CLASS_CONTRACT_PATH_ENV_KEY)"
       - "src/omnimarket/nodes/node_delegation_routing_reducer/handlers/handler_delegation_routing.py:resolve_path_config('TASK_CLASS_CONTRACT_PATH')"
     precedence:
@@ -130,6 +131,8 @@ not_routing_resolution_sites:
     reason: checks only that the same overlay is not broken before onboarding falls back to the contract's packaged default model; it reads no value and selects no route
   - site: "src/omnimarket/nodes/node_integration_sweep_orchestrator/handlers/handler_integration_sweep_orchestrator.py:load_node_overlay(_NODE_NAME)"
     reason: hosts and URLs a sweep probes; probe targets, not routes for delegated work
+  - site: "src/omnimarket/handlers/lab_sli_pack_gate.py:load_node_overlay(LAB_SLI_PACK_OVERLAY)"
+    reason: whether a deployment enables the lab SLI pack; an on or off switch for four nodes, not a route for delegated work
 not_routing_configs:
   - path: src/omnimarket/configs/adk_invoke.yaml
     reason: one fixed provider invocation with no choice among routes
@@ -147,6 +150,8 @@ not_routing_configs:
     reason: per-class rubric text
   - path: src/omnimarket/configs/delegation_judge_rubrics.v1.yaml
     reason: judge rubric text
+  - path: src/omnimarket/configs/delegation_independent_judge.v1.yaml
+    reason: which task classes arm the independent judge and a class's judge prompt text; the judge backend still comes from the routing contract
   - path: src/omnimarket/configs/delegation_response_contract_conformance.v1.json
     reason: response shape conformance schema
   - path: src/omnimarket/configs/delegation_rung_eval.v1.yaml

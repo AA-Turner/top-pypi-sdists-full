@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "flwr"
-version = "1.40.0"
+version = "1.41.0"
 description = "Flower: A Friendly Federated AI Framework"
 license = "Apache-2.0"
 readme = "README.md"
@@ -79,6 +79,7 @@ simulation = [
 agent = [
     "browser-use[core]>=0.13.1,<0.14.0",
     "trafilatura>=2.1.0,<3.0.0",
+    "mcp>=1.26.0,<2.0.0",
 ]
 dp = ["dp-accounting>=0.6.0,<0.7.0"]
 

@@ -32,7 +32,7 @@ from exp.runtime.models.providers.reasoning_compat import (
 )
 from exp.runtime.models.providers.wire_messages import (
     add_openai_tools,
-    fold_tool_result_images,
+    fold_tool_result_attachments,
     openai_chat_message,
     responses_items,
 )
@@ -141,6 +141,12 @@ def openai_responses_stream_payload(
     instructions: list[str] = []
     instruction_roles: list[str] = []
     items: list[JsonObject] = []
+    # A tool-returned document rides a following user turn: this wire's
+    # function_call_output list carries text and image parts only, while a
+    # user turn carries the document natively (see the fold's docstring).
+    request = request.model_copy(
+        update={"messages": fold_tool_result_attachments(request.messages, kinds=("document",))}
+    )
     for message in request.messages:
         if message.provider_native_item is not None:
             # Codex-native input items (tool namespaces, freeform tool
@@ -263,6 +269,10 @@ def openai_responses_stream_payload(
         # changes cache-hit cost, never semantics, so rungs that do not route
         # by it omit it structurally with no decline and no disclosure.
         payload["prompt_cache_key"] = request.provider_prompt_cache_key
+    if request.prompt_cache_ttl is not None:
+        # Admission reaches this wire with a lifetime only on a rung declaring
+        # ``supports_prompt_cache_ttl_12h``; the default "30m" is never sent.
+        payload["prompt_cache_options"] = {"ttl": request.prompt_cache_ttl}
     # Native OpenAI Responses has no top-k request field. Never trust a
     # mistaken route declaration to send this extension to the API.
     del supports_top_k
@@ -377,8 +387,9 @@ def openai_compatible_stream_payload(
         # ends on an instruction; see fold_trailing_instruction_turns.
         messages = fold_trailing_instruction_turns(messages)
     # Chat tool messages are text-only on every server behind this wire, so a
-    # tool screenshot rides a following user turn (see the fold's docstring).
-    messages = fold_tool_result_images(messages)
+    # tool screenshot or tool-returned document rides a following user turn
+    # (see the fold's docstring).
+    messages = fold_tool_result_attachments(messages, kinds=("image", "document"))
     if system_messages_leading_only:
         # The rung's template 400s on any system turn past the first; the
         # text stays where the caller put it, as user text.

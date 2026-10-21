@@ -693,6 +693,261 @@ def _register_operations(server: FastMCP) -> None:
         )
 
     @server.tool()
+    def rectangle(
+        output_path: str,
+        output_format: Optional[str] = None,
+        dims: Optional[List[int]] = None,
+        size: Optional[List[float]] = None,
+        origin: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        split: str = "zigzag",
+        order: int = 1,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate a regular 2-D grid of dims=(nx, ny) quads or triangles at
+        z = origin[2]. split (triangles) is zigzag, up, down or center; order=2
+        gives quad8/triangle6 cells. The mesh carries side regions xmin, xmax,
+        ymin, ymax. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_rectangle,
+            output_path=output_path,
+            output_format=output_format,
+            dims=dims,
+            size=size,
+            origin=origin,
+            cell_type=cell_type,
+            split=split,
+            order=order,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def box(
+        output_path: str,
+        output_format: Optional[str] = None,
+        dims: Optional[List[int]] = None,
+        size: Optional[List[float]] = None,
+        origin: Optional[List[float]] = None,
+        cell_type: str = "hexahedron",
+        order: int = 1,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate a regular 3-D grid of dims=(nx, ny, nz) hexahedra, tetrahedra
+        (six Kuhn tetrahedra per cell) or wedges. order=2 gives hexahedron20,
+        tetra10 or wedge15 cells. The mesh carries side regions xmin, xmax, ymin,
+        ymax, zmin, zmax. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_box,
+            output_path=output_path,
+            output_format=output_format,
+            dims=dims,
+            size=size,
+            origin=origin,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def disk(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        n: int = 8,
+        center: Optional[List[float]] = None,
+        cell_type: str = "quad",
+        order: int = 1,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate a disk of quads (an n x n grid pushed onto the disk) or
+        triangles (n rings, 6 n^2 triangles). order=2 curves the rim. The mesh
+        carries a side region rim. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_disk,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            n=n,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def uv_sphere(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        nu: int = 16,
+        nv: int = 8,
+        center: Optional[List[float]] = None,
+        cell_type: str = "triangle",
+        order: int = 1,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate a latitude/longitude sphere surface with nu points per ring and
+        nv bands, oriented outward. cell_type is triangle, or quad with triangle
+        caps. order=2 puts the mid-edge nodes on the sphere. Reads no input mesh:
+        it creates one."""
+        return _guard(
+            _tools.tool_uv_sphere,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            nu=nu,
+            nv=nv,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def icosa_sphere(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        subdivisions: int = 2,
+        center: Optional[List[float]] = None,
+        order: int = 1,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate a sphere surface from an icosahedron split in four
+        `subdivisions` times (20 * 4^subdivisions triangles), oriented outward.
+        order=2 puts the mid-edge nodes on the sphere. Reads no input mesh: it
+        creates one."""
+        return _guard(
+            _tools.tool_icosa_sphere,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            subdivisions=subdivisions,
+            center=center,
+            order=order,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def cylinder(
+        output_path: str,
+        output_format: Optional[str] = None,
+        radius: float = 1.0,
+        height: float = 1.0,
+        nxy: int = 8,
+        nz: int = 8,
+        center: Optional[List[float]] = None,
+        cell_type: str = "hexahedron",
+        order: int = 1,
+        max_cells: int = 20000000,
+    ) -> dict:
+        """Generate a solid cylinder along z: hexahedra (the disk grid, extruded)
+        or wedges. order=2 curves the side. The mesh carries side regions side,
+        top and bottom. Reads no input mesh: it creates one."""
+        return _guard(
+            _tools.tool_cylinder,
+            output_path=output_path,
+            output_format=output_format,
+            radius=radius,
+            height=height,
+            nxy=nxy,
+            nz=nz,
+            center=center,
+            cell_type=cell_type,
+            order=order,
+            max_cells=max_cells,
+        )
+
+    @server.tool()
+    def reference_cells(
+        output_path: str,
+        output_format: Optional[str] = None,
+        types: Optional[List[str]] = None,
+        pairs: bool = False,
+    ) -> dict:
+        """Generate one cell of each requested type in reference coordinates, side
+        by side (every supported type when types is omitted). pairs=True gives two
+        cells sharing a facet, for linear types. Reads no input mesh: it creates
+        one."""
+        return _guard(
+            _tools.tool_reference_cells,
+            output_path=output_path,
+            output_format=output_format,
+            types=types,
+            pairs=pairs,
+        )
+
+    @server.tool()
+    def octree(
+        input_path: str,
+        output_path: str,
+        input_format: Optional[str] = None,
+        output_format: Optional[str] = None,
+        root_cells: List[int] = [1, 1, 1],
+        min_level: int = 0,
+        max_level: int = 4,
+        bounds: Optional[List[float]] = None,
+        padding: float = 0.0,
+        padding_relative: float = 0.0,
+        dimension: int = 0,
+        sample_distance: float = 0.0,
+        balance: str = "face",
+        fill: str = "all",
+        attach_distance: bool = False,
+        even_odd: bool = False,
+        max_cells: int = 20000000,
+        sign: str = "pseudonormal",
+        transition: str = "hanging",
+        snap: bool = False,
+        surface_level: Optional[int] = None,
+        curvature_threshold: float = 0.0,
+        feature_angle: float = 0.0,
+        size_array: Optional[str] = None,
+        plane: str = "auto",
+    ) -> dict:
+        """Build an octree (3-D, hexahedra) or quadtree (2-D, quads) around a mesh
+        skin: leaves are fine only where the skin is. A closed polyline of line
+        cells (or the boundary of a 2-D surface mesh) gives a quadtree, a surface
+        an octree. Leaves are split while the skin cuts them (or lies within
+        sample_distance) down to max_level; balance 'none'/'face'/'full' enforces
+        2:1 size ratios. fill='all'/'surface'/'inside' keeps as for voxelize.
+        Writes octree:level and octree:cut cell data and octree:hanging point
+        data, and reports leaf counts, hanging nodes and the root lattice.
+        transition='polyhedra' or 'templates' makes the output conforming (no
+        hanging nodes); snap=True moves the outer nodes onto the skin (fill must
+        be 'surface' or 'inside') and reports num_snapped/num_refused;
+        surface_level, curvature_threshold, feature_angle and size_array refine
+        beyond the cut leaves; plane chooses the plane of a 2-D skin."""
+        return _guard(
+            _tools.tool_octree,
+            input_path=input_path,
+            output_path=output_path,
+            input_format=input_format,
+            output_format=output_format,
+            root_cells=root_cells,
+            min_level=min_level,
+            max_level=max_level,
+            bounds=bounds,
+            padding=padding,
+            padding_relative=padding_relative,
+            dimension=dimension,
+            sample_distance=sample_distance,
+            balance=balance,
+            fill=fill,
+            attach_distance=attach_distance,
+            even_odd=even_odd,
+            max_cells=max_cells,
+            sign=sign,
+            transition=transition,
+            snap=snap,
+            surface_level=surface_level,
+            curvature_threshold=curvature_threshold,
+            feature_angle=feature_angle,
+            size_array=size_array,
+            plane=plane,
+        )
+
+    @server.tool()
     def voxelize(
         input_path: str,
         output_path: str,
@@ -709,7 +964,8 @@ def _register_operations(server: FastMCP) -> None:
         sign: str = "pseudonormal",
     ) -> dict:
         """Build a regular hexahedron grid around a mesh. Give exactly one of
-        resolution (nx, ny, nz) or cell_size. fill='all' keeps the whole bounding
+        resolution (nx, ny, nz; nx, ny selects 2-D quad pixels around a planar
+        polyline) or cell_size. fill='all' keeps the whole bounding
         box, 'surface' keeps only cells a triangle passes through, and 'inside'
         keeps only cells whose centre is inside the surface. Reports the lattice
         origin/spacing/dims and how many cells were kept."""
@@ -1457,6 +1713,8 @@ def _register_operations(server: FastMCP) -> None:
         min_patch_cells: int = 1,
         region: str = "",
         prefix: str = "patch",
+        method: str = "angle",
+        tolerance: float = 1e-3,
     ) -> dict:
         """Split a surface into smooth patches -- the first step of turning a
         triangle skin (an STL, a scan) into a CAD model.
@@ -1472,7 +1730,12 @@ def _register_operations(server: FastMCP) -> None:
         segment:adjacency (rows a, b, shared edges) and one cell region per
         patch named <prefix>:<k>. Reports num_patches, num_merged,
         num_feature_edges, num_boundary_edges and num_non_manifold_edges.
-        Feed the output to fit_primitives."""
+        method="primitive" ends a patch where the surface its facets lie on
+        changes instead: a smooth area one plane, sphere, cylinder, cone or
+        torus explains is one patch, any other is split into the regions
+        primitives explain within tolerance (relative to the diagonal), so a
+        fillet comes apart from the planes it is tangent to -- what a
+        CAD-exported STL wants. Feed the output to fit_primitives."""
         return _guard(
             _tools.tool_segment,
             input_path=input_path,
@@ -1485,6 +1748,8 @@ def _register_operations(server: FastMCP) -> None:
             min_patch_cells=min_patch_cells,
             region=region,
             prefix=prefix,
+            method=method,
+            tolerance=tolerance,
         )
 
     @server.tool()
@@ -3324,7 +3589,7 @@ def _register_gated(server: FastMCP) -> None:
         mesh_output_path: Optional[str] = None,
         curvature_tolerance: float = 0.0,
         min_patch_cells: int = 1,
-        fit_tolerance: float = 1e-3,
+        fit_tolerance: Optional[float] = None,
         tolerance: Optional[float] = None,
         exact_edges: bool = True,
         types: Optional[List[str]] = None,
@@ -3337,13 +3602,20 @@ def _register_gated(server: FastMCP) -> None:
         freeform_split: bool = True,
         fillets: bool = True,
         threads: bool = True,
+        segment_method: str = "primitive",
+        segment_tolerance: float = 1e-3,
+        merge_faces: bool = True,
+        backend: str = "auto",
     ) -> dict:
         """Turn a closed triangle skin into a CAD solid with analytic faces,
         written to output_path as AP214 STEP -- the last step of skin to CAD
-        after segment and fit_primitives (run here first, with
-        curvature_tolerance, min_patch_cells and fit_tolerance, when the skin
-        has no segment:patch / fit:patch_* data; a noisy scan wants
-        min_patch_cells in the tens).
+        after segment and fit_primitives (run here first when the skin has no
+        segment:patch: segment_method "primitive" (the default) ends a patch
+        where the plane, sphere, cylinder, cone or torus its facets lie on
+        changes, at segment_tolerance of the diagonal, and fits at that
+        tolerance unless fit_tolerance (relative) is given; "angle" segments
+        by angles with curvature_tolerance and min_patch_cells, which a noisy
+        scan wants in the tens).
 
         Each accepted fit becomes a plane, sphere, cylinder, cone or torus face
         (types narrows which); a patch no primitive explains becomes, with
@@ -3360,19 +3632,24 @@ def _register_gated(server: FastMCP) -> None:
         between two analytic faces becomes a chamfer or a conic blend, and a
         corner where three or more blends meet a vertex blend; with threads, a
         flank of varying pitch or cut on a taper is a helical face too; the
-        rest planar facets;
-        OpenCASCADE sews and checks the solid, and a face that fails or lies
-        further than tolerance from the skin is demoted to facets. The report
-        gives valid, the volume ratio against the skin, max_deviation
+        rest coplanar polygons;
+        OpenCASCADE sews and checks the solid, a face that fails or lies
+        further than tolerance from the skin is demoted to facets, and with
+        merge_faces faces on one surface merge. The report
+        gives backend, valid, the volume ratio against the skin, max_deviation
         (Hausdorff), faces by type (num_bspline the freeform ones, num_fillet,
         num_helical, num_chamfer, num_vertex_blend; of those num_variable_fillet,
         num_blend, num_conic_blend, num_rounded_thread, num_tapered_thread and
         num_variable_pitch_thread), num_split_patches, num_demoted and exact/approximated
         edges; mesh_output_path also writes the
         re-meshed solid and cad_json_output_path the solid as Kratos CAD JSON
-        (NURBS faces, trimming loops, edges). Needs a core built with OpenCASCADE
-        (-DMESHIOPLUSPLUS_WITH_OCCT=ON); without it the error names the flag
-        and occt_available is false."""
+        (NURBS faces, trimming loops, edges). backend "occt" needs a core
+        built with OpenCASCADE (-DMESHIOPLUSPLUS_WITH_OCCT=ON; without it the
+        error names the flag); "native" needs no CAD kernel: the fitted
+        patches become analytic STEP faces bounded by line, circle and
+        polyline edges, the rest coplanar polygons, no freeform or feature
+        faces, NaN volumes; "auto" (the default) is "occt" when the core
+        carries it (occt_available), else "native"."""
         return _guard(
             _tools.tool_fit_cad,
             input_path=input_path,
@@ -3394,6 +3671,10 @@ def _register_gated(server: FastMCP) -> None:
             freeform_split=freeform_split,
             fillets=fillets,
             threads=threads,
+            segment_method=segment_method,
+            segment_tolerance=segment_tolerance,
+            merge_faces=merge_faces,
+            backend=backend,
         )
 
     @server.tool()

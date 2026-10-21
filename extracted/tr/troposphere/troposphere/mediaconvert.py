@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -8,6 +8,18 @@
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
 from .validators import integer
+
+
+class CertificateAssociation(AWSObject):
+    """
+    `CertificateAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconvert-certificateassociation.html>`__
+    """
+
+    resource_type = "AWS::MediaConvert::CertificateAssociation"
+
+    props: PropsDictType = {
+        "Arn": (str, True),
+    }
 
 
 class AccelerationSettings(AWSProperty):
@@ -102,6 +114,7 @@ class Queue(AWSObject):
     props: PropsDictType = {
         "ConcurrentJobs": (integer, False),
         "Description": (str, False),
+        "MaximumConcurrentFeeds": (integer, False),
         "Name": (str, False),
         "PricingPlan": (str, False),
         "Status": (str, False),

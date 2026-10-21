@@ -542,6 +542,7 @@ def publish_docker_image(
     build_args: dict[str, str] | None = None,
     disable_provenance: bool = True,
     no_cache: bool = False,
+    secrets: dict[str, str] | None = None,
 ) -> DockerPublishResult:
     """Build and publish a Docker image to ECR under its version tag only.
 
@@ -563,6 +564,9 @@ def publish_docker_image(
         build_args: Optional build arguments
         disable_provenance: Disable BuildKit provenance attestations by default
             so unchanged image content yields stable digests.
+        secrets: Optional BuildKit secrets as {id: value}. Unlike build args,
+            secret values never land in image history — use for credentials
+            (e.g. the authenticated plato-pypi index URL).
 
     Returns:
         DockerPublishResult with success status and image URIs
@@ -616,6 +620,17 @@ def publish_docker_image(
     if no_cache:
         common_flags.append("--no-cache")
 
+    # BuildKit secrets: exposed to the builder via env (both depot and buildx
+    # support --secret id=...,env=...), so values stay out of image history
+    # and never touch disk.
+    secret_env: dict[str, str] | None = None
+    if secrets:
+        secret_env = os.environ.copy()
+        for secret_id, value in secrets.items():
+            env_var = f"PLATO_BUILD_SECRET_{secret_id.upper()}"
+            secret_env[env_var] = value
+            common_flags.extend(["--secret", f"id={secret_id},env={env_var}"])
+
     # Prefer a Depot remote builder when available (depot CLI on PATH +
     # DEPOT_PROJECT_ID set, e.g. in CI on depot runners). The persistent NVMe
     # layer cache lives with the builder — no registry-cache import/export —
@@ -625,7 +640,7 @@ def publish_docker_image(
     depot_project = os.environ.get("DEPOT_PROJECT_ID")
     if depot_project and shutil.which("depot"):
         depot_cmd = ["depot", "build", "--project", depot_project, *common_flags, "--push", build_path]
-        if subprocess.run(depot_cmd).returncode == 0:
+        if subprocess.run(depot_cmd, env=secret_env).returncode == 0:
             return DockerPublishResult(success=True, ecr_image=ecr_image, latest_image=latest_image)
         # Fall through to local buildx so a Depot-side problem (auth, project
         # trust, outage) can never strand a deploy. A genuine Dockerfile error
@@ -654,7 +669,7 @@ def publish_docker_image(
     # Build and push in one step
     docker_cmd.extend(["--push", build_path])
 
-    result = subprocess.run(docker_cmd)
+    result = subprocess.run(docker_cmd, env=secret_env)
     if result.returncode != 0:
         return DockerPublishResult(
             success=False, ecr_image=ecr_image, latest_image=latest_image, error="Docker build failed"

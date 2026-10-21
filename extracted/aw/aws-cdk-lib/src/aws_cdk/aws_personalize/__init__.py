@@ -67,6 +67,528 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.ICampaignRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnCampaign(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_personalize.CfnCampaign",
+):
+    '''A deployment of a solution version that provides real-time recommendations.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-campaign.html
+    :cloudformationResource: AWS::Personalize::Campaign
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_personalize as personalize
+        
+        cfn_campaign = personalize.CfnCampaign(self, "MyCfnCampaign",
+            name="name",
+            solution_version_arn="solutionVersionArn",
+        
+            # the properties below are optional
+            campaign_config=personalize.CfnCampaign.CampaignConfigProperty(
+                enable_metadata_with_recommendations=False,
+                item_exploration_config={
+                    "item_exploration_config_key": "itemExplorationConfig"
+                },
+                ranking_influence={
+                    "ranking_influence_key": 123
+                },
+                sync_with_latest_solution_version=False
+            ),
+            min_provisioned_tps=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        solution_version_arn: builtins.str,
+        campaign_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CampaignConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        min_provisioned_tps: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Personalize::Campaign``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the campaign.
+        :param solution_version_arn: The ARN of the solution version to deploy.
+        :param campaign_config: The configuration details of a campaign.
+        :param min_provisioned_tps: Specifies the requested minimum provisioned transactions per second.
+        :param tags: Tags to associate with the campaign.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__154bb7b785310bf8dda2cdf48b73673dc986a555539c87b5629fbc93c10fb267)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCampaignProps(
+            name=name,
+            solution_version_arn=solution_version_arn,
+            campaign_config=campaign_config,
+            min_provisioned_tps=min_provisioned_tps,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCampaign")
+    @builtins.classmethod
+    def arn_for_campaign(
+        cls,
+        resource: "_aws_personalize_95c6aa61.ICampaignRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__410b0f25e5fef8d4894c3e444fd4342819ecc0e431bd80b5f454d22bb20d2865)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCampaign", [resource]))
+
+    @jsii.member(jsii_name="isCfnCampaign")
+    @builtins.classmethod
+    def is_cfn_campaign(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCampaign.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__84d956155849abf7761abbbf2682fe78963de084ee20afe718c50c81ef3547f3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCampaign", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6513d73eb633ea137a5fa03fb0693b26d0a2c4f50ace0e39d76115ce23e22f79)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__581fd7e35ef4f0fb9fa202e6b0659f09e5a35e3cdd568b3ef04a3e67a1adfdda)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCampaignArn")
+    def attr_campaign_arn(self) -> builtins.str:
+        '''The ARN of the campaign.
+
+        :cloudformationAttribute: CampaignArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCampaignArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationDateTime")
+    def attr_creation_date_time(self) -> builtins.str:
+        '''The time at which the campaign was created.
+
+        :cloudformationAttribute: CreationDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreationDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedDateTime")
+    def attr_last_updated_date_time(self) -> builtins.str:
+        '''The time at which the campaign was last updated.
+
+        :cloudformationAttribute: LastUpdatedDateTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastUpdatedDateTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the campaign.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="campaignRef")
+    def campaign_ref(self) -> "_aws_personalize_95c6aa61.CampaignReference":
+        '''A reference to a Campaign resource.'''
+        return typing.cast("_aws_personalize_95c6aa61.CampaignReference", jsii.get(self, "campaignRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the campaign.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c84c805bf927b8cf0a183fc5e822f4211bdd7c80fc2371c178630bcff09539b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="solutionVersionArn")
+    def solution_version_arn(self) -> builtins.str:
+        '''The ARN of the solution version to deploy.'''
+        return typing.cast(builtins.str, jsii.get(self, "solutionVersionArn"))
+
+    @solution_version_arn.setter
+    def solution_version_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f71ef6e5ecc204e0e6758e70adb245e566006d9ca179ef9333271bcec40e3b3c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "solutionVersionArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="campaignConfig")
+    def campaign_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CampaignConfigProperty"]]:
+        '''The configuration details of a campaign.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CampaignConfigProperty"]], jsii.get(self, "campaignConfig"))
+
+    @campaign_config.setter
+    def campaign_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CampaignConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__77f1cd89c9a883620e810d62f27b4837ef78f96bcce427faf089935364465bf0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "campaignConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="minProvisionedTps")
+    def min_provisioned_tps(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the requested minimum provisioned transactions per second.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "minProvisionedTps"))
+
+    @min_provisioned_tps.setter
+    def min_provisioned_tps(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b8545f920c7cf008a3d2581984fb92885b159cdcd7a3c73a4707164ab6318a43)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "minProvisionedTps", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the campaign.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b9864d2b4c5ae554f8a4abe922cc7a4c23f9040b6485f044838cd24c5919b657)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_personalize.CfnCampaign.CampaignConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "enable_metadata_with_recommendations": "enableMetadataWithRecommendations",
+            "item_exploration_config": "itemExplorationConfig",
+            "ranking_influence": "rankingInfluence",
+            "sync_with_latest_solution_version": "syncWithLatestSolutionVersion",
+        },
+    )
+    class CampaignConfigProperty:
+        def __init__(
+            self,
+            *,
+            enable_metadata_with_recommendations: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            item_exploration_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
+            ranking_influence: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, jsii.Number]]] = None,
+            sync_with_latest_solution_version: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''The configuration details of a campaign.
+
+            :param enable_metadata_with_recommendations: Whether metadata with recommendations is enabled for the campaign.
+            :param item_exploration_config: Specifies the exploration configuration hyperparameters.
+            :param ranking_influence: A map of ranking influence values for POPULARITY and FRESHNESS.
+            :param sync_with_latest_solution_version: Whether the campaign automatically updates to use the latest solution version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-campaign-campaignconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_personalize as personalize
+                
+                campaign_config_property = personalize.CfnCampaign.CampaignConfigProperty(
+                    enable_metadata_with_recommendations=False,
+                    item_exploration_config={
+                        "item_exploration_config_key": "itemExplorationConfig"
+                    },
+                    ranking_influence={
+                        "ranking_influence_key": 123
+                    },
+                    sync_with_latest_solution_version=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__371e2811b5950fcc98ebdfe35e0b14fcb638a4c0792c714b281f88961e12b410)
+                check_type(argname="argument enable_metadata_with_recommendations", value=enable_metadata_with_recommendations, expected_type=type_hints["enable_metadata_with_recommendations"])
+                check_type(argname="argument item_exploration_config", value=item_exploration_config, expected_type=type_hints["item_exploration_config"])
+                check_type(argname="argument ranking_influence", value=ranking_influence, expected_type=type_hints["ranking_influence"])
+                check_type(argname="argument sync_with_latest_solution_version", value=sync_with_latest_solution_version, expected_type=type_hints["sync_with_latest_solution_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enable_metadata_with_recommendations is not None:
+                self._values["enable_metadata_with_recommendations"] = enable_metadata_with_recommendations
+            if item_exploration_config is not None:
+                self._values["item_exploration_config"] = item_exploration_config
+            if ranking_influence is not None:
+                self._values["ranking_influence"] = ranking_influence
+            if sync_with_latest_solution_version is not None:
+                self._values["sync_with_latest_solution_version"] = sync_with_latest_solution_version
+
+        @builtins.property
+        def enable_metadata_with_recommendations(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether metadata with recommendations is enabled for the campaign.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-campaign-campaignconfig.html#cfn-personalize-campaign-campaignconfig-enablemetadatawithrecommendations
+            '''
+            result = self._values.get("enable_metadata_with_recommendations")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def item_exploration_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]:
+            '''Specifies the exploration configuration hyperparameters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-campaign-campaignconfig.html#cfn-personalize-campaign-campaignconfig-itemexplorationconfig
+            '''
+            result = self._values.get("item_exploration_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]], result)
+
+        @builtins.property
+        def ranking_influence(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, jsii.Number]]]:
+            '''A map of ranking influence values for POPULARITY and FRESHNESS.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-campaign-campaignconfig.html#cfn-personalize-campaign-campaignconfig-rankinginfluence
+            '''
+            result = self._values.get("ranking_influence")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, jsii.Number]]], result)
+
+        @builtins.property
+        def sync_with_latest_solution_version(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether the campaign automatically updates to use the latest solution version.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-personalize-campaign-campaignconfig.html#cfn-personalize-campaign-campaignconfig-syncwithlatestsolutionversion
+            '''
+            result = self._values.get("sync_with_latest_solution_version")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CampaignConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_personalize.CfnCampaignProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "solution_version_arn": "solutionVersionArn",
+        "campaign_config": "campaignConfig",
+        "min_provisioned_tps": "minProvisionedTps",
+        "tags": "tags",
+    },
+)
+class CfnCampaignProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        solution_version_arn: builtins.str,
+        campaign_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnCampaign.CampaignConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        min_provisioned_tps: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCampaign``.
+
+        :param name: The name of the campaign.
+        :param solution_version_arn: The ARN of the solution version to deploy.
+        :param campaign_config: The configuration details of a campaign.
+        :param min_provisioned_tps: Specifies the requested minimum provisioned transactions per second.
+        :param tags: Tags to associate with the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-campaign.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_personalize as personalize
+            
+            cfn_campaign_props = personalize.CfnCampaignProps(
+                name="name",
+                solution_version_arn="solutionVersionArn",
+            
+                # the properties below are optional
+                campaign_config=personalize.CfnCampaign.CampaignConfigProperty(
+                    enable_metadata_with_recommendations=False,
+                    item_exploration_config={
+                        "item_exploration_config_key": "itemExplorationConfig"
+                    },
+                    ranking_influence={
+                        "ranking_influence_key": 123
+                    },
+                    sync_with_latest_solution_version=False
+                ),
+                min_provisioned_tps=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__66e1be7ebd7ac0235ec1d4c692b652e8574a978756b2f2a09d343258f21845ce)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument solution_version_arn", value=solution_version_arn, expected_type=type_hints["solution_version_arn"])
+            check_type(argname="argument campaign_config", value=campaign_config, expected_type=type_hints["campaign_config"])
+            check_type(argname="argument min_provisioned_tps", value=min_provisioned_tps, expected_type=type_hints["min_provisioned_tps"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "solution_version_arn": solution_version_arn,
+        }
+        if campaign_config is not None:
+            self._values["campaign_config"] = campaign_config
+        if min_provisioned_tps is not None:
+            self._values["min_provisioned_tps"] = min_provisioned_tps
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-campaign.html#cfn-personalize-campaign-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def solution_version_arn(self) -> builtins.str:
+        '''The ARN of the solution version to deploy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-campaign.html#cfn-personalize-campaign-solutionversionarn
+        '''
+        result = self._values.get("solution_version_arn")
+        assert result is not None, "Required property 'solution_version_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def campaign_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CampaignConfigProperty"]]:
+        '''The configuration details of a campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-campaign.html#cfn-personalize-campaign-campaignconfig
+        '''
+        result = self._values.get("campaign_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnCampaign.CampaignConfigProperty"]], result)
+
+    @builtins.property
+    def min_provisioned_tps(self) -> typing.Optional[jsii.Number]:
+        '''Specifies the requested minimum provisioned transactions per second.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-campaign.html#cfn-personalize-campaign-minprovisionedtps
+        '''
+        result = self._values.get("min_provisioned_tps")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags to associate with the campaign.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-personalize-campaign.html#cfn-personalize-campaign-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCampaignProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_personalize_95c6aa61.IDatasetRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnDataset(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4004,6 +4526,8 @@ class CfnSolutionProps:
 
 
 __all__ = [
+    "CfnCampaign",
+    "CfnCampaignProps",
     "CfnDataset",
     "CfnDatasetGroup",
     "CfnDatasetGroupProps",
@@ -4021,6 +4545,94 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__154bb7b785310bf8dda2cdf48b73673dc986a555539c87b5629fbc93c10fb267(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    solution_version_arn: builtins.str,
+    campaign_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CampaignConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    min_provisioned_tps: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__410b0f25e5fef8d4894c3e444fd4342819ecc0e431bd80b5f454d22bb20d2865(
+    resource: _aws_personalize_95c6aa61.ICampaignRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84d956155849abf7761abbbf2682fe78963de084ee20afe718c50c81ef3547f3(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6513d73eb633ea137a5fa03fb0693b26d0a2c4f50ace0e39d76115ce23e22f79(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__581fd7e35ef4f0fb9fa202e6b0659f09e5a35e3cdd568b3ef04a3e67a1adfdda(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c84c805bf927b8cf0a183fc5e822f4211bdd7c80fc2371c178630bcff09539b9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f71ef6e5ecc204e0e6758e70adb245e566006d9ca179ef9333271bcec40e3b3c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77f1cd89c9a883620e810d62f27b4837ef78f96bcce427faf089935364465bf0(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnCampaign.CampaignConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8545f920c7cf008a3d2581984fb92885b159cdcd7a3c73a4707164ab6318a43(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b9864d2b4c5ae554f8a4abe922cc7a4c23f9040b6485f044838cd24c5919b657(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__371e2811b5950fcc98ebdfe35e0b14fcb638a4c0792c714b281f88961e12b410(
+    *,
+    enable_metadata_with_recommendations: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    item_exploration_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
+    ranking_influence: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, jsii.Number]]] = None,
+    sync_with_latest_solution_version: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66e1be7ebd7ac0235ec1d4c692b652e8574a978756b2f2a09d343258f21845ce(
+    *,
+    name: builtins.str,
+    solution_version_arn: builtins.str,
+    campaign_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnCampaign.CampaignConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    min_provisioned_tps: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__8515dadec60af65aa740f35c8bee6bc85dafa7634c6b2270232bfa824452ebce(
     scope: _constructs_77d1e7e8.Construct,

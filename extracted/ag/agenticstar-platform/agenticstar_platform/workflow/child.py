@@ -3,6 +3,8 @@
 親 runner が専用 fd（env `ASTER_WORKFLOW_IPC_IN` / `ASTER_WORKFLOW_IPC_OUT`）で spec（JSON 1 行）と制御チャネルを渡す。
 stdout / stderr は Agent の通常出力（本文は制御チャネルに混ざらない）。終了コード: 0 = return、1 = 例外、3 = 設定不正。
 例外は既定でクラス名だけを stderr に出す（本文 / token を Pod ログへ写さない）。`ASTER_WORKFLOW_DEBUG_TRACEBACK=1` で全文。
+クラス名の後ろに、原因の連鎖（クラス名・SDK の error_code / HTTP status・通信先のホスト名だけ）を 1 行で添える
+（devdocs 3.2req reviews 06: `SecurityAPIError` だけでは、egress のサイドカーの 503 か Azure の障害かが分からなかった）。
 """
 from __future__ import annotations
 
@@ -14,6 +16,55 @@ import sys
 import traceback
 
 from .context import WorkflowContext, _Ipc
+
+
+_MAX_CAUSES = 5
+
+
+def _safe_failure_summary(exc: BaseException) -> str:
+    """例外の連鎖を、本文を含めずに 1 行にする: クラス名と、あれば SDK の error_code / HTTP status と通信先のホスト名。
+
+    例: ``SecurityAPIError(error_code=REQUEST_ERROR) <- ProxyError(host=xxx.services.ai.azure.com)``。
+    文言 (応答の本文・URL の path / query・token が入りうる) は出さない。error_code は SDK の例外のときだけ。
+    要約を作る途中で例外が出ても (属性の読み取りで想定外の例外を上げる例外クラスなど)、クラス名だけを返す
+    (失敗の報告 = 制御チャネルの done を止めない)。
+    """
+    try:
+        return _failure_chain(exc)
+    except Exception:  # noqa: BLE001
+        return type(exc).__name__
+
+
+def _failure_chain(exc: BaseException) -> str:
+    parts = []
+    seen = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen and len(parts) < _MAX_CAUSES:
+        seen.add(id(cur))
+        attrs = []
+        # error_code は SDK 自身の例外 (SDK が決まった語を入れる) のときだけ。Agent の例外の属性は文言と同じ扱いで出さない
+        code = _attr(cur, "error_code") if type(cur).__module__.startswith("agenticstar_platform.") else None
+        if isinstance(code, str) and code.isidentifier():
+            attrs.append(f"error_code={code}")
+        status = _attr(cur, "status_code")
+        if isinstance(status, int) and not isinstance(status, bool):
+            attrs.append(f"status={status}")
+        try:
+            host = cur.request.url.host  # httpx の例外 (要求が付いていないと RuntimeError)
+        except Exception:  # noqa: BLE001
+            host = None
+        if isinstance(host, str) and host:
+            attrs.append(f"host={host}")
+        parts.append(type(cur).__name__ + (f"({', '.join(attrs)})" if attrs else ""))
+        cur = cur.__cause__ or (None if cur.__suppress_context__ else cur.__context__)
+    return " <- ".join(parts)
+
+
+def _attr(obj: object, name: str):
+    try:
+        return getattr(obj, name, None)
+    except Exception:  # noqa: BLE001 — __getattr__ が AttributeError 以外を上げる例外クラス
+        return None
 
 
 def _load_entrypoint(ref: str):
@@ -63,7 +114,7 @@ async def _main() -> int:
         if os.environ.get("ASTER_WORKFLOW_DEBUG_TRACEBACK") == "1":
             traceback.print_exc(file=sys.stderr)
         else:
-            sys.stderr.write(f"agent entrypoint failed: {type(e).__name__}\n")
+            sys.stderr.write(f"agent entrypoint failed: {type(e).__name__} [{_safe_failure_summary(e)}]\n")
         await ipc.call("done", status="error", error_class=type(e).__name__)
         return 1
     await ipc.call("done", status="ok")

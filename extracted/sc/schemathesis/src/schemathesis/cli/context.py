@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 
 from schemathesis.cli.constants import ExitCode
 from schemathesis.cli.events import LoadingFinished
-from schemathesis.cli.summary import SummaryData
 from schemathesis.config import ReportFormat
 from schemathesis.engine import StopReason, events
 from schemathesis.engine.statistic import Statistic
+from schemathesis.engine.summary import SummaryData
 
 if TYPE_CHECKING:
     from schemathesis.config import ProjectConfig
@@ -38,6 +38,12 @@ class BaseExecutionContext:
 
     def __post_init__(self) -> None:
         self.statistic.baseline = self.config.load_baseline()
+
+    def find_operation(self, label: str) -> APIOperation | None:
+        """The operation behind `label`; `None` before the schema is loaded or when no operation has that label."""
+        if self.find_operation_by_label is None:
+            return None
+        return self.find_operation_by_label(label)
 
     def add_initialization_line(self, line: str | Generator[str, None, None]) -> None:
         self.initialization_lines.append(line)

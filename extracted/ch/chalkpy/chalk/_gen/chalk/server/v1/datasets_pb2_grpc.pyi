@@ -58,12 +58,16 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     StreamDatasetRevisionDownloadLinksResponse,
 )
 from chalk._gen.chalk.server.v1.materialized_aggregate_tiles_pb2 import (
+    GetFeatureMaterializedAggregationsRequest,
+    GetFeatureMaterializedAggregationsResponse,
     GetMaterializedAggregateTileFacetValuesRequest,
     GetMaterializedAggregateTileFacetValuesResponse,
     GetMaterializedAggregateTileFacetsRequest,
     GetMaterializedAggregateTileFacetsResponse,
     ListMaterializedAggregateTileTimelinesRequest,
     ListMaterializedAggregateTileTimelinesResponse,
+    ListTileFeatureCoverageRequest,
+    ListTileFeatureCoverageResponse,
 )
 from collections.abc import (
     Iterator,
@@ -151,6 +155,16 @@ class DatasetMetadataServiceStub:
         GetMaterializedAggregateTileFacetValuesResponse,
     ]
     """Facet values and counts for the TilesTimeline filter menu."""
+    GetFeatureMaterializedAggregations: UnaryUnaryMultiCallable[
+        GetFeatureMaterializedAggregationsRequest,
+        GetFeatureMaterializedAggregationsResponse,
+    ]
+    """The active deployment's materialized aggregations that compute or read one feature."""
+    ListTileFeatureCoverage: UnaryUnaryMultiCallable[
+        ListTileFeatureCoverageRequest,
+        ListTileFeatureCoverageResponse,
+    ]
+    """Gaps per windowed feature with offline tiles, paged by fqn; features with no tiles are omitted."""
     ListMaterializedAggregateTilesForTimeline: UnaryUnaryMultiCallable[
         ListMaterializedAggregateTilesForTimelineRequest,
         ListMaterializedAggregateTilesForTimelineResponse,
@@ -330,6 +344,20 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetMaterializedAggregateTileFacetValuesResponse:
         """Facet values and counts for the TilesTimeline filter menu."""
+    @abstractmethod
+    def GetFeatureMaterializedAggregations(
+        self,
+        request: GetFeatureMaterializedAggregationsRequest,
+        context: ServicerContext,
+    ) -> GetFeatureMaterializedAggregationsResponse:
+        """The active deployment's materialized aggregations that compute or read one feature."""
+    @abstractmethod
+    def ListTileFeatureCoverage(
+        self,
+        request: ListTileFeatureCoverageRequest,
+        context: ServicerContext,
+    ) -> ListTileFeatureCoverageResponse:
+        """Gaps per windowed feature with offline tiles, paged by fqn; features with no tiles are omitted."""
     @abstractmethod
     def ListMaterializedAggregateTilesForTimeline(
         self,

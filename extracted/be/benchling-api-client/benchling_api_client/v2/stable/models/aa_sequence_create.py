@@ -359,7 +359,7 @@ class AaSequenceCreate:
     @property
     def registry_id(self) -> str:
         """Registry ID into which entity should be registered. this is the ID of the registry which was configured for a particular organization
-        To get available registryIds, use the [/registries endpoint](#/Registry/listRegistries)
+        To get available registryIds, use the [/registries endpoint](https://docs.benchling.com/docs/api/v2/benchling-api/registry/list-registries)
 
         Required in order for entities to be created directly in the registry.
         """

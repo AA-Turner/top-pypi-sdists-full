@@ -40,6 +40,8 @@ from ..sdk.durable import file_lock, now_iso, write_text_atomic
 #: stall. Ten minutes keeps an overnight disconnection to a readable handful of
 #: events while still bounding how long a new stall stays invisible.
 STALL_REPORT_INTERVAL_S = 600.0
+ACTIVITY_LINES = 200
+ACTIVITY_LINE_CHARS = 2000
 
 
 class Kind(StrEnum):
@@ -444,6 +446,24 @@ def _read(folder: Path) -> dict:
 
 
 def _save(folder: Path, job: dict) -> None:
+    # Only worker-authored public progress joins this stream. output.log also
+    # contains arbitrary agent stdout/stderr and must never cross desktop IPC.
+    previous = job.get("activity")
+    previous = previous if isinstance(previous, list) else []
+    events = previous[-ACTIVITY_LINES:]
+    message = (job.get("progress") or {}).get("message")
+    clipped = False
+    if isinstance(message, str) and message:
+        clipped = len(message) > ACTIVITY_LINE_CHARS
+        # Keep the worker's dependency set unchanged: the desktop boundary
+        # applies credential redaction when rendering these private records.
+        message = _clean(message, ACTIVITY_LINE_CHARS)
+        latest = events[-1] if events and isinstance(events[-1], dict) else {}
+        if message != latest.get("message") or job["state"] != latest.get("state"):
+            events = [*events, {"at": job["updated_at"], "state": job["state"], "message": message}]
+    job["activity_truncated"] = (bool(job.get("activity_truncated")) or clipped
+                                 or len(previous) > ACTIVITY_LINES or len(events) > ACTIVITY_LINES)
+    job["activity"] = events[-ACTIVITY_LINES:]
     write_text_atomic(folder / "job.json", json.dumps(job, sort_keys=True, allow_nan=False), mode=0o600)
 
 

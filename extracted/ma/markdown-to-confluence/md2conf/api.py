@@ -9,7 +9,6 @@ Copyright 2022-2026, Levente Hunyadi
 import logging
 import mimetypes
 import ssl
-from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, TypeVar
 
@@ -30,11 +29,11 @@ T = TypeVar("T")
 # spellchecker: disable
 mimetypes.add_type("application/vnd.openxmlformats-officedocument.wordprocessingml.document", ".docx", strict=True)
 mimetypes.add_type("text/vnd.mermaid", ".mmd", strict=True)
-mimetypes.add_type("text/vnd.plantuml", ".puml", strict=True)
 mimetypes.add_type("application/vnd.oasis.opendocument.presentation", ".odp", strict=True)
 mimetypes.add_type("application/vnd.oasis.opendocument.spreadsheet", ".ods", strict=True)
 mimetypes.add_type("application/vnd.oasis.opendocument.text", ".odt", strict=True)
 mimetypes.add_type("application/vnd.openxmlformats-officedocument.presentationml.presentation", ".pptx", strict=True)
+mimetypes.add_type("text/vnd.plantuml", ".puml", strict=True)
 mimetypes.add_type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx", strict=True)
 # spellchecker: enable
 
@@ -71,10 +70,10 @@ class RetryAdapter(HTTPAdapter):
         self,
         request: PreparedRequest,
         stream: bool = False,
-        timeout: float | tuple[float, float] | tuple[float, None] | None = None,
+        timeout: float | tuple[float | None, float | None] | None = None,
         verify: bool | str = True,
-        cert: bytes | str | tuple[bytes | str, bytes | str] | None = None,
-        proxies: Mapping[str, str] | None = None,
+        cert: str | tuple[str, str] | None = None,
+        proxies: dict[str, str] | None = None,
     ) -> Response:
         if request.headers.pop(NO_RETRY_HEADER, None) is not None:
             self.max_retries = self._retry_disabled

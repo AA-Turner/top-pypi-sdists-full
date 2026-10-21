@@ -6,7 +6,11 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from schemathesis.cli.summary import (
+from schemathesis.core.failures import Failure
+from schemathesis.core.output.sanitization import sanitized
+from schemathesis.engine import Status, StopReason
+from schemathesis.engine.statistic import GroupedFailures, Statistic
+from schemathesis.engine.summary import (
     ErrorGroup,
     OperationsSummary,
     SummaryData,
@@ -14,10 +18,6 @@ from schemathesis.cli.summary import (
     reduce_failures,
     reduce_test_cases,
 )
-from schemathesis.core.failures import Failure
-from schemathesis.core.output.sanitization import sanitized
-from schemathesis.engine import Status, StopReason
-from schemathesis.engine.statistic import GroupedFailures, Statistic
 from schemathesis.reporting.html import write_report
 from schemathesis.reporting.html.build import failing_case, failure_titles
 from schemathesis.reporting.html.model import ErrorEntry, OperationRow, OperationStatus, ReportData, ReportMeta
@@ -101,12 +101,11 @@ class HtmlWriter:
         errored = sum(row.status is OperationStatus.ERRORED for row in rows)
         error_titles = Counter(error.title for row in rows for error in row.errors)
         sanitization = self._config.sanitization
-        sanitization_config = sanitization if sanitization.enabled else None
         data = ReportData(
             meta=ReportMeta(
                 generated_at=datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC"),
-                location=sanitized(self._location, sanitization_config),
-                base_url=sanitized(self._base_url, sanitization_config),
+                location=sanitized(self._location, sanitization),
+                base_url=sanitized(self._base_url, sanitization),
                 command=self._command,
                 seed=self._seed,
             ),

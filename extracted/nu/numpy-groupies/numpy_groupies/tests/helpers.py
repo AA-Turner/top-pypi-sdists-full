@@ -1,11 +1,13 @@
-"""Shared helpers for the test suite: backend registry, the ``impl`` fixture
-proxy and the collection-time deselection predicates.
+"""Shared helpers for the test suite: the backend registry and the ``impl``
+fixture proxy.
 
 Backends signal missing functionality with ``NotImplementedError``. The
-``_BackendProxy`` translates that into ``pytest.skip`` at runtime, so no
-collection-time bookkeeping is needed for it. Only backends that silently
-deviate from the reference behaviour (without raising) need an explicit
-``deselect_if`` marker.
+``_BackendProxy`` translates that into ``pytest.skip`` at runtime, so a module
+running over every backend needs no bookkeeping for the functions one of them
+lacks.  What is left of the predicates answers a question inside a test -
+whether this backend computes with python numbers - and nothing more: a result
+that deviates from the group loop is measured like any other result, never
+filtered out of the collection.
 """
 
 from functools import cache, wraps
@@ -15,6 +17,7 @@ import numpy as np
 import pytest
 
 from numpy_groupies import aggregate_numpy, aggregate_purepy
+from numpy_groupies.aggregate_common import funcs_collecting
 
 aggregate_numba: Any
 
@@ -60,7 +63,6 @@ def random_values(rng, size):
     return rng.standard_normal(size)
 
 
-@cache
 def is_supported(impl, func):
     """True if the backend runs ``func``.
 
@@ -76,9 +78,17 @@ def is_supported(impl, func):
     if isinstance(impl, _BackendProxy):
         impl = impl._module
     if not isinstance(func, str):
+        # a func that cannot be a key of a dict cannot key the probe cache
+        # either, and no func of one's own is ever deselected
         func = getattr(func, "__name__", None)
         if not isinstance(func, str):
             return True
+    return _is_supported(impl, func)
+
+
+@cache
+def _is_supported(impl, func):
+    """The probe itself, keyed by a backend module and a function name."""
     group_idx = np.array([0, 0, 1, 1])
     inputs = (np.arange(4.0), np.array([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j]))
     for a in inputs:
@@ -165,15 +175,48 @@ func_list = (
     "nanargmin",
     "nanargmax",
     "nansumofsquares",
+    "array",
 )
 
 
+def assert_same_result(got, want, func, rtol=10**-10):
+    """Compare the results of two backends, whatever the function returns.
+
+    The collecting functions hand out a sequence per group, the others one
+    number - the comparison looks at the one it is given, so that the tests
+    over ``func_list`` need no exception for the shape of the result.
+    """
+    if func in funcs_collecting:
+        _assert_same_groups(got, want)
+    else:
+        np.testing.assert_allclose(got, want, rtol=rtol)
+
+
+def _assert_same_groups(got, want):
+    """Compare two collections of per-group sequences."""
+    groups = list(got) if isinstance(got, list) else np.ravel(got)
+    expected = list(want) if isinstance(want, list) else np.ravel(want)
+    assert len(groups) == len(expected), f"{len(groups)} groups against {len(expected)}"
+    for g, (one, other) in enumerate(zip(groups, expected)):
+        if one is None or other is None:
+            assert one is None and other is None, f"group {g}: {one!r} != {other!r}"
+        else:
+            np.testing.assert_array_equal(one, other, err_msg=f"group {g}")
+
+
 def is_purepy(impl, *args, **kwargs):
-    # purepy deviates from the reference behaviour for some inputs (e.g. nan
-    # handling) without raising NotImplementedError.
+    """True for the implementation that computes with python numbers.
+
+    Those carry no dtype: purepy neither honours a ``dtype`` argument nor hands
+    back a result of the dtype of its input.
+    """
     return impl_name(impl) == "purepy"
 
 
-def is_numpy(impl, *args, **kwargs):
-    """True for the numpy backend."""
-    return impl_name(impl) == "numpy"
+def is_numba(impl, *args, **kwargs):
+    """True for the implementation that compiles what it is given as func.
+
+    A compiled function and a callable object are two different things to that
+    implementation, where the other two only call what they are handed.
+    """
+    return impl_name(impl) == "numba"

@@ -87,6 +87,55 @@ class ConnectionAliasReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_workspaces.DirectoryReference",
+    jsii_struct_bases=[],
+    name_mapping={"directory_arn": "directoryArn"},
+)
+class DirectoryReference:
+    def __init__(self, *, directory_arn: builtins.str) -> None:
+        '''A reference to a Directory resource.
+
+        :param directory_arn: The Arn of the Directory resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_workspaces as interfaces_workspaces
+            
+            directory_reference = interfaces_workspaces.DirectoryReference(
+                directory_arn="directoryArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0864638096630895e5bba392f8e45e3b2748288e57691ceff2935a841d85a22e)
+            check_type(argname="argument directory_arn", value=directory_arn, expected_type=type_hints["directory_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "directory_arn": directory_arn,
+        }
+
+    @builtins.property
+    def directory_arn(self) -> builtins.str:
+        '''The Arn of the Directory resource.'''
+        result = self._values.get("directory_arn")
+        assert result is not None, "Required property 'directory_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DirectoryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspaces.IConnectionAliasRef")
 class IConnectionAliasRef(
     _constructs_77d1e7e8.IConstruct,
@@ -130,6 +179,51 @@ class _IConnectionAliasRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IConnectionAliasRef).__jsii_proxy_class__ = lambda : _IConnectionAliasRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspaces.IDirectoryRef")
+class IDirectoryRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Directory.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryRef")
+    def directory_ref(self) -> "DirectoryReference":
+        '''(experimental) A reference to a Directory resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IDirectoryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Directory.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_workspaces.IDirectoryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryRef")
+    def directory_ref(self) -> "DirectoryReference":
+        '''(experimental) A reference to a Directory resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("DirectoryReference", jsii.get(self, "directoryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IDirectoryRef).__jsii_proxy_class__ = lambda : _IDirectoryRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_workspaces.IWorkspaceIpGroupRef")
@@ -427,7 +521,9 @@ class WorkspacesPoolReference:
 
 __all__ = [
     "ConnectionAliasReference",
+    "DirectoryReference",
     "IConnectionAliasRef",
+    "IDirectoryRef",
     "IWorkspaceIpGroupRef",
     "IWorkspaceRef",
     "IWorkspacesPoolRef",
@@ -441,6 +537,13 @@ publication.publish()
 def _typecheckingstub__e994ed6c2b81487e9ad88c3c7d73b4bf2d26702b4117ef662684dde75bedc571(
     *,
     alias_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0864638096630895e5bba392f8e45e3b2748288e57691ceff2935a841d85a22e(
+    *,
+    directory_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -467,5 +570,5 @@ def _typecheckingstub__13c3123b4ec0e20a04c6106b766191404e3c10e79c6c19f9ea9797237
     """Type checking stubs"""
     pass
 
-for cls in [IConnectionAliasRef, IWorkspaceIpGroupRef, IWorkspaceRef, IWorkspacesPoolRef]:
+for cls in [IConnectionAliasRef, IDirectoryRef, IWorkspaceIpGroupRef, IWorkspaceRef, IWorkspacesPoolRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

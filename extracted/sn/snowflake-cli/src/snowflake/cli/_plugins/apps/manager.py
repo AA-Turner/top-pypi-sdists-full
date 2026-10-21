@@ -119,14 +119,22 @@ _APP_SPACE_COLUMN_MAP = {
 # CNG apps serve ingress from per-account URLs (Northstar URLs) that require a
 # per-account TLS certificate to be provisioned for the account.
 SERVERLESS_COMPUTE_RESOURCE = "SERVERLESS"
+# Backend the server uses when ``compute_resource`` is unset.
+MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE = "MANAGED_COMPUTE_POOL"
 
-# Account parameters that must all be true before ``compute_resource: SERVERLESS``
-# is applied. This is intentionally not advertised in help or release notes.
-SERVERLESS_ACCOUNT_PARAMETERS = (
-    "ENABLE_EAA_FOR_CNG_INGRESS",
-    "ENABLE_OAUTH_DELEGATED_PROXY_FLOW",
-    "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
-)
+# ``compute_resource: SERVERLESS`` is applied only when
+# ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS`` is ``ENABLED``.
+# The value is read from UI parameters (``CLIENT_PARAMS_INFO``), not
+# ``SHOW PARAMETERS``. This check is intentionally not advertised in help or
+# release notes.
+
+# Capabilities reported by ``snow app setup --capabilities``, keyed by their
+# user-facing name, with the ``CLIENT_PARAMS_INFO`` parameter that gates each.
+APP_CAPABILITY_PARAMETERS = {
+    "serverless": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
+    "python": "ENABLE_APP_SERVICE_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL",
+    "python-serverless": "ENABLE_APP_SERVICE_PYTHON_RUNTIME_SERVERLESS",
+}
 
 # System function that triggers per-account URL certificate issuance for the
 # account. Issuance is asynchronous and can take up to ~3 hours, so a CNG
@@ -139,6 +147,20 @@ PER_ACCOUNT_CERT_ISSUE_FUNCTION = "SYSTEM$ISSUE_PER_ACCOUNT_APP_SERVICE_CERTIFIC
 # ``snowflakecomputing.com`` — and per-account certs are wildcards under it
 # (``*.<org>-<account>.<infra>.snowflake.app``).
 PER_ACCOUNT_APP_DOMAIN = "snowflake.app"
+
+
+def get_per_account_app_domain() -> str:
+    return get_config_value(
+        CLI_SECTION, key=PER_ACCOUNT_APP_DOMAIN_KEY, default=PER_ACCOUNT_APP_DOMAIN
+    )
+
+
+def _per_account_app_domain_overridden() -> bool:
+    return (
+        get_config_value(CLI_SECTION, key=PER_ACCOUNT_APP_DOMAIN_KEY, default=None)
+        is not None
+    )
+
 
 # Synthetic single-label subdomain used to probe the account's per-account URL
 # certificate before any app exists. A per-account cert is a wildcard for
@@ -201,12 +223,22 @@ from snowflake.cli._plugins.apps.snowflake_app_project_paths import (
     SnowflakeAppProjectPaths,
 )
 from snowflake.cli._plugins.connection.util import (
+    UIParameter,
     get_account_identifier,
+    get_host_apex,
+    get_ui_parameter,
     guess_regioned_host_from_allowlist,
+    host_labels,
 )
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.config import (
+    CLI_SECTION,
+    PER_ACCOUNT_APP_DOMAIN_KEY,
+    get_config_value,
+    is_air_gapped,
+)
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.errno import OBJECT_ALREADY_EXISTS_NO_PRIVILEGES
 from snowflake.cli.api.exceptions import CliError
@@ -227,6 +259,15 @@ from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import OperationalError, ProgrammingError
 
 log = logging.getLogger(__name__)
+
+# Account parameter that must be on to deploy a Python runtime app to each
+# compute resource.
+PYTHON_RUNTIME_PARAMETERS = {
+    SERVERLESS_COMPUTE_RESOURCE: UIParameter.APP_PYTHON_RUNTIME_SERVERLESS,
+    MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE: (
+        UIParameter.APP_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL
+    ),
+}
 
 # Characters allowed in a ``file://`` URI without wrapping it in a quoted
 # string literal. Mirrors the stage manager's equivalent so workspace PUT
@@ -500,6 +541,20 @@ def _is_unknown_function_error(exc: ProgrammingError) -> bool:
         "unknown function" in message.lower()
         and APP_SERVICE_DEFAULTS_FUNCTION in message
     )
+
+
+def _is_account_parameter_enabled(value: Any) -> bool:
+    """Return whether a ``CLIENT_PARAMS_INFO`` parameter *value* is on.
+
+    Boolean parameters are on when ``true``. Feature parameters are on when
+    ``ENABLED`` or ``ENABLED_PUBLIC_PREVIEW`` (the system-level public-preview
+    value); ``DISABLED_PRIVATE_PREVIEW`` is not on. A missing value is not on.
+    """
+    return value is not None and str(value).strip().lower() in {
+        "true",
+        "enabled",
+        "enabled_public_preview",
+    }
 
 
 def _is_live_version_already_exists(exc: ProgrammingError) -> bool:
@@ -2146,17 +2201,19 @@ class SnowflakeAppManager(SqlExecutionMixin):
     def _infra_from_sql_host(host: Optional[str]) -> Optional[str]:
         """Return the ``<infra>`` labels of a *regioned* SQL host, or ``None``.
 
-        A regioned host is ``<account>.<infra…>.snowflakecomputing.com`` (four or
-        more labels); the infra is everything between the account label and the
-        ``snowflakecomputing.com`` registrable domain. A trailing ``privatelink``
-        label is preserved, matching the per-account cert's PrivateLink SAN.
-        Region-less hosts (``<org>-<account>.snowflakecomputing.com``) have no
-        infra and return ``None`` so the caller can fall back to the allowlist.
+        A regioned host is ``<account>.<infra…>.<apex>`` (four or more labels);
+        the infra is everything between the account label and the registrable
+        domain. Outside air-gapped mode the apex must be
+        ``snowflakecomputing.com``. When air-gapped, the last two labels are
+        the apex. A trailing ``privatelink`` label is preserved, matching the
+        per-account cert's PrivateLink SAN. Region-less hosts
+        (``<org>-<account>.<apex>``) have no infra and return ``None`` so the
+        caller can fall back to the allowlist.
         """
-        if not host:
+        labels = host_labels(host)
+        if not labels or labels == ["local"] or len(labels) < 4:
             return None
-        labels = host.split(".")
-        if len(labels) < 4 or labels[-2:] != ["snowflakecomputing", "com"]:
+        if not is_air_gapped() and labels[-2:] != ["snowflakecomputing", "com"]:
             return None
         infra = ".".join(labels[1:-2])
         return infra or None
@@ -2174,7 +2231,20 @@ class SnowflakeAppManager(SqlExecutionMixin):
         slug = self._org_account_slug()
         if not slug:
             return None
-        return f"{slug}.{infra}.{PER_ACCOUNT_APP_DOMAIN}"
+        domain = get_per_account_app_domain()
+        if (
+            is_air_gapped()
+            and domain == PER_ACCOUNT_APP_DOMAIN
+            and not _per_account_app_domain_overridden()
+        ):
+            try:
+                host = getattr(get_cli_context().connection, "host", None)
+            except Exception:
+                return None
+            apex = get_host_apex(host)
+            if apex not in ("snowflakecomputing.com", "local"):
+                return None
+        return f"{slug}.{infra}.{domain}"
 
     @staticmethod
     def _url_hostname(url: str) -> Optional[str]:
@@ -2213,6 +2283,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         # certs, or a private-CA (e.g. PrivateLink) handshake would verify and
         # reintroduce the hostname-vs-trust ambiguity this classification removes.
         context = ssl.create_default_context(cafile=DEFAULT_CA_BUNDLE_PATH)
+        context.minimum_version = ssl.TLSVersion.TLSv1_3
         try:
             with socket.create_connection(
                 (probe_host, 443), timeout=CERT_PROBE_TIMEOUT_SECONDS
@@ -2267,7 +2338,7 @@ class SnowflakeAppManager(SqlExecutionMixin):
         ``snowflakecomputing.app`` — since such a probe says nothing about the
         per-account certificate and must not be attributed to it.
         """
-        if not host or not host.endswith(f".{PER_ACCOUNT_APP_DOMAIN}"):
+        if not host or not host.endswith(f".{get_per_account_app_domain()}"):
             log.debug(
                 "Host %r is not a per-account URL host; skipping cert probe.", host
             )
@@ -2293,41 +2364,65 @@ class SnowflakeAppManager(SqlExecutionMixin):
         """
         self.execute_query(f"SELECT {PER_ACCOUNT_CERT_ISSUE_FUNCTION}()")
 
+    def python_runtime_enabled(self, compute_resource: str) -> bool:
+        """Return whether this account may deploy a Python runtime app to *compute_resource*.
+
+        Reads the matching :data:`PYTHON_RUNTIME_PARAMETERS` entry from the
+        ``CLIENT_PARAMS_INFO`` bootstrap payload. A missing parameter, any value
+        other than ``true``, or a failure to read it is not enabled.
+        """
+        parameter = PYTHON_RUNTIME_PARAMETERS[compute_resource]
+        try:
+            value = get_ui_parameter(self._conn, parameter, False)
+        except (ProgrammingError, OperationalError, ValueError, KeyError):
+            log.debug("Could not read parameter %s.", parameter.value, exc_info=True)
+            return False
+        return str(value).strip().lower() == "true"
+
     def serverless_account_parameters_enabled(self) -> bool:
         """Return whether this account may use ``compute_resource: SERVERLESS``.
 
-        All of :data:`SERVERLESS_ACCOUNT_PARAMETERS` must be on. Boolean
-        parameters use ``true``; ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS``
-        uses ``ENABLED``. A missing parameter, any other value, or a failure
-        to read it is not enabled.
+        ``FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS`` must be
+        ``ENABLED`` or ``ENABLED_PUBLIC_PREVIEW``. It is read with
+        :func:`get_ui_parameter`. A missing parameter, any other value, or a
+        failure to read it is not enabled.
         """
-        for name in SERVERLESS_ACCOUNT_PARAMETERS:
-            if not self._account_parameter_is_true(name):
-                log.debug("Account parameter %s is not enabled.", name)
-                return False
-        return True
+        parameter = UIParameter.FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS
+        try:
+            value = get_ui_parameter(self.connection, parameter, None)
+        except Exception:
+            log.debug(
+                "Could not read account parameter %s.", parameter.value, exc_info=True
+            )
+            return False
+        if _is_account_parameter_enabled(value):
+            return True
+        log.debug("Account parameter %s is not enabled.", parameter.value)
+        return False
 
-    def _account_parameter_is_true(self, name: str) -> bool:
-        """Return whether account parameter *name* is on.
+    def fetch_account_capabilities(self) -> Dict[str, bool]:
+        """Return whether each of :data:`APP_CAPABILITY_PARAMETERS` is enabled.
 
-        Boolean parameters store ``true``. The serverless feature parameter
-        stores ``ENABLED`` when the account is allowed to use it.
+        Reads the ``CLIENT_PARAMS_INFO`` bootstrap payload once (the payload
+        :func:`get_ui_parameter` reads) and judges each value like
+        :meth:`serverless_account_parameters_enabled`. A missing parameter, or a
+        failure to read the payload, is not enabled.
         """
         try:
             cursor = self.execute_query(
-                f"SHOW PARAMETERS LIKE '{name}' IN ACCOUNT",
-                cursor_class=DictCursor,
+                "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
             )
-            row = cursor.fetchone()
-        except ProgrammingError:
-            log.debug("Could not read account parameter %s.", name, exc_info=True)
-            return False
-        if not row:
-            return False
-        value = row.get("value")
-        if value is None:
-            value = row.get("VALUE")
-        return str(value).strip().lower() in {"true", "enabled"}
+            values = {
+                row["name"]: row["value"]
+                for row in json.loads(cursor.fetchone()[0])["clientParamsInfo"]
+            }
+        except Exception:
+            log.debug("Could not read account parameters.", exc_info=True)
+            values = {}
+        return {
+            name: _is_account_parameter_enabled(values.get(parameter))
+            for name, parameter in APP_CAPABILITY_PARAMETERS.items()
+        }
 
     def create_app_service(
         self,

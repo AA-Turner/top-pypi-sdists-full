@@ -73,6 +73,8 @@
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/sdf.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
+#include "meshioplusplus/operations/primitives.hpp"
+#include "meshioplusplus/operations/octree.hpp"
 #include "meshioplusplus/operations/partition.hpp"
 #include "meshioplusplus/operations/merge.hpp"
 #include "meshioplusplus/operations/interpolate.hpp"
@@ -298,13 +300,13 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
          {"FeatureAngle", "Feature", "Boundary", "NonManifold", "Inconsistent", "Region"}},
         {"Segment",
          {"FeatureAngle", "NormalTolerance", "CurvatureTolerance", "MinPatchCells", "Region",
-          "Prefix"}},
+          "Prefix", "Method", "Tolerance"}},
         {"FitPrimitives",
          {"PatchData", "Tolerance", "Relative", "MinInlierFraction", "Types", "MaxIterations"}},
         {"FitCad",
          {"Path", "Tolerance", "ExactEdges", "Types", "MeshDeflection", "MaxDemotionRounds",
           "Freeform", "FreeformDegree", "FreeformMaxControl", "FreeformSplit", "Fillets",
-          "Threads"}},
+          "Threads", "MergeFaces", "Backend"}},
         {"EditRegions", {"Edit", "Inputs", "Output", "Kind", "Dim", "Tag", "KeepInputs"}},
         {"RegionAdjacency", {"Regions"}},
         {"FindInterface",
@@ -344,6 +346,14 @@ const std::vector<PipeOpSpec>& pipe_op_table() {
         {"Voxelize",
          {"Resolution", "CellSize", "Bounds", "Padding", "PaddingRelative", "Fill",
           "AttachOccupancy", "MaxCells", "Sign"}},
+        {"Generate",
+         {"Shape", "Dims", "Size", "Origin", "Center", "Radius", "Height", "N", "Nu", "Nv", "Nxy",
+          "Nz", "Subdivisions", "CellType", "Split", "Order", "MaxCells", "Types", "Pairs"}},
+        {"Octree",
+         {"RootCells", "MinLevel", "MaxLevel", "Bounds", "Padding", "PaddingRelative", "Dimension",
+          "SampleDistance", "Balance", "Fill", "AttachDistance", "EvenOdd", "MaxCells", "Sign",
+          "Transition", "Snap", "SurfaceLevel", "CurvatureThreshold", "FeatureAngle", "SizeArray",
+          "Plane"}},
         {"ComputeSdf",
          {"Structure", "Resolution", "CellSize", "Bounds", "Padding", "PaddingRelative",
           "RootResolution", "MaxDepth", "BandCells", "RecordLevels", "MaxCells", "Sign", "Location",
@@ -964,6 +974,12 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
         opts.mMinPatchCells = static_cast<std::int64_t>(pipe_number(rStep, "MinPatchCells", 1.0));
         opts.mRegion = pipe_text(rStep, "Region", "");
         opts.mPrefix = pipe_text(rStep, "Prefix", "patch");
+        const std::string method = pipe_text(rStep, "Method", "angle");
+        if (method == "primitive")
+            opts.mMethod = SegmentMethod::Primitive;
+        else if (method != "angle")
+            throw std::invalid_argument(pipe_err(rStep, "'Method' must be 'angle' or 'primitive'"));
+        opts.mTolerance = pipe_number(rStep, "Tolerance", 1e-3);
         SegmentResult sr = segment(mesh, opts);
         pipe_push_step(rReport, rStep,
                        {{"NumPatches", static_cast<double>(sr.mNumPatches)},
@@ -1010,9 +1026,19 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
         opts.mFreeformSplit = pipe_flag(rStep, "FreeformSplit", true);
         opts.mFillets = pipe_flag(rStep, "Fillets", true);
         opts.mThreads = pipe_flag(rStep, "Threads", true);
+        opts.mMergeFaces = pipe_flag(rStep, "MergeFaces", true);
+        const std::string backend = pipe_text(rStep, "Backend", "auto");
+        if (backend == "occt")
+            opts.mBackend = FitCadBackend::Occt;
+        else if (backend == "native")
+            opts.mBackend = FitCadBackend::Native;
+        else if (backend != "auto")
+            throw std::invalid_argument(
+                pipe_err(rStep, "'Backend' must be 'auto', 'occt' or 'native'"));
         FitCadResult cr = fit_cad(mesh, pipe_text(rStep, "Path", ""), opts);
         pipe_push_step(rReport, rStep,
                        {{"Valid", cr.mValid ? 1.0 : 0.0},
+                        {"Native", cr.mBackend == FitCadBackend::Native ? 1.0 : 0.0},
                         {"VolumeRatio", cr.mVolumeRatio},
                         {"MaxDeviation", cr.mMaxDeviation},
                         {"NumFaces", static_cast<double>(cr.mNumFaces)},
@@ -1350,6 +1376,85 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
                         {"MinQualityAfter", ov.mMinQualityAfter}});
         return std::move(ov.mMesh);
     }
+    if (op == "Generate") {
+        // A mesh from parameters (operations/primitives.hpp). Like Voxelize it
+        // REPLACES the geometry rather than transforming it; unlike Voxelize it
+        // does not read the incoming mesh at all, which is what lets a document
+        // omit Input when this is its first step.
+        const std::string shape = pipe_text(rStep, "Shape", "");
+        const std::int64_t max_cells =
+            static_cast<std::int64_t>(pipe_number(rStep, "MaxCells", 20000000.0));
+        const int order = static_cast<int>(pipe_number(rStep, "Order", 1.0));
+        auto triple = [&](const char* pKey, std::array<double, 3> Default, bool PadZero) {
+            std::vector<double> v = pipe_dvec(rStep, pKey);
+            if (v.empty())
+                return Default;
+            if (v.size() == 2 && PadZero)
+                v.push_back(0.0);
+            if (v.size() != 3)
+                throw std::invalid_argument(pipe_err(
+                    rStep, std::string("'") + pKey + "' expects three values"));
+            return std::array<double, 3>{{v[0], v[1], v[2]}};
+        };
+        auto count = [&](const char* pKey, std::int64_t Default) {
+            return static_cast<std::int64_t>(pipe_number(rStep, pKey, static_cast<double>(Default)));
+        };
+        auto dims_of = [&](std::size_t N, std::int64_t Default) {
+            std::vector<std::int64_t> v = pipe_ivec(rStep, "Dims");
+            if (v.empty())
+                return std::vector<std::int64_t>(N, Default);
+            if (v.size() != N)
+                throw std::invalid_argument(
+                    pipe_err(rStep, "'Dims' expects " + std::to_string(N) + " counts"));
+            return v;
+        };
+        const std::array<double, 3> zero = {{0.0, 0.0, 0.0}};
+        Mesh out;
+        if (shape == "rectangle") {
+            const auto d = dims_of(2, 1);
+            const std::vector<double> size = pipe_dvec(rStep, "Size");
+            if (!size.empty() && size.size() != 2)
+                throw std::invalid_argument(pipe_err(rStep, "'Size' expects two values"));
+            out = rectangle({{d[0], d[1]}}, size.empty() ? std::array<double, 2>{{1.0, 1.0}}
+                                                         : std::array<double, 2>{{size[0], size[1]}},
+                            triple("Origin", zero, true), pipe_text(rStep, "CellType", "quad"),
+                            pipe_text(rStep, "Split", "zigzag"), order, max_cells);
+        } else if (shape == "box") {
+            const auto d = dims_of(3, 1);
+            out = box({{d[0], d[1], d[2]}}, triple("Size", {{1.0, 1.0, 1.0}}, false),
+                      triple("Origin", zero, false), pipe_text(rStep, "CellType", "hexahedron"),
+                      order, max_cells);
+        } else if (shape == "disk") {
+            out = disk(pipe_number(rStep, "Radius", 1.0), count("N", 8), triple("Center", zero, false),
+                       pipe_text(rStep, "CellType", "quad"), order, max_cells);
+        } else if (shape == "uv_sphere") {
+            out = uv_sphere(pipe_number(rStep, "Radius", 1.0), count("Nu", 16), count("Nv", 8),
+                            triple("Center", zero, false), pipe_text(rStep, "CellType", "triangle"),
+                            order, max_cells);
+        } else if (shape == "icosa_sphere") {
+            out = icosa_sphere(pipe_number(rStep, "Radius", 1.0), count("Subdivisions", 2),
+                               triple("Center", zero, false), order, max_cells);
+        } else if (shape == "cylinder") {
+            out = cylinder(pipe_number(rStep, "Radius", 1.0), pipe_number(rStep, "Height", 1.0),
+                           count("Nxy", 8), count("Nz", 8), triple("Center", zero, false),
+                           pipe_text(rStep, "CellType", "hexahedron"), order, max_cells);
+        } else if (shape == "reference_cells") {
+            out = reference_cells(pipe_svec(rStep, "Types"), pipe_flag(rStep, "Pairs", false));
+        } else {
+            throw std::invalid_argument(pipe_err(
+                rStep, "'Shape' must be one of rectangle, box, disk, uv_sphere, icosa_sphere, "
+                       "cylinder, reference_cells, not '" +
+                           shape + "'"));
+        }
+        std::size_t cells = 0;
+        for (std::size_t b = 0; b < out.NumCellBlocks(); ++b)
+            cells += out.Cells(b).NumCells();
+        pipe_push_step(rReport, rStep,
+                       {{"NumPoints", static_cast<double>(out.NumPoints())},
+                        {"NumCells", static_cast<double>(cells)}});
+        return out;
+    }
+
     if (op == "Voxelize") {
         // A regular grid around the mesh. Unlike every other step this one does
         // not transform its input's geometry -- it replaces it -- which is
@@ -1374,6 +1479,45 @@ Mesh apply_pipeline_step(Mesh mesh, const PipelineStep& rStep, PipelineReport& r
         opts.mDistance.mSign = sdf_sign_from_name(pipe_text(rStep, "Sign", "pseudonormal"));
         VoxelResult r = voxelize(mesh, opts);
         pipe_push_step(rReport, rStep, {{"NumOccupied", static_cast<double>(r.mNumOccupied)}});
+        return std::move(r.mMesh);
+    }
+
+    if (op == "Octree") {
+        // Voxelize's adaptive sibling: it likewise replaces its input's geometry.
+        OctreeOptions opts;
+        const std::vector<std::int64_t> roots = pipe_ivec(rStep, "RootCells");
+        if (roots.size() == 3)
+            opts.mRootCells = std::array<std::int64_t, 3>{{roots[0], roots[1], roots[2]}};
+        opts.mMinLevel = static_cast<std::int64_t>(pipe_number(rStep, "MinLevel", 0.0));
+        opts.mMaxLevel = static_cast<std::int64_t>(pipe_number(rStep, "MaxLevel", 4.0));
+        const std::vector<double> bounds = pipe_dvec(rStep, "Bounds");
+        if (bounds.size() == 6)
+            opts.mBounds = std::array<double, 6>{
+                {bounds[0], bounds[1], bounds[2], bounds[3], bounds[4], bounds[5]}};
+        opts.mPadding = pipe_number(rStep, "Padding", 0.0);
+        opts.mPaddingRelative = pipe_number(rStep, "PaddingRelative", 0.0);
+        opts.mDimension = static_cast<std::int64_t>(pipe_number(rStep, "Dimension", 0.0));
+        opts.mSampleDistance = pipe_number(rStep, "SampleDistance", 0.0);
+        opts.mBalance = octree_balance_from_name(pipe_text(rStep, "Balance", "face"));
+        opts.mFill = voxel_fill_from_name(pipe_text(rStep, "Fill", "all"));
+        opts.mAttachDistance = pipe_flag(rStep, "AttachDistance", false);
+        opts.mEvenOdd = pipe_flag(rStep, "EvenOdd", false);
+        opts.mMaxCells = static_cast<std::int64_t>(pipe_number(rStep, "MaxCells", 20000000.0));
+        opts.mDistance.mSign = sdf_sign_from_name(pipe_text(rStep, "Sign", "pseudonormal"));
+        opts.mTransition = octree_transition_from_name(pipe_text(rStep, "Transition", "hanging"));
+        opts.mSnap = pipe_flag(rStep, "Snap", false);
+        opts.mSurfaceLevel =
+            static_cast<std::int64_t>(pipe_number(rStep, "SurfaceLevel", -1.0));
+        opts.mCurvatureThreshold = pipe_number(rStep, "CurvatureThreshold", 0.0);
+        opts.mFeatureAngle = pipe_number(rStep, "FeatureAngle", 0.0);
+        opts.mSizeArray = pipe_text(rStep, "SizeArray", "");
+        opts.mPlane = detail::planar_plane_from_name(pipe_text(rStep, "Plane", "auto"));
+        OctreeResult r = octree(mesh, opts);
+        pipe_push_step(rReport, rStep,
+                       {{"NumLeaves", static_cast<double>(r.mNumLeaves)},
+                        {"NumHanging", static_cast<double>(r.mNumHanging)},
+                        {"NumSnapped", static_cast<double>(r.mNumSnapped)},
+                        {"NumRefused", static_cast<double>(r.mNumRefused)}});
         return std::move(r.mMesh);
     }
 
@@ -1791,7 +1935,9 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
         throw std::invalid_argument("meshio++: pipeline: unsupported Version " +
                                     std::to_string(rPipeline.mVersion) +
                                     " (this build knows 1 and 2)");
-    if (rPipeline.mInput.mPath.empty())
+    const bool generated = !rPipeline.mSteps.empty() && rPipeline.mSteps[0].mOp == "Generate" &&
+                           rPipeline.mInput.mPath.empty();
+    if (rPipeline.mInput.mPath.empty() && !generated)
         throw std::invalid_argument("meshio++: pipeline: Input.Path is required");
     if (rPipeline.mOutput.mPath.empty())
         throw std::invalid_argument("meshio++: pipeline: Output.Path is required");
@@ -1833,16 +1979,19 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
     }
 
     // Read: resolve_format with the sniff_format fallback, the read-path rule
-    // everywhere (the CLI, mio_read, the wasm read_mesh).
+    // everywhere (the CLI, mio_read, the wasm read_mesh). A generated document
+    // has nothing to read.
     std::string rfmt;
-    try {
-        rfmt = resolve_format(rPipeline.mInput.mPath, rPipeline.mInput.mFormat);
-    } catch (const ReadError&) {
-        rfmt = sniff_format(rPipeline.mInput.mPath);
-        if (rfmt.empty())
-            throw;
+    if (!generated) {
+        try {
+            rfmt = resolve_format(rPipeline.mInput.mPath, rPipeline.mInput.mFormat);
+        } catch (const ReadError&) {
+            rfmt = sniff_format(rPipeline.mInput.mPath);
+            if (rfmt.empty())
+                throw;
+        }
     }
-    if (!registry_readers().count(rfmt) && !registry_reader_supports_options(rfmt)) {
+    if (!generated && !registry_readers().count(rfmt) && !registry_reader_supports_options(rfmt)) {
         std::string hint;
         if (const char* dep = registry_compiled_out(rfmt))
             hint = " (format '" + rfmt + "' is not available in this build; requires " +
@@ -1853,10 +2002,12 @@ PipelineReport run_pipeline(const Pipeline& rPipeline) {
     // A no-op unless the caller opened a provenance scope around this call
     // (see detail/provenance.hpp) -- the pipeline never opens one itself,
     // consistent with the record being opt-in everywhere.
-    detail::provenance_set_source(rPipeline.mInput.mPath, rfmt);
+    if (!generated)
+        detail::provenance_set_source(rPipeline.mInput.mPath, rfmt);
 
     PipelineReport report;
-    Mesh mesh = registry_read(rPipeline.mInput.mPath, rfmt, rPipeline.mInput.mOptions);
+    Mesh mesh = generated ? Mesh()
+                          : registry_read(rPipeline.mInput.mPath, rfmt, rPipeline.mInput.mOptions);
     for (std::size_t i = 0; i < rPipeline.mSteps.size(); ++i) {
         const auto& step = rPipeline.mSteps[i];
         if (fanout && i + 1 == rPipeline.mSteps.size()) {
@@ -2321,9 +2472,19 @@ PipeDocument pipe_document_from_json(const std::string& rText) {
     }
 
     const pipe_json* input = pipe_get(doc, "Input");
-    if (!input)
-        pipe_schema_error("Input is required");
-    pipeline.mInput = pipe_sequence_input_from_json(*input, parsed.mSequenceKeys);
+    if (input) {
+        pipeline.mInput = pipe_sequence_input_from_json(*input, parsed.mSequenceKeys);
+    } else {
+        // A document whose first step is Generate builds its mesh from
+        // parameters and needs no Input.
+        const pipe_json* first_ops = pipe_get(doc, "Operations");
+        const bool generated = first_ops && first_ops->is_array() && !first_ops->empty() &&
+                               (*first_ops)[0].is_object() && (*first_ops)[0].contains("Op") &&
+                               (*first_ops)[0]["Op"].is_string() &&
+                               (*first_ops)[0]["Op"].get<std::string>() == "Generate";
+        if (!generated)
+            pipe_schema_error("Input is required");
+    }
 
     const pipe_json* output = pipe_get(doc, "Output");
     if (!output)

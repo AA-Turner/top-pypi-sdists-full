@@ -1,20 +1,20 @@
 Metadata-Version: 2.4
 Name: python-bidi
-Version: 0.6.11
+Version: 0.6.12
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
 Classifier: Topic :: Text Processing
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: filelock>=3.20.1 ; extra == 'dev'
 Requires-Dist: nox ; extra == 'dev'
-Requires-Dist: pytest ; extra == 'dev'
+Requires-Dist: pytest>=9.0.3 ; extra == 'dev'
 Provides-Extra: dev
 License-File: LICENSE-THIRD-PARTY.yml
 License-File: COPYING
@@ -23,7 +23,7 @@ License-File: AUTHORS.rst
 Summary: Python Bidi layout wrapping the Rust crate unicode-bidi
 Keywords: bidi,unicode,layout
 Author-email: Meir Kriheli <mkriheli@gmail.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst; charset=UTF-8
 Project-URL: Changelog, https://github.com/MeirKriheli/python-bidi/blob/master/CHANGELOG.rst
 Project-URL: Documentation, https://python-bidi.readthedocs.io/en/latest/

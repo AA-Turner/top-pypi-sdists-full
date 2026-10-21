@@ -93,6 +93,16 @@ class DatasetMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesResponse.FromString,
         )
+        self.GetFeatureMaterializedAggregations = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetFeatureMaterializedAggregations",
+            request_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetFeatureMaterializedAggregationsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetFeatureMaterializedAggregationsResponse.FromString,
+        )
+        self.ListTileFeatureCoverage = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/ListTileFeatureCoverage",
+            request_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListTileFeatureCoverageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListTileFeatureCoverageResponse.FromString,
+        )
         self.ListMaterializedAggregateTilesForTimeline = channel.unary_unary(
             "/chalk.server.v1.DatasetMetadataService/ListMaterializedAggregateTilesForTimeline",
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTilesForTimelineRequest.SerializeToString,
@@ -253,6 +263,18 @@ class DatasetMetadataServiceServicer(object):
 
     def GetMaterializedAggregateTileFacetValues(self, request, context):
         """Facet values and counts for the TilesTimeline filter menu."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetFeatureMaterializedAggregations(self, request, context):
+        """The active deployment's materialized aggregations that compute or read one feature."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListTileFeatureCoverage(self, request, context):
+        """Gaps per windowed feature with offline tiles, paged by fqn; features with no tiles are omitted."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -426,6 +448,16 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             servicer.GetMaterializedAggregateTileFacetValues,
             request_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesResponse.SerializeToString,
+        ),
+        "GetFeatureMaterializedAggregations": grpc.unary_unary_rpc_method_handler(
+            servicer.GetFeatureMaterializedAggregations,
+            request_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetFeatureMaterializedAggregationsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetFeatureMaterializedAggregationsResponse.SerializeToString,
+        ),
+        "ListTileFeatureCoverage": grpc.unary_unary_rpc_method_handler(
+            servicer.ListTileFeatureCoverage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListTileFeatureCoverageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListTileFeatureCoverageResponse.SerializeToString,
         ),
         "ListMaterializedAggregateTilesForTimeline": grpc.unary_unary_rpc_method_handler(
             servicer.ListMaterializedAggregateTilesForTimeline,
@@ -923,6 +955,64 @@ class DatasetMetadataService(object):
             "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileFacetValues",
             chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetMaterializedAggregateTileFacetValuesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetFeatureMaterializedAggregations(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetFeatureMaterializedAggregations",
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetFeatureMaterializedAggregationsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.GetFeatureMaterializedAggregationsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListTileFeatureCoverage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/ListTileFeatureCoverage",
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListTileFeatureCoverageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_materialized__aggregate__tiles__pb2.ListTileFeatureCoverageResponse.FromString,
             options,
             channel_credentials,
             insecure,

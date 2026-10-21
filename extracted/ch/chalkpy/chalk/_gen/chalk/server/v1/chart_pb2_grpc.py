@@ -60,6 +60,11 @@ class ChartsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotResponse.FromString,
         )
+        self.GetClusterChartSnapshot = channel.unary_unary(
+            "/chalk.server.v1.ChartsService/GetClusterChartSnapshot",
+            request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetClusterChartSnapshotRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetClusterChartSnapshotResponse.FromString,
+        )
         self.GetChartSnapshotByQuery = channel.unary_unary(
             "/chalk.server.v1.ChartsService/GetChartSnapshotByQuery",
             request_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotByQueryRequest.SerializeToString,
@@ -200,6 +205,14 @@ class ChartsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetClusterChartSnapshot(self, request, context):
+        """Evaluates an allowlisted VictoriaMetrics chart for a cluster owned by the
+        requesting team. The server resolves both the cluster scope and VM client.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetChartSnapshotByQuery(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -325,6 +338,11 @@ def add_ChartsServiceServicer_to_server(servicer, server):
             servicer.GetChartSnapshot,
             request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotResponse.SerializeToString,
+        ),
+        "GetClusterChartSnapshot": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterChartSnapshot,
+            request_deserializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetClusterChartSnapshotRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_chart__pb2.GetClusterChartSnapshotResponse.SerializeToString,
         ),
         "GetChartSnapshotByQuery": grpc.unary_unary_rpc_method_handler(
             servicer.GetChartSnapshotByQuery,
@@ -651,6 +669,35 @@ class ChartsService(object):
             "/chalk.server.v1.ChartsService/GetChartSnapshot",
             chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_chart__pb2.GetChartSnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterChartSnapshot(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ChartsService/GetClusterChartSnapshot",
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetClusterChartSnapshotRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_chart__pb2.GetClusterChartSnapshotResponse.FromString,
             options,
             channel_credentials,
             insecure,

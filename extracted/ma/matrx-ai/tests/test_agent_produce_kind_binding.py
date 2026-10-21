@@ -56,10 +56,14 @@ def _ctx(output_kind: str | None):
 def bound_mandate(monkeypatch):
     """A mandate whose declared output kind agrees with the node's."""
 
+    async def _passthrough(supplied: dict[str, Any]) -> dict[str, Any]:
+        return dict(supplied)
+
     async def _resolver(mandate_key: str) -> mandates.MandateResolution:
         return mandates.MandateResolution(
             source=AgentRecordSource(agent_id=_HOLDER, is_version=False),
             output_kind=_KIND,
+            materialize=_passthrough,
         )
 
     monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", _resolver)
@@ -87,6 +91,7 @@ def agent_host(monkeypatch):
     async def _runner(agent_id: str, request: Any, _app: Any) -> Any:
         sent["agent_id"] = agent_id
         sent["request"] = request
+        sent["app_metadata"] = dict(getattr(_app, "metadata", None) or {})
         return object()  # normalize_completed_result is stubbed below
 
     monkeypatch.setitem(_ext._registry, "agent_runner", _runner)
@@ -251,3 +256,77 @@ async def test_a_turn_that_produced_NO_structured_output_fails_the_node(
     assert outcome.error.code == "kind_output_missing"
     # The paid turn's usage still travels, so cost settlement survives failure.
     assert outcome.error.details["usage"]["cost_usd"] == 0.5
+
+
+def _bind_kind(monkeypatch) -> None:
+    from matrx_ai.config.response_format import OutputSchemaEnvelope, ResponseFormatJsonSchema
+    from matrx_ai.graph_nodes import agent_produce_action
+
+    async def _binding(slug: str):
+        return ResponseFormatJsonSchema(
+            type="json_schema",
+            json_schema=OutputSchemaEnvelope.model_validate(
+                {"name": slug, "schema": {"type": "object"}, "strict": True}
+            ),
+        )
+
+    monkeypatch.setattr(agent_produce_action, "response_format_for_kind", _binding)
+
+
+@pytest.mark.asyncio
+async def test_a_mandate_step_runs_its_values_through_the_BINDING_and_is_RECORDED(
+    monkeypatch, agent_host
+):
+    """Runner plan step 1 (2026-10-20): the produce step sent its variables to the
+    doer BY NAME (no binding, no gate) and passed no mandate_key / run_stamp, so no
+    run record was written. Now the step's variables are the offer, the binding's
+    answer is what the doer gets, and the step carries the run stamp like Run
+    Mandate. RED before: the doer got the raw names and no stamp reached the host."""
+    seen: dict[str, Any] = {}
+    stamp = {"mandate_key": "education.x", "rung": "system", "holder_type": "agent"}
+
+    async def _binding_map(supplied: dict[str, Any]) -> dict[str, Any]:
+        seen["offer"] = dict(supplied)
+        return {"source_material": supplied["topic"]}
+
+    async def _resolver(mandate_key: str) -> mandates.MandateResolution:
+        return mandates.MandateResolution(
+            source=AgentRecordSource(agent_id=_HOLDER, is_version=False),
+            output_kind=_KIND,
+            materialize=_binding_map,
+            run_stamp=stamp,
+        )
+
+    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", _resolver)
+    _bind_kind(monkeypatch)
+    _stub_completion(monkeypatch, structured_output=_ANSWER)
+
+    sent, _ = agent_host
+    outcome = await agent_produce(
+        _ctx(_KIND), AgentProduceInput(mandate_key="education.x", topic="Photosynthesis")
+    )
+
+    assert outcome.status == "success"
+    assert seen["offer"] == {"topic": "Photosynthesis"}
+    assert sent["request"].variables == {"source_material": "Photosynthesis"}, (
+        "the doer received the step's raw names instead of what the binding gave it"
+    )
+    assert sent["app_metadata"].get("mandate_key") == "education.x"
+    assert sent["app_metadata"].get("mandate_resolution", {}).get("rung") == "system", (
+        "no run stamp reached the host — the step's mandate run is never recorded"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_mandate_step_on_a_host_with_no_pipeline_refuses(monkeypatch, agent_host):
+    async def _resolver(mandate_key: str) -> mandates.MandateResolution:
+        return mandates.MandateResolution(
+            source=AgentRecordSource(agent_id=_HOLDER, is_version=False), output_kind=_KIND
+        )
+
+    monkeypatch.setattr(mandates, "_MANDATE_RESOLVER", _resolver)
+    _bind_kind(monkeypatch)
+    sent, _ = agent_host
+    with pytest.raises(ExecutionError, match="does not run unbound"):
+        await agent_produce(_ctx(_KIND), AgentProduceInput(mandate_key="education.x", topic="t"))
+    assert "request" not in sent, "a paid call ran unbound"

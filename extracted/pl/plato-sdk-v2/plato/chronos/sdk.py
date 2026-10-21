@@ -16,6 +16,8 @@ from pydantic import ConfigDict, PrivateAttr
 from plato.chronos.analysis import (
     ProgressCallback,
     SessionAnalysis,
+    SpanFilters,
+    SpanStream,
     analyze_session,
     stream_all_spans,
     stream_all_spans_async,
@@ -429,6 +431,25 @@ class Chronos(_ChronosBase):
             search=search,
             plato_type=plato_type,
             on_progress=on_progress,
+        )
+
+    def iter_traces(
+        self,
+        session_id: str,
+        filters: SpanFilters | None = None,
+        *,
+        max_spans: int | None = None,
+        cursor: str | None = None,
+        on_progress: ProgressCallback | None = None,
+    ) -> SpanStream:
+        """Iterate a session's spans as they stream in, filtered by Chronos.
+
+        Unlike ``get_all_traces`` this never holds the whole session: write
+        each span out as it arrives. With ``max_spans``, the returned stream's
+        ``has_more``/``cursor`` say where the next slice starts.
+        """
+        return SpanStream(
+            self._client, session_id, filters, max_spans=max_spans, cursor=cursor, on_progress=on_progress
         )
 
     def get_session_analysis(

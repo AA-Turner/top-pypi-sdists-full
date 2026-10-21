@@ -1,14 +1,168 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: convertapi
-Version: 2.0.0
-Summary: Convert API Python Client
-Home-page: https://github.com/ConvertAPI/convertapi-python
-Download-URL: https://github.com/ConvertAPI/convertapi-python
-Author: Tomas Rutkauskas
-Author-email: support@convertapi.com
-License: MIT
+Version: 2.0.1
+Summary: ConvertAPI Python Client
+Author-email: Tomas Rutkauskas <support@convertapi.com>
+License-Expression: MIT
+Project-URL: Homepage, https://www.convertapi.com
+Project-URL: Documentation, https://www.convertapi.com/doc
+Project-URL: Source, https://github.com/ConvertAPI/convertapi-library-python
+Project-URL: Changelog, https://github.com/ConvertAPI/convertapi-library-python/blob/main/CHANGELOG.md
+Project-URL: Issues, https://github.com/ConvertAPI/convertapi-library-python/issues
 Keywords: convert,api,client,conversion
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: requests>=2.4.2
+Dynamic: license-file
 
-Convert various files like MS Word, Excel, PowerPoint, Images to PDF and Images. Create PDF and Images from url and raw HTML. Extract and create PowerPoint presentation from PDF. Merge, Encrypt, Split, Repair and Decrypt PDF files. All supported files conversions and manipulations can be found at https://www.convertapi.com/doc/supported-formats
+# ConvertAPI Python Client
+
+[![PyPI version](https://badge.fury.io/py/convertapi.svg)](https://badge.fury.io/py/convertapi)
+[![Build Status](https://github.com/ConvertAPI/convertapi-library-python/actions/workflows/build.yml/badge.svg)](https://github.com/ConvertAPI/convertapi-library-python/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+## Convert your files with our online file conversion API
+
+ConvertAPI helps to convert various file formats. Creating PDF and Images from various sources like Word, Excel, Powerpoint, images, web pages or raw HTML codes. Merge, Encrypt, Split, Repair and Decrypt PDF files and many other manipulations. You can integrate it into your application in just a few minutes and use it easily.
+
+## Installation
+
+Install with [pip](https://pypi.org/project/pip/):
+
+    pip install --upgrade convertapi
+
+Install from source with:
+
+    pip install .
+
+### Requirements
+
+* Python 3 with `requests`; tested on Python 3.10–3.14
+
+## Usage
+
+### Configuration
+
+You can get your API credentials at https://www.convertapi.com/a
+
+```python
+import convertapi
+
+convertapi.api_credentials = 'api-token'
+```
+
+#### Proxy configuration
+
+If you need to use a proxy, you can specify it using `HTTPS_PROXY` environment variable when running your script.
+
+Example:
+
+```
+API_TOKEN=api-token HTTPS_PROXY=https://user:pass@127.0.0.1:9000/ python convert_word_to_pdf_and_png.py
+```
+
+### File conversion
+
+Convert a file to PDF example. All supported file formats and options can be found
+[here](https://www.convertapi.com/conversions).
+
+```python
+result = convertapi.convert('pdf', { 'File': '/path/to/my_file.docx' })
+
+# save to file
+result.file.save('/path/to/save/file.pdf')
+```
+
+Other result operations:
+
+```python
+# save all result files to folder
+result.save_files('/path/to/save/files')
+
+# get conversion cost
+conversion_cost = result.conversion_cost
+```
+
+#### Convert file url
+
+```python
+result = convertapi.convert('pdf', { 'File': 'https://website/my_file.docx' })
+```
+
+#### Specifying from format
+
+```python
+result = convertapi.convert(
+    'pdf',
+    { 'File': '/path/to/my_file' },
+    from_format = 'docx'
+)
+```
+
+#### Additional conversion parameters
+
+ConvertAPI accepts additional conversion parameters depending on selected formats. All conversion
+parameters and explanations can be found [here](https://www.convertapi.com/conversions).
+
+```python
+result = convertapi.convert(
+    'pdf',
+    {
+        'File': '/path/to/my_file.docx',
+        'PageRange': '1-10',
+        'PdfResolution': '150',
+    }
+)
+```
+
+### User information
+
+You can always check your usage by fetching [user information](https://www.convertapi.com/doc/user).
+
+```python
+user_info = convertapi.user()
+
+print(user_info['ConversionsTotal'])
+print(user_info['ConversionsConsumed'])
+```
+
+### Alternative domain
+
+Set `base_uri` parameter to use other service domains. Dedicated to the region [domain list](https://www.convertapi.com/doc/servers-location).
+
+```python
+convertapi.base_uri = 'https://eu-v2.convertapi.com/'
+```
+
+### More examples
+
+Find more advanced examples in the [/examples](https://github.com/ConvertAPI/convertapi-library-python/tree/main/examples) folder.
+
+## Development
+
+```bash
+pip install -e . -r test-requirements.txt
+pytest
+```
+
+Tests marked `live` call the real service and are skipped unless `CONVERT_API_SECRET` holds an API token
+(`CONVERT_API_BASE_URI` optionally points them at another deployment). Releases are described in
+[RELEASING.md](https://github.com/ConvertAPI/convertapi-library-python/blob/main/RELEASING.md).
+
+## Contributing
+
+Bug reports and pull requests are welcome on GitHub at https://github.com/ConvertAPI/convertapi-library-python. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [Contributor Covenant](http://contributor-covenant.org) code of conduct.
+
+## License
+
+The library is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).

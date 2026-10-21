@@ -79,7 +79,7 @@ def sync(
     """
     This endpoint uploads a blob in a single API call.
 
-    Blobs larger than 10MB should be uploaded in [multiple parts](#/Blobs/createMultipartBlob). The data64 parameter is the base64-encoded part contents, and the md5 parameter is the hex-encoded MD5 hash of the part contents. For example, given the string hello, data64 is aGVsbG8= and md5 is 5d41402abc4b2a76b9719d911017c592.
+    Blobs larger than 10MB should be uploaded in [multiple parts](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob). The data64 parameter is the base64-encoded part contents, and the md5 parameter is the hex-encoded MD5 hash of the part contents. For example, given the string hello, data64 is aGVsbG8= and md5 is 5d41402abc4b2a76b9719d911017c592.
     """
 
     return sync_detailed(
@@ -112,7 +112,7 @@ async def asyncio(
     """
     This endpoint uploads a blob in a single API call.
 
-    Blobs larger than 10MB should be uploaded in [multiple parts](#/Blobs/createMultipartBlob). The data64 parameter is the base64-encoded part contents, and the md5 parameter is the hex-encoded MD5 hash of the part contents. For example, given the string hello, data64 is aGVsbG8= and md5 is 5d41402abc4b2a76b9719d911017c592.
+    Blobs larger than 10MB should be uploaded in [multiple parts](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob). The data64 parameter is the base64-encoded part contents, and the md5 parameter is the hex-encoded MD5 hash of the part contents. For example, given the string hello, data64 is aGVsbG8= and md5 is 5d41402abc4b2a76b9719d911017c592.
     """
 
     return (

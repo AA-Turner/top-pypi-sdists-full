@@ -3,6 +3,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import log_pb2 as _log_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.flags.v1 import flags_pb2 as _flags_pb2
+from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -17,6 +18,14 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class CustomImageBaseImageSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CUSTOM_IMAGE_BASE_IMAGE_SOURCE_UNSPECIFIED: _ClassVar[CustomImageBaseImageSource]
+    CUSTOM_IMAGE_BASE_IMAGE_SOURCE_NOTEBOOK_RUNTIME: _ClassVar[CustomImageBaseImageSource]
+
+CUSTOM_IMAGE_BASE_IMAGE_SOURCE_UNSPECIFIED: CustomImageBaseImageSource
+CUSTOM_IMAGE_BASE_IMAGE_SOURCE_NOTEBOOK_RUNTIME: CustomImageBaseImageSource
 
 class ExecRequest(_message.Message):
     __slots__ = ("init", "stdin_data", "stdin_eof", "signal", "resize")
@@ -506,31 +515,39 @@ class GetCustomImageResponse(_message.Message):
     ) -> None: ...
 
 class GetOrBuildCustomImageRequest(_message.Message):
-    __slots__ = ("image_spec", "target_registry")
+    __slots__ = ("image_spec", "target_registry", "base_image_source")
     IMAGE_SPEC_FIELD_NUMBER: _ClassVar[int]
     TARGET_REGISTRY_FIELD_NUMBER: _ClassVar[int]
+    BASE_IMAGE_SOURCE_FIELD_NUMBER: _ClassVar[int]
     image_spec: ImageSpec
     target_registry: str
+    base_image_source: CustomImageBaseImageSource
     def __init__(
-        self, image_spec: _Optional[_Union[ImageSpec, _Mapping]] = ..., target_registry: _Optional[str] = ...
+        self,
+        image_spec: _Optional[_Union[ImageSpec, _Mapping]] = ...,
+        target_registry: _Optional[str] = ...,
+        base_image_source: _Optional[_Union[CustomImageBaseImageSource, str]] = ...,
     ) -> None: ...
 
 class GetOrBuildCustomImageResponse(_message.Message):
-    __slots__ = ("image", "build_id", "status", "error")
+    __slots__ = ("image", "build_id", "status", "error", "content_hash")
     IMAGE_FIELD_NUMBER: _ClassVar[int]
     BUILD_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
+    CONTENT_HASH_FIELD_NUMBER: _ClassVar[int]
     image: str
     build_id: str
     status: str
     error: str
+    content_hash: str
     def __init__(
         self,
         image: _Optional[str] = ...,
         build_id: _Optional[str] = ...,
         status: _Optional[str] = ...,
         error: _Optional[str] = ...,
+        content_hash: _Optional[str] = ...,
     ) -> None: ...
 
 class StreamCustomImageBuildUpdatesRequest(_message.Message):
@@ -582,12 +599,25 @@ class CustomImageBuildSummary(_message.Message):
     ) -> None: ...
 
 class ListCustomImageBuildsRequest(_message.Message):
-    __slots__ = ("limit", "cursor")
+    __slots__ = ("limit", "cursor", "filters")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
-    def __init__(self, limit: _Optional[int] = ..., cursor: _Optional[str] = ...) -> None: ...
+    filters: ListCustomImageBuildsFilters
+    def __init__(
+        self,
+        limit: _Optional[int] = ...,
+        cursor: _Optional[str] = ...,
+        filters: _Optional[_Union[ListCustomImageBuildsFilters, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListCustomImageBuildsFilters(_message.Message):
+    __slots__ = ("content_hash",)
+    CONTENT_HASH_FIELD_NUMBER: _ClassVar[int]
+    content_hash: str
+    def __init__(self, content_hash: _Optional[str] = ...) -> None: ...
 
 class ListCustomImageBuildsResponse(_message.Message):
     __slots__ = ("builds", "next_cursor")
@@ -722,4 +752,28 @@ class GetCustomImageBuildUsageResponse(_message.Message):
         containers: _Optional[_Iterable[_Union[CustomImageContainerUsage, _Mapping]]] = ...,
         scaling_groups: _Optional[_Iterable[_Union[CustomImageScalingGroupUsage, _Mapping]]] = ...,
         sandboxes: _Optional[_Iterable[_Union[CustomImageSandboxUsage, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetImagePullCredentialsRequest(_message.Message):
+    __slots__ = ("image",)
+    IMAGE_FIELD_NUMBER: _ClassVar[int]
+    image: str
+    def __init__(self, image: _Optional[str] = ...) -> None: ...
+
+class GetImagePullCredentialsResponse(_message.Message):
+    __slots__ = ("server_address", "username", "password", "expires_at")
+    SERVER_ADDRESS_FIELD_NUMBER: _ClassVar[int]
+    USERNAME_FIELD_NUMBER: _ClassVar[int]
+    PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    server_address: str
+    username: str
+    password: str
+    expires_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        server_address: _Optional[str] = ...,
+        username: _Optional[str] = ...,
+        password: _Optional[str] = ...,
+        expires_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...

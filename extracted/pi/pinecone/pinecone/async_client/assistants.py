@@ -22,6 +22,7 @@ from pinecone._internal.constants import (
     ASSISTANT_EVALUATION_BASE_URL,
     DEFAULT_BASE_URL,
 )
+from pinecone._internal.validation import require_str
 from pinecone.async_client._assistants_legacy import AsyncAssistantsLegacyNamespaceMixin
 from pinecone.errors.exceptions import (
     NotFoundError,
@@ -160,7 +161,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
                     print(assistant.name, assistant.status)
 
     .. seealso::
-       :doc:`/guides/error-handling` — the exceptions any of these methods can
+       `Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__
+       — the exceptions any of these methods can
        raise, and which ones are worth retrying.
     """
 
@@ -229,6 +231,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
 
         Caches clients by assistant name to avoid repeated describe calls.
         """
+        require_str("assistant_name", assistant_name)
         if assistant_name not in self._data_plane_clients:
             from pinecone._internal.config import PineconeConfig as _PineconeConfig
             from pinecone._internal.http_client import AsyncHTTPClient as _AsyncHTTPClient
@@ -315,6 +318,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             :class:`AssistantModel` describing the created assistant.
 
         Raises:
+            :exc:`PineconeTypeError`: If *name* is not a ``str``.
             :exc:`PineconeValueError`: If *region* is not ``"us"`` or ``"eu"``.
             :exc:`PineconeTimeoutError`: If the assistant does not become ready
                 before the deadline.
@@ -366,6 +370,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             raise PineconeValueError(
                 "create() missing required argument: 'name' (or legacy alias 'assistant_name')."
             )
+        require_str("name", name)
 
         if region not in _VALID_REGIONS:
             raise PineconeValueError(f"region must be one of {_VALID_REGIONS!r}, got {region!r}")
@@ -404,6 +409,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             metadata, instructions, and host.
 
         Raises:
+            :exc:`PineconeTypeError`: If *name* is not a ``str``.
             :exc:`NotFoundError`: If the assistant does not exist.
 
         Examples:
@@ -434,9 +440,10 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             raise PineconeValueError(
                 "describe() missing required argument: 'name' (or legacy alias 'assistant_name')."
             )
+        require_str("name", name)
 
         logger.info("Describing assistant %r", name)
-        response = await self._http.get(f"/assistants/{quote(str(name), safe='')}")
+        response = await self._http.get(f"/assistants/{quote(name, safe='')}")
         model = self._attach_ref(self._adapter.to_assistant(response.content))
         logger.debug("Described assistant %r (status=%s)", name, model.status)
         return model
@@ -477,7 +484,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
         .. seealso::
            - :meth:`list_page` — one page at a time, when you want to hold
              the continuation token yourself.
-           - :doc:`/guides/pagination` — how the paginator and the
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the paginator and the
              continuation tokens work.
         """
         logger.info("Listing assistants")
@@ -528,7 +536,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
                     )
 
         .. seealso::
-           :doc:`/guides/pagination` — the continuation-token loop this method
+           `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+           — the continuation-token loop this method
            expects you to drive, and the paginator that drives it for you.
         """
         from pinecone._internal.kwargs_aliases import (
@@ -602,6 +611,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             :class:`AssistantModel` describing the updated assistant.
 
         Raises:
+            :exc:`PineconeTypeError`: If *name* is not a ``str``.
             :exc:`PineconeValueError`: If neither *instructions* nor
                 *metadata* is provided.
             :exc:`NotFoundError`: If the assistant does not exist.
@@ -653,6 +663,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             raise PineconeValueError(
                 "update() missing required argument: 'name' (or legacy alias 'assistant_name')."
             )
+        require_str("name", name)
         if instructions is None and metadata is None:
             raise PineconeValueError(
                 "update() needs at least one of 'instructions' or 'metadata'. With both "
@@ -668,7 +679,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             body["metadata"] = metadata
 
         logger.info("Updating assistant %r", name)
-        response = await self._http.patch(f"/assistants/{quote(str(name), safe='')}", json=body)
+        response = await self._http.patch(f"/assistants/{quote(name, safe='')}", json=body)
         model = self._attach_ref(self._adapter.to_assistant(response.content))
         logger.debug("Updated assistant %r", name)
         return model
@@ -705,6 +716,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             None
 
         Raises:
+            :exc:`PineconeTypeError`: If *name* is not a ``str``.
             :exc:`PineconeError`: If the assistant enters a terminal failure
                 state (``"Failed"``, ``"InitializationFailed"``) while being
                 deleted.
@@ -748,9 +760,10 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             raise PineconeValueError(
                 "delete() missing required argument: 'name' (or legacy alias 'assistant_name')."
             )
+        require_str("name", name)
 
         logger.info("Deleting assistant %r", name)
-        await self._http.delete(f"/assistants/{quote(str(name), safe='')}")
+        await self._http.delete(f"/assistants/{quote(name, safe='')}")
         logger.debug("Deleted assistant %r", name)
 
         if timeout == -1:
@@ -796,6 +809,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             :class:`AssistantFileModel` with file metadata and status.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* or *file_id* is not a
+                ``str``.
             :exc:`NotFoundError`: If the file does not exist.
 
         Examples:
@@ -812,13 +827,14 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
            drops a ``"ProcessingFailed"`` file once it is old enough; this
            method still returns it by id.
         """
+        require_str("file_id", file_id)
         data_http = await self._data_plane_http(assistant_name)
         params: dict[str, str] = {}
         if include_url:
             params["include_url"] = "true"
         logger.info("Describing file %r in assistant %r", file_id, assistant_name)
         response = await data_http.get(
-            f"/files/{quote(str(assistant_name), safe='')}/{quote(str(file_id), safe='')}",
+            f"/files/{quote(assistant_name, safe='')}/{quote(file_id, safe='')}",
             params=params,
         )
         return self._adapter.to_file(response.content)
@@ -854,6 +870,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             ``next`` continuation token.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``.
             :exc:`NotFoundError`: If the assistant does not exist.
 
         Examples:
@@ -873,7 +890,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
                     )
 
         .. seealso::
-           :doc:`/guides/pagination` — the continuation-token loop this method
+           `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+           — the continuation-token loop this method
            expects you to drive, and the paginator that drives it for you.
         """
         from pinecone._internal.kwargs_aliases import (
@@ -907,9 +925,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             params["filter"] = _json.dumps(filter)
 
         logger.info("Listing files page for assistant %r", assistant_name)
-        response = await list_http.get(
-            f"/files/{quote(str(assistant_name), safe='')}", params=params
-        )
+        response = await list_http.get(f"/files/{quote(assistant_name, safe='')}", params=params)
         result = self._adapter.to_file_list(response.content)
         logger.debug(
             "Listed %d files for assistant %r (has_next=%s)",
@@ -947,6 +963,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             ``limit``.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``.
             :exc:`NotFoundError`: If the assistant does not exist.
 
         Examples:
@@ -970,7 +987,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
              is still retrievable there.
            - :meth:`list_files_page` — one page at a time, when you want to
              hold the continuation token yourself.
-           - :doc:`/guides/pagination` — how the paginator and the
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the paginator and the
              continuation tokens work.
         """
         logger.info("Listing files for assistant %r", assistant_name)
@@ -1072,6 +1090,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             processing completes.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``, or
+                *file_id* is given and is not a ``str``.
             :exc:`PineconeValueError`: If both or neither of *file_path*
                 and *file_stream* are provided, if *file_path* does not
                 exist, or if *file_stream* is used without a *file_name*
@@ -1112,6 +1132,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
 
         if (file_path is None) == (file_stream is None):
             raise PineconeValueError("Exactly one of file_path or file_stream must be provided")
+        if file_id is not None:
+            require_str("file_id", file_id)
 
         handle: IO[bytes]
         if file_path is not None:
@@ -1143,7 +1165,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
                 assistant_name,
             )
             response = await data_http.put(
-                f"/files/{quote(str(assistant_name), safe='')}/{quote(str(file_id), safe='')}",
+                f"/files/{quote(assistant_name, safe='')}/{quote(file_id, safe='')}",
                 files=form,
                 params=params,
             )
@@ -1151,7 +1173,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             action = "Upload"
             logger.info("Uploading file %r to assistant %r", upload_name, assistant_name)
             response = await data_http.post(
-                f"/files/{quote(str(assistant_name), safe='')}", files=form, params=params
+                f"/files/{quote(assistant_name, safe='')}", files=form, params=params
             )
         operation = self._adapter.to_operation(response.content)
 
@@ -1210,6 +1232,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             ``None``
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* or *file_id* is not a
+                ``str``.
             :exc:`NotFoundError`: If *file_id* does not name a file on this
                 assistant. Deleting an id that is already gone raises rather
                 than returning silently.
@@ -1225,10 +1249,11 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
                     file_id="file-abc123",
                 )
         """
+        require_str("file_id", file_id)
         data_http = await self._data_plane_http(assistant_name)
         logger.info("Deleting file %r from assistant %r", file_id, assistant_name)
         response = await data_http.delete(
-            f"/files/{quote(str(assistant_name), safe='')}/{quote(str(file_id), safe='')}"
+            f"/files/{quote(assistant_name, safe='')}/{quote(file_id, safe='')}"
         )
 
         if response.status_code == 204 or not response.content:
@@ -1282,6 +1307,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             itself evidence of failure.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* or *operation_id* is
+                not a ``str``.
             :exc:`NotFoundError`: If the assistant or the operation does not
                 exist. A finished operation stays describable until it ages out
                 of the API's retention window, and 404s from then on.
@@ -1299,10 +1326,11 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
            :meth:`list_operations` — every operation on the assistant, when
            you did not keep the operation id.
         """
+        require_str("operation_id", operation_id)
         data_http = await self._data_plane_http(assistant_name)
         logger.info("Describing operation %r in assistant %r", operation_id, assistant_name)
         response = await data_http.get(
-            f"/operations/{quote(str(assistant_name), safe='')}/{quote(str(operation_id), safe='')}"
+            f"/operations/{quote(assistant_name, safe='')}/{quote(operation_id, safe='')}"
         )
         return self._adapter.to_operation(response.content)
 
@@ -1339,6 +1367,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             ``limit``.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``.
             :exc:`PineconeValueError`: If *operation_type* or *status* is not
                 one of the values above.
             :exc:`NotFoundError`: If the assistant does not exist.
@@ -1365,7 +1394,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
              the id a ``timeout=-1`` call handed back.
            - :meth:`list_operations_page` — one page at a time, when you want
              to hold the continuation token yourself.
-           - :doc:`/guides/pagination` — how the paginator and the
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the paginator and the
              continuation tokens work.
         """
         logger.info("Listing operations for assistant %r", assistant_name)
@@ -1416,6 +1446,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             optional ``next`` continuation token.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``.
             :exc:`PineconeValueError`: If *operation_type* or *status* is not
                 one of the values above.
             :exc:`NotFoundError`: If the assistant does not exist.
@@ -1439,7 +1470,8 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
                     )
 
         .. seealso::
-           :doc:`/guides/pagination` — the continuation-token loop this method
+           `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+           — the continuation-token loop this method
            expects you to drive, and the paginator that drives it for you.
         """
         params: dict[str, str | int] = {}
@@ -1457,7 +1489,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
         data_http = await self._data_plane_http(assistant_name)
         logger.info("Listing operations page for assistant %r", assistant_name)
         response = await data_http.get(
-            f"/operations/{quote(str(assistant_name), safe='')}", params=params
+            f"/operations/{quote(assistant_name, safe='')}", params=params
         )
         result = self._adapter.to_operation_list(response.content)
         logger.debug(
@@ -1516,6 +1548,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             ``usage``.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``.
             :exc:`PineconeValueError`: If both or neither of *query* and
                 *messages* are provided, or if *top_k* or *snippet_size* is
                 negative.
@@ -1573,9 +1606,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             body["include_binary_content"] = include_binary_content
 
         http = await self._data_plane_http(assistant_name)
-        response = await http.post(
-            f"/chat/{quote(str(assistant_name), safe='')}/context", json=body
-        )
+        response = await http.post(f"/chat/{quote(assistant_name, safe='')}/context", json=body)
         return self._adapter.to_context_response(response.content)
 
     async def chat(
@@ -1640,6 +1671,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             ``usage``. For streaming requests, an :class:`AsyncChatStream`.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``.
             :exc:`PineconeValueError`: If both ``stream=True`` and
                 ``json_response=True`` are specified.
             :exc:`ApiError`: If the assistant has no file in ``"Available"``
@@ -1733,14 +1765,14 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             return AsyncChatStream(
                 self._chat_streaming(
                     data_http=data_http,
-                    url=f"/chat/{quote(str(assistant_name), safe='')}",
+                    url=f"/chat/{quote(assistant_name, safe='')}",
                     body=body,
                     timeout=timeout,
                 )
             )
 
         response = await data_http.post(
-            f"/chat/{quote(str(assistant_name), safe='')}", timeout=timeout, json=body
+            f"/chat/{quote(assistant_name, safe='')}", timeout=timeout, json=body
         )
         return self._adapter.to_chat_response(response.content)
 
@@ -1857,6 +1889,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             :class:`AsyncChatCompletionStream`.
 
         Raises:
+            :exc:`PineconeTypeError`: If *assistant_name* is not a ``str``.
             :exc:`ApiError`: If the assistant has no file in ``"Available"``
                 status yet — check with :meth:`list_files` before reading this
                 as a transport failure.
@@ -1928,14 +1961,14 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
             return AsyncChatCompletionStream(
                 self._chat_completions_streaming(
                     data_http=data_http,
-                    url=f"/chat/{quote(str(assistant_name), safe='')}/chat/completions",
+                    url=f"/chat/{quote(assistant_name, safe='')}/chat/completions",
                     body=body,
                     timeout=timeout,
                 )
             )
 
         response = await data_http.post(
-            f"/chat/{quote(str(assistant_name), safe='')}/chat/completions",
+            f"/chat/{quote(assistant_name, safe='')}/chat/completions",
             timeout=timeout,
             json=body,
         )
@@ -2052,7 +2085,7 @@ class AsyncAssistants(AsyncAssistantsLegacyNamespaceMixin):
         """Poll ``GET /assistants/{name}`` until status is ``"Ready"`` or timeout."""
         start = time.monotonic()
         while True:
-            response = await self._http.get(f"/assistants/{quote(str(name), safe='')}")
+            response = await self._http.get(f"/assistants/{quote(name, safe='')}")
             model = self._attach_ref(self._adapter.to_assistant(response.content))
             if model.status == "Ready":
                 return model

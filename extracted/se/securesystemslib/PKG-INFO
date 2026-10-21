@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: securesystemslib
-Version: 1.5.1
+Version: 1.6.0
 Summary: A library that provides cryptographic and general-purpose routines for Secure Systems Lab projects at NYU
 Project-URL: Homepage, https://github.com/secure-systems-lab/securesystemslib
 Project-URL: Source, https://github.com/secure-systems-lab/securesystemslib
@@ -42,8 +42,6 @@ Requires-Dist: google-cloud-kms>=3.11.0; extra == 'gcpkms'
 Provides-Extra: hsm
 Requires-Dist: cryptography>=40.0.0; extra == 'hsm'
 Requires-Dist: python-pkcs11; extra == 'hsm'
-Provides-Extra: pyspx
-Requires-Dist: pyspx>=0.5.0; extra == 'pyspx'
 Provides-Extra: sigstore
 Requires-Dist: sigstore<5,>=4; extra == 'sigstore'
 Provides-Extra: tkey
@@ -76,7 +74,7 @@ signature creation, `securesystemslib` can be installed with *extras*. See
 [pyproject.toml](pyproject.toml) for available *optional dependencies*.
 
 ```bash
-# Install with ed25519, RSA, ECDSA sign and verify support
+# Install with ed25519, RSA, ECDSA, ML-DSA sign and verify support
 pip install securesystemslib[crypto]
 ```
 

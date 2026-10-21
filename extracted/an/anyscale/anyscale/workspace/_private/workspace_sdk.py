@@ -27,9 +27,8 @@ from anyscale.client.openapi_client.models.workspace_ssh_details import (
     WorkspaceSshDetails,
 )
 
-# From `rest`, not `exceptions`: anyscale/__init__.py puts `client/` on sys.path, so
-# that file is imported under two module names and the qualified `exceptions` path
-# yields a class rest.py never raises. errors.py carries the same note.
+# From `rest`, not `exceptions`: that file is imported under two module names, and the
+# qualified path yields a class the client never raises.
 from anyscale.client.openapi_client.rest import ApiException
 from anyscale.utils.name_utils import validate_resource_name
 from anyscale.utils.runtime_env import parse_requirements_file
@@ -105,9 +104,6 @@ class _SshTarget(NamedTuple):
     token: Optional[str]
     # VM only: the jump host. A KubeRay workspace has none.
     head_node_ip: Optional[str]
-    # KubeRay only: admission fixes it, so it is not the project-derived one the VM path
-    # looks up. None means "ask the project", which is the VM answer.
-    working_dir: Optional[str]
 
 
 # Far below the cluster access token's own TTL. The cache only has to survive one
@@ -119,6 +115,19 @@ KUBERAY_SSH_DETAILS_TTL_S = 300.0
 HTTPS_PORT = "443"
 WSS_PATH = "/sshws"
 PREFERRED_AUTH_METHOD = "PreferredAuthentications=publickey"
+
+
+def _write_private_file(path: str, content: str) -> None:
+    """Write `content` to `path`, readable only by this user.
+
+    chmod as well as the opener: the opener's mode applies only when it creates the file,
+    so one left 0644 by an older CLI in a reused directory keeps it. os.chmod, not fchmod,
+    which Windows lacks before 3.13 (auth_controller.py does the same for credentials).
+    """
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", opener=partial(os.open, mode=0o600)) as f:
+        os.chmod(path, 0o600)
+        f.write(content)
 
 
 class PrivateWorkspaceSDK(WorkloadSDK):
@@ -411,10 +420,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         endpoint that resolves them.
 
         with_tunnel=False drops the VM arm's hostname and token, which cost two further
-        endpoints. A caller that does not tunnel must not be made to depend on the token
-        endpoint -- `--direct-ssh` and the legacy fallback exist to reach the shell
-        without it. The KubeRay arm ignores the flag: one response already carries
-        everything.
+        endpoints: `--direct-ssh` and the legacy fallback exist to reach the shell
+        without the tunnel and must not be made to depend on it. The KubeRay arm ignores
+        the flag, since one response already carries everything.
         """
         if workspace_model.kuberay_cr_id:
             details = self._kuberay_ssh_details(workspace_model.id)
@@ -424,7 +432,6 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 private_key=details.private_key,
                 token=details.cluster_access_token,
                 head_node_ip=None,
-                working_dir=details.working_dir,
             )
 
         ssh_key = self.client.get_cluster_ssh_key(workspace_model.cluster_id)
@@ -442,7 +449,6 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             private_key=ssh_key.private_key,
             token=token,
             head_node_ip=self.client.get_cluster_head_node_ip(workspace_model.cluster_id),
-            working_dir=None,
         )
 
     def generate_ssh_config_file(
@@ -471,16 +477,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
 
         def _store_ssh_key(name: str, ssh_key: str, key_dir: str) -> str:
             key_path = os.path.join(key_dir, f"{name}.pem")
-            os.makedirs(os.path.dirname(key_path), exist_ok=True)
-
-            # chmod as well as the opener: the opener's mode applies only when it creates
-            # the file, so a key left 0644 by an older CLI in a reused directory keeps it.
-            # os.chmod, not fchmod, which Windows lacks before 3.13 (auth_controller.py
-            # does the same for the credentials file).
-            with open(key_path, "w", opener=partial(os.open, mode=0o600)) as f:
-                os.chmod(key_path, 0o600)
-                f.write(ssh_key)
-
+            _write_private_file(key_path, ssh_key)
             return key_path
 
         if ssh_config_path is None:
@@ -493,11 +490,12 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 raise ValueError(
                     f"Workspace {workspace_model.id} has no SSH tunnel; it may not be running."
                 )
-            # From the target we already hold, not _build_https_proxy_command: that would
-            # resolve and mint a second time, and a second token is a second expiry.
-            # Writing it in is what dates the file: nothing can refresh a ProxyCommand
-            # already on disk, and the token lives KUBERAY_CLUSTER_TOKEN_TTL.
-            proxy_command = self._create_https_proxy_command(target.hostname, target.token)
+            # From the target already resolved, not _build_https_proxy_command, which
+            # would mint a second token and so a second expiry. The token file it writes
+            # is what dates the directory; nothing refreshes it in place.
+            proxy_command = self._create_https_proxy_command(
+                target.hostname, target.token, ssh_config_path, target.key_name
+            )
             if proxy_command is None:
                 raise ValueError(
                     "Could not locate the Anyscale SSH tunnel helper. Reinstall the anyscale package."
@@ -520,12 +518,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             host_name = workspace_model.name
 
         config_file_name = os.path.join(ssh_config_path, "config")
-        # 0600 like the key beside it: the KubeRay config carries the cluster access token
-        # in its ProxyCommand, and the caller chooses the directory. chmod for the same
-        # reason as the key above -- the opener's mode only lands on a new file.
-        with open(config_file_name, "w", opener=partial(os.open, mode=0o600)) as f:
-            os.chmod(config_file_name, 0o600)
-            f.write(ssh_config)
+        _write_private_file(config_file_name, ssh_config)
 
         return host_name, config_file_name
 
@@ -548,7 +541,11 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         # Prefer the HTTPS tunnel (legacy port-22 SSH is unreachable on k8s);
         # direct_ssh forces the legacy path, else fall back to it when HTTPS
         # can't be built. argv list (no shell) keeps the ProxyCommand intact.
-        proxy_cmd = None if direct_ssh else self._build_https_proxy_command(workspace_model.id)
+        proxy_cmd = (
+            None
+            if direct_ssh
+            else self._build_https_proxy_command(workspace_model.id, os.path.dirname(config_file))
+        )
         if proxy_cmd is not None:
             ssh_cmd = (
                 [
@@ -703,9 +700,22 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             return None
 
     def _create_https_proxy_command(
-        self, public_hostname: str, cluster_access_token: str
+        self,
+        public_hostname: str,
+        cluster_access_token: str,
+        token_dir: str,
+        name: str,
     ) -> Optional[str]:
-        """Create the proxy command for HTTPS connection."""
+        """Create the proxy command for HTTPS connection.
+
+        The token goes to a 0600 file in `token_dir`; only its path is in the command.
+        ssh runs a ProxyCommand through `sh -c`, so a token in that string would sit in
+        a world-readable /proc/<pid>/cmdline for the life of the session.
+
+        Named per workspace like the key, so generating into a directory already holding
+        another workspace's config does not leave its copied-out Host block dialling that
+        workspace with this one's token.
+        """
         wss_url = f"wss://{public_hostname}{WSS_PATH}"
 
         try:
@@ -717,21 +727,28 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             self._logger.debug(f"Failed to create HTTPS proxy command: {type(e).__name__}")
             return None
 
+        token_path = os.path.join(token_dir, f"{name}.token")
+        _write_private_file(token_path, cluster_access_token)
+
         return " ".join(
             [
                 shlex.quote(sys.executable),
                 shlex.quote(proxy_script_path),
                 shlex.quote(wss_url),
-                shlex.quote(cluster_access_token),
+                "--token-file",
+                shlex.quote(token_path),
             ]
         )
 
-    def _build_https_proxy_command(self, workspace_id: str) -> Optional[str]:
+    def _build_https_proxy_command(self, workspace_id: str, token_dir: str) -> Optional[str]:
         """Build the WebSocket ProxyCommand for an HTTPS SSH tunnel.
 
         Returns None if an HTTPS connection cannot be set up (e.g. missing
         cluster info). The returned value is a shell command with its segments
         individually quoted, suitable as the value of ssh's `-o ProxyCommand=`.
+
+        token_dir is where the token file lands -- the directory holding the generated
+        config and key, so the three share a lifetime.
         """
         try:
             workspace_model = self._resolve_to_workspace_model(id=workspace_id)
@@ -739,7 +756,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             if not target.hostname or not target.token:
                 return None
 
-            return self._create_https_proxy_command(target.hostname, target.token)
+            return self._create_https_proxy_command(
+                target.hostname, target.token, token_dir, target.key_name
+            )
         except (AttributeError, KeyError, TypeError, ValueError, RuntimeError) as e:
             self._logger.debug(f"Failed to build HTTPS proxy command: {type(e).__name__}")
             return None
@@ -751,7 +770,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         single-quoted so rsync's `-e` word-splitter keeps it as one token.
         (run_command builds an argv list instead, avoiding a shell entirely.)
         """
-        proxy_cmd = self._build_https_proxy_command(workspace_id)
+        proxy_cmd = self._build_https_proxy_command(workspace_id, os.path.dirname(config_file))
         if not proxy_cmd:
             return None
 

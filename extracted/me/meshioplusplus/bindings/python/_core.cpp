@@ -171,6 +171,8 @@
 #include "meshioplusplus/operations/reorder.hpp"
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
+#include "meshioplusplus/operations/primitives.hpp"
+#include "meshioplusplus/operations/octree.hpp"
 #include "meshioplusplus/operations/error.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
@@ -2737,6 +2739,90 @@ PYBIND11_MODULE(_core, m) {
         py::arg("spacing") = std::array<double, 3>{{1.0, 1.0, 1.0}},
         py::arg("max_cells") = 20000000);
 
+    // Parametric generators (operations/primitives.hpp): `grid`'s siblings.
+    m.def(
+        "rectangle",
+        [](const std::array<std::int64_t, 2>& dims, const std::array<double, 2>& size,
+           const std::array<double, 3>& origin, const std::string& cell_type,
+           const std::string& split, int order, std::int64_t max_cells) {
+            return meshioplusplus_py::mesh_to_py(core_nogil([&] {
+                return meshioplusplus::rectangle(dims, size, origin, cell_type, split, order,
+                                                 max_cells);
+            }));
+        },
+        py::arg("dims") = std::array<std::int64_t, 2>{{1, 1}},
+        py::arg("size") = std::array<double, 2>{{1.0, 1.0}},
+        py::arg("origin") = std::array<double, 3>{{0.0, 0.0, 0.0}}, py::arg("cell_type") = "quad",
+        py::arg("split") = "zigzag", py::arg("order") = 1, py::arg("max_cells") = 20000000);
+    m.def(
+        "box",
+        [](const std::array<std::int64_t, 3>& dims, const std::array<double, 3>& size,
+           const std::array<double, 3>& origin, const std::string& cell_type, int order,
+           std::int64_t max_cells) {
+            return meshioplusplus_py::mesh_to_py(core_nogil([&] {
+                return meshioplusplus::box(dims, size, origin, cell_type, order, max_cells);
+            }));
+        },
+        py::arg("dims") = std::array<std::int64_t, 3>{{1, 1, 1}},
+        py::arg("size") = std::array<double, 3>{{1.0, 1.0, 1.0}},
+        py::arg("origin") = std::array<double, 3>{{0.0, 0.0, 0.0}},
+        py::arg("cell_type") = "hexahedron", py::arg("order") = 1, py::arg("max_cells") = 20000000);
+    m.def(
+        "disk",
+        [](double radius, std::int64_t n, const std::array<double, 3>& center,
+           const std::string& cell_type, int order, std::int64_t max_cells) {
+            return meshioplusplus_py::mesh_to_py(core_nogil([&] {
+                return meshioplusplus::disk(radius, n, center, cell_type, order, max_cells);
+            }));
+        },
+        py::arg("radius") = 1.0, py::arg("n") = 8,
+        py::arg("center") = std::array<double, 3>{{0.0, 0.0, 0.0}}, py::arg("cell_type") = "quad",
+        py::arg("order") = 1, py::arg("max_cells") = 20000000);
+    m.def(
+        "uv_sphere",
+        [](double radius, std::int64_t nu, std::int64_t nv, const std::array<double, 3>& center,
+           const std::string& cell_type, int order, std::int64_t max_cells) {
+            return meshioplusplus_py::mesh_to_py(core_nogil([&] {
+                return meshioplusplus::uv_sphere(radius, nu, nv, center, cell_type, order,
+                                                 max_cells);
+            }));
+        },
+        py::arg("radius") = 1.0, py::arg("nu") = 16, py::arg("nv") = 8,
+        py::arg("center") = std::array<double, 3>{{0.0, 0.0, 0.0}},
+        py::arg("cell_type") = "triangle", py::arg("order") = 1, py::arg("max_cells") = 20000000);
+    m.def(
+        "icosa_sphere",
+        [](double radius, std::int64_t subdivisions, const std::array<double, 3>& center,
+           int order, std::int64_t max_cells) {
+            return meshioplusplus_py::mesh_to_py(core_nogil([&] {
+                return meshioplusplus::icosa_sphere(radius, subdivisions, center, order,
+                                                    max_cells);
+            }));
+        },
+        py::arg("radius") = 1.0, py::arg("subdivisions") = 2,
+        py::arg("center") = std::array<double, 3>{{0.0, 0.0, 0.0}}, py::arg("order") = 1,
+        py::arg("max_cells") = 20000000);
+    m.def(
+        "cylinder",
+        [](double radius, double height, std::int64_t nxy, std::int64_t nz,
+           const std::array<double, 3>& center, const std::string& cell_type, int order,
+           std::int64_t max_cells) {
+            return meshioplusplus_py::mesh_to_py(core_nogil([&] {
+                return meshioplusplus::cylinder(radius, height, nxy, nz, center, cell_type, order,
+                                                max_cells);
+            }));
+        },
+        py::arg("radius") = 1.0, py::arg("height") = 1.0, py::arg("nxy") = 8, py::arg("nz") = 8,
+        py::arg("center") = std::array<double, 3>{{0.0, 0.0, 0.0}},
+        py::arg("cell_type") = "hexahedron", py::arg("order") = 1, py::arg("max_cells") = 20000000);
+    m.def(
+        "reference_cells",
+        [](const std::vector<std::string>& types, bool pairs) {
+            return meshioplusplus_py::mesh_to_py(
+                core_nogil([&] { return meshioplusplus::reference_cells(types, pairs); }));
+        },
+        py::arg("types") = std::vector<std::string>{}, py::arg("pairs") = false);
+
     m.def(
         "voxelize",
         [](py::object pymesh, py::object resolution, py::object cell_size, py::object bounds,
@@ -2775,6 +2861,70 @@ PYBIND11_MODULE(_core, m) {
         py::arg("fill") = "all", py::arg("attach_occupancy") = false,
         py::arg("max_cells") = 20000000, py::arg("sign") = "pseudonormal",
         py::arg("watertight_check") = "warn");
+
+    // Octree / quadtree leaves around a skin.
+    m.def(
+        "octree",
+        [](py::object pymesh, std::array<std::int64_t, 3> root_cells, std::int64_t min_level,
+           std::int64_t max_level, py::object bounds, double padding, double padding_relative,
+           std::int64_t dimension, double sample_distance, const std::string& balance,
+           const std::string& fill, bool attach_distance, bool even_odd, std::int64_t max_cells,
+           const std::string& sign, const std::string& watertight_check,
+           const std::string& transition, bool snap, std::int64_t surface_level,
+           double curvature_threshold, double feature_angle, const std::string& size_array,
+           const std::string& plane) {
+            meshioplusplus_py::PyMeshRefs refs;
+            meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
+                pymesh, refs, /*lenient_field_data=*/false, /*allow_ragged=*/true);
+            meshioplusplus::OctreeOptions options;
+            options.mTransition = meshioplusplus::octree_transition_from_name(transition);
+            options.mSnap = snap;
+            options.mSurfaceLevel = surface_level;
+            options.mCurvatureThreshold = curvature_threshold;
+            options.mFeatureAngle = feature_angle;
+            options.mSizeArray = size_array;
+            options.mPlane = meshioplusplus::detail::planar_plane_from_name(plane);
+            options.mRootCells = root_cells;
+            options.mMinLevel = min_level;
+            options.mMaxLevel = max_level;
+            if (!bounds.is_none())
+                options.mBounds = bounds.cast<std::array<double, 6>>();
+            options.mPadding = padding;
+            options.mPaddingRelative = padding_relative;
+            options.mDimension = dimension;
+            options.mSampleDistance = sample_distance;
+            options.mBalance = meshioplusplus::octree_balance_from_name(balance);
+            options.mFill = meshioplusplus::voxel_fill_from_name(fill);
+            options.mAttachDistance = attach_distance;
+            options.mEvenOdd = even_odd;
+            options.mMaxCells = max_cells;
+            options.mDistance.mSign = meshioplusplus::sdf_sign_from_name(sign);
+            options.mDistance.mWatertightCheck =
+                meshioplusplus::sdf_watertight_check_from_name(watertight_check);
+            meshioplusplus::OctreeResult r =
+                core_nogil([&] { return meshioplusplus::octree(cpp, options); });
+            py::dict out;
+            out["mesh"] = meshioplusplus_py::mesh_to_py(std::move(r.mMesh));
+            out["dimension"] = r.mDimension;
+            out["origin"] = r.mOrigin;
+            out["root_size"] = r.mRootSize;
+            out["num_leaves"] = r.mNumLeaves;
+            out["num_hanging"] = r.mNumHanging;
+            out["finest_level"] = r.mFinestLevel;
+            out["num_snapped"] = r.mNumSnapped;
+            out["num_refused"] = r.mNumRefused;
+            return out;
+        },
+        py::arg("mesh"), py::arg("root_cells") = std::array<std::int64_t, 3>{{1, 1, 1}},
+        py::arg("min_level") = 0, py::arg("max_level") = 4, py::arg("bounds") = py::none(),
+        py::arg("padding") = 0.0, py::arg("padding_relative") = 0.0, py::arg("dimension") = 0,
+        py::arg("sample_distance") = 0.0, py::arg("balance") = "face", py::arg("fill") = "all",
+        py::arg("attach_distance") = false, py::arg("even_odd") = false,
+        py::arg("max_cells") = 20000000, py::arg("sign") = "pseudonormal",
+        py::arg("watertight_check") = "warn", py::arg("transition") = "hanging",
+        py::arg("snap") = false, py::arg("surface_level") = -1,
+        py::arg("curvature_threshold") = 0.0, py::arg("feature_angle") = 0.0,
+        py::arg("size_array") = "", py::arg("plane") = "auto");
 
     // Distance to a surface. `sample_distance` takes bare query points;
     // `distance_to_surface` attaches the result to a mesh as ordinary data.
@@ -3486,7 +3636,7 @@ PYBIND11_MODULE(_core, m) {
         "segment",
         [](py::object pymesh, double feature_angle, double normal_tolerance,
            double curvature_tolerance, std::int64_t min_patch_cells, const std::string& region,
-           const std::string& prefix) {
+           const std::string& prefix, const std::string& method, double tolerance) {
             meshioplusplus_py::PyMeshRefs refs;
             meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
                 pymesh, refs, /*lenient_field_data=*/false, /*allow_ragged=*/true);
@@ -3497,6 +3647,14 @@ PYBIND11_MODULE(_core, m) {
             options.mMinPatchCells = min_patch_cells;
             options.mRegion = region;
             options.mPrefix = prefix;
+            if (method == "angle")
+                options.mMethod = meshioplusplus::SegmentMethod::Angle;
+            else if (method == "primitive")
+                options.mMethod = meshioplusplus::SegmentMethod::Primitive;
+            else
+                throw py::value_error(
+                    "meshio++: segment: the method must be 'angle' or 'primitive'");
+            options.mTolerance = tolerance;
             meshioplusplus::SegmentResult r =
                 core_nogil([&] { return meshioplusplus::segment(cpp, options); });
             py::dict out;
@@ -3510,7 +3668,8 @@ PYBIND11_MODULE(_core, m) {
         },
         py::arg("mesh"), py::arg("feature_angle") = 30.0, py::arg("normal_tolerance") = 0.0,
         py::arg("curvature_tolerance") = 0.0, py::arg("min_patch_cells") = 1,
-        py::arg("region") = "", py::arg("prefix") = "patch");
+        py::arg("region") = "", py::arg("prefix") = "patch", py::arg("method") = "angle",
+        py::arg("tolerance") = 1e-3);
 
     // Plane/sphere/cylinder/cone/torus fits per patch. See operations/fit_primitives.hpp.
     m.def(
@@ -3550,7 +3709,8 @@ PYBIND11_MODULE(_core, m) {
         [](py::object pymesh, const std::string& path, double tolerance, bool exact_edges,
            std::uint32_t types, double mesh_deflection, std::int64_t max_demotion_rounds,
            bool freeform, std::int32_t freeform_degree, std::int64_t freeform_max_control,
-           bool freeform_split, bool fillets, bool threads) {
+           bool freeform_split, bool fillets, bool threads, bool merge_faces,
+           const std::string& backend) {
             meshioplusplus_py::PyMeshRefs refs;
             meshioplusplus::Mesh cpp = meshioplusplus_py::py_to_mesh(
                 pymesh, refs, /*lenient_field_data=*/false, /*allow_ragged=*/true);
@@ -3566,6 +3726,16 @@ PYBIND11_MODULE(_core, m) {
             options.mFreeformSplit = freeform_split;
             options.mFillets = fillets;
             options.mThreads = threads;
+            options.mMergeFaces = merge_faces;
+            if (backend == "auto")
+                options.mBackend = meshioplusplus::FitCadBackend::Auto;
+            else if (backend == "occt")
+                options.mBackend = meshioplusplus::FitCadBackend::Occt;
+            else if (backend == "native")
+                options.mBackend = meshioplusplus::FitCadBackend::Native;
+            else
+                throw py::value_error(
+                    "meshio++: fit_cad: backend must be 'auto', 'occt' or 'native'");
             meshioplusplus::FitCadResult r =
                 core_nogil([&] { return meshioplusplus::fit_cad(cpp, path, options); });
             py::dict out;
@@ -3601,6 +3771,8 @@ PYBIND11_MODULE(_core, m) {
             out["num_tapered_thread"] = r.mNumTaperedThread;
             out["num_variable_pitch_thread"] = r.mNumVariablePitchThread;
             out["brep"] = core_brep_to_py(std::move(r.mBrep));
+            out["backend"] =
+                r.mBackend == meshioplusplus::FitCadBackend::Native ? "native" : "occt";
             return out;
         },
         py::arg("mesh"), py::arg("path") = "", py::arg("tolerance") = 0.0,
@@ -3608,7 +3780,8 @@ PYBIND11_MODULE(_core, m) {
         py::arg("mesh_deflection") = 0.0, py::arg("max_demotion_rounds") = 8,
         py::arg("freeform") = true, py::arg("freeform_degree") = 3,
         py::arg("freeform_max_control") = 64, py::arg("freeform_split") = true,
-        py::arg("fillets") = true, py::arg("threads") = true);
+        py::arg("fillets") = true, py::arg("threads") = true, py::arg("merge_faces") = true,
+        py::arg("backend") = "auto");
 
     // Conforming shared facets between named Cell regions. `regions` is an
     // optional list of strings or selector dictionaries. See
@@ -4805,15 +4978,32 @@ PYBIND11_MODULE(_core, m) {
           }));
 
     // OFF writer / reader.
-    // STEP faceted B-rep (write-only); ragged polygon blocks are facets too.
-    m.def("step_write", [](const std::string& path, py::object pymesh) {
-        meshioplusplus_py::PyMeshRefs refs;
-        core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs,
-                                                            /*lenient_field_data=*/true,
-                                                            /*allow_ragged=*/true)] {
-            return meshioplusplus::write_step(path, mesh);
-        });
-    });
+    // STEP B-rep (written without a kernel); ragged polygon blocks are facets too.
+    // `faces`: "auto", "planar", "fitted" or "facet" (StepFaces).
+    m.def(
+        "step_write",
+        [](const std::string& path, py::object pymesh, const std::string& faces, double tolerance) {
+            meshioplusplus::StepWriteOptions options;
+            if (faces == "auto")
+                options.mFaces = meshioplusplus::StepFaces::Auto;
+            else if (faces == "planar")
+                options.mFaces = meshioplusplus::StepFaces::Planar;
+            else if (faces == "fitted")
+                options.mFaces = meshioplusplus::StepFaces::Fitted;
+            else if (faces == "facet")
+                options.mFaces = meshioplusplus::StepFaces::Facet;
+            else
+                throw py::value_error(
+                    "meshio++: step: faces must be 'auto', 'planar', 'fitted' or 'facet'");
+            options.mTolerance = tolerance;
+            meshioplusplus_py::PyMeshRefs refs;
+            core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs,
+                                                                /*lenient_field_data=*/true,
+                                                                /*allow_ragged=*/true)] {
+                return meshioplusplus::write_step(path, mesh, options);
+            });
+        },
+        py::arg("path"), py::arg("mesh"), py::arg("faces") = "auto", py::arg("tolerance") = 0.0);
     m.def("off_write", [](const std::string& path, py::object pymesh) {
         meshioplusplus_py::PyMeshRefs refs;
         core_nogil([&, mesh = meshioplusplus_py::py_to_mesh(pymesh, refs)] {

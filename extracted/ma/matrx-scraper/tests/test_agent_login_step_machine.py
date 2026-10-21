@@ -240,3 +240,21 @@ async def test_totp_screen_without_authenticator_routes_to_backup_codes():
     out = await run_step_machine(d)
     assert out.status == "ready_to_verify"
     assert "totp" not in d.log and d.log[-1] == "backup_code"
+
+
+ACCOUNT_PAGE = probe("https://myaccount.google.com/", any_input_count=2)
+
+
+@pytest.mark.asyncio
+async def test_signed_in_page_with_other_inputs_after_steps_goes_to_the_verifier():
+    """Live 2026-10-20: after the backup code Google's account page (search box) was read as an
+    unrecognized screen and a finished sign-in was reported as a hand-off."""
+    d = BackupDriver([IDENT, PASSW, DP, BC, ACCOUNT_PAGE])
+    out = await run_step_machine(d)
+    assert out.status == "ready_to_verify" and out.reason == "no_sign_in_field_left"
+
+
+@pytest.mark.asyncio
+async def test_unrecognized_screen_with_no_steps_done_still_hands_off():
+    out = await run_step_machine(FakeDriver([ODD]))
+    assert out.status == "needs_person" and out.reason == "human_gate:unrecognized_screen"

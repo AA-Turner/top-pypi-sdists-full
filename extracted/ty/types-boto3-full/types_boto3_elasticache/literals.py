@@ -81,6 +81,7 @@ __all__ = (
     "SlaMetType",
     "SourceTypeType",
     "StorageEncryptionTypeType",
+    "TlsModeType",
     "TransitEncryptionModeType",
     "UpdateActionStatusType",
     "WaiterName",
@@ -156,6 +157,7 @@ SourceTypeType = Literal[
     "user-group",
 ]
 StorageEncryptionTypeType = Literal["none", "sse-elasticache", "sse-kms"]
+TlsModeType = Literal["none", "verify-ca"]
 TransitEncryptionModeType = Literal["preferred", "required"]
 UpdateActionStatusType = Literal[
     "complete",

@@ -54,7 +54,7 @@ TEST_LOCATIONS = BASIC_TEST_LOCATIONS + [
     (65.2, 179.9999, "lng 180", "Asia/Anadyr"),
     (65.2, -179.9999, "lng -180", "Asia/Anadyr"),
     # test cases for hole handling:
-    (41.0702284, 45.0036352, "Aserbaid. Enklave", "Asia/Yerevan"),
+    (41.0702284, 45.0036352, "Aserbaid. Enklave", "Asia/Baku"),
     (39.8417402, 70.6020068, "Tajikistani Enklave", "Asia/Dushanbe"),
     (47.7024174, 8.6848462, "Busingen Ger", "Europe/Busingen"),
     (46.2085101, 6.1246227, "Genf", "Europe/Zurich"),
@@ -79,8 +79,9 @@ TEST_LOCATIONS_AT_LAND = [
 ]
 
 EDGE_TEST_CASES = [
-    # directly at the poles and the 180deg longitude border the zone result is ambiguous
-    # the result should still be well defined
+    # directly at the poles and on the 180deg longitude border the result should be well
+    # defined; what -180 and -90 answer is pinned by
+    # test_minus_180_meridian_and_minus_90_parallel.py
     # zone_name="" is interpreted as "don't care"
     (-180.0, 90.0, ""),
     (-180.0, 0.0, ""),

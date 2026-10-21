@@ -42,7 +42,6 @@ from test.coverage.helpers import (
     build_schema,
     collect_cases,
     collect_coverage_cases,
-    generate_cases,
     generate_hooked_cases,
     iter_cases,
     load_schema,
@@ -2122,7 +2121,7 @@ def test_bounded_email_pattern_avoids_rejection_sampling(ctx):
     operation = body_operation(ctx, body)
     statistics = []
     with collector.with_value(statistics.append):
-        bodies = assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases)
+        bodies = assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=iter_cases)
 
     assert {253, 254} <= {len(body["email"]) for body in bodies}
     assert statistics
@@ -4442,7 +4441,7 @@ def test_anyof_with_outer_properties_yields_branch_constrained_bodies(ctx):
         },
         path="/x",
     )
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
     bad = [
         c.body
         for c in cases
@@ -4467,7 +4466,7 @@ def test_oneof_no_required_disambiguator_does_not_yield_ambiguous_empty(ctx):
         },
         path="/x",
     )
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
     assert not any(c.body == {} for c in cases), (
         f"Empty `{{}}` matches both oneOf branches and must not be yielded. Got: {[c.body for c in cases]}"
     )
@@ -4501,7 +4500,7 @@ def test_anyof_discriminator_branch_required_propagated(ctx):
         },
         path="/x",
     )
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
     bad = [c.body for c in cases if isinstance(c.body, dict) and c.body.get("type") == "A" and "priority" not in c.body]
     assert not bad, f"Positive body for branch type=A must include branch-required `priority`. Got: {bad}"
 
@@ -4551,7 +4550,7 @@ def test_request_body_example_invalid_against_schema_not_yielded(ctx):
         },
         path="/x",
     )["/x"]["POST"]
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
     bad = [c.body for c in cases if isinstance(c.body, dict) and "riskFreeRate" not in c.body]
     assert not bad, f"Spec example invalid against schema must not be yielded. Got: {bad}"
 
@@ -5637,6 +5636,37 @@ def test_map_case_hook_applied_in_coverage_phase(ctx):
     )
 
 
+@pytest.mark.parametrize(("mutate", "expected"), [(False, GenerationMode.POSITIVE), (True, GenerationMode.NEGATIVE)])
+def test_map_case_hook_body_mutation_revalidates_coverage_metadata(ctx, mutate, expected):
+    loaded = load_schema(
+        ctx,
+        body={
+            "type": "object",
+            "required": ["id"],
+            "properties": {"id": {"type": "string"}},
+            "additionalProperties": False,
+        },
+    )
+
+    @loaded.hook
+    def map_case(context, case):
+        if mutate and isinstance(case.body, dict):
+            case.body.pop("id", None)
+        return case
+
+    cases = [
+        case
+        for case in generate_hooked_cases(loaded["/foo"]["post"], GenerationMode.POSITIVE)
+        if isinstance(case.body, dict) and case._meta is not None and ParameterLocation.BODY in case._meta.components
+    ]
+
+    assert cases
+    for case in cases:
+        case._check_modifications()
+    assert {case._meta.is_dirty() for case in cases} == {mutate}
+    assert {case.meta.components[ParameterLocation.BODY].mode for case in cases} == {expected}
+
+
 def test_content_json_query_params_single_encoding_in_coverage(ctx):
     # See GH-3701
     operation = body_operation(
@@ -5652,7 +5682,7 @@ def test_content_json_query_params_single_encoding_in_coverage(ctx):
         ],
     )
 
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
 
     assert len(cases) >= 2
     for case in cases:
@@ -5756,7 +5786,7 @@ def test_coverage_form_urlencoded_binary_format_negative(ctx):
         path="/upload",
     )
 
-    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         assert case.meta.phase.name == TestPhase.COVERAGE
@@ -5779,7 +5809,7 @@ def test_coverage_positive_body_only_long_enough_pattern_branch_satisfies_format
         },
         path="/reports",
     )
-    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases) == [
+    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=iter_cases) == [
         {"issued": "2020-01-02"},
         {},
     ]
@@ -5803,7 +5833,7 @@ def test_coverage_positive_body_only_long_enough_pattern_branch_violates_format(
         },
         path="/reports",
     )
-    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=generate_cases) == [{}]
+    assert assert_bodies(operation, GenerationMode.POSITIVE, valid=True, source=iter_cases) == [{}]
 
 
 def test_items_with_conflicting_object_type_gets_negative_coverage(ctx):
@@ -6172,7 +6202,7 @@ def test_negative_int64_boundary_below_minimum_is_invalid(ctx):
     # Integers just below the implied int64 minimum must be judged invalid, not rounded onto the bound.
     operation = body_operation(ctx, {"type": "integer", "format": "int64", "maximum": 100})
 
-    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
 
     below_minimum = [case for case in cases if isinstance(case.body, int) and case.body < -(2**63)]
     assert below_minimum, "expected a below-minimum negative case"
@@ -6398,7 +6428,7 @@ def test_coverage_form_urlencoded_primitive_body_negative_no_crash(ctx):
         ctx, {"type": "integer", "format": "int32"}, media_type="application/x-www-form-urlencoded", path="/convert"
     )
 
-    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
     assert len(cases) > 0
     for case in cases:
         case.as_curl_command()
@@ -6424,7 +6454,7 @@ def test_coverage_negative_string_above_max_length_invalid_when_pattern_quantifi
         path="/items",
     )
     above_max_cases = scenario_cases(
-        generate_cases(operation, GenerationMode.NEGATIVE), CoverageScenario.STRING_ABOVE_MAX_LENGTH
+        iter_cases(operation, GenerationMode.NEGATIVE), CoverageScenario.STRING_ABOVE_MAX_LENGTH
     )
     assert_bodies(operation, GenerationMode.NEGATIVE, valid=False, cases=above_max_cases, validate_formats=False)
 
@@ -6516,7 +6546,7 @@ def test_coverage_positive_pattern_with_branch_group_not_corrupted(ctx):
     query_param = next(p for p in operation.query if p.name == "name")
     validator = jsonschema_rs.validator_for(query_param.unoptimized_schema)
 
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
     positive_cases = [c for c in cases if c.query and "name" in c.query]
     assert len(positive_cases) > 0
     for case in positive_cases:
@@ -6571,7 +6601,7 @@ def test_negative_data_rejection_no_crash_with_large_dfa_pattern(ctx, response_f
         method="get",
     )["/configuration"]["get"]
 
-    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
 
     response = response_factory.requests(status_code=200)
     ctx_check = check_context()
@@ -6603,7 +6633,7 @@ def test_negative_data_rejection_no_false_positive_for_nullable_binary_multipart
     # field. is_valid_for_others must account for wire serialization so these aren't yielded.
     operation = body_operation(ctx, NULLABLE_BINARY_MULTIPART_SCHEMA, media_type="multipart/form-data", path="/upload")
 
-    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
 
     response = response_factory.requests(status_code=200)
     ctx_check = check_context()
@@ -6627,7 +6657,7 @@ def test_negative_data_rejection_no_false_positive_for_multipart_body_type_mutat
     # Non-dict body values render as malformed multipart that lenient servers accept.
     operation = body_operation(ctx, NULLABLE_BINARY_MULTIPART_SCHEMA, media_type="multipart/form-data", path="/upload")
 
-    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
 
     response = response_factory.requests(status_code=200)
     ctx_check = check_context()
@@ -6749,7 +6779,7 @@ def test_coverage_positive_object_no_required_collapsed_template_emits_empty_onc
         },
         path="/x",
     )
-    cases = generate_cases(operation, GenerationMode.POSITIVE)
+    cases = iter_cases(operation, GenerationMode.POSITIVE)
     empty_bodies = [c.body for c in cases if c.body == {}]
     assert len(empty_bodies) == 1, f"Expected one empty-body case, got {len(empty_bodies)}: {[c.body for c in cases]}"
 
@@ -7492,7 +7522,7 @@ def test_coverage_parameter_negatives_survive_unserializable_body_media_type(ctx
         version="2.0",
         consumes=["text/powershell"],
     )["/items/{name}"]["PUT"]
-    cases = generate_cases(operation, GenerationMode.NEGATIVE)
+    cases = iter_cases(operation, GenerationMode.NEGATIVE)
 
     assert [
         case.path_parameters["name"] for case in scenario_cases(cases, CoverageScenario.STRING_ABOVE_MAX_LENGTH)
@@ -8101,6 +8131,22 @@ def test_each_custom_media_type_alternative_yields_its_own_body(ctx):
     ]
 
 
+def test_wildcard_custom_media_type_alternatives_yield_matching_bodies(ctx):
+    schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
+    schemathesis.openapi.media_type("image/jpeg", st.just(b"\xff\xd8jpeg"))
+    operation = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {"image/*": {"schema": {"type": "string", "format": "binary"}}},
+        },
+    )["/foo"]["post"]
+    assert [(case.media_type, case.body) for case in iter_cases(operation, GenerationMode.POSITIVE)] == [
+        ("image/png", b"\x89PNG"),
+        ("image/jpeg", b"\xff\xd8jpeg"),
+    ]
+
+
 def test_custom_media_type_body_emits_no_positive_case_in_negative_mode(ctx):
     schemathesis.openapi.media_type("application/pdf", st.just(b"%PDF-1.4"))
     operation = load_schema(
@@ -8136,6 +8182,27 @@ def test_multipart_body_with_custom_encoding_yields_positive_case(ctx, is_requir
         for case in iter_cases(operation, GenerationMode.POSITIVE)
         if case.body is not NOT_SET
     ] == [(GenerationMode.POSITIVE, {"file": b"\x89PNG"})]
+
+
+def test_multipart_wildcard_custom_encoding_records_matching_part_content_type(ctx):
+    schemathesis.openapi.media_type("image/png", st.just(b"\x89PNG"))
+    operation = load_schema(
+        ctx,
+        request_body={
+            "required": True,
+            "content": {
+                "multipart/form-data": {
+                    "schema": {"type": "object", "properties": {"file": {"type": "string", "format": "binary"}}},
+                    "encoding": {"file": {"contentType": "image/*"}},
+                }
+            },
+        },
+    )["/foo"]["post"]
+    assert [
+        (case.body, case.multipart_content_types)
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        if case.body is not NOT_SET
+    ] == [({"file": b"\x89PNG"}, {"file": "image/png"})]
 
 
 def test_combination_cases_deduplicate_repeated_requests(ctx):
@@ -8207,6 +8274,24 @@ def test_combination_cases_deduplicate_repeated_requests(ctx):
             {"x-token": "secret", "x-schemathesis-unknown-property": "42"},
         ),
     ]
+
+
+def test_combination_cases_with_body_deduplicate_repeated_requests(ctx):
+    # The all-optional combination sends the same query and body as the array parameter's own positive case.
+    operation = body_operation(
+        ctx,
+        {"enum": [{"x": 1}]},
+        parameters=[
+            {"in": "query", "name": "a", "required": False, "schema": {"type": "string"}},
+            {"in": "query", "name": "b", "required": False, "schema": {"type": "array", "items": {"type": "string"}}},
+        ],
+    )
+    sent = [
+        (prepared.url, prepared.body)
+        for case in iter_cases(operation, GenerationMode.POSITIVE)
+        for prepared in [Request(**case.as_transport_kwargs(base_url="http://127.0.0.1")).prepare()]
+    ]
+    assert len(sent) == len(set(sent)), sent
 
 
 @pytest.mark.parametrize("location", ["path", "query", "header", "cookie"])
@@ -8861,7 +8946,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 "required": ["query"],
             },
             {},
-            {"source": generate_cases, "validate_formats": False},
+            {"source": iter_cases, "validate_formats": False},
             id="coverage_negative_empty_dict_additional_properties_not_treated_as_false",
         ),
         pytest.param(
@@ -8872,7 +8957,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 "required": ["name"],
             },
             {},
-            {"source": generate_cases, "validate_formats": False},
+            {"source": iter_cases, "validate_formats": False},
             id="coverage_negative_pattern_with_control_chars_uses_schema_validator",
         ),
         # Values satisfy both `format: uuid` and an uppercase-only pattern.
@@ -8889,7 +8974,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 },
             },
             {},
-            {"source": generate_cases},
+            {"source": iter_cases},
             id="coverage_positive_body_uuid_format_with_uppercase_pattern",
         ),
         # A lowercase UUID satisfies both keywords, so the required property must not sink the body.
@@ -8901,7 +8986,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 "properties": {"id": {"type": "string", "format": "uuid", "pattern": "^[0-9a-f-]+$"}},
             },
             {},
-            {"source": generate_cases},
+            {"source": iter_cases},
             id="coverage_positive_body_required_format_with_wider_pattern",
         ),
         # Every enum value violates `maxLength`, so none can serve as the positive template.
@@ -8916,7 +9001,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 "required": ["name"],
             },
             {},
-            {"source": generate_cases, "validate_formats": False},
+            {"source": iter_cases, "validate_formats": False},
             id="coverage_positive_body_skips_properties_with_no_valid_enum_values",
         ),
         # `items` beside `type: object` must not produce a list.
@@ -9018,7 +9103,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 },
             },
             {},
-            {"source": generate_cases, "validate_formats": False},
+            {"source": iter_cases, "validate_formats": False},
             id="coverage_negative_max_length_preserved_when_pattern_has_inner_quantifier",
         ),
         # Optional group with a variable inner part: `maxLength` is not representable in the pattern.
@@ -9037,7 +9122,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 },
             },
             {},
-            {"source": generate_cases, "validate_formats": False},
+            {"source": iter_cases, "validate_formats": False},
             id="coverage_negative_max_length_preserved_when_outer_optional_group_has_variable_inner",
         ),
         pytest.param(
@@ -9049,7 +9134,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 "required": ["type", "linkedServiceName"],
             },
             {},
-            {"source": generate_cases, "validate_formats": False},
+            {"source": iter_cases, "validate_formats": False},
             id="coverage_negative_missing_required_with_additional_properties_schema",
         ),
         pytest.param(
@@ -9068,7 +9153,7 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
                 },
             },
             {},
-            {"source": generate_cases, "validate_formats": False},
+            {"source": iter_cases, "validate_formats": False},
             id="coverage_positive_pattern_with_variable_suffix_not_overconstrained",
         ),
         # Required fields from the second `allOf` reference in a `oneOf` branch are kept.
@@ -9289,6 +9374,26 @@ def test_coverage_bodies_match_their_mode(ctx, version, body):
             },
             {},
             id="single_branch_allof_keeps_outer_additional_properties",
+        ),
+        # Another branch's `patternProperties` do not exempt names from the outer `additionalProperties: false`.
+        pytest.param(
+            GenerationMode.POSITIVE,
+            {"additionalProperties": False, "minProperties": 1, "allOf": [{"patternProperties": {"": {}}}]},
+            {},
+            {},
+            id="allof_pattern_properties_keep_outer_additional_properties",
+        ),
+        pytest.param(
+            GenerationMode.POSITIVE,
+            {
+                "type": "object",
+                "additionalProperties": {"type": "integer"},
+                "required": ["xa"],
+                "allOf": [{"patternProperties": {"^x": {"minimum": 5}}}],
+            },
+            {},
+            {},
+            id="allof_pattern_properties_keep_outer_additional_properties_schema",
         ),
     ],
 )

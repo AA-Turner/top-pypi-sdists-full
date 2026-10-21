@@ -317,7 +317,7 @@ class QrackAceBackend:
         # between "more separable" (rotation toward consensus is real,
         # useful reconciliation) and "more entangled" (rotation only
         # scrambles a real correlation with another logical qubit's
-        # replica -- see _correct). Default is the point where a single
+        # replica -- see correct). Default is the point where a single
         # qubit's linear entropy is half its maximum.
         self._rot_epsilon = (1.0 - 1.0 / math.sqrt(2)) / 2
 
@@ -340,7 +340,7 @@ class QrackAceBackend:
             # rather than surgically suppressing the wrap step further
             # down (which was tried and reverted -- it produced replica
             # counts, e.g. 2, that the rest of the class was never built
-            # to handle, via _get_qb_lhv_indices/_correct, which assume
+            # to handle, via _get_qb_lhv_indices/correct, which assume
             # counts of 1, 3, or 5 only), means every code path that fires
             # for is_torus=False is one that already exists and is already
             # tested for is_torus=True; only WHICH positions take which
@@ -373,7 +373,7 @@ class QrackAceBackend:
         # for a handful of patches. Every boundary qubit ALSO still gets
         # its classical LHVQubit proxy (self.lhv, below) regardless, same
         # as when this option is off: with the crossbar on, the proxy
-        # drops to being only the last-resort tie-breaker _correct() falls
+        # drops to being only the last-resort tie-breaker correct() falls
         # back to when even the crossbar replica is itself ambiguous; with
         # it off, the proxy is promoted to cover the crossbar's old
         # tie-breaking role directly.
@@ -459,11 +459,11 @@ class QrackAceBackend:
         # ancilla already allocated there. See _apply_coupling for why
         # this needs to be a genuine logical qubit and not just a raw
         # physical capture: capturing lq1's LOGICAL value via a real,
-        # nested cx(lq1, anc) call goes through the full _correct()/
+        # nested cx(lq1, anc) call goes through the full correct()/
         # shadow-coupling machinery robustly, the same way any other
         # logical qubit's value would be determined -- watching one
         # specific physical replica directly (an earlier version of
-        # this) isn't a valid invariant, since _correct() can
+        # this) isn't a valid invariant, since correct() can
         # legitimately need to change any single replica's own value.
         self.detect_ancilla_lq = []
         if self.is_error_detection:
@@ -877,7 +877,7 @@ class QrackAceBackend:
 
         sim.mtrx([m00, m01, m10, m11])
 
-    def _correct(self, lq, phase=False, skip_rotation=False):
+    def correct(self, lq, phase=False, skip_rotation=False):
         hq = self._unpack(lq)
 
         if len(hq) == 1:
@@ -1337,7 +1337,7 @@ class QrackAceBackend:
         if lhv is not None:
             lhv.u(th, ph, lm)
 
-        # Correction deferred to next 2-qubit gate (_cpauli calls _correct)
+        # Correction deferred to next 2-qubit gate (_cpauli calls correct)
 
     def r(self, p, th, lq):
         hq = self._unpack(lq)
@@ -1361,7 +1361,7 @@ class QrackAceBackend:
             elif p == Pauli.PauliZ:
                 lhv.rz(th)
 
-        # Correction deferred to next 2-qubit gate (_cpauli calls _correct)
+        # Correction deferred to next 2-qubit gate (_cpauli calls correct)
 
     def h(self, lq):
         hq = self._unpack(lq)
@@ -1380,7 +1380,7 @@ class QrackAceBackend:
         if lhv is not None:
             lhv.h()
 
-        # Correction deferred to next 2-qubit gate (_cpauli calls _correct)
+        # Correction deferred to next 2-qubit gate (_cpauli calls correct)
 
     def s(self, lq):
         hq = self._unpack(lq)
@@ -1647,8 +1647,8 @@ class QrackAceBackend:
             self._in_gadget_capture = False
 
         if not self._in_gadget_capture:
-            self._correct(lq1)
-            self._correct(lq2)
+            self.correct(lq1)
+            self.correct(lq2)
 
         # A target replica (q2) that shares a simulator with ANY control
         # replica in qb1 is going to receive a REAL, exact gate from that
@@ -1662,7 +1662,7 @@ class QrackAceBackend:
         # invert the correlation sign the real CNOT is about to
         # establish. Confirmed directly: for a boundary-to-boundary
         # coupling, measuring the raw physical replica pairs that DO
-        # share a simulator (bypassing all of _correct/m's classical
+        # share a simulator (bypassing all of correct/m's classical
         # reconciliation, and with is_error_detection off) showed near-
         # perfect agreement for the one pair untouched by any earlier
         # shadow write, but only ~50-60% agreement (chance level) for
@@ -1704,9 +1704,9 @@ class QrackAceBackend:
 
         if not self._in_gadget_capture:
             if pauli != Pauli.PauliZ:
-                self._correct(lq2, False, pauli != Pauli.PauliX)
+                self.correct(lq2, False, pauli != Pauli.PauliX)
             if pauli != Pauli.PauliX:
-                self._correct(lq2, True)
+                self.correct(lq2, True)
 
         if anc is not None:
             self._in_gadget_capture = True
@@ -2022,10 +2022,10 @@ class QrackAceBackend:
         # decomposition for SDRP to truncate. This is the case the noise
         # model's common-fraction term assumes is error-free.
 
-        # _cpauli normally wraps every coupling gate with _correct() before
+        # _cpauli normally wraps every coupling gate with correct() before
         # and after, to reconcile multi-replica consensus. This method
         # calls the underlying simulators (and _cx_shadow) directly,
-        # bypassing that wrapper entirely -- _correct() is a no-op for
+        # bypassing that wrapper entirely -- correct() is a no-op for
         # single-replica (bulk) qubits, so this is always safe to call, and
         # only actually matters (and was being silently skipped) whenever
         # either side is a multi-replica boundary qubit.
@@ -2092,8 +2092,8 @@ class QrackAceBackend:
                 self.cx(lq2, lq1)
             return
 
-        self._correct(lq1)
-        self._correct(lq2)
+        self.correct(lq1)
+        self.correct(lq2)
 
         # Partial-match cases: one side is a simple (single-replica) qubit,
         # the other has multiple replicas. For the multi-replica side's
@@ -2120,12 +2120,12 @@ class QrackAceBackend:
             for _hq2 in non_matching:
                 self._cx_shadow(_hq1, _hq2)
             # No correction on lq1 (bulk, single-replica): already a
-            # structural no-op via _correct's own len(hq)==1 guard.
+            # structural no-op via correct's own len(hq)==1 guard.
             # lq2 (boundary) DOES take real error here (X-type, verified),
             # so it keeps a correction -- phase=False, not True, since the
             # error is already Z-basis-population-visible and doesn't need
             # an H-rotation first to become detectable.
-            self._correct(lq2)
+            self.correct(lq2)
         elif len(hq2) == 1 and any(h[0] == hq2[0][0] for h in hq1):
             _hq2 = hq2[0]
             non_matching = [h for h in hq1 if h[0] != _hq2[0]]
@@ -2136,14 +2136,14 @@ class QrackAceBackend:
                 self.sim[_hq2[0]].swap(_hq2[1], _hq1[1])
             for _hq1 in non_matching:
                 self._cx_shadow(_hq2, _hq1)
-            self._correct(lq1)
+            self.correct(lq1)
         else:
             # General case: no shared simulator at all (e.g. two simple
             # qubits on entirely different sims -- nothing to anchor an exact
             # swap on, verified the sandwich branches above give WRONG,
             # deterministic results here: 100/100 failures vs 0/15 for this
             # fallback), or both sides multi-replica and not fully matched:
-            # cx() already wraps itself with _correct() via _cpauli, so no
+            # cx() already wraps itself with correct() via _cpauli, so no
             # extra wrapping needed here.
             self.cx(lq1, lq2)
             self.cx(lq2, lq1)
@@ -2170,65 +2170,6 @@ class QrackAceBackend:
             self.mcx([c1, c2], t)
             return
 
-        # AND-invariant, generalized from _apply_coupling's CX/CZ XOR
-        # check to the Toffoli's actual relationship: t should end up as
-        # t_before XOR (c1 AND c2), not just t_before XOR c1 or XOR c2
-        # individually. mcx is the native AND-conditioned flip, so it
-        # plays the same role here that a plain cx(control, anc) played
-        # in the 2-qubit case: capture t's pre-gate value, then fold in
-        # c1 AND c2 via a genuine nested mcx() (which goes through the
-        # same shadow/_correct machinery as any other logical gate, so
-        # this is exposed to the same class of intrinsic approximation
-        # error the CX/CZ check catches, not a raw single-replica read).
-        # Uses t's own patch ancilla2 array, since t itself is guaranteed
-        # bulk on this path (the len(hqt) > 1 case returns earlier,
-        # above) and nothing else in this method uses that array anymore.
-        anc_and = None
-        if self.is_error_detection and not self._in_gadget_capture and ((len(hqt) > 1) or (len(hq1) > 1) or (len(hq2) > 1)):
-            found = False
-            anc_sim = hq1[0][0]
-            t_sims = {y[0] for y in hqt if y[0] >= 0}
-            for x in hq1:
-                if (x[0] < 0) or (x[0] not in t_sims):
-                    continue
-                anc_sim = x[0]
-                for y in hq2:
-                    if (y[0] < 0) or (y[0] not in t_sims):
-                        continue
-                    if anc_sim == y[0]:
-                        found = True
-                        break
-                if found:
-                    break
-            self._in_gadget_capture = True
-            anc_and = self.detect_ancilla_lq[anc_sim]
-            self.cx(t, anc_and)
-            # self.mcx() only supports a single control at the logical
-            # level (a syntax-convenience wrapper, confirmed directly --
-            # it raises for 2 controls), so it can't do the AND capture
-            # itself. When c1 and c2 both happen to have a physical
-            # replica in t's own home-patch simulator (the same one
-            # anc_and lives in), use a genuine native mcx there directly
-            # -- exact, and a clean, independent reference to compare the
-            # real Toffoli against. Otherwise, fall back to a recursive
-            # ccx(c1, c2, anc_and): safe from infinite recursion here
-            # specifically because _in_gadget_capture is already True, so
-            # the recursive call's own "not self._in_gadget_capture" gate
-            # skips setting up a second anc_and, and just performs the
-            # ordinary native-witness-or-shadow Toffoli computation on
-            # anc_and instead.
-            c1_idx = next((r[1] for r in hq1 if r[0] == anc_sim), None)
-            c2_idx = next((r[1] for r in hq2 if r[0] == anc_sim), None)
-            if (c1_idx is not None) and (c2_idx is not None):
-                _, anc_and_idx = self.qubits[anc_and][0]
-                self.sim[anc_sim].mcx([c1_idx, c2_idx], anc_and_idx)
-            else:
-                self.ccx(c1, c2, anc_and)
-            self._in_gadget_capture = False
-
-        self._correct(c1)
-        self._correct(c2)
-
         qb1, _ = QrackAceBackend._get_qb_lhv_indices(hq1)
         qb2, _ = QrackAceBackend._get_qb_lhv_indices(hq2)
         qbt, _ = QrackAceBackend._get_qb_lhv_indices(hqt)
@@ -2253,28 +2194,6 @@ class QrackAceBackend:
             witnesses.append(witness)
 
         if needs_shadow:
-            # Confirmed directly: whenever even one replica of t lacks a
-            # native witness shared with c1 and c2, the per-replica
-            # fallback to _ccx_shadow craters fidelity specifically when
-            # either control is in genuine superposition -- 0.64-0.68
-            # vs. 0.999+ for every other input tested, stable from 100 to
-            # 2500 shots, so not shot noise. Diverting the WHOLE
-            # operation (not just the unwitnessed replica) to the general
-            # 6-CX decomposition instead: every step here is a genuine
-            # logical cx()/h()/t()/adjt() call, which updates every
-            # replica of t through the same _apply_coupling boundary-
-            # crossing machinery already validated elsewhere in this
-            # file, rather than the lower-level per-replica _cx_shadow
-            # calls _ccx_shadow uses for just the unwitnessed ones.
-            #
-            # Wrapped in _in_gadget_capture, same as established earlier:
-            # without it, each individual cx() here would independently
-            # trigger its own XOR-invariant gadget setup, which corrupts
-            # the precise T/Tdg phase relationships this decomposition
-            # depends on (confirmed directly, the first time this
-            # decomposition was used unconditionally -- corrupted even
-            # c1/c2, which the per-replica path never touched at all).
-            self._in_gadget_capture = True
             self.h(t)
             self.cx(c2, t)
             self.adjt(t)
@@ -2290,16 +2209,48 @@ class QrackAceBackend:
             self.t(c1)
             self.adjt(c2)
             self.cx(c1, c2)
+
+            return
+
+        anc_and = None
+        if self.is_error_detection and not self._in_gadget_capture and ((len(hqt) > 1) or (len(hq1) > 1) or (len(hq2) > 1)):
+            found = False
+            anc_sim = hq1[0][0]
+            t_sims = {y[0] for y in hqt if y[0] >= 0}
+            for x in hq1:
+                if (x[0] < 0) or (x[0] not in t_sims):
+                    continue
+                anc_sim = x[0]
+                for y in hq2:
+                    if (y[0] < 0) or (y[0] not in t_sims):
+                        continue
+                    if anc_sim == y[0]:
+                        found = True
+                        break
+                if found:
+                    break
+            self._in_gadget_capture = True
+            anc_and = self.detect_ancilla_lq[anc_sim]
+            self.cx(t, anc_and)
+            c1_idx = next((r[1] for r in hq1 if r[0] == anc_sim), None)
+            c2_idx = next((r[1] for r in hq2 if r[0] == anc_sim), None)
+            if (c1_idx is not None) and (c2_idx is not None):
+                _, anc_and_idx = self.qubits[anc_and][0]
+                self.sim[anc_sim].mcx([c1_idx, c2_idx], anc_and_idx)
+            else:
+                self.ccx(c1, c2, anc_and)
             self._in_gadget_capture = False
-        else:
-            for (b1, b2, bt) in witnesses:
-                self.sim[b1[0]].mcx([b1[1], b2[1]], bt[1])
 
-        self._correct(t)
+        self.correct(c1)
+        self.correct(c2)
 
-        self._in_gadget_capture = True
+        for (b1, b2, bt) in witnesses:
+            self.sim[b1[0]].mcx([b1[1], b2[1]], bt[1])
+
+        self.correct(t)
 
         if anc_and is not None:
+            self._in_gadget_capture = True
             self.cx(t, anc_and)
             anc_sim, anc_idx = self.qubits[anc_and][0]
             p = self.sim[anc_sim].prob(anc_idx)
@@ -2311,8 +2262,7 @@ class QrackAceBackend:
             if b:
                 self.x(anc_and)
                 self.x(t)
-
-        self._in_gadget_capture = False
+            self._in_gadget_capture = False
 
     def ccz(self, c1, c2, t):
         self.h(t)
@@ -2330,9 +2280,9 @@ class QrackAceBackend:
             b = hq[0]
             return self.sim[b[0]].prob(b[1])
 
-        self._correct(lq)
+        self.correct(lq)
         # The real replicas are already mutually consistent here (the
-        # _correct() call above already ran the appropriate tie-breaking
+        # correct() call above already ran the appropriate tie-breaking
         # cascade for however many replicas hq has -- 2, 3, 4, or 5,
         # depending on self.use_crossbars and whether this is an edge or
         # corner boundary qubit -- using the LHV proxy and/or the
@@ -2341,7 +2291,7 @@ class QrackAceBackend:
         # correct, already-decided answer, regardless of replica count:
         # re-weighting any particular replica specially here would
         # reintroduce the same center-dragging distortion the cascade in
-        # _correct() was built to avoid.
+        # correct() was built to avoid.
         p = [self.sim[b[0]].prob(b[1]) for b in hq]
         n = len(p)
         prms = math.sqrt(sum(x**2 for x in p) / n)
@@ -2383,7 +2333,7 @@ class QrackAceBackend:
             b = hq[0]
             return self.sim[b[0]].force_m(b[1], result)
 
-        self._correct(lq)
+        self.correct(lq)
 
         qb, _ = QrackAceBackend._get_qb_lhv_indices(hq)
 
@@ -3033,7 +2983,7 @@ class QrackAceBackend:
         # _cpauli's own convention) to be a multi-replica (boundary)
         # qubit -- see _cpauli: anc1 (the control-invariance capture) is
         # unconditional but structurally trivial for a single-replica
-        # control (_correct() is already a no-op there, nothing for the
+        # control (correct() is already a no-op there, nothing for the
         # gadget to protect against), and anc2 (the target-value
         # verification against the CX/ACX-predicted output) is
         # explicitly gated on len(hq1) > 1. Both halves are gated the
@@ -3130,13 +3080,13 @@ class QrackAceBackend:
             # Error type re-verified directly against THIS file (the
             # gadget mechanics changed substantially since the type was
             # first derived -- swap()'s own cross-check gadget, the
-            # _correct()-skip-during-capture fix, and the post-selection
+            # correct()-skip-during-capture fix, and the post-selection
             # floor threshold are all new), to make sure none of that
             # changed the underlying picture. It hasn't: _cx_shadow
             # itself is untouched by any of it. Reading the LOGICAL
             # prob(lq) still tells you nothing (0.00000 deviation in
             # both bases on a single isolated swap, gadget on or off --
-            # it calls _correct() internally and reconciles across every
+            # it calls correct() internally and reconciles across every
             # replica, the same masking this file has run into more than
             # once). Reading the RAW, non-matching replica directly
             # (bypassing that reconciliation) gives a clean, deterministic

@@ -172,7 +172,7 @@ def _get_slurm_workload_details() -> dict[str, Any] | None:
     return None
 
   cluster_path = (
-      f"/projects/{gcp.get_project_id()}/locations/{gcp.get_instance_zone()}/clusters/{cluster_name}"
+      f"projects/{gcp.get_project_id()}/locations/{gcp.get_instance_zone()}/clusters/{cluster_name}"
   )
 
   job_name = os.getenv("SLURM_JOB_NAME")
@@ -524,6 +524,31 @@ def is_master_host(
       process_index,
   )
   return process_index == 0
+
+
+def get_local_process_index(
+    framework: mlrun_types.Framework = mlrun_types.Framework.JAX,
+) -> int:
+  """Host-local process index; 0 for exactly one process per host."""
+  if framework == mlrun_types.Framework.PYTORCH:
+    return _import_torch_host_module().get_torch_local_process_index()
+  return 0
+
+
+def get_local_world_size(
+    framework: mlrun_types.Framework = mlrun_types.Framework.JAX,
+) -> int:
+  """Returns the number of processes sharing the current host."""
+  if framework == mlrun_types.Framework.PYTORCH:
+    return _import_torch_host_module().get_torch_local_world_size()
+  return 1
+
+
+def is_local_master_process(
+    framework: mlrun_types.Framework = mlrun_types.Framework.JAX,
+) -> bool:
+  """Checks if the current process is the local master (local rank 0) on this host."""
+  return get_local_process_index(framework) == 0
 
 
 def get_workload_details(

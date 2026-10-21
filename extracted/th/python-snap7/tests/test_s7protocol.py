@@ -17,6 +17,7 @@ from snap7.s7protocol import (
     _COLD_START_PARAMS,
 )
 from snap7.error import S7ProtocolError
+from datetime import datetime
 
 
 class TestGetReturnCodeDescription:
@@ -245,7 +246,7 @@ class TestManagementAndDownloadVectors:
     def test_get_db_info_request(self) -> None:
         assert (
             self.proto.build_get_block_info_request(0x41, 1).hex()
-            == "3207000000010008000c0001120411430300ff0900083041413030303031"
+            == "3207000000010008000c0001120411430300ff0900083041303030303141"
         )
 
     def test_set_clock_request(self) -> None:
@@ -253,8 +254,41 @@ class TestManagementAndDownloadVectors:
 
         when = datetime(2026, 9, 23, 12, 34, 56, 789000, tzinfo=timezone.utc)
         assert (
-            self.proto.build_set_clock_request(when).hex() == "3207000000010008000e0001120411470200ff09000a00192609231234567893"
+            self.proto.build_set_clock_request(when).hex() == "3207000000010008000e0001120411470200ff09000a00192609231234567894"
         )
+
+    def test_set_clock_weekday_is_sunday_based(self) -> None:
+        from datetime import datetime, timedelta
+
+        # 2026-09-27 is a Sunday; the S7 weekday nibble is 1=Sunday .. 7=Saturday
+        for offset, expected in enumerate([1, 2, 3, 4, 5, 6, 7]):
+            when = datetime(2026, 9, 27, 12, 0, 0) + timedelta(days=offset)
+            assert self.proto.build_set_clock_request(when)[-1] & 0x0F == expected, when.strftime("%A")
+
+    def test_set_clock_year_range(self) -> None:
+        from datetime import datetime
+
+        assert self.proto.build_set_clock_request(datetime(1990, 1, 1))
+        assert self.proto.build_set_clock_request(datetime(2089, 12, 31, 23, 59, 59))
+        for year in (1989, 2090):
+            with pytest.raises(ValueError, match="1990-2089"):
+                self.proto.build_set_clock_request(datetime(year, 1, 1))
+
+    def test_compress_request_matches_real_job(self) -> None:
+        # Parameter block sent by an engineering tool (CISA icsnpp-s7comm snap7.pcap): _GARB
+        request = self.proto.build_compress_request()
+        assert request[10:] == bytes.fromhex("28000000000000fd0000055f47415242")
+
+    def test_copy_ram_to_rom_request_matches_real_job(self) -> None:
+        # Parameter block sent by an engineering tool (CISA icsnpp-s7comm snap7.pcap): file system EP, _MODU
+        request = self.proto.build_copy_ram_to_rom_request()
+        assert request[10:] == bytes.fromhex("28000000000000fd00024550055f4d4f4455")
+
+    def test_read_szl_request_matches_real_tool(self) -> None:
+        # Captured from a real S7-300 session: SZL id 0x0132 index 4. Bytes 4-5 are the PDU reference.
+        real = bytes.fromhex("320700000300000800080001120411440100ff09000401320004")
+        request = self.proto.build_read_szl_request(0x0132, 4)
+        assert request[:4] + request[6:] == real[:4] + real[6:]
 
     def test_request_db_download(self) -> None:
         assert self.proto.build_download_request(0x41, 1, bytes(64)).hex() == (
@@ -360,37 +394,50 @@ class TestParseListBlocksResponse:
     def setup_method(self) -> None:
         self.proto = S7Protocol()
 
+    @staticmethod
+    def _table(entries: list[tuple[int, int]]) -> dict[str, Any]:
+        # Each entry: indicator(0x30) + type + count(2 bytes)
+        return {"data": {"data": b"".join(struct.pack(">BBH", 0x30, t, c) for t, c in entries)}}
+
+    _ALL_TYPES = (0x38, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46)
+
     def test_valid_response(self) -> None:
-        # Build entries: indicator(0x30) + type + count(2 bytes)
-        data = b""
-        data += struct.pack(">BBH", 0x30, 0x38, 5)  # OB: 5
-        data += struct.pack(">BBH", 0x30, 0x41, 3)  # DB: 3
-        data += struct.pack(">BBH", 0x30, 0x43, 7)  # FC: 7
-        response = {"data": {"data": data}}
+        counts = {0x38: 5, 0x41: 3, 0x43: 7}
+        response = self._table([(t, counts.get(t, 0)) for t in self._ALL_TYPES])
         result = self.proto.parse_list_blocks_response(response)
         assert result["OBCount"] == 5
         assert result["DBCount"] == 3
         assert result["FCCount"] == 7
         assert result["FBCount"] == 0
 
-    def test_empty_data(self) -> None:
-        response = {"data": {"data": b""}}
-        result = self.proto.parse_list_blocks_response(response)
-        assert result["DBCount"] == 0
+    def test_empty_data_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError, match="28 bytes"):
+            self.proto.parse_list_blocks_response({"data": {"data": b""}})
 
-    def test_no_data(self) -> None:
-        response: dict[str, Any] = {}
-        result = self.proto.parse_list_blocks_response(response)
-        assert all(v == 0 for v in result.values())
+    def test_no_data_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError, match="28 bytes"):
+            self.proto.parse_list_blocks_response({})
+
+    def test_partial_table_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError, match="28 bytes"):
+            self.proto.parse_list_blocks_response(self._table([(0x38, 1)]))
+
+    def test_oversized_table_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError, match="28 bytes"):
+            self.proto.parse_list_blocks_response(self._table([(t, 0) for t in self._ALL_TYPES] + [(0x41, 1)]))
+
+    def test_duplicate_block_type_rejected(self) -> None:
+        entries = [(t, 0) for t in self._ALL_TYPES[:-1]] + [(0x38, 9)]
+        with pytest.raises(S7ProtocolError, match="Duplicate"):
+            self.proto.parse_list_blocks_response(self._table(entries))
 
     def test_unknown_block_type_rejected(self) -> None:
-        data = struct.pack(">BBH", 0x30, 0xFF, 99)  # unknown type
-        response = {"data": {"data": data}}
+        entries = [(t, 0) for t in self._ALL_TYPES[:-1]] + [(0xFF, 99)]
         with pytest.raises(S7ProtocolError, match="entry"):
-            self.proto.parse_list_blocks_response(response)
+            self.proto.parse_list_blocks_response(self._table(entries))
 
     def test_truncated_entry_rejected(self) -> None:
-        with pytest.raises(S7ProtocolError, match="multiple of four"):
+        with pytest.raises(S7ProtocolError, match="28 bytes"):
             self.proto.parse_list_blocks_response({"data": {"data": b"\x30\x41\x00"}})
 
 
@@ -487,6 +534,57 @@ class TestParseReadSZLResponse:
         assert result["data"] == b""
 
 
+class TestParseResponseHeaderError:
+    def _ack_data(self, error_class: int, error_code: int) -> bytes:
+        params = bytes([4, 1])
+        data = bytes([0xFF, 4, 0, 0x20, 0x11, 0x22, 0x33, 0x44])
+        return struct.pack(">BBHHHHBB", 0x32, 3, 0, 1, len(params), len(data), error_class, error_code) + params + data
+
+    def test_error_code_with_class_zero_is_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError, match="0x20") as exc_info:
+            S7Protocol().parse_response(self._ack_data(0, 0x20))
+        assert exc_info.value.error_code == 0x0020
+
+    def test_error_class_is_still_rejected(self) -> None:
+        with pytest.raises(S7ProtocolError):
+            S7Protocol().parse_response(self._ack_data(0x81, 0x04))
+
+    def test_zero_error_word_is_accepted(self) -> None:
+        from snap7.datatypes import S7WordLen
+
+        proto = S7Protocol()
+        response = proto.parse_response(self._ack_data(0, 0))
+        assert proto.extract_read_data(response, S7WordLen.BYTE, 4) == [0x11, 0x22, 0x33, 0x44]
+
+
+class TestUserdataNullAck:
+    # Captured from a real S7-300 (Wireshark sample s7comm_reading_setting_plc_time.pcap, frame 44)
+    SET_CLOCK_ACK = bytes.fromhex("320700000c00000c00040001120812870201000000000a000000")
+
+    def test_null_ack_accepted_for_set_clock(self) -> None:
+        proto = S7Protocol()
+        response = proto.parse_response(self.SET_CLOCK_ACK)
+        proto.check_userdata_response(response, S7UserDataGroup.TIME, S7UserDataSubfunction.SET_CLOCK, accept_null_ack=True)
+
+    def test_null_ack_rejected_by_default(self) -> None:
+        proto = S7Protocol()
+        response = proto.parse_response(self.SET_CLOCK_ACK)
+        with pytest.raises(S7ProtocolError, match="0x0a"):
+            proto.check_userdata_response(response, S7UserDataGroup.TIME, S7UserDataSubfunction.SET_CLOCK)
+
+    def test_null_ack_with_parameter_error_rejected(self) -> None:
+        pdu = bytearray(self.SET_CLOCK_ACK)
+        pdu[20:22] = bytes([0x81, 0x04])  # parameter error code
+        with pytest.raises(S7ProtocolError):
+            S7Protocol().parse_response(bytes(pdu))
+
+    def test_other_return_codes_still_rejected_with_null_ack(self) -> None:
+        pdu = bytearray(self.SET_CLOCK_ACK)
+        pdu[22] = 0x05  # address out of range
+        with pytest.raises(S7ProtocolError):
+            S7Protocol().parse_response(bytes(pdu))
+
+
 class TestParseGetClockResponse:
     def setup_method(self) -> None:
         self.proto = S7Protocol()
@@ -509,9 +607,25 @@ class TestParseGetClockResponse:
         result = self.proto.parse_get_clock_response(response)
         assert result.year == 1990
 
+    def test_ten_byte_native_layout(self) -> None:
+        # reserved, century, then 1990-01-01 00:00:00 (year, month, day, hour, minute, second, ms/weekday)
+        raw_data = bytes([0x00, 0x19, 0x90, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01])
+        result = self.proto.parse_get_clock_response({"data": {"data": raw_data}})
+        assert result == datetime(1990, 1, 1, 0, 0, 0)
+
+    def test_ten_byte_with_milliseconds_and_century(self) -> None:
+        raw_data = bytes([0x00, 0x20, 0x26, 0x10, 0x07, 0x12, 0x30, 0x45, 0x12, 0x34])
+        result = self.proto.parse_get_clock_response({"data": {"data": raw_data}})
+        assert result == datetime(2026, 10, 7, 12, 30, 45, 123000)
+
+    def test_ten_byte_invalid_milliseconds_rejected(self) -> None:
+        raw_data = bytes([0x00, 0x20, 0x26, 0x10, 0x07, 0x12, 0x30, 0x45, 0xFF, 0x04])
+        with pytest.raises(S7ProtocolError, match="invalid BCD"):
+            self.proto.parse_get_clock_response({"data": {"data": raw_data}})
+
     def test_short_data_rejected(self) -> None:
         response = {"data": {"data": b"\x00\x01"}}
-        with pytest.raises(S7ProtocolError, match="eight bytes"):
+        with pytest.raises(S7ProtocolError, match="ten bytes"):
             self.proto.parse_get_clock_response(response)
 
     def test_invalid_bcd_date_rejected(self) -> None:

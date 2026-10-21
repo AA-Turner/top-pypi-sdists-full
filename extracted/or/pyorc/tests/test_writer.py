@@ -642,3 +642,67 @@ def test_write_intermediate_footer():
     reader = Reader(data)
     assert len(reader) == 65536
     assert reader.bytes_lengths["file_length"] >= offset
+
+
+def mixed(n: int):
+    """Alternate int / str so both union children need to grow."""
+    return [i if i % 2 == 0 else f"s{i}" for i in range(n)]
+
+
+GROWTH_TESTCASES = [
+    ("array<int>", lambda r: list(range(20))),
+    ("array<struct<a:int,b:string>>", lambda r: [(i, f"s{i}") for i in range(20)]),
+    ("array<array<int>>", lambda r: [list(range(5)) for _ in range(20)]),
+    ("map<string,int>", lambda r: {f"k{i}": i for i in range(20)}),
+    (
+        "map<string,struct<a:int,b:string>>",
+        lambda r: {f"k{i}": (i, f"s{i}") for i in range(20)},
+    ),
+    ("array<uniontype<int,string>>", lambda r: mixed(20)),
+    (
+        "map<string,uniontype<int,string>>",
+        lambda r: {f"k{i}": v for i, v in enumerate(mixed(20))},
+    ),
+    ("array<struct<a:uniontype<int,string>>>", lambda r: [(v,) for v in mixed(20)]),
+    ("struct<a:array<uniontype<int,string>>>", lambda r: (mixed(20),)),
+    ("array<array<uniontype<int,string>>>", lambda r: [mixed(5) for _ in range(20)]),
+]
+
+
+@pytest.mark.parametrize("batch_size", [1, 4])
+@pytest.mark.parametrize("n_rows", [1, 10])
+@pytest.mark.parametrize("schema,factory", GROWTH_TESTCASES)
+def test_nested_growth_roundtrip(schema, factory, batch_size, n_rows):
+    rows = [factory(r) for r in range(n_rows)]
+
+    buf = io.BytesIO()
+    with Writer(buf, schema, batch_size=batch_size) as writer:
+        for row in rows:
+            writer.write(row)
+
+    buf.seek(0)
+    assert list(Reader(buf)) == rows
+
+
+def test_close_is_idempotent():
+    data = io.BytesIO()
+    wri = Writer[int](data, "int")
+    wri.write(1)
+    wri.close()
+    size = len(data.getvalue())
+    wri.close()
+    assert len(data.getvalue()) == size  # no second footer
+    data.seek(0)
+    assert list(Reader[int](data)) == [1]
+    with Writer(data, "int") as wri2:
+        wri2.write(1)
+        wri2.close()  # explicit close again
+
+
+def test_write_after_close_raises():
+    wri = Writer[int](io.BytesIO(), "int")
+    wri.close()
+    with pytest.raises(ValueError):
+        wri.write(1)
+    with pytest.raises(ValueError):
+        wri.writerows(range(10))

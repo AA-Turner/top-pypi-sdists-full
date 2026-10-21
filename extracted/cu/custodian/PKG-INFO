@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: custodian
-Version: 2026.10.11
+Version: 2026.10.21
 Summary: A simple JIT job management framework in Python.
 Author: Matthew Horton, Samuel M. Blau, Stephen Dacek, William Davidson Richards, Xiaohui Qu
-Author-email: Janosh Riebesell <janosh.riebesell@gmail.com>, Shyue Ping Ong <ongsp@ucsd.edu>, Andrew Rosen <asrosen@princeton.edu>
+Author-email: Janosh Riebesell <janosh.riebesell@gmail.com>, Andrew Rosen <asrosen@princeton.edu>, Shyue Ping Ong <shyue@nus.edu.sg>
 Maintainer: Shyue Ping Ong
 License: MIT
 Project-URL: Docs, https://materialsproject.github.io/custodian
@@ -25,7 +25,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: monty>=2.0.6
+Requires-Dist: monty>=2026.7.16
 Requires-Dist: psutil
 Requires-Dist: ruamel.yaml>=0.15.6
 Provides-Extra: matsci

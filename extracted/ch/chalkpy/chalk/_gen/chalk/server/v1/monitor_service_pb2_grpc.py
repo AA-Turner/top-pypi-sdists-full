@@ -55,6 +55,11 @@ class MonitorServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.ListMonitorsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.ListMonitorsResponse.FromString,
         )
+        self.PreviewFeatureDriftMonitor = channel.unary_unary(
+            "/chalk.server.v1.MonitorService/PreviewFeatureDriftMonitor",
+            request_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.PreviewFeatureDriftMonitorRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.PreviewFeatureDriftMonitorResponse.FromString,
+        )
 
 
 class MonitorServiceServicer(object):
@@ -108,6 +113,12 @@ class MonitorServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def PreviewFeatureDriftMonitor(self, request, context):
+        """Evaluates an unsaved feature drift monitor over a time range."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_MonitorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -150,6 +161,11 @@ def add_MonitorServiceServicer_to_server(servicer, server):
             servicer.ListMonitors,
             request_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.ListMonitorsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.ListMonitorsResponse.SerializeToString,
+        ),
+        "PreviewFeatureDriftMonitor": grpc.unary_unary_rpc_method_handler(
+            servicer.PreviewFeatureDriftMonitor,
+            request_deserializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.PreviewFeatureDriftMonitorRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_monitor__service__pb2.PreviewFeatureDriftMonitorResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.MonitorService", rpc_method_handlers)
@@ -382,6 +398,35 @@ class MonitorService(object):
             "/chalk.server.v1.MonitorService/ListMonitors",
             chalk_dot_server_dot_v1_dot_monitor__service__pb2.ListMonitorsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_monitor__service__pb2.ListMonitorsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def PreviewFeatureDriftMonitor(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.MonitorService/PreviewFeatureDriftMonitor",
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.PreviewFeatureDriftMonitorRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_monitor__service__pb2.PreviewFeatureDriftMonitorResponse.FromString,
             options,
             channel_credentials,
             insecure,

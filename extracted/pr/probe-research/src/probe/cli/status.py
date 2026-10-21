@@ -82,8 +82,8 @@ What the values mean:
   unknown) are the server's answer, so only `--refresh` fills them: the config
   stores no email.
 - `agents`: every agent Probe can set up, in registry order. `installed`: its
-  binary is on PATH (a cloud agent: its app on disk or a connection here;
-  without --refresh a pi binary on PATH is taken at its word). `configured`: Probe
+  binary is on PATH (without --refresh a pi binary on PATH is taken at its
+  word). `configured`: Probe
   was set up for THIS agent -- its plugins, capture pairing or rules
   (`Capabilities.agent_configured`). Deliberately not the menu's
   `Capabilities.configured`, which also counts the device's own evidence

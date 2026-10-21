@@ -227,7 +227,10 @@ pub(crate) fn sanitize_mol_with(
 /// `cleanUp`: nitro-like nitrogens, P(=O)=C/N, halogen oxides.
 pub(crate) fn clean_up(mol: &mut Mol) -> Result<(), RdkitSmilesError> {
     // nitrogensCleanup
-    let mut to_consider = vec![false; mol.atoms.len()];
+    // Preserve first-pass discovery order and membership even when that pass
+    // changes charges/bond orders. Usually there are no valence-five nitrogens;
+    // a sparse inline list avoids a molecule-sized allocation and second scan.
+    let mut to_consider = smallvec::SmallVec::<[usize; 8]>::new();
     for a in 0..mol.atoms.len() {
         if mol.atoms[a].anum != 7 || mol.atoms[a].charge != 0 {
             continue;
@@ -235,11 +238,11 @@ pub(crate) fn clean_up(mol: &mut Mol) -> Result<(), RdkitSmilesError> {
         if mol.calc_explicit_valence(a, false)? != 5 {
             continue;
         }
-        to_consider[a] = true;
+        to_consider.push(a);
         let arom = mol.atoms[a].aromatic;
         mol.atoms[a].aromatic = false;
         let mut update = false;
-        for b in mol.atom_bonds[a].clone() {
+        for &b in &mol.atom_bonds[a] {
             let nbr = mol.bonds[b].other(a);
             if mol.atoms[nbr].anum == 8
                 && mol.atoms[nbr].charge == 0
@@ -257,14 +260,11 @@ pub(crate) fn clean_up(mol: &mut Mol) -> Result<(), RdkitSmilesError> {
             mol.calc_explicit_valence(a, false)?;
         }
     }
-    for a in 0..mol.atoms.len() {
-        if !to_consider[a] {
-            continue;
-        }
+    for a in to_consider {
         let arom = mol.atoms[a].aromatic;
         mol.atoms[a].aromatic = false;
         let mut update = false;
-        for b in mol.atom_bonds[a].clone() {
+        for &b in &mol.atom_bonds[a] {
             let nbr = mol.bonds[b].other(a);
             if mol.atoms[nbr].anum == 7
                 && mol.atoms[nbr].charge == 0
@@ -509,23 +509,39 @@ fn is_atom_conjug_cand(mol: &Mol, a: usize) -> bool {
 
 /// `setConjugation`.
 pub(crate) fn set_conjugation(mol: &mut Mol) {
+    let mut has_multiple_bond = false;
     for b in &mut mol.bonds {
         b.conjugated = b.aromatic;
+        has_multiple_bond |= !matches!(b.bt, BondType::Single | BondType::Dative);
     }
+    // The loop below needs a bond contributing at least 1.5 to start a pair.
+    // Single/dative bonds contribute only 0 or 1, at either endpoint.
+    if !has_multiple_bond {
+        return;
+    }
+    // These predicates read topology, valence, H counts, charge and radicals,
+    // never the conjugated flags being assigned here. Compute each atom once
+    // instead of rescanning its incident bonds at every neighboring center.
+    // Only thresholds 2 and 3 are used below; 4 also represents noncandidates.
+    let states: smallvec::SmallVec<[(bool, u8); 64]> = (0..mol.atoms.len())
+        .map(|a| {
+            let candidate = is_atom_conjug_cand(mol, a);
+            let degree = if candidate {
+                (mol.degree(a) + mol.total_num_hs(a) as usize).min(4) as u8
+            } else {
+                4
+            };
+            (candidate, degree)
+        })
+        .collect();
     for a in 0..mol.atoms.len() {
-        if !is_atom_conjug_cand(mol, a) {
-            continue;
-        }
-        let sbo = mol.degree(a) + mol.total_num_hs(a) as usize;
-        if !(2..=3).contains(&sbo) {
+        if !(2..=3).contains(&states[a].1) {
             continue;
         }
         let degree = mol.atom_bonds[a].len();
         for i1 in 0..degree {
             let b1 = mol.atom_bonds[a][i1];
-            if mol.bonds[b1].valence_contrib(a) < 1.5
-                || !is_atom_conjug_cand(mol, mol.bonds[b1].other(a))
-            {
+            if mol.bonds[b1].valence_contrib(a) < 1.5 || !states[mol.bonds[b1].other(a)].0 {
                 continue;
             }
             for i2 in 0..degree {
@@ -534,11 +550,7 @@ pub(crate) fn set_conjugation(mol: &mut Mol) {
                     continue;
                 }
                 let at2 = mol.bonds[b2].other(a);
-                let sbo2 = mol.degree(at2) + mol.total_num_hs(at2) as usize;
-                if sbo2 > 3 {
-                    continue;
-                }
-                if is_atom_conjug_cand(mol, at2) {
+                if states[at2].1 <= 3 {
                     mol.bonds[b1].conjugated = true;
                     mol.bonds[b2].conjugated = true;
                 }
@@ -546,6 +558,9 @@ pub(crate) fn set_conjugation(mol: &mut Mol) {
         }
     }
 }
+
+#[cfg(test)]
+mod conjugation_cache_tests;
 
 /// `MolOps::atomHasConjugatedBond`.
 pub(crate) fn atom_has_conjugated_bond(mol: &Mol, a: usize) -> bool {
@@ -659,3 +674,7 @@ pub(crate) fn adjust_hs(mol: &mut Mol) -> Result<(), RdkitSmilesError> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "sanitize/cleanup_candidate_tests.rs"]
+mod cleanup_candidate_tests;

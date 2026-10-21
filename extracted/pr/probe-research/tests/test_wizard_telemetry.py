@@ -22,6 +22,7 @@ from probe.cli import bootstrap
 from probe.cli import doctor as doctor_mod
 from probe.cli import plugin_cli, setup, tui
 from probe.cli import telemetry as tm
+from probe.cli.actions import Action
 from probe.cli.capabilities import Capabilities
 
 # `probe.cli.main` the MODULE is shadowed by the re-exported `main` function on
@@ -278,6 +279,10 @@ def test_configure_success_reports_newly_installed(captured, configure_stubs):
     settled = _props(captured, tm.EVENT_WIZARD_INSTALL_SETTLED)
     assert settled["outcome"] == "settled" and settled["agent_count"] == 1
     assert settled["guided"] is False
+    # A first install: the server announces the machine, so no "added" ping.
+    assert settled["agents"] == ["claude_code"]
+    assert settled["agents_added"] == ["claude_code"]
+    assert settled["was_configured"] is False
     started = _props(captured, tm.EVENT_WIZARD_CONFIGURE_STARTED)
     assert started["tracking"] is True and started["capture"] is False
     assert started["plan_steps"] >= 1 and started["needs_authorization"] is False
@@ -286,6 +291,80 @@ def test_configure_success_reports_newly_installed(captured, configure_stubs):
     assert done["tracking_newly_installed"] is True
     assert done["tracking_already_present"] is False
     assert "duration_seconds" in done
+
+
+def test_an_agent_added_to_a_set_up_machine_is_named_once(captured, configure_stubs):
+    """The "added Codex" ping keys on these two fields: Probe was installed on
+    the device before the run (auto-update is device-wide, so an `--agent`
+    run for a new agent still sees it), and this run installed the plugin."""
+    set_up = Capabilities(logged_in_as="me@lab.org", auto_update_enabled=True)
+    after = dataclasses.replace(set_up, tracking_plugin_installed=True)
+    configure_stubs.extend([set_up, after])
+    assert main_mod.main(_configure_argv()) == 0
+    settled = _props(captured, tm.EVENT_WIZARD_INSTALL_SETTLED)
+    assert settled["was_configured"] is True
+    assert settled["agents_added"] == ["claude_code"]
+
+
+def test_a_signed_in_fresh_machine_is_still_a_first_install(captured, configure_stubs):
+    """The wizard signs a fresh machine in before its menu, so a sign-in is
+    not evidence of an earlier install -- else every first install would post
+    "added Claude Code" beside the server's own first-install message."""
+    signed_in = Capabilities(logged_in_as="me@lab.org")
+    after = dataclasses.replace(signed_in, tracking_plugin_installed=True)
+    configure_stubs.extend([signed_in, after])
+    assert main_mod.main(_configure_argv()) == 0
+    settled = _props(captured, tm.EVENT_WIZARD_INSTALL_SETTLED)
+    assert settled["was_configured"] is False
+
+
+def test_reconfiguring_an_installed_agent_adds_nothing(captured, configure_stubs, monkeypatch):
+    monkeypatch.setattr(setup, "plan", lambda caps, selection: [])
+    configure_stubs.append(Capabilities(tracking_plugin_installed=True))
+    assert main_mod.main(_configure_argv()) == 0
+    settled = _props(captured, tm.EVENT_WIZARD_INSTALL_SETTLED)
+    assert "agents_added" not in settled and settled["was_configured"] is True
+
+
+def test_sign_out_is_reported_for_the_person_who_left(monkeypatch):
+    """Signing out revokes the token the sender would resolve the person from,
+    so the identity is pinned FIRST and the event emitted after -- else it lands
+    on no person and every #probe-usage destination drops it."""
+    import typer
+
+    order: list[str] = []
+    emitted: list[tuple[str, dict]] = []
+
+    class Recorder:
+        def pin_identity(self):
+            order.append("pin")
+
+        def emit(self, event, **props):
+            order.append(event)
+            emitted.append((event, props))
+
+    monkeypatch.setattr(setup, "interactive", lambda: False)
+    monkeypatch.setattr(
+        setup, "sign_out", lambda sources: order.append("sign_out") or ["Signed out", "! codex: left a file"]
+    )
+    monkeypatch.setattr(main_mod, "_record_device_sign_in", lambda **_: None)
+    with pytest.raises(typer.Exit):
+        main_mod._run_wizard_action(
+            Action.SIGN_OUT,
+            caps=Capabilities(logged_in_as="me@lab.org"),
+            base_now="https://api.test",
+            yes=True,
+            tracking=None,
+            capture=None,
+            auto_update=None,
+            agent_rules=None,
+            uninstall=False,
+            configured=True,
+            selected_agents=("claude_code", "codex"),
+            telemetry=Recorder(),
+        )
+    assert order == ["pin", "sign_out", tm.EVENT_WIZARD_SIGNED_OUT]
+    assert emitted == [(tm.EVENT_WIZARD_SIGNED_OUT, {"agent_count": 2, "warnings": 1})]
 
 
 def test_configure_failure_names_the_kind(captured, configure_stubs, registrations):
@@ -708,3 +787,27 @@ def test_switching_the_default_then_pressing_enter_on_it_counts_once(
         main_mod.app(args=["wizard"], prog_name="probe", standalone_mode=True)
     chosen = [r["properties"]["action"] for r in captured if r["event"] == tm.EVENT_WIZARD_ACTION_CHOSEN]
     assert chosen == ["defaults"]
+
+
+def test_probe_logout_reports_the_sign_out_for_the_person(captured, monkeypatch):
+    """`probe logout` releases the token too, so it pins the identity first and
+    reports the same `wizard.signed_out` the wizard's Sign out does."""
+    from contextlib import contextmanager
+
+    order: list[str] = []
+    monkeypatch.setattr(tm.TelemetryContext, "pin_identity", lambda self: order.append("pin"))
+
+    class Client:
+        def logout(self):
+            order.append("revoke")
+
+    @contextmanager
+    def fake_client():
+        yield Client()
+
+    monkeypatch.setattr(main_mod, "_client", fake_client)
+    monkeypatch.setattr(main_mod, "_clear_wizard_imports", lambda: None)
+    assert main_mod.main(["logout"]) == 0
+    assert order == ["pin", "revoke"]
+    signed_out = _props(captured, tm.EVENT_WIZARD_SIGNED_OUT)
+    assert signed_out["agent_count"] == 0 and signed_out["warnings"] == 0

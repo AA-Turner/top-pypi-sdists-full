@@ -464,3 +464,16 @@ async def test_resolve_google_credential_refuses_without_an_organization(
             site_organization_id="",
             user_id="user-1",
         )
+
+
+def test_access_token_credential_builds_a_client_that_never_refreshes() -> None:
+    """A shared / service-account connection hands the sync ONE scoped access token."""
+    import asyncio
+
+    from matrx_scraper.web_crawl import gsc_sync
+
+    credential = gsc_sync._coerce_credential({"access_token": "at-1"}, source="t")
+    assert credential.access_token == "at-1" and not credential.refresh_token
+    client = gsc_sync.build_gsc_client(credential)
+    assert asyncio.run(client.access_token()) == "at-1"
+    assert client.auth_mode == "access_token"

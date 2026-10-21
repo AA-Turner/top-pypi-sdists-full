@@ -1892,7 +1892,9 @@ class Client(ClientMixin):
         # Build and send set clock request
         request = self.protocol.build_set_clock_request(dt)
         response = self._send_receive(request)
-        self.protocol.check_userdata_response(response, S7UserDataGroup.TIME, S7UserDataSubfunction.SET_CLOCK)
+        self.protocol.check_userdata_response(
+            response, S7UserDataGroup.TIME, S7UserDataSubfunction.SET_CLOCK, accept_null_ack=True
+        )
 
         logger.info(f"Set PLC datetime to {dt}")
         return 0
@@ -1915,7 +1917,7 @@ class Client(ClientMixin):
         """
         Compress PLC memory.
 
-        Sends real S7 PLC_CONTROL protocol with PI service "_MSZL".
+        Sends real S7 PLC_CONTROL protocol with PI service "_GARB".
 
         Args:
             timeout: Timeout in milliseconds (used for receive timeout)
@@ -1938,7 +1940,7 @@ class Client(ClientMixin):
         """
         Copy RAM to ROM.
 
-        Sends real S7 PLC_CONTROL protocol with PI service "_MSZL" and file ID "P".
+        Sends real S7 PLC_CONTROL protocol with PI service "_MODU" and file system "EP".
 
         Args:
             timeout: Timeout in milliseconds (used for receive timeout)
@@ -2093,7 +2095,9 @@ class Client(ClientMixin):
             return self.protocol.build_set_session_password_request(encoded)
 
         response = self._send_receive_with_reconnect(build_request)
-        self.protocol.check_userdata_response(response, S7UserDataGroup.SECURITY, S7UserDataSubfunction.SET_SESSION_PASSWORD)
+        self.protocol.check_userdata_response(
+            response, S7UserDataGroup.SECURITY, S7UserDataSubfunction.SET_SESSION_PASSWORD, accept_null_ack=True
+        )
         logger.info("Session password set successfully")
         return 0
 
@@ -2116,7 +2120,9 @@ class Client(ClientMixin):
             return self.protocol.build_clear_session_password_request()
 
         response = self._send_receive_with_reconnect(build_request)
-        self.protocol.check_userdata_response(response, S7UserDataGroup.SECURITY, S7UserDataSubfunction.CLEAR_SESSION_PASSWORD)
+        self.protocol.check_userdata_response(
+            response, S7UserDataGroup.SECURITY, S7UserDataSubfunction.CLEAR_SESSION_PASSWORD, accept_null_ack=True
+        )
         logger.info("Session password cleared successfully")
         return 0
 
@@ -2233,6 +2239,11 @@ class Client(ClientMixin):
         szl = self.read_szl(0x00A0, 0)
         raw = bytes(szl.Data[: szl.Header.LengthDR])
 
+        return self._parse_diagnostic_buffer(raw)
+
+    @classmethod
+    def _parse_diagnostic_buffer(cls, raw: bytes) -> list[dict[str, Any]]:
+        """Decode raw SZL 0x00A0 data into diagnostic entries."""
         entries: list[dict[str, Any]] = []
         # Each diagnostic entry is 20 bytes
         entry_size = 20
@@ -2243,7 +2254,7 @@ class Client(ClientMixin):
             # BCD-encoded timestamp at offset 2..9
             ts_bytes = raw[offset + 2 : offset + 10]
             try:
-                ts = self._parse_bcd_timestamp(ts_bytes)
+                ts = cls._parse_bcd_timestamp(ts_bytes)
             except Exception:
                 ts = None
 

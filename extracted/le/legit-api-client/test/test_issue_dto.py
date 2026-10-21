@@ -45,7 +45,9 @@ class TestIssueDto(unittest.TestCase):
                     origin_type = null, 
                     origin_id = '', 
                     origin_name = '', 
-                    is_deleted = True, ),
+                    is_deleted = True, 
+                    repository_id = '', 
+                    branch_name = '', ),
                 ticketing = legit_api_client.models.issue_ticketing_dto.IssueTicketingDto(
                     jira_ticket = '', ),
                 product_units = [

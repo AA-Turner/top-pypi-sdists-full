@@ -101,6 +101,34 @@ def test_immutable_upload_receipt_and_replay(queue, tmp_path):
     assert len(store.records) == 1 and len(queue.pending()) == 0
 
 
+def test_redacted_upload_receipt_names_the_source_it_verified(queue, tmp_path):
+    raw = b'GITHUB_TOKEN = "ghp_KKF0RDt0Xaetn6QMfStFUWSus4jowQUux6hu"\n'
+    (tmp_path / "source.py").write_bytes(raw)
+    expected = hashlib.sha256(raw).hexdigest()
+    enqueue(queue, tmp_path, expected_content_hash=expected)
+    store = Store()
+    assert drain(queue, client_factory=lambda _: store).delivered == 1
+    receipt = queue.receipt("scope:file:v1")
+    assert b"ghp_" not in store.calls[0][1]
+    assert receipt["content_hash"] == hashlib.sha256(store.calls[0][1]).hexdigest() != expected
+    assert receipt["source_content_hash"] == expected
+
+
+def test_every_checked_upload_receipt_carries_its_source_hash(queue, tmp_path):
+    """So a receipt without one can only predate the stamp."""
+    expected = hashlib.sha256(b"original").hexdigest()
+    enqueue(queue, tmp_path, expected_content_hash=expected)
+    assert drain(queue, client_factory=lambda _: Store()).delivered == 1
+    receipt = queue.receipt("scope:file:v1")
+    assert receipt["source_content_hash"] == receipt["content_hash"] == expected
+
+
+def test_an_unchecked_upload_receipt_carries_no_source_hash(queue, tmp_path):
+    enqueue(queue, tmp_path)
+    assert drain(queue, client_factory=lambda _: Store()).delivered == 1
+    assert "source_content_hash" not in queue.receipt("scope:file:v1")
+
+
 def test_correlation_rejects_changed_request(queue, tmp_path):
     enqueue(queue, tmp_path, content_type="text/x-python")
     with pytest.raises(ValueError, match="different immutable request"):

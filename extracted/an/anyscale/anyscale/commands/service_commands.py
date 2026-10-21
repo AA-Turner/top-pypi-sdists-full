@@ -207,7 +207,7 @@ def _read_name_from_config_file(path: str):
     is_flag=True,
     show_default=True,
     default=False,
-    help="Perform an in-place upgrade without starting a new cluster. This can be used for faster iteration during development but is *not* currently recommended for production deploys. This *cannot* be used to change cluster-level options such as image and compute config (they will be ignored).",
+    help="Update the running cluster. Ignores cluster-level options such as image and compute config. On Ray 2.60 or later, single-version services support automatic rollback to a verified healthy config. Older versions may require manual recovery. In-place updates can interrupt traffic.",
 )
 @click.option(
     "--canary-percent",
@@ -221,7 +221,7 @@ def _read_name_from_config_file(path: str):
     required=False,
     default=None,
     type=int,
-    help="Amount of excess capacity allowed to be used while updating the service (0-100). Defaults to 100. Not supported when using --in-place.",
+    help="Excess replica capacity allowed during a rollout across two clusters (0-100). Defaults to 100. Not supported with --in-place. For in-place replica replacement on Ray 2.60 or later, set max_surge_percent in each Ray Serve deployment config instead.",
 )
 @click.option(
     "--env",

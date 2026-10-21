@@ -1,9 +1,11 @@
+import json
 import os
 from types import SimpleNamespace
 
 import pytest
 
 from probe.cli.backfill_coverage import Coverage, CoverageError, Scope, hash_current
+from probe.sdk.journal import DELIVERY_SCHEMA
 
 
 SCOPE = Scope("https://example.test", "tenant-a", "workspace-a", "project-a")
@@ -78,6 +80,43 @@ def test_receipt_must_prove_exact_approved_version_and_destination(tmp_path, sou
         intent, receipt = deliver(state)
         with pytest.raises(CoverageError, match="does not match"):
             state.accept_receipt(intent["correlation"], {**receipt, field: value})
+
+
+REDACTED = {"content_hash": "f" * 64, "size_bytes": 99}
+JOURNAL = {"schema": DELIVERY_SCHEMA, "request_digest": "d" * 64}
+
+
+@pytest.mark.parametrize("stamped", [True, False])  # False: a receipt from before the stamp
+def test_redacted_delivery_of_the_approved_file_is_delivered(tmp_path, source, stamped):
+    with coverage(tmp_path, source).writer() as state:
+        state.observe(source, ["a.md"])
+        state.approve({"a.md": PROJECT})
+        intent = state.intend(state.rows()[0], reference=False)
+        state.failure(intent["correlation"], "Receipt reconciliation failed: does not match")
+        stamp = {"source_content_hash": intent["content_hash"]} if stamped else {}
+        receipt = {"correlation": intent["correlation"], "state": "delivered", "status": "complete",
+                   "artifact_id": "artifact-a", "anchor": "project", "anchor_id": "project-a",
+                   "name": "a.md", "is_reference": False, "uri": None, "readable": True,
+                   **REDACTED, **JOURNAL, **stamp}
+        state.accept_receipt(intent["correlation"], receipt)
+        assert state.report()["delivered"] == ["a.md"]
+        stored, error = state.conn.execute("SELECT receipt, error FROM versions").fetchone()
+        assert json.loads(stored)["content_hash"] == REDACTED["content_hash"] and error is None
+
+
+@pytest.mark.parametrize("extra,reference", [
+    ({**JOURNAL, "source_content_hash": "e" * 64}, False),  # stamped for other bytes
+    (JOURNAL, True),  # a pointer never accepts other bytes
+    ({"schema": DELIVERY_SCHEMA, "request_digest": ""}, False),  # not a journal receipt
+    ({"schema": "probe.outbox.delivery/0", "request_digest": "d" * 64}, False),
+])
+def test_redaction_never_excuses_other_bytes_or_a_reference(tmp_path, source, extra, reference):
+    with coverage(tmp_path, source).writer() as state:
+        state.observe(source, ["a.md"])
+        state.approve({"a.md": PROJECT})
+        intent, receipt = deliver(state, reference=reference)
+        with pytest.raises(CoverageError, match="does not match"):
+            state.accept_receipt(intent["correlation"], {**receipt, **REDACTED, **extra})
 
 
 def test_reference_delivery_never_claims_uploaded_bytes(tmp_path, source):

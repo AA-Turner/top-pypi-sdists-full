@@ -72,12 +72,20 @@ def dtype_to_str(
   return jnp.dtype(dtype).name
 
 
-def str_to_jax_dtype(
+def to_jax_dtype(
     dtype: torch.dtype | jax.typing.DTypeLike | str | None,
 ) -> jnp.dtype | None:
   """Converts a PyTorch, JAX, or string dtype to a jnp.dtype."""
   dtype_str = dtype_to_str(dtype)
   return jnp.dtype(dtype_str) if dtype_str is not None else None
+
+
+def to_torch_dtype(
+    dtype: torch.dtype | jax.typing.DTypeLike | str | None,
+) -> torch.dtype | None:
+  """Converts a PyTorch, JAX, or string dtype to a `torch.dtype`."""
+  dtype_str = dtype_to_str(dtype)
+  return getattr(torch, dtype_str) if dtype_str is not None else None
 
 
 def convert_torch_to_jax_via_meta(

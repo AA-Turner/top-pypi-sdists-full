@@ -20,7 +20,18 @@ if echo "${CHANGED_FILES:-}" | grep -q "python-sdk/plato-fuse/"; then
   echo "Bumped plato-fuse: $current -> $next"
 fi
 
-# Re-lock worlds that depend on the SDK so their uv.lock stays in sync
+# Re-lock worlds that depend on the SDK so their uv.lock stays in sync.
+# plato-sdk-v2 is private (Plato pypi-store CodeArtifact repo); expose the
+# authenticated index so uv can resolve it. uv strips credentials when
+# writing uv.lock, so the API key never lands in a lockfile.
+if [ -n "${PLATO_API_KEY:-}" ]; then
+  export UV_EXTRA_INDEX_URL="https://__token__:${PLATO_API_KEY}@plato.so/api/v2/pypi/pypi-store/simple/"
+  export UV_INDEX_STRATEGY="unsafe-best-match"
+  # For pyprojects that declare the index by name ([[tool.uv.index]]
+  # name = "plato-store").
+  export UV_INDEX_PLATO_STORE_USERNAME="__token__"
+  export UV_INDEX_PLATO_STORE_PASSWORD="${PLATO_API_KEY}"
+fi
 failed_worlds=()
 for world in ../worlds/*/; do
   [ ! -f "${world}pyproject.toml" ] && continue

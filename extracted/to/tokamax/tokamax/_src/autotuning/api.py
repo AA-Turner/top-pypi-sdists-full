@@ -36,38 +36,38 @@ from tokamax._src.ops.attention import api as attention_api
 from tokamax._src.ops.attention import base as attention_base
 from tokamax._src.ops.causal_conv1d_gated_delta_rule import api as causal_conv1d_gated_delta_rule_api
 from tokamax._src.ops.causal_conv1d_gated_delta_rule import base as causal_conv1d_gated_delta_rule_base
-from tokamax._src.ops.experimental.kda import api as kda_api
-from tokamax._src.ops.experimental.kda import base as kda_base
+from tokamax._src.ops.csa_gather import api as csa_gather_api
+from tokamax._src.ops.csa_gather import base as csa_gather_base
+from tokamax._src.ops.deepseek_rope import api as deepseek_rope_api
+from tokamax._src.ops.deepseek_rope import base as deepseek_rope_base
+from tokamax._src.ops.dsv4_compressor import api as dsv4_compressor_api
+from tokamax._src.ops.dsv4_compressor import base as dsv4_compressor_base
 from tokamax._src.ops.experimental.mla import api as mla_api
 from tokamax._src.ops.experimental.mla import base as mla_base
-from tokamax._src.ops.experimental.tpu.compress_store import api as compress_store_api
-from tokamax._src.ops.experimental.tpu.compress_store import base as compress_store_base
-from tokamax._src.ops.experimental.tpu.csa_gather import api as csa_gather_api
-from tokamax._src.ops.experimental.tpu.csa_gather import base as csa_gather_base
-from tokamax._src.ops.experimental.tpu.mhc import api as mhc_api
-from tokamax._src.ops.experimental.tpu.mhc import base as mhc_base
-from tokamax._src.ops.experimental.tpu.o_projection import api as o_projection_api
-from tokamax._src.ops.experimental.tpu.o_projection import base as o_projection_base
-from tokamax._src.ops.experimental.tpu.proj_and_save_state import api as proj_and_save_state_api
-from tokamax._src.ops.experimental.tpu.proj_and_save_state import base as proj_and_save_state_base
-from tokamax._src.ops.experimental.tpu.rope import api as rope_api
-from tokamax._src.ops.experimental.tpu.rope import base as rope_base
 from tokamax._src.ops.experimental.tpu.splash_attention import api as splash_attention_api
 from tokamax._src.ops.experimental.tpu.splash_attention import base as splash_attention_base
 from tokamax._src.ops.gated_linear_unit import api as glu_api
 from tokamax._src.ops.gated_linear_unit import base as glu_base
+from tokamax._src.ops.grouped_lowrank_proj import api as grouped_lowrank_proj_api
+from tokamax._src.ops.grouped_lowrank_proj import base as grouped_lowrank_proj_base
+from tokamax._src.ops.kda import api as kda_api
+from tokamax._src.ops.kda import base as kda_base
 from tokamax._src.ops.linear_softmax_cross_entropy_loss import api as linear_softmax_cross_entropy_loss_api
 from tokamax._src.ops.linear_softmax_cross_entropy_loss import base as linear_softmax_cross_entropy_loss_base
+from tokamax._src.ops.mhc import api as mhc_api
+from tokamax._src.ops.mhc import base as mhc_base
 from tokamax._src.ops.normalization import api as normalization_api
 from tokamax._src.ops.normalization import base as normalization_base
+from tokamax._src.ops.proj_and_save_state import api as proj_and_save_state_api
+from tokamax._src.ops.proj_and_save_state import base as proj_and_save_state_base
 from tokamax._src.ops.ragged_dot import api as ragged_dot_api
 from tokamax._src.ops.ragged_dot import base as ragged_dot_base
 from tokamax._src.ops.ragged_gather import api as ragged_gather_api
 from tokamax._src.ops.ragged_gather import base as ragged_gather_base
 from tokamax._src.ops.ragged_gather_reduce import api as ragged_gather_reduce_api
 from tokamax._src.ops.ragged_gather_reduce import base as ragged_gather_reduce_base
-from tokamax._src.ops.ragged_scatter import api as ragged_scatter_api
-from tokamax._src.ops.ragged_scatter import base as ragged_scatter_base
+from tokamax._src.ops.router_topk import api as router_topk_api
+from tokamax._src.ops.router_topk import base as router_topk_base
 from tokamax._src.ops.triangle_multiplication import api as triangle_multiplication_api
 from tokamax._src.ops.triangle_multiplication import base as triangle_multiplication_base
 import tqdm
@@ -275,7 +275,6 @@ _API_IMPLEMENTATIONS: Final[
     normalization_base.Normalization: normalization_api.IMPLEMENTATIONS,
     glu_base.GatedLinearUnit: glu_api.IMPLEMENTATIONS,
     ragged_dot_base.RaggedDot: ragged_dot_api.IMPLEMENTATIONS,
-    ragged_scatter_base.RaggedScatter: ragged_scatter_api.IMPLEMENTATIONS,
     attention_base.DotProductAttention: attention_api.IMPLEMENTATIONS,
     mla_base.MultiHeadLatentAttention: mla_api.IMPLEMENTATIONS,
     ragged_gather_base.RaggedGather: ragged_gather_api.IMPLEMENTATIONS,
@@ -294,15 +293,18 @@ _API_IMPLEMENTATIONS: Final[
         causal_conv1d_gated_delta_rule_api.IMPLEMENTATIONS
     ),
     csa_gather_base.CsaGather: csa_gather_api.IMPLEMENTATIONS,
-    compress_store_base.CompressStore: compress_store_api.IMPLEMENTATIONS,
-    o_projection_base.OProjection: o_projection_api.IMPLEMENTATIONS,
+    dsv4_compressor_base.Dsv4Compressor: dsv4_compressor_api.IMPLEMENTATIONS,
+    grouped_lowrank_proj_base.GroupedLowrankProj: (
+        grouped_lowrank_proj_api.IMPLEMENTATIONS
+    ),
     proj_and_save_state_base.ProjAndSaveState: (
         proj_and_save_state_api.IMPLEMENTATIONS
     ),
-    rope_base.Rope: rope_api.IMPLEMENTATIONS,
+    deepseek_rope_base.DeepseekRope: deepseek_rope_api.IMPLEMENTATIONS,
     mhc_base.MhcPre: mhc_api.PRE_IMPLEMENTATIONS,
     mhc_base.MhcPost: mhc_api.POST_IMPLEMENTATIONS,
     mhc_base.MhcFusedPostPre: mhc_api.FUSED_POST_PRE_IMPLEMENTATIONS,
+    router_topk_base.RouterTopK: router_topk_api.IMPLEMENTATIONS,
 })
 
 

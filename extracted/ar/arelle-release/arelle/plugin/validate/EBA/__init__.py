@@ -292,7 +292,7 @@ def validateFacts(val, factsToCheck):
     nilFacts = []
     stringFactsWithXmlLang = []
     nonMonetaryNonPureFacts = []
-    for qname, facts in factsByQname.items():
+    for facts in factsByQname.values():
         for f in facts:
             if f.qname == qnFIndicators or f.qname == qnFIndicators:
                 continue # skip root-level and non-root-level filing indicators
@@ -595,7 +595,7 @@ def final(val):
             modelXbrl.error(("EIOPA.S.1.5.a", "EBA.1.5"),
                     _("XBRL instance documents MUST reference only one entry point schema but %(numEntryPoints)s were found: %(entryPointNames)s"),
                     modelObject=modelDocument, numEntryPoints=_numSchemaRefs, entryPointNames=", ".join(sorted(schemaRefFileNames)))
-        ### check entry point names appropriate for filing indicator (DPM DB?)
+        # check entry point names appropriate for filing indicator (DPM DB?)
 
         if len(schemaRefElts) != 1:
             modelXbrl.error("EBA.2.3",

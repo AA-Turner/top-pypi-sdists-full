@@ -12,6 +12,8 @@ import re
 import shlex
 from pathlib import Path
 
+from plato.utils.pypi_index import redact_pypi_token_credential
+
 logger = logging.getLogger(__name__)
 
 #: Tool dirs prepended to PATH on VMs: the pre-baked venv and common install
@@ -123,8 +125,8 @@ def redact_env_assignments(text: str) -> str:
 
 
 def _sanitize_command_for_logs(command: str) -> str:
-    """Redact sensitive env values before logging SSH commands."""
-    return redact_env_assignments(command)
+    """Redact sensitive env values and index-URL tokens before logging SSH commands."""
+    return redact_pypi_token_credential(redact_env_assignments(command))
 
 
 async def run_local(command: str, timeout: int = 60) -> tuple[int, str, str]:

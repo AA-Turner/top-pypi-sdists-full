@@ -139,10 +139,7 @@ def test_installable_agent_sources_includes_pi_via_pi_config_not_a_marketplace()
     It must still be a real entry in AGENT_LABELS for every other helper
     (agent_label, menu_copy, authorize's confirmation message) that names a
     capture source rather than installs one -- unaffected by this change."""
-    assert set(setup.INSTALLABLE_AGENT_SOURCES) == {"claude_code", "codex", "pi", "kimi_code", "capy"}
-    # Capy is installable but configures nothing here (registry family cloud).
-    assert setup.CLOUD_AGENT_SOURCES == ("capy",)
-    assert "capy" not in setup.MARKETPLACE_AGENT_SOURCES
+    assert set(setup.INSTALLABLE_AGENT_SOURCES) == {"claude_code", "codex", "pi", "kimi_code"}
     assert setup.AGENT_LABELS["pi"] == "pi"
     assert setup.AGENT_LABELS["kimi_code"] == "Kimi Code"
 
@@ -152,7 +149,7 @@ def test_agent_row_detail_is_per_source_and_pi_does_not_claim_a_marketplace():
     and pair source-bound capture." -- accurate for claude_code/codex, wrong
     for pi the moment pi could appear in this picker: pi's install is one
     settings.json entry, never a plugin marketplace."""
-    assert set(setup.AGENT_ROW_DETAIL) == {"claude_code", "codex", "pi", "kimi_code", "capy"}
+    assert set(setup.AGENT_ROW_DETAIL) == {"claude_code", "codex", "pi", "kimi_code"}
     assert setup.AGENT_ROW_DETAIL["claude_code"] == setup.AGENT_ROW_DETAIL["codex"]
     assert setup.AGENT_ROW_DETAIL["kimi_code"] == setup.AGENT_ROW_DETAIL["codex"]
     pi_detail = " ".join(setup.AGENT_ROW_DETAIL["pi"])
@@ -1993,7 +1990,7 @@ def test_agent_flag_accepts_pi_and_still_rejects_garbage():
     cli_main = sys.modules["probe.cli.main"]
     result = CliRunner().invoke(cli_main.app, ["wizard", "--agent", "bogus"])
     assert result.exit_code != 0
-    assert "must be claude, codex, pi, kimi, capy, or both" in " ".join(result.output.split())
+    assert "must be claude, codex, pi, kimi, or both" in " ".join(result.output.split())
 
 
 def test_agent_both_still_means_exactly_claude_and_codex_not_pi(monkeypatch):

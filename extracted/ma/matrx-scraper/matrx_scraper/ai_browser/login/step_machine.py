@@ -332,6 +332,16 @@ async def run_step_machine(driver: FlowDriver, *, max_screens: int = MAX_SCREENS
                 await driver.settle()
                 screen = await driver.observe()
                 continue
+        if (
+            kind is ScreenKind.UNKNOWN
+            and screen.gate == "unrecognized_screen"
+            and trail
+            and not screen.identifier_selector
+            and not screen.otp_selector
+        ):
+            # After at least one step, a page with no sign-in field at all (a signed-in account
+            # page with a search box) is not a hand-off: give it to the ONE verifier to judge.
+            return FlowOutcome("ready_to_verify", "no_sign_in_field_left", final_url=screen.url, trail=trail)
         if kind in (ScreenKind.CAPTCHA, ScreenKind.HUMAN_GATE, ScreenKind.UNKNOWN):
             return FlowOutcome(
                 "needs_person",

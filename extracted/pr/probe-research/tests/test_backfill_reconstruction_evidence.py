@@ -24,7 +24,7 @@ class LocalCoverage:
 
     def __init__(self, root, contents):
         self.conn = sqlite3.connect(":memory:")
-        self.conn.execute("CREATE TABLE versions(correlation TEXT, receipt TEXT)")
+        self.conn.execute("CREATE TABLE versions(correlation TEXT, receipt TEXT, intent TEXT)")
         self.rows = []
         for index, (name, text) in enumerate(contents.items()):
             path = root / name
@@ -48,9 +48,12 @@ class LocalCoverage:
                 "status": "complete",
                 "anchor_id": "project",
                 "content_hash": digest,
+                "size_bytes": path.stat().st_size,
             }
+            intent = {"content_hash": digest, "size_bytes": path.stat().st_size, "mode": "upload"}
             self.conn.execute(
-                "INSERT INTO versions VALUES (?,?)", (correlation, json.dumps(receipt))
+                "INSERT INTO versions VALUES (?,?,?)",
+                (correlation, json.dumps(receipt), json.dumps(intent)),
             )
 
 
@@ -260,3 +263,44 @@ def test_parent_section_windows_include_nested_heading_content():
     for expected in ("CURRENT_BUILT", "UNCONFIGURED_OK; PARTIAL_FAILS", "SCIENTIFIC_GATE_OPEN"):
         assert expected in sample
     assert len(sample.encode()) <= rec.MAX_SAMPLE_BYTES
+
+
+def _archive(kind):
+    import gzip
+    import io
+    import zipfile
+
+    if kind == "gz":
+        return gzip.compress(b"\x00" * (65 * 1024 * 1024))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as archive:
+        for index in range(1100):
+            archive.writestr(f"labels/{index:05d}.json", '{"label": %d}' % index)
+    return buf.getvalue()
+
+
+@pytest.mark.parametrize("name", ["labels.zip", "weights.gz"])
+def test_an_archive_past_the_inspection_limits_stays_metadata_only(tmp_path, monkeypatch, name):
+    """An archive uploads byte-for-byte; its excerpt is never read, so the
+    inspector that would unpack it (and refuse past its limits) never runs."""
+    data = _archive(name.rsplit(".", 1)[1])
+    (tmp_path / name).write_bytes(data)
+    calls = []
+    real = rec._redact_read
+    monkeypatch.setattr(rec, "_redact_read", lambda raw, **kw: (calls.append(raw), real(raw, **kw))[1])
+    row = {"path": name, "approved_hash": hashlib.sha256(data).hexdigest()}
+    assert rec._read_sample(tmp_path, row) == (None, "binary file: metadata only")
+    assert calls == []
+
+
+def test_a_refused_excerpt_is_metadata_only(tmp_path, monkeypatch):
+    from probe.sdk.secret_gate import CredentialBlocked
+
+    def refuse(raw, **kwargs):
+        raise CredentialBlocked("Artifact upload refused: expanded content exceeds inspection limit")
+
+    path = tmp_path / "notes.md"
+    path.write_text("Notes.\n")
+    monkeypatch.setattr(rec, "_redact_read", refuse)
+    row = {"path": path.name, "approved_hash": hashlib.sha256(path.read_bytes()).hexdigest()}
+    assert rec._read_sample(tmp_path, row) == (None, "credential inspection refused: metadata only")

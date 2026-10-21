@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: sigstore
-Version: 4.5.0
+Version: 4.5.1
 Summary: A tool for signing Python package distributions
+Author: Sigstore Authors
 Author-email: Sigstore Authors <sigstore-dev@googlegroups.com>
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
@@ -17,26 +18,25 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Security
 Classifier: Topic :: Security :: Cryptography
-License-File: LICENSE
-Requires-Dist: cryptography >= 42
-Requires-Dist: id >= 1.1.0
-Requires-Dist: importlib_resources ~= 5.7; python_version < '3.11'
-Requires-Dist: pyasn1 ~= 0.6
-Requires-Dist: pydantic >= 2,< 3
-Requires-Dist: pyjwt >= 2.1
-Requires-Dist: pyOpenSSL >= 23.0.0
+Requires-Dist: cryptography>=47
+Requires-Dist: id>=1.1.0
+Requires-Dist: importlib-resources~=5.7 ; python_full_version < '3.11'
+Requires-Dist: pydantic>=2,<3
+Requires-Dist: pyjwt>=2.1
 Requires-Dist: requests
-Requires-Dist: rich >= 13,< 16
-Requires-Dist: rfc8785 ~= 0.1.2
-Requires-Dist: rfc3161-client >= 1.0.3,< 1.1.0
-Requires-Dist: sigstore-models == 0.0.6
-Requires-Dist: sigstore-rekor-types == 0.0.18
-Requires-Dist: tuf >= 6, < 8
-Requires-Dist: platformdirs ~= 4.2
-Project-URL: Documentation, https://sigstore.github.io/sigstore-python/
+Requires-Dist: rich>=13,<16
+Requires-Dist: rfc8785~=0.1.2
+Requires-Dist: rfc3161-client>=1.0.3,<1.1.0
+Requires-Dist: sigstore-models==0.0.6
+Requires-Dist: sigstore-rekor-types==0.0.18
+Requires-Dist: tuf>=6,<8
+Requires-Dist: platformdirs~=4.2
+Requires-Python: >=3.10
 Project-URL: Homepage, https://pypi.org/project/sigstore/
 Project-URL: Issues, https://github.com/sigstore/sigstore-python/issues
 Project-URL: Source, https://github.com/sigstore/sigstore-python
+Project-URL: Documentation, https://sigstore.github.io/sigstore-python/
+Description-Content-Type: text/markdown
 
 sigstore-python
 ===============
@@ -397,4 +397,3 @@ Everyone interacting with this project is expected to follow the
 
 Should you discover any security issues, please refer to sigstore's [security
 process](https://github.com/sigstore/.github/blob/main/SECURITY.md).
-

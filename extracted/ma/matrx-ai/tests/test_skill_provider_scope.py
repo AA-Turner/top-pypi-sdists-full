@@ -48,6 +48,13 @@ async def test_visible_scope_unions_public_and_owned_skills(
     monkeypatch.setattr(provider, "_get_user_rows", fake_owned)
     monkeypatch.setattr(provider, "_get_system_public_rows", fake_public)
 
+    # This unit covers the published-plus-owned fallback. Readability is a
+    # separate host-bound access query and must be unavailable for this branch.
+    async def no_readability_lookup(_user_id: UUID, _level: str = "viewer") -> None:
+        return None
+
+    monkeypatch.setattr(provider, "_readable_ids", no_readability_lookup)
+
     rows = await provider._fetch_visible(user_id=user_id, scope="visible")
 
     assert rows == [public, owned]

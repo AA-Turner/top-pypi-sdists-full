@@ -1,11 +1,18 @@
 """Tests for the numba backend: the jitted fast path, the slow-path
-fallback, the callable cache and the ``out=`` parameter."""
+fallback, the callable cache, the ``out=`` parameter and the lock around the
+shared on-disk compilation cache.
+"""
+
+import os
+from threading import Thread
 
 import numpy as np
 import pytest
 
 from numpy_groupies import uaggregate
 from numpy_groupies.aggregate_numba import aggregate
+from numpy_groupies.aggregate_numba.jit import _ProcessSafeCacheFile
+from numpy_groupies.aggregate_numba.ops import _dispatch
 from numpy_groupies.utils import resolve_output_dtype
 
 
@@ -143,6 +150,16 @@ def test_errors_match_slow_path(rng):
         aggregate(group_idx, a[:-1], func="sum")
 
 
+def test_custom_callable_checks_the_indices():
+    """The custom callable groups the values with the counting sort, which
+    checks the group indices on the way."""
+    a = np.arange(4.0)
+    with pytest.raises(ValueError, match="negative"):
+        aggregate(np.array([0, -1, 0, 1]), a, func=np.sum)
+    with pytest.raises(ValueError, match="too large"):
+        aggregate(np.array([0, 1, 0, 1]), a, func=np.sum, size=1)
+
+
 def test_integer_sum_dtype_guess(rng):
     # the 'sum' overflow guess is length dependent, so check several lengths
     for adtype in (np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint32, np.bool_):
@@ -181,19 +198,20 @@ def test_slow_path_still_reachable(rng):
 def test_numba_callable_cache_construction(monkeypatch):
     pytest.importorskip("numba")
     from numpy_groupies import aggregate_numba
+    from numpy_groupies.aggregate_numba import ops
 
     group_idx = np.array([0, 1, 1, 2])
     a = np.arange(4.0)
     func = lambda x: np.sum(x)
 
     constructed = []
-    orig_build = aggregate_numba.build_generic_aggregate
+    orig_build = ops.build_generic_aggregate
 
     def counting(func):
         constructed.append(func)
         return orig_build(func)
 
-    monkeypatch.setattr(aggregate_numba, "build_generic_aggregate", counting)
+    monkeypatch.setattr(ops, "build_generic_aggregate", counting)
 
     cache = {}
     aggregate_numba.aggregate(group_idx, a, func=func, cache=cache)
@@ -222,6 +240,31 @@ def test_aggregate_out(rng):
     # custom callables do not support out
     with pytest.raises(NotImplementedError, match="out="):
         aggregate(group_idx, a, func=lambda x: np.sum(x), out=out)
+
+
+def test_every_known_function_is_implemented():
+    """A function the aliasing knows and this backend does not have.
+
+    The dispatch table holds such a name too, with no implementation behind it,
+    so the answer is about a function that is not available here rather than
+    about a func that named nothing at all.  This backend knows them all - the
+    collecting function included, which has no compiled kernel but a python
+    implementation of its own.
+    """
+    missing = sorted({name for name, impl in _dispatch.values() if impl is None})
+    assert missing == []
+
+
+def test_a_func_that_named_nothing():
+    """A func that is no key of the dispatch table at all.
+
+    It is neither a function anybody knows nor a callable of the caller's own,
+    so it says so - the error of a callable is a different one.
+    """
+    group_idx = np.array([0, 0, 1, 1])
+    a = np.array([1.0, 3.0, 7.0, 2.0])
+    with pytest.raises(ValueError, match="neither a valid function string"):
+        aggregate(group_idx, a, func="no_such_function", size=2)
 
 
 def test_uaggregate_out(rng):
@@ -288,3 +331,68 @@ def test_float16_follows_the_float32_plan():
 
     ref = aggregate(group_idx, a.astype(np.float32), func="cumsum").astype(np.float16)
     np.testing.assert_array_equal(aggregate(group_idx, a, func="cumsum"), ref)
+
+
+# the collecting function - the one function whose result is a sequence per
+# group; its semantics are tested against every backend in test_funcs.py, what
+# is left here is what only this backend offers
+
+
+def test_collecting_out():
+    # the result is an object array, so it can be gathered into
+    group_idx = np.array([0, 1, 1])
+    a = np.arange(3.0)
+    out = np.empty(2, dtype=object)
+    ret = aggregate(group_idx, a, func="array", out=out)
+    assert ret is out
+    np.testing.assert_array_equal(out[1], [1.0, 2.0])
+    with pytest.raises(TypeError, match="out must have shape"):
+        aggregate(group_idx, a, func="array", out=np.empty(3, dtype=object))
+
+
+def test_collecting_refuses_an_index_beyond_the_size():
+    group_idx = np.array([0, 1, 1])
+    a = np.arange(3.0)
+    with pytest.raises(ValueError, match="too large"):
+        aggregate(group_idx, a, func="array", size=1)
+
+
+# The on-disk cache is shared by the workers of a parallel test run: numba
+# writes the index of a cache file before the data file it announces, so
+# concurrent writers of one cache can leave an index naming the machine code of
+# another signature.  ``_ProcessSafeCacheFile`` excludes those writers from each
+# other, which is only observable under contention - so this is the one place
+# the suite writes one cache from several flows of control at once.  Threads
+# rather than processes: ``flock`` excludes separate open file descriptions,
+# which is what a writer holds, and the interpreter of a pytest worker is not a
+# safe thing to fork.
+
+_workers = min(4, os.cpu_count())
+_per_worker = 25
+
+
+def _write(worker, count, cache_path):
+    """Save ``count`` distinct signatures of one cache file, from one flow."""
+    cache_file = _ProcessSafeCacheFile(
+        cache_path=cache_path,
+        filename_base="probe",
+        source_stamp="stamp",
+    )
+    for index in range(count):
+        cache_file.save(f"key-{worker}-{index}", (worker, index))
+
+
+def test_every_key_of_a_contended_cache_names_its_own_machine(tmp_path):
+    """No key of a raced cache may name another writer's machine code."""
+    cache_path = str(tmp_path)
+    threads = [Thread(target=_write, args=(worker, _per_worker, cache_path)) for worker in range(_workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    cache_file = _ProcessSafeCacheFile(cache_path=cache_path, filename_base="probe", source_stamp="stamp")
+    assert len(cache_file._load_index()) == _workers * _per_worker
+    for worker in range(_workers):
+        for index in range(_per_worker):
+            assert cache_file.load(f"key-{worker}-{index}") == (worker, index)

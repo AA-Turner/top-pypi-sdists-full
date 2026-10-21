@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: reportportal-client
-Version: 5.7.10
+Version: 5.7.11
 Summary: Python client for ReportPortal v5.
 Home-page: https://github.com/reportportal/client-Python
-Download-URL: https://github.com/reportportal/client-Python/tarball/5.7.10
+Download-URL: https://github.com/reportportal/client-Python/tarball/5.7.11
 Author: ReportPortal Team
 Author-email: support@reportportal.io
 License: Apache-2.0
@@ -14,12 +14,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: typing-extensions<=4.16.0,>=4.13.2
 Requires-Dist: requests<=2.34.2,>=2.32.5
-Requires-Dist: aiohttp<=3.14.3,>=3.13.4
-Requires-Dist: certifi<=2026.7.22,>=2026.2.25
+Requires-Dist: aiohttp<=3.14.5,>=3.13.4
+Requires-Dist: certifi<=2026.10.19,>=2026.2.25
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

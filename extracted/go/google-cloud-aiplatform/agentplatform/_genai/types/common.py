@@ -35,6 +35,7 @@ from typing import (
 )
 from google.genai import _common
 from google.genai import types as genai_types
+import pydantic
 from pydantic import (
     ConfigDict,
     Field,
@@ -1163,6 +1164,10 @@ class EvaluationItemRequest(_common.BaseModel):
         default=None,
         description="""Responses from model under test and other baseline models for comparison.""",
     )
+    extra_context: Optional[dict[str, genai_types.Content]] = Field(
+        default=None,
+        description="""Additional named inputs for metrics, such as `golden_schema` alongside an agent trace. Each entry is passed to metrics under its key: LLM-based metrics reference it as `{key}` in the metric prompt template. Standard fields (prompt, response, reference) take precedence over a matching key; `extra_context` takes precedence over `prompt.prompt_template_data.values`.""",
+    )
 
 
 class EvaluationItemRequestDict(TypedDict, total=False):
@@ -1179,6 +1184,9 @@ class EvaluationItemRequestDict(TypedDict, total=False):
 
     candidate_responses: Optional[list[CandidateResponseDict]]
     """Responses from model under test and other baseline models for comparison."""
+
+    extra_context: Optional[dict[str, genai_types.Content]]
+    """Additional named inputs for metrics, such as `golden_schema` alongside an agent trace. Each entry is passed to metrics under its key: LLM-based metrics reference it as `{key}` in the metric prompt template. Standard fields (prompt, response, reference) take precedence over a matching key; `extra_context` takes precedence over `prompt.prompt_template_data.values`."""
 
 
 EvaluationItemRequestOrDict = Union[EvaluationItemRequest, EvaluationItemRequestDict]
@@ -3129,6 +3137,51 @@ class EvaluationDataset(_common.BaseModel):
                     " google-cloud-aiplatform[evaluation]`."
                 )
         return data
+
+    @field_validator("eval_dataset_df", mode="before")
+    @classmethod
+    def _eval_dataset_df_from_records(cls, value: Any) -> Any:
+        if (
+            pd is not None
+            and isinstance(value, list)
+            and all(isinstance(row, dict) for row in value)
+        ):
+            return pd.DataFrame(value)
+        return value
+
+    @pydantic.field_serializer("eval_dataset_df", when_used="json")
+    def _eval_dataset_df_to_records(self, value: Any) -> Any:
+        if pd is None or not isinstance(value, pd.DataFrame):
+            return value
+        labels = pd.Index([str(label) for label in value.columns])
+        duplicated = value.columns.duplicated() | labels.duplicated()
+        if duplicated.any():
+            duplicates = value.columns[duplicated].unique().tolist()
+            raise ValueError(
+                "eval_dataset_df needs unique column names to serialize to JSON,"
+                f" found duplicates: {duplicates}"
+            )
+        import numpy as np
+
+        def to_serializable(item: Any) -> Any:
+            if isinstance(item, np.ndarray) and item.ndim == 0:
+                return None if item is np.ma.masked else to_serializable(item[()])
+            if isinstance(item, dict):
+                return {
+                    (
+                        to_serializable(key) if isinstance(key, np.generic) else key
+                    ): to_serializable(val)
+                    for key, val in item.items()
+                }
+            if isinstance(item, (list, tuple, np.ndarray, pd.Series)):
+                return [to_serializable(val) for val in item]
+            if isinstance(item, np.datetime64):
+                item = pd.Timestamp(item)
+            elif isinstance(item, np.generic):
+                return item.item()
+            return None if item is pd.NaT or item is pd.NA else item
+
+        return to_serializable(value.to_dict(orient="records"))
 
     @classmethod
     def load_from_observability_eval_cases(
@@ -10963,6 +11016,75 @@ class MemoryBankOperationDict(TypedDict, total=False):
 
 
 MemoryBankOperationOrDict = Union[MemoryBankOperation, MemoryBankOperationDict]
+
+
+class UpdateMemoryBankConfig(_common.BaseModel):
+    """Config for updating a memory bank."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""The user-defined name of the Memory Bank.
+
+      The display name can be up to 128 characters long and can comprise any
+      UTF-8 characters.
+      """,
+    )
+    description: Optional[str] = Field(
+        default=None, description="""The description of the Memory Bank."""
+    )
+
+
+class UpdateMemoryBankConfigDict(TypedDict, total=False):
+    """Config for updating a memory bank."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    display_name: Optional[str]
+    """The user-defined name of the Memory Bank.
+
+      The display name can be up to 128 characters long and can comprise any
+      UTF-8 characters.
+      """
+
+    description: Optional[str]
+    """The description of the Memory Bank."""
+
+
+UpdateMemoryBankConfigOrDict = Union[UpdateMemoryBankConfig, UpdateMemoryBankConfigDict]
+
+
+class _UpdateMemoryBankRequestParameters(_common.BaseModel):
+    """Parameters for updating memory banks."""
+
+    name: Optional[str] = Field(
+        default=None, description="""Name of the memory bank."""
+    )
+    memory_bank_config: Optional[ReasoningEngineContextSpecMemoryBankConfig] = Field(
+        default=None, description=""""""
+    )
+    config: Optional[UpdateMemoryBankConfig] = Field(default=None, description="""""")
+
+
+class _UpdateMemoryBankRequestParametersDict(TypedDict, total=False):
+    """Parameters for updating memory banks."""
+
+    name: Optional[str]
+    """Name of the memory bank."""
+
+    memory_bank_config: Optional[ReasoningEngineContextSpecMemoryBankConfigDict]
+    """"""
+
+    config: Optional[UpdateMemoryBankConfigDict]
+    """"""
+
+
+_UpdateMemoryBankRequestParametersOrDict = Union[
+    _UpdateMemoryBankRequestParameters, _UpdateMemoryBankRequestParametersDict
+]
 
 
 class DeleteMemoryBankConfig(_common.BaseModel):
@@ -21245,6 +21367,32 @@ SchemaPromptSpecInteractionDataOrDict = Union[
 ]
 
 
+class SchemaPromptSpecContentMetadata(_common.BaseModel):
+    """Metadata the model returned alongside the content it generated."""
+
+    citation_metadata: Optional[genai_types.CitationMetadata] = Field(
+        default=None, description="""Optional. Citations that apply to the content."""
+    )
+    grounding_metadata: Optional[genai_types.GroundingMetadata] = Field(
+        default=None, description="""Optional. Sources used to ground the content."""
+    )
+
+
+class SchemaPromptSpecContentMetadataDict(TypedDict, total=False):
+    """Metadata the model returned alongside the content it generated."""
+
+    citation_metadata: Optional[genai_types.CitationMetadataDict]
+    """Optional. Citations that apply to the content."""
+
+    grounding_metadata: Optional[genai_types.GroundingMetadataDict]
+    """Optional. Sources used to ground the content."""
+
+
+SchemaPromptSpecContentMetadataOrDict = Union[
+    SchemaPromptSpecContentMetadata, SchemaPromptSpecContentMetadataDict
+]
+
+
 class SchemaPromptSpecStructuredPrompt(_common.BaseModel):
     """Represents a structured prompt."""
 
@@ -21284,6 +21432,10 @@ class SchemaPromptSpecStructuredPrompt(_common.BaseModel):
     interaction_data: Optional[SchemaPromptSpecInteractionData] = Field(
         default=None, description="""Data for interaction use case."""
     )
+    content_metadata: Optional[list[SchemaPromptSpecContentMetadata]] = Field(
+        default=None,
+        description="""Optional. Metadata the model returned with each of `prompt_message.contents`, such as citations and grounding sources. This maps 1:1 to PromptMessage.contents; an entry is empty when its content has no metadata.""",
+    )
 
 
 class SchemaPromptSpecStructuredPromptDict(TypedDict, total=False):
@@ -21318,6 +21470,9 @@ class SchemaPromptSpecStructuredPromptDict(TypedDict, total=False):
 
     interaction_data: Optional[SchemaPromptSpecInteractionDataDict]
     """Data for interaction use case."""
+
+    content_metadata: Optional[list[SchemaPromptSpecContentMetadataDict]]
+    """Optional. Metadata the model returned with each of `prompt_message.contents`, such as citations and grounding sources. This maps 1:1 to PromptMessage.contents; an entry is empty when its content has no metadata."""
 
 
 SchemaPromptSpecStructuredPromptOrDict = Union[
@@ -24173,7 +24328,7 @@ class ModelContainerSpec(_common.BaseModel):
     )
     env: Optional[list[EnvVar]] = Field(
         default=None,
-        description="""Immutable. List of environment variables to set in the container. After the container starts running, code running in the container can read these environment variables. Additionally, the command and args fields can reference these variables. Later entries in this list can also reference earlier entries. For example, the following example sets the variable `VAR_2` to have the value `foo bar`: ```json [ { "name": "VAR_1", "value": "foo" }, { "name": "VAR_2", "value": "$(VAR_1) bar" } ] ``` If you switch the order of the variables in the example, then the expansion does not occur. This field corresponds to the `env` field of the Kubernetes Containers [v1 core API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#container-v1-core).""",
+        description="""Immutable. List of environment variables to set in the container. After the container starts running, code running in the container can read these environment variables. Additionally, the command and args fields can reference these variables. Later entries in this list can also reference earlier entries. For example, the following example sets the variable `VAR_2` to have the value `foo bar`: ```json [ { "name": "VAR_1", "value": "foo" }, { "name": "VAR_2", "value": "$(VAR_1) bar" } ] ``` If you switch the order of the variables in the example, then the expansion does not occur. This field corresponds to the `env` field of the Kubernetes Containers [v1 core API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#container-v1-core). At most 200 environment variables can be specified. Each variable (`NAME=value`) must be smaller than 128 KiB, and the total size of all variables must not exceed 512 KiB.""",
     )
     grpc_ports: Optional[list[Port]] = Field(
         default=None,
@@ -24230,7 +24385,7 @@ class ModelContainerSpecDict(TypedDict, total=False):
     """Immutable. Deployment timeout. Limit for deployment timeout is 2 hours."""
 
     env: Optional[list[EnvVarDict]]
-    """Immutable. List of environment variables to set in the container. After the container starts running, code running in the container can read these environment variables. Additionally, the command and args fields can reference these variables. Later entries in this list can also reference earlier entries. For example, the following example sets the variable `VAR_2` to have the value `foo bar`: ```json [ { "name": "VAR_1", "value": "foo" }, { "name": "VAR_2", "value": "$(VAR_1) bar" } ] ``` If you switch the order of the variables in the example, then the expansion does not occur. This field corresponds to the `env` field of the Kubernetes Containers [v1 core API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#container-v1-core)."""
+    """Immutable. List of environment variables to set in the container. After the container starts running, code running in the container can read these environment variables. Additionally, the command and args fields can reference these variables. Later entries in this list can also reference earlier entries. For example, the following example sets the variable `VAR_2` to have the value `foo bar`: ```json [ { "name": "VAR_1", "value": "foo" }, { "name": "VAR_2", "value": "$(VAR_1) bar" } ] ``` If you switch the order of the variables in the example, then the expansion does not occur. This field corresponds to the `env` field of the Kubernetes Containers [v1 core API](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#container-v1-core). At most 200 environment variables can be specified. Each variable (`NAME=value`) must be smaller than 128 KiB, and the total size of all variables must not exceed 512 KiB."""
 
     grpc_ports: Optional[list[PortDict]]
     """Immutable. List of ports to expose from the container. Vertex AI sends gRPC prediction requests that it receives to the first port on this list. Vertex AI also sends liveness and health checks to this port. If you do not specify this field, gRPC requests to the container will be disabled. Vertex AI does not use ports other than the first one listed. This field corresponds to the `ports` field of the Kubernetes Containers v1 core API."""
@@ -25706,6 +25861,382 @@ class _GetDeployOperationParametersDict(TypedDict, total=False):
 
 _GetDeployOperationParametersOrDict = Union[
     _GetDeployOperationParameters, _GetDeployOperationParametersDict
+]
+
+
+class ModelGardenBatchJobSource(_common.BaseModel):
+    """Input configuration of a Model Garden batch prediction job."""
+
+    format: Optional[str] = Field(
+        default=None,
+        description="""Storage format of the input. One of ``'jsonl'`` or
+      ``'bigquery'``.""",
+    )
+    gcs_uri: Optional[list[str]] = Field(
+        default=None, description="""Cloud Storage URIs of the input files."""
+    )
+    bigquery_uri: Optional[str] = Field(
+        default=None, description="""BigQuery URI of the input table."""
+    )
+
+
+class ModelGardenBatchJobSourceDict(TypedDict, total=False):
+    """Input configuration of a Model Garden batch prediction job."""
+
+    format: Optional[str]
+    """Storage format of the input. One of ``'jsonl'`` or
+      ``'bigquery'``."""
+
+    gcs_uri: Optional[list[str]]
+    """Cloud Storage URIs of the input files."""
+
+    bigquery_uri: Optional[str]
+    """BigQuery URI of the input table."""
+
+
+ModelGardenBatchJobSourceOrDict = Union[
+    ModelGardenBatchJobSource, ModelGardenBatchJobSourceDict
+]
+
+
+class ModelGardenBatchJobDestination(_common.BaseModel):
+    """Output configuration of a Model Garden batch prediction job."""
+
+    format: Optional[str] = Field(
+        default=None,
+        description="""Storage format of the output. One of ``'jsonl'`` or
+      ``'bigquery'``.""",
+    )
+    gcs_uri: Optional[str] = Field(
+        default=None,
+        description="""Cloud Storage URI prefix the predictions are written under.""",
+    )
+    bigquery_uri: Optional[str] = Field(
+        default=None,
+        description="""BigQuery table URI the predictions are written to.""",
+    )
+
+
+class ModelGardenBatchJobDestinationDict(TypedDict, total=False):
+    """Output configuration of a Model Garden batch prediction job."""
+
+    format: Optional[str]
+    """Storage format of the output. One of ``'jsonl'`` or
+      ``'bigquery'``."""
+
+    gcs_uri: Optional[str]
+    """Cloud Storage URI prefix the predictions are written under."""
+
+    bigquery_uri: Optional[str]
+    """BigQuery table URI the predictions are written to."""
+
+
+ModelGardenBatchJobDestinationOrDict = Union[
+    ModelGardenBatchJobDestination, ModelGardenBatchJobDestinationDict
+]
+
+
+class BatchDedicatedResources(_common.BaseModel):
+    """A description of resources that are used for performing batch operations, are dedicated to a Model, and need manual configuration."""
+
+    flex_start: Optional[FlexStart] = Field(
+        default=None,
+        description="""Optional. Immutable. If set, use DWS resource to schedule the deployment workload. reference: (https://cloud.google.com/blog/products/compute/introducing-dynamic-workload-scheduler)""",
+    )
+    machine_spec: Optional[MachineSpec] = Field(
+        default=None,
+        description="""Required. Immutable. The specification of a single machine.""",
+    )
+    max_replica_count: Optional[int] = Field(
+        default=None,
+        description="""Immutable. The maximum number of machine replicas the batch operation may be scaled to. The default value is 10.""",
+    )
+    spot: Optional[bool] = Field(
+        default=None,
+        description="""Optional. If true, schedule the deployment workload on [spot VMs](https://cloud.google.com/kubernetes-engine/docs/concepts/spot-vms).""",
+    )
+    starting_replica_count: Optional[int] = Field(
+        default=None,
+        description="""Immutable. The number of machine replicas used at the start of the batch operation. If not set, Agent Platform decides starting number, not greater than max_replica_count""",
+    )
+
+
+class BatchDedicatedResourcesDict(TypedDict, total=False):
+    """A description of resources that are used for performing batch operations, are dedicated to a Model, and need manual configuration."""
+
+    flex_start: Optional[FlexStartDict]
+    """Optional. Immutable. If set, use DWS resource to schedule the deployment workload. reference: (https://cloud.google.com/blog/products/compute/introducing-dynamic-workload-scheduler)"""
+
+    machine_spec: Optional[MachineSpecDict]
+    """Required. Immutable. The specification of a single machine."""
+
+    max_replica_count: Optional[int]
+    """Immutable. The maximum number of machine replicas the batch operation may be scaled to. The default value is 10."""
+
+    spot: Optional[bool]
+    """Optional. If true, schedule the deployment workload on [spot VMs](https://cloud.google.com/kubernetes-engine/docs/concepts/spot-vms)."""
+
+    starting_replica_count: Optional[int]
+    """Immutable. The number of machine replicas used at the start of the batch operation. If not set, Agent Platform decides starting number, not greater than max_replica_count"""
+
+
+BatchDedicatedResourcesOrDict = Union[
+    BatchDedicatedResources, BatchDedicatedResourcesDict
+]
+
+
+class CreateBatchPredictionJobConfig(_common.BaseModel):
+    """RPC-level config for ``create_batch_prediction_job``."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+    display_name: Optional[str] = Field(default=None, description="""""")
+    input_config: Optional[ModelGardenBatchJobSource] = Field(
+        default=None, description=""""""
+    )
+    output_config: Optional[ModelGardenBatchJobDestination] = Field(
+        default=None, description=""""""
+    )
+    dedicated_resources: Optional[BatchDedicatedResources] = Field(
+        default=None, description=""""""
+    )
+
+
+class CreateBatchPredictionJobConfigDict(TypedDict, total=False):
+    """RPC-level config for ``create_batch_prediction_job``."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+    display_name: Optional[str]
+    """"""
+
+    input_config: Optional[ModelGardenBatchJobSourceDict]
+    """"""
+
+    output_config: Optional[ModelGardenBatchJobDestinationDict]
+    """"""
+
+    dedicated_resources: Optional[BatchDedicatedResourcesDict]
+    """"""
+
+
+CreateBatchPredictionJobConfigOrDict = Union[
+    CreateBatchPredictionJobConfig, CreateBatchPredictionJobConfigDict
+]
+
+
+class _CreateBatchPredictionJobParameters(_common.BaseModel):
+    """Parameters for ``create_batch_prediction_job``."""
+
+    parent: Optional[str] = Field(default=None, description="""""")
+    model: Optional[str] = Field(default=None, description="""""")
+    config: Optional[CreateBatchPredictionJobConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _CreateBatchPredictionJobParametersDict(TypedDict, total=False):
+    """Parameters for ``create_batch_prediction_job``."""
+
+    parent: Optional[str]
+    """"""
+
+    model: Optional[str]
+    """"""
+
+    config: Optional[CreateBatchPredictionJobConfigDict]
+    """"""
+
+
+_CreateBatchPredictionJobParametersOrDict = Union[
+    _CreateBatchPredictionJobParameters, _CreateBatchPredictionJobParametersDict
+]
+
+
+class ModelGardenBatchPredictionOutputInfo(_common.BaseModel):
+    """Where a Model Garden batch prediction job wrote its output."""
+
+    gcs_output_directory: Optional[str] = Field(
+        default=None,
+        description="""Cloud Storage directory holding the prediction files.""",
+    )
+    bigquery_output_dataset: Optional[str] = Field(
+        default=None, description="""BigQuery dataset holding the output table."""
+    )
+    bigquery_output_table: Optional[str] = Field(
+        default=None,
+        description="""Name of the BigQuery table holding the predictions.""",
+    )
+
+
+class ModelGardenBatchPredictionOutputInfoDict(TypedDict, total=False):
+    """Where a Model Garden batch prediction job wrote its output."""
+
+    gcs_output_directory: Optional[str]
+    """Cloud Storage directory holding the prediction files."""
+
+    bigquery_output_dataset: Optional[str]
+    """BigQuery dataset holding the output table."""
+
+    bigquery_output_table: Optional[str]
+    """Name of the BigQuery table holding the predictions."""
+
+
+ModelGardenBatchPredictionOutputInfoOrDict = Union[
+    ModelGardenBatchPredictionOutputInfo, ModelGardenBatchPredictionOutputInfoDict
+]
+
+
+class ModelGardenBatchPredictionJob(_common.BaseModel):
+    """A batch prediction job running a Model Garden publisher model.
+
+    Declares only the ``BatchPredictionJob`` fields needed to identify the job
+    and track it to completion, rather than patching the full discovery class
+    and its monitoring and explanation subtrees.
+    """
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Resource name of the job, in the format
+      ``'projects/{project}/locations/{location}/batchPredictionJobs/{id}'``.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None, description="""User-defined name of the job."""
+    )
+    model: Optional[str] = Field(
+        default=None, description="""Publisher model resource name the job runs."""
+    )
+    input_config: Optional[ModelGardenBatchJobSource] = Field(
+        default=None, description="""Input configuration of the job."""
+    )
+    output_config: Optional[ModelGardenBatchJobDestination] = Field(
+        default=None, description="""Output configuration of the job."""
+    )
+    output_info: Optional[ModelGardenBatchPredictionOutputInfo] = Field(
+        default=None,
+        description="""Where the job wrote its output. Populated once the job runs.""",
+    )
+    state: Optional[genai_types.JobState] = Field(
+        default=None, description="""Detailed state of the job."""
+    )
+    error: Optional[genai_types.GoogleRpcStatus] = Field(
+        default=None,
+        description="""Only populated when the job state is ``JOB_STATE_FAILED`` or
+      ``JOB_STATE_CANCELLED``.""",
+    )
+    create_time: Optional[datetime.datetime] = Field(
+        default=None, description="""Time the job was created."""
+    )
+    start_time: Optional[datetime.datetime] = Field(
+        default=None,
+        description="""Time the job first entered ``JOB_STATE_RUNNING``.""",
+    )
+    end_time: Optional[datetime.datetime] = Field(
+        default=None, description="""Time the job entered a terminal state."""
+    )
+    update_time: Optional[datetime.datetime] = Field(
+        default=None, description="""Time the job was most recently updated."""
+    )
+
+
+class ModelGardenBatchPredictionJobDict(TypedDict, total=False):
+    """A batch prediction job running a Model Garden publisher model.
+
+    Declares only the ``BatchPredictionJob`` fields needed to identify the job
+    and track it to completion, rather than patching the full discovery class
+    and its monitoring and explanation subtrees.
+    """
+
+    name: Optional[str]
+    """Resource name of the job, in the format
+      ``'projects/{project}/locations/{location}/batchPredictionJobs/{id}'``."""
+
+    display_name: Optional[str]
+    """User-defined name of the job."""
+
+    model: Optional[str]
+    """Publisher model resource name the job runs."""
+
+    input_config: Optional[ModelGardenBatchJobSourceDict]
+    """Input configuration of the job."""
+
+    output_config: Optional[ModelGardenBatchJobDestinationDict]
+    """Output configuration of the job."""
+
+    output_info: Optional[ModelGardenBatchPredictionOutputInfoDict]
+    """Where the job wrote its output. Populated once the job runs."""
+
+    state: Optional[genai_types.JobState]
+    """Detailed state of the job."""
+
+    error: Optional[genai_types.GoogleRpcStatus]
+    """Only populated when the job state is ``JOB_STATE_FAILED`` or
+      ``JOB_STATE_CANCELLED``."""
+
+    create_time: Optional[datetime.datetime]
+    """Time the job was created."""
+
+    start_time: Optional[datetime.datetime]
+    """Time the job first entered ``JOB_STATE_RUNNING``."""
+
+    end_time: Optional[datetime.datetime]
+    """Time the job entered a terminal state."""
+
+    update_time: Optional[datetime.datetime]
+    """Time the job was most recently updated."""
+
+
+ModelGardenBatchPredictionJobOrDict = Union[
+    ModelGardenBatchPredictionJob, ModelGardenBatchPredictionJobDict
+]
+
+
+class GetBatchPredictionJobConfig(_common.BaseModel):
+    """Config for ``get_batch_prediction_job``."""
+
+    http_options: Optional[genai_types.HttpOptions] = Field(
+        default=None, description="""Used to override HTTP request options."""
+    )
+
+
+class GetBatchPredictionJobConfigDict(TypedDict, total=False):
+    """Config for ``get_batch_prediction_job``."""
+
+    http_options: Optional[genai_types.HttpOptions]
+    """Used to override HTTP request options."""
+
+
+GetBatchPredictionJobConfigOrDict = Union[
+    GetBatchPredictionJobConfig, GetBatchPredictionJobConfigDict
+]
+
+
+class _GetBatchPredictionJobParameters(_common.BaseModel):
+    """Parameters for ``get_batch_prediction_job``."""
+
+    name: Optional[str] = Field(
+        default=None,
+        description="""Resource name of the job, as returned by ``batch_predict``.""",
+    )
+    config: Optional[GetBatchPredictionJobConfig] = Field(
+        default=None, description=""""""
+    )
+
+
+class _GetBatchPredictionJobParametersDict(TypedDict, total=False):
+    """Parameters for ``get_batch_prediction_job``."""
+
+    name: Optional[str]
+    """Resource name of the job, as returned by ``batch_predict``."""
+
+    config: Optional[GetBatchPredictionJobConfigDict]
+    """"""
+
+
+_GetBatchPredictionJobParametersOrDict = Union[
+    _GetBatchPredictionJobParameters, _GetBatchPredictionJobParametersDict
 ]
 
 
@@ -31726,6 +32257,258 @@ class DeployPublisherModelConfigDict(TypedDict, total=False):
 DeployPublisherModelConfigOrDict = Union[
     DeployPublisherModelConfig, DeployPublisherModelConfigDict
 ]
+
+
+class DeployCustomModelConfig(_common.BaseModel):
+    """Config for ``deploy_custom_model``.
+
+    Deliberately narrower than ``DeployPublisherModelConfig``: a custom model
+    has no publisher, so there is no EULA to accept, no Hugging Face artifacts
+    to authenticate against, and no publisher-supplied default container for a
+    container override to patch.
+    """
+
+    machine_type: Optional[str] = Field(
+        default=None,
+        description="""Machine type (e.g. ``'a3-highgpu-8g'``). Must be set together
+      with ``accelerator_type`` and ``accelerator_count``, or left unset for
+      automatic resources.""",
+    )
+    min_replica_count: Optional[int] = Field(
+        default=1,
+        description="""Minimum number of replicas. ``0`` is treated as unset and not
+      sent, as in ``CustomModel.deploy``.""",
+    )
+    max_replica_count: Optional[int] = Field(
+        default=1,
+        description="""Maximum number of replicas. ``0`` is treated as unset and not
+      sent, as in ``CustomModel.deploy``.""",
+    )
+    accelerator_type: Optional[str] = Field(
+        default=None,
+        description="""Accelerator type (e.g. ``'NVIDIA_H100_80GB'``). Must be set
+      together with ``machine_type`` and ``accelerator_count``.""",
+    )
+    accelerator_count: Optional[int] = Field(
+        default=None,
+        description="""Number of accelerators per replica; must be positive. Must be set
+      together with ``machine_type`` and ``accelerator_type``. ``0`` counts as
+      unset for that check, as in ``CustomModel.deploy``.""",
+    )
+    endpoint_display_name: Optional[str] = Field(
+        default=None, description="""Display name for the endpoint."""
+    )
+    model_display_name: Optional[str] = Field(
+        default=None, description="""Display name for the deployed model."""
+    )
+    enable_private_service_connect: Optional[bool] = Field(
+        default=None,
+        description="""Enable Private Service Connect for the endpoint. Only sent
+      together with a non-empty ``psc_project_allow_list``.""",
+    )
+    psc_project_allow_list: Optional[list[str]] = Field(
+        default=None,
+        description="""Projects allowed to access the endpoint over Private Service
+      Connect. Only sent when ``enable_private_service_connect`` is True.""",
+    )
+    wait_for_completion: Optional[bool] = Field(
+        default=True,
+        description="""Whether to block on the deployment long-running operation. When
+      ``True`` (default), returns the ``DeployResponse`` (deployed endpoint
+      and model resource names) on completion. When ``False``, returns the
+      ``DeployModelOperation`` for the caller to poll.""",
+    )
+    poll_interval_seconds: Optional[float] = Field(
+        default=None,
+        description="""Seconds between LRO polls when ``wait_for_completion=True``.
+      Defaults to 30. Ignored when ``wait_for_completion=False``.""",
+    )
+    timeout_seconds: Optional[float] = Field(
+        default=None,
+        description="""Total wall-clock seconds to wait for the deployment to complete
+      when ``wait_for_completion=True``. Defaults to 2 hours, matching the
+      Vertex AI Console one-click deployment timeout. Ignored when
+      ``wait_for_completion=False``.""",
+    )
+    reservation_affinity_type: Optional[str] = Field(
+        default=None,
+        description="""Reservation affinity type. One of ``NO_RESERVATION``,
+      ``ANY_RESERVATION`` or ``SPECIFIC_RESERVATION``.""",
+    )
+    reservation_affinity_key: Optional[str] = Field(
+        default=None,
+        description="""Label key of the reservation resource. To target a
+      ``SPECIFIC_RESERVATION`` by name, use
+      ``compute.googleapis.com/reservation-name``. Only sent together with
+      ``reservation_affinity_values``.""",
+    )
+    reservation_affinity_values: Optional[list[str]] = Field(
+        default=None,
+        description="""Label values of the reservation resource, as full reservation
+      resource names
+      (``projects/{project}/zones/{zone}/reservations/{name}``). Only sent
+      together with ``reservation_affinity_key``.""",
+    )
+    system_labels: Optional[dict[str, str]] = Field(
+        default=None, description="""System labels for Model Garden deployments."""
+    )
+
+
+class DeployCustomModelConfigDict(TypedDict, total=False):
+    """Config for ``deploy_custom_model``.
+
+    Deliberately narrower than ``DeployPublisherModelConfig``: a custom model
+    has no publisher, so there is no EULA to accept, no Hugging Face artifacts
+    to authenticate against, and no publisher-supplied default container for a
+    container override to patch.
+    """
+
+    machine_type: Optional[str]
+    """Machine type (e.g. ``'a3-highgpu-8g'``). Must be set together
+      with ``accelerator_type`` and ``accelerator_count``, or left unset for
+      automatic resources."""
+
+    min_replica_count: Optional[int]
+    """Minimum number of replicas. ``0`` is treated as unset and not
+      sent, as in ``CustomModel.deploy``."""
+
+    max_replica_count: Optional[int]
+    """Maximum number of replicas. ``0`` is treated as unset and not
+      sent, as in ``CustomModel.deploy``."""
+
+    accelerator_type: Optional[str]
+    """Accelerator type (e.g. ``'NVIDIA_H100_80GB'``). Must be set
+      together with ``machine_type`` and ``accelerator_count``."""
+
+    accelerator_count: Optional[int]
+    """Number of accelerators per replica; must be positive. Must be set
+      together with ``machine_type`` and ``accelerator_type``. ``0`` counts as
+      unset for that check, as in ``CustomModel.deploy``."""
+
+    endpoint_display_name: Optional[str]
+    """Display name for the endpoint."""
+
+    model_display_name: Optional[str]
+    """Display name for the deployed model."""
+
+    enable_private_service_connect: Optional[bool]
+    """Enable Private Service Connect for the endpoint. Only sent
+      together with a non-empty ``psc_project_allow_list``."""
+
+    psc_project_allow_list: Optional[list[str]]
+    """Projects allowed to access the endpoint over Private Service
+      Connect. Only sent when ``enable_private_service_connect`` is True."""
+
+    wait_for_completion: Optional[bool]
+    """Whether to block on the deployment long-running operation. When
+      ``True`` (default), returns the ``DeployResponse`` (deployed endpoint
+      and model resource names) on completion. When ``False``, returns the
+      ``DeployModelOperation`` for the caller to poll."""
+
+    poll_interval_seconds: Optional[float]
+    """Seconds between LRO polls when ``wait_for_completion=True``.
+      Defaults to 30. Ignored when ``wait_for_completion=False``."""
+
+    timeout_seconds: Optional[float]
+    """Total wall-clock seconds to wait for the deployment to complete
+      when ``wait_for_completion=True``. Defaults to 2 hours, matching the
+      Vertex AI Console one-click deployment timeout. Ignored when
+      ``wait_for_completion=False``."""
+
+    reservation_affinity_type: Optional[str]
+    """Reservation affinity type. One of ``NO_RESERVATION``,
+      ``ANY_RESERVATION`` or ``SPECIFIC_RESERVATION``."""
+
+    reservation_affinity_key: Optional[str]
+    """Label key of the reservation resource. To target a
+      ``SPECIFIC_RESERVATION`` by name, use
+      ``compute.googleapis.com/reservation-name``. Only sent together with
+      ``reservation_affinity_values``."""
+
+    reservation_affinity_values: Optional[list[str]]
+    """Label values of the reservation resource, as full reservation
+      resource names
+      (``projects/{project}/zones/{zone}/reservations/{name}``). Only sent
+      together with ``reservation_affinity_key``."""
+
+    system_labels: Optional[dict[str, str]]
+    """System labels for Model Garden deployments."""
+
+
+DeployCustomModelConfigOrDict = Union[
+    DeployCustomModelConfig, DeployCustomModelConfigDict
+]
+
+
+class BatchPredictConfig(_common.BaseModel):
+    """Config for ``batch_predict``."""
+
+    dest: Optional[str] = Field(
+        default=None,
+        description="""Cloud Storage or BigQuery URI prefix for the output predictions,
+      e.g. ``'gs://my-bucket/output/'`` or ``'bq://my-project.my_dataset'``.
+      A BigQuery dataset without a table gets a timestamped
+      ``predictions_*`` table. Required for a Cloud Storage ``src``; for a
+      BigQuery ``src`` it defaults to
+      ``'bq://{project}.gen_ai_batch_prediction.predictions_{timestamp}'``.""",
+    )
+    display_name: Optional[str] = Field(
+        default=None,
+        description="""User-defined name of the batch prediction job, up to 128
+      characters. Defaults to a timestamped name.""",
+    )
+    machine_type: Optional[str] = Field(
+        default=None,
+        description="""Machine type for the job (e.g. ``'g2-standard-12'``). The
+      accelerator and replica settings are only sent when this is set.""",
+    )
+    accelerator_type: Optional[str] = Field(
+        default=None, description="""Accelerator type (e.g. ``'NVIDIA_L4'``)."""
+    )
+    accelerator_count: Optional[int] = Field(
+        default=None, description="""Number of accelerators per replica."""
+    )
+    starting_replica_count: Optional[int] = Field(
+        default=None, description="""Number of replicas the job starts with."""
+    )
+    max_replica_count: Optional[int] = Field(
+        default=None, description="""Maximum number of replicas the job may scale to."""
+    )
+
+
+class BatchPredictConfigDict(TypedDict, total=False):
+    """Config for ``batch_predict``."""
+
+    dest: Optional[str]
+    """Cloud Storage or BigQuery URI prefix for the output predictions,
+      e.g. ``'gs://my-bucket/output/'`` or ``'bq://my-project.my_dataset'``.
+      A BigQuery dataset without a table gets a timestamped
+      ``predictions_*`` table. Required for a Cloud Storage ``src``; for a
+      BigQuery ``src`` it defaults to
+      ``'bq://{project}.gen_ai_batch_prediction.predictions_{timestamp}'``."""
+
+    display_name: Optional[str]
+    """User-defined name of the batch prediction job, up to 128
+      characters. Defaults to a timestamped name."""
+
+    machine_type: Optional[str]
+    """Machine type for the job (e.g. ``'g2-standard-12'``). The
+      accelerator and replica settings are only sent when this is set."""
+
+    accelerator_type: Optional[str]
+    """Accelerator type (e.g. ``'NVIDIA_L4'``)."""
+
+    accelerator_count: Optional[int]
+    """Number of accelerators per replica."""
+
+    starting_replica_count: Optional[int]
+    """Number of replicas the job starts with."""
+
+    max_replica_count: Optional[int]
+    """Maximum number of replicas the job may scale to."""
+
+
+BatchPredictConfigOrDict = Union[BatchPredictConfig, BatchPredictConfigDict]
 
 
 class DeployOption(_common.BaseModel):

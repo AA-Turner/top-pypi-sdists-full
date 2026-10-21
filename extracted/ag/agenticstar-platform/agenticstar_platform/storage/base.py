@@ -18,6 +18,9 @@ from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_AZURE_BLOB_ENDPOINT_SUFFIX = "core.windows.net"
+
+
 class StorageProvider(str, Enum):
     """ストレージプロバイダー種別"""
     AZURE_BLOB = "azure_blob"
@@ -157,14 +160,14 @@ class AzureBlobConfig:
     max_single_put_size: int = 256 * 1024 * 1024  # 256MB
     # 資格情報なし認証 (DefaultAzureCredential)。connection_string が無いときに使う
     storage_account_name: Optional[str] = None
-    endpoint_suffix: str = "core.windows.net"
+    endpoint_suffix: str = DEFAULT_AZURE_BLOB_ENDPOINT_SUFFIX
 
     def __post_init__(self) -> None:
         # 設定ファイルで `connection_string = ""` と書いた形を「無し」に正規化する
         self.connection_string = _blank_to_none(self.connection_string)
         self.storage_account_name = _blank_to_none(self.storage_account_name)
         suffix = _blank_to_none(self.endpoint_suffix)
-        self.endpoint_suffix = suffix if suffix is not None else "core.windows.net"
+        self.endpoint_suffix = suffix if suffix is not None else DEFAULT_AZURE_BLOB_ENDPOINT_SUFFIX
 
     @property
     def provider(self) -> StorageProvider:
@@ -222,7 +225,7 @@ class AzureBlobConfig:
             max_block_size=data.get("max_block_size", 8 * 1024 * 1024),
             max_single_put_size=data.get("max_single_put_size", 256 * 1024 * 1024),
             storage_account_name=data.get("storage_account_name"),
-            endpoint_suffix=data.get("endpoint_suffix") or "core.windows.net",
+            endpoint_suffix=data.get("endpoint_suffix") or DEFAULT_AZURE_BLOB_ENDPOINT_SUFFIX,
         )
 
 

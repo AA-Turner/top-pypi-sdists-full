@@ -50,12 +50,12 @@ import queue
 import sys
 import time
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypedDict, cast
 from uuid import UUID
 
 import yaml
@@ -194,6 +194,9 @@ from omnimarket.nodes.node_delegate_skill_orchestrator.models.model_delegation_d
 from omnimarket.nodes.node_delegate_skill_orchestrator.ports.evidence_db_resolution import (
     resolve_local_delegation_evidence_db,
 )
+from omnimarket.nodes.node_delegate_skill_orchestrator.ports.port_routing_answer_judge import (
+    routing_answer_judge,
+)
 from omnimarket.nodes.node_delegate_skill_orchestrator.run_step_recorder import (
     ProtocolRunStepPublisher,
     RunStepRecorder,
@@ -217,6 +220,7 @@ from omnimarket.nodes.node_delegation_answer_gate_compute.handlers.handler_deleg
     resolve_answer_gate_kind,
 )
 from omnimarket.nodes.node_delegation_answer_gate_compute.handlers.judge_selection import (
+    independent_judge_armed,
     render_judge_prompt,
     select_independent_judge,
 )
@@ -316,6 +320,8 @@ from omnimarket.routing.delegation_backend_resolution import (
 from omnimarket.routing.local_byok_route import (
     next_chosen_model_byok_route,
     next_registered_byok_route,
+    registered_byok_routes,
+    registered_byok_tier_name,
     resolve_pinned_byok_route,
     substitute_any_registered_byok_route,
     substitute_local_byok_route,
@@ -324,6 +330,11 @@ from omnimarket.routing.roi_overlay import (
     ModelRoutingRoiOverlay,
     resolve_roi_overlay,
 )
+
+
+class _ByokRoutingKwargs(TypedDict, total=False):
+    byok_backends: tuple[ModelResolvedDelegationBackend, ...]
+
 
 logger = logging.getLogger(__name__)
 
@@ -880,6 +891,9 @@ _observed_child_boot_seconds: float | None = None
 
 type _NamedTestRunner = Callable[[ModelNamedTestRunRequest], ModelNamedTestRunResult]
 type _AnswerJudge = Callable[[ModelAnswerJudgeCall], ModelIndependentJudgeVerdict]
+type _AsyncAnswerJudge = Callable[
+    [ModelAnswerJudgeCall], Awaitable[ModelIndependentJudgeVerdict]
+]
 type _EffectHandler = Callable[
     [ModelLlmDelegationCallRequest], ModelLlmDelegationCallResult
 ]
@@ -1950,6 +1964,7 @@ class LocalDelegationDispatchPort:
                 next_customer_key: ModelResolvedDelegationBackend | None = None
                 if (
                     customer_route
+                    and current_tier != registered_byok_tier_name()
                     and may_move_on
                     and transport_sibling is None
                     and escalated_backend is None
@@ -2692,6 +2707,7 @@ class LocalDelegationDispatchPort:
                 and pinned_backend_id is None
                 and escalation_count < max_escalations
                 and _is_customer_byok_route(backend)
+                and current_tier != registered_byok_tier_name()
             ):
                 next_backend = next_registered_byok_route(
                     backend, tried_backend_ids=frozenset(excluded_backend_refs)
@@ -2984,15 +3000,20 @@ class LocalDelegationDispatchPort:
         """
         if backend_id is not None:
             return resolve_delegation_backend(task_type, backend_id=backend_id)
+        byok_routes = registered_byok_routes(quota_state=quota_state)
+        byok_kwargs: _ByokRoutingKwargs = (
+            {"byok_backends": byok_routes} if byok_routes else {}
+        )
         first_tier = first_eligible_tier(
             task_type,
             roi_overlay=roi_overlay,
             correlation_id=spread_key,
             quota_state=quota_state,
+            **byok_kwargs,
         )
         if first_tier is not None:
             backend_id = backend_id_for_tier(
-                first_tier, task_type, spread_key=spread_key
+                first_tier, task_type, spread_key=spread_key, **byok_kwargs
             )
             blocked = quota_blocked_backend_refs(quota_state)
             if backend_id is not None and backend_id in blocked:
@@ -3020,6 +3041,10 @@ class LocalDelegationDispatchPort:
                 )
                 if past_block is not None:
                     return past_block
+            if first_tier == registered_byok_tier_name() and backend_id is not None:
+                return next(
+                    route for route in byok_routes if route.backend_id == backend_id
+                )
             if backend_id is not None:
                 try:
                     return resolve_delegation_backend(task_type, backend_id=backend_id)
@@ -3087,6 +3112,16 @@ class LocalDelegationDispatchPort:
         ``model_id`` is in the set, counting it as tried, so the quality-gate
         caller never re-draws the model it just rejected on another host.
         """
+        if current_tier == registered_byok_tier_name():
+            return next(
+                (
+                    route
+                    for route in registered_byok_routes(quota_state=quota_state)
+                    if route.backend_id not in excluded_backend_refs
+                    and route.model_id not in excluded_model_ids
+                ),
+                None,
+            )
         tried: set[str] = set(excluded_backend_refs)
         while True:
             sibling_ref = sibling_backend_available_in_tier(
@@ -3193,6 +3228,14 @@ class LocalDelegationDispatchPort:
         excluded_backend_refs = excluded_backend_refs | quota_blocked_backend_refs(
             quota_state
         )
+        byok_routes = tuple(
+            route
+            for route in registered_byok_routes(quota_state=quota_state)
+            if route.backend_id not in excluded_backend_refs
+        )
+        byok_kwargs: _ByokRoutingKwargs = (
+            {"byok_backends": byok_routes} if byok_routes else {}
+        )
         next_tier = next_eligible_tier(
             current_tier,
             excluded_tiers,
@@ -3200,6 +3243,7 @@ class LocalDelegationDispatchPort:
             roi_overlay=roi_overlay,
             excluded_backend_refs=excluded_backend_refs,
             correlation_id=spread_key,
+            **byok_kwargs,
         )
 
         def stopped(reason: str) -> None:
@@ -3221,7 +3265,9 @@ class LocalDelegationDispatchPort:
             f"{NO_HIGHER_TIER_REASON_TOKEN}: task_class='{task_type}' "
             f"current_tier='{current_tier}'; next tier '{next_tier}'"
         )
-        backend_id = backend_id_for_tier(next_tier, task_type, spread_key=spread_key)
+        backend_id = backend_id_for_tier(
+            next_tier, task_type, spread_key=spread_key, **byok_kwargs
+        )
         if backend_id is None:
             stopped(f"{stop_prefix} selects no backend for the task class")
             return None
@@ -3241,6 +3287,10 @@ class LocalDelegationDispatchPort:
             )
             stopped(f"{stop_prefix} re-selects already-tried backend '{backend_id}'")
             return None
+        if next_tier == registered_byok_tier_name():
+            return next(
+                route for route in byok_routes if route.backend_id == backend_id
+            )
         try:
             escalated = resolve_delegation_backend(task_type, backend_id=backend_id)
         except RuntimeError:
@@ -3953,11 +4003,16 @@ class LocalDelegationDispatchPort:
         kind = resolve_answer_gate_kind(task_type)
         if kind is EnumAnswerGateKind.CONTRACT_ONLY:
             return gate_result
-        if kind is EnumAnswerGateKind.TEXT and self._answer_judge is None:
+        answer_judge = self._answer_judge_for(task_type)
+        if kind is EnumAnswerGateKind.TEXT and answer_judge is None:
             return gate_result
         judge = (
             await self._independent_judge_verdict(
-                producer_model_id=producer_model_id, source=source, answer=answer
+                producer_model_id=producer_model_id,
+                source=source,
+                answer=answer,
+                task_type=task_type,
+                answer_judge=answer_judge,
             )
             if kind is EnumAnswerGateKind.TEXT
             else None
@@ -3986,8 +4041,44 @@ class LocalDelegationDispatchPort:
         )
         return gate_as_quality_gate_result(gate_result, gate)
 
+    def _answer_judge_for(self, task_type: str) -> _AsyncAnswerJudge | None:
+        """The judge call for ``task_type``: the injected one, else the armed default.
+
+        OMN-20910: a class the answer gate contract arms
+        (``independent_judge.armed_task_classes``) gets the routing-contract
+        judge call when the caller supplied none. The list ships empty, so an
+        unarmed class keeps its contract verdict as before.
+
+        The injected sync judge runs in a worker thread; the routing judge is
+        awaited on the running loop.
+        """
+        if self._answer_judge is not None:
+            injected = self._answer_judge
+
+            async def _injected_judge(
+                call: ModelAnswerJudgeCall,
+            ) -> ModelIndependentJudgeVerdict:
+                return await asyncio.to_thread(injected, call)
+
+            return _injected_judge
+        if not independent_judge_armed(task_type):
+            return None
+
+        async def _routing_judge(
+            call: ModelAnswerJudgeCall,
+        ) -> ModelIndependentJudgeVerdict:
+            return await routing_answer_judge(call, task_type=task_type)
+
+        return _routing_judge
+
     async def _independent_judge_verdict(
-        self, *, producer_model_id: str, source: str, answer: str
+        self,
+        *,
+        producer_model_id: str,
+        source: str,
+        answer: str,
+        task_type: str,
+        answer_judge: _AsyncAnswerJudge | None,
     ) -> ModelIndependentJudgeVerdict | None:
         """Ask the routing contract's judge of another family; ``None`` when none.
 
@@ -3996,13 +4087,13 @@ class LocalDelegationDispatchPort:
         judge call that raises is recorded as UNAVAILABLE, which the gate
         refuses: a judge that did not answer never accepts.
         """
-        if self._answer_judge is None:
+        if answer_judge is None:
             return None
         selected = select_independent_judge(producer_model_id, load_bifrost_backends())
         if selected is None:
             return None
         system_prompt, user_prompt = render_judge_prompt(
-            instruction="", source=source, answer=answer
+            instruction="", source=source, answer=answer, task_type=task_type
         )
         call = ModelAnswerJudgeCall(
             backend_id=str(selected["backend_id"]),
@@ -4011,7 +4102,7 @@ class LocalDelegationDispatchPort:
             user_prompt=user_prompt,
         )
         try:
-            return await asyncio.to_thread(self._answer_judge, call)
+            return await answer_judge(call)
         except Exception as exc:  # any judge failure refuses, never accepts
             logger.warning(
                 "LocalDelegationDispatch: independent judge %s failed: %s",

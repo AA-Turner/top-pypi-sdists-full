@@ -3,6 +3,7 @@ from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.server.v1 import monitor_pb2 as _monitor_pb2_1
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -127,19 +128,37 @@ class MuteMonitorResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class ListMonitorsFilters(_message.Message):
+    __slots__ = ("name_search", "types", "created_by")
+    NAME_SEARCH_FIELD_NUMBER: _ClassVar[int]
+    TYPES_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    name_search: str
+    types: _containers.RepeatedScalarFieldContainer[_monitor_pb2.MonitorType]
+    created_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        name_search: _Optional[str] = ...,
+        types: _Optional[_Iterable[_Union[_monitor_pb2.MonitorType, str]]] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
 class ListMonitorsRequest(_message.Message):
-    __slots__ = ("limit", "cursor", "read_mask")
+    __slots__ = ("limit", "cursor", "read_mask", "filters")
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     limit: int
     cursor: str
     read_mask: _field_mask_pb2.FieldMask
+    filters: ListMonitorsFilters
     def __init__(
         self,
         limit: _Optional[int] = ...,
         cursor: _Optional[str] = ...,
         read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+        filters: _Optional[_Union[ListMonitorsFilters, _Mapping]] = ...,
     ) -> None: ...
 
 class ListMonitorsResponse(_message.Message):
@@ -176,4 +195,43 @@ class ListMonitorsResponse(_message.Message):
         cursor: _Optional[str] = ...,
         monitor_has_active_incident: _Optional[_Mapping[str, bool]] = ...,
         monitor_incidents: _Optional[_Mapping[str, MonitorIncidentRef]] = ...,
+    ) -> None: ...
+
+class PreviewFeatureDriftMonitorRequest(_message.Message):
+    __slots__ = ("monitor", "start_time", "end_time")
+    MONITOR_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    monitor: _monitor_pb2.FeatureDriftMonitor
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        monitor: _Optional[_Union[_monitor_pb2.FeatureDriftMonitor, _Mapping]] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class PreviewFeatureDriftMonitorResponse(_message.Message):
+    __slots__ = ("baseline_revision_id", "points")
+    BASELINE_REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    POINTS_FIELD_NUMBER: _ClassVar[int]
+    baseline_revision_id: str
+    points: _containers.RepeatedCompositeFieldContainer[FeatureDriftPreviewPoint]
+    def __init__(
+        self,
+        baseline_revision_id: _Optional[str] = ...,
+        points: _Optional[_Iterable[_Union[FeatureDriftPreviewPoint, _Mapping]]] = ...,
+    ) -> None: ...
+
+class FeatureDriftPreviewPoint(_message.Message):
+    __slots__ = ("window_end", "result")
+    WINDOW_END_FIELD_NUMBER: _ClassVar[int]
+    RESULT_FIELD_NUMBER: _ClassVar[int]
+    window_end: _timestamp_pb2.Timestamp
+    result: _monitor_pb2.FeatureDriftTestResult
+    def __init__(
+        self,
+        window_end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        result: _Optional[_Union[_monitor_pb2.FeatureDriftTestResult, _Mapping]] = ...,
     ) -> None: ...

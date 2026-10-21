@@ -7,13 +7,12 @@ import sys
 import threading
 
 import pytest
-import requests
+from hypothesis import strategies as st
 from hypothesis.vendor.pretty import pretty
 
 from schemathesis.config import GenerationConfig
 from schemathesis.core import deserialization
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.core.transport import Response
 from schemathesis.generation.feedback import FeedbackSources
 from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.generation.meta import TestPhase
@@ -1381,7 +1380,7 @@ def test_unresolvable_pointer(user_schema_builder):
     assert resources == []
 
 
-def test_custom_deserializer(ctx):
+def test_custom_deserializer(ctx, response_factory):
     @deserialization.deserializer("text/x-keyvalue")
     def deserialize_keyvalue(ctx, response):
         data = {}
@@ -1430,14 +1429,12 @@ def test_custom_deserializer(ctx):
     operation = schema["/users"]["POST"]
     case = operation.Case()
 
-    req = requests.Request("POST", "http://test.example/users")
-    prepared = req.prepare()
-    response = Response(
+    response = response_factory.core(
         status_code=201,
-        headers={"content-type": ["text/x-keyvalue"]},
         content=b"id=user123\nname=Alice",
-        request=prepared,
-        elapsed=0.1,
+        content_type="text/x-keyvalue",
+        method="POST",
+        url="http://test.example/users",
         verify=True,
     )
 
@@ -1672,12 +1669,91 @@ def test_negative_aware_strategy_with_captured_values(ctx):
     config = GenerationConfig()
 
     strategy = operation.path_parameters.get_strategy(
-        operation, config, GenerationMode.NEGATIVE, extra_data_source=data_source
+        operation, config, GenerationMode.NEGATIVE, feedback=FeedbackSources(extra_data_source=data_source)
     )
 
     results = generate_many(strategy, 20)
 
     assert all(isinstance(r, GeneratedValue) for r in results)
+
+
+@pytest.mark.parametrize("mode", [GenerationMode.POSITIVE, GenerationMode.NEGATIVE], ids=["positive", "negative"])
+def test_consumer_strategies_use_values_captured_after_previous_builds(ctx, mode):
+    schema = ctx.openapi.load_schema(
+        {
+            "/items": {
+                "post": {
+                    "operationId": "createItem",
+                    "responses": {
+                        "201": {
+                            "description": "Created",
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object", "properties": {"id": {"type": "string"}}}
+                                }
+                            },
+                            "links": {
+                                "UpdateItem": {
+                                    "operationId": "updateItem",
+                                    "parameters": {"id": "$response.body#/id", "itemId": "$response.body#/id"},
+                                }
+                            },
+                        }
+                    },
+                }
+            },
+            "/items/{id}": {
+                "put": {
+                    "operationId": "updateItem",
+                    "parameters": [{"name": "id", "in": "path", "required": True, "schema": {"type": "string"}}],
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"itemId": {"type": "string"}},
+                                    "required": ["itemId"],
+                                    "additionalProperties": False,
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            },
+        }
+    )
+    data_source = schema.create_extra_data_source()
+    operation = schema["/items/{id}"]["PUT"]
+    body = operation.body[0]
+    config = GenerationConfig()
+
+    def draw(strategy: st.SearchStrategy) -> list[object]:
+        return [value.value if isinstance(value, GeneratedValue) else value for value in generate_many(strategy, 30)]
+
+    def draw_values() -> tuple[list[object], list[object]]:
+        path = draw(
+            operation.path_parameters.get_strategy(
+                operation, config, mode, feedback=FeedbackSources(extra_data_source=data_source)
+            )
+        )
+        bodies = draw(
+            body.get_strategy(operation, config, mode, feedback=FeedbackSources(extra_data_source=data_source))
+        )
+        return path, bodies
+
+    # Negative path strings without captured values are unsatisfiable, so only the body is drawn before capturing.
+    draw(body.get_strategy(operation, config, mode, feedback=FeedbackSources(extra_data_source=data_source)))
+    data_source.repository.record_response(operation="POST /items", status_code=201, payload={"id": "first-item"})
+    path, bodies = draw_values()
+    assert {"id": "first-item"} in path
+    assert {"itemId": "first-item"} in bodies
+
+    data_source.repository.record_response(operation="POST /items", status_code=201, payload={"id": "second-item"})
+    path, bodies = draw_values()
+    assert {"id": "second-item"} in path
+    assert {"itemId": "second-item"} in bodies
 
 
 def test_pool_overlay_keeps_required_fields_for_body_without_type_object(ctx):
@@ -1742,7 +1818,9 @@ def test_pool_overlay_keeps_required_fields_for_body_without_type_object(ctx):
     body = operation.body[0]
     config = GenerationConfig()
 
-    strategy = body.get_strategy(operation, config, GenerationMode.POSITIVE, extra_data_source=data_source)
+    strategy = body.get_strategy(
+        operation, config, GenerationMode.POSITIVE, feedback=FeedbackSources(extra_data_source=data_source)
+    )
 
     @run_given(strategy, max_examples=200)
     def t(value):
@@ -1808,6 +1886,7 @@ def _with_shipping(shipping):
         (_with_shipping(_SHIPPING_OR_PICKUP), ("shipping",)),
         (_with_shipping({"type": "array", "minItems": 1, "items": _COMPOSED_SHIPPING}), ("shipping", "*")),
         (_with_shipping({"type": "array", "minItems": 1, "items": _SHIPPING_OR_PICKUP}), ("shipping", "*")),
+        ({"type": "object", "properties": {"2024": _SHIPPING}, "required": ["2024"]}, ("2024",)),
     ],
     ids=[
         "inline-object",
@@ -1825,6 +1904,7 @@ def _with_shipping(shipping):
         "one-of",
         "array-of-all-of",
         "array-of-one-of",
+        "digit-named-property",
     ],
 )
 def test_nested_body_pool_overlay_lands_pool_values(ctx, body, path):
@@ -1876,7 +1956,9 @@ def test_nested_body_pool_overlay_lands_pool_values(ctx, body, path):
 
     operation = schema["/departments"]["POST"]
     body = operation.body[0]
-    strategy = body.get_strategy(operation, GenerationConfig(), GenerationMode.POSITIVE, extra_data_source=data_source)
+    strategy = body.get_strategy(
+        operation, GenerationConfig(), GenerationMode.POSITIVE, feedback=FeedbackSources(extra_data_source=data_source)
+    )
 
     pool_hits = []
     partial_hits = []
@@ -2071,7 +2153,9 @@ def test_negative_aware_strategy_with_captured_values_body(ctx):
     config = GenerationConfig()
     body = operation.body[0]
 
-    strategy = body.get_strategy(operation, config, GenerationMode.NEGATIVE, extra_data_source=data_source)
+    strategy = body.get_strategy(
+        operation, config, GenerationMode.NEGATIVE, feedback=FeedbackSources(extra_data_source=data_source)
+    )
 
     results = generate_many(strategy, 20)
 
@@ -2411,7 +2495,9 @@ def test_pool_overlay_respects_max_properties(ctx, mode):
 
     operation = schema["/posts"]["POST"]
     config = GenerationConfig()
-    strategy = operation.body[0].get_strategy(operation, config, mode, extra_data_source=data_source)
+    strategy = operation.body[0].get_strategy(
+        operation, config, mode, feedback=FeedbackSources(extra_data_source=data_source)
+    )
 
     pool_hits = 0
     oversized = []
@@ -2436,7 +2522,7 @@ def test_pool_overlay_respects_max_properties(ctx, mode):
     assert not oversized, f"`maxProperties` exceeded: {oversized[0]!r}"
 
 
-def test_pool_draw_names_the_identity_that_produced_the_resource(user_schema_builder):
+def test_pool_draw_names_the_identity_that_produced_the_resource(user_schema_builder, response_factory):
     user_schema = {
         "type": "object",
         "properties": {"id": {"type": "string"}, "name": {"type": "string"}},
@@ -2456,12 +2542,11 @@ def test_pool_draw_names_the_identity_that_produced_the_resource(user_schema_bui
     operation = schema["/users"]["POST"]
     case = operation.Case()
     case._auth_identity = "alice"
-    response = Response(
+    response = response_factory.core(
         status_code=CREATED,
-        headers={"content-type": ["application/json"]},
         content=b'{"id": "1", "name": "Alice"}',
-        request=requests.Request("POST", "http://test.example/users").prepare(),
-        elapsed=0.1,
+        method="POST",
+        url="http://test.example/users",
         verify=True,
     )
     data_source.record_response(operation=operation, response=response, case=case)
@@ -2562,7 +2647,12 @@ def test_negative_aware_strategy_keeps_schema_examples_intact(ctx):
     config = GenerationConfig()
     body = operation.body[0]
 
-    generate_many(body.get_strategy(operation, config, GenerationMode.NEGATIVE, extra_data_source=data_source), 100)
+    generate_many(
+        body.get_strategy(
+            operation, config, GenerationMode.NEGATIVE, feedback=FeedbackSources(extra_data_source=data_source)
+        ),
+        100,
+    )
 
     positive = generate_many(body.get_strategy(operation, config, GenerationMode.POSITIVE), 100)
     assert {"project_id": "captured"} not in positive

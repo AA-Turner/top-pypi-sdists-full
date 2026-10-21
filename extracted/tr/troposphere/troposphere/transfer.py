@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import double, integer
+from .validators import boolean, double, integer
 from .validators.transfer import validate_homedirectory_type
 
 
@@ -125,6 +125,7 @@ class SftpConfig(AWSProperty):
 
     props: PropsDictType = {
         "MaxConcurrentConnections": (integer, False),
+        "OrderedUserSecretVersionStages": ([str], False),
         "TrustedHostKeys": ([str], False),
         "UserSecretId": (str, False),
     }
@@ -209,6 +210,16 @@ class IdentityProviderDetails(AWSProperty):
     }
 
 
+class ProxyConfig(AWSProperty):
+    """
+    `ProxyConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-proxyconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "SftpMode": (str, False),
+    }
+
+
 class ProtocolDetails(AWSProperty):
     """
     `ProtocolDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-protocoldetails.html>`__
@@ -217,6 +228,7 @@ class ProtocolDetails(AWSProperty):
     props: PropsDictType = {
         "As2Transports": ([str], False),
         "PassiveIp": (str, False),
+        "ProxyConfig": (ProxyConfig, False),
         "SetStatOption": (str, False),
         "TlsSessionResumptionMode": (str, False),
     }
@@ -263,6 +275,7 @@ class Server(AWSObject):
 
     props: PropsDictType = {
         "Certificate": (str, False),
+        "CreateWithHostKey": (boolean, False),
         "Domain": (str, False),
         "EndpointDetails": (EndpointDetails, False),
         "EndpointType": (str, False),

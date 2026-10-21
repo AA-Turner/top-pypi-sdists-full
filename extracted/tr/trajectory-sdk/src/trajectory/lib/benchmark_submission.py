@@ -30,14 +30,17 @@ from trajectory.types.benchmark_ingestion_upload_urls import BenchmarkIngestionU
 MAX_PART_BYTES = 4 * 1024 * 1024
 MAX_PART_TASKS = 256
 MAX_REQUEST_BYTES = 128 * 1024
+# Per-file URL signing bounds these, and APIs before larger policy batches enforce them for both.
 MAX_ALLOCATION_FILES = 1000
 MAX_ALLOCATION_BYTES = 1024 * 1024
+# One form-upload policy covers the whole submission, so policy allocations can be larger.
+MAX_POLICY_ALLOCATION_FILES = 5000
+MAX_POLICY_ALLOCATION_BYTES = 4 * 1024 * 1024
 # Bounds allocated-but-unstarted upload bytes so signed URLs are used before their 60-minute expiry.
 MAX_ALLOCATION_UPLOAD_BYTES = 4 * 1024 * 1024 * 1024
 MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024 * 1024
 MAX_RUNTIME_CONTEXT_FILES = 4096
 MAX_PENDING_HASHES = 64
-MIN_PARALLEL_HASH_BYTES = 1024 * 1024
 BENCHMARK_NAME_MIN_LENGTH = 3
 BENCHMARK_NAME_MAX_LENGTH = 1024
 # Allocations and uploads retry past the client's default so they outlast minutes of signing
@@ -60,6 +63,7 @@ class SubmissionUpload:
     self.part_bytes = 2
     self.part_count = 0
     self.runtime_dockerfiles: set[str | None] = set()
+    self.policy_batches = True
 
   def close(self) -> None:
     self.database.close()
@@ -119,7 +123,7 @@ class SubmissionUpload:
         self.add_file(file)
       return
 
-    pending: deque[tuple[UploadFile, Future[dict[str, Any]] | dict[str, Any] | Exception]] = deque()
+    pending: deque[tuple[UploadFile, Future[dict[str, Any]]]] = deque()
     source = iter(files)
     max_pending = MAX_PENDING_HASHES if max_concurrency is None else max_concurrency
     with ThreadPoolExecutor(max_workers=max_concurrency) as pool:
@@ -132,14 +136,10 @@ class SubmissionUpload:
           pending.append((file, self._schedule_hash(pool, file)))
         while pending:
           file, result = pending.popleft()
-          if isinstance(result, Exception):
-            raise result
-          if isinstance(result, Future):
-            while not result.done():
-              wait((result,), timeout=self.progress.interval)
-              self.progress.emit()
-          declaration = result.result() if isinstance(result, Future) else result
-          self._record_file(file, declaration)
+          while not result.done():
+            wait((result,), timeout=self.progress.interval)
+            self.progress.emit()
+          self._record_file(file, result.result())
           try:
             next_file = next(source)
           except StopIteration:
@@ -147,21 +147,13 @@ class SubmissionUpload:
           pending.append((next_file, self._schedule_hash(pool, next_file)))
       except BaseException:
         for _, result in pending:
-          if isinstance(result, Future):
-            result.cancel()
+          result.cancel()
         raise
     # ThreadPoolExecutor waits for running readers before the caller can clean up.
 
-  def _schedule_hash(
-    self, pool: ThreadPoolExecutor, file: UploadFile
-  ) -> Future[dict[str, Any]] | dict[str, Any] | Exception:
+  def _schedule_hash(self, pool: ThreadPoolExecutor, file: UploadFile) -> Future[dict[str, Any]]:
     self.progress.discover(file.size_bytes)
-    # Small files cost more to schedule than to hash; larger files release the GIL during MD5.
-    if file.size_bytes < MIN_PARALLEL_HASH_BYTES:
-      try:
-        return self._hash_file(file, "artifact")
-      except Exception as error:
-        return error  # Surface errors in input order after earlier hashes finish.
+    # Even small files hash about twice as fast on threads, which overlap their file reads.
     return pool.submit(self._hash_file, file, "artifact")
 
   def _hash_file(self, file: UploadFile, kind: str) -> dict[str, Any]:
@@ -270,7 +262,15 @@ class SubmissionUpload:
     client_context = (
       nullcontext(http_client)
       if http_client is not None
-      else httpx2.Client(timeout=upload_timeout, follow_redirects=True)
+      else httpx2.Client(
+        timeout=upload_timeout,
+        follow_redirects=True,
+        # HTTPX keeps only 20 idle connections by default, so workers would reconnect after pauses.
+        limits=httpx2.Limits(
+          max_connections=BENCHMARK_UPLOAD_CONCURRENCY,
+          max_keepalive_connections=BENCHMARK_UPLOAD_CONCURRENCY,
+        ),
+      )
     )
     # Allocation retries run here, so their total wait is bounded like an upload's.
     allocator = client.with_options(max_retries=0)
@@ -286,29 +286,43 @@ class SubmissionUpload:
         parse_retry_after=client._parse_retry_after,
       ) as pool:
         for batch in self._upload_batches():
-          declarations = [declaration for _, declaration, _ in batch]
-          self._require_bounded({"files": declarations, **extra_body}, MAX_ALLOCATION_BYTES)
-          try:
-            response = self._allocate(
-              allocator, operation_id, declarations, extra_body, upload_max_retries
+          chunks = deque([batch])
+          while chunks:
+            chunk = chunks.popleft()
+            declarations = [declaration for _, declaration, _ in chunk]
+            self._require_bounded(
+              {"files": declarations, **extra_body}, self._get_allocation_limits()[1]
             )
-          except UnprocessableEntityError as error:
-            if not extra_body or error.param != "upload_method":
-              raise
-            # An API without form-upload policies rejects the field; it signs a URL per file.
-            extra_body = {}
-            response = self._allocate(
-              allocator, operation_id, declarations, extra_body, upload_max_retries
-            )
-          files = [
-            self._declared_file(source, declaration, mtime_ns)
-            for source, declaration, mtime_ns in batch
-          ]
-          policy = response.to_dict(mode="json").get("policy")
-          if policy is None:
-            pool.add(files, response.urls)
-          else:
-            pool.add_with_policy(files, policy)
+            try:
+              response = self._allocate(
+                allocator, operation_id, declarations, extra_body, upload_max_retries
+              )
+            except UnprocessableEntityError as error:
+              # Size errors name the file list, or the whole body for the byte limit.
+              if (
+                self.policy_batches
+                and error.param in ("files", None)
+                and self._exceeds_put_limits(declarations, extra_body)
+              ):
+                # An API before larger policy batches rejects them; resend at the smaller size.
+                self.policy_batches = False
+              elif extra_body and error.param == "upload_method":
+                # An API without form-upload policies rejects the field; it signs a URL per file.
+                extra_body = {}
+                self.policy_batches = False
+              else:
+                raise
+              chunks.extendleft(reversed(list(self._batch_files(chunk))))
+              continue
+            files = [
+              self._declared_file(source, declaration, mtime_ns)
+              for source, declaration, mtime_ns in chunk
+            ]
+            policy = response.to_dict(mode="json").get("policy")
+            if policy is None:
+              pool.add(files, response.urls)
+            else:
+              pool.add_with_policy(files, policy)
         pool.finish()
     reporter.set_stage("finalizing")
     status = client.benchmarks.ingestion.finalize(
@@ -401,21 +415,41 @@ class SubmissionUpload:
       ) from error
     return file
 
+  def _get_allocation_limits(self) -> tuple[int, int]:
+    if self.policy_batches:
+      return MAX_POLICY_ALLOCATION_FILES, MAX_POLICY_ALLOCATION_BYTES
+    return MAX_ALLOCATION_FILES, MAX_ALLOCATION_BYTES
+
+  @staticmethod
+  def _exceeds_put_limits(declarations: list[dict[str, Any]], extra_body: dict[str, str]) -> bool:
+    body = {"files": declarations, **extra_body}
+    return (
+      len(declarations) > MAX_ALLOCATION_FILES
+      or len(json.dumps(body, ensure_ascii=False).encode()) > MAX_ALLOCATION_BYTES
+    )
+
   def _upload_batches(self) -> Iterator[list[tuple[str, dict[str, Any], int | None]]]:
+    rows = self.database.execute("SELECT source, declaration, mtime_ns FROM files ORDER BY path")
+    return self._batch_files(
+      (source, json.loads(encoded), mtime_ns) for source, encoded, mtime_ns in rows
+    )
+
+  def _batch_files(
+    self, files: Iterable[tuple[str, dict[str, Any], int | None]]
+  ) -> Iterator[list[tuple[str, dict[str, Any], int | None]]]:
+    # Limits are read per file, so a fallback to smaller batches applies to the next batch.
     batch: list[tuple[str, dict[str, Any], int | None]] = []
     # Packed as the request is sent, so the upload method field counts toward the limit.
     empty_size = len(json.dumps({"files": [], **_ALLOCATION_EXTRA_BODY}).encode())
     size = empty_size
     upload_bytes = 0
-    for source, encoded, mtime_ns in self.database.execute(
-      "SELECT source, declaration, mtime_ns FROM files ORDER BY path"
-    ):
-      declaration = json.loads(encoded)
+    for source, declaration, mtime_ns in files:
+      max_files, max_bytes = self._get_allocation_limits()
       item_size = len(json.dumps(declaration, ensure_ascii=False).encode())
-      self._require_bounded({"files": [declaration]}, MAX_ALLOCATION_BYTES)
+      self._require_bounded({"files": [declaration]}, max_bytes)
       if batch and (
-        len(batch) == MAX_ALLOCATION_FILES
-        or size + 2 + item_size > MAX_ALLOCATION_BYTES
+        len(batch) >= max_files
+        or size + 2 + item_size > max_bytes
         or upload_bytes + declaration["size_bytes"] > MAX_ALLOCATION_UPLOAD_BYTES
       ):
         yield batch

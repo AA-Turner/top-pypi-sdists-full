@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -468,6 +468,7 @@ class Daemon(AWSObject):
     props: PropsDictType = {
         "CapacityProviderArns": ([str], False),
         "ClusterArn": (str, False),
+        "Critical": (boolean, False),
         "DaemonName": (str, False),
         "DaemonTaskDefinitionArn": (str, False),
         "DeploymentConfiguration": (DaemonDeploymentConfiguration, False),
@@ -486,6 +487,20 @@ class DaemonDeployment(AWSObject):
     resource_type = "AWS::ECS::DaemonDeployment"
 
     props: PropsDictType = {}
+
+
+class DaemonRevision(AWSObject):
+    """
+    `DaemonRevision <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-daemonrevision.html>`__
+    """
+
+    resource_type = "AWS::ECS::DaemonRevision"
+
+    props: PropsDictType = {
+        "EnableECSManagedTags": (boolean, False),
+        "EnableExecuteCommand": (boolean, False),
+        "PropagateTags": (str, False),
+    }
 
 
 class ContainerDependency(AWSProperty):
@@ -1463,7 +1478,7 @@ class ResourceRequirement(AWSProperty):
 
     props: PropsDictType = {
         "Type": (str, True),
-        "Value": (str, True),
+        "Value": (str, False),
     }
 
 
@@ -2056,4 +2071,16 @@ class VersionInfo(AWSProperty):
         "AgentHash": (str, False),
         "AgentVersion": (str, False),
         "DockerVersion": (str, False),
+    }
+
+
+class VpcLatticeAdvancedConfiguration(AWSProperty):
+    """
+    `VpcLatticeAdvancedConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-vpclatticeadvancedconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AlternateTargetGroupArn": (str, False),
+        "ProductionListenerRule": (str, False),
+        "TestListenerRule": (str, False),
     }

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, NoReturn, overload
 from urllib.parse import quote
 
 from pinecone._internal.adaptive import _AdaptiveLimiterRegistry
-from pinecone._internal.config import PineconeConfig, RetryConfig
+from pinecone._internal.config import PineconeConfig, RetryConfig, check_api_key_is_header_safe
 from pinecone._internal.constants import CONTROL_PLANE_API_VERSION, DEFAULT_BASE_URL
 from pinecone._internal.index_migration import (
     MIGRATION_GUIDE,
@@ -16,7 +16,7 @@ from pinecone._internal.index_migration import (
     reject_new_only_create_kwargs,
 )
 from pinecone._internal.indexes_helpers import _LegacyIndexKwargs, poll_index_until_ready
-from pinecone._internal.keyword_only import keyword_only_methods
+from pinecone._internal.keyword_only import keyword_only_methods, unexpected_keywords_error
 from pinecone._internal.validation import require_non_empty
 from pinecone.errors.exceptions import ValidationError
 from pinecone.models.indexes.list import IndexList
@@ -90,11 +90,17 @@ class Pinecone:
     instead, through the separate client :meth:`index` hands back.
 
     :class:`~pinecone.async_client.AsyncPinecone` covers the same surface for
-    ``asyncio`` code, and :doc:`/guides/sync-vs-async` compares the two; the one
+    ``asyncio`` code, and
+    `Sync vs async clients <https://sdk.pinecone.io/python/guides/sync-vs-async.html>`__
+    compares the two; the one
     shape difference is :meth:`index`, which is a plain call here and a coroutine
     there. Any call can raise the connection, timeout, and API errors catalogued
-    in :doc:`/guides/error-handling`, and every ``Raises:`` section below names
-    only what is specific to that method. :doc:`/guides/retries` covers what the
+    in
+    `Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__,
+    and every ``Raises:`` section below names
+    only what is specific to that method.
+    `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__
+    covers what the
     client retries on your behalf and what *retry_config* changes.
 
     Args:
@@ -107,6 +113,9 @@ class Pinecone:
             it elsewhere for a gateway, a private endpoint, or a local simulator.
         additional_headers (Mapping[str, str] | None): Headers added to every
             control-plane request, e.g. ``{"X-Request-Source": "nightly-reindex"}``.
+            A name matches the SDK's own headers (``X-Pinecone-Api-Version``,
+            ``User-Agent``, ``Api-Key``) regardless of case, and your value
+            replaces the SDK's, so exactly one is sent.
             When omitted, the client reads ``PINECONE_ADDITIONAL_HEADERS`` as a JSON
             object instead.
         source_tag (str | None): Attribution tag appended to the User-Agent, e.g.
@@ -129,14 +138,16 @@ class Pinecone:
             ``PINECONE_GRPC_SCHEME`` env var, and then to ``https``. Has no effect on
             REST clients, which take the scheme from the host they are given.
         timeout (float): Deadline in seconds for a single HTTP attempt, not for the
-            whole call — each retry gets its own. Defaults to ``30.0``.
+            whole call — each retry gets its own. Must be greater than zero.
+            Defaults to ``30.0``.
         connection_pool_maxsize (int): Ceiling on connections held open to the
             control plane. ``0`` (default) leaves httpx's own ceiling in place;
             raise it for a process issuing many concurrent control-plane calls.
         retry_config (RetryConfig | None): Retry policy for control-plane requests,
             and for gRPC data-plane clients when you set it explicitly. ``None``
             (default) uses the built-in policy, which suits most callers; see
-            :doc:`/guides/retries` for the defaults, for how to switch retries off,
+            `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__
+            for the defaults, for how to switch retries off,
             and for why it does not reach data-plane REST.
         pool_threads (int | None): Opt-in for the legacy ``async_req=True`` execution
             model on data-plane methods. When set, indexes created via
@@ -148,7 +159,13 @@ class Pinecone:
 
     Raises:
         :exc:`PineconeValueError`: If no API key is given and ``PINECONE_API_KEY``
-            is unset, since nothing would authenticate the first request.
+            is unset, since nothing would authenticate the first request. Also raised when the
+            key is not a valid HTTP header value, such as a blank key or one with a
+            trailing newline, so the failure is local and never echoes the key.
+        :exc:`PineconeTypeError`: If a keyword argument other than those listed
+            above is passed, which is how a misspelled parameter name surfaces.
+            It derives from :exc:`TypeError`, so ``except TypeError`` catches it
+            too.
         :exc:`FileNotFoundError`: If ``ssl_ca_certs`` names a path that does not
             exist, raised when the client is constructed, so a mistyped path
             cannot leave you silently verifying against the default trust store
@@ -169,7 +186,7 @@ class Pinecone:
             if not pc.indexes.exists("product-search"):
                 pc.indexes.create(
                     name="product-search",
-                    schema={"fields": {"embedding": {
+                    schema={"fields": {"your_vector": {
                         "type": "dense_vector", "dimension": 1536, "metric": "cosine"}}},
                 )
 
@@ -205,7 +222,7 @@ class Pinecone:
     ) -> None:
         legacy_pool_threads = kwargs.pop("pool_threads", None)
         if kwargs:
-            raise TypeError(f"Pinecone() got unexpected keyword arguments: {sorted(kwargs)!r}")
+            raise unexpected_keywords_error("Pinecone", Pinecone.__init__, kwargs)
         self._limiter_registry = _AdaptiveLimiterRegistry()
         augmented_retry_config = replace(
             retry_config or RetryConfig(),
@@ -235,6 +252,7 @@ class Pinecone:
                 "No API key provided. Pass api_key='...' or set the "
                 "PINECONE_API_KEY environment variable."
             )
+        check_api_key_is_header_safe(config.api_key)
 
         # Apply default host if none resolved
         resolved_host = config.host or DEFAULT_BASE_URL
@@ -523,11 +541,17 @@ class Pinecone:
                 describe request the first time, then comes from the host cache.
             host (str): The index's host, e.g.
                 ``"product-search-abc123.svc.pinecone.io"``. Pass it when you have
-                it already and the describe request is skipped entirely.
+                it already and the describe request is skipped entirely. A scheme you
+                include is kept as given: ``"https://..."`` and a bare host both use
+                TLS, while ``"http://..."`` is sent in cleartext and emits a
+                :class:`RuntimeWarning` unless the host is a loopback or RFC 1918
+                IP address, ``localhost``, or ``*.localhost``.
             grpc (bool): Return a :class:`~pinecone.grpc.GrpcIndex` that carries
                 data-plane operations over gRPC rather than HTTP. The scheme it
                 dials comes from the ``grpc_scheme`` given to :class:`Pinecone`.
-                Defaults to ``False``; see :doc:`/guides/grpc` for when it pays off.
+                Defaults to ``False``; see
+                `Using the gRPC client <https://sdk.pinecone.io/python/guides/grpc.html>`__
+                for when it pays off.
             pool_threads (int | None): Size of the thread pool backing
                 ``async_req=True`` calls on the returned index. ``None`` (default)
                 uses the client-level ``pool_threads``. No effect when ``grpc=True``.

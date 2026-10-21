@@ -20,6 +20,7 @@ class ExchangeTokenKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     EXCHANGE_TOKEN_KIND_INTERNAL_SERVICE: _ClassVar[ExchangeTokenKind]
     EXCHANGE_TOKEN_KIND_USER: _ClassVar[ExchangeTokenKind]
     EXCHANGE_TOKEN_KIND_SERVICE_TOKEN: _ClassVar[ExchangeTokenKind]
+    EXCHANGE_TOKEN_KIND_SANDBOX: _ClassVar[ExchangeTokenKind]
 
 class AgentKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -31,11 +32,13 @@ class AgentKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     AGENT_KIND_METADATA_SERVICE: _ClassVar[AgentKind]
     AGENT_KIND_SELF_HOSTED_LICENSE: _ClassVar[AgentKind]
     AGENT_KIND_RESOURCE_SHARE: _ClassVar[AgentKind]
+    AGENT_KIND_SANDBOX: _ClassVar[AgentKind]
 
 EXCHANGE_TOKEN_KIND_UNSPECIFIED: ExchangeTokenKind
 EXCHANGE_TOKEN_KIND_INTERNAL_SERVICE: ExchangeTokenKind
 EXCHANGE_TOKEN_KIND_USER: ExchangeTokenKind
 EXCHANGE_TOKEN_KIND_SERVICE_TOKEN: ExchangeTokenKind
+EXCHANGE_TOKEN_KIND_SANDBOX: ExchangeTokenKind
 AGENT_KIND_UNSPECIFIED: AgentKind
 AGENT_KIND_USER: AgentKind
 AGENT_KIND_SERVICE_TOKEN: AgentKind
@@ -44,6 +47,7 @@ AGENT_KIND_TENANT: AgentKind
 AGENT_KIND_METADATA_SERVICE: AgentKind
 AGENT_KIND_SELF_HOSTED_LICENSE: AgentKind
 AGENT_KIND_RESOURCE_SHARE: AgentKind
+AGENT_KIND_SANDBOX: AgentKind
 
 class EnvironmentPermissions(_message.Message):
     __slots__ = ("permissions", "feature_permissions", "customer_claims")
@@ -261,6 +265,36 @@ class ResourceShareAgent(_message.Message):
         requires_authentication: bool = ...,
     ) -> None: ...
 
+class SandboxPrincipal(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class WorkloadAgent(_message.Message):
+    __slots__ = ("team_id", "environment_id", "permissions", "sandbox", "feature_permissions", "customer_claims")
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    SANDBOX_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_PERMISSIONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_CLAIMS_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    environment_id: str
+    permissions: _containers.RepeatedScalarFieldContainer[_permissions_pb2.Permission]
+    sandbox: SandboxPrincipal
+    feature_permissions: _featurepermission_pb2.FeaturePermissions
+    customer_claims: _containers.RepeatedCompositeFieldContainer[CustomClaim]
+    def __init__(
+        self,
+        team_id: _Optional[str] = ...,
+        environment_id: _Optional[str] = ...,
+        permissions: _Optional[_Iterable[_Union[_permissions_pb2.Permission, str]]] = ...,
+        sandbox: _Optional[_Union[SandboxPrincipal, _Mapping]] = ...,
+        feature_permissions: _Optional[_Union[_featurepermission_pb2.FeaturePermissions, _Mapping]] = ...,
+        customer_claims: _Optional[_Iterable[_Union[CustomClaim, _Mapping]]] = ...,
+    ) -> None: ...
+
 class Agent(_message.Message):
     __slots__ = (
         "sandbox_id",
@@ -271,6 +305,7 @@ class Agent(_message.Message):
         "metadata_service_agent",
         "self_hosted_license_agent",
         "resource_share_agent",
+        "workload_agent",
     )
     SANDBOX_ID_FIELD_NUMBER: _ClassVar[int]
     USER_AGENT_FIELD_NUMBER: _ClassVar[int]
@@ -280,6 +315,7 @@ class Agent(_message.Message):
     METADATA_SERVICE_AGENT_FIELD_NUMBER: _ClassVar[int]
     SELF_HOSTED_LICENSE_AGENT_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_SHARE_AGENT_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_AGENT_FIELD_NUMBER: _ClassVar[int]
     sandbox_id: str
     user_agent: UserAgent
     service_token_agent: ServiceTokenAgent
@@ -288,6 +324,7 @@ class Agent(_message.Message):
     metadata_service_agent: MetadataServiceAgent
     self_hosted_license_agent: SelfHostedLicenseAgent
     resource_share_agent: ResourceShareAgent
+    workload_agent: WorkloadAgent
     def __init__(
         self,
         sandbox_id: _Optional[str] = ...,
@@ -298,4 +335,5 @@ class Agent(_message.Message):
         metadata_service_agent: _Optional[_Union[MetadataServiceAgent, _Mapping]] = ...,
         self_hosted_license_agent: _Optional[_Union[SelfHostedLicenseAgent, _Mapping]] = ...,
         resource_share_agent: _Optional[_Union[ResourceShareAgent, _Mapping]] = ...,
+        workload_agent: _Optional[_Union[WorkloadAgent, _Mapping]] = ...,
     ) -> None: ...

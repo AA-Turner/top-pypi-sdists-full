@@ -931,6 +931,71 @@ class AdAccountsResource:
         )
         return self._client._patch("/v1/ads/accounts/manager-links", data=payload)
 
+    def list_ad_account_user_invitations(
+        self, account_id: str, *, ad_account_id: str | None = None
+    ) -> dict[str, Any]:
+        """List user access invitations"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._get("/v1/ads/accounts/user-invitations", params=params)
+
+    def invite_ad_account_user(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        email_address: str,
+        access_role: Any,
+        *,
+        validate_only: bool | None = False,
+    ) -> dict[str, Any]:
+        """Invite a user to an ad account by email"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            email_address=email_address,
+            access_role=access_role,
+            validate_only=validate_only,
+        )
+        return self._client._post("/v1/ads/accounts/user-invitations", data=payload)
+
+    def revoke_ad_account_user_invitation(
+        self, account_id: str, ad_account_id: str, invitation_id: str
+    ) -> dict[str, Any]:
+        """Revoke a user access invitation"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            invitation_id=invitation_id,
+        )
+        return self._client._delete("/v1/ads/accounts/user-invitations", params=params)
+
+    def list_ad_account_user_invitation_approvals(
+        self, account_id: str, *, ad_account_id: str | None = None
+    ) -> dict[str, Any]:
+        """List invitations awaiting multi-party approval"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return self._client._get(
+            "/v1/ads/accounts/user-invitations/pending-approvals", params=params
+        )
+
+    def withdraw_ad_account_user_invitation_approval(
+        self, account_id: str, ad_account_id: str, multi_party_auth_review_id: str
+    ) -> dict[str, Any]:
+        """Withdraw an invitation awaiting multi-party approval"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            multi_party_auth_review_id=multi_party_auth_review_id,
+        )
+        return self._client._delete(
+            "/v1/ads/accounts/user-invitations/pending-approvals", params=params
+        )
+
     def list_ad_account_users(
         self, account_id: str, ad_account_id: str, business_id: str
     ) -> dict[str, Any]:
@@ -996,44 +1061,9 @@ class AdAccountsResource:
         )
         return self._client._get("/v1/ads/accounts/live", params=params)
 
-    def create_ad_account(
-        self,
-        account_id: str,
-        business_id: str,
-        name: str,
-        currency: str,
-        timezone_id: int,
-        *,
-        end_advertiser: str | None = "NONE",
-        media_agency: str | None = "NONE",
-        partner: str | None = "NONE",
-        invoice: bool | None = None,
-        invoice_group_id: str | None = None,
-        invoicing_emails: list[str] | None = None,
-        io: bool | None = None,
-        po_number: str | None = None,
-        funding_id: str | None = None,
-        ad_account_created_from_bm_flag: bool | None = None,
-    ) -> dict[str, Any]:
-        """Create Meta ad account"""
-        payload = self._build_payload(
-            account_id=account_id,
-            business_id=business_id,
-            name=name,
-            currency=currency,
-            timezone_id=timezone_id,
-            end_advertiser=end_advertiser,
-            media_agency=media_agency,
-            partner=partner,
-            invoice=invoice,
-            invoice_group_id=invoice_group_id,
-            invoicing_emails=invoicing_emails,
-            io=io,
-            po_number=po_number,
-            funding_id=funding_id,
-            ad_account_created_from_bm_flag=ad_account_created_from_bm_flag,
-        )
-        return self._client._post("/v1/ads/accounts", data=payload)
+    def create_ad_account(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create ad account"""
+        return self._client._post("/v1/ads/accounts", data=body)
 
     def list_ad_accounts(
         self,
@@ -2016,6 +2046,77 @@ class AdAccountsResource:
             "/v1/ads/accounts/manager-links", data=payload
         )
 
+    async def alist_ad_account_user_invitations(
+        self, account_id: str, *, ad_account_id: str | None = None
+    ) -> dict[str, Any]:
+        """List user access invitations (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._aget(
+            "/v1/ads/accounts/user-invitations", params=params
+        )
+
+    async def ainvite_ad_account_user(
+        self,
+        account_id: str,
+        ad_account_id: str,
+        email_address: str,
+        access_role: Any,
+        *,
+        validate_only: bool | None = False,
+    ) -> dict[str, Any]:
+        """Invite a user to an ad account by email (async)"""
+        payload = self._build_payload(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            email_address=email_address,
+            access_role=access_role,
+            validate_only=validate_only,
+        )
+        return await self._client._apost(
+            "/v1/ads/accounts/user-invitations", data=payload
+        )
+
+    async def arevoke_ad_account_user_invitation(
+        self, account_id: str, ad_account_id: str, invitation_id: str
+    ) -> dict[str, Any]:
+        """Revoke a user access invitation (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            invitation_id=invitation_id,
+        )
+        return await self._client._adelete(
+            "/v1/ads/accounts/user-invitations", params=params
+        )
+
+    async def alist_ad_account_user_invitation_approvals(
+        self, account_id: str, *, ad_account_id: str | None = None
+    ) -> dict[str, Any]:
+        """List invitations awaiting multi-party approval (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+        )
+        return await self._client._aget(
+            "/v1/ads/accounts/user-invitations/pending-approvals", params=params
+        )
+
+    async def awithdraw_ad_account_user_invitation_approval(
+        self, account_id: str, ad_account_id: str, multi_party_auth_review_id: str
+    ) -> dict[str, Any]:
+        """Withdraw an invitation awaiting multi-party approval (async)"""
+        params = self._build_params(
+            account_id=account_id,
+            ad_account_id=ad_account_id,
+            multi_party_auth_review_id=multi_party_auth_review_id,
+        )
+        return await self._client._adelete(
+            "/v1/ads/accounts/user-invitations/pending-approvals", params=params
+        )
+
     async def alist_ad_account_users(
         self, account_id: str, ad_account_id: str, business_id: str
     ) -> dict[str, Any]:
@@ -2081,44 +2182,9 @@ class AdAccountsResource:
         )
         return await self._client._aget("/v1/ads/accounts/live", params=params)
 
-    async def acreate_ad_account(
-        self,
-        account_id: str,
-        business_id: str,
-        name: str,
-        currency: str,
-        timezone_id: int,
-        *,
-        end_advertiser: str | None = "NONE",
-        media_agency: str | None = "NONE",
-        partner: str | None = "NONE",
-        invoice: bool | None = None,
-        invoice_group_id: str | None = None,
-        invoicing_emails: list[str] | None = None,
-        io: bool | None = None,
-        po_number: str | None = None,
-        funding_id: str | None = None,
-        ad_account_created_from_bm_flag: bool | None = None,
-    ) -> dict[str, Any]:
-        """Create Meta ad account (async)"""
-        payload = self._build_payload(
-            account_id=account_id,
-            business_id=business_id,
-            name=name,
-            currency=currency,
-            timezone_id=timezone_id,
-            end_advertiser=end_advertiser,
-            media_agency=media_agency,
-            partner=partner,
-            invoice=invoice,
-            invoice_group_id=invoice_group_id,
-            invoicing_emails=invoicing_emails,
-            io=io,
-            po_number=po_number,
-            funding_id=funding_id,
-            ad_account_created_from_bm_flag=ad_account_created_from_bm_flag,
-        )
-        return await self._client._apost("/v1/ads/accounts", data=payload)
+    async def acreate_ad_account(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Create ad account (async)"""
+        return await self._client._apost("/v1/ads/accounts", data=body)
 
     async def alist_ad_accounts(
         self,

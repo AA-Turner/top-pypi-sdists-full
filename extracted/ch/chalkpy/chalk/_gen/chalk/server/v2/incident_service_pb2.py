@@ -23,7 +23,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n&chalk/server/v2/incident_service.proto\x12\x0f\x63halk.server.v2\x1a chalk/artifacts/v1/monitor.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/server/v1/incident.proto\x1a\x1e\x63halk/server/v2/incident.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x8e\x01\n\x14\x43loseIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId\x12\x43\n\rmute_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00R\x0cmuteDuration\x88\x01\x01\x42\x10\n\x0e_mute_duration"\x17\n\x15\x43loseIncidentResponse"5\n\x12GetIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId"S\n\x13GetIncidentResponse\x12<\n\x08incident\x18\x01 \x01(\x0b\x32 .chalk.server.v2.MonitorIncidentR\x08incident"\x89\x06\n\x14ListIncidentsFilters\x12g\n created_at_lower_bound_inclusive\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x1c\x63reatedAtLowerBoundInclusive\x88\x01\x01\x12g\n created_at_upper_bound_exclusive\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x1c\x63reatedAtUpperBoundExclusive\x88\x01\x01\x12/\n\x11has_closed_filter\x18\x03 \x01(\x08H\x02R\x0fhasClosedFilter\x88\x01\x01\x12\x63\n\x19linked_entity_kind_filter\x18\x04 \x01(\x0e\x32#.chalk.server.v1.IncidentEntityKindH\x03R\x16linkedEntityKindFilter\x88\x01\x01\x12:\n\x17linked_entity_id_filter\x18\x05 \x01(\tH\x04R\x14linkedEntityIdFilter\x88\x01\x01\x12/\n\x11monitor_id_filter\x18\x06 \x01(\tH\x05R\x0fmonitorIdFilter\x88\x01\x01\x12T\n\x13monitor_type_filter\x18\x07 \x01(\x0e\x32\x1f.chalk.artifacts.v1.MonitorTypeH\x06R\x11monitorTypeFilter\x88\x01\x01\x42#\n!_created_at_lower_bound_inclusiveB#\n!_created_at_upper_bound_exclusiveB\x14\n\x12_has_closed_filterB\x1c\n\x1a_linked_entity_kind_filterB\x1a\n\x18_linked_entity_id_filterB\x14\n\x12_monitor_id_filterB\x16\n\x14_monitor_type_filter"\xc0\x01\n\x14ListIncidentsRequest\x12\x44\n\x07\x66ilters\x18\x01 \x01(\x0b\x32%.chalk.server.v2.ListIncidentsFiltersH\x00R\x07\x66ilters\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12"\n\npage_token\x18\x03 \x01(\tH\x02R\tpageToken\x88\x01\x01\x42\n\n\x08_filtersB\x08\n\x06_limitB\r\n\x0b_page_token"\x98\x01\n\x15ListIncidentsResponse\x12>\n\tincidents\x18\x01 \x03(\x0b\x32 .chalk.server.v2.MonitorIncidentR\tincidents\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token2\xe4\x02\n\x0fIncidentService\x12\x66\n\rListIncidents\x12%.chalk.server.v2.ListIncidentsRequest\x1a&.chalk.server.v2.ListIncidentsResponse"\x06\x90\x02\x01\x80}\x06\x12`\n\x0bGetIncident\x12#.chalk.server.v2.GetIncidentRequest\x1a$.chalk.server.v2.GetIncidentResponse"\x06\x90\x02\x01\x80}\x06\x12\x86\x01\n\rCloseIncident\x12%.chalk.server.v2.CloseIncidentRequest\x1a&.chalk.server.v2.CloseIncidentResponse"&\x80}\x05\x8a\xd3\x0e\x1f\x08\x02\x12\x1bManually closed an incidentB\x9d\x01\n\x13\x63om.chalk.server.v2B\x14IncidentServiceProtoP\x01Z\x12server/v2;serverv2\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V2\xca\x02\x0f\x43halk\\Server\\V2\xe2\x02\x1b\x43halk\\Server\\V2\\GPBMetadata\xea\x02\x11\x43halk::Server::V2b\x06proto3'
+    b'\n&chalk/server/v2/incident_service.proto\x12\x0f\x63halk.server.v2\x1a chalk/artifacts/v1/monitor.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/server/v1/incident.proto\x1a\x1e\x63halk/server/v2/incident.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x8e\x01\n\x14\x43loseIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId\x12\x43\n\rmute_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00R\x0cmuteDuration\x88\x01\x01\x42\x10\n\x0e_mute_duration"\x17\n\x15\x43loseIncidentResponse"8\n\x15\x44\x65leteIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId"\x18\n\x16\x44\x65leteIncidentResponse"5\n\x12GetIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId"S\n\x13GetIncidentResponse\x12<\n\x08incident\x18\x01 \x01(\x0b\x32 .chalk.server.v2.MonitorIncidentR\x08incident"\xea\x06\n\x14ListIncidentsFilters\x12g\n created_at_lower_bound_inclusive\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x1c\x63reatedAtLowerBoundInclusive\x88\x01\x01\x12g\n created_at_upper_bound_exclusive\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x1c\x63reatedAtUpperBoundExclusive\x88\x01\x01\x12/\n\x11has_closed_filter\x18\x03 \x01(\x08H\x02R\x0fhasClosedFilter\x88\x01\x01\x12\x63\n\x19linked_entity_kind_filter\x18\x04 \x01(\x0e\x32#.chalk.server.v1.IncidentEntityKindH\x03R\x16linkedEntityKindFilter\x88\x01\x01\x12:\n\x17linked_entity_id_filter\x18\x05 \x01(\tH\x04R\x14linkedEntityIdFilter\x88\x01\x01\x12/\n\x11monitor_id_filter\x18\x06 \x01(\tH\x05R\x0fmonitorIdFilter\x88\x01\x01\x12T\n\x13monitor_type_filter\x18\x07 \x01(\x0e\x32\x1f.chalk.artifacts.v1.MonitorTypeH\x06R\x11monitorTypeFilter\x88\x01\x01\x12$\n\x0bname_search\x18\x08 \x01(\tH\x07R\nnameSearch\x88\x01\x01\x12)\n\x10include_archived\x18\t \x01(\x08R\x0fincludeArchivedB#\n!_created_at_lower_bound_inclusiveB#\n!_created_at_upper_bound_exclusiveB\x14\n\x12_has_closed_filterB\x1c\n\x1a_linked_entity_kind_filterB\x1a\n\x18_linked_entity_id_filterB\x14\n\x12_monitor_id_filterB\x16\n\x14_monitor_type_filterB\x0e\n\x0c_name_search"\xc0\x01\n\x14ListIncidentsRequest\x12\x44\n\x07\x66ilters\x18\x01 \x01(\x0b\x32%.chalk.server.v2.ListIncidentsFiltersH\x00R\x07\x66ilters\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12"\n\npage_token\x18\x03 \x01(\tH\x02R\tpageToken\x88\x01\x01\x42\n\n\x08_filtersB\x08\n\x06_limitB\r\n\x0b_page_token"\x98\x01\n\x15ListIncidentsResponse\x12>\n\tincidents\x18\x01 \x03(\x0b\x32 .chalk.server.v2.MonitorIncidentR\tincidents\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token2\xe8\x03\n\x0fIncidentService\x12\x66\n\rListIncidents\x12%.chalk.server.v2.ListIncidentsRequest\x1a&.chalk.server.v2.ListIncidentsResponse"\x06\x90\x02\x01\x80}\x06\x12`\n\x0bGetIncident\x12#.chalk.server.v2.GetIncidentRequest\x1a$.chalk.server.v2.GetIncidentResponse"\x06\x90\x02\x01\x80}\x06\x12\x86\x01\n\rCloseIncident\x12%.chalk.server.v2.CloseIncidentRequest\x1a&.chalk.server.v2.CloseIncidentResponse"&\x80}\x05\x8a\xd3\x0e\x1f\x08\x02\x12\x1bManually closed an incident\x12\x81\x01\n\x0e\x44\x65leteIncident\x12&.chalk.server.v2.DeleteIncidentRequest\x1a\'.chalk.server.v2.DeleteIncidentResponse"\x1e\x80}\x05\x8a\xd3\x0e\x17\x08\x02\x12\x13\x44\x65leted an incidentB\x9d\x01\n\x13\x63om.chalk.server.v2B\x14IncidentServiceProtoP\x01Z\x12server/v2;serverv2\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V2\xca\x02\x0f\x43halk\\Server\\V2\xe2\x02\x1b\x43halk\\Server\\V2\\GPBMetadata\xea\x02\x11\x43halk::Server::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -42,20 +42,28 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_INCIDENTSERVICE"].methods_by_name[
         "CloseIncident"
     ]._serialized_options = b"\200}\005\212\323\016\037\010\002\022\033Manually closed an incident"
+    _globals["_INCIDENTSERVICE"].methods_by_name["DeleteIncident"]._options = None
+    _globals["_INCIDENTSERVICE"].methods_by_name[
+        "DeleteIncident"
+    ]._serialized_options = b"\200}\005\212\323\016\027\010\002\022\023Deleted an incident"
     _globals["_CLOSEINCIDENTREQUEST"]._serialized_start = 283
     _globals["_CLOSEINCIDENTREQUEST"]._serialized_end = 425
     _globals["_CLOSEINCIDENTRESPONSE"]._serialized_start = 427
     _globals["_CLOSEINCIDENTRESPONSE"]._serialized_end = 450
-    _globals["_GETINCIDENTREQUEST"]._serialized_start = 452
-    _globals["_GETINCIDENTREQUEST"]._serialized_end = 505
-    _globals["_GETINCIDENTRESPONSE"]._serialized_start = 507
-    _globals["_GETINCIDENTRESPONSE"]._serialized_end = 590
-    _globals["_LISTINCIDENTSFILTERS"]._serialized_start = 593
-    _globals["_LISTINCIDENTSFILTERS"]._serialized_end = 1370
-    _globals["_LISTINCIDENTSREQUEST"]._serialized_start = 1373
-    _globals["_LISTINCIDENTSREQUEST"]._serialized_end = 1565
-    _globals["_LISTINCIDENTSRESPONSE"]._serialized_start = 1568
-    _globals["_LISTINCIDENTSRESPONSE"]._serialized_end = 1720
-    _globals["_INCIDENTSERVICE"]._serialized_start = 1723
-    _globals["_INCIDENTSERVICE"]._serialized_end = 2079
+    _globals["_DELETEINCIDENTREQUEST"]._serialized_start = 452
+    _globals["_DELETEINCIDENTREQUEST"]._serialized_end = 508
+    _globals["_DELETEINCIDENTRESPONSE"]._serialized_start = 510
+    _globals["_DELETEINCIDENTRESPONSE"]._serialized_end = 534
+    _globals["_GETINCIDENTREQUEST"]._serialized_start = 536
+    _globals["_GETINCIDENTREQUEST"]._serialized_end = 589
+    _globals["_GETINCIDENTRESPONSE"]._serialized_start = 591
+    _globals["_GETINCIDENTRESPONSE"]._serialized_end = 674
+    _globals["_LISTINCIDENTSFILTERS"]._serialized_start = 677
+    _globals["_LISTINCIDENTSFILTERS"]._serialized_end = 1551
+    _globals["_LISTINCIDENTSREQUEST"]._serialized_start = 1554
+    _globals["_LISTINCIDENTSREQUEST"]._serialized_end = 1746
+    _globals["_LISTINCIDENTSRESPONSE"]._serialized_start = 1749
+    _globals["_LISTINCIDENTSRESPONSE"]._serialized_end = 1901
+    _globals["_INCIDENTSERVICE"]._serialized_start = 1904
+    _globals["_INCIDENTSERVICE"]._serialized_end = 2392
 # @@protoc_insertion_point(module_scope)

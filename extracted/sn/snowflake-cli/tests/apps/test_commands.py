@@ -43,7 +43,6 @@ from snowflake.cli._plugins.apps.manager import (
     CERT_PROBE_TIMEOUT_SECONDS,
     MAX_UPLOAD_ATTEMPTS,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
-    SERVERLESS_ACCOUNT_PARAMETERS,
     SNOWFLAKE_APP_ENTITY_TYPE,
     UPLOAD_RETRY_BASE_DELAY_SECONDS,
     UPLOAD_RETRY_MAX_DELAY_SECONDS,
@@ -60,6 +59,7 @@ from snowflake.cli._plugins.apps.manager import (
     perform_bundle,
 )
 from snowflake.cli._plugins.apps.upload_errors import UploadError
+from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
@@ -652,61 +652,87 @@ class TestRequestsEventTableHealthMonitoring:
 
 
 class TestServerlessAccountParameters:
-    """SERVERLESS is allowed only when every required account parameter is true."""
+    """SERVERLESS is allowed only when the UI feature parameter is ENABLED."""
 
-    def _manager(self, rows):
+    def _manager(self):
         mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
-
-        def execute(query, cursor_class=None):
-            name = query.split("'")[1]
-            cursor = Mock()
-            cursor.fetchone.return_value = rows.get(name)
-            return cursor
-
-        mgr.execute_query = Mock(side_effect=execute)
+        object.__setattr__(mgr, "_connection", Mock())
         return mgr
 
-    def test_enabled_when_all_parameters_are_true(self):
-        rows = {
-            name: {"key": name, "value": "true"}
-            for name in SERVERLESS_ACCOUNT_PARAMETERS
-        }
-        # The feature parameter is ENABLED/DISABLED, not a Boolean.
-        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
-            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
-            "value": "ENABLED",
-        }
-        mgr = self._manager(rows)
+    @pytest.mark.parametrize("value", ["ENABLED", "ENABLED_PUBLIC_PREVIEW"])
+    @patch("snowflake.cli._plugins.apps.manager.get_ui_parameter")
+    def test_enabled_when_feature_parameter_is_enabled(self, mock_get, value):
+        from snowflake.cli._plugins.connection.util import UIParameter
+
+        mock_get.return_value = value
+        mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is True
+        mock_get.assert_called_once_with(
+            mgr.connection,
+            UIParameter.FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS,
+            None,
+        )
 
-    def test_disabled_when_any_parameter_is_false(self):
-        rows = {
-            name: {"key": name, "value": "true"}
-            for name in SERVERLESS_ACCOUNT_PARAMETERS
-        }
-        rows[SERVERLESS_ACCOUNT_PARAMETERS[0]] = {
-            "key": SERVERLESS_ACCOUNT_PARAMETERS[0],
-            "value": "false",
-        }
-        mgr = self._manager(rows)
+    @pytest.mark.parametrize("value", ["DISABLED", "DISABLED_PRIVATE_PREVIEW"])
+    @patch("snowflake.cli._plugins.apps.manager.get_ui_parameter")
+    def test_disabled_when_feature_parameter_is_not_enabled(self, mock_get, value):
+        mock_get.return_value = value
+        mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is False
 
-    def test_disabled_when_feature_parameter_is_not_enabled(self):
-        rows = {
-            name: {"key": name, "value": "true"}
-            for name in SERVERLESS_ACCOUNT_PARAMETERS
-        }
-        rows["FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS"] = {
-            "key": "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS",
-            "value": "DISABLED",
-        }
-        mgr = self._manager(rows)
+    @patch("snowflake.cli._plugins.apps.manager.get_ui_parameter", return_value=None)
+    def test_disabled_when_feature_parameter_is_missing(self, mock_get):
+        mgr = self._manager()
         assert mgr.serverless_account_parameters_enabled() is False
 
-    def test_disabled_when_a_parameter_cannot_be_read(self):
+    @patch(
+        "snowflake.cli._plugins.apps.manager.get_ui_parameter",
+        side_effect=ProgrammingError("denied"),
+    )
+    def test_disabled_when_a_parameter_cannot_be_read(self, mock_get):
+        mgr = self._manager()
+        assert mgr.serverless_account_parameters_enabled() is False
+
+
+class TestPythonRuntimeParameters:
+    """The Python runtime is allowed per compute resource by a UI parameter."""
+
+    _GET_UI_PARAMETER = "snowflake.cli._plugins.apps.manager.get_ui_parameter"
+
+    def _manager(self):
         mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
-        mgr.execute_query = Mock(side_effect=ProgrammingError("denied"))
-        assert mgr.serverless_account_parameters_enabled() is False
+        mgr._connection = Mock()  # noqa: SLF001
+        return mgr
+
+    @pytest.mark.parametrize(
+        "compute_resource, parameter",
+        [
+            ("SERVERLESS", UIParameter.APP_PYTHON_RUNTIME_SERVERLESS),
+            (
+                "MANAGED_COMPUTE_POOL",
+                UIParameter.APP_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL,
+            ),
+        ],
+    )
+    def test_reads_parameter_for_compute_resource(self, compute_resource, parameter):
+        connection = Mock()
+        mgr = SnowflakeAppManager.__new__(SnowflakeAppManager)
+        mgr._connection = connection  # noqa: SLF001
+        with patch(self._GET_UI_PARAMETER, return_value=True) as mock_get:
+            assert mgr.python_runtime_enabled(compute_resource) is True
+        mock_get.assert_called_once_with(connection, parameter, False)
+
+    @pytest.mark.parametrize(
+        "value, expected",
+        [(True, True), ("true", True), (False, False), ("false", False)],
+    )
+    def test_value(self, value, expected):
+        with patch(self._GET_UI_PARAMETER, return_value=value):
+            assert self._manager().python_runtime_enabled("SERVERLESS") is expected
+
+    def test_disabled_when_parameter_cannot_be_read(self):
+        with patch(self._GET_UI_PARAMETER, side_effect=ProgrammingError("denied")):
+            assert self._manager().python_runtime_enabled("SERVERLESS") is False
 
 
 class TestEnsureCngUrlCertReady:
@@ -838,6 +864,33 @@ class TestPerAccountAppHostname:
             == expected_infra
         )
 
+    @pytest.mark.parametrize(
+        "sql_host, expected_infra",
+        [
+            ("xy12345.us-east-1.aws.custom.tld", "us-east-1.aws"),
+            (
+                "gbloom.qa6.us-west-2.aws.privatelink.custom.tld",
+                "qa6.us-west-2.aws.privatelink",
+            ),
+        ],
+    )
+    def test_infra_from_sql_host_custom_dns_when_air_gapped(
+        self, sql_host, expected_infra, monkeypatch
+    ):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        assert (
+            SnowflakeAppManager._infra_from_sql_host(sql_host)  # noqa: SLF001
+            == expected_infra
+        )
+
+    def test_infra_from_sql_host_custom_dns_ignored_when_not_air_gapped(self):
+        assert (
+            SnowflakeAppManager._infra_from_sql_host(  # noqa: SLF001
+                "xy12345.us-east-1.aws.custom.tld"
+            )
+            is None
+        )
+
     def test_account_infra_falls_back_to_allowlist_for_regionless_host(self):
         # The modern account alias has no region in its host; the infra must be
         # recovered from SYSTEM$ALLOWLIST's regioned host.
@@ -885,6 +938,85 @@ class TestPerAccountAppHostname:
             assert (
                 mgr._per_account_app_hostname()  # noqa: SLF001
                 == "sfengineering-gbloom.qa6.us-west-2.aws.snowflake.app"
+            )
+
+    def test_unknown_host_skips_commercial_app_domain_when_air_gapped(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.delenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", raising=False)
+        mgr = self._manager()
+        conn = Mock(host=None)
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            mock_ctx.return_value.connection = conn
+            assert mgr._per_account_app_hostname() is None  # noqa: SLF001
+
+    def test_commercial_host_keeps_snowflake_app_when_air_gapped(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.delenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", raising=False)
+        mgr = self._manager()
+        conn = Mock(host="xy12345.us-east-1.aws.snowflakecomputing.com")
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            mock_ctx.return_value.connection = conn
+            assert (
+                mgr._per_account_app_hostname()  # noqa: SLF001
+                == "myorg-myacct.us-east-1.aws.snowflake.app"
+            )
+
+    def test_custom_dns_host_skips_commercial_app_domain(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_AIR_GAPPED", "true")
+        monkeypatch.delenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", raising=False)
+        mgr = self._manager()
+        conn = Mock(host="xy12345.us-east-1.aws.custom.tld")
+        with patch(
+            "snowflake.cli._plugins.apps.manager.get_cli_context"
+        ) as mock_ctx, patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            mock_ctx.return_value.connection = conn
+            assert mgr._per_account_app_hostname() is None  # noqa: SLF001
+
+    def test_per_account_app_domain_from_env(self, monkeypatch):
+        monkeypatch.setenv("SNOWFLAKE_CLI_PER_ACCOUNT_APP_DOMAIN", "apps.custom.tld")
+        mgr = self._manager()
+        with patch.object(
+            SnowflakeAppManager,
+            "_account_infra",
+            return_value="us-east-1.aws",
+        ), patch.object(
+            SnowflakeAppManager,
+            "_org_account_slug",
+            return_value="myorg-myacct",
+        ):
+            assert (
+                mgr._per_account_app_hostname()  # noqa: SLF001
+                == "myorg-myacct.us-east-1.aws.apps.custom.tld"
             )
 
     def test_none_when_infra_cannot_be_derived(self):
@@ -951,6 +1083,9 @@ class TestPerAccountCertStatusProbe:
         assert captured["addr"] == (self._BASE, 443)
         assert captured["timeout"] == CERT_PROBE_TIMEOUT_SECONDS
         assert ctx.wrap_socket.call_args.kwargs["server_hostname"] == self._BASE
+        import ssl as _ssl
+
+        assert ctx.minimum_version == _ssl.TLSVersion.TLSv1_3
 
     @pytest.mark.parametrize("verify_code", [62, 10])
     def test_not_provisioned_on_hostname_or_expired_verify_codes(self, verify_code):
@@ -4603,6 +4738,99 @@ class TestResolveDeployDefaults:
         assert result["database"] == "USER$MYUSER"
 
 
+# ── fetch_account_capabilities tests ──────────────────────────────────
+
+
+class TestAccountCapabilities:
+    """Each capability reflects one parameter from the bootstrap payload."""
+
+    _NONE_SUPPORTED = {
+        "serverless": False,
+        "python": False,
+        "python-serverless": False,
+    }
+
+    @staticmethod
+    def _bootstrap_cursor(parameters):
+        cursor = Mock()
+        cursor.fetchone.return_value = (
+            json.dumps(
+                {
+                    "clientParamsInfo": [
+                        {"name": name, "value": value}
+                        for name, value in parameters.items()
+                    ]
+                }
+            ),
+        )
+        return cursor
+
+    @patch(EXECUTE_QUERY)
+    def test_reads_all_capabilities_from_one_bootstrap_request(self, mock_execute):
+        mock_execute.return_value = self._bootstrap_cursor(
+            {
+                "FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS": "ENABLED",
+                "ENABLE_APP_SERVICE_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL": True,
+                "ENABLE_APP_SERVICE_PYTHON_RUNTIME_SERVERLESS": False,
+            }
+        )
+        assert SnowflakeAppManager().fetch_account_capabilities() == {
+            "serverless": True,
+            "python": True,
+            "python-serverless": False,
+        }
+        mock_execute.assert_called_once_with(
+            "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
+        )
+
+    @pytest.mark.parametrize(
+        "value, supported",
+        [
+            ("ENABLED", True),
+            ("ENABLED_PUBLIC_PREVIEW", True),
+            ("DISABLED", False),
+            ("DISABLED_PRIVATE_PREVIEW", False),
+        ],
+    )
+    @patch(EXECUTE_QUERY)
+    def test_serverless_follows_feature_parameter(self, mock_execute, value, supported):
+        mock_execute.return_value = self._bootstrap_cursor(
+            {"FEATURE_APPLICATION_SERVICE_COMPUTE_RESOURCE_SERVERLESS": value}
+        )
+        capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        assert capabilities["serverless"] is supported
+
+    @pytest.mark.parametrize(
+        "value, supported",
+        [(True, True), ("true", True), (False, False), ("false", False)],
+    )
+    @patch(EXECUTE_QUERY)
+    def test_python_follows_boolean_parameter(self, mock_execute, value, supported):
+        mock_execute.return_value = self._bootstrap_cursor(
+            {"ENABLE_APP_SERVICE_PYTHON_RUNTIME_MANAGED_COMPUTE_POOL": value}
+        )
+        capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        assert capabilities["python"] is supported
+
+    @patch(EXECUTE_QUERY)
+    def test_missing_parameters_are_unsupported(self, mock_execute):
+        mock_execute.return_value = self._bootstrap_cursor({})
+        capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        assert capabilities == self._NONE_SUPPORTED
+
+    @patch(EXECUTE_QUERY, side_effect=ProgrammingError("denied"))
+    def test_unsupported_when_payload_cannot_be_read(self, mock_execute):
+        capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        assert capabilities == self._NONE_SUPPORTED
+
+    @pytest.mark.parametrize("row", [None, ("not json",)])
+    @patch(EXECUTE_QUERY)
+    def test_unsupported_when_payload_is_unparsable(self, mock_execute, row):
+        mock_execute.return_value.fetchone.return_value = row
+        capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        assert capabilities == self._NONE_SUPPORTED
+
+
 # ── CLI command tests ─────────────────────────────────────────────────
 
 
@@ -5727,6 +5955,86 @@ class TestSetupCommand:
         assert result.exit_code == 0, result.output
         content = (tmp_path / "app.yml").read_text(encoding="utf-8")
         assert "ENTREPÔT_WH" in content
+
+
+class TestSetupCapabilitiesCommand:
+    """``snow app setup --capabilities`` reports capabilities and writes nothing."""
+
+    _CAPABILITIES = {
+        "serverless": True,
+        "python": False,
+        "python-serverless": False,
+    }
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_reports_capabilities_as_json(self, mock_mgr_cls, runner, tmp_path):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_account_capabilities.return_value = self._CAPABILITIES
+
+        with change_directory(tmp_path):
+            result = runner.invoke(
+                ["app", "setup", "--capabilities", "--format", "json"]
+            )
+            assert result.exit_code == 0, result.output
+            assert json.loads(result.output) == self._CAPABILITIES
+            assert not (tmp_path / "app.yml").exists()
+
+        mock_mgr.fetch_app_service_defaults.assert_not_called()
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_reports_capabilities_as_table(self, mock_mgr_cls, runner, tmp_path):
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_account_capabilities.return_value = self._CAPABILITIES
+
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--capabilities"])
+            assert result.exit_code == 0, result.output
+
+        for name, supported in self._CAPABILITIES.items():
+            assert re.search(
+                rf"\|\s*{name}\s*\|\s*{supported}\s*\|", result.output
+            ), result.output
+
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_records_setup_spans(self, mock_mgr_cls, runner, tmp_path):
+        """The report runs under the ``snowflake_app.setup`` root span, with the
+        parameter read in a ``snowflake_app.setup.fetch_capabilities`` child."""
+        mock_mgr = mock_mgr_cls.return_value
+        mock_mgr.fetch_account_capabilities.return_value = self._CAPABILITIES
+
+        with change_directory(tmp_path):
+            _reset_command_metrics()
+            result = runner.invoke(["app", "setup", "--capabilities"])
+            assert result.exit_code == 0, result.output
+
+            setup_span = _get_completed_span("snowflake_app.setup")
+            fetch_span = _get_completed_span("snowflake_app.setup.fetch_capabilities")
+            assert (
+                fetch_span[CLIMetricsSpan.PARENT_ID_KEY]
+                == setup_span[CLIMetricsSpan.ID_KEY]
+            )
+
+    @pytest.mark.parametrize(
+        "setup_args",
+        [
+            ["--app-name", "my_app"],
+            ["--dry-run"],
+            ["--compute-pool", "my_pool"],
+            ["--build-eai", "my_eai"],
+        ],
+    )
+    @patch("snowflake.cli._plugins.apps.commands.SnowflakeAppManager")
+    def test_rejects_setup_options(self, mock_mgr_cls, runner, tmp_path, setup_args):
+        with change_directory(tmp_path):
+            result = runner.invoke(["app", "setup", "--capabilities", *setup_args])
+            assert result.exit_code == 2, result.output
+            assert not (tmp_path / "app.yml").exists()
+
+        assert (
+            f"Parameters '--capabilities' and '{setup_args[0]}' are incompatible"
+            in _unwrapped(result.output)
+        )
+        mock_mgr_cls.assert_not_called()
 
 
 # ── perform_bundle tests ──────────────────────────────────────────────

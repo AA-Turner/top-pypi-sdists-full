@@ -321,3 +321,17 @@ def test_canceling_the_plan_does_not_queue_a_job(background_harness, monkeypatch
     with pytest.raises(KeyboardInterrupt):
         h.run(background=True, interactive=True, yes=False)
     assert queued == [] and h.manifested == [] and h.created == []
+
+
+def test_a_folder_import_of_a_file_redacted_on_upload_finishes(background_harness):
+    """The upload lands under the redacted digest; the import used to refuse
+    that receipt on every run ("Delivery receipt does not match")."""
+    h, queued = background_harness
+    token = "ghp_KKF0RDt0Xaetn6QMfStFUWSus4jowQUux6hu"
+    (h.folder / "a.py").write_text(f'GITHUB_TOKEN = "{token}"\n')
+    h.run(background=True)
+    _resume(queued[0])
+    assert h.report()["delivered"] == ["a.py"]
+    assert len(h.remote.calls) == 1 and token not in repr(h.remote.calls)
+    _resume(queued[0])  # a resume accepts the stored receipt; nothing is sent again
+    assert h.report()["delivered"] == ["a.py"] and len(h.remote.calls) == 1

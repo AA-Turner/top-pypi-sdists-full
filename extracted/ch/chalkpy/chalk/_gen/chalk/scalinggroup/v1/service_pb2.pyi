@@ -191,6 +191,7 @@ class ScalingGroupResponse(_message.Message):
         "metadata",
         "status_details",
         "created_by",
+        "cluster_id",
     )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -217,6 +218,7 @@ class ScalingGroupResponse(_message.Message):
     METADATA_FIELD_NUMBER: _ClassVar[int]
     STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     revision_id: str
@@ -232,6 +234,7 @@ class ScalingGroupResponse(_message.Message):
     metadata: _containers.MessageMap[str, _struct_pb2.Value]
     status_details: str
     created_by: str
+    cluster_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -249,6 +252,7 @@ class ScalingGroupResponse(_message.Message):
         metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         status_details: _Optional[str] = ...,
         created_by: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateScalingGroupRequest(_message.Message):
@@ -360,18 +364,21 @@ class ListScalingGroupsRequest(_message.Message):
     ) -> None: ...
 
 class ListScalingGroupsFilters(_message.Message):
-    __slots__ = ("statuses", "visibility", "images")
+    __slots__ = ("statuses", "visibility", "images", "created_by")
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     statuses: _containers.RepeatedScalarFieldContainer[str]
     visibility: _containers.RepeatedScalarFieldContainer[ScalingGroupVisibility]
     images: _containers.RepeatedScalarFieldContainer[str]
+    created_by: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         statuses: _Optional[_Iterable[str]] = ...,
         visibility: _Optional[_Iterable[_Union[ScalingGroupVisibility, str]]] = ...,
         images: _Optional[_Iterable[str]] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListScalingGroupsResponse(_message.Message):

@@ -14,13 +14,14 @@ _sym_db = _symbol_database.Default()
 
 
 from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as chalk_dot_aggregate_dot_v1_dot_backfill__pb2
+from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v1_dot_chalk__error__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n&chalk/server/v1/feature_metadata.proto\x12\x0f\x63halk.server.v1\x1a!chalk/aggregate/v1/backfill.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1fgoogle/protobuf/timestamp.proto"V\n\x1a\x44ropFeatureVersionsRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n\x08\x66\x65\x61tures\x18\x02 \x03(\tR\x08\x66\x65\x61tures"\x1d\n\x1b\x44ropFeatureVersionsResponse"\xa1\x01\n\x19\x46\x65\x61tureMigrateTypeRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n\x08\x66\x65\x61tures\x18\x02 \x03(\tR\x08\x66\x65\x61tures\x12#\n\rretain_online\x18\x03 \x01(\x08R\x0cretainOnline\x12%\n\x0eretain_offline\x18\x04 \x01(\x08R\rretainOffline"Q\n\x1a\x46\x65\x61tureMigrateTypeResponse\x12\x33\n\x06\x65rrors\x18\x01 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xdf\x01\n DeleteFeatureObservationsRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n\x08\x66\x65\x61tures\x18\x02 \x03(\tR\x08\x66\x65\x61tures\x12\x12\n\x04tags\x18\x03 \x03(\tR\x04tags\x12!\n\x0cprimary_keys\x18\x04 \x03(\tR\x0bprimaryKeys\x12#\n\rretain_online\x18\x05 \x01(\x08R\x0cretainOnline\x12%\n\x0eretain_offline\x18\x06 \x01(\x08R\rretainOffline"X\n!DeleteFeatureObservationsResponse\x12\x33\n\x06\x65rrors\x18\x01 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xc0\x01\n\x1dGetIncrementalProgressRequest\x12#\n\x0cresolver_fqn\x18\x01 \x01(\tH\x00R\x0bresolverFqn\x12\x1f\n\nquery_name\x18\x02 \x01(\tH\x00R\tqueryName\x12K\n!scheduled_aggregate_backfill_name\x18\x03 \x01(\tH\x00R\x1escheduledAggregateBackfillNameB\x0c\n\nidentifier"\xe8\x04\n\x1eGetIncrementalProgressResponse\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12!\n\x0cresolver_fqn\x18\x02 \x01(\tR\x0bresolverFqn\x12"\n\nquery_name\x18\x03 \x01(\tH\x00R\tqueryName\x88\x01\x01\x12U\n\x16max_ingested_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x14maxIngestedTimestamp\x88\x01\x01\x12Y\n\x18last_execution_timestamp\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x16lastExecutionTimestamp\x88\x01\x01\x12N\n!scheduled_aggregate_backfill_name\x18\x06 \x01(\tH\x03R\x1escheduledAggregateBackfillName\x88\x01\x01\x12i\n\x10\x61ggregate_groups\x18\x07 \x03(\x0b\x32>.chalk.server.v1.ScheduledAggregateBackfillIncrementalProgressR\x0f\x61ggregateGroupsB\r\n\x0b_query_nameB\x19\n\x17_max_ingested_timestampB\x1b\n\x19_last_execution_timestampB$\n"_scheduled_aggregate_backfill_name"\x8b\x03\n-ScheduledAggregateBackfillIncrementalProgress\x12\x1a\n\x08\x66\x65\x61tures\x18\x01 \x03(\tR\x08\x66\x65\x61tures\x12T\n\x0fstorage_targets\x18\x02 \x03(\x0e\x32+.chalk.aggregate.v1.AggregateBackfillTargetR\x0estorageTargets\x12U\n\x16max_ingested_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x14maxIngestedTimestamp\x88\x01\x01\x12Y\n\x18last_execution_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x16lastExecutionTimestamp\x88\x01\x01\x42\x19\n\x17_max_ingested_timestampB\x1b\n\x19_last_execution_timestamp"\xaa\x03\n\x1dSetIncrementalProgressRequest\x12#\n\x0cresolver_fqn\x18\x01 \x01(\tH\x00R\x0bresolverFqn\x12\x1f\n\nquery_name\x18\x02 \x01(\tH\x00R\tqueryName\x12K\n!scheduled_aggregate_backfill_name\x18\x05 \x01(\tH\x00R\x1escheduledAggregateBackfillName\x12U\n\x16max_ingested_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x14maxIngestedTimestamp\x88\x01\x01\x12Y\n\x18last_execution_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x16lastExecutionTimestamp\x88\x01\x01\x42\x0c\n\nidentifierB\x19\n\x17_max_ingested_timestampB\x1b\n\x19_last_execution_timestamp" \n\x1eSetIncrementalProgressResponse"\xc3\x01\n DeleteIncrementalProgressRequest\x12#\n\x0cresolver_fqn\x18\x01 \x01(\tH\x00R\x0bresolverFqn\x12\x1f\n\nquery_name\x18\x02 \x01(\tH\x00R\tqueryName\x12K\n!scheduled_aggregate_backfill_name\x18\x03 \x01(\tH\x00R\x1escheduledAggregateBackfillNameB\x0c\n\nidentifier"#\n!DeleteIncrementalProgressResponse2\x97\x06\n\x16\x46\x65\x61tureMetadataService\x12u\n\x13\x44ropFeatureVersions\x12+.chalk.server.v1.DropFeatureVersionsRequest\x1a,.chalk.server.v1.DropFeatureVersionsResponse"\x03\x80}\x0c\x12r\n\x12\x46\x65\x61tureMigrateType\x12*.chalk.server.v1.FeatureMigrateTypeRequest\x1a+.chalk.server.v1.FeatureMigrateTypeResponse"\x03\x80}\x0c\x12\x87\x01\n\x19\x44\x65leteFeatureObservations\x12\x31.chalk.server.v1.DeleteFeatureObservationsRequest\x1a\x32.chalk.server.v1.DeleteFeatureObservationsResponse"\x03\x80}\x0c\x12~\n\x16GetIncrementalProgress\x12..chalk.server.v1.GetIncrementalProgressRequest\x1a/.chalk.server.v1.GetIncrementalProgressResponse"\x03\x80}\x0b\x12~\n\x16SetIncrementalProgress\x12..chalk.server.v1.SetIncrementalProgressRequest\x1a/.chalk.server.v1.SetIncrementalProgressResponse"\x03\x80}\x11\x12\x87\x01\n\x19\x44\x65leteIncrementalProgress\x12\x31.chalk.server.v1.DeleteIncrementalProgressRequest\x1a\x32.chalk.server.v1.DeleteIncrementalProgressResponse"\x03\x80}\x0c\x42\x9d\x01\n\x13\x63om.chalk.server.v1B\x14\x46\x65\x61tureMetadataProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n&chalk/server/v1/feature_metadata.proto\x12\x0f\x63halk.server.v1\x1a!chalk/aggregate/v1/backfill.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1fgoogle/protobuf/timestamp.proto"V\n\x1a\x44ropFeatureVersionsRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n\x08\x66\x65\x61tures\x18\x02 \x03(\tR\x08\x66\x65\x61tures"\x1d\n\x1b\x44ropFeatureVersionsResponse"\xa1\x01\n\x19\x46\x65\x61tureMigrateTypeRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n\x08\x66\x65\x61tures\x18\x02 \x03(\tR\x08\x66\x65\x61tures\x12#\n\rretain_online\x18\x03 \x01(\x08R\x0cretainOnline\x12%\n\x0eretain_offline\x18\x04 \x01(\x08R\rretainOffline"Q\n\x1a\x46\x65\x61tureMigrateTypeResponse\x12\x33\n\x06\x65rrors\x18\x01 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xdf\x01\n DeleteFeatureObservationsRequest\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n\x08\x66\x65\x61tures\x18\x02 \x03(\tR\x08\x66\x65\x61tures\x12\x12\n\x04tags\x18\x03 \x03(\tR\x04tags\x12!\n\x0cprimary_keys\x18\x04 \x03(\tR\x0bprimaryKeys\x12#\n\rretain_online\x18\x05 \x01(\x08R\x0cretainOnline\x12%\n\x0eretain_offline\x18\x06 \x01(\x08R\rretainOffline"X\n!DeleteFeatureObservationsResponse\x12\x33\n\x06\x65rrors\x18\x01 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors"\xc0\x01\n\x1dGetIncrementalProgressRequest\x12#\n\x0cresolver_fqn\x18\x01 \x01(\tH\x00R\x0bresolverFqn\x12\x1f\n\nquery_name\x18\x02 \x01(\tH\x00R\tqueryName\x12K\n!scheduled_aggregate_backfill_name\x18\x03 \x01(\tH\x00R\x1escheduledAggregateBackfillNameB\x0c\n\nidentifier"\xe8\x04\n\x1eGetIncrementalProgressResponse\x12%\n\x0e\x65nvironment_id\x18\x01 \x01(\tR\renvironmentId\x12!\n\x0cresolver_fqn\x18\x02 \x01(\tR\x0bresolverFqn\x12"\n\nquery_name\x18\x03 \x01(\tH\x00R\tqueryName\x88\x01\x01\x12U\n\x16max_ingested_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x14maxIngestedTimestamp\x88\x01\x01\x12Y\n\x18last_execution_timestamp\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x16lastExecutionTimestamp\x88\x01\x01\x12N\n!scheduled_aggregate_backfill_name\x18\x06 \x01(\tH\x03R\x1escheduledAggregateBackfillName\x88\x01\x01\x12i\n\x10\x61ggregate_groups\x18\x07 \x03(\x0b\x32>.chalk.server.v1.ScheduledAggregateBackfillIncrementalProgressR\x0f\x61ggregateGroupsB\r\n\x0b_query_nameB\x19\n\x17_max_ingested_timestampB\x1b\n\x19_last_execution_timestampB$\n"_scheduled_aggregate_backfill_name"\x8b\x03\n-ScheduledAggregateBackfillIncrementalProgress\x12\x1a\n\x08\x66\x65\x61tures\x18\x01 \x03(\tR\x08\x66\x65\x61tures\x12T\n\x0fstorage_targets\x18\x02 \x03(\x0e\x32+.chalk.aggregate.v1.AggregateBackfillTargetR\x0estorageTargets\x12U\n\x16max_ingested_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x14maxIngestedTimestamp\x88\x01\x01\x12Y\n\x18last_execution_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x16lastExecutionTimestamp\x88\x01\x01\x42\x19\n\x17_max_ingested_timestampB\x1b\n\x19_last_execution_timestamp"\xaa\x03\n\x1dSetIncrementalProgressRequest\x12#\n\x0cresolver_fqn\x18\x01 \x01(\tH\x00R\x0bresolverFqn\x12\x1f\n\nquery_name\x18\x02 \x01(\tH\x00R\tqueryName\x12K\n!scheduled_aggregate_backfill_name\x18\x05 \x01(\tH\x00R\x1escheduledAggregateBackfillName\x12U\n\x16max_ingested_timestamp\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x14maxIngestedTimestamp\x88\x01\x01\x12Y\n\x18last_execution_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x16lastExecutionTimestamp\x88\x01\x01\x42\x0c\n\nidentifierB\x19\n\x17_max_ingested_timestampB\x1b\n\x19_last_execution_timestamp" \n\x1eSetIncrementalProgressResponse"\xc3\x01\n DeleteIncrementalProgressRequest\x12#\n\x0cresolver_fqn\x18\x01 \x01(\tH\x00R\x0bresolverFqn\x12\x1f\n\nquery_name\x18\x02 \x01(\tH\x00R\tqueryName\x12K\n!scheduled_aggregate_backfill_name\x18\x03 \x01(\tH\x00R\x1escheduledAggregateBackfillNameB\x0c\n\nidentifier"#\n!DeleteIncrementalProgressResponse2\xdb\x06\n\x16\x46\x65\x61tureMetadataService\x12u\n\x13\x44ropFeatureVersions\x12+.chalk.server.v1.DropFeatureVersionsRequest\x1a,.chalk.server.v1.DropFeatureVersionsResponse"\x03\x80}\x0c\x12r\n\x12\x46\x65\x61tureMigrateType\x12*.chalk.server.v1.FeatureMigrateTypeRequest\x1a+.chalk.server.v1.FeatureMigrateTypeResponse"\x03\x80}\x0c\x12\x87\x01\n\x19\x44\x65leteFeatureObservations\x12\x31.chalk.server.v1.DeleteFeatureObservationsRequest\x1a\x32.chalk.server.v1.DeleteFeatureObservationsResponse"\x03\x80}\x0c\x12~\n\x16GetIncrementalProgress\x12..chalk.server.v1.GetIncrementalProgressRequest\x1a/.chalk.server.v1.GetIncrementalProgressResponse"\x03\x80}\x0b\x12\x9e\x01\n\x16SetIncrementalProgress\x12..chalk.server.v1.SetIncrementalProgressRequest\x1a/.chalk.server.v1.SetIncrementalProgressResponse"#\x80}\x11\x8a\xd3\x0e\x1c\x08\x02\x12\x18Set incremental progress\x12\xaa\x01\n\x19\x44\x65leteIncrementalProgress\x12\x31.chalk.server.v1.DeleteIncrementalProgressRequest\x1a\x32.chalk.server.v1.DeleteIncrementalProgressResponse"&\x80}\x0c\x8a\xd3\x0e\x1f\x08\x02\x12\x1b\x44\x65lete incremental progressB\x9d\x01\n\x13\x63om.chalk.server.v1B\x14\x46\x65\x61tureMetadataProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -40,35 +41,39 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_FEATUREMETADATASERVICE"].methods_by_name["GetIncrementalProgress"]._options = None
     _globals["_FEATUREMETADATASERVICE"].methods_by_name["GetIncrementalProgress"]._serialized_options = b"\200}\013"
     _globals["_FEATUREMETADATASERVICE"].methods_by_name["SetIncrementalProgress"]._options = None
-    _globals["_FEATUREMETADATASERVICE"].methods_by_name["SetIncrementalProgress"]._serialized_options = b"\200}\021"
+    _globals["_FEATUREMETADATASERVICE"].methods_by_name[
+        "SetIncrementalProgress"
+    ]._serialized_options = b"\200}\021\212\323\016\034\010\002\022\030Set incremental progress"
     _globals["_FEATUREMETADATASERVICE"].methods_by_name["DeleteIncrementalProgress"]._options = None
-    _globals["_FEATUREMETADATASERVICE"].methods_by_name["DeleteIncrementalProgress"]._serialized_options = b"\200}\014"
-    _globals["_DROPFEATUREVERSIONSREQUEST"]._serialized_start = 195
-    _globals["_DROPFEATUREVERSIONSREQUEST"]._serialized_end = 281
-    _globals["_DROPFEATUREVERSIONSRESPONSE"]._serialized_start = 283
-    _globals["_DROPFEATUREVERSIONSRESPONSE"]._serialized_end = 312
-    _globals["_FEATUREMIGRATETYPEREQUEST"]._serialized_start = 315
-    _globals["_FEATUREMIGRATETYPEREQUEST"]._serialized_end = 476
-    _globals["_FEATUREMIGRATETYPERESPONSE"]._serialized_start = 478
-    _globals["_FEATUREMIGRATETYPERESPONSE"]._serialized_end = 559
-    _globals["_DELETEFEATUREOBSERVATIONSREQUEST"]._serialized_start = 562
-    _globals["_DELETEFEATUREOBSERVATIONSREQUEST"]._serialized_end = 785
-    _globals["_DELETEFEATUREOBSERVATIONSRESPONSE"]._serialized_start = 787
-    _globals["_DELETEFEATUREOBSERVATIONSRESPONSE"]._serialized_end = 875
-    _globals["_GETINCREMENTALPROGRESSREQUEST"]._serialized_start = 878
-    _globals["_GETINCREMENTALPROGRESSREQUEST"]._serialized_end = 1070
-    _globals["_GETINCREMENTALPROGRESSRESPONSE"]._serialized_start = 1073
-    _globals["_GETINCREMENTALPROGRESSRESPONSE"]._serialized_end = 1689
-    _globals["_SCHEDULEDAGGREGATEBACKFILLINCREMENTALPROGRESS"]._serialized_start = 1692
-    _globals["_SCHEDULEDAGGREGATEBACKFILLINCREMENTALPROGRESS"]._serialized_end = 2087
-    _globals["_SETINCREMENTALPROGRESSREQUEST"]._serialized_start = 2090
-    _globals["_SETINCREMENTALPROGRESSREQUEST"]._serialized_end = 2516
-    _globals["_SETINCREMENTALPROGRESSRESPONSE"]._serialized_start = 2518
-    _globals["_SETINCREMENTALPROGRESSRESPONSE"]._serialized_end = 2550
-    _globals["_DELETEINCREMENTALPROGRESSREQUEST"]._serialized_start = 2553
-    _globals["_DELETEINCREMENTALPROGRESSREQUEST"]._serialized_end = 2748
-    _globals["_DELETEINCREMENTALPROGRESSRESPONSE"]._serialized_start = 2750
-    _globals["_DELETEINCREMENTALPROGRESSRESPONSE"]._serialized_end = 2785
-    _globals["_FEATUREMETADATASERVICE"]._serialized_start = 2788
-    _globals["_FEATUREMETADATASERVICE"]._serialized_end = 3579
+    _globals["_FEATUREMETADATASERVICE"].methods_by_name[
+        "DeleteIncrementalProgress"
+    ]._serialized_options = b"\200}\014\212\323\016\037\010\002\022\033Delete incremental progress"
+    _globals["_DROPFEATUREVERSIONSREQUEST"]._serialized_start = 222
+    _globals["_DROPFEATUREVERSIONSREQUEST"]._serialized_end = 308
+    _globals["_DROPFEATUREVERSIONSRESPONSE"]._serialized_start = 310
+    _globals["_DROPFEATUREVERSIONSRESPONSE"]._serialized_end = 339
+    _globals["_FEATUREMIGRATETYPEREQUEST"]._serialized_start = 342
+    _globals["_FEATUREMIGRATETYPEREQUEST"]._serialized_end = 503
+    _globals["_FEATUREMIGRATETYPERESPONSE"]._serialized_start = 505
+    _globals["_FEATUREMIGRATETYPERESPONSE"]._serialized_end = 586
+    _globals["_DELETEFEATUREOBSERVATIONSREQUEST"]._serialized_start = 589
+    _globals["_DELETEFEATUREOBSERVATIONSREQUEST"]._serialized_end = 812
+    _globals["_DELETEFEATUREOBSERVATIONSRESPONSE"]._serialized_start = 814
+    _globals["_DELETEFEATUREOBSERVATIONSRESPONSE"]._serialized_end = 902
+    _globals["_GETINCREMENTALPROGRESSREQUEST"]._serialized_start = 905
+    _globals["_GETINCREMENTALPROGRESSREQUEST"]._serialized_end = 1097
+    _globals["_GETINCREMENTALPROGRESSRESPONSE"]._serialized_start = 1100
+    _globals["_GETINCREMENTALPROGRESSRESPONSE"]._serialized_end = 1716
+    _globals["_SCHEDULEDAGGREGATEBACKFILLINCREMENTALPROGRESS"]._serialized_start = 1719
+    _globals["_SCHEDULEDAGGREGATEBACKFILLINCREMENTALPROGRESS"]._serialized_end = 2114
+    _globals["_SETINCREMENTALPROGRESSREQUEST"]._serialized_start = 2117
+    _globals["_SETINCREMENTALPROGRESSREQUEST"]._serialized_end = 2543
+    _globals["_SETINCREMENTALPROGRESSRESPONSE"]._serialized_start = 2545
+    _globals["_SETINCREMENTALPROGRESSRESPONSE"]._serialized_end = 2577
+    _globals["_DELETEINCREMENTALPROGRESSREQUEST"]._serialized_start = 2580
+    _globals["_DELETEINCREMENTALPROGRESSREQUEST"]._serialized_end = 2775
+    _globals["_DELETEINCREMENTALPROGRESSRESPONSE"]._serialized_start = 2777
+    _globals["_DELETEINCREMENTALPROGRESSRESPONSE"]._serialized_end = 2812
+    _globals["_FEATUREMETADATASERVICE"]._serialized_start = 2815
+    _globals["_FEATUREMETADATASERVICE"]._serialized_end = 3674
 # @@protoc_insertion_point(module_scope)

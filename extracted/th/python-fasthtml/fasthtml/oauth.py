@@ -249,7 +249,10 @@ class OAuth:
                 return RedirectResponse(self.error_path, status_code=303)
             scheme = 'http' if url_match(req,self.http_patterns) or not self.https else 'https'
             base_url = f"{scheme}://{get_host(req)}"
-            info = AttrDictDefault(await cli.retr_info_async(code, base_url+redir_path))
+            try: info = AttrDictDefault(await cli.retr_info_async(code, base_url+redir_path))
+            except httpx2.HTTPStatusError as e:
+                session['oauth_error'] = e.response.text
+                return RedirectResponse(self.error_path, status_code=303)
             ident = info.get(self.cli.id_key)
             if not ident: return self.redir_login(session)
             res = await _arun(self.get_auth(info, ident, session, state))

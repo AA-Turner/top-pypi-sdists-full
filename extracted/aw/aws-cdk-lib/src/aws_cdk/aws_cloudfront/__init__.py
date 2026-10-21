@@ -27455,13 +27455,16 @@ class OriginRequestPolicy(
 
     Example::
 
-        # Using an existing origin request policy for a Distribution
-        # bucket_origin: origins.S3Origin
+        oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
+            signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
+        )
         
-        cloudfront.Distribution(self, "myDistManagedPolicy",
+        cloudfront.Distribution(self, "MyDistribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=bucket_origin,
-                origin_request_policy=cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN
+                origin=origins.HttpOrigin("bcdfghjklmnpqrst.b7t.lambda-web.us-east-1.on.aws",
+                    origin_access_control_id=oac.origin_access_control_id
+                ),
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
             )
         )
     '''
@@ -29934,16 +29937,15 @@ class S3OriginAccessControl(
 
     Example::
 
-        my_bucket = s3.Bucket(self, "myBucket")
-        oac = cloudfront.S3OriginAccessControl(self, "MyOAC",
-            signing=cloudfront.Signing.SIGV4_NO_OVERRIDE
+        oac = cloudfront.S3OriginAccessControl(self, "MyMrapOAC",
+            signing=cloudfront.Signing.SIGV4A_ALWAYS
         )
-        s3_origin = origins.S3BucketOrigin.with_origin_access_control(my_bucket,
-            origin_access_control=oac
-        )
+        
         cloudfront.Distribution(self, "myDist",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=s3_origin
+                origin=origins.HttpOrigin("mfzwi23gnjvgw.mrap.accesspoint.s3-global.amazonaws.com",
+                    origin_access_control_id=oac.origin_access_control_id
+                )
             )
         )
     '''
@@ -30368,10 +30370,25 @@ class Signing(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudfront.Sig
         return typing.cast("Signing", jsii.sget(cls, "SIGV4_ALWAYS"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="SIGV4_ALWAYS_AMZ_AUTH")
+    def SIGV4_ALWAYS_AMZ_AUTH(cls) -> "Signing":
+        '''Sign all origin requests using the AWS Signature Version 4 signing protocol, and pass the viewer's Authorization header to the origin unchanged.
+
+        Use with regional AWS Lambda Web Function endpoints.
+        '''
+        return typing.cast("Signing", jsii.sget(cls, "SIGV4_ALWAYS_AMZ_AUTH"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="SIGV4_NO_OVERRIDE")
     def SIGV4_NO_OVERRIDE(cls) -> "Signing":
         '''Sign only if the viewer request doesn't contain the Authorization header using the AWS Signature Version 4 signing protocol.'''
         return typing.cast("Signing", jsii.sget(cls, "SIGV4_NO_OVERRIDE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SIGV4A_ALWAYS")
+    def SIGV4_A_ALWAYS(cls) -> "Signing":
+        '''Sign all origin requests using the AWS Signature Version 4A signing protocol.'''
+        return typing.cast("Signing", jsii.sget(cls, "SIGV4A_ALWAYS"))
 
     @builtins.property
     @jsii.member(jsii_name="behavior")
@@ -30395,6 +30412,16 @@ class SigningBehavior(enum.Enum):
 
     ALWAYS = "ALWAYS"
     '''Sign all origin requests, overwriting the Authorization header from the viewer request if one exists.'''
+    ALWAYS_AMZ_AUTH = "ALWAYS_AMZ_AUTH"
+    '''Sign all origin requests, and pass the Authorization header from the viewer request to the origin unchanged.
+
+    CloudFront adds its signature in a dedicated header instead of the
+    Authorization header. This is the only signing behavior supported by
+    AWS Lambda Web Function origins, and it isn't supported by any other
+    origin type.
+
+    :see: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda-web.html
+    '''
     NEVER = "NEVER"
     '''Do not sign any origin requests.
 
@@ -30411,6 +30438,14 @@ class SigningProtocol(enum.Enum):
 
     SIGV4 = "SIGV4"
     '''The AWS Signature Version 4 signing protocol.'''
+    SIGV4A = "SIGV4A"
+    '''The AWS Signature Version 4A signing protocol.
+
+    Signs requests for multiple AWS Regions, as needed by origins such as
+    Amazon S3 Multi-Region Access Points.
+
+    :see: https://docs.aws.amazon.com/general/latest/gr/signing_aws_api_requests.html
+    '''
 
 
 @jsii.data_type(
@@ -32191,20 +32226,18 @@ class Distribution(
 
     Example::
 
-        # s3_bucket: s3.Bucket
-        # Add a cloudfront Function to a Distribution
-        cf_function = cloudfront.Function(self, "Function",
-            code=cloudfront.FunctionCode.from_inline("function handler(event) { return event.request }"),
-            runtime=cloudfront.FunctionRuntime.JS_2_0
+        # Creates a distribution from a Network Load Balancer
+        # vpc: ec2.Vpc
+        
+        # Create a network load balancer in a VPC. 'internetFacing' can be 'false'.
+        nlb = elbv2.NetworkLoadBalancer(self, "NLB",
+            vpc=vpc,
+            internet_facing=False,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_ISOLATED),
+            security_groups=[ec2.SecurityGroup(self, "NLB-SG", vpc=vpc)]
         )
-        cloudfront.Distribution(self, "distro",
-            default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.S3Origin(s3_bucket),
-                function_associations=[cloudfront.FunctionAssociation(
-                    function=cf_function,
-                    event_type=cloudfront.FunctionEventType.VIEWER_REQUEST
-                )]
-            )
+        cloudfront.Distribution(self, "myDist",
+            default_behavior=cloudfront.BehaviorOptions(origin=origins.VpcOrigin.with_network_load_balancer(nlb))
         )
     '''
 

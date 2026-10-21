@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rule-engine
-Version: 5.0.2
+Version: 5.1.0
 Summary: A lightweight, optionally typed expression language with a custom grammar for matching arbitrary Python objects.
 Author-email: Spencer McIntyre <zeroSteiner@gmail.com>
 Maintainer-email: Spencer McIntyre <zeroSteiner@gmail.com>
@@ -45,6 +45,7 @@ Python with some inspiration from Ruby. Some features of this language includes:
 - Compound datatypes (equivalents for Python dict, list and set types)
 - Data attributes
 - Thread safety
+- Rule chains that return the value of the first matching rule
 
 Example Usage
 -------------

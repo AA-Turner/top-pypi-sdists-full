@@ -197,6 +197,10 @@ def test_render_rust_type_value_positions() -> None:
     text, imports = _render_type(TypeSchema("Map", (TypeSchema("str"), TypeSchema("Array"))))
     assert text == "Map<String, Array<Any>>"
     assert _uses(imports) == {"tvm_ffi::Map", "tvm_ffi::String", "tvm_ffi::Array", "tvm_ffi::Any"}
+    text, imports = _render_type(TypeSchema("List", (TypeSchema("int"),)))
+    assert text == "List<i64>"
+    assert _uses(imports) == {"tvm_ffi::List"}
+    assert _render_type(TypeSchema.from_json_str('{"type":"ffi.List"}'))[0] == "List<Any>"
 
 
 @pytest.mark.parametrize(
@@ -205,7 +209,7 @@ def test_render_rust_type_value_positions() -> None:
         TypeSchema("Union", (TypeSchema("int"), TypeSchema("str"))),
         TypeSchema("Dict", (TypeSchema("str"), TypeSchema("int"))),
         TypeSchema("tuple"),
-        TypeSchema("Array", (TypeSchema("List", (TypeSchema("int"),)),)),
+        TypeSchema("List", (TypeSchema("Dict", (TypeSchema("str"), TypeSchema("int"))),)),
         TypeSchema("Optional", (TypeSchema("ctypes.c_void_p"),)),
     ],
 )
@@ -884,6 +888,22 @@ def test_complete_optional_field_mirrors() -> None:
     assert "tvm_ffi::Optional" in _uses(imports)
 
 
+def test_complete_list_field_mirrors() -> None:
+    """A `List<T>` field is an object handle and mirrors like `Array<T>`."""
+    info = _info(
+        "demo.Table",
+        (
+            _field("rows", TypeSchema("List", (TypeSchema("int"),)), 24, 8),
+            _field("cells", TypeSchema("List", (TypeSchema("Array"),)), 32, 8),
+        ),
+        total_size=40,
+    )
+    text, imports = _render(info)
+    assert "pub rows: List<i64>," in text
+    assert "pub cells: List<Array<Any>>," in text
+    assert {"tvm_ffi::List", "tvm_ffi::Array", "tvm_ffi::Any"} <= _uses(imports)
+
+
 def test_complete_big_int_field_mirrors() -> None:
     """The schema folds `ffi.BigInt` into `int`; the parsed type key keeps the cell apart."""
     big = TypeSchema.from_json_str('{"type":"ffi.BigInt"}')
@@ -992,6 +1012,7 @@ def test_registry_big_int_fields_are_mirrored(big_int_holder: ObjectInfo) -> Non
         _field("x", TypeSchema("Optional", (TypeSchema("int"),)), 24, 8),  # not the 16-byte cell
         _field("x", TypeSchema("Union", (TypeSchema("int"), TypeSchema("str"))), 24, 16),
         _field("x", "ctypes.c_void_p", 24, 8),
+        _field("x", "ffi.VisitInterrupt", 24, 8),
     ],
 )
 def test_unrenderable_field_keeps_the_type_opaque(field: NamedTypeSchema) -> None:
@@ -1023,6 +1044,25 @@ def test_custom_new_renames_the_wrapper_allocator() -> None:
         "    }\n}"
     ) in text
     assert "    pub fn new(" not in text
+
+
+def test_allocator_body_wraps_like_rustfmt() -> None:
+    """Past 100 columns a `let` first moves its call to the next line; the rest go one per line."""
+
+    def render(width: int) -> tuple[str, str]:
+        name = "f" * width
+        text, _ = _render(_info("demo.W", (_field(name, "int", 24, 8),), total_size=32))
+        return name, text
+
+    name, text = render(70)  # the `let` is exactly 100 columns
+    assert f"        let obj = WObj::new({name});\n" in text
+    name, text = render(76)  # 106 columns; the call alone is exactly 100
+    assert f"        let obj =\n            WObj::new({name});\n" in text
+    name, text = render(77)  # the call alone is 101 columns; `Self { .. }` is exactly 100
+    assert f"        let obj = WObj::new(\n            {name},\n        );\n" in text
+    assert f"        Self {{ base, {name} }}\n" in text
+    name, text = render(78)
+    assert f"        Self {{\n            base,\n            {name},\n        }}\n" in text
 
 
 def test_upcast_directive_adds_typed_views() -> None:
@@ -1409,6 +1449,77 @@ def test_stage_3_checks_dependencies_across_the_run(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Name resolution corner cases
+# ---------------------------------------------------------------------------
+
+
+def test_ffi_field_type_off_the_default_ty_map_reads_as_any() -> None:
+    """Of the `ffi.*` keys, only those on the default `ty-map` name a type the crate binds."""
+    text, imports = _render(_info("demo.Doc", (_field("path", "ffi.reflection.AccessPath"),)))
+    assert "    pub fn path(&self) -> Result<AccessPath> {" in text
+    assert "tvm_ffi::reflection::AccessPath" in _uses(imports)
+    text, imports = _render(_info("demo.Doc", (_field("interrupt", "ffi.VisitInterrupt"),)))
+    assert (
+        "    pub fn interrupt(&self) -> Result<Any> {\n"
+        '        FieldGetter::new(Self::type_index(), "interrupt")?.get_any(self)\n'
+    ) in text
+    assert not any("VisitInterrupt" in path for path in _uses(imports))
+
+
+def test_parent_with_the_objects_own_name_is_spelled_in_full() -> None:
+    """A parent in another module sharing the leaf would collide with the block's own names."""
+    info = _info("demo.s.Frame", parent="demo.t.Frame", ancestors=["ffi.Object", "demo.t.Frame"])
+    text, imports = _render(info)
+    parent = "super::super::demo::t::Frame"
+    assert f"    base: {parent}Obj," in text
+    assert f"    type Target = {parent}Obj;" in text
+    assert text.endswith(f"tvm_ffi::impl_object_upcast!(Frame => {parent});")
+    assert not any(path.startswith(f"{parent}") for path in _uses(imports))
+
+
+def test_any_field_of_an_opaque_type_reads_through_get_any() -> None:
+    text, _ = _render(_info("demo.Literal", (_field("value", "Any"),)))
+    assert (
+        "    pub fn value(&self) -> Result<Any> {\n"
+        '        FieldGetter::new(Self::type_index(), "value")?.get_any(self)\n'
+    ) in text
+
+
+def test_non_snake_case_fields_allow_the_lint() -> None:
+    fields = (_field("M", "int", 24, 8), _field("n", "int", 32, 8))
+    text, _ = _render(_info("demo.Tile", fields, total_size=40))
+    assert "#[allow(non_snake_case)]\n#[repr(C)]\n" in text
+    assert text.count("    #[allow(non_snake_case)]\n    pub") == 2  # both allocators
+    text, _ = _render(_info("demo.Tile", (_field("n", "int", 24, 8),), total_size=32))
+    assert "allow(non_snake_case)" not in text
+    text, _ = _render(_info("demo.Tile", (_field("M", "int"),)))
+    assert "    #[allow(non_snake_case)]\n    pub fn M(&self) -> Result<i64> {" in text
+
+
+def test_ty_map_target_in_the_files_own_module_is_not_imported() -> None:
+    """`ir.Op -> crate::ir::Op` names a hand-written binding next to the generated ones."""
+    ty_map = {**RUST.default_ty_map(), "ir.Op": "crate::ir::Op"}
+
+    def render(info: ObjectInfo) -> tuple[str, RustImports]:
+        assert info.type_key is not None
+        block = _object_block(info.type_key)
+        imports = RustImports()
+        generate_rust_object(block, ty_map, imports, Options(), info, ALL_DECLARED)
+        return "\n".join(block.lines[1:-1]), imports
+
+    text, imports = render(_info("ir.Call", (_field("op", "ir.Op"),)))
+    assert "    pub fn op(&self) -> Result<Op> {" in text
+    assert "crate::ir::Op" not in _uses(imports)
+    text, imports = render(_info("ir.Special", parent="ir.Op", ancestors=["ffi.Object", "ir.Op"]))
+    assert "    base: OpObj," in text
+    assert text.endswith("tvm_ffi::impl_object_upcast!(Special => Op);")
+    assert not any(path.startswith("crate::") for path in _uses(imports))
+    # Elsewhere the target is imported as written.
+    text, imports = render(_info("tirx.Call", (_field("op", "ir.Op"),)))
+    assert "crate::ir::Op" in _uses(imports)
+
+
+# ---------------------------------------------------------------------------
 # `prefix` / `skip`: a file declares a namespace and the blocks are rolled out
 # ---------------------------------------------------------------------------
 
@@ -1535,3 +1646,59 @@ def test_prefix_survives_init(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
         "sys.argv", ["tvm-ffi-stubgen", "--target", "rust", "--check", str(tmp_path)]
     )
     assert stub_cli.__main__() == 0
+
+
+# ---------------------------------------------------------------------------
+# Blocks whose type is no longer registered
+# ---------------------------------------------------------------------------
+
+
+def test_prefix_removes_blocks_of_unregistered_types(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    src = tmp_path / "testing.rs"
+    gone = f"{C.RUST_SYNTAX.begin} object/testing.NoLongerRegistered"
+    src.write_text(
+        "\n".join(
+            [f"{C.RUST_SYNTAX.directive('prefix')} testing", "", gone, C.RUST_SYNTAX.end, ""]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("sys.argv", ["tvm-ffi-stubgen", "--target", "rust", str(tmp_path)])
+    assert stub_cli.__main__() == 0
+    out = capsys.readouterr().out
+    assert "[Removed]" in out and "`object/testing.NoLongerRegistered` (line 3)" in out
+    text = src.read_text(encoding="utf-8")
+    assert "NoLongerRegistered" not in text
+    assert "pub struct TestCxxClassBaseObj {" in text  # the rest of the namespace is rolled out
+    monkeypatch.setattr(
+        "sys.argv", ["tvm-ffi-stubgen", "--target", "rust", "--check", str(tmp_path)]
+    )
+    assert stub_cli.__main__() == 0
+
+
+def test_explicit_blocks_of_unregistered_types_are_reported_together(tmp_path: Path) -> None:
+    src = tmp_path / "mod.rs"
+    blocks = [
+        f"{C.RUST_SYNTAX.begin} import-section",
+        C.RUST_SYNTAX.end,
+        f"{C.RUST_SYNTAX.begin} object/demo.Gone",
+        C.RUST_SYNTAX.end,
+        f"{C.RUST_SYNTAX.begin} object/testing.TestCxxClassBase",
+        C.RUST_SYNTAX.end,
+        f"{C.RUST_SYNTAX.begin} object/demo.AlsoGone",
+        C.RUST_SYNTAX.end,
+        "",
+    ]
+    src.write_text("\n".join(blocks), encoding="utf-8")
+    info = FileInfo.from_file(src)
+    assert info is not None
+    expected = (
+        r"`object/demo\.Gone` \(line 3\), `object/demo\.AlsoGone` \(line 7\): "
+        r"the type is no longer registered"
+    )
+    with pytest.raises(ValueError, match=expected):
+        _stage_3(info, Options(), RUST.default_ty_map(), {}, RUST, ALL_DECLARED)
+    text = src.read_text(encoding="utf-8")
+    assert "pub struct TestCxxClassBaseObj {" in text  # the other blocks are still written
+    assert f"{C.RUST_SYNTAX.begin} object/demo.Gone\n{C.RUST_SYNTAX.end}" in text

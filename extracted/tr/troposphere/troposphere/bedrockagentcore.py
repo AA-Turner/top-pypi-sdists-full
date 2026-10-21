@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -474,6 +474,46 @@ class ConfigurationBundleVersion(AWSObject):
     }
 
 
+class ConsentPortalSource(AWSProperty):
+    """
+    `ConsentPortalSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-consentportal-consentportalsource.html>`__
+    """
+
+    props: PropsDictType = {
+        "Identifier": (str, True),
+        "Type": (str, True),
+    }
+
+
+class IdpConfig(AWSProperty):
+    """
+    `IdpConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-consentportal-idpconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Audience": (str, False),
+        "CredentialProviderArn": (str, True),
+        "Scopes": ([str], True),
+    }
+
+
+class ConsentPortal(AWSObject):
+    """
+    `ConsentPortal <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrockagentcore-consentportal.html>`__
+    """
+
+    resource_type = "AWS::BedrockAgentCore::ConsentPortal"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "ExecutionRoleArn": (str, True),
+        "IdpConfig": (IdpConfig, True),
+        "Name": (str, True),
+        "Sources": ([ConsentPortalSource], True),
+        "Tags": (Tags, False),
+    }
+
+
 class InlineExamplesSource(AWSProperty):
     """
     `InlineExamplesSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-dataset-inlineexamplessource.html>`__
@@ -550,6 +590,7 @@ class InferenceConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "MaxTokens": (integer, False),
+        "StopSequences": ([str], False),
         "Temperature": (double, False),
         "TopP": (double, False),
     }
@@ -599,6 +640,17 @@ class EvaluatorModelConfig(AWSProperty):
     props: PropsDictType = {
         "BedrockEvaluatorModelConfig": (BedrockEvaluatorModelConfig, False),
         "ResponsesEvaluatorModelConfig": (OpenResponsesEvaluatorModelConfig, False),
+    }
+
+
+class DerivedEvaluatorConfig(AWSProperty):
+    """
+    `DerivedEvaluatorConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-evaluator-derivedevaluatorconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "BaseEvaluatorId": (str, True),
+        "ModelConfig": (EvaluatorModelConfig, True),
     }
 
 
@@ -655,6 +707,7 @@ class EvaluatorConfig(AWSProperty):
 
     props: PropsDictType = {
         "CodeBased": (CodeBasedEvaluatorConfig, False),
+        "Derived": (DerivedEvaluatorConfig, False),
         "LlmAsAJudge": (LlmAsAJudgeEvaluatorConfig, False),
     }
 
@@ -1773,15 +1826,116 @@ class HarnessEnvironmentProvider(AWSProperty):
     }
 
 
+class HarnessHookEventBridgeTarget(AWSProperty):
+    """
+    `HarnessHookEventBridgeTarget <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesshookeventbridgetarget.html>`__
+    """
+
+    props: PropsDictType = {
+        "Arn": (str, True),
+    }
+
+
+class HarnessHookLambdaTarget(AWSProperty):
+    """
+    `HarnessHookLambdaTarget <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesshooklambdatarget.html>`__
+    """
+
+    props: PropsDictType = {
+        "Arn": (str, True),
+        "FailureMode": (str, False),
+        "TimeoutSeconds": (integer, False),
+    }
+
+
+class HarnessHookSnsTarget(AWSProperty):
+    """
+    `HarnessHookSnsTarget <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesshooksnstarget.html>`__
+    """
+
+    props: PropsDictType = {
+        "Arn": (str, True),
+    }
+
+
+class HarnessHookTarget(AWSProperty):
+    """
+    `HarnessHookTarget <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesshooktarget.html>`__
+    """
+
+    props: PropsDictType = {
+        "EventBridge": (HarnessHookEventBridgeTarget, False),
+        "Lambda": (HarnessHookLambdaTarget, False),
+        "Sns": (HarnessHookSnsTarget, False),
+    }
+
+
+class HarnessAfterInvocationHook(AWSProperty):
+    """
+    `HarnessAfterInvocationHook <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessafterinvocationhook.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Target": (HarnessHookTarget, True),
+    }
+
+
+class HarnessAfterToolCallHook(AWSProperty):
+    """
+    `HarnessAfterToolCallHook <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessaftertoolcallhook.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Target": (HarnessHookTarget, True),
+    }
+
+
+class HarnessBeforeInvocationHook(AWSProperty):
+    """
+    `HarnessBeforeInvocationHook <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessbeforeinvocationhook.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Target": (HarnessHookTarget, True),
+    }
+
+
+class HarnessBeforeToolCallHook(AWSProperty):
+    """
+    `HarnessBeforeToolCallHook <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessbeforetoolcallhook.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Target": (HarnessHookTarget, True),
+    }
+
+
+class HarnessHook(AWSProperty):
+    """
+    `HarnessHook <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnesshook.html>`__
+    """
+
+    props: PropsDictType = {
+        "AfterInvocation": (HarnessAfterInvocationHook, False),
+        "AfterToolCall": (HarnessAfterToolCallHook, False),
+        "BeforeInvocation": (HarnessBeforeInvocationHook, False),
+        "BeforeToolCall": (HarnessBeforeToolCallHook, False),
+    }
+
+
 class HarnessAgentCoreMemoryRetrievalConfig(AWSProperty):
     """
     `HarnessAgentCoreMemoryRetrievalConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-harness-harnessagentcorememoryretrievalconfig.html>`__
     """
 
     props: PropsDictType = {
-        "RelevanceScore": (str, False),
+        "RelevanceScore": (double, False),
         "StrategyId": (str, False),
-        "TopK": (str, False),
+        "TopK": (integer, False),
     }
 
 
@@ -1844,6 +1998,7 @@ class HarnessGeminiModelConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AdditionalParams": (dict, False),
         "ApiKeyArn": (str, True),
         "MaxTokens": (integer, False),
         "ModelId": (str, True),
@@ -1876,6 +2031,7 @@ class HarnessOpenAiModelConfig(AWSProperty):
 
     props: PropsDictType = {
         "AdditionalParams": (dict, False),
+        "ApiBase": (str, False),
         "ApiFormat": (str, False),
         "ApiKeyArn": (str, True),
         "MaxTokens": (integer, False),
@@ -2114,6 +2270,7 @@ class Harness(AWSObject):
         "EnvironmentVariables": (dict, False),
         "ExecutionRoleArn": (str, True),
         "HarnessName": (str, True),
+        "Hooks": ([HarnessHook], False),
         "MaxIterations": (integer, False),
         "MaxTokens": (integer, False),
         "Memory": (HarnessMemoryConfiguration, False),
@@ -2592,6 +2749,28 @@ class MemoryStrategy(AWSProperty):
     }
 
 
+class NamespaceKeyValidation(AWSProperty):
+    """
+    `NamespaceKeyValidation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-namespacekeyvalidation.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllowedValues": ([str], False),
+        "RegexPattern": (str, False),
+    }
+
+
+class NamespaceKeyEntry(AWSProperty):
+    """
+    `NamespaceKeyEntry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-namespacekeyentry.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Validation": (NamespaceKeyValidation, False),
+    }
+
+
 class ContentConfiguration(AWSProperty):
     """
     `ContentConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-memory-contentconfiguration.html>`__
@@ -2649,6 +2828,7 @@ class Memory(AWSObject):
         "MemoryExecutionRoleArn": (str, False),
         "MemoryStrategies": ([MemoryStrategy], False),
         "Name": (str, True),
+        "NamespaceKeys": ([NamespaceKeyEntry], False),
         "StreamDeliveryResources": (StreamDeliveryResources, False),
         "Tags": (dict, False),
     }
@@ -2909,7 +3089,8 @@ class CloudWatchLogsInputConfig(AWSProperty):
     """
 
     props: PropsDictType = {
-        "LogGroupNames": ([str], True),
+        "LogGroupNamePrefixes": ([str], False),
+        "LogGroupNames": ([str], False),
         "ServiceNames": ([str], True),
     }
 
@@ -2941,6 +3122,28 @@ class Insight(AWSProperty):
 
     props: PropsDictType = {
         "InsightId": (str, True),
+    }
+
+
+class CloudWatchOutputConfig(AWSProperty):
+    """
+    `CloudWatchOutputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchoutputconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroupName": (str, False),
+        "MetricsNamespace": (str, False),
+        "ResultDestination": (str, False),
+    }
+
+
+class OutputConfig(AWSProperty):
+    """
+    `OutputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-outputconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchConfig": (CloudWatchOutputConfig, False),
     }
 
 
@@ -3016,6 +3219,7 @@ class OnlineEvaluationConfig(AWSObject):
         "ExecutionStatus": (str, False),
         "Insights": ([Insight], False),
         "OnlineEvaluationConfigName": (str, True),
+        "OutputConfig": (OutputConfig, False),
         "Rule": (Rule, True),
         "Tags": (Tags, False),
     }
@@ -3305,6 +3509,7 @@ class Runtime(AWSObject):
         "FilesystemConfigurations": ([FilesystemConfiguration], False),
         "LifecycleConfiguration": (LifecycleConfiguration, False),
         "NetworkConfiguration": (NetworkConfiguration, False),
+        "PlatformVersion": (str, False),
         "ProtocolConfiguration": (str, False),
         "RequestHeaderConfiguration": (RequestHeaderConfiguration, False),
         "RoleArn": (str, True),
@@ -3393,16 +3598,6 @@ class ClientSecretArn(AWSProperty):
     }
 
 
-class CloudWatchOutputConfig(AWSProperty):
-    """
-    `CloudWatchOutputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-cloudwatchoutputconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "LogGroupName": (str, False),
-    }
-
-
 class SecretInfo(AWSProperty):
     """
     `SecretInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-paymentcredentialprovider-secretinfo.html>`__
@@ -3465,16 +3660,6 @@ class Oauth2ProviderConfigOutput(AWSProperty):
         "PrivateEndpoint": (PrivateEndpoint, False),
         "PrivateEndpointOverrides": ([PrivateEndpointOverride], False),
         "PrivateKeyJwtConfig": (PrivateKeyJwtConfig, False),
-    }
-
-
-class OutputConfig(AWSProperty):
-    """
-    `OutputConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrockagentcore-onlineevaluationconfig-outputconfig.html>`__
-    """
-
-    props: PropsDictType = {
-        "CloudWatchConfig": (CloudWatchOutputConfig, False),
     }
 
 

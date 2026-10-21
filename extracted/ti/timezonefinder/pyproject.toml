@@ -1,11 +1,11 @@
 [project]
 name = "timezonefinder"
-version = "9.0.0"
+version = "9.1.0"
 description = "python package for finding the timezone of any point on earth (coordinates) offline"
 authors = [{name = "jannikmi", email = "github@michelfe.it"}]
 # Replace with license="MIT" with setuptools>=71
 license = {file="LICENSE"}
-readme = "README.rst"
+readme = "README.md"
 keywords = ["timezone", "coordinates", "latitude", "longitude", "location", "offline", "polygon"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -14,19 +14,30 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Localization",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    # "3 - Stable": tested multithreaded on a free-threaded build in CI
+    # (tests/test_free_threading.py and the `free-threaded` tox env) and its one
+    # thread-safety limit documented - `cleanup()` on a shared instance must wait for
+    # every thread using it (docs/1_usage.rst). That limit is why it is not "4 - Resilient".
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
 ]
-# following the official NumPy support/deprecation schedule:
-# https://numpy.org/neps/nep-0029-deprecation_policy.html#drop-schedule
+# following the official NumPy support/deprecation schedule: NEP 29
+# (https://numpy.org/neps/nep-0029-deprecation_policy.html#drop-schedule), which is
+# now superseded by SPEC 0 (https://scientific-python.org/specs/spec-0000/). The two
+# agree on what is supported here - NEP 29 keeps a Python minor for 42 months, SPEC 0
+# for 36 - so the earlier of the two drop dates is the one that applies. 3.11 reached
+# it on 2026-04-24 (SPEC 0: 2025-10-24); 3.12 reaches it on 2026-10-02 (NEP 29:
+# 2027-04-02), which is the next version to drop and the reason this floor is 3.12.
 # NOTE: When updating requires-python, also update the py_limited_api wheel config in setup.py
 # (tests/test_python_version_support.py fails if the two, or the classifiers above, drift apart)
-requires-python = ">=3.11,<4"
+requires-python = ">=3.12,<4"
 dependencies = [
-    "numpy>=2",
-    "h3>=4",
+    # The same schedule governs this floor - both documents keep a NumPy minor for 24
+    # months. 2.0 and 2.1 passed their drop dates (2026-06-16 and 2026-08-19); 2.2
+    # does not until 2026-12-09, which makes it the oldest release still supported.
+    "numpy>=2.2",
     "cffi<3,>=1.15.1",
     "flatbuffers>=25.2.10",
     # the packaged boundary data, split out so that a data update needs no code
@@ -36,7 +47,7 @@ dependencies = [
     # satisfying it while a format change becomes a resolver error instead of a
     # failure at the first lookup. tests/test_data_version.py holds the two numbers
     # to the constant.
-    "timezonefinder-data>=3.2026.3.post1,<4",
+    "timezonefinder-data>=4.2026.5,<5",
 ]
 
 [project.urls]
@@ -116,12 +127,27 @@ pytz = [
 compare = [
     "tzfpy>=1,<2",
 ]
+# Drawing the committed report charts. Deliberately its own group, and
+# deliberately not part of `test` or of $(BENCHMARK_ENV) in the Makefile: this is a
+# *rendering* dependency, reached only when the committed report charts are drawn, and
+# a measured environment must not carry it. Installed-but-unimported packages cost no
+# resident memory, but `make memory` records `memory::import::rss` in subprocesses of
+# the measurement environment, so the separation is worth holding structurally rather
+# than by care - the same reasoning that keeps `compare` and `numba` out of `test`.
+#
+# The matplotlib ceiling is load-bearing rather than caution: docs/*.svg is a committed
+# generated file, and a matplotlib minor upgrade rewrites its whole markup even when no
+# number moved. Raise it deliberately, and regenerate the chart in the same change.
+benchmark = [
+    "seaborn>=0.13.2",
+    "matplotlib>=3.9.4,<3.11",
+    "pandas>=2.3.2",
+]
 # prototyping, performance analytics
 proto = [
+    # the plotting stack, so a prototype has it without redeclaring the versions
+    { include-group = "benchmark" },
     "line-profiler>=5.0.0",
-    "pandas>=2.3.2",
-    "matplotlib>=3.9.4",
-    "seaborn>=0.13.2",
     "plotly>=6.3.0",
     "tabulate>=0.9.0",
 ]
@@ -181,7 +207,7 @@ timezonefinder = ["**/*.fbs", "**/*.c", "**/*.h", ]
 timezonefinder = ["inside_polygon_ext.c"]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 src = ["timezonefinder", "tests", "build.py"]
 
 [tool.ruff.lint]
@@ -232,7 +258,7 @@ ignore_directives = ["autoclass", "autofunction", "include"]
 report_level = "warning"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = false
@@ -253,8 +279,6 @@ module = [
     "flatbuffers.*",
     "numba",
     "numba.*",
-    "h3",
-    "h3.*",
     "cpuinfo",
 ]
 ignore_missing_imports = true

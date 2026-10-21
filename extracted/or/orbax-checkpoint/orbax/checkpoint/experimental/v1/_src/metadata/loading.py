@@ -24,7 +24,7 @@ from orbax.checkpoint.experimental.v1._src.layout import registry as layout_regi
 from orbax.checkpoint.experimental.v1._src.loading import validation
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
-from typing_extensions import deprecated  # pytype: disable=not-supported-yet
+from typing_extensions import deprecated
 
 
 CheckpointMetadata = metadata_types.CheckpointMetadata
@@ -140,6 +140,10 @@ def checkpointables_metadata(
     })
     metadata = ocp.checkpointables_metadata(path)
     metadata.metadata  # {'foo': AbstractFoo(), 'bar': AbstractBar()}
+
+  Items pending deletion are excluded with a warning. Reads do not finish
+  deletion or modify its recovery record. An explicit metadata request for a
+  pending item raises DeletionInProgressError.
 
   Args:
     path: The path to the checkpoint.

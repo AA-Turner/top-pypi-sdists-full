@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -366,6 +366,20 @@ class EmailIdentity(AWSObject):
         "FeedbackAttributes": (FeedbackAttributes, False),
         "MailFromAttributes": (MailFromAttributes, False),
         "Tags": (Tags, False),
+    }
+
+
+class EmailIdentityCertificate(AWSObject):
+    """
+    `EmailIdentityCertificate <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-emailidentitycertificate.html>`__
+    """
+
+    resource_type = "AWS::SES::EmailIdentityCertificate"
+
+    props: PropsDictType = {
+        "CertificateArn": (str, True),
+        "EmailIdentity": (str, True),
+        "FromAddress": (str, True),
     }
 
 
@@ -1288,6 +1302,26 @@ class Template(AWSObject):
     }
 
 
+class ReputationPolicy(AWSProperty):
+    """
+    `ReputationPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-tenant-reputationpolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "ReputationEntityPolicy": (str, True),
+    }
+
+
+class ReputationEntity(AWSProperty):
+    """
+    `ReputationEntity <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-tenant-reputationentity.html>`__
+    """
+
+    props: PropsDictType = {
+        "Policy": (ReputationPolicy, True),
+    }
+
+
 class ResourceAssociation(AWSProperty):
     """
     `ResourceAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-tenant-resourceassociation.html>`__
@@ -1295,6 +1329,17 @@ class ResourceAssociation(AWSProperty):
 
     props: PropsDictType = {
         "ResourceArn": (str, True),
+    }
+
+
+class TenantSuppressionAttributes(AWSProperty):
+    """
+    `TenantSuppressionAttributes <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ses-tenant-tenantsuppressionattributes.html>`__
+    """
+
+    props: PropsDictType = {
+        "SuppressedReasons": ([str], True),
+        "SuppressionScope": (str, True),
     }
 
 
@@ -1306,7 +1351,9 @@ class Tenant(AWSObject):
     resource_type = "AWS::SES::Tenant"
 
     props: PropsDictType = {
+        "ReputationEntity": (ReputationEntity, False),
         "ResourceAssociations": ([ResourceAssociation], False),
+        "SuppressionAttributes": (TenantSuppressionAttributes, False),
         "Tags": (Tags, False),
         "TenantName": (str, True),
     }

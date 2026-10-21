@@ -17,10 +17,12 @@ from arelle.Version import authorLabel, copyrightLabel
 
 from .ValidationPluginExtension import ValidationPluginExtension
 from .rules import (
+    ixbrl_technical,
     nvad_accounting_period,
     nvad_bir51_corporate,
     nvad_bir51_sbp,
     nvad_bir52_partners,
+    nvad_combined_fs,
     nvad_currency,
     nvad_environmental,
     nvad_expense_deductions,
@@ -28,6 +30,9 @@ from .rules import (
     nvad_form_type,
     nvad_identifiers,
     nvad_income_paired,
+    nvad_integrity,
+    nvad_lifecycle,
+    nvad_special_flags,
     nvad_structural,
 )
 
@@ -40,10 +45,12 @@ validationPlugin = ValidationPluginExtension(
     disclosureSystemConfigUrl=CONFIG_PATH,
     validationTypes=[DISCLOSURE_SYSTEM_VALIDATION_TYPE],
     validationRuleModules=[
+        ixbrl_technical,
         nvad_accounting_period,
         nvad_bir51_corporate,
         nvad_bir51_sbp,
         nvad_bir52_partners,
+        nvad_combined_fs,
         nvad_currency,
         nvad_environmental,
         nvad_expense_deductions,
@@ -51,6 +58,9 @@ validationPlugin = ValidationPluginExtension(
         nvad_form_type,
         nvad_identifiers,
         nvad_income_paired,
+        nvad_integrity,
+        nvad_lifecycle,
+        nvad_special_flags,
         nvad_structural,
     ],
 )

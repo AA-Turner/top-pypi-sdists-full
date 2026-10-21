@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atomate2
-Version: 0.1.5
+Version: 0.1.6
 Summary: atomate2 is a library of materials science workflows
 Author-email: Alex Ganose <alexganose@gmail.com>
 License-Expression: BSD-3-Clause-LBNL
@@ -15,28 +15,28 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Other/Nonlisted Topic
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyYAML
 Requires-Dist: click
 Requires-Dist: custodian>=2024.4.18
-Requires-Dist: emmet-core>=0.86.1
+Requires-Dist: emmet-core>=0.87.3
 Requires-Dist: jobflow>=0.1.11
 Requires-Dist: monty>=2024.12.10
 Requires-Dist: numpy
 Requires-Dist: pydantic-settings>=2.0.3
 Requires-Dist: pydantic>=2.0.1
 Requires-Dist: pymatgen>=2024.11.13
-Requires-Dist: pymongo<=4.16.0
+Requires-Dist: pymatgen-core>=2026.5.18
+Requires-Dist: pymongo<=4.19.0
 Provides-Extra: abinit
 Requires-Dist: abipy>=0.9.3; extra == "abinit"
-Requires-Dist: netCDF4<1.7.5; extra == "abinit"
+Requires-Dist: netCDF4>=1.7.4; extra == "abinit"
 Provides-Extra: aims
 Requires-Dist: pymatgen-io-aims>=0.0.5; extra == "aims"
 Requires-Dist: pymatgen>=2025.10.7; extra == "aims"
@@ -48,8 +48,19 @@ Requires-Dist: cclib>=1.8.1; extra == "cclib"
 Provides-Extra: mp
 Requires-Dist: mp-api>=0.37.5; extra == "mp"
 Provides-Extra: phonons
-Requires-Dist: phonopy<4,>=2.43.6; extra == "phonons"
+Requires-Dist: phonopy<5,>=4.6; extra == "phonons"
 Requires-Dist: seekpath>=2.0.0; extra == "phonons"
+Provides-Extra: pheasy
+Requires-Dist: atomate2[phonons]; extra == "pheasy"
+Requires-Dist: hiphive==1.5; extra == "pheasy"
+Requires-Dist: numpy<=2.2; extra == "pheasy"
+Provides-Extra: phono3py
+Requires-Dist: atomate2[phonons]; extra == "phono3py"
+Requires-Dist: phono3py>=4.7; extra == "phono3py"
+Provides-Extra: hiphive
+Requires-Dist: hiphive==1.5; extra == "hiphive"
+Requires-Dist: trainstation>=1.0; extra == "hiphive"
+Requires-Dist: atomate2[phonons]; extra == "hiphive"
 Provides-Extra: lobster
 Requires-Dist: ijson>=3.2.2; extra == "lobster"
 Requires-Dist: lobsterpy>=0.6.0; extra == "lobster"
@@ -65,9 +76,13 @@ Provides-Extra: forcefields-demo
 Requires-Dist: chgnet>=0.3.8; extra == "forcefields-demo"
 Requires-Dist: atomate2[ase]; extra == "forcefields-demo"
 Provides-Extra: torchsim
-Requires-Dist: torch-sim-atomistic[symmetry]==0.6.0; python_version >= "3.12" and extra == "torchsim"
+Requires-Dist: torch-sim-atomistic[symmetry]==0.6.2; python_version >= "3.12" and extra == "torchsim"
+Provides-Extra: torchsim-mace
+Requires-Dist: torch-sim-atomistic[mace,symmetry]==0.6.2; python_version >= "3.12" and extra == "torchsim-mace"
+Provides-Extra: torchsim-generic
+Requires-Dist: torch-sim-atomistic[fairchem,metatomic,nequip,orb,sevenn,symmetry]==0.6.2; python_version >= "3.12" and extra == "torchsim-generic"
 Provides-Extra: jdftx
-Requires-Dist: pymatgen==2026.5.4; extra == "jdftx"
+Requires-Dist: pymatgen==2026.9.24; extra == "jdftx"
 Provides-Extra: approxneb
 Requires-Dist: pymatgen-analysis-diffusion>=2024.7.15; extra == "approxneb"
 Provides-Extra: openmm
@@ -75,27 +90,27 @@ Requires-Dist: mdanalysis>=2.8.0; extra == "openmm"
 Requires-Dist: openmm-mdanalysis-reporter>=0.1.0; extra == "openmm"
 Requires-Dist: openmm>=8.1.0; extra == "openmm"
 Provides-Extra: fireworks
-Requires-Dist: fireworks==2.1.3; extra == "fireworks"
+Requires-Dist: fireworks==2.1.4; extra == "fireworks"
 Provides-Extra: strict-openff
 Requires-Dist: mdanalysis==2.10.0; extra == "strict-openff"
-Requires-Dist: monty==2026.5.18; extra == "strict-openff"
+Requires-Dist: monty==2026.7.16; extra == "strict-openff"
 Requires-Dist: openmm-mdanalysis-reporter==0.1.0; extra == "strict-openff"
-Requires-Dist: openmm==8.5.2; extra == "strict-openff"
-Requires-Dist: pymatgen==2026.5.4; extra == "strict-openff"
+Requires-Dist: openmm==8.6.1; extra == "strict-openff"
+Requires-Dist: pymatgen==2026.9.24; extra == "strict-openff"
 Provides-Extra: strict-forcefields-generic
-Requires-Dist: calorine==3.4; python_version >= "3.12" and extra == "strict-forcefields-generic"
+Requires-Dist: calorine==4.0; python_version >= "3.12" and extra == "strict-forcefields-generic"
 Requires-Dist: calorine==3.1; python_version < "3.12" and extra == "strict-forcefields-generic"
 Requires-Dist: chgnet==0.4.2; extra == "strict-forcefields-generic"
 Requires-Dist: quippy-ase==0.10.3; extra == "strict-forcefields-generic"
 Requires-Dist: sevenn==0.13.0; extra == "strict-forcefields-generic"
-Requires-Dist: deepmd-kit==3.1.3; extra == "strict-forcefields-generic"
+Requires-Dist: deepmd-kit==3.2.0; extra == "strict-forcefields-generic"
 Requires-Dist: tensorflow-cpu==2.21.0; sys_platform == "linux" and extra == "strict-forcefields-generic"
 Requires-Dist: tensorflow==2.21.0; (sys_platform == "darwin" or sys_platform == "win32") and extra == "strict-forcefields-generic"
-Requires-Dist: wandb==0.28.0; extra == "strict-forcefields-generic"
+Requires-Dist: wandb==0.30.0; extra == "strict-forcefields-generic"
 Requires-Dist: upet==0.2.5; extra == "strict-forcefields-generic"
 Provides-Extra: strict-forcefields-torch-limited
 Requires-Dist: matgl==4.0.3; extra == "strict-forcefields-torch-limited"
-Requires-Dist: nequip==0.18.0; extra == "strict-forcefields-torch-limited"
+Requires-Dist: nequip==0.19.1; extra == "strict-forcefields-torch-limited"
 Provides-Extra: strict-forcefields-e3nn-limited
 Requires-Dist: mace-torch==0.3.16; extra == "strict-forcefields-e3nn-limited"
 Requires-Dist: torch-dftd==0.5.3; extra == "strict-forcefields-e3nn-limited"
@@ -105,7 +120,8 @@ Provides-Extra: strict
 Requires-Dist: atomate2[ase,ase-ext,cclib,defects,lobster,mp,openmm,phonons]; extra == "strict"
 Requires-Dist: numpy<3.0; extra == "strict"
 Requires-Dist: numba>=0.60.0; extra == "strict"
-Requires-Dist: pymatgen==2026.5.4; extra == "strict"
+Requires-Dist: pymatgen==2026.9.24; extra == "strict"
+Requires-Dist: pymatgen-core==2026.10.2; extra == "strict"
 Dynamic: license-file
 
 # atomate2
@@ -115,7 +131,7 @@ Dynamic: license-file
 [![pypi version](https://img.shields.io/pypi/v/atomate2?color=blue)](https://pypi.org/project/atomate2)
 ![supported python versions](https://img.shields.io/pypi/pyversions/atomate2)
 [![Zenodo](https://img.shields.io/badge/DOI-10.5281/zenodo.10677080-blue?logo=Zenodo&logoColor=white)](https://doi.org/10.5281/zenodo.15603088)
-[![This project supports Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
+[![This project supports Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
 [![PyPI](https://img.shields.io/pypi/dm/atomate2.svg?maxAge=2592000)](https://pypi.python.org/pypi/atomate2)
 
 [Documentation][docs] | [PyPI][pypi] | [GitHub][github]
@@ -197,7 +213,7 @@ atomate2 workflows can be run using the [jobflow-remote] or [FireWorks] software
 
 ## Installation
 
-Atomate2 is a Python 3.10+ library and can be installed using pip. Full installation
+Atomate2 is a Python 3.12+ library and can be installed using pip. Full installation
 and configuration instructions are provided in the [installation tutorial][installation].
 
 ## Tutorials
@@ -235,12 +251,12 @@ We maintain a list of all contributors [here][contributors].
 
 ## License
 
-Atomate2 is released under a modified BSD license; the full text can be found [here][license].
+Atomate2 is released under a modified BSD license; the full text is available [here][license].
 
 ## Acknowledgements
 
 The development of atomate2 has benefited from many people across several research groups.
-A full list of contributors can be found [here][contributors].
+A full list of contributors is available [here][contributors].
 
 ## Citing atomate2
 
@@ -257,6 +273,10 @@ If you use atomate2, please cite the [following article](https://doi.org/10.1039
 	urldate = {2025-07-01},
 }
 ```
+## Publications on New atomate2 Contributions
+We published the initial atomate2 paper in Digital Discovery. New additions to atomate2 can be published as a [Commit](https://pubs.rsc.org/dd/article/4/2/301/846290/Commit-Mini-article-for-dynamic-reporting-of) independent of the previous authors.
+
+We are happy to mention and link such Commits in our README, the documentation, or in relevant parts of the code.
 
 [pymatgen]: https://pymatgen.org
 [fireworks]: https://materialsproject.github.io/fireworks/

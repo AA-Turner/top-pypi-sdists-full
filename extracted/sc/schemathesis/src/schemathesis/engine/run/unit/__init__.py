@@ -26,7 +26,7 @@ from schemathesis.core.result import Ok, Result
 from schemathesis.core.spec import Scheduler
 from schemathesis.engine import Status, events
 from schemathesis.engine.recorder import ScenarioRecorder
-from schemathesis.engine.run import PhaseName, PhaseSkipReason
+from schemathesis.engine.run import UNIT_PHASES, PhaseName, PhaseSkipReason
 from schemathesis.engine.run.unit._direct_executor import run_driver
 from schemathesis.engine.run.unit._pool import WORKER_FINISHED, WorkerPool
 from schemathesis.engine.supervisor import SchedulingDirective, Verdict
@@ -307,7 +307,7 @@ def _run_scenario(
     phase: PhaseName,
     suite_id: uuid.UUID,
 ) -> None:
-    as_strategy_kwargs = get_strategy_kwargs(ctx, operation=operation, phase=phase)
+    as_strategy_kwargs = overrides.strategy_kwargs_for(ctx.config, operation=operation)
     feedback = ctx.feedback_for(operation=operation, phase=phase)
     scenario_started = events.ScenarioStarted(label=operation.label, phase=phase, suite_id=suite_id)
     if phase in (PhaseName.COVERAGE, PhaseName.EXAMPLES):
@@ -450,11 +450,7 @@ def _put_error(
 
 
 def _is_phase_disabled(phases: PhasesConfig, phase: PhaseName) -> bool:
-    return (
-        (phase == PhaseName.EXAMPLES and not phases.examples.enabled)
-        or (phase == PhaseName.FUZZING and not phases.fuzzing.enabled)
-        or (phase == PhaseName.COVERAGE and not phases.coverage.enabled)
-    )
+    return phase in UNIT_PHASES and not phases.get_by_name(name=phase).enabled
 
 
 def _put_skipped_scenario(
@@ -482,22 +478,3 @@ def _put_skipped_scenario(
             is_final=True,
         )
     )
-
-
-def get_strategy_kwargs(ctx: EngineContext, *, operation: APIOperation, phase: PhaseName) -> dict[str, Any]:
-    kwargs = {}
-    override = overrides.for_operation(ctx.config, operation=operation)
-    for location in ("query", "headers", "cookies", "path_parameters"):
-        entry = getattr(override, location)
-        if entry:
-            kwargs[location] = entry
-    headers = ctx.config.headers_for(operation=operation)
-    if headers:
-        # A configured User-Agent replaces the generated one on the wire, so pin it when the schema declares it.
-        declares_user_agent = any(parameter.name.lower() == "user-agent" for parameter in operation.headers)
-        kwargs["headers"] = {
-            **kwargs.get("headers", {}),
-            **{key: value for key, value in headers.items() if declares_user_agent or key.lower() != "user-agent"},
-        }
-
-    return kwargs

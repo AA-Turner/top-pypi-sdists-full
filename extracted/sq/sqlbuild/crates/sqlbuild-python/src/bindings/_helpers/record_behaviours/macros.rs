@@ -4,8 +4,8 @@ use pyo3::IntoPyObjectExt;
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::types::{PyDict, PyList, PyTuple, PyTupleMethods};
 
+use crate::bindings::_helpers::boundary::call_arguments::call_argument;
 use crate::bindings::_helpers::graph::project_graph::{ResourceRow, project_graph};
-use crate::bindings::_helpers::record_behaviours::call_arguments::call_argument;
 use crate::bindings::_helpers::record_behaviours::compiled::compile_input_error;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::render::declaration_values::{
@@ -131,12 +131,12 @@ fn resource_rows(
     for resource in resources.try_iter()? {
         let resource: Bound<'_, PyAny> = resource?;
         let (tags, folder) = describe(&resource)?;
-        rows.push((
-            graph_key(&native_field(&resource, "key")?)?,
-            graph_keys(&native_field(&resource, "deps")?)?,
+        rows.push(ResourceRow {
+            key: graph_key(&native_field(&resource, "key")?)?,
+            deps: graph_keys(&native_field(&resource, "deps")?)?,
             tags,
             folder,
-        ));
+        });
     }
     Ok(rows)
 }

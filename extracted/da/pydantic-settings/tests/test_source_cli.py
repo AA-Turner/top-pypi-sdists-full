@@ -12,7 +12,19 @@ from decimal import Decimal
 from enum import Enum, IntEnum
 from pathlib import Path, PureWindowsPath
 from string import ascii_letters
-from typing import Annotated, Any, Dict, Generic, List, Literal, Optional, Tuple, TypeVar, Union  # noqa: UP035
+from typing import (  # noqa: UP035
+    Annotated,
+    Any,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    NamedTuple,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import pytest
 import typing_extensions
@@ -2367,6 +2379,65 @@ def test_cli_variadic_positional_sequence_subtype():
     assert CliApp.run(Settings, cli_args=[]).model_dump() == {'values': ()}
 
 
+class _Point(NamedTuple):
+    x: int
+    y: int
+
+
+class _PositionalSub(BaseModel):
+    x: int = 0
+
+
+def test_cli_fixed_length_tuple_positional_is_single_value():
+    class PairAndName(BaseSettings):
+        pair: CliPositionalArg[tuple[int, int]]
+        name: CliPositionalArg[str]
+
+    class PointAndName(BaseSettings):
+        point: CliPositionalArg[_Point]
+        name: CliPositionalArg[str]
+
+    class OptionalPairAndName(BaseSettings):
+        pair: CliPositionalArg[tuple[int, int] | None]
+        name: CliPositionalArg[str]
+
+    class PairAndSub(BaseSettings):
+        pair: CliPositionalArg[tuple[int, int]]
+        sub: CliSubCommand[_PositionalSub]
+
+    class TwoPairs(BaseSettings):
+        src: CliPositionalArg[tuple[str, str]]
+        dst: CliPositionalArg[tuple[str, str]]
+
+    class EmptyAndName(BaseSettings):
+        empty: CliPositionalArg[tuple[()]]
+        name: CliPositionalArg[str]
+
+    assert CliApp.run(PairAndName, cli_args=['[1,2]', 'bob']).model_dump() == {'pair': (1, 2), 'name': 'bob'}
+    assert CliApp.run(PointAndName, cli_args=['[1,2]', 'bob']).model_dump() == {'point': (1, 2), 'name': 'bob'}
+    assert CliApp.run(OptionalPairAndName, cli_args=['[1,2]', 'bob']).model_dump() == {'pair': (1, 2), 'name': 'bob'}
+    assert CliApp.run(PairAndSub, cli_args=['[1,2]', 'sub']).model_dump() == {'pair': (1, 2), 'sub': {'x': 0}}
+    assert CliApp.run(EmptyAndName, cli_args=['[]', 'bob']).model_dump() == {'empty': (), 'name': 'bob'}
+    assert CliApp.run(TwoPairs, cli_args=['["a","b"]', '["c","d"]']).model_dump() == {
+        'src': ('a', 'b'),
+        'dst': ('c', 'd'),
+    }
+
+
+def test_cli_variadic_fixed_length_tuple_positional():
+    class Settings(BaseSettings):
+        pair: CliPositionalArg[CliVariadicArg[tuple[int, int]]]
+
+    assert CliApp.run(Settings, cli_args=['1', '2']).model_dump() == {'pair': (1, 2)}
+
+
+def test_cli_bare_tuple_positional_is_variadic():
+    class Settings(BaseSettings):
+        values: CliPositionalArg[Tuple]  # noqa: UP006
+
+    assert CliApp.run(Settings, cli_args=['a', 'b']).model_dump() == {'values': ('a', 'b')}
+
+
 def test_cli_sequence_subtypes_are_repeated_options():
     class Settings(BaseSettings):
         model_config = SettingsConfigDict(cli_parse_args=True)
@@ -3606,8 +3677,26 @@ assert CliSettingsSource(SimpleSettings)._metavar_format(TypeAliasInt) == 'TypeA
         (tuple[str, ...], ['one', 'two'], ('one', 'two')),
         (dict[str, int], ['one=1', 'two=2'], {'one': 1, 'two': 2}),
         (Annotated[list[str], Field(min_length=2)], ['one', 'two'], ['one', 'two']),
+        (list[dict[str, int]], ['[{"a":1},{"b":2}]'], [{'a': 1}, {'b': 2}]),
+        (list[dict[str, int]], ['[{"a":1}]'], [{'a': 1}]),
+        (list[dict[str, int]], ['{"a":1}', '{"b":2}'], [{'a': 1}, {'b': 2}]),
+        (list[dict[str, int]] | None, ['[{"a":1},{"b":2}]'], [{'a': 1}, {'b': 2}]),
+        (tuple[dict[str, int], ...], ['{"a":1}', '{"b":2}'], ({'a': 1}, {'b': 2})),
+        (dict[str, int] | None, ['one=1', 'two=2'], {'one': 1, 'two': 2}),
     ],
-    ids=['list', 'set', 'tuple', 'dict', 'annotated-list'],
+    ids=[
+        'list',
+        'set',
+        'tuple',
+        'dict',
+        'annotated-list',
+        'list-of-dict-json',
+        'list-of-dict-json-single',
+        'list-of-dict-repeated',
+        'optional-list-of-dict',
+        'tuple-of-dict',
+        'optional-dict',
+    ],
 )
 def test_cli_collection_type_alias(use_alias, annotation, args, expected):
     value_type = typing_extensions.TypeAliasType('Value', annotation) if use_alias else annotation

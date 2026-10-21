@@ -147,6 +147,7 @@ from anyscale.client.openapi_client.models.update_job_queue_request import (
 )
 from anyscale.client.openapi_client.rest import ApiException as InternalApiException
 from anyscale.cluster_compute import parse_cluster_compute_name_version
+from anyscale.errors import server_error_text
 from anyscale.feature_flags import FLAG_DEFAULT_WORKING_DIR_FOR_PROJ
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as ExternalApi
 from anyscale.sdk.anyscale_client.models import (
@@ -207,13 +208,9 @@ def handle_api_exceptions(func):
             return func(*args, **kwargs)
         except (ApiException, InternalApiException, ExternalApiException) as e:
             if (e.status >= 400 and e.status < 500) or e.status == 599:
-                try:
-                    body_dict = json.loads(e.body)
-                    msg = body_dict["error"]["detail"]
+                msg = server_error_text(e.body)
+                if msg:
                     raise ValueError(msg) from None
-                except (KeyError, TypeError):
-                    # ApiException doesn't conform to expected format, raise original error
-                    raise e from None
             raise e from None
 
     return wrapper
@@ -1742,7 +1739,8 @@ class AnyscaleClient(AnyscaleClientInterface):
                 (
                     cloud_resource.cloud_resource_id
                     for cloud_resource in cloud_resources
-                    if cloud_resource.name == cloud_resource_name
+                    if cloud_resource_name
+                    in (cloud_resource.name, cloud_resource.cloud_resource_id)
                 ),
                 None,
             )
@@ -1782,9 +1780,10 @@ class AnyscaleClient(AnyscaleClientInterface):
                 cloud_id=cloud_id,
             ).results
         )
-        cloud_resource_names_to_ids = {
-            cloud_resource.name: cloud_resource.cloud_resource_id
+        cloud_resource_ids_by_name_or_id = {
+            key: cloud_resource.cloud_resource_id
             for cloud_resource in all_cloud_resources
+            for key in (cloud_resource.name, cloud_resource.cloud_resource_id)
         }
 
         bucket_paths = set()
@@ -1796,11 +1795,11 @@ class AnyscaleClient(AnyscaleClientInterface):
         ):
             for cloud_resource_name in cloud_resource_names:
                 if cloud_resource_name is not None:
-                    if cloud_resource_name not in cloud_resource_names_to_ids:
+                    if cloud_resource_name not in cloud_resource_ids_by_name_or_id:
                         raise ValueError(
                             f"Cloud resource '{cloud_resource_name}' not found in cloud '{cloud_id}'"
                         )
-                    cloud_resource_id = cloud_resource_names_to_ids[cloud_resource_name]
+                    cloud_resource_id = cloud_resource_ids_by_name_or_id[cloud_resource_name]
                 else:
                     cloud_resource_id = None
 

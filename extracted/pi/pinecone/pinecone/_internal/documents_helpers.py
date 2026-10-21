@@ -13,13 +13,13 @@ context) the models cannot see.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 from urllib.parse import quote
 
 import msgspec
 
-from pinecone.errors.exceptions import ValidationError
+from pinecone.errors.exceptions import PineconeTypeError, ValidationError
 from pinecone.models.documents.document import DocumentRecord, UpdateDocumentRecord
 from pinecone.models.documents.requests import (
     DeleteDocumentsRequest,
@@ -27,10 +27,20 @@ from pinecone.models.documents.requests import (
     ListDocumentsRequest,
     SearchDocumentsRequest,
     UpdateDocumentsRequest,
+    _NotAnIntegerError,
 )
 from pinecone.models.documents.score_by import DocumentScoringMethod
+from pinecone.utils.filter_builder import Condition
 
 _MAX_DOCUMENTS_PER_REQUEST = 1000
+
+
+def _to_wire_fields(item: dict[str, Any]) -> dict[str, Any]:
+    """Return *item* with every SDK struct value (e.g. ``SparseValues``) as a plain dict."""
+    return {
+        key: msgspec.to_builtins(value) if isinstance(value, msgspec.Struct) else value
+        for key, value in item.items()
+    }
 
 
 def _encode_document_namespace(namespace: str) -> str:
@@ -81,7 +91,7 @@ def _validate_documents(
     if max_documents is not None and len(docs) > max_documents:
         raise ValidationError(
             f"Number of documents ({len(docs)}) exceeds the maximum limit of "
-            f"{max_documents} documents per request. Use batch_upsert_documents "
+            f"{max_documents} documents per request. Use index.documents.batch_upsert "
             "to split a larger list into multiple requests."
         )
     normalized: list[dict[str, Any]] = []
@@ -106,7 +116,7 @@ def _validate_documents(
                 "document IDs must be unique within a request."
             )
         seen.add(doc_id)
-        normalized.append(item)
+        normalized.append(_to_wire_fields(item))
     return normalized
 
 
@@ -168,6 +178,39 @@ def _validate_update_documents(
     return normalized
 
 
+def _check_filter(filter: object) -> None:
+    """Reject a ``filter`` that is not a mapping, naming ``.to_dict()`` for a ``Condition``."""
+    if filter is None or isinstance(filter, Mapping):
+        return
+    hint = (
+        "call .to_dict() on a filter-builder Condition to get one"
+        if isinstance(filter, Condition)
+        else "pass a dict such as {'field': {'$eq': 'value'}}"
+    )
+    raise PineconeTypeError(f"filter must be a dict, got {type(filter).__name__}; {hint}")
+
+
+def _check_score_by(score_by: object) -> None:
+    """Reject a ``score_by`` that is a lone clause, a mapping, or a string."""
+    if isinstance(score_by, (str, bytes, Mapping)) or not isinstance(score_by, Iterable):
+        raise PineconeTypeError(
+            f"score_by must be a list of scoring clauses, got {type(score_by).__name__}; "
+            "wrap a single clause in a list, as in score_by=[clause]"
+        )
+
+
+def _names(name: str, value: Sequence[str] | None) -> list[str] | None:
+    """Return ``value`` as a list, rejecting a bare ``str`` that would split into characters."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        raise PineconeTypeError(
+            f"{name} must be a sequence of strings, not a single str; "
+            f"pass [{value!r}] to name one entry."
+        )
+    return list(value)
+
+
 def _build_search_documents_body(
     *,
     score_by: Sequence[DocumentScoringMethod | Mapping[str, Any]],
@@ -178,18 +221,27 @@ def _build_search_documents_body(
     """Build and validate a ``search_documents`` request body.
 
     Raises:
+        :exc:`PineconeTypeError`: If ``top_k`` is not an integer (a bool is not
+            accepted).
         :exc:`PineconeValueError`: If ``score_by`` is empty, over 100 clauses,
             combines a ``dense_vector``/``sparse_vector`` clause with any other
             clause, or contains an invalid clause; or if ``top_k`` is outside
             [1, 10000].
+        :exc:`PineconeTypeError`: If ``score_by`` is a single clause, mapping, or string
+            rather than a list, holds an item that is neither a dict nor one of the
+            six clause types, or ``filter`` is not a dict.
     """
+    _check_score_by(score_by)
+    _check_filter(filter)
     try:
         request = SearchDocumentsRequest(
             score_by=[dict(item) if isinstance(item, Mapping) else item for item in score_by],
             top_k=top_k,
-            include_fields=list(include_fields) if include_fields is not None else None,
+            include_fields=_names("include_fields", include_fields),
             filter=dict(filter) if filter is not None else None,
         )
+    except _NotAnIntegerError as exc:
+        raise PineconeTypeError(str(exc)) from exc
     except (ValueError, msgspec.ValidationError) as exc:
         raise ValidationError(str(exc)) from exc
     body: dict[str, Any] = msgspec.to_builtins(request)
@@ -202,21 +254,29 @@ def _build_fetch_documents_body(
     filter: Mapping[str, Any] | None,
     include_fields: Sequence[str] | None,
     pagination_token: str | None,
+    limit: int | None,
 ) -> dict[str, Any]:
     """Build and validate a ``fetch_documents`` request body.
 
     Raises:
+        :exc:`PineconeTypeError`: If ``limit`` is not an integer (a bool is not
+            accepted).
         :exc:`PineconeValueError`: If both or neither of ``ids`` and ``filter``
-            are provided, ``filter`` is empty, ``ids`` exceeds 1000 entries, or
-            ``pagination_token`` is passed without ``filter``.
+            are provided, ``filter`` is empty, ``ids`` exceeds 1000 entries,
+            ``pagination_token`` is passed without ``filter``, or ``limit``
+            falls outside 1-10000.
     """
+    _check_filter(filter)
     try:
         request = FetchDocumentsRequest(
-            ids=list(ids) if ids is not None else None,
+            ids=_names("ids", ids),
             filter=dict(filter) if filter is not None else None,
-            include_fields=list(include_fields) if include_fields is not None else None,
+            include_fields=_names("include_fields", include_fields),
             pagination_token=pagination_token,
+            limit=limit,
         )
+    except _NotAnIntegerError as exc:
+        raise PineconeTypeError(str(exc)) from exc
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     body: dict[str, Any] = msgspec.to_builtins(request)
@@ -235,10 +295,12 @@ def _build_delete_documents_body(
         :exc:`PineconeValueError`: If zero or more than one of ``ids``,
             ``filter``, and ``delete_all`` are provided, ``filter`` is empty,
             or ``ids`` exceeds 1000 entries.
+        :exc:`PineconeTypeError`: If ``ids`` is a bare ``str``.
     """
+    _check_filter(filter)
     try:
         request = DeleteDocumentsRequest(
-            ids=list(ids) if ids is not None else None,
+            ids=_names("ids", ids),
             filter=dict(filter) if filter is not None else None,
             delete_all=True if delete_all else None,
         )
@@ -268,13 +330,14 @@ def _build_update_documents_body(
             ``filter``, ``filter`` is empty or carries no patch, or any
             per-ID patch is malformed.
     """
+    _check_filter(filter)
     normalized = _validate_update_documents(documents) if documents is not None else None
     try:
         request = UpdateDocumentsRequest(
             documents=list(normalized) if normalized is not None else None,
             filter=dict(filter) if filter is not None else None,
             set_fields=dict(set_fields) if set_fields is not None else None,
-            remove_fields=list(remove_fields) if remove_fields is not None else None,
+            remove_fields=_names("remove_fields", remove_fields),
         )
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
@@ -291,6 +354,8 @@ def _build_list_documents_body(
     """Build and validate a ``list_documents`` request body.
 
     Raises:
+        :exc:`PineconeTypeError`: If ``limit`` is not an integer (a bool is not
+            accepted).
         :exc:`PineconeValueError`: If ``prefix`` is over 512 characters or
             contains a character outside ``\\x01``-``\\x7F``, or ``limit``
             falls outside 1-100.
@@ -301,6 +366,8 @@ def _build_list_documents_body(
             limit=limit,
             pagination_token=pagination_token,
         )
+    except _NotAnIntegerError as exc:
+        raise PineconeTypeError(str(exc)) from exc
     except ValueError as exc:
         raise ValidationError(str(exc)) from exc
     body: dict[str, Any] = msgspec.to_builtins(request)

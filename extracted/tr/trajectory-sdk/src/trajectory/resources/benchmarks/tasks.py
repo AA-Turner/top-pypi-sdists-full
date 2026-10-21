@@ -36,7 +36,7 @@ class Tasks(APIResource):
     *,
     task_id: SequenceNotStr[str] | None | Omit = omit,
     split: Literal["train", "test", "unassigned"] | None | Omit = omit,
-    environment: Literal["setup_needed", "building", "failed"] | None | Omit = omit,
+    environment: Literal["setup_needed", "building", "failed", "ready"] | None | Omit = omit,
     cursor: str | None | Omit = omit,
     limit: int | Omit = omit,
     sort: str | None | Omit = omit,
@@ -55,7 +55,7 @@ class Tasks(APIResource):
       split: Return only tasks in this split; `unassigned` selects tasks without one.
 
       environment: Return only tasks whose environment needs setup (missing run command or runtime
-        not ready), is building, or failed to build.
+        not ready), is building, failed to build, or is ready to run.
 
       extra_headers: Send extra headers
 
@@ -99,7 +99,7 @@ class Tasks(APIResource):
     *,
     search: str | None | Omit = omit,
     split: Literal["train", "test", "unassigned"] | None | Omit = omit,
-    environment: Literal["setup_needed", "building", "failed"] | None | Omit = omit,
+    environment: Literal["setup_needed", "building", "failed", "ready"] | None | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -113,7 +113,7 @@ class Tasks(APIResource):
       split: Return only tasks in this split; `unassigned` selects tasks without one.
 
       environment: Return only tasks whose environment needs setup (missing run command or runtime
-        not ready), is building, or failed to build.
+        not ready), is building, failed to build, or is ready to run.
 
       extra_headers: Send extra headers
 

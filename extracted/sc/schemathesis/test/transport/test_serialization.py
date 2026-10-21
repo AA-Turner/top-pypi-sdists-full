@@ -721,7 +721,7 @@ def _multipart_content_type(serialized: dict, name: str) -> str | None:
     return None
 
 
-def _multipart_upload_echo(ctx, properties: dict, media_type: str):
+def _multipart_upload_app(ctx, properties: dict, media_type: str):
     app, _ = ctx.openapi.make_flask_app(
         {
             "/upload": {
@@ -748,6 +748,11 @@ def _multipart_upload_echo(ctx, properties: dict, media_type: str):
             }
         )
 
+    return app
+
+
+def _multipart_upload_echo(ctx, properties: dict, media_type: str):
+    app = _multipart_upload_app(ctx, properties, media_type)
     return schemathesis.openapi.from_wsgi("/openapi.json", app)["/upload"]["POST"]
 
 
@@ -772,6 +777,17 @@ def test_wsgi_multipart_mixed_body_arrives_intact(ctx):
     boundary = received["content_type"].partition("boundary=")[2].strip('"')
     assert received["raw"] == (
         f'\r\n--{boundary}\r\nContent-Disposition: form-data; name="note"\r\n\r\nhello\r\n--{boundary}--\r\n'
+    )
+
+
+def test_requests_multipart_mixed_body_arrives_intact(ctx, app_runner):
+    app = _multipart_upload_app(ctx, {"note": {"type": "string"}}, "multipart/mixed")
+    operation = schemathesis.openapi.from_url(app_runner.openapi_url(app))["/upload"]["POST"]
+    received = operation.Case(body={"note": "hello"}, media_type="multipart/mixed").call().json()
+    media_type, _, boundary = received["content_type"].partition("; boundary=")
+    assert (media_type, received["raw"]) == (
+        "multipart/mixed",
+        f'--{boundary}\r\nContent-Disposition: form-data; name="note"\r\n\r\nhello\r\n--{boundary}--\r\n',
     )
 
 
@@ -1851,6 +1867,125 @@ def test_serialize_xml_scalar_body_under_prefixed_root(ctx, body, expected):
         },
     )
     assert operation.Case(body=body).as_transport_kwargs(base_url="http://127.0.0.1")["data"] == expected
+
+
+PREFIXED_ITEM_XML = {"name": "item", "namespace": "http://x", "prefix": "p"}
+
+
+@pytest.mark.parametrize(
+    ("schema", "body", "expected"),
+    [
+        (
+            {"type": "array", "items": {"type": "string", "xml": PREFIXED_ITEM_XML}},
+            ["v"],
+            b'<p:item xmlns:p="http://x">v</p:item>',
+        ),
+        (
+            {
+                "type": "array",
+                "items": {"type": "object", "properties": {"a": {"type": "string"}}, "xml": PREFIXED_ITEM_XML},
+            },
+            [{"a": "v"}],
+            b'<p:item xmlns:p="http://x"><a>v</a></p:item>',
+        ),
+        (
+            {
+                "type": "object",
+                "xml": {"name": "root", "namespace": "http://x", "prefix": "p"},
+                "properties": {
+                    "a": {"type": "array", "items": {"type": "string", "xml": {"name": "item", "prefix": "p"}}}
+                },
+            },
+            {"a": ["v"]},
+            b'<p:root xmlns:p="http://x"><p:item>v</p:item></p:root>',
+        ),
+    ],
+    ids=["primitive", "object", "primitive-bound-by-ancestor"],
+)
+def test_serialize_xml_prefixed_array_items(ctx, schema, body, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /test",
+        {
+            "requestBody": {"content": {"application/xml": {"schema": schema}}, "required": True},
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    assert operation.Case(body=body).as_transport_kwargs(base_url="http://127.0.0.1")["data"] == expected
+
+
+PREFIXED_CHILD_XML = {"prefix": "p", "namespace": "http://p"}
+
+
+@pytest.mark.parametrize(
+    ("child", "value", "expected"),
+    [
+        (
+            {"type": "object", "properties": {"a": {"type": "string"}}, "xml": PREFIXED_CHILD_XML},
+            {"a": "x"},
+            b'<root><p:child xmlns:p="http://p"><a>x</a></p:child></root>',
+        ),
+        (
+            {"type": "array", "items": {"type": "string"}, "xml": PREFIXED_CHILD_XML},
+            ["x"],
+            b'<root><p:child xmlns:p="http://p">x</p:child></root>',
+        ),
+        (
+            {"type": "array", "items": {"type": "string"}, "xml": {**PREFIXED_CHILD_XML, "wrapped": True}},
+            ["x"],
+            b'<root><p:child xmlns:p="http://p"><p:child>x</p:child></p:child></root>',
+        ),
+    ],
+    ids=["object", "array", "wrapped-array"],
+)
+def test_serialize_xml_prefixed_nested_property(ctx, child, value, expected):
+    operation = ctx.openapi.load_operation(
+        "POST /test",
+        {
+            "requestBody": {
+                "content": {
+                    "application/xml": {
+                        "schema": {"type": "object", "xml": {"name": "root"}, "properties": {"child": child}}
+                    }
+                },
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+    )
+    assert operation.Case(body={"child": value}).as_transport_kwargs(base_url="http://127.0.0.1")["data"] == expected
+
+
+def test_serialize_xml_shared_array_items_keep_own_prefix(ctx):
+    operation = ctx.openapi.load_operation(
+        "POST /test",
+        {
+            "requestBody": {
+                "content": {
+                    "application/xml": {
+                        "schema": {
+                            "type": "object",
+                            "xml": {"name": "root"},
+                            "properties": {
+                                "a": {
+                                    "type": "array",
+                                    "xml": {"prefix": "p", "namespace": "http://p"},
+                                    "items": {"$ref": "#/components/schemas/Item"},
+                                },
+                                "b": {"type": "array", "items": {"$ref": "#/components/schemas/Item"}},
+                            },
+                        }
+                    }
+                },
+                "required": True,
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        components={"schemas": {"Item": {"type": "string", "xml": {"name": "item"}}}},
+    )
+    assert (
+        operation.Case(body={"a": ["x"], "b": ["y"]}).as_transport_kwargs(base_url="http://127.0.0.1")["data"]
+        == b'<root><p:item xmlns:p="http://p">x</p:item><item>y</item></root>'
+    )
 
 
 SIMPLE_TEXT_STRATEGY = st.text(min_size=1, alphabet=st.sampled_from(string.ascii_letters))

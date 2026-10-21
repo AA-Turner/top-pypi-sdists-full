@@ -200,6 +200,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93
 wheels = [{ url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", upload-time = 2022-10-25T02:36:20Z, size = 25335, hashes = { sha256 = "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6" } }]
 
 [[packages]]
+name = "configobj"
+version = "5.0.9"
+sdist = { url = "https://files.pythonhosted.org/packages/f5/c4/c7f9e41bc2e5f8eeae4a08a01c91b2aea3dfab40a3e14b25e87e7db8d501/configobj-5.0.9.tar.gz", upload-time = 2024-09-21T12:47:46Z, size = 101518, hashes = { sha256 = "03c881bbf23aa07bccf1b837005975993c4ab4427ba57f959afdd9d1a2386848" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/a6/c4/0679472c60052c27efa612b4cd3ddd2a23e885dcdc73461781d2c802d39e/configobj-5.0.9-py2.py3-none-any.whl", upload-time = 2024-11-26T14:03:32Z, size = 35615, hashes = { sha256 = "1ba10c5b6ee16229c79a05047aeda2b55eb4e80d7c7d8ecf17ec1ca600c79882" } }]
+
+[[packages]]
 name = "cryptography"
 version = "46.0.6"
 sdist = { url = "https://files.pythonhosted.org/packages/a4/ba/04b1bd4218cbc58dc90ce967106d51582371b898690f3ae0402876cc4f34/cryptography-46.0.6.tar.gz", upload-time = 2026-03-25T23:34:53Z, size = 750542, hashes = { sha256 = "27550628a518c5c6c903d84f637fbecf287f6cb9ced3804838a1295dc1fd0759" } }
@@ -268,9 +274,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/a0/61/5c78b91c3143ed5
 
 [[packages]]
 name = "gitpython"
-version = "3.1.62"
-sdist = { url = "https://files.pythonhosted.org/packages/e0/db/3ca813cbacb23ab6fe46ff38a9b5ef8e73e970c8051f2ce903aacafe0446/gitpython-3.1.62.tar.gz", upload-time = 2026-09-07T02:57:21Z, size = 231728, hashes = { sha256 = "1791de66309bc0c7cfca40bf8d2e3de7ca091cbf94e6051be1ad0722c61062af" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/d6/0b/29d7965215f8ef830a7ca1f42997fe13e5693d85e9edb18f938d063ef5f2/gitpython-3.1.62-py3-none-any.whl", upload-time = 2026-09-07T02:57:19Z, size = 222753, hashes = { sha256 = "7002251225e10e29d2e1f49e6532613fe5d5d9f0b6f1f02997a52b38fe56899e" } }]
+version = "3.2.0"
+sdist = { url = "https://files.pythonhosted.org/packages/6e/2d/6f6e649818da44d4499604802c89329b8d9799687a124e3a5e467a643336/gitpython-3.2.0.tar.gz", upload-time = 2026-09-30T09:10:32Z, size = 238091, hashes = { sha256 = "fb92310af6844d96adc95ca066ed2e617c00e1dbd146a326626c81e72e18cc2e" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/fa/48/f36d233ce749d1bb880cb5e6f8bb171dc2effabc7435c31da604d831b3ec/gitpython-3.2.0-py3-none-any.whl", upload-time = 2026-09-30T09:10:31Z, size = 228537, hashes = { sha256 = "bd70c5ec05cd2b797423e7eb312147d2458d3cca92085888fba2213f85905537" } }]
 
 [[packages]]
 name = "id"
@@ -299,9 +305,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/7f/66/b15ce62552d84bb
 
 [[packages]]
 name = "jaraco-context"
-version = "6.0.1"
-sdist = { url = "https://files.pythonhosted.org/packages/df/ad/f3777b81bf0b6e7bc7514a1656d3e637b2e8e15fab2ce3235730b3e7a4e6/jaraco_context-6.0.1.tar.gz", upload-time = 2024-08-20T03:39:27Z, size = 13912, hashes = { sha256 = "9bae4ea555cf0b14938dc0aee7c9f32ed303aa20a3b73e7dc80111628792d1b3" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/ff/db/0c52c4cf5e4bd9f5d7135ec7669a3a767af21b3a308e1ed3674881e52b62/jaraco.context-6.0.1-py3-none-any.whl", upload-time = 2024-08-20T03:39:25Z, size = 6825, hashes = { sha256 = "f797fc481b490edb305122c9181830a3a5b76d84ef6d1aef2fb9b47ab956f9e4" } }]
+version = "6.1.2"
+sdist = { url = "https://files.pythonhosted.org/packages/af/50/4763cd07e722bb6285316d390a164bc7e479db9d90daa769f22578f698b4/jaraco_context-6.1.2.tar.gz", upload-time = 2026-03-20T22:13:33Z, size = 16801, hashes = { sha256 = "f1a6c9d391e661cc5b8d39861ff077a7dc24dc23833ccee564b234b81c82dfe3" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/f2/58/bc8954bda5fcda97bd7c19be11b85f91973d67a706ed4a3aec33e7de22db/jaraco_context-6.1.2-py3-none-any.whl", upload-time = 2026-03-20T22:13:32Z, size = 7871, hashes = { sha256 = "bf8150b79a2d5d91ae48629d8b427a8f7ba0e1097dd6202a9059f29a36379535" } }]
 
 [[packages]]
 name = "jaraco-functools"
@@ -330,9 +336,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/31/b4/b9b800c45527aad
 
 [[packages]]
 name = "keyring"
-version = "25.6.0"
-sdist = { url = "https://files.pythonhosted.org/packages/70/09/d904a6e96f76ff214be59e7aa6ef7190008f52a0ab6689760a98de0bf37d/keyring-25.6.0.tar.gz", upload-time = 2024-12-25T15:26:45Z, size = 62750, hashes = { sha256 = "0b39998aa941431eb3d9b0d4b2460bc773b9df6fed7621c2dfb291a7e0187a66" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/d3/32/da7f44bcb1105d3e88a0b74ebdca50c59121d2ddf71c9e34ba47df7f3a56/keyring-25.6.0-py3-none-any.whl", upload-time = 2024-12-25T15:26:44Z, size = 39085, hashes = { sha256 = "552a3f7af126ece7ed5c89753650eec89c7eaae8617d0aa4d9ad2b75111266bd" } }]
+version = "25.7.0"
+sdist = { url = "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz", upload-time = 2025-11-16T16:26:09Z, size = 63516, hashes = { sha256 = "fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl", upload-time = 2025-11-16T16:26:08Z, size = 39160, hashes = { sha256 = "be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f" } }]
 
 [[packages]]
 name = "markdown-it-py"
@@ -698,9 +704,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/54/24/b4293291fa1dd83
 
 [[packages]]
 name = "setuptools"
-version = "80.8.0"
-sdist = { url = "https://files.pythonhosted.org/packages/8d/d2/ec1acaaff45caed5c2dedb33b67055ba9d4e96b091094df90762e60135fe/setuptools-80.8.0.tar.gz", upload-time = 2025-05-20T14:02:53Z, size = 1319720, hashes = { sha256 = "49f7af965996f26d43c8ae34539c8d99c5042fbff34302ea151eaa9c207cd257" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/58/29/93c53c098d301132196c3238c312825324740851d77a8500a2462c0fd888/setuptools-80.8.0-py3-none-any.whl", upload-time = 2025-05-20T14:02:51Z, size = 1201470, hashes = { sha256 = "95a60484590d24103af13b686121328cc2736bee85de8936383111e421b9edc0" } }]
+version = "84.0.0"
+sdist = { url = "https://files.pythonhosted.org/packages/6d/44/f5da03a8ef95d369145c5bb53050e7877c9f3d312e128605fd9504829143/setuptools-84.0.0.tar.gz", upload-time = 2026-08-08T18:27:58Z, size = 1168449, hashes = { sha256 = "f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl", upload-time = 2026-08-08T18:27:56Z, size = 818216, hashes = { sha256 = "51a52592b3b99e102b609654876bd65f19f999935166d1352678931132b0c670" } }]
 
 [[packages]]
 name = "shellingham"

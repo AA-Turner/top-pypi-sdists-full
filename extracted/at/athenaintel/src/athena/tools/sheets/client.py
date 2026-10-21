@@ -39,6 +39,7 @@ class SheetsClient:
         column: int,
         row: int,
         value: str,
+        formatting: typing.Optional[CellFormat] = OMIT,
         sheet_id: typing.Optional[int] = OMIT,
         treat_as_text: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -59,6 +60,9 @@ class SheetsClient:
 
         value : str
             Value to set in the cell
+
+        formatting : typing.Optional[CellFormat]
+            Optional cell format (textFormat, backgroundColor, numberFormat, alignment, borders) applied in the same write as the value, like `formatting` on range/update.
 
         sheet_id : typing.Optional[int]
             Sheet ID (defaults to 1)
@@ -94,6 +98,7 @@ class SheetsClient:
             column=column,
             row=row,
             value=value,
+            formatting=formatting,
             sheet_id=sheet_id,
             treat_as_text=treat_as_text,
             request_options=request_options,
@@ -1111,6 +1116,7 @@ class AsyncSheetsClient:
         column: int,
         row: int,
         value: str,
+        formatting: typing.Optional[CellFormat] = OMIT,
         sheet_id: typing.Optional[int] = OMIT,
         treat_as_text: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1131,6 +1137,9 @@ class AsyncSheetsClient:
 
         value : str
             Value to set in the cell
+
+        formatting : typing.Optional[CellFormat]
+            Optional cell format (textFormat, backgroundColor, numberFormat, alignment, borders) applied in the same write as the value, like `formatting` on range/update.
 
         sheet_id : typing.Optional[int]
             Sheet ID (defaults to 1)
@@ -1174,6 +1183,7 @@ class AsyncSheetsClient:
             column=column,
             row=row,
             value=value,
+            formatting=formatting,
             sheet_id=sheet_id,
             treat_as_text=treat_as_text,
             request_options=request_options,

@@ -25,7 +25,7 @@ class Coverage:
         self.source_id = "source"
         self.scope = Scope()
         self.conn = sqlite3.connect(self.directory / "coverage.sqlite")
-        self.conn.execute("CREATE TABLE versions(correlation TEXT, receipt TEXT)")
+        self.conn.execute("CREATE TABLE versions(correlation TEXT, receipt TEXT, intent TEXT)")
         self.conn.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)")
         content = "The model uses a frozen encoder. No experiment measurements have been recorded."
         (root / "design.md").write_text(content)
@@ -44,11 +44,14 @@ class Coverage:
             "status": "complete",
             "anchor_id": "p",
             "content_hash": digest,
+            "size_bytes": len(content),
             "artifact_id": "artifact",
             "readable": True,
             "is_reference": False,
         }
-        self.conn.execute("INSERT INTO versions VALUES ('c',?)", (json.dumps(receipt),))
+        intent = {"content_hash": digest, "size_bytes": len(content), "mode": "upload"}
+        self.conn.execute("INSERT INTO versions VALUES ('c',?,?)",
+                          (json.dumps(receipt), json.dumps(intent)))
         self.pending = []
 
     def rows(self):

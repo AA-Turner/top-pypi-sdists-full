@@ -6,6 +6,8 @@ import time
 import warnings
 from contextlib import contextmanager
 from contextvars import ContextVar
+from email.errors import HeaderParseError
+from email.headerregistry import Address
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 import requests
@@ -28,6 +30,7 @@ from social_core.utils import (
     module_member,
     normalize_user_names,
     parse_qs,
+    redact_request_error,
     social_logger,
     user_agent,
     user_is_authenticated,
@@ -39,7 +42,12 @@ if TYPE_CHECKING:
     from requests import Response
     from requests.auth import AuthBase
 
-    from social_core.storage import PartialMixin, PipelineUserProtocol, UserProtocol
+    from social_core.storage import (
+        PartialMixin,
+        PipelineUserProtocol,
+        UserMixin,
+        UserProtocol,
+    )
     from social_core.strategy import BaseStrategy, HttpResponseProtocol
 
 
@@ -81,6 +89,11 @@ class BaseAuth:
         self._mutable_id_key_warned = False
         self.data = self.strategy.request_data()
         self.redirect_uri = self.strategy.absolute_uri(self.redirect_uri)
+
+    @classmethod
+    def get_title(cls, strategy: BaseStrategy) -> str:
+        """Return a sign-in label using the application's strategy settings."""
+        return cls.title or cls.name
 
     def log_debug(self, message, *args) -> None:
         social_logger.debug(f"{self.name}: {message}", *args)
@@ -152,6 +165,26 @@ class BaseAuth:
             )
         self.strategy.session_pop(f"{self.name}_state")
         return state
+
+    def _validate_unbound_authenticated_user(
+        self, user: UserProtocol | None, response: dict[str, Any]
+    ) -> None:
+        """Prevent an unbound authentication response from creating an association."""
+        if not user_is_authenticated(user):
+            return
+
+        uid = self.get_user_id(self.get_user_details(response), response)
+        social = self.strategy.get_storage(stage="callback").user.get_social_auth(
+            self.name, str(uid)
+        )
+        if social is None or social.user != user:
+            raise AuthSessionError(
+                self,
+                "Unbound authentication response is not associated with the "
+                "authenticated user",
+                code="user_mismatch",
+                stage="callback",
+            )
 
     def association_user_id_key(self, pipeline_type: str = "authentication") -> str:
         """Name of the initiator binding saved in pipeline arguments."""
@@ -267,7 +300,7 @@ class BaseAuth:
             return out
         user = cast("UserProtocol | None", out.get("user"))
         if user:
-            pipeline_user = cast("PipelineUserProtocol", user)
+            pipeline_user: PipelineUserProtocol = cast("PipelineUserProtocol", user)
             pipeline_user.social_user = cast("Any", out.get("social"))
             pipeline_user.is_new = bool(out.get("is_new"))
         return user
@@ -368,7 +401,7 @@ class BaseAuth:
             data[alias] = value
         return data
 
-    def auth_allowed(self, response, details):
+    def auth_allowed(self, response: Any, details: dict[str, Any]) -> bool:
         """Return True if the user should be allowed to authenticate, by
         default check if email is whitelisted (if there's a whitelist)"""
         emails = [
@@ -381,14 +414,22 @@ class BaseAuth:
         ]
         email = details.get("email")
         allowed = True
-        if email and (emails or domains):
-            email = email.lower()
-            parts = email.split("@", 1)
-            if len(parts) != 2:
+        if emails or domains:
+            # An allowlist requires a matching address, including when the
+            # provider omits the address or returns a non-string value.
+            email = email.lower() if isinstance(email, str) else ""
+            try:
+                address = Address(addr_spec=email)
+            except (HeaderParseError, ValueError, IndexError):
+                # Python 3.10/3.11 also raise IndexError for empty addresses
+                # or missing domains, rather than a parsing exception.
                 allowed = False
             else:
-                domain = parts[1]
-                allowed = email in emails or domain in domains
+                allowed = bool(
+                    address.username
+                    and address.domain
+                    and (email in emails or address.domain in domains)
+                )
         allow_groups = self.get_group_setting("ALLOW_GROUPS", response, [])
         if not isinstance(allow_groups, (list, tuple, set)) or any(
             not isinstance(group, str) or not group for group in allow_groups
@@ -481,6 +522,16 @@ class BaseAuth:
             )
         )
 
+    def get_legacy_social_auth(
+        self,
+        uid: str,
+        id_key: str,
+        response: dict[str, Any],
+        user: UserProtocol | None = None,
+    ) -> UserMixin | None:
+        """Find a backend-specific legacy association with verified evidence."""
+        return None
+
     def get_stored_user_id_keys(self, id_key: str) -> tuple[str, ...]:
         """Return stored evidence fields, including backend-specific aliases."""
         return (id_key,)
@@ -494,8 +545,13 @@ class BaseAuth:
         default = bool(
             transition
             and transition[0] == backend_class
-            and old_id_key in ("", transition[1])
             and id_key == self.id_key() == self.ID_KEY == transition[2]
+            # A pre-6.0 unkeyed row can contain the configured ID_KEY's value.
+            # Only its current UID can be trusted without stored evidence.
+            and (
+                old_id_key == ""
+                or (old_id_key == transition[1] and not self.setting("ID_KEY"))
+            )
         )
         return bool(self.setting("ALLOW_UNVERIFIED_LEGACY_UID_MIGRATION", default))
 
@@ -702,28 +758,35 @@ class BaseAuth:
                 verify=verify,
             )
         except requests.exceptions.SSLError as error:
+            redact_request_error(error, request_url=url)
             raise AuthProviderError(self, code="tls_error", stage=stage) from error
         except requests.Timeout as error:
+            redact_request_error(error, request_url=url)
             raise AuthProviderError(self, code="timeout", stage=stage) from error
         except (
             requests.exceptions.InvalidURL,
             requests.exceptions.InvalidSchema,
             requests.exceptions.MissingSchema,
         ) as error:
+            redact_request_error(error, request_url=url)
             raise AuthConfigurationError(
                 self, code="invalid_setting", parameter="url", stage=stage
             ) from error
         except requests.ConnectionError as error:
+            redact_request_error(error, request_url=url)
             raise AuthProviderError(
                 self, code="connection_failed", stage=stage
             ) from error
         except requests.HTTPError as error:
+            redact_request_error(error, request_url=url)
             raise http_error(self, error, stage=stage) from error
         except requests.RequestException as error:
+            redact_request_error(error, request_url=url)
             raise AuthProviderError(self, stage=stage) from error
         try:
             response.raise_for_status()
         except requests.HTTPError as error:
+            redact_request_error(error, request_url=url)
             raise http_error(self, error, stage=stage) from error
         return response
 

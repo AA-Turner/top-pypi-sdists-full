@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pretext
-Version: 2.55.0
+Version: 2.56.0
 Summary: A package to author, build, and deploy PreTeXt projects.
 Project-URL: Homepage, https://pretextbook.org
 Project-URL: Repository, https://github.com/PreTeXtBook/pretext-cli

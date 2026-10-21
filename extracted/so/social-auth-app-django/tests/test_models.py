@@ -7,11 +7,13 @@ from unittest import mock
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.db import IntegrityError, connection, models
 from django.test import TestCase, override_settings
 from django.test.utils import isolate_apps
+from django.utils import timezone
 from social_core.backends.cognito import CognitoOAuth2
 from social_core.exceptions import AuthAssociationError
 from social_core.pipeline.user import get_username
@@ -157,6 +159,43 @@ class TestUserSocialAuth(TestCase):
         UserSocialAuth.disconnect(m)
         self.assertListEqual(m.method_calls, [mock.call.delete()])
 
+    @mock.patch("social_django.storage.load_backends", return_value={"facebook": mock.sentinel.backend})
+    def test_allowed_to_disconnect_requires_configured_remaining_backend(self, load_backends):
+        facebook = UserSocialAuth.objects.create(user=self.user, provider="facebook", uid="facebook-user")
+
+        self.assertTrue(UserSocialAuth.allowed_to_disconnect(self.user, "my-provider"))
+        self.assertFalse(UserSocialAuth.allowed_to_disconnect(self.user, "facebook"))
+        self.assertTrue(UserSocialAuth.allowed_to_disconnect(self.user, "unused", self.usa.pk))
+        self.assertFalse(UserSocialAuth.allowed_to_disconnect(self.user, "unused", facebook.pk))
+
+        self.user.set_password("password")
+        self.assertTrue(UserSocialAuth.allowed_to_disconnect(self.user, "facebook"))
+        load_backends.assert_called_with(settings.AUTHENTICATION_BACKENDS)
+
+    @mock.patch("social_django.storage.load_backends", return_value={"facebook": mock.sentinel.backend})
+    def test_allowed_to_disconnect_matches_backend_name_exactly(self, _load_backends):
+        user = self.user_model._default_manager.create_user(username="case-sensitive")
+        UserSocialAuth.objects.create(user=user, provider="FACEBOOK", uid="uppercase-provider")
+
+        self.assertFalse(UserSocialAuth.allowed_to_disconnect(user, "unused"))
+
+    @mock.patch(
+        "social_django.storage.load_backends",
+        return_value={"facebook": mock.sentinel.backend, "drip": mock.Mock(ASSOCIATION_ONLY=True)},
+    )
+    def test_allowed_to_disconnect_ignores_association_only_backend(self, _load_backends):
+        facebook = UserSocialAuth.objects.create(user=self.user, provider="facebook", uid="facebook-user")
+        drip = UserSocialAuth.objects.create(user=self.user, provider="drip", uid="drip-user")
+
+        self.assertFalse(UserSocialAuth.allowed_to_disconnect(self.user, "facebook"))
+        self.assertFalse(UserSocialAuth.allowed_to_disconnect(self.user, "unused", facebook.pk))
+        self.assertTrue(UserSocialAuth.allowed_to_disconnect(self.user, "drip"))
+        self.assertTrue(UserSocialAuth.allowed_to_disconnect(self.user, "unused", drip.pk))
+
+        self.user.set_password("password")
+        self.assertTrue(UserSocialAuth.allowed_to_disconnect(self.user, "facebook"))
+        self.assertTrue(UserSocialAuth.allowed_to_disconnect(self.user, "unused", facebook.pk))
+
     def test_username_field(self):
         self.assertEqual(UserSocialAuth.username_field(), "username")
         with mock.patch(
@@ -301,8 +340,13 @@ class TestUserSocialAuth(TestCase):
             self.assertIsNone(UserSocialAuth.objects.get_social_auth(wrong_provider, self.usa.uid))
 
     def test_get_social_auth_for_user(self):
-        qs = UserSocialAuth.get_social_auth_for_user(user=self.user, provider=self.usa.provider, id=self.usa.id)
-        self.assertEqual(qs.count(), 1)
+        other = UserSocialAuth.objects.create(user=self.user, provider=self.usa.provider, uid="5678")
+        for association_id, expected in ((None, [self.usa, other]), (self.usa.id, [self.usa]), (0, [])):
+            with self.subTest(association_id=association_id):
+                qs = UserSocialAuth.get_social_auth_for_user(
+                    user=self.user, provider=self.usa.provider, id=association_id
+                )
+                self.assertCountEqual(qs, expected)
 
     def test_create_social_auth(self):
         usa = UserSocialAuth.create_social_auth(user=self.user, provider="test", uid=1, id_key="id")
@@ -506,6 +550,24 @@ class TestNonce(TestCase):
         self.assertTrue(Nonce.use(server_url="/", timestamp=1, salt="1"))
         self.assertFalse(Nonce.use(server_url="/", timestamp=1, salt="1"))
         self.assertEqual(Nonce.objects.count(), 1)
+
+    def test_clearsocial_removes_old_nonces_in_all_scopes(self):
+        now = int(timezone.now().timestamp())
+        scopes = (
+            "social_core.oauth2.google-oauth2",
+            "https://openid.example.com",
+            "https://discourse.example.com",
+        )
+        for scope in scopes:
+            Nonce.use(server_url=scope, timestamp=now - 3 * 86400, salt="old")
+            Nonce.use(server_url=scope, timestamp=now - 86400, salt="recent")
+
+        call_command("clearsocial", age=2)
+
+        self.assertEqual(
+            set(Nonce.objects.values_list("server_url", "salt")),
+            {(scope, "recent") for scope in scopes},
+        )
 
 
 class TestAssociation(TestCase):

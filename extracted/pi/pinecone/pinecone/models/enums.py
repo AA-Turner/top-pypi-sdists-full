@@ -67,7 +67,7 @@ class VectorType(str, Enum):
 
 
 class EmbedModel(str, Enum):
-    """Known embedding models for integrated indexes.
+    """Known embedding models, for integrated embedding and ``pc.inference``.
 
     A convenience enum rather than an exhaustive list: ``model`` is also accepted
     as a plain string, so a model added after this SDK release can still be used.
@@ -103,7 +103,8 @@ class PodType(str, Enum):
     The family before the dot picks what the pod is optimized for — ``s1`` for
     storage, ``p1`` for balanced performance, ``p2`` for query throughput —
     and the ``xN`` after it is the size multiplier. See
-    :doc:`/how-to/indexes/pod` for what each family trades away. Pod-based
+    `Working with pod-based indexes <https://sdk.pinecone.io/python/how-to/indexes/pod.html>`__
+    for what each family trades away. Pod-based
     indexes predate managed ones; reach for a managed deployment unless you
     have a reason not to.
     """

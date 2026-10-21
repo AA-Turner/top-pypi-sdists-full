@@ -204,6 +204,69 @@ async def pinned_version_agent_id(ctx: Any) -> str | None:
     return agent_id
 
 
+async def live_version_id_for_agent(agent_id: str) -> str | None:
+    """The ``agent.definition_version`` id of the version a FLOATING (latest) run of
+    ``agent_id`` executes: the row whose number equals the master's current
+    ``version`` (the same rule as the ``trg_cx_conversation_resolve_agent_version``
+    trigger). Never cached - the master moves on every edit. None when unknown."""
+    if not agent_id or not _is_valid_uuid(str(agent_id)):
+        return None
+    try:
+        from matrx_ai.db._registry import get_model, has_requirements
+
+        # Client hosts intentionally configure the executor without the host
+        # ORM. Snapshot attribution is optional, so do not even consult the
+        # model accessor until the two rows this lookup needs are present.
+        if not has_requirements(models=("Definition", "DefinitionVersion")):
+            return None
+
+        masters = await get_model("Definition").filter(id__in=[str(agent_id)]).all()
+        master = next(iter(masters), None)
+        number = getattr(master, "version", None)  # orm-getattr-ok: model row
+        if number is None:
+            return None
+        versions = await get_model("DefinitionVersion").filter(agent_id__in=[str(agent_id)]).all()
+        return next(
+            (
+                str(v.id)
+                for v in versions
+                if getattr(v, "version_number", None) == number  # orm-getattr-ok: model row
+            ),
+            None,
+        )
+    except Exception as exc:  # noqa: BLE001 - attribution is optional; the row must still land
+        vcprint(
+            f"[CX PERSISTENCE] could not resolve the live version of agent {agent_id}: {exc}",
+            color="red",
+        )
+        return None
+
+
+async def conversation_agent_version_id(conversation_id: str) -> str | None:
+    """The agent version the conversation was opened under (``initial_agent_version_id``),
+    for a continuation / child whose own context carries no agent ref. None if unknown."""
+    if not conversation_id or not _is_valid_uuid(str(conversation_id)):
+        return None
+    try:
+        from matrx_ai.db._registry import get_model, has_requirements
+
+        # A no-DB client host still records its snapshot through its injected
+        # store. It has no conversation row to inspect for optional attribution.
+        if not has_requirements(models=("Conversation",)):
+            return None
+
+        rows = await get_model("Conversation").filter(id__in=[str(conversation_id)]).all()
+        row = next(iter(rows), None)
+        value = getattr(row, "initial_agent_version_id", None)  # orm-getattr-ok: model row
+        return str(value) if value else None
+    except Exception as exc:  # noqa: BLE001
+        vcprint(
+            f"[CX PERSISTENCE] could not read the agent version of conversation {conversation_id}: {exc}",
+            color="red",
+        )
+        return None
+
+
 def lift_promoted_message_columns(
     metadata: dict[str, Any] | None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:

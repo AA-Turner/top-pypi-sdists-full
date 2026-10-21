@@ -797,6 +797,7 @@ class TestServerUserdataOperations(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.server = Server()
         cls.server.register_area(SrvArea.DB, 1, bytearray(100))
+        cls.server.register_area(SrvArea.DB, 7, bytearray(123))
         cls.server.start(tcp_port=SERVER_PORT + 1)
 
     @classmethod
@@ -855,6 +856,20 @@ class TestServerUserdataOperations(unittest.TestCase):
         self.assertEqual(result.V1, 2)
         self.assertEqual(result.V2, 9)
         self.assertEqual(result.V3, 2)
+
+    def test_parse_order_code_strips_trailing_space(self) -> None:
+        """The structured MLFB field is space padded on real PLCs; the padding is not part of the order code."""
+        from snap7.szl import parse_order_code_szl
+        from snap7.type import S7SZL
+
+        payload = b"\x00\x1c\x00\x01\x00\x01" + b"6ES7 212-1BE40-0XB0 " + b"\x00\x00\x00\x02\x00\x00"
+        szl = S7SZL()
+        szl.Header.LengthDR = len(payload)
+        for i, b in enumerate(payload):
+            szl.Data[i] = b
+
+        result = parse_order_code_szl(szl)
+        self.assertEqual(result.OrderCode, b"6ES7 212-1BE40-0XB0")
 
     def test_parse_order_code_s71510sp(self) -> None:
         """Parse a real S7-1510SP dump — should use 0x0007 firmware, not 0x0081 boot loader.
@@ -1036,6 +1051,12 @@ class TestServerUserdataOperations(unittest.TestCase):
         response = self.server._handle_set_clock(request, request["parameters"], ("127.0.0.1", 12345))
         with self.assertRaises(S7ProtocolError):
             self.client.protocol.parse_response(response)
+
+    def test_get_block_info_selects_requested_block_number(self) -> None:
+        """The server must read the block number from the request, not fall back to DB1."""
+        info = self.client.get_block_info(Block.DB, 7)
+        self.assertEqual(info.BlkNumber, 7)
+        self.assertEqual(info.MC7Size, 123)
 
     def test_set_plc_system_datetime(self) -> None:
         """set_plc_system_datetime should succeed."""

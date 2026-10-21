@@ -3417,7 +3417,8 @@ class CfnContainerGroupDefinition(
                         to_port=123
                     )]
                 ),
-                resolved_image_digest="resolvedImageDigest"
+                resolved_image_digest="resolvedImageDigest",
+                vcpu=123
             ),
             source_version_number=123,
             support_container_definitions=[gamelift.CfnContainerGroupDefinition.SupportContainerDefinitionProperty(
@@ -4292,6 +4293,7 @@ class CfnContainerGroupDefinition(
             "mount_points": "mountPoints",
             "port_configuration": "portConfiguration",
             "resolved_image_digest": "resolvedImageDigest",
+            "vcpu": "vcpu",
         },
     )
     class GameServerContainerDefinitionProperty:
@@ -4307,6 +4309,7 @@ class CfnContainerGroupDefinition(
             mount_points: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerGroupDefinition.ContainerMountPointProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             port_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnContainerGroupDefinition.PortConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             resolved_image_digest: typing.Optional[builtins.str] = None,
+            vcpu: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Describes the game server container in an existing game server container group.
 
@@ -4327,6 +4330,7 @@ class CfnContainerGroupDefinition(
             :param mount_points: A mount point that binds a path inside the container to a file or directory on the host system and lets it access the file or directory.
             :param port_configuration: The set of ports that are available to bind to processes in the container. For example, a game server process requires a container port to allow game clients to connect to it. Container ports aren't directly accessed by inbound traffic. Amazon GameLift Servers maps these container ports to externally accessible connection ports, which are assigned as needed from the container fleet's ``ConnectionPortRange`` .
             :param resolved_image_digest: A unique and immutable identifier for the container image. The digest is a SHA 256 hash of the container image manifest.
+            :param vcpu: The number of virtual CPUs to give to the game server container. This is required when the container group definition doesn't set TotalVcpuLimit.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containergroupdefinition-gameservercontainerdefinition.html
             :exampleMetadata: fixture=_generated
@@ -4368,7 +4372,8 @@ class CfnContainerGroupDefinition(
                             to_port=123
                         )]
                     ),
-                    resolved_image_digest="resolvedImageDigest"
+                    resolved_image_digest="resolvedImageDigest",
+                    vcpu=123
                 )
             '''
             if __debug__:
@@ -4382,6 +4387,7 @@ class CfnContainerGroupDefinition(
                 check_type(argname="argument mount_points", value=mount_points, expected_type=type_hints["mount_points"])
                 check_type(argname="argument port_configuration", value=port_configuration, expected_type=type_hints["port_configuration"])
                 check_type(argname="argument resolved_image_digest", value=resolved_image_digest, expected_type=type_hints["resolved_image_digest"])
+                check_type(argname="argument vcpu", value=vcpu, expected_type=type_hints["vcpu"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "container_name": container_name,
                 "image_uri": image_uri,
@@ -4399,6 +4405,8 @@ class CfnContainerGroupDefinition(
                 self._values["port_configuration"] = port_configuration
             if resolved_image_digest is not None:
                 self._values["resolved_image_digest"] = resolved_image_digest
+            if vcpu is not None:
+                self._values["vcpu"] = vcpu
 
         @builtins.property
         def container_name(self) -> builtins.str:
@@ -4509,6 +4517,17 @@ class CfnContainerGroupDefinition(
             '''
             result = self._values.get("resolved_image_digest")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vcpu(self) -> typing.Optional[jsii.Number]:
+            '''The number of virtual CPUs to give to the game server container.
+
+            This is required when the container group definition doesn't set TotalVcpuLimit.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containergroupdefinition-gameservercontainerdefinition.html#cfn-gamelift-containergroupdefinition-gameservercontainerdefinition-vcpu
+            '''
+            result = self._values.get("vcpu")
+            return typing.cast(typing.Optional[jsii.Number], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5045,7 +5064,8 @@ class CfnContainerGroupDefinitionProps:
                             to_port=123
                         )]
                     ),
-                    resolved_image_digest="resolvedImageDigest"
+                    resolved_image_digest="resolvedImageDigest",
+                    vcpu=123
                 ),
                 source_version_number=123,
                 support_container_definitions=[gamelift.CfnContainerGroupDefinition.SupportContainerDefinitionProperty(
@@ -12773,6 +12793,7 @@ def _typecheckingstub__996969233fd34d51e9d9534744b87b0efc6e35f90fac9e44bd0cb26d5
     mount_points: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerGroupDefinition.ContainerMountPointProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     port_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnContainerGroupDefinition.PortConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     resolved_image_digest: typing.Optional[builtins.str] = None,
+    vcpu: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

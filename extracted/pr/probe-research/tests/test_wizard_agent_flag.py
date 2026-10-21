@@ -25,7 +25,6 @@ OLD_VALUES = [
     ("codex", ["codex"]),
     ("pi", ["pi"]),
     ("kimi", ["kimi_code"]),
-    ("capy", ["capy"]),
     ("both", ["claude_code", "codex"]),
     ("all", ["claude_code", "codex"]),
     ("claude,codex", ["claude_code", "codex"]),
@@ -54,7 +53,7 @@ def test_every_old_agent_value_configures_the_same_agents(applied, value, source
 @pytest.mark.parametrize("value", ["bogus", "claude,pi"])
 def test_an_unknown_agent_is_still_refused_with_the_same_words(applied, value):
     result = CliRunner().invoke(main.app, ["wizard", "--action", "configure", "--yes", "--agent", value])
-    assert "--agent must be claude, codex, pi, kimi, capy, or both" in events.plain(result.stderr)
+    assert "--agent must be claude, codex, pi, kimi, or both" in events.plain(result.stderr)
 
 
 def test_a_sign_in_flag_with_an_unknown_agent_says_the_flag_would_be_dropped(applied):

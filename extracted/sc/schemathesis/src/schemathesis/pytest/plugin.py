@@ -39,7 +39,6 @@ from schemathesis.generation.hypothesis.given import (
     validate_given_args,
 )
 from schemathesis.generation.hypothesis.reporting import (
-    HealthCheckTipStyle,
     build_health_check_error,
     build_unsatisfiable_error,
     ignore_hypothesis_output,
@@ -68,7 +67,7 @@ if TYPE_CHECKING:
     from schemathesis.core.spec import SchemaMetadata
     from schemathesis.engine.recorder import ScenarioRecorder
     from schemathesis.pytest.reporting import PytestReportDispatcher
-    from schemathesis.reporting.allure import AllureWriter, _AllureCallBuffer, _AllureHookForwarder
+    from schemathesis.reporting.allure import AllureCallBuffer, AllureHookForwarder, AllureWriter
     from schemathesis.reporting.har import HarWriter
     from schemathesis.reporting.html.writer import HtmlWriter
     from schemathesis.reporting.junitxml import JunitXmlWriter
@@ -81,8 +80,8 @@ _CASSETTE_KEY: pytest.StashKey[
 _STATEFUL_WRITERS_KEY: pytest.StashKey[list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter]] = (
     pytest.StashKey()
 )
-_ALLURE_FORWARDER_KEY: pytest.StashKey[_AllureHookForwarder] = pytest.StashKey()
-_ALLURE_BUFFER_KEY: pytest.StashKey[_AllureCallBuffer] = pytest.StashKey()
+_ALLURE_FORWARDER_KEY: pytest.StashKey[AllureHookForwarder] = pytest.StashKey()
+_ALLURE_BUFFER_KEY: pytest.StashKey[AllureCallBuffer] = pytest.StashKey()
 _REPORT_OUTCOME_KEY: pytest.StashKey[PytestReportOutcome] = pytest.StashKey()
 
 
@@ -475,9 +474,7 @@ def pytest_pyfunc_call(pyfuncitem):  # type: ignore[no-untyped-def]
         except FailedHealthCheck as exc:
             operation = ApiOperationMark.get(pyfuncitem.obj)
             assert operation is not None
-            raise build_health_check_error(
-                operation, exc, with_tip=True, tip_style=HealthCheckTipStyle.PYTEST
-            ) from None
+            raise build_health_check_error(operation, exc, with_tip=True) from None
         except Unsatisfiable:
             operation = ApiOperationMark.get(pyfuncitem.obj)
             assert operation is not None
@@ -533,8 +530,7 @@ def _open_writers(
     writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter] = []
     reports = schema.config.reports
     seed = schema.config.seed
-    sanitization = schema.config.output.sanitization
-    command = get_command_representation(sanitization if sanitization.enabled else None)
+    command = get_command_representation(schema.config.output.sanitization)
     if reports.vcr.enabled:
         path = reports.get_path(ReportFormat.VCR)
         vcr_writer = VcrWriter(output=path, config=schema.config.output, preserve_bytes=reports.preserve_bytes)
@@ -618,21 +614,21 @@ def _writers_key(schema: SchemaMetadata) -> int:
 
 def _register_allure_forwarder(
     label: str,
-    writers: Sequence[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter | _AllureCallBuffer],
-) -> _AllureHookForwarder | None:
+    writers: Sequence[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter | AllureCallBuffer],
+) -> AllureHookForwarder | None:
     import allure_commons
 
-    from schemathesis.reporting.allure import AllureWriter, _AllureCallBuffer, _AllureHookForwarder
+    from schemathesis.reporting.allure import AllureCallBuffer, AllureHookForwarder, AllureWriter
 
-    allure_writers = [writer for writer in writers if isinstance(writer, (AllureWriter, _AllureCallBuffer))]
+    allure_writers = [writer for writer in writers if isinstance(writer, (AllureWriter, AllureCallBuffer))]
     if not allure_writers:
         return None
-    forwarder = _AllureHookForwarder(label=label, writers=allure_writers)
+    forwarder = AllureHookForwarder(label=label, writers=allure_writers)
     allure_commons.plugin_manager.register(forwarder)
     return forwarder
 
 
-def _unregister_allure_forwarder(forwarder: _AllureHookForwarder) -> None:
+def _unregister_allure_forwarder(forwarder: AllureHookForwarder) -> None:
     import allure_commons
 
     allure_commons.plugin_manager.unregister(forwarder)
@@ -711,7 +707,7 @@ def _write_pytest_result(
     dispatcher: PytestReportDispatcher,
     writers: list[VcrWriter | HarWriter | JunitXmlWriter | AllureWriter | HtmlWriter],
     outcome: PytestReportOutcome,
-    allure_buffer: _AllureCallBuffer | None,
+    allure_buffer: AllureCallBuffer | None,
 ) -> None:
     result = dispatcher.pop_recorder(label)
     has_recorder = result is not None
@@ -724,10 +720,7 @@ def _write_pytest_result(
         elapsed_sec = 0.0
     else:
         recorder, elapsed_sec = result
-        has_check_failures = any(
-            check.status == Status.FAILURE for checks in recorder.checks.values() for check in checks
-        )
-        if has_check_failures:
+        if recorder.failing_case_ids():
             outcome = PytestReportOutcome(Status.FAILURE)
     if _is_xdist_worker(item.config):
         _push_to_xdist_workeroutput(
@@ -776,9 +769,9 @@ def report_subtest(
 
     allure_buffer = None
     if _is_xdist_worker(item.config) and reports.allure.enabled:
-        from schemathesis.reporting.allure import _AllureCallBuffer
+        from schemathesis.reporting.allure import AllureCallBuffer
 
-        allure_buffer = _AllureCallBuffer()
+        allure_buffer = AllureCallBuffer()
         forwarder = _register_allure_forwarder(label, [allure_buffer])
     else:
         forwarder = _register_allure_forwarder(label, writers)
@@ -853,9 +846,9 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
         item.config.stash[_CASSETTE_KEY][schema_id] = (dispatcher, [])
 
         if reports.allure.enabled:
-            from schemathesis.reporting.allure import _AllureCallBuffer
+            from schemathesis.reporting.allure import AllureCallBuffer
 
-            buffer = _AllureCallBuffer()
+            buffer = AllureCallBuffer()
             forwarder = _register_allure_forwarder(item.operation_label, [buffer])
             assert forwarder is not None
             item.stash[_ALLURE_BUFFER_KEY] = buffer

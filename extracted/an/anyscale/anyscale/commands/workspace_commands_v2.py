@@ -1,12 +1,10 @@
 from dataclasses import dataclass
 from enum import Enum
-import importlib.resources
 from io import StringIO
 import json
 import pathlib
 import shlex
 import subprocess
-import sys
 import tempfile
 from typing import Dict, List, Optional, Tuple
 
@@ -73,7 +71,6 @@ log = BlockLogger()  # CLI Logger
 # Constants for SSH configuration
 HTTPS_PORT = "443"
 SSH_TEST_TIMEOUT_SECONDS = 8
-WSS_PATH = "/sshws"
 PREFERRED_AUTH_METHOD = "PreferredAuthentications=publickey"
 
 
@@ -297,7 +294,16 @@ def _setup_https_connection(
     if not target.token:
         raise click.ClickException("Failed to retrieve authentication token. Please try again.")
 
-    proxy_cmd = _create_proxy_command(target.hostname, target.token)
+    # Through the SDK, which writes the token to a 0600 file and passes its path: ssh runs
+    # a ProxyCommand through `sh -c`, so a token in that string sits in a world-readable
+    # /proc/<pid>/cmdline for the life of the session.
+    proxy_cmd = workspace_private_sdk._create_https_proxy_command(  # noqa: SLF001
+        target.hostname, target.token, str(pathlib.Path(config_file).parent), target.key_name
+    )
+    if proxy_cmd is None:
+        raise click.ClickException(
+            "Could not locate the Anyscale SSH tunnel helper. Reinstall the anyscale package."
+        )
 
     return SSHConfig(
         target_host=f"ray@{host_name}",
@@ -305,27 +311,6 @@ def _setup_https_connection(
         connection_type=ConnectionType.HTTPS,
         proxy_command=proxy_cmd,
         port=HTTPS_PORT,
-    )
-
-
-def _create_proxy_command(public_hostname: str, cluster_access_token: str) -> str:
-    """Create the proxy command for HTTPS connection."""
-    wss_url = f"wss://{public_hostname}{WSS_PATH}"
-
-    try:
-        with importlib.resources.path("anyscale.utils", "ssh_websocket_proxy.py") as proxy_path:
-            proxy_script_path = str(proxy_path)
-    except (ModuleNotFoundError, ImportError) as e:
-        raise click.ClickException(f"Could not locate SSH proxy script: {e}") from e
-
-    # Properly escape the proxy command arguments
-    return " ".join(
-        [
-            shlex.quote(sys.executable),
-            shlex.quote(proxy_script_path),
-            shlex.quote(wss_url),
-            shlex.quote(cluster_access_token),
-        ]
     )
 
 

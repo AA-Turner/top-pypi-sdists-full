@@ -2450,13 +2450,14 @@ class MitigationActionReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_iot.PolicyPrincipalAttachmentReference",
     jsii_struct_bases=[],
-    name_mapping={"policy_principal_attachment_id": "policyPrincipalAttachmentId"},
+    name_mapping={"policy_name": "policyName", "principal": "principal"},
 )
 class PolicyPrincipalAttachmentReference:
-    def __init__(self, *, policy_principal_attachment_id: builtins.str) -> None:
+    def __init__(self, *, policy_name: builtins.str, principal: builtins.str) -> None:
         '''A reference to a PolicyPrincipalAttachment resource.
 
-        :param policy_principal_attachment_id: The Id of the PolicyPrincipalAttachment resource.
+        :param policy_name: The PolicyName of the PolicyPrincipalAttachment resource.
+        :param principal: The Principal of the PolicyPrincipalAttachment resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -2467,21 +2468,31 @@ class PolicyPrincipalAttachmentReference:
             from aws_cdk.interfaces import aws_iot as interfaces_iot
             
             policy_principal_attachment_reference = interfaces_iot.PolicyPrincipalAttachmentReference(
-                policy_principal_attachment_id="policyPrincipalAttachmentId"
+                policy_name="policyName",
+                principal="principal"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2c433b17a937fb1b126780e6e4b459921a745c39de25b681aa6e87feb4111932)
-            check_type(argname="argument policy_principal_attachment_id", value=policy_principal_attachment_id, expected_type=type_hints["policy_principal_attachment_id"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            check_type(argname="argument principal", value=principal, expected_type=type_hints["principal"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_principal_attachment_id": policy_principal_attachment_id,
+            "policy_name": policy_name,
+            "principal": principal,
         }
 
     @builtins.property
-    def policy_principal_attachment_id(self) -> builtins.str:
-        '''The Id of the PolicyPrincipalAttachment resource.'''
-        result = self._values.get("policy_principal_attachment_id")
-        assert result is not None, "Required property 'policy_principal_attachment_id' is missing"
+    def policy_name(self) -> builtins.str:
+        '''The PolicyName of the PolicyPrincipalAttachment resource.'''
+        result = self._values.get("policy_name")
+        assert result is not None, "Required property 'policy_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def principal(self) -> builtins.str:
+        '''The Principal of the PolicyPrincipalAttachment resource.'''
+        result = self._values.get("principal")
+        assert result is not None, "Required property 'principal' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3581,7 +3592,8 @@ def _typecheckingstub__2ab56eb3d521febcf038be8ef1e03908bd95582acb3cf3b9cac5d7c92
 
 def _typecheckingstub__2c433b17a937fb1b126780e6e4b459921a745c39de25b681aa6e87feb4111932(
     *,
-    policy_principal_attachment_id: builtins.str,
+    policy_name: builtins.str,
+    principal: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

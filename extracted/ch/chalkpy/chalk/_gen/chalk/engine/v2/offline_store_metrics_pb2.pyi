@@ -95,6 +95,18 @@ class BigQueryOfflineStorageDetails(_message.Message):
         self, project_id: _Optional[str] = ..., dataset_id: _Optional[str] = ..., location: _Optional[str] = ...
     ) -> None: ...
 
+class OfflineStorageDetails(_message.Message):
+    __slots__ = ("snowflake", "bigquery")
+    SNOWFLAKE_FIELD_NUMBER: _ClassVar[int]
+    BIGQUERY_FIELD_NUMBER: _ClassVar[int]
+    snowflake: SnowflakeOfflineStorageDetails
+    bigquery: BigQueryOfflineStorageDetails
+    def __init__(
+        self,
+        snowflake: _Optional[_Union[SnowflakeOfflineStorageDetails, _Mapping]] = ...,
+        bigquery: _Optional[_Union[BigQueryOfflineStorageDetails, _Mapping]] = ...,
+    ) -> None: ...
+
 class GetMetricsResponse(_message.Message):
     __slots__ = (
         "skinny_tables_bytes",
@@ -152,4 +164,130 @@ class GetMetricsResponse(_message.Message):
         non_mfv_backed_skinny_tables_bytes: _Optional[int] = ...,
         query_log_bytes: _Optional[int] = ...,
         query_values_bytes: _Optional[int] = ...,
+    ) -> None: ...
+
+class AggregateOfflineStoreStorageStats(_message.Message):
+    __slots__ = (
+        "skinny_tables_bytes",
+        "non_mfv_skinny_tables_bytes",
+        "wide_tables_bytes",
+        "wide_mapping_table_bytes",
+        "query_log_bytes",
+        "query_values_bytes",
+    )
+    SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
+    NON_MFV_SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
+    WIDE_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
+    WIDE_MAPPING_TABLE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    QUERY_LOG_BYTES_FIELD_NUMBER: _ClassVar[int]
+    QUERY_VALUES_BYTES_FIELD_NUMBER: _ClassVar[int]
+    skinny_tables_bytes: int
+    non_mfv_skinny_tables_bytes: int
+    wide_tables_bytes: int
+    wide_mapping_table_bytes: int
+    query_log_bytes: int
+    query_values_bytes: int
+    def __init__(
+        self,
+        skinny_tables_bytes: _Optional[int] = ...,
+        non_mfv_skinny_tables_bytes: _Optional[int] = ...,
+        wide_tables_bytes: _Optional[int] = ...,
+        wide_mapping_table_bytes: _Optional[int] = ...,
+        query_log_bytes: _Optional[int] = ...,
+        query_values_bytes: _Optional[int] = ...,
+    ) -> None: ...
+
+class WideTableConfig(_message.Message):
+    __slots__ = ("table_name", "feature_namespace", "config_fingerprint", "feature_count")
+    TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_COUNT_FIELD_NUMBER: _ClassVar[int]
+    table_name: str
+    feature_namespace: str
+    config_fingerprint: int
+    feature_count: int
+    def __init__(
+        self,
+        table_name: _Optional[str] = ...,
+        feature_namespace: _Optional[str] = ...,
+        config_fingerprint: _Optional[int] = ...,
+        feature_count: _Optional[int] = ...,
+    ) -> None: ...
+
+class WideTableStats(_message.Message):
+    __slots__ = ("partitioned_by", "clustered_by", "size_bytes", "row_count", "min_observed_at", "max_observed_at")
+    PARTITIONED_BY_FIELD_NUMBER: _ClassVar[int]
+    CLUSTERED_BY_FIELD_NUMBER: _ClassVar[int]
+    SIZE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    ROW_COUNT_FIELD_NUMBER: _ClassVar[int]
+    MIN_OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    MAX_OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    partitioned_by: str
+    clustered_by: _containers.RepeatedScalarFieldContainer[str]
+    size_bytes: int
+    row_count: int
+    min_observed_at: _timestamp_pb2.Timestamp
+    max_observed_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        partitioned_by: _Optional[str] = ...,
+        clustered_by: _Optional[_Iterable[str]] = ...,
+        size_bytes: _Optional[int] = ...,
+        row_count: _Optional[int] = ...,
+        min_observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        max_observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class WideTableInfo(_message.Message):
+    __slots__ = ("config", "stats")
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
+    STATS_FIELD_NUMBER: _ClassVar[int]
+    config: WideTableConfig
+    stats: WideTableStats
+    def __init__(
+        self,
+        config: _Optional[_Union[WideTableConfig, _Mapping]] = ...,
+        stats: _Optional[_Union[WideTableStats, _Mapping]] = ...,
+    ) -> None: ...
+
+class PollMetricsRequest(_message.Message):
+    __slots__ = ("poll_mask",)
+    POLL_MASK_FIELD_NUMBER: _ClassVar[int]
+    poll_mask: _field_mask_pb2.FieldMask
+    def __init__(self, poll_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
+
+class PollMetricsResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetMetricsV2Request(_message.Message):
+    __slots__ = ("read_mask",)
+    READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    read_mask: _field_mask_pb2.FieldMask
+    def __init__(self, read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...) -> None: ...
+
+class GetMetricsV2Response(_message.Message):
+    __slots__ = ("storage_details", "aggregated_stats", "namespace_to_wide_table_info")
+    class NamespaceToWideTableInfoEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: WideTableInfo
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[WideTableInfo, _Mapping]] = ...
+        ) -> None: ...
+
+    STORAGE_DETAILS_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATED_STATS_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_TO_WIDE_TABLE_INFO_FIELD_NUMBER: _ClassVar[int]
+    storage_details: _containers.RepeatedCompositeFieldContainer[OfflineStorageDetails]
+    aggregated_stats: AggregateOfflineStoreStorageStats
+    namespace_to_wide_table_info: _containers.MessageMap[str, WideTableInfo]
+    def __init__(
+        self,
+        storage_details: _Optional[_Iterable[_Union[OfflineStorageDetails, _Mapping]]] = ...,
+        aggregated_stats: _Optional[_Union[AggregateOfflineStoreStorageStats, _Mapping]] = ...,
+        namespace_to_wide_table_info: _Optional[_Mapping[str, WideTableInfo]] = ...,
     ) -> None: ...

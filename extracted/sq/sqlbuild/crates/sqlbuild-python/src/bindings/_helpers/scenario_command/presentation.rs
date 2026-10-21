@@ -11,12 +11,12 @@ use sqlbuild_core::scenario_command::main::render_scenario_result::render_scenar
 use sqlbuild_core::scenario_command::main::render_snapshot_sync_result::render_snapshot_sync_result;
 use sqlbuild_core::scenario_command::main::scenario_activity_message::scenario_activity_message;
 use sqlbuild_core::scenario_command::models::ScenarioNamespace;
+use sqlbuild_host::entries::models::ExecutorHost;
 
+use crate::bindings::_helpers::boundary::python_calls::call_with;
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
 use crate::bindings::_helpers::build_progress::transient_status::status_reporter;
-use crate::bindings::_helpers::cli::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::compile_driver::python_calls::call_with;
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::scenario_command::conversions::{
@@ -233,16 +233,24 @@ pub(crate) fn begin_section<'py>(
     })
 }
 
+/// The project directory, adapter, completion kind and style a progress relay reports with.
+pub(crate) struct RelayContext<'a, 'py> {
+    pub(crate) project_dir: &'a Bound<'py, PyAny>,
+    pub(crate) adapter: &'a Bound<'py, PyAny>,
+    pub(crate) kind: CompletionKind,
+    pub(crate) style: CliStyle,
+}
+
 /// The relay reporting one section's scenarios.
 pub(crate) fn progress_relay<'py>(
     stream: &Bound<'py, PyAny>,
     section: &SectionStatus<'py>,
-    (project_dir, adapter, kind, style): (
-        &Bound<'py, PyAny>,
-        &Bound<'py, PyAny>,
-        CompletionKind,
-        CliStyle,
-    ),
+    RelayContext {
+        project_dir,
+        adapter,
+        kind,
+        style,
+    }: RelayContext<'_, 'py>,
 ) -> PyResult<Bound<'py, ScenarioProgressRelay>> {
     Bound::new(
         stream.py(),

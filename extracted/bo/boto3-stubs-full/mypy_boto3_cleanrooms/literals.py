@@ -117,6 +117,7 @@ __all__ = (
     "ServiceName",
     "SupportedS3RegionType",
     "SyntheticDataColumnTypeType",
+    "TableReferenceTypeType",
     "TargetProtectedJobStatusType",
     "TargetProtectedQueryStatusType",
     "WorkerComputeTypeType",
@@ -403,6 +404,7 @@ SupportedS3RegionType = Literal[
     "us-west-2",
 ]
 SyntheticDataColumnTypeType = Literal["CATEGORICAL", "NUMERICAL"]
+TableReferenceTypeType = Literal["ATHENA", "DATABRICKS", "GLUE", "SNOWFLAKE"]
 TargetProtectedJobStatusType = Literal["CANCELLED"]
 TargetProtectedQueryStatusType = Literal["CANCELLED"]
 WorkerComputeTypeType = Literal["CR.1X", "CR.4X", "CR.8X"]

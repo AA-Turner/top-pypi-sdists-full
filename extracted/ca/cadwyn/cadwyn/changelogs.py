@@ -19,7 +19,13 @@ from cadwyn._asts import GenericAliasUnionArgs
 from cadwyn._utils import Sentinel
 from cadwyn.route_generation import _get_routes
 from cadwyn.routing import _RootCadwynAPIRouter
-from cadwyn.schema_generation import SchemaGenerator, _change_field_in_model, generate_versioned_models
+from cadwyn.schema_generation import (
+    SchemaGenerator,
+    _change_field_in_model,
+    _ModelBundle,
+    _PydanticModelWrapper,
+    generate_versioned_models,
+)
 from cadwyn.structure.common import _HiddenAttributeMixin
 from cadwyn.structure.versions import PossibleInstructions, VersionBundle, VersionChange, VersionChangeWithSideEffects
 
@@ -53,15 +59,14 @@ T = TypeVar("T", bound=Union[PossibleInstructions, type[VersionChange]])
 
 @deprecated(_CHANGELOG_DEPRECATION_MESSAGE)
 def hidden(instruction_or_version_change: T) -> T:
-    if isinstance(instruction_or_version_change, _HiddenAttributeMixin):
-        # Weird ty bug, or I am dumb.
-        instruction_or_version_change.is_hidden_from_changelog = True  # ty: ignore[possibly-missing-attribute]
-        return instruction_or_version_change
-
-    if isinstance(instruction_or_version_change, type) and issubclass(instruction_or_version_change, VersionChange):
-        # Weird ty bug, or I am dumb.
-        instruction_or_version_change.is_hidden_from_changelog = True  # ty: ignore[possibly-missing-attribute]
+    _hide_from_changelog(instruction_or_version_change)
     return instruction_or_version_change
+
+
+def _hide_from_changelog(obj: object) -> None:
+    # Narrowing a plain `object` instead of the `T` TypeVar lets type checkers see the attribute
+    if isinstance(obj, _HiddenAttributeMixin) or (isinstance(obj, type) and issubclass(obj, VersionChange)):
+        obj.is_hidden_from_changelog = True
 
 
 def _generate_changelog(versions: VersionBundle, router: _RootCadwynAPIRouter) -> "CadwynChangelogResource":
@@ -88,6 +93,8 @@ def _generate_changelog(versions: VersionBundle, router: _RootCadwynAPIRouter) -
                 if (
                     isinstance(instruction, ValidatorDidntExistInstruction | ValidatorExistedInstruction)
                     or instruction.is_hidden_from_changelog
+                    # The changelog does not describe the changes of the descriptions of schemas, only renamings
+                    or (isinstance(instruction, SchemaHadInstruction) and instruction.name is Sentinel)
                 ):
                     continue
                 changelog_entry = _convert_version_change_instruction_to_changelog_entry(
@@ -103,6 +110,18 @@ def _generate_changelog(versions: VersionBundle, router: _RootCadwynAPIRouter) -
             version_changelog.changes.append(version_change_changelog)
         changelog.versions.append(version_changelog)
     return changelog
+
+
+def _copy_model_with_its_parents(
+    model: "_PydanticModelWrapper[BaseModel]", schemas: "dict[type[BaseModel], _PydanticModelWrapper[BaseModel]]"
+) -> "tuple[_PydanticModelWrapper[BaseModel], dict[type[BaseModel], _PydanticModelWrapper[BaseModel]]]":
+    """Copy the model and its parents so that an instruction for a field that the model inherits only changes copies.
+
+    Otherwise, it would change the field of the parent in the version, and of its other subclasses.
+    """
+    models = [model.cls, *(cast("type[BaseModel]", base) for base in model.cls.__mro__[1:] if base in schemas)]
+    copies = copy.deepcopy(_ModelBundle(enums={}, schemas={model: schemas[model] for model in models})).schemas
+    return copies[model.cls], schemas | copies
 
 
 def _get_older_field_name(
@@ -175,13 +194,16 @@ def _get_openapi_representation_of_a_field(model: type[BaseModel], field_name: s
         )
     )
 
-    _, definitions = get_definitions(
+    field_mapping, definitions = get_definitions(
         fields=fields,
         model_name_map=model_name_map,
         separate_input_output_schemas=False,
     )
-
-    return definitions[model.__name__]["properties"][field_name]
+    # The name of the model's definition is not always its class name: e.g. a versioned copy of a self-referencing
+    # model refers to the copy of the version, which is another class with the same name
+    model_reference = next(iter(field_mapping.values())).get("$ref")
+    model_name = model.__name__ if model_reference is None else model_reference.rsplit("/", 1)[-1]
+    return definitions[model_name]["properties"][field_name]
 
 
 class ChangelogEntryType(StrEnum):
@@ -408,10 +430,12 @@ def _convert_version_change_instruction_to_changelog_entry(  # noqa: C901
             old_field_name_from_this_instruction = instruction.name
             attribute_changes = []
         newer_model_wrapper = generator_from_newer_version._get_wrapper_for_model(instruction.schema)
-        newer_model_wrapper_with_migrated_field = copy.deepcopy(newer_model_wrapper)
+        newer_model_wrapper_with_migrated_field, schemas = _copy_model_with_its_parents(
+            newer_model_wrapper, generator_from_newer_version.model_bundle.schemas
+        )
         _change_field_in_model(
             newer_model_wrapper_with_migrated_field,
-            generator_from_newer_version.model_bundle.schemas,
+            schemas,
             alter_schema_instruction=instruction,
             version_change_name=version_change.__name__,
         )

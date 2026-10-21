@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -343,6 +343,54 @@ class InsightRule(AWSObject):
     }
 
 
+class ApiKeyCredential(AWSProperty):
+    """
+    `ApiKeyCredential <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-apikeycredential.html>`__
+    """
+
+    props: PropsDictType = {
+        "ApiKeyValue": (str, True),
+    }
+
+
+class IntegrationCredential(AWSProperty):
+    """
+    `IntegrationCredential <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-integrationcredential.html>`__
+    """
+
+    props: PropsDictType = {
+        "ApiKeyCredential": (ApiKeyCredential, True),
+    }
+
+
+class TagsItems(AWSProperty):
+    """
+    `TagsItems <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-integration-tagsitems.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class Integration(AWSObject):
+    """
+    `Integration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-integration.html>`__
+    """
+
+    resource_type = "AWS::CloudWatch::Integration"
+
+    props: PropsDictType = {
+        "Credential": (IntegrationCredential, False),
+        "IntegrationAttributes": (dict, False),
+        "IntegrationType": (str, True),
+        "Name": (str, True),
+        "RoleArn": (str, False),
+        "Tags": ([TagsItems], False),
+    }
+
+
 class ScheduleConfiguration(AWSProperty):
     """
     `ScheduleConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduleconfiguration.html>`__
@@ -450,6 +498,17 @@ class MetricStream(AWSObject):
     }
 
 
+class OTelEnrichmentMetricSelector(AWSProperty):
+    """
+    `OTelEnrichmentMetricSelector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-otelenrichment-otelenrichmentmetricselector.html>`__
+    """
+
+    props: PropsDictType = {
+        "MetricNames": ([str], False),
+        "Namespace": (str, True),
+    }
+
+
 class OTelEnrichment(AWSObject):
     """
     `OTelEnrichment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-otelenrichment.html>`__
@@ -457,4 +516,45 @@ class OTelEnrichment(AWSObject):
 
     resource_type = "AWS::CloudWatch::OTelEnrichment"
 
-    props: PropsDictType = {}
+    props: PropsDictType = {
+        "ExcludeFilters": ([OTelEnrichmentMetricSelector], False),
+        "IncludeFilters": ([OTelEnrichmentMetricSelector], False),
+    }
+
+
+class ResourceMetricSelection(AWSProperty):
+    """
+    `ResourceMetricSelection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-resourcemetricsconfiguration-resourcemetricselection.html>`__
+    """
+
+    props: PropsDictType = {
+        "IncludeMetrics": ([str], True),
+    }
+
+
+class ResourceMetricsConfiguration(AWSObject):
+    """
+    `ResourceMetricsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-resourcemetricsconfiguration.html>`__
+    """
+
+    resource_type = "AWS::CloudWatch::ResourceMetricsConfiguration"
+
+    props: PropsDictType = {
+        "MetricSelections": ([ResourceMetricSelection], False),
+        "ResourceArn": (str, True),
+    }
+
+
+class View(AWSObject):
+    """
+    `View <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-view.html>`__
+    """
+
+    resource_type = "AWS::CloudWatch::View"
+
+    props: PropsDictType = {
+        "Definition": (str, True),
+        "Description": (str, False),
+        "Name": (str, False),
+        "Tags": (Tags, False),
+    }

@@ -74,33 +74,62 @@ class ResponseCheckEntry(NamedTuple):
 ResponseChecks = list[ResponseCheckEntry]
 
 
+@dataclass(slots=True)
+class CheckInternals:
+    """Request inputs, scenario history and enabled checks for built-in checks; not a stable API for custom checks."""
+
+    override: Override | None
+    auth: tuple[str, str] | None
+    headers: CaseInsensitiveDict | None
+    transport_kwargs: dict[str, Any] | None
+    recorder: ScenarioRecorder | None
+    checks: list[CheckFunction]
+
+    def find_parent(self, *, case_id: str) -> Case | None:
+        if self.recorder is not None:
+            return self.recorder.find_parent(case_id=case_id)
+        return None
+
+    def find_related(self, *, case_id: str) -> Iterator[Case]:
+        if self.recorder is not None:
+            yield from self.recorder.find_related(case_id=case_id)
+
+    def find_all_cases(self) -> Iterator[Case]:
+        if self.recorder is not None:
+            yield from self.recorder.find_all_cases()
+
+    def find_response(self, *, case_id: str) -> Response | None:
+        if self.recorder is not None:
+            return self.recorder.find_response(case_id=case_id)
+        return None
+
+    def record_case(self, *, parent_id: str, case: Case) -> None:
+        if self.recorder is not None:
+            self.recorder.record_case(parent_id=parent_id, case=case, transition=None, is_transition_applied=False)
+
+    def record_response(self, *, case_id: str, response: Response) -> None:
+        if self.recorder is not None:
+            self.recorder.record_response(case_id=case_id, response=response)
+
+
 class CheckContext:
     """Runtime context passed to validation check functions during API testing.
 
     Provides access to configuration for currently checked endpoint.
     """
 
-    _override: Override | None
-    _auth: tuple[str, str] | None
-    _headers: CaseInsensitiveDict | None
     config: ChecksConfig
     """Configuration settings for validation checks."""
-    _transport_kwargs: dict[str, Any] | None
-    _recorder: ScenarioRecorder | None
-    _checks: list[CheckFunction]
+    # Undocumented on purpose: built-in checks only, may change without notice.
+    internals: CheckInternals
     phase: PhaseName | None
     """The testing phase this context belongs to, or `None` for standalone validation."""
     auth_enforced_operations: set[str] | None
     """Operations already shown to reject missing and invalid credentials, shared across a run."""
 
     __slots__ = (
-        "_override",
-        "_auth",
-        "_headers",
         "config",
-        "_transport_kwargs",
-        "_recorder",
-        "_checks",
+        "internals",
         "phase",
         "auth_enforced_operations",
     )
@@ -118,51 +147,28 @@ class CheckContext:
         phase: PhaseName | None = None,
         auth_enforced_operations: set[str] | None = None,
     ) -> None:
-        self._override = override
-        self._auth = auth
-        self._headers = headers
         self.config = config
-        self._transport_kwargs = transport_kwargs
-        self._recorder = recorder
-        self.phase = phase
-        self.auth_enforced_operations = auth_enforced_operations
-        self._checks = []
+        checks: list[CheckFunction] = []
         for check in CHECKS.get_all():
             if is_check_class(check):
                 continue
             name = check.__name__
-            if self.config.get_by_name(name=name).enabled:
-                self._checks.append(check)
-        if self.config.max_response_time.enabled:
-            self._checks.append(max_response_time)
+            if config.get_by_name(name=name).enabled:
+                checks.append(check)
+        if config.max_response_time.enabled:
+            checks.append(max_response_time)
         if response_checks is not None:
-            self._checks.extend(build_response_checks(response_checks))
-
-    def _find_parent(self, *, case_id: str) -> Case | None:
-        if self._recorder is not None:
-            return self._recorder.find_parent(case_id=case_id)
-        return None
-
-    def _find_related(self, *, case_id: str) -> Iterator[Case]:
-        if self._recorder is not None:
-            yield from self._recorder.find_related(case_id=case_id)
-
-    def _find_all_cases(self) -> Iterator[Case]:
-        if self._recorder is not None:
-            yield from self._recorder.find_all_cases()
-
-    def _find_response(self, *, case_id: str) -> Response | None:
-        if self._recorder is not None:
-            return self._recorder.find_response(case_id=case_id)
-        return None
-
-    def _record_case(self, *, parent_id: str, case: Case) -> None:
-        if self._recorder is not None:
-            self._recorder.record_case(parent_id=parent_id, case=case, transition=None, is_transition_applied=False)
-
-    def _record_response(self, *, case_id: str, response: Response) -> None:
-        if self._recorder is not None:
-            self._recorder.record_response(case_id=case_id, response=response)
+            checks.extend(build_response_checks(response_checks))
+        self.internals = CheckInternals(
+            override=override,
+            auth=auth,
+            headers=headers,
+            transport_kwargs=transport_kwargs,
+            recorder=recorder,
+            checks=checks,
+        )
+        self.phase = phase
+        self.auth_enforced_operations = auth_enforced_operations
 
 
 CheckMethodName = Literal["after_response", "after_run"]
@@ -325,13 +331,13 @@ _RUN_CHECKS_LOCK = threading.Lock()
 def run_checks_for(schema: BaseSchema) -> RunChecks:
     # Per-schema cache (non-engine paths) so `after_response`/`after_run` share one instance.
     # Lazy + atomic: built on first access, once, even under concurrency.
-    cached = schema.__dict__.get("_run_checks")
+    cached = schema._run_checks
     if cached is None:
         with _RUN_CHECKS_LOCK:
-            cached = schema.__dict__.get("_run_checks")
+            cached = schema._run_checks
             if cached is None:
                 cached = RunChecks.from_registry(config=schema.config.checks_config_for())
-                schema.__dict__["_run_checks"] = cached
+                schema._run_checks = cached
     return cached
 
 
@@ -409,34 +415,17 @@ def _check_content_type_probe(
     ctx: CheckContext, case: Case, scenario: CoverageScenario, status_code: int, expected_statuses: frozenset[int]
 ) -> None:
     """Report a server error only when the probe's `Content-Type` causes it."""
-    from schemathesis.generation.case import Case
-
     headers = case.headers.copy()
     headers.pop("Content-Type", None)
     # The same request with the operation's own media type. When it fails too, the header is not the cause and
     # the operation's ordinary requests report that server error with a plain reproducer.
-    control = Case(
-        operation=case.operation,
-        method=case.method,
-        path=case.path,
-        path_parameters=case.path_parameters.copy(),
-        headers=headers,
-        cookies=case.cookies.copy(),
-        query=case.query.copy(),
-        body=case.body,
-        media_type=case.media_type,
-        multipart_content_types=case.multipart_content_types,
-        meta=case.meta,
-        _auth=case._auth,
-        _has_explicit_auth=case._has_explicit_auth,
-    )
-    control._auth_identity = case._auth_identity
-    kwargs = dict(ctx._transport_kwargs or {})
+    control = case.derive(headers=headers, keep_auth=True)
+    kwargs = dict(ctx.internals.transport_kwargs or {})
     if case.operation.app is not None:
         kwargs.setdefault("app", case.operation.app)
-    ctx._record_case(parent_id=case.id, case=control)
+    ctx.internals.record_case(parent_id=case.id, case=control)
     control_response = case.operation.schema.transport.send(control, **kwargs)
-    ctx._record_response(case_id=control.id, response=control_response)
+    ctx.internals.record_response(case_id=control.id, response=control_response)
     if control_response.status_code not in expected_statuses:
         return
     if scenario == CoverageScenario.MALFORMED_CONTENT_TYPE:
@@ -520,8 +509,8 @@ def run_checks(
             kept = False
             for failure in _failures_from_exception(name, case.operation.label, exc):
                 if not should_keep_failure(failure, case, response):
-                    if ctx._recorder is not None:
-                        ctx._recorder.record_filtered_failure(case_id=case.id)
+                    if ctx.internals.recorder is not None:
+                        ctx.internals.recorder.record_filtered_failure(case_id=case.id)
                     continue
                 kept = True
                 on_failure(name, collected, failure)
@@ -531,8 +520,8 @@ def run_checks(
         except Exception as exc:
             import requests
 
-            if ctx._recorder is not None and not isinstance(exc, requests.RequestException):
-                ctx._recorder.record_check_error(name=name, case_id=case.id)
+            if ctx.internals.recorder is not None and not isinstance(exc, requests.RequestException):
+                ctx.internals.recorder.record_check_error(name=name, case_id=case.id)
             raise
         else:
             if not skip_check and on_success:

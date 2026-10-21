@@ -434,6 +434,2494 @@ class CfnConnectionAliasProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspaces_4620141e.IDirectoryRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDirectory(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory",
+):
+    '''Resource Type definition for AWS::WorkSpaces::Directory.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html
+    :cloudformationResource: AWS::WorkSpaces::Directory
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_workspaces as workspaces
+        
+        cfn_directory = workspaces.CfnDirectory(self, "MyCfnDirectory",
+            active_directory_config=workspaces.CfnDirectory.ActiveDirectoryConfigProperty(
+                domain_name="domainName",
+                service_account_secret_arn="serviceAccountSecretArn"
+            ),
+            certificate_based_auth_properties=workspaces.CfnDirectory.CertificateBasedAuthPropertiesProperty(
+                certificate_authority_arn="certificateAuthorityArn",
+                status="status"
+            ),
+            enable_self_service=False,
+            endpoint_encryption_mode="endpointEncryptionMode",
+            idc_instance_arn="idcInstanceArn",
+            ip_group_ids=["ipGroupIds"],
+            microsoft_entra_config=workspaces.CfnDirectory.MicrosoftEntraConfigProperty(
+                application_config_secret_arn="applicationConfigSecretArn",
+                tenant_id="tenantId"
+            ),
+            saml_properties=workspaces.CfnDirectory.SamlPropertiesProperty(
+                relay_state_parameter_name="relayStateParameterName",
+                status="status",
+                user_access_url="userAccessUrl"
+            ),
+            selfservice_permissions=workspaces.CfnDirectory.SelfservicePermissionsProperty(
+                change_compute_type="changeComputeType",
+                increase_volume_size="increaseVolumeSize",
+                rebuild_workspace="rebuildWorkspace",
+                restart_workspace="restartWorkspace",
+                switch_running_mode="switchRunningMode"
+            ),
+            streaming_properties=workspaces.CfnDirectory.StreamingPropertiesProperty(
+                global_accelerator=workspaces.CfnDirectory.GlobalAcceleratorForDirectoryProperty(
+                    mode="mode",
+        
+                    # the properties below are optional
+                    preferred_protocol="preferredProtocol"
+                ),
+                storage_connectors=[workspaces.CfnDirectory.StorageConnectorProperty(
+                    connector_type="connectorType",
+                    status="status"
+                )],
+                streaming_experience_preferred_protocol="streamingExperiencePreferredProtocol",
+                user_settings=[workspaces.CfnDirectory.UserSettingProperty(
+                    action="action",
+                    permission="permission",
+        
+                    # the properties below are optional
+                    maximum_length=123
+                )]
+            ),
+            subnet_ids=["subnetIds"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            tenancy="tenancy",
+            user_identity_type="userIdentityType",
+            workspace_access_properties=workspaces.CfnDirectory.WorkspaceAccessPropertiesProperty(
+                access_endpoint_config=workspaces.CfnDirectory.AccessEndpointConfigProperty(
+                    access_endpoints=[workspaces.CfnDirectory.AccessEndpointProperty(
+                        access_endpoint_type="accessEndpointType",
+                        vpc_endpoint_id="vpcEndpointId"
+                    )],
+        
+                    # the properties below are optional
+                    internet_fallback_protocols=["internetFallbackProtocols"]
+                ),
+                device_type_android="deviceTypeAndroid",
+                device_type_chrome_os="deviceTypeChromeOs",
+                device_type_ios="deviceTypeIos",
+                device_type_linux="deviceTypeLinux",
+                device_type_osx="deviceTypeOsx",
+                device_type_web="deviceTypeWeb",
+                device_type_windows="deviceTypeWindows",
+                device_type_work_spaces_thin_client="deviceTypeWorkSpacesThinClient",
+                device_type_zero_client="deviceTypeZeroClient"
+            ),
+            workspace_creation_properties=workspaces.CfnDirectory.DefaultWorkspaceCreationPropertiesProperty(
+                custom_security_group_id="customSecurityGroupId",
+                default_ou="defaultOu",
+                enable_internet_access=False,
+                enable_maintenance_mode=False,
+                instance_iam_role_arn="instanceIamRoleArn",
+                user_enabled_as_local_administrator=False
+            ),
+            workspace_directory_description="workspaceDirectoryDescription",
+            workspace_directory_name="workspaceDirectoryName",
+            workspace_type="workspaceType"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        active_directory_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.ActiveDirectoryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate_based_auth_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.CertificateBasedAuthPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_self_service: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        endpoint_encryption_mode: typing.Optional[builtins.str] = None,
+        idc_instance_arn: typing.Optional[builtins.str] = None,
+        ip_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        microsoft_entra_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.MicrosoftEntraConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        saml_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.SamlPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        selfservice_permissions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.SelfservicePermissionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        streaming_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.StreamingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tenancy: typing.Optional[builtins.str] = None,
+        user_identity_type: typing.Optional[builtins.str] = None,
+        workspace_access_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.WorkspaceAccessPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_creation_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.DefaultWorkspaceCreationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_directory_description: typing.Optional[builtins.str] = None,
+        workspace_directory_name: typing.Optional[builtins.str] = None,
+        workspace_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::WorkSpaces::Directory``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param active_directory_config: Information about the Active Directory config.
+        :param certificate_based_auth_properties: Describes the properties of the certificate-based authentication you want to use with your WorkSpaces.
+        :param enable_self_service: Indicates whether self-service capabilities are enabled or disabled.
+        :param endpoint_encryption_mode: Endpoint encryption mode that allows you to configure the specified directory between Standard TLS and FIPS 140-2 validated mode.
+        :param idc_instance_arn: The Amazon Resource Name (ARN) of the identity center instance.
+        :param ip_group_ids: The identifiers of the IP access control groups associated with the directory.
+        :param microsoft_entra_config: Specifies the configurations of the Microsoft Entra.
+        :param saml_properties: Describes the enablement status, user access URL, and relay state parameter name that are used for configuring federation with an SAML 2.0 identity provider.
+        :param selfservice_permissions: Describes the self-service permissions for a directory.
+        :param streaming_properties: Describes the streaming properties.
+        :param subnet_ids: The identifiers of the subnets for your virtual private cloud (VPC).
+        :param tags: The tags associated with the directory.
+        :param tenancy: Indicates whether your WorkSpace directory is dedicated or shared.
+        :param user_identity_type: The type of identity management the user is using.
+        :param workspace_access_properties: The device types and operating systems that can be used to access a WorkSpace.
+        :param workspace_creation_properties: The default values that are used to create WorkSpaces.
+        :param workspace_directory_description: Description of the directory to register.
+        :param workspace_directory_name: The name of the directory to register.
+        :param workspace_type: Indicates whether the directory's WorkSpace type is personal or pools.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__97d2fd090a322f0e86011be41549fee5ba73daf4f5f02076bb14f2e5c613cc90)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDirectoryProps(
+            active_directory_config=active_directory_config,
+            certificate_based_auth_properties=certificate_based_auth_properties,
+            enable_self_service=enable_self_service,
+            endpoint_encryption_mode=endpoint_encryption_mode,
+            idc_instance_arn=idc_instance_arn,
+            ip_group_ids=ip_group_ids,
+            microsoft_entra_config=microsoft_entra_config,
+            saml_properties=saml_properties,
+            selfservice_permissions=selfservice_permissions,
+            streaming_properties=streaming_properties,
+            subnet_ids=subnet_ids,
+            tags=tags,
+            tenancy=tenancy,
+            user_identity_type=user_identity_type,
+            workspace_access_properties=workspace_access_properties,
+            workspace_creation_properties=workspace_creation_properties,
+            workspace_directory_description=workspace_directory_description,
+            workspace_directory_name=workspace_directory_name,
+            workspace_type=workspace_type,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDirectory")
+    @builtins.classmethod
+    def arn_for_directory(
+        cls,
+        resource: "_aws_workspaces_4620141e.IDirectoryRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cdffabab5518c6dfd10b6189ff95a9b939ec41d46c84120537446c0b207aa3f4)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDirectory", [resource]))
+
+    @jsii.member(jsii_name="isCfnDirectory")
+    @builtins.classmethod
+    def is_cfn_directory(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDirectory.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__12748995b26571c6b584a78b311a91b4858d813a9de56630d9cc8a06efa30670)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDirectory", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a7d63a54fc0f25eb54b703a8b2271391a2de4dccf825da047fe18cc0e3bacac8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c6bd5c53c0844aa7f2f45f96592d3cbb86fe27c7c773eede54fa6b91cd0c7f27)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAlias")
+    def attr_alias(self) -> builtins.str:
+        '''The directory alias.
+
+        :cloudformationAttribute: Alias
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAlias"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the WorkSpace directory.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCustomerUserName")
+    def attr_customer_user_name(self) -> builtins.str:
+        '''The user name for the service account.
+
+        :cloudformationAttribute: CustomerUserName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCustomerUserName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDirectoryId")
+    def attr_directory_id(self) -> builtins.str:
+        '''The directory identifier.
+
+        :cloudformationAttribute: DirectoryId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDirectoryId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDirectoryName")
+    def attr_directory_name(self) -> builtins.str:
+        '''The name of the directory.
+
+        :cloudformationAttribute: DirectoryName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDirectoryName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDirectoryType")
+    def attr_directory_type(self) -> builtins.str:
+        '''The directory type.
+
+        :cloudformationAttribute: DirectoryType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDirectoryType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDnsIpAddresses")
+    def attr_dns_ip_addresses(self) -> typing.List[builtins.str]:
+        '''The IP addresses of the DNS servers for the directory.
+
+        :cloudformationAttribute: DnsIpAddresses
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrDnsIpAddresses"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDnsIpv6Addresses")
+    def attr_dns_ipv6_addresses(self) -> typing.List[builtins.str]:
+        '''The IPv6 addresses of the DNS servers for the directory.
+
+        :cloudformationAttribute: DnsIpv6Addresses
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "attrDnsIpv6Addresses"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIamRoleId")
+    def attr_iam_role_id(self) -> builtins.str:
+        '''The identifier of the IAM role.
+
+        :cloudformationAttribute: IamRoleId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIamRoleId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIdcConfig")
+    def attr_idc_config(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Specifies the configurations of the identity center.
+
+        :cloudformationAttribute: IDCConfig
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrIdcConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRegistrationCode")
+    def attr_registration_code(self) -> builtins.str:
+        '''The registration code for the directory.
+
+        :cloudformationAttribute: RegistrationCode
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRegistrationCode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the directory's registration with Amazon WorkSpaces.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrWorkspaceSecurityGroupId")
+    def attr_workspace_security_group_id(self) -> builtins.str:
+        '''The identifier of the security group that is assigned to new WorkSpaces.
+
+        :cloudformationAttribute: WorkspaceSecurityGroupId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrWorkspaceSecurityGroupId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="directoryRef")
+    def directory_ref(self) -> "_aws_workspaces_4620141e.DirectoryReference":
+        '''A reference to a Directory resource.'''
+        return typing.cast("_aws_workspaces_4620141e.DirectoryReference", jsii.get(self, "directoryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="activeDirectoryConfig")
+    def active_directory_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.ActiveDirectoryConfigProperty"]]:
+        '''Information about the Active Directory config.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.ActiveDirectoryConfigProperty"]], jsii.get(self, "activeDirectoryConfig"))
+
+    @active_directory_config.setter
+    def active_directory_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.ActiveDirectoryConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d5935083ae4bb3e24425d51af0007be0cd0d57e8ff8ff72702ac9593e3f928cc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "activeDirectoryConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateBasedAuthProperties")
+    def certificate_based_auth_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.CertificateBasedAuthPropertiesProperty"]]:
+        '''Describes the properties of the certificate-based authentication you want to use with your WorkSpaces.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.CertificateBasedAuthPropertiesProperty"]], jsii.get(self, "certificateBasedAuthProperties"))
+
+    @certificate_based_auth_properties.setter
+    def certificate_based_auth_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.CertificateBasedAuthPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c14bd4bcf3be59597cc94b6622b6d08872f213251205ed7e8ac43e7cd343d0f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateBasedAuthProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableSelfService")
+    def enable_self_service(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether self-service capabilities are enabled or disabled.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "enableSelfService"))
+
+    @enable_self_service.setter
+    def enable_self_service(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1d5b380d1fadf9673790a641ab3bc2d51de5797c899e2b3fd2d11f04cfd41aaf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableSelfService", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="endpointEncryptionMode")
+    def endpoint_encryption_mode(self) -> typing.Optional[builtins.str]:
+        '''Endpoint encryption mode that allows you to configure the specified directory between Standard TLS and FIPS 140-2 validated mode.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "endpointEncryptionMode"))
+
+    @endpoint_encryption_mode.setter
+    def endpoint_encryption_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d48bd075e1d5f4e21bd96297cef42d2f7dcd3b3b0b09282064e75850711378bf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "endpointEncryptionMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="idcInstanceArn")
+    def idc_instance_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the identity center instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idcInstanceArn"))
+
+    @idc_instance_arn.setter
+    def idc_instance_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3d199dd5b9442a70e651b9c77f9fa0566e1d9960e98c9c8baea8f22ee9287a2b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "idcInstanceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="ipGroupIds")
+    def ip_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The identifiers of the IP access control groups associated with the directory.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "ipGroupIds"))
+
+    @ip_group_ids.setter
+    def ip_group_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c12cd311ffce9568cff4f9a934712be539ba52685ec7024f986cd60c7c1f3d45)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "ipGroupIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="microsoftEntraConfig")
+    def microsoft_entra_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.MicrosoftEntraConfigProperty"]]:
+        '''Specifies the configurations of the Microsoft Entra.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.MicrosoftEntraConfigProperty"]], jsii.get(self, "microsoftEntraConfig"))
+
+    @microsoft_entra_config.setter
+    def microsoft_entra_config(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.MicrosoftEntraConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7c1c4fc7c0c44f9f4a3d44936bef556cf289dc3adb77a8f5f4eee4dac8dfc9b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "microsoftEntraConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="samlProperties")
+    def saml_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SamlPropertiesProperty"]]:
+        '''Describes the enablement status, user access URL, and relay state parameter name that are used for configuring federation with an SAML 2.0 identity provider.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SamlPropertiesProperty"]], jsii.get(self, "samlProperties"))
+
+    @saml_properties.setter
+    def saml_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SamlPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1e9476ef4c83098329845a817adfab1e370a5ee7ed7efc8ef90ee6b255ea7f7c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "samlProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="selfservicePermissions")
+    def selfservice_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SelfservicePermissionsProperty"]]:
+        '''Describes the self-service permissions for a directory.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SelfservicePermissionsProperty"]], jsii.get(self, "selfservicePermissions"))
+
+    @selfservice_permissions.setter
+    def selfservice_permissions(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SelfservicePermissionsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d850202b4b1b5c70f0967ed877c9383134b8b4322c36f14fa5a82730ae0e648a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "selfservicePermissions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="streamingProperties")
+    def streaming_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.StreamingPropertiesProperty"]]:
+        '''Describes the streaming properties.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.StreamingPropertiesProperty"]], jsii.get(self, "streamingProperties"))
+
+    @streaming_properties.setter
+    def streaming_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.StreamingPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b7f1f768604605fd8c2f117048afe270d2a8c642cf2f27bad1281c65a58b5feb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "streamingProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="subnetIds")
+    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The identifiers of the subnets for your virtual private cloud (VPC).'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "subnetIds"))
+
+    @subnet_ids.setter
+    def subnet_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bd17e443fdeffd0d8f357751e184e1e851c50a732595b91eec1b8bf5eb0ca0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "subnetIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the directory.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a0b57d5e0d13092d1ac273dd853c173fae7fcaba6c8767a4be90933c4e5df709)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tenancy")
+    def tenancy(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether your WorkSpace directory is dedicated or shared.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tenancy"))
+
+    @tenancy.setter
+    def tenancy(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__edb1af56f4750cefa6bb0b0a5b6d97e4eee63424bda5338ea220b885617a0c89)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tenancy", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userIdentityType")
+    def user_identity_type(self) -> typing.Optional[builtins.str]:
+        '''The type of identity management the user is using.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "userIdentityType"))
+
+    @user_identity_type.setter
+    def user_identity_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__23c9fb93d4661ad4bfb38b4968e127400e5a702021709244b6d658c01dbcfb7b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userIdentityType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceAccessProperties")
+    def workspace_access_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.WorkspaceAccessPropertiesProperty"]]:
+        '''The device types and operating systems that can be used to access a WorkSpace.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.WorkspaceAccessPropertiesProperty"]], jsii.get(self, "workspaceAccessProperties"))
+
+    @workspace_access_properties.setter
+    def workspace_access_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.WorkspaceAccessPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__8724beb6e6ee10070a868ef023abdb06e729abd29cc0b01ac20a32b2c1bc1697)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceAccessProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceCreationProperties")
+    def workspace_creation_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.DefaultWorkspaceCreationPropertiesProperty"]]:
+        '''The default values that are used to create WorkSpaces.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.DefaultWorkspaceCreationPropertiesProperty"]], jsii.get(self, "workspaceCreationProperties"))
+
+    @workspace_creation_properties.setter
+    def workspace_creation_properties(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.DefaultWorkspaceCreationPropertiesProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__216b29943227b73b434fdf6b0fec0183add3a5cde23dcdc1d4fff9a5b8a97c9d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceCreationProperties", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceDirectoryDescription")
+    def workspace_directory_description(self) -> typing.Optional[builtins.str]:
+        '''Description of the directory to register.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workspaceDirectoryDescription"))
+
+    @workspace_directory_description.setter
+    def workspace_directory_description(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__098e67aa24151ba52b4a187547fe3bfe6102d7d77ffe9f5407daa4c43b979ac7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceDirectoryDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceDirectoryName")
+    def workspace_directory_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the directory to register.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workspaceDirectoryName"))
+
+    @workspace_directory_name.setter
+    def workspace_directory_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__87b41ec10b32352bd312188184670dee7448018cddc80956a217145e754c071e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceDirectoryName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="workspaceType")
+    def workspace_type(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether the directory's WorkSpace type is personal or pools.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "workspaceType"))
+
+    @workspace_type.setter
+    def workspace_type(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__62a158204c3529104edbe60ac679af107f42bb82458981aeb6a21c799e00e3ab)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "workspaceType", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.AccessEndpointConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_endpoints": "accessEndpoints",
+            "internet_fallback_protocols": "internetFallbackProtocols",
+        },
+    )
+    class AccessEndpointConfigProperty:
+        def __init__(
+            self,
+            *,
+            access_endpoints: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.AccessEndpointProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            internet_fallback_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Describes the access endpoint configuration for a WorkSpace.
+
+            :param access_endpoints: Indicates a list of access endpoints associated with this directory.
+            :param internet_fallback_protocols: Indicates a list of protocols that fallback to using the public Internet when streaming over a VPC endpoint is not available.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-accessendpointconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                access_endpoint_config_property = workspaces.CfnDirectory.AccessEndpointConfigProperty(
+                    access_endpoints=[workspaces.CfnDirectory.AccessEndpointProperty(
+                        access_endpoint_type="accessEndpointType",
+                        vpc_endpoint_id="vpcEndpointId"
+                    )],
+                
+                    # the properties below are optional
+                    internet_fallback_protocols=["internetFallbackProtocols"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9ba9a18ad9d6cd68b06909aaad77c534309ec8d39f744baad2f2c7a8aae55852)
+                check_type(argname="argument access_endpoints", value=access_endpoints, expected_type=type_hints["access_endpoints"])
+                check_type(argname="argument internet_fallback_protocols", value=internet_fallback_protocols, expected_type=type_hints["internet_fallback_protocols"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_endpoints": access_endpoints,
+            }
+            if internet_fallback_protocols is not None:
+                self._values["internet_fallback_protocols"] = internet_fallback_protocols
+
+        @builtins.property
+        def access_endpoints(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.AccessEndpointProperty"]]]:
+            '''Indicates a list of access endpoints associated with this directory.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-accessendpointconfig.html#cfn-workspaces-directory-accessendpointconfig-accessendpoints
+            '''
+            result = self._values.get("access_endpoints")
+            assert result is not None, "Required property 'access_endpoints' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.AccessEndpointProperty"]]], result)
+
+        @builtins.property
+        def internet_fallback_protocols(
+            self,
+        ) -> typing.Optional[typing.List[builtins.str]]:
+            '''Indicates a list of protocols that fallback to using the public Internet when streaming over a VPC endpoint is not available.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-accessendpointconfig.html#cfn-workspaces-directory-accessendpointconfig-internetfallbackprotocols
+            '''
+            result = self._values.get("internet_fallback_protocols")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AccessEndpointConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.AccessEndpointProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_endpoint_type": "accessEndpointType",
+            "vpc_endpoint_id": "vpcEndpointId",
+        },
+    )
+    class AccessEndpointProperty:
+        def __init__(
+            self,
+            *,
+            access_endpoint_type: typing.Optional[builtins.str] = None,
+            vpc_endpoint_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes the access type and endpoint for a WorkSpace.
+
+            :param access_endpoint_type: Indicates the type of access endpoint.
+            :param vpc_endpoint_id: Indicates the VPC endpoint to use for access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-accessendpoint.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                access_endpoint_property = workspaces.CfnDirectory.AccessEndpointProperty(
+                    access_endpoint_type="accessEndpointType",
+                    vpc_endpoint_id="vpcEndpointId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__39185f9119f3d0883d05448778c03e1be9e3752bc4640c32fbd98609b6805ebf)
+                check_type(argname="argument access_endpoint_type", value=access_endpoint_type, expected_type=type_hints["access_endpoint_type"])
+                check_type(argname="argument vpc_endpoint_id", value=vpc_endpoint_id, expected_type=type_hints["vpc_endpoint_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_endpoint_type is not None:
+                self._values["access_endpoint_type"] = access_endpoint_type
+            if vpc_endpoint_id is not None:
+                self._values["vpc_endpoint_id"] = vpc_endpoint_id
+
+        @builtins.property
+        def access_endpoint_type(self) -> typing.Optional[builtins.str]:
+            '''Indicates the type of access endpoint.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-accessendpoint.html#cfn-workspaces-directory-accessendpoint-accessendpointtype
+            '''
+            result = self._values.get("access_endpoint_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def vpc_endpoint_id(self) -> typing.Optional[builtins.str]:
+            '''Indicates the VPC endpoint to use for access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-accessendpoint.html#cfn-workspaces-directory-accessendpoint-vpcendpointid
+            '''
+            result = self._values.get("vpc_endpoint_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AccessEndpointProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.ActiveDirectoryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "domain_name": "domainName",
+            "service_account_secret_arn": "serviceAccountSecretArn",
+        },
+    )
+    class ActiveDirectoryConfigProperty:
+        def __init__(
+            self,
+            *,
+            domain_name: builtins.str,
+            service_account_secret_arn: builtins.str,
+        ) -> None:
+            '''Information about the Active Directory config.
+
+            :param domain_name: The name of the domain.
+            :param service_account_secret_arn: Indicates the secret ARN on the service account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-activedirectoryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                active_directory_config_property = workspaces.CfnDirectory.ActiveDirectoryConfigProperty(
+                    domain_name="domainName",
+                    service_account_secret_arn="serviceAccountSecretArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e4ea3bc303fd18efdf01d9d0ed5f93e34d450353289262313dca3511076eee9d)
+                check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+                check_type(argname="argument service_account_secret_arn", value=service_account_secret_arn, expected_type=type_hints["service_account_secret_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "domain_name": domain_name,
+                "service_account_secret_arn": service_account_secret_arn,
+            }
+
+        @builtins.property
+        def domain_name(self) -> builtins.str:
+            '''The name of the domain.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-activedirectoryconfig.html#cfn-workspaces-directory-activedirectoryconfig-domainname
+            '''
+            result = self._values.get("domain_name")
+            assert result is not None, "Required property 'domain_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def service_account_secret_arn(self) -> builtins.str:
+            '''Indicates the secret ARN on the service account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-activedirectoryconfig.html#cfn-workspaces-directory-activedirectoryconfig-serviceaccountsecretarn
+            '''
+            result = self._values.get("service_account_secret_arn")
+            assert result is not None, "Required property 'service_account_secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ActiveDirectoryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.CertificateBasedAuthPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "certificate_authority_arn": "certificateAuthorityArn",
+            "status": "status",
+        },
+    )
+    class CertificateBasedAuthPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            certificate_authority_arn: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes the properties of the certificate-based authentication you want to use with your WorkSpaces.
+
+            :param certificate_authority_arn: The Amazon Resource Name (ARN) of the Amazon Web Services Certificate Manager Private CA resource.
+            :param status: The status of the certificate-based authentication properties.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-certificatebasedauthproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                certificate_based_auth_properties_property = workspaces.CfnDirectory.CertificateBasedAuthPropertiesProperty(
+                    certificate_authority_arn="certificateAuthorityArn",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__8d5b4bd7bf8f7b42c1b026907d8b0c63a5212a29cec1f1dfe5d4e506ff2f338c)
+                check_type(argname="argument certificate_authority_arn", value=certificate_authority_arn, expected_type=type_hints["certificate_authority_arn"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if certificate_authority_arn is not None:
+                self._values["certificate_authority_arn"] = certificate_authority_arn
+            if status is not None:
+                self._values["status"] = status
+
+        @builtins.property
+        def certificate_authority_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the Amazon Web Services Certificate Manager Private CA resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-certificatebasedauthproperties.html#cfn-workspaces-directory-certificatebasedauthproperties-certificateauthorityarn
+            '''
+            result = self._values.get("certificate_authority_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''The status of the certificate-based authentication properties.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-certificatebasedauthproperties.html#cfn-workspaces-directory-certificatebasedauthproperties-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CertificateBasedAuthPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.DefaultWorkspaceCreationPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "custom_security_group_id": "customSecurityGroupId",
+            "default_ou": "defaultOu",
+            "enable_internet_access": "enableInternetAccess",
+            "enable_maintenance_mode": "enableMaintenanceMode",
+            "instance_iam_role_arn": "instanceIamRoleArn",
+            "user_enabled_as_local_administrator": "userEnabledAsLocalAdministrator",
+        },
+    )
+    class DefaultWorkspaceCreationPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            custom_security_group_id: typing.Optional[builtins.str] = None,
+            default_ou: typing.Optional[builtins.str] = None,
+            enable_internet_access: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            enable_maintenance_mode: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            instance_iam_role_arn: typing.Optional[builtins.str] = None,
+            user_enabled_as_local_administrator: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''The default values that are used to create WorkSpaces.
+
+            :param custom_security_group_id: The identifier of the default security group to apply to WorkSpaces when they are created.
+            :param default_ou: The organizational unit (OU) in the directory for the WorkSpace machine accounts.
+            :param enable_internet_access: Specifies whether to automatically assign an Elastic public IP address to WorkSpaces in this directory by default.
+            :param enable_maintenance_mode: Specifies whether maintenance mode is enabled for WorkSpaces.
+            :param instance_iam_role_arn: Indicates the IAM role ARN of the instance.
+            :param user_enabled_as_local_administrator: Specifies whether WorkSpace users are local administrators on their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-defaultworkspacecreationproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                default_workspace_creation_properties_property = workspaces.CfnDirectory.DefaultWorkspaceCreationPropertiesProperty(
+                    custom_security_group_id="customSecurityGroupId",
+                    default_ou="defaultOu",
+                    enable_internet_access=False,
+                    enable_maintenance_mode=False,
+                    instance_iam_role_arn="instanceIamRoleArn",
+                    user_enabled_as_local_administrator=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9ad3786ebe3af46bd62ca671ef7d20163db404055c890619acac286bc6b5ba71)
+                check_type(argname="argument custom_security_group_id", value=custom_security_group_id, expected_type=type_hints["custom_security_group_id"])
+                check_type(argname="argument default_ou", value=default_ou, expected_type=type_hints["default_ou"])
+                check_type(argname="argument enable_internet_access", value=enable_internet_access, expected_type=type_hints["enable_internet_access"])
+                check_type(argname="argument enable_maintenance_mode", value=enable_maintenance_mode, expected_type=type_hints["enable_maintenance_mode"])
+                check_type(argname="argument instance_iam_role_arn", value=instance_iam_role_arn, expected_type=type_hints["instance_iam_role_arn"])
+                check_type(argname="argument user_enabled_as_local_administrator", value=user_enabled_as_local_administrator, expected_type=type_hints["user_enabled_as_local_administrator"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if custom_security_group_id is not None:
+                self._values["custom_security_group_id"] = custom_security_group_id
+            if default_ou is not None:
+                self._values["default_ou"] = default_ou
+            if enable_internet_access is not None:
+                self._values["enable_internet_access"] = enable_internet_access
+            if enable_maintenance_mode is not None:
+                self._values["enable_maintenance_mode"] = enable_maintenance_mode
+            if instance_iam_role_arn is not None:
+                self._values["instance_iam_role_arn"] = instance_iam_role_arn
+            if user_enabled_as_local_administrator is not None:
+                self._values["user_enabled_as_local_administrator"] = user_enabled_as_local_administrator
+
+        @builtins.property
+        def custom_security_group_id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the default security group to apply to WorkSpaces when they are created.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-defaultworkspacecreationproperties.html#cfn-workspaces-directory-defaultworkspacecreationproperties-customsecuritygroupid
+            '''
+            result = self._values.get("custom_security_group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def default_ou(self) -> typing.Optional[builtins.str]:
+            '''The organizational unit (OU) in the directory for the WorkSpace machine accounts.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-defaultworkspacecreationproperties.html#cfn-workspaces-directory-defaultworkspacecreationproperties-defaultou
+            '''
+            result = self._values.get("default_ou")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def enable_internet_access(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether to automatically assign an Elastic public IP address to WorkSpaces in this directory by default.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-defaultworkspacecreationproperties.html#cfn-workspaces-directory-defaultworkspacecreationproperties-enableinternetaccess
+            '''
+            result = self._values.get("enable_internet_access")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def enable_maintenance_mode(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether maintenance mode is enabled for WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-defaultworkspacecreationproperties.html#cfn-workspaces-directory-defaultworkspacecreationproperties-enablemaintenancemode
+            '''
+            result = self._values.get("enable_maintenance_mode")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def instance_iam_role_arn(self) -> typing.Optional[builtins.str]:
+            '''Indicates the IAM role ARN of the instance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-defaultworkspacecreationproperties.html#cfn-workspaces-directory-defaultworkspacecreationproperties-instanceiamrolearn
+            '''
+            result = self._values.get("instance_iam_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def user_enabled_as_local_administrator(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Specifies whether WorkSpace users are local administrators on their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-defaultworkspacecreationproperties.html#cfn-workspaces-directory-defaultworkspacecreationproperties-userenabledaslocaladministrator
+            '''
+            result = self._values.get("user_enabled_as_local_administrator")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DefaultWorkspaceCreationPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.GlobalAcceleratorForDirectoryProperty",
+        jsii_struct_bases=[],
+        name_mapping={"mode": "mode", "preferred_protocol": "preferredProtocol"},
+    )
+    class GlobalAcceleratorForDirectoryProperty:
+        def __init__(
+            self,
+            *,
+            mode: builtins.str,
+            preferred_protocol: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes the Global Accelerator for directory.
+
+            :param mode: Indicates if Global Accelerator for directory is enabled or disabled.
+            :param preferred_protocol: Indicates the preferred protocol for Global Accelerator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-globalacceleratorfordirectory.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                global_accelerator_for_directory_property = workspaces.CfnDirectory.GlobalAcceleratorForDirectoryProperty(
+                    mode="mode",
+                
+                    # the properties below are optional
+                    preferred_protocol="preferredProtocol"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__199ae25c0d1364aa0c94b7ad03fd0a32f19a6cc84de14a43cfb585d4720859a0)
+                check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
+                check_type(argname="argument preferred_protocol", value=preferred_protocol, expected_type=type_hints["preferred_protocol"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "mode": mode,
+            }
+            if preferred_protocol is not None:
+                self._values["preferred_protocol"] = preferred_protocol
+
+        @builtins.property
+        def mode(self) -> builtins.str:
+            '''Indicates if Global Accelerator for directory is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-globalacceleratorfordirectory.html#cfn-workspaces-directory-globalacceleratorfordirectory-mode
+            '''
+            result = self._values.get("mode")
+            assert result is not None, "Required property 'mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def preferred_protocol(self) -> typing.Optional[builtins.str]:
+            '''Indicates the preferred protocol for Global Accelerator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-globalacceleratorfordirectory.html#cfn-workspaces-directory-globalacceleratorfordirectory-preferredprotocol
+            '''
+            result = self._values.get("preferred_protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GlobalAcceleratorForDirectoryProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.IDCConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_arn": "applicationArn",
+            "instance_arn": "instanceArn",
+        },
+    )
+    class IDCConfigProperty:
+        def __init__(
+            self,
+            *,
+            application_arn: typing.Optional[builtins.str] = None,
+            instance_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies the configurations of the identity center.
+
+            :param application_arn: The Amazon Resource Name (ARN) of the application.
+            :param instance_arn: The Amazon Resource Name (ARN) of the identity center instance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-idcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                i_dc_config_property = {
+                    "application_arn": "applicationArn",
+                    "instance_arn": "instanceArn"
+                }
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__92a78b77bd8100ad2ae337b65f5313eafa1832bc96163e7746e0f48d219ecb2d)
+                check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
+                check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if application_arn is not None:
+                self._values["application_arn"] = application_arn
+            if instance_arn is not None:
+                self._values["instance_arn"] = instance_arn
+
+        @builtins.property
+        def application_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-idcconfig.html#cfn-workspaces-directory-idcconfig-applicationarn
+            '''
+            result = self._values.get("application_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def instance_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the identity center instance.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-idcconfig.html#cfn-workspaces-directory-idcconfig-instancearn
+            '''
+            result = self._values.get("instance_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IDCConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.MicrosoftEntraConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "application_config_secret_arn": "applicationConfigSecretArn",
+            "tenant_id": "tenantId",
+        },
+    )
+    class MicrosoftEntraConfigProperty:
+        def __init__(
+            self,
+            *,
+            application_config_secret_arn: typing.Optional[builtins.str] = None,
+            tenant_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies the configurations of the Microsoft Entra.
+
+            :param application_config_secret_arn: The Amazon Resource Name (ARN) of the application config.
+            :param tenant_id: The identifier of the tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-microsoftentraconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                microsoft_entra_config_property = workspaces.CfnDirectory.MicrosoftEntraConfigProperty(
+                    application_config_secret_arn="applicationConfigSecretArn",
+                    tenant_id="tenantId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__d9940a6ad225287b5d67e7486f545651568899a168da4936344e76bb6ba8f3aa)
+                check_type(argname="argument application_config_secret_arn", value=application_config_secret_arn, expected_type=type_hints["application_config_secret_arn"])
+                check_type(argname="argument tenant_id", value=tenant_id, expected_type=type_hints["tenant_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if application_config_secret_arn is not None:
+                self._values["application_config_secret_arn"] = application_config_secret_arn
+            if tenant_id is not None:
+                self._values["tenant_id"] = tenant_id
+
+        @builtins.property
+        def application_config_secret_arn(self) -> typing.Optional[builtins.str]:
+            '''The Amazon Resource Name (ARN) of the application config.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-microsoftentraconfig.html#cfn-workspaces-directory-microsoftentraconfig-applicationconfigsecretarn
+            '''
+            result = self._values.get("application_config_secret_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def tenant_id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the tenant.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-microsoftentraconfig.html#cfn-workspaces-directory-microsoftentraconfig-tenantid
+            '''
+            result = self._values.get("tenant_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MicrosoftEntraConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.SamlPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "relay_state_parameter_name": "relayStateParameterName",
+            "status": "status",
+            "user_access_url": "userAccessUrl",
+        },
+    )
+    class SamlPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            relay_state_parameter_name: typing.Optional[builtins.str] = None,
+            status: typing.Optional[builtins.str] = None,
+            user_access_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes the enablement status, user access URL, and relay state parameter name that are used for configuring federation with an SAML 2.0 identity provider.
+
+            :param relay_state_parameter_name: The relay state parameter name supported by the SAML 2.0 identity provider (IdP).
+            :param status: Indicates the status of SAML 2.0 authentication.
+            :param user_access_url: The SAML 2.0 identity provider (IdP) user access URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-samlproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                saml_properties_property = workspaces.CfnDirectory.SamlPropertiesProperty(
+                    relay_state_parameter_name="relayStateParameterName",
+                    status="status",
+                    user_access_url="userAccessUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c2504bb91b90dedcd987a0e28039477a816c525ee82f3f6e6485d89be3f46e3e)
+                check_type(argname="argument relay_state_parameter_name", value=relay_state_parameter_name, expected_type=type_hints["relay_state_parameter_name"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+                check_type(argname="argument user_access_url", value=user_access_url, expected_type=type_hints["user_access_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if relay_state_parameter_name is not None:
+                self._values["relay_state_parameter_name"] = relay_state_parameter_name
+            if status is not None:
+                self._values["status"] = status
+            if user_access_url is not None:
+                self._values["user_access_url"] = user_access_url
+
+        @builtins.property
+        def relay_state_parameter_name(self) -> typing.Optional[builtins.str]:
+            '''The relay state parameter name supported by the SAML 2.0 identity provider (IdP).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-samlproperties.html#cfn-workspaces-directory-samlproperties-relaystateparametername
+            '''
+            result = self._values.get("relay_state_parameter_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def status(self) -> typing.Optional[builtins.str]:
+            '''Indicates the status of SAML 2.0 authentication.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-samlproperties.html#cfn-workspaces-directory-samlproperties-status
+            '''
+            result = self._values.get("status")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def user_access_url(self) -> typing.Optional[builtins.str]:
+            '''The SAML 2.0 identity provider (IdP) user access URL.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-samlproperties.html#cfn-workspaces-directory-samlproperties-useraccessurl
+            '''
+            result = self._values.get("user_access_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SamlPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.SelfservicePermissionsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "change_compute_type": "changeComputeType",
+            "increase_volume_size": "increaseVolumeSize",
+            "rebuild_workspace": "rebuildWorkspace",
+            "restart_workspace": "restartWorkspace",
+            "switch_running_mode": "switchRunningMode",
+        },
+    )
+    class SelfservicePermissionsProperty:
+        def __init__(
+            self,
+            *,
+            change_compute_type: typing.Optional[builtins.str] = None,
+            increase_volume_size: typing.Optional[builtins.str] = None,
+            rebuild_workspace: typing.Optional[builtins.str] = None,
+            restart_workspace: typing.Optional[builtins.str] = None,
+            switch_running_mode: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Describes the self-service permissions for a directory.
+
+            :param change_compute_type: Specifies whether users can change the compute type (bundle) for their WorkSpace.
+            :param increase_volume_size: Specifies whether users can increase the volume size of the drives on their WorkSpace.
+            :param rebuild_workspace: Specifies whether users can rebuild the operating system of a WorkSpace to its original state.
+            :param restart_workspace: Specifies whether users can restart their WorkSpace.
+            :param switch_running_mode: Specifies whether users can switch the running mode of their WorkSpace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-selfservicepermissions.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                selfservice_permissions_property = workspaces.CfnDirectory.SelfservicePermissionsProperty(
+                    change_compute_type="changeComputeType",
+                    increase_volume_size="increaseVolumeSize",
+                    rebuild_workspace="rebuildWorkspace",
+                    restart_workspace="restartWorkspace",
+                    switch_running_mode="switchRunningMode"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a1115704039492fa3d660af1d1f5a4e708fca100ec9218943f42baf272258d6c)
+                check_type(argname="argument change_compute_type", value=change_compute_type, expected_type=type_hints["change_compute_type"])
+                check_type(argname="argument increase_volume_size", value=increase_volume_size, expected_type=type_hints["increase_volume_size"])
+                check_type(argname="argument rebuild_workspace", value=rebuild_workspace, expected_type=type_hints["rebuild_workspace"])
+                check_type(argname="argument restart_workspace", value=restart_workspace, expected_type=type_hints["restart_workspace"])
+                check_type(argname="argument switch_running_mode", value=switch_running_mode, expected_type=type_hints["switch_running_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if change_compute_type is not None:
+                self._values["change_compute_type"] = change_compute_type
+            if increase_volume_size is not None:
+                self._values["increase_volume_size"] = increase_volume_size
+            if rebuild_workspace is not None:
+                self._values["rebuild_workspace"] = rebuild_workspace
+            if restart_workspace is not None:
+                self._values["restart_workspace"] = restart_workspace
+            if switch_running_mode is not None:
+                self._values["switch_running_mode"] = switch_running_mode
+
+        @builtins.property
+        def change_compute_type(self) -> typing.Optional[builtins.str]:
+            '''Specifies whether users can change the compute type (bundle) for their WorkSpace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-selfservicepermissions.html#cfn-workspaces-directory-selfservicepermissions-changecomputetype
+            '''
+            result = self._values.get("change_compute_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def increase_volume_size(self) -> typing.Optional[builtins.str]:
+            '''Specifies whether users can increase the volume size of the drives on their WorkSpace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-selfservicepermissions.html#cfn-workspaces-directory-selfservicepermissions-increasevolumesize
+            '''
+            result = self._values.get("increase_volume_size")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def rebuild_workspace(self) -> typing.Optional[builtins.str]:
+            '''Specifies whether users can rebuild the operating system of a WorkSpace to its original state.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-selfservicepermissions.html#cfn-workspaces-directory-selfservicepermissions-rebuildworkspace
+            '''
+            result = self._values.get("rebuild_workspace")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def restart_workspace(self) -> typing.Optional[builtins.str]:
+            '''Specifies whether users can restart their WorkSpace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-selfservicepermissions.html#cfn-workspaces-directory-selfservicepermissions-restartworkspace
+            '''
+            result = self._values.get("restart_workspace")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def switch_running_mode(self) -> typing.Optional[builtins.str]:
+            '''Specifies whether users can switch the running mode of their WorkSpace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-selfservicepermissions.html#cfn-workspaces-directory-selfservicepermissions-switchrunningmode
+            '''
+            result = self._values.get("switch_running_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SelfservicePermissionsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.StorageConnectorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"connector_type": "connectorType", "status": "status"},
+    )
+    class StorageConnectorProperty:
+        def __init__(
+            self,
+            *,
+            connector_type: builtins.str,
+            status: builtins.str,
+        ) -> None:
+            '''Describes the storage connector.
+
+            :param connector_type: The type of connector used to save user files.
+            :param status: Indicates if the storage connector is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-storageconnector.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                storage_connector_property = workspaces.CfnDirectory.StorageConnectorProperty(
+                    connector_type="connectorType",
+                    status="status"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__27aefaf54a243cf84a711ce534a88e0a0216741f4075781e1ad2694063c21b2a)
+                check_type(argname="argument connector_type", value=connector_type, expected_type=type_hints["connector_type"])
+                check_type(argname="argument status", value=status, expected_type=type_hints["status"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "connector_type": connector_type,
+                "status": status,
+            }
+
+        @builtins.property
+        def connector_type(self) -> builtins.str:
+            '''The type of connector used to save user files.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-storageconnector.html#cfn-workspaces-directory-storageconnector-connectortype
+            '''
+            result = self._values.get("connector_type")
+            assert result is not None, "Required property 'connector_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def status(self) -> builtins.str:
+            '''Indicates if the storage connector is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-storageconnector.html#cfn-workspaces-directory-storageconnector-status
+            '''
+            result = self._values.get("status")
+            assert result is not None, "Required property 'status' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StorageConnectorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.StreamingPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "global_accelerator": "globalAccelerator",
+            "storage_connectors": "storageConnectors",
+            "streaming_experience_preferred_protocol": "streamingExperiencePreferredProtocol",
+            "user_settings": "userSettings",
+        },
+    )
+    class StreamingPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            global_accelerator: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.GlobalAcceleratorForDirectoryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            storage_connectors: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.StorageConnectorProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            streaming_experience_preferred_protocol: typing.Optional[builtins.str] = None,
+            user_settings: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.UserSettingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        ) -> None:
+            '''Describes the streaming properties.
+
+            :param global_accelerator: Describes the Global Accelerator for directory.
+            :param storage_connectors: Indicates the storage connector used.
+            :param streaming_experience_preferred_protocol: Indicates the type of preferred protocol for the streaming experience.
+            :param user_settings: Indicates the permission settings associated with the user.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-streamingproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                streaming_properties_property = workspaces.CfnDirectory.StreamingPropertiesProperty(
+                    global_accelerator=workspaces.CfnDirectory.GlobalAcceleratorForDirectoryProperty(
+                        mode="mode",
+                
+                        # the properties below are optional
+                        preferred_protocol="preferredProtocol"
+                    ),
+                    storage_connectors=[workspaces.CfnDirectory.StorageConnectorProperty(
+                        connector_type="connectorType",
+                        status="status"
+                    )],
+                    streaming_experience_preferred_protocol="streamingExperiencePreferredProtocol",
+                    user_settings=[workspaces.CfnDirectory.UserSettingProperty(
+                        action="action",
+                        permission="permission",
+                
+                        # the properties below are optional
+                        maximum_length=123
+                    )]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f2c1eddaaf1b110af530faff46ca41d24fb665c60dc4e97bf9dd1ff14b443e3d)
+                check_type(argname="argument global_accelerator", value=global_accelerator, expected_type=type_hints["global_accelerator"])
+                check_type(argname="argument storage_connectors", value=storage_connectors, expected_type=type_hints["storage_connectors"])
+                check_type(argname="argument streaming_experience_preferred_protocol", value=streaming_experience_preferred_protocol, expected_type=type_hints["streaming_experience_preferred_protocol"])
+                check_type(argname="argument user_settings", value=user_settings, expected_type=type_hints["user_settings"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if global_accelerator is not None:
+                self._values["global_accelerator"] = global_accelerator
+            if storage_connectors is not None:
+                self._values["storage_connectors"] = storage_connectors
+            if streaming_experience_preferred_protocol is not None:
+                self._values["streaming_experience_preferred_protocol"] = streaming_experience_preferred_protocol
+            if user_settings is not None:
+                self._values["user_settings"] = user_settings
+
+        @builtins.property
+        def global_accelerator(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.GlobalAcceleratorForDirectoryProperty"]]:
+            '''Describes the Global Accelerator for directory.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-streamingproperties.html#cfn-workspaces-directory-streamingproperties-globalaccelerator
+            '''
+            result = self._values.get("global_accelerator")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.GlobalAcceleratorForDirectoryProperty"]], result)
+
+        @builtins.property
+        def storage_connectors(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.StorageConnectorProperty"]]]]:
+            '''Indicates the storage connector used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-streamingproperties.html#cfn-workspaces-directory-streamingproperties-storageconnectors
+            '''
+            result = self._values.get("storage_connectors")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.StorageConnectorProperty"]]]], result)
+
+        @builtins.property
+        def streaming_experience_preferred_protocol(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''Indicates the type of preferred protocol for the streaming experience.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-streamingproperties.html#cfn-workspaces-directory-streamingproperties-streamingexperiencepreferredprotocol
+            '''
+            result = self._values.get("streaming_experience_preferred_protocol")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def user_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.UserSettingProperty"]]]]:
+            '''Indicates the permission settings associated with the user.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-streamingproperties.html#cfn-workspaces-directory-streamingproperties-usersettings
+            '''
+            result = self._values.get("user_settings")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.UserSettingProperty"]]]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "StreamingPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.UserSettingProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "action": "action",
+            "permission": "permission",
+            "maximum_length": "maximumLength",
+        },
+    )
+    class UserSettingProperty:
+        def __init__(
+            self,
+            *,
+            action: builtins.str,
+            permission: builtins.str,
+            maximum_length: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Information about the user's permission settings.
+
+            :param action: Indicates the type of action.
+            :param permission: Indicates if the setting is enabled or disabled.
+            :param maximum_length: Indicates the maximum character length for the specified user setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-usersetting.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                user_setting_property = workspaces.CfnDirectory.UserSettingProperty(
+                    action="action",
+                    permission="permission",
+                
+                    # the properties below are optional
+                    maximum_length=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__68b5fa4de3d1090575ac74178ddc5102bf004f716f9a3cb09a3ee34a79a84e1f)
+                check_type(argname="argument action", value=action, expected_type=type_hints["action"])
+                check_type(argname="argument permission", value=permission, expected_type=type_hints["permission"])
+                check_type(argname="argument maximum_length", value=maximum_length, expected_type=type_hints["maximum_length"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "action": action,
+                "permission": permission,
+            }
+            if maximum_length is not None:
+                self._values["maximum_length"] = maximum_length
+
+        @builtins.property
+        def action(self) -> builtins.str:
+            '''Indicates the type of action.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-usersetting.html#cfn-workspaces-directory-usersetting-action
+            '''
+            result = self._values.get("action")
+            assert result is not None, "Required property 'action' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def permission(self) -> builtins.str:
+            '''Indicates if the setting is enabled or disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-usersetting.html#cfn-workspaces-directory-usersetting-permission
+            '''
+            result = self._values.get("permission")
+            assert result is not None, "Required property 'permission' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def maximum_length(self) -> typing.Optional[jsii.Number]:
+            '''Indicates the maximum character length for the specified user setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-usersetting.html#cfn-workspaces-directory-usersetting-maximumlength
+            '''
+            result = self._values.get("maximum_length")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "UserSettingProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectory.WorkspaceAccessPropertiesProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_endpoint_config": "accessEndpointConfig",
+            "device_type_android": "deviceTypeAndroid",
+            "device_type_chrome_os": "deviceTypeChromeOs",
+            "device_type_ios": "deviceTypeIos",
+            "device_type_linux": "deviceTypeLinux",
+            "device_type_osx": "deviceTypeOsx",
+            "device_type_web": "deviceTypeWeb",
+            "device_type_windows": "deviceTypeWindows",
+            "device_type_work_spaces_thin_client": "deviceTypeWorkSpacesThinClient",
+            "device_type_zero_client": "deviceTypeZeroClient",
+        },
+    )
+    class WorkspaceAccessPropertiesProperty:
+        def __init__(
+            self,
+            *,
+            access_endpoint_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.AccessEndpointConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            device_type_android: typing.Optional[builtins.str] = None,
+            device_type_chrome_os: typing.Optional[builtins.str] = None,
+            device_type_ios: typing.Optional[builtins.str] = None,
+            device_type_linux: typing.Optional[builtins.str] = None,
+            device_type_osx: typing.Optional[builtins.str] = None,
+            device_type_web: typing.Optional[builtins.str] = None,
+            device_type_windows: typing.Optional[builtins.str] = None,
+            device_type_work_spaces_thin_client: typing.Optional[builtins.str] = None,
+            device_type_zero_client: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The device types and operating systems that can be used to access a WorkSpace.
+
+            :param access_endpoint_config: Describes the access endpoint configuration for a WorkSpace.
+            :param device_type_android: Indicates whether users can use Android and Android-compatible Chrome OS devices to access their WorkSpaces.
+            :param device_type_chrome_os: Indicates whether users can use Chromebooks to access their WorkSpaces.
+            :param device_type_ios: Indicates whether users can use iOS devices to access their WorkSpaces.
+            :param device_type_linux: Indicates whether users can use Linux clients to access their WorkSpaces.
+            :param device_type_osx: Indicates whether users can use macOS clients to access their WorkSpaces.
+            :param device_type_web: Indicates whether users can access their WorkSpaces through a web browser.
+            :param device_type_windows: Indicates whether users can use Windows clients to access their WorkSpaces.
+            :param device_type_work_spaces_thin_client: Indicates whether users can access their WorkSpaces through a WorkSpaces Thin Client.
+            :param device_type_zero_client: Indicates whether users can use zero client devices to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_workspaces as workspaces
+                
+                workspace_access_properties_property = workspaces.CfnDirectory.WorkspaceAccessPropertiesProperty(
+                    access_endpoint_config=workspaces.CfnDirectory.AccessEndpointConfigProperty(
+                        access_endpoints=[workspaces.CfnDirectory.AccessEndpointProperty(
+                            access_endpoint_type="accessEndpointType",
+                            vpc_endpoint_id="vpcEndpointId"
+                        )],
+                
+                        # the properties below are optional
+                        internet_fallback_protocols=["internetFallbackProtocols"]
+                    ),
+                    device_type_android="deviceTypeAndroid",
+                    device_type_chrome_os="deviceTypeChromeOs",
+                    device_type_ios="deviceTypeIos",
+                    device_type_linux="deviceTypeLinux",
+                    device_type_osx="deviceTypeOsx",
+                    device_type_web="deviceTypeWeb",
+                    device_type_windows="deviceTypeWindows",
+                    device_type_work_spaces_thin_client="deviceTypeWorkSpacesThinClient",
+                    device_type_zero_client="deviceTypeZeroClient"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__73d70f5a7d065768e4f5eddf82eafb687010b12c5844026538a57ca21f74af95)
+                check_type(argname="argument access_endpoint_config", value=access_endpoint_config, expected_type=type_hints["access_endpoint_config"])
+                check_type(argname="argument device_type_android", value=device_type_android, expected_type=type_hints["device_type_android"])
+                check_type(argname="argument device_type_chrome_os", value=device_type_chrome_os, expected_type=type_hints["device_type_chrome_os"])
+                check_type(argname="argument device_type_ios", value=device_type_ios, expected_type=type_hints["device_type_ios"])
+                check_type(argname="argument device_type_linux", value=device_type_linux, expected_type=type_hints["device_type_linux"])
+                check_type(argname="argument device_type_osx", value=device_type_osx, expected_type=type_hints["device_type_osx"])
+                check_type(argname="argument device_type_web", value=device_type_web, expected_type=type_hints["device_type_web"])
+                check_type(argname="argument device_type_windows", value=device_type_windows, expected_type=type_hints["device_type_windows"])
+                check_type(argname="argument device_type_work_spaces_thin_client", value=device_type_work_spaces_thin_client, expected_type=type_hints["device_type_work_spaces_thin_client"])
+                check_type(argname="argument device_type_zero_client", value=device_type_zero_client, expected_type=type_hints["device_type_zero_client"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if access_endpoint_config is not None:
+                self._values["access_endpoint_config"] = access_endpoint_config
+            if device_type_android is not None:
+                self._values["device_type_android"] = device_type_android
+            if device_type_chrome_os is not None:
+                self._values["device_type_chrome_os"] = device_type_chrome_os
+            if device_type_ios is not None:
+                self._values["device_type_ios"] = device_type_ios
+            if device_type_linux is not None:
+                self._values["device_type_linux"] = device_type_linux
+            if device_type_osx is not None:
+                self._values["device_type_osx"] = device_type_osx
+            if device_type_web is not None:
+                self._values["device_type_web"] = device_type_web
+            if device_type_windows is not None:
+                self._values["device_type_windows"] = device_type_windows
+            if device_type_work_spaces_thin_client is not None:
+                self._values["device_type_work_spaces_thin_client"] = device_type_work_spaces_thin_client
+            if device_type_zero_client is not None:
+                self._values["device_type_zero_client"] = device_type_zero_client
+
+        @builtins.property
+        def access_endpoint_config(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.AccessEndpointConfigProperty"]]:
+            '''Describes the access endpoint configuration for a WorkSpace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-accessendpointconfig
+            '''
+            result = self._values.get("access_endpoint_config")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.AccessEndpointConfigProperty"]], result)
+
+        @builtins.property
+        def device_type_android(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can use Android and Android-compatible Chrome OS devices to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypeandroid
+            '''
+            result = self._values.get("device_type_android")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_chrome_os(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can use Chromebooks to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypechromeos
+            '''
+            result = self._values.get("device_type_chrome_os")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_ios(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can use iOS devices to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypeios
+            '''
+            result = self._values.get("device_type_ios")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_linux(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can use Linux clients to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypelinux
+            '''
+            result = self._values.get("device_type_linux")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_osx(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can use macOS clients to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypeosx
+            '''
+            result = self._values.get("device_type_osx")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_web(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can access their WorkSpaces through a web browser.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypeweb
+            '''
+            result = self._values.get("device_type_web")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_windows(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can use Windows clients to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypewindows
+            '''
+            result = self._values.get("device_type_windows")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_work_spaces_thin_client(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can access their WorkSpaces through a WorkSpaces Thin Client.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypeworkspacesthinclient
+            '''
+            result = self._values.get("device_type_work_spaces_thin_client")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def device_type_zero_client(self) -> typing.Optional[builtins.str]:
+            '''Indicates whether users can use zero client devices to access their WorkSpaces.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-directory-workspaceaccessproperties.html#cfn-workspaces-directory-workspaceaccessproperties-devicetypezeroclient
+            '''
+            result = self._values.get("device_type_zero_client")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "WorkspaceAccessPropertiesProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_workspaces.CfnDirectoryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "active_directory_config": "activeDirectoryConfig",
+        "certificate_based_auth_properties": "certificateBasedAuthProperties",
+        "enable_self_service": "enableSelfService",
+        "endpoint_encryption_mode": "endpointEncryptionMode",
+        "idc_instance_arn": "idcInstanceArn",
+        "ip_group_ids": "ipGroupIds",
+        "microsoft_entra_config": "microsoftEntraConfig",
+        "saml_properties": "samlProperties",
+        "selfservice_permissions": "selfservicePermissions",
+        "streaming_properties": "streamingProperties",
+        "subnet_ids": "subnetIds",
+        "tags": "tags",
+        "tenancy": "tenancy",
+        "user_identity_type": "userIdentityType",
+        "workspace_access_properties": "workspaceAccessProperties",
+        "workspace_creation_properties": "workspaceCreationProperties",
+        "workspace_directory_description": "workspaceDirectoryDescription",
+        "workspace_directory_name": "workspaceDirectoryName",
+        "workspace_type": "workspaceType",
+    },
+)
+class CfnDirectoryProps:
+    def __init__(
+        self,
+        *,
+        active_directory_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.ActiveDirectoryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        certificate_based_auth_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.CertificateBasedAuthPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        enable_self_service: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        endpoint_encryption_mode: typing.Optional[builtins.str] = None,
+        idc_instance_arn: typing.Optional[builtins.str] = None,
+        ip_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        microsoft_entra_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.MicrosoftEntraConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        saml_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.SamlPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        selfservice_permissions: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.SelfservicePermissionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        streaming_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.StreamingPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tenancy: typing.Optional[builtins.str] = None,
+        user_identity_type: typing.Optional[builtins.str] = None,
+        workspace_access_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.WorkspaceAccessPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_creation_properties: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnDirectory.DefaultWorkspaceCreationPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workspace_directory_description: typing.Optional[builtins.str] = None,
+        workspace_directory_name: typing.Optional[builtins.str] = None,
+        workspace_type: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDirectory``.
+
+        :param active_directory_config: Information about the Active Directory config.
+        :param certificate_based_auth_properties: Describes the properties of the certificate-based authentication you want to use with your WorkSpaces.
+        :param enable_self_service: Indicates whether self-service capabilities are enabled or disabled.
+        :param endpoint_encryption_mode: Endpoint encryption mode that allows you to configure the specified directory between Standard TLS and FIPS 140-2 validated mode.
+        :param idc_instance_arn: The Amazon Resource Name (ARN) of the identity center instance.
+        :param ip_group_ids: The identifiers of the IP access control groups associated with the directory.
+        :param microsoft_entra_config: Specifies the configurations of the Microsoft Entra.
+        :param saml_properties: Describes the enablement status, user access URL, and relay state parameter name that are used for configuring federation with an SAML 2.0 identity provider.
+        :param selfservice_permissions: Describes the self-service permissions for a directory.
+        :param streaming_properties: Describes the streaming properties.
+        :param subnet_ids: The identifiers of the subnets for your virtual private cloud (VPC).
+        :param tags: The tags associated with the directory.
+        :param tenancy: Indicates whether your WorkSpace directory is dedicated or shared.
+        :param user_identity_type: The type of identity management the user is using.
+        :param workspace_access_properties: The device types and operating systems that can be used to access a WorkSpace.
+        :param workspace_creation_properties: The default values that are used to create WorkSpaces.
+        :param workspace_directory_description: Description of the directory to register.
+        :param workspace_directory_name: The name of the directory to register.
+        :param workspace_type: Indicates whether the directory's WorkSpace type is personal or pools.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_workspaces as workspaces
+            
+            cfn_directory_props = workspaces.CfnDirectoryProps(
+                active_directory_config=workspaces.CfnDirectory.ActiveDirectoryConfigProperty(
+                    domain_name="domainName",
+                    service_account_secret_arn="serviceAccountSecretArn"
+                ),
+                certificate_based_auth_properties=workspaces.CfnDirectory.CertificateBasedAuthPropertiesProperty(
+                    certificate_authority_arn="certificateAuthorityArn",
+                    status="status"
+                ),
+                enable_self_service=False,
+                endpoint_encryption_mode="endpointEncryptionMode",
+                idc_instance_arn="idcInstanceArn",
+                ip_group_ids=["ipGroupIds"],
+                microsoft_entra_config=workspaces.CfnDirectory.MicrosoftEntraConfigProperty(
+                    application_config_secret_arn="applicationConfigSecretArn",
+                    tenant_id="tenantId"
+                ),
+                saml_properties=workspaces.CfnDirectory.SamlPropertiesProperty(
+                    relay_state_parameter_name="relayStateParameterName",
+                    status="status",
+                    user_access_url="userAccessUrl"
+                ),
+                selfservice_permissions=workspaces.CfnDirectory.SelfservicePermissionsProperty(
+                    change_compute_type="changeComputeType",
+                    increase_volume_size="increaseVolumeSize",
+                    rebuild_workspace="rebuildWorkspace",
+                    restart_workspace="restartWorkspace",
+                    switch_running_mode="switchRunningMode"
+                ),
+                streaming_properties=workspaces.CfnDirectory.StreamingPropertiesProperty(
+                    global_accelerator=workspaces.CfnDirectory.GlobalAcceleratorForDirectoryProperty(
+                        mode="mode",
+            
+                        # the properties below are optional
+                        preferred_protocol="preferredProtocol"
+                    ),
+                    storage_connectors=[workspaces.CfnDirectory.StorageConnectorProperty(
+                        connector_type="connectorType",
+                        status="status"
+                    )],
+                    streaming_experience_preferred_protocol="streamingExperiencePreferredProtocol",
+                    user_settings=[workspaces.CfnDirectory.UserSettingProperty(
+                        action="action",
+                        permission="permission",
+            
+                        # the properties below are optional
+                        maximum_length=123
+                    )]
+                ),
+                subnet_ids=["subnetIds"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                tenancy="tenancy",
+                user_identity_type="userIdentityType",
+                workspace_access_properties=workspaces.CfnDirectory.WorkspaceAccessPropertiesProperty(
+                    access_endpoint_config=workspaces.CfnDirectory.AccessEndpointConfigProperty(
+                        access_endpoints=[workspaces.CfnDirectory.AccessEndpointProperty(
+                            access_endpoint_type="accessEndpointType",
+                            vpc_endpoint_id="vpcEndpointId"
+                        )],
+            
+                        # the properties below are optional
+                        internet_fallback_protocols=["internetFallbackProtocols"]
+                    ),
+                    device_type_android="deviceTypeAndroid",
+                    device_type_chrome_os="deviceTypeChromeOs",
+                    device_type_ios="deviceTypeIos",
+                    device_type_linux="deviceTypeLinux",
+                    device_type_osx="deviceTypeOsx",
+                    device_type_web="deviceTypeWeb",
+                    device_type_windows="deviceTypeWindows",
+                    device_type_work_spaces_thin_client="deviceTypeWorkSpacesThinClient",
+                    device_type_zero_client="deviceTypeZeroClient"
+                ),
+                workspace_creation_properties=workspaces.CfnDirectory.DefaultWorkspaceCreationPropertiesProperty(
+                    custom_security_group_id="customSecurityGroupId",
+                    default_ou="defaultOu",
+                    enable_internet_access=False,
+                    enable_maintenance_mode=False,
+                    instance_iam_role_arn="instanceIamRoleArn",
+                    user_enabled_as_local_administrator=False
+                ),
+                workspace_directory_description="workspaceDirectoryDescription",
+                workspace_directory_name="workspaceDirectoryName",
+                workspace_type="workspaceType"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1b02a6e4a9c5198c9a5097f9f8bf2dda738ab763e2710273958ea729227a0502)
+            check_type(argname="argument active_directory_config", value=active_directory_config, expected_type=type_hints["active_directory_config"])
+            check_type(argname="argument certificate_based_auth_properties", value=certificate_based_auth_properties, expected_type=type_hints["certificate_based_auth_properties"])
+            check_type(argname="argument enable_self_service", value=enable_self_service, expected_type=type_hints["enable_self_service"])
+            check_type(argname="argument endpoint_encryption_mode", value=endpoint_encryption_mode, expected_type=type_hints["endpoint_encryption_mode"])
+            check_type(argname="argument idc_instance_arn", value=idc_instance_arn, expected_type=type_hints["idc_instance_arn"])
+            check_type(argname="argument ip_group_ids", value=ip_group_ids, expected_type=type_hints["ip_group_ids"])
+            check_type(argname="argument microsoft_entra_config", value=microsoft_entra_config, expected_type=type_hints["microsoft_entra_config"])
+            check_type(argname="argument saml_properties", value=saml_properties, expected_type=type_hints["saml_properties"])
+            check_type(argname="argument selfservice_permissions", value=selfservice_permissions, expected_type=type_hints["selfservice_permissions"])
+            check_type(argname="argument streaming_properties", value=streaming_properties, expected_type=type_hints["streaming_properties"])
+            check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument tenancy", value=tenancy, expected_type=type_hints["tenancy"])
+            check_type(argname="argument user_identity_type", value=user_identity_type, expected_type=type_hints["user_identity_type"])
+            check_type(argname="argument workspace_access_properties", value=workspace_access_properties, expected_type=type_hints["workspace_access_properties"])
+            check_type(argname="argument workspace_creation_properties", value=workspace_creation_properties, expected_type=type_hints["workspace_creation_properties"])
+            check_type(argname="argument workspace_directory_description", value=workspace_directory_description, expected_type=type_hints["workspace_directory_description"])
+            check_type(argname="argument workspace_directory_name", value=workspace_directory_name, expected_type=type_hints["workspace_directory_name"])
+            check_type(argname="argument workspace_type", value=workspace_type, expected_type=type_hints["workspace_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if active_directory_config is not None:
+            self._values["active_directory_config"] = active_directory_config
+        if certificate_based_auth_properties is not None:
+            self._values["certificate_based_auth_properties"] = certificate_based_auth_properties
+        if enable_self_service is not None:
+            self._values["enable_self_service"] = enable_self_service
+        if endpoint_encryption_mode is not None:
+            self._values["endpoint_encryption_mode"] = endpoint_encryption_mode
+        if idc_instance_arn is not None:
+            self._values["idc_instance_arn"] = idc_instance_arn
+        if ip_group_ids is not None:
+            self._values["ip_group_ids"] = ip_group_ids
+        if microsoft_entra_config is not None:
+            self._values["microsoft_entra_config"] = microsoft_entra_config
+        if saml_properties is not None:
+            self._values["saml_properties"] = saml_properties
+        if selfservice_permissions is not None:
+            self._values["selfservice_permissions"] = selfservice_permissions
+        if streaming_properties is not None:
+            self._values["streaming_properties"] = streaming_properties
+        if subnet_ids is not None:
+            self._values["subnet_ids"] = subnet_ids
+        if tags is not None:
+            self._values["tags"] = tags
+        if tenancy is not None:
+            self._values["tenancy"] = tenancy
+        if user_identity_type is not None:
+            self._values["user_identity_type"] = user_identity_type
+        if workspace_access_properties is not None:
+            self._values["workspace_access_properties"] = workspace_access_properties
+        if workspace_creation_properties is not None:
+            self._values["workspace_creation_properties"] = workspace_creation_properties
+        if workspace_directory_description is not None:
+            self._values["workspace_directory_description"] = workspace_directory_description
+        if workspace_directory_name is not None:
+            self._values["workspace_directory_name"] = workspace_directory_name
+        if workspace_type is not None:
+            self._values["workspace_type"] = workspace_type
+
+    @builtins.property
+    def active_directory_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.ActiveDirectoryConfigProperty"]]:
+        '''Information about the Active Directory config.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-activedirectoryconfig
+        '''
+        result = self._values.get("active_directory_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.ActiveDirectoryConfigProperty"]], result)
+
+    @builtins.property
+    def certificate_based_auth_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.CertificateBasedAuthPropertiesProperty"]]:
+        '''Describes the properties of the certificate-based authentication you want to use with your WorkSpaces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-certificatebasedauthproperties
+        '''
+        result = self._values.get("certificate_based_auth_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.CertificateBasedAuthPropertiesProperty"]], result)
+
+    @builtins.property
+    def enable_self_service(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''Indicates whether self-service capabilities are enabled or disabled.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-enableselfservice
+        '''
+        result = self._values.get("enable_self_service")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def endpoint_encryption_mode(self) -> typing.Optional[builtins.str]:
+        '''Endpoint encryption mode that allows you to configure the specified directory between Standard TLS and FIPS 140-2 validated mode.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-endpointencryptionmode
+        '''
+        result = self._values.get("endpoint_encryption_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def idc_instance_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the identity center instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-idcinstancearn
+        '''
+        result = self._values.get("idc_instance_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def ip_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The identifiers of the IP access control groups associated with the directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-ipgroupids
+        '''
+        result = self._values.get("ip_group_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def microsoft_entra_config(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.MicrosoftEntraConfigProperty"]]:
+        '''Specifies the configurations of the Microsoft Entra.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-microsoftentraconfig
+        '''
+        result = self._values.get("microsoft_entra_config")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.MicrosoftEntraConfigProperty"]], result)
+
+    @builtins.property
+    def saml_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SamlPropertiesProperty"]]:
+        '''Describes the enablement status, user access URL, and relay state parameter name that are used for configuring federation with an SAML 2.0 identity provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-samlproperties
+        '''
+        result = self._values.get("saml_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SamlPropertiesProperty"]], result)
+
+    @builtins.property
+    def selfservice_permissions(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SelfservicePermissionsProperty"]]:
+        '''Describes the self-service permissions for a directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-selfservicepermissions
+        '''
+        result = self._values.get("selfservice_permissions")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.SelfservicePermissionsProperty"]], result)
+
+    @builtins.property
+    def streaming_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.StreamingPropertiesProperty"]]:
+        '''Describes the streaming properties.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-streamingproperties
+        '''
+        result = self._values.get("streaming_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.StreamingPropertiesProperty"]], result)
+
+    @builtins.property
+    def subnet_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The identifiers of the subnets for your virtual private cloud (VPC).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-subnetids
+        '''
+        result = self._values.get("subnet_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the directory.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def tenancy(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether your WorkSpace directory is dedicated or shared.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-tenancy
+        '''
+        result = self._values.get("tenancy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def user_identity_type(self) -> typing.Optional[builtins.str]:
+        '''The type of identity management the user is using.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-useridentitytype
+        '''
+        result = self._values.get("user_identity_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workspace_access_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.WorkspaceAccessPropertiesProperty"]]:
+        '''The device types and operating systems that can be used to access a WorkSpace.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-workspaceaccessproperties
+        '''
+        result = self._values.get("workspace_access_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.WorkspaceAccessPropertiesProperty"]], result)
+
+    @builtins.property
+    def workspace_creation_properties(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.DefaultWorkspaceCreationPropertiesProperty"]]:
+        '''The default values that are used to create WorkSpaces.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-workspacecreationproperties
+        '''
+        result = self._values.get("workspace_creation_properties")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnDirectory.DefaultWorkspaceCreationPropertiesProperty"]], result)
+
+    @builtins.property
+    def workspace_directory_description(self) -> typing.Optional[builtins.str]:
+        '''Description of the directory to register.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-workspacedirectorydescription
+        '''
+        result = self._values.get("workspace_directory_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workspace_directory_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the directory to register.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-workspacedirectoryname
+        '''
+        result = self._values.get("workspace_directory_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def workspace_type(self) -> typing.Optional[builtins.str]:
+        '''Indicates whether the directory's WorkSpace type is personal or pools.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-directory.html#cfn-workspaces-directory-workspacetype
+        '''
+        result = self._values.get("workspace_type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDirectoryProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_workspaces_4620141e.IWorkspaceRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnWorkspace(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2325,6 +4813,8 @@ class CfnWorkspacesPoolProps:
 __all__ = [
     "CfnConnectionAlias",
     "CfnConnectionAliasProps",
+    "CfnDirectory",
+    "CfnDirectoryProps",
     "CfnWorkspace",
     "CfnWorkspaceIpGroup",
     "CfnWorkspaceIpGroupProps",
@@ -2389,6 +4879,327 @@ def _typecheckingstub__33d1c548638caf6c8699dd74d5bcc8d8df516e1a0738521496aee3740
     *,
     connection_string: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__97d2fd090a322f0e86011be41549fee5ba73daf4f5f02076bb14f2e5c613cc90(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    active_directory_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.ActiveDirectoryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate_based_auth_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.CertificateBasedAuthPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_self_service: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    endpoint_encryption_mode: typing.Optional[builtins.str] = None,
+    idc_instance_arn: typing.Optional[builtins.str] = None,
+    ip_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    microsoft_entra_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.MicrosoftEntraConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    saml_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.SamlPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    selfservice_permissions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.SelfservicePermissionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    streaming_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.StreamingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tenancy: typing.Optional[builtins.str] = None,
+    user_identity_type: typing.Optional[builtins.str] = None,
+    workspace_access_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.WorkspaceAccessPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_creation_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.DefaultWorkspaceCreationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_directory_description: typing.Optional[builtins.str] = None,
+    workspace_directory_name: typing.Optional[builtins.str] = None,
+    workspace_type: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cdffabab5518c6dfd10b6189ff95a9b939ec41d46c84120537446c0b207aa3f4(
+    resource: _aws_workspaces_4620141e.IDirectoryRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12748995b26571c6b584a78b311a91b4858d813a9de56630d9cc8a06efa30670(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a7d63a54fc0f25eb54b703a8b2271391a2de4dccf825da047fe18cc0e3bacac8(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6bd5c53c0844aa7f2f45f96592d3cbb86fe27c7c773eede54fa6b91cd0c7f27(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5935083ae4bb3e24425d51af0007be0cd0d57e8ff8ff72702ac9593e3f928cc(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.ActiveDirectoryConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c14bd4bcf3be59597cc94b6622b6d08872f213251205ed7e8ac43e7cd343d0f0(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.CertificateBasedAuthPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d5b380d1fadf9673790a641ab3bc2d51de5797c899e2b3fd2d11f04cfd41aaf(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d48bd075e1d5f4e21bd96297cef42d2f7dcd3b3b0b09282064e75850711378bf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d199dd5b9442a70e651b9c77f9fa0566e1d9960e98c9c8baea8f22ee9287a2b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c12cd311ffce9568cff4f9a934712be539ba52685ec7024f986cd60c7c1f3d45(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7c1c4fc7c0c44f9f4a3d44936bef556cf289dc3adb77a8f5f4eee4dac8dfc9b9(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.MicrosoftEntraConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e9476ef4c83098329845a817adfab1e370a5ee7ed7efc8ef90ee6b255ea7f7c(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.SamlPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d850202b4b1b5c70f0967ed877c9383134b8b4322c36f14fa5a82730ae0e648a(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.SelfservicePermissionsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b7f1f768604605fd8c2f117048afe270d2a8c642cf2f27bad1281c65a58b5feb(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.StreamingPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bd17e443fdeffd0d8f357751e184e1e851c50a732595b91eec1b8bf5eb0ca0e(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a0b57d5e0d13092d1ac273dd853c173fae7fcaba6c8767a4be90933c4e5df709(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__edb1af56f4750cefa6bb0b0a5b6d97e4eee63424bda5338ea220b885617a0c89(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23c9fb93d4661ad4bfb38b4968e127400e5a702021709244b6d658c01dbcfb7b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8724beb6e6ee10070a868ef023abdb06e729abd29cc0b01ac20a32b2c1bc1697(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.WorkspaceAccessPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__216b29943227b73b434fdf6b0fec0183add3a5cde23dcdc1d4fff9a5b8a97c9d(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnDirectory.DefaultWorkspaceCreationPropertiesProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__098e67aa24151ba52b4a187547fe3bfe6102d7d77ffe9f5407daa4c43b979ac7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87b41ec10b32352bd312188184670dee7448018cddc80956a217145e754c071e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62a158204c3529104edbe60ac679af107f42bb82458981aeb6a21c799e00e3ab(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ba9a18ad9d6cd68b06909aaad77c534309ec8d39f744baad2f2c7a8aae55852(
+    *,
+    access_endpoints: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.AccessEndpointProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    internet_fallback_protocols: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39185f9119f3d0883d05448778c03e1be9e3752bc4640c32fbd98609b6805ebf(
+    *,
+    access_endpoint_type: typing.Optional[builtins.str] = None,
+    vpc_endpoint_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4ea3bc303fd18efdf01d9d0ed5f93e34d450353289262313dca3511076eee9d(
+    *,
+    domain_name: builtins.str,
+    service_account_secret_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d5b4bd7bf8f7b42c1b026907d8b0c63a5212a29cec1f1dfe5d4e506ff2f338c(
+    *,
+    certificate_authority_arn: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ad3786ebe3af46bd62ca671ef7d20163db404055c890619acac286bc6b5ba71(
+    *,
+    custom_security_group_id: typing.Optional[builtins.str] = None,
+    default_ou: typing.Optional[builtins.str] = None,
+    enable_internet_access: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enable_maintenance_mode: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    instance_iam_role_arn: typing.Optional[builtins.str] = None,
+    user_enabled_as_local_administrator: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__199ae25c0d1364aa0c94b7ad03fd0a32f19a6cc84de14a43cfb585d4720859a0(
+    *,
+    mode: builtins.str,
+    preferred_protocol: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__92a78b77bd8100ad2ae337b65f5313eafa1832bc96163e7746e0f48d219ecb2d(
+    *,
+    application_arn: typing.Optional[builtins.str] = None,
+    instance_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d9940a6ad225287b5d67e7486f545651568899a168da4936344e76bb6ba8f3aa(
+    *,
+    application_config_secret_arn: typing.Optional[builtins.str] = None,
+    tenant_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c2504bb91b90dedcd987a0e28039477a816c525ee82f3f6e6485d89be3f46e3e(
+    *,
+    relay_state_parameter_name: typing.Optional[builtins.str] = None,
+    status: typing.Optional[builtins.str] = None,
+    user_access_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1115704039492fa3d660af1d1f5a4e708fca100ec9218943f42baf272258d6c(
+    *,
+    change_compute_type: typing.Optional[builtins.str] = None,
+    increase_volume_size: typing.Optional[builtins.str] = None,
+    rebuild_workspace: typing.Optional[builtins.str] = None,
+    restart_workspace: typing.Optional[builtins.str] = None,
+    switch_running_mode: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27aefaf54a243cf84a711ce534a88e0a0216741f4075781e1ad2694063c21b2a(
+    *,
+    connector_type: builtins.str,
+    status: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2c1eddaaf1b110af530faff46ca41d24fb665c60dc4e97bf9dd1ff14b443e3d(
+    *,
+    global_accelerator: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.GlobalAcceleratorForDirectoryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    storage_connectors: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.StorageConnectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    streaming_experience_preferred_protocol: typing.Optional[builtins.str] = None,
+    user_settings: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.UserSettingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68b5fa4de3d1090575ac74178ddc5102bf004f716f9a3cb09a3ee34a79a84e1f(
+    *,
+    action: builtins.str,
+    permission: builtins.str,
+    maximum_length: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73d70f5a7d065768e4f5eddf82eafb687010b12c5844026538a57ca21f74af95(
+    *,
+    access_endpoint_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.AccessEndpointConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    device_type_android: typing.Optional[builtins.str] = None,
+    device_type_chrome_os: typing.Optional[builtins.str] = None,
+    device_type_ios: typing.Optional[builtins.str] = None,
+    device_type_linux: typing.Optional[builtins.str] = None,
+    device_type_osx: typing.Optional[builtins.str] = None,
+    device_type_web: typing.Optional[builtins.str] = None,
+    device_type_windows: typing.Optional[builtins.str] = None,
+    device_type_work_spaces_thin_client: typing.Optional[builtins.str] = None,
+    device_type_zero_client: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1b02a6e4a9c5198c9a5097f9f8bf2dda738ab763e2710273958ea729227a0502(
+    *,
+    active_directory_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.ActiveDirectoryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    certificate_based_auth_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.CertificateBasedAuthPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    enable_self_service: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    endpoint_encryption_mode: typing.Optional[builtins.str] = None,
+    idc_instance_arn: typing.Optional[builtins.str] = None,
+    ip_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    microsoft_entra_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.MicrosoftEntraConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    saml_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.SamlPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    selfservice_permissions: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.SelfservicePermissionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    streaming_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.StreamingPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    subnet_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tenancy: typing.Optional[builtins.str] = None,
+    user_identity_type: typing.Optional[builtins.str] = None,
+    workspace_access_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.WorkspaceAccessPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_creation_properties: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDirectory.DefaultWorkspaceCreationPropertiesProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    workspace_directory_description: typing.Optional[builtins.str] = None,
+    workspace_directory_name: typing.Optional[builtins.str] = None,
+    workspace_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -4,6 +4,7 @@ from agilicus.input_helpers import strip_none
 from .. import context
 from ..output.table import column, format_table
 from ..pagination import normalize_page_args
+from ..pagination.auto_iterator import get_limit_max
 
 
 def _format_time_val(val, ctx=None):
@@ -245,19 +246,35 @@ def query_usage(
         page_sort=page_sort,
     )
 
-    if not get_all:
-        if limit is None:
-            limit = 500
-        return apiclient.metrics_api.list_usage_metrics(limit=int(limit), **params)
+    endpoint = apiclient.metrics_api.list_usage_metrics
+    # The server caps a single request (e.g. 500 rows).  ``--limit`` is a
+    # *total*, so anything above one page is fetched over several pages.  The
+    # cap comes from the endpoint's own validation rather than a constant.
+    page_size = get_limit_max(endpoint, default=500) or 500
 
     default_page_on = ["time"] + [d for d in (breakdown_by or []) if d != "time"]
     paging_params = dict(params)
     paging_params["page_on"] = paging_params.get("page_on") or default_page_on
+    paging_params.setdefault("page_sort", ["asc"] * len(paging_params["page_on"]))
 
-    return apiclient.metrics_api.list_usage_metrics.auto_paging_iter(
-        limit=int(limit) if limit is not None else None,
-        **paging_params,
-    ).all()
+    if get_all:
+        return endpoint.auto_paging_iter(
+            limit=int(limit) if limit is not None else None,
+            page_size=page_size,
+            **paging_params,
+        ).all()
+
+    if limit is None:
+        limit = page_size
+    limit = int(limit)
+    if limit > page_size:
+        return endpoint.auto_paging_iter(
+            limit=limit,
+            page_size=page_size,
+            **paging_params,
+        ).all()
+
+    return endpoint(limit=limit, **params)
 
 
 def query_user_usage(ctx, **kwargs):

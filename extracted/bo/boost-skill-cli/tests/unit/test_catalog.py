@@ -622,6 +622,46 @@ class TestTapMatches:
         assert catalog.tap_matches("", "") is False
 
 
+_A = {"name": "x", "tap": "acme/fix", "version": "1.0.2"}
+_B = {"name": "x", "tap": "other", "version": "9.0.0"}
+_FIX = {"action": "install", "tap": "acme/fix"}
+_OTHER = {"action": "install", "tap": "other"}
+_UNTAPPED = {"action": "uninstall"}
+_EVENTS = [_FIX, _OTHER, _UNTAPPED]
+
+
+class TestForLock:
+
+    def test_the_lock_tap_row_wins_over_the_first_match(self):
+        assert catalog.for_lock([_A, _B], {"tap": "other"}) is _B
+
+    def test_no_row_from_the_lock_tap_is_none_not_another_tap(self):
+        assert catalog.for_lock([_A], {"tap": "other"}) is None
+
+    def test_a_tapless_lock_keeps_the_first_match(self):
+        assert catalog.for_lock([_A, _B], {"version": "1"}) is _A
+
+    def test_no_lock_keeps_the_first_match(self):
+        assert catalog.for_lock([_B, _A], None) is _B
+
+    def test_no_matches_is_none(self):
+        assert catalog.for_lock([], {"tap": "other"}) is None
+
+
+class TestEventsForTap:
+    def test_no_qualifier_counts_every_event(self):
+        assert catalog.events_for_tap(_EVENTS, None, None) == _EVENTS
+
+    def test_a_qualifier_keeps_only_its_taps_events(self):
+        assert catalog.events_for_tap(_EVENTS, "fix", None) == [_FIX]
+
+    def test_untapped_events_count_when_the_qualifier_is_the_installed_tap(
+            self):
+        lock = {"tap": "other"}
+        assert catalog.events_for_tap(_EVENTS, "other", lock) == [
+            _OTHER, _UNTAPPED]
+
+
 class TestAllEntriesAndFind:
     def test_all_entries_config_order(self, sandbox):
         _fake_taps(
@@ -1720,6 +1760,27 @@ class TestMatchesAndFilterByCategory:
     def test_missing_category_only_matches_an_empty_filter(self):
         e = _entry("x", "t")
         assert not catalog.matches_category(e, "ai")
+
+    def test_missing_category_is_filed_as_uncategorized(self):
+        e = _entry("x", "t")
+        assert catalog.matches_category(e, "uncategorized")
+        assert catalog.matches_category(e | {"category": ""}, "Uncategorized")
+
+    def test_a_categorised_entry_is_not_uncategorized(self):
+        e = _entry("x", "t") | {"category": "ai"}
+        assert not catalog.matches_category(e, "uncategorized")
+
+    def test_tap_fallback_files_a_categoryless_entry(self):
+        e = _entry("x", "acme/tap")
+        cats = {"acme/tap": "Testing"}
+        assert catalog.matches_category(e, "testing", cats)
+        assert not catalog.matches_category(e, "uncategorized", cats)
+
+    def test_filter_by_category_passes_the_tap_fallback(self):
+        entries = [_entry("a", "acme/tap"), _entry("b", "other/tap")]
+        got = catalog.filter_by_category(entries, "testing",
+                                         {"acme/tap": "testing"})
+        assert [e["name"] for e in got] == ["a"]
 
     def test_filter_by_category_narrows_the_list(self):
         entries = [_entry("a", "t") | {"category": "ai"},

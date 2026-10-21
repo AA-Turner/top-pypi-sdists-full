@@ -6,18 +6,18 @@ use sqlbuild_core::cli_text::main::format_summary_footer::format_summary_footer;
 use sqlbuild_core::cli_text::models::SummaryCount;
 use sqlbuild_core::scenario_command::main::snapshot_capture_warning::snapshot_capture_warning;
 use sqlbuild_core::scenario_command::models::ScenarioNamespace;
+use sqlbuild_host::entries::models::ExecutorHost;
 
-use crate::bindings::_helpers::cli::progress_reporters::PlanningProgressReporter;
-use crate::bindings::_helpers::compile_driver::python_calls::call_with;
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
+use crate::bindings::_helpers::boundary::python_calls::call_with;
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::build_progress::progress_reporters::PlanningProgressReporter;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::result_output::documents::format_scenario_snapshot_execution_json;
 use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
 use crate::bindings::_helpers::scenario_command::conversions::succeeded;
 use crate::bindings::_helpers::scenario_command::presentation::{
-    CompletionKind, SectionStatus, begin_section, connection_hooks, progress_relay,
+    CompletionKind, RelayContext, SectionStatus, begin_section, connection_hooks, progress_relay,
 };
 use crate::bindings::_helpers::scenario_command::setup::{
     CompileInputs, boolean, capture_limits, capture_settings, compile, flush, optional_text,
@@ -161,12 +161,12 @@ pub(crate) fn sync_local_snapshots<'py>(
     let relay = progress_relay(
         &run.stream,
         &section,
-        (
-            &run.project.project_dir,
-            &run.project_adapter,
-            CompletionKind::Sync { refresh },
-            run.style,
-        ),
+        RelayContext {
+            project_dir: &run.project.project_dir,
+            adapter: &run.project_adapter,
+            kind: CompletionKind::Sync { refresh },
+            style: run.style,
+        },
     )?;
     let settings: Bound<'py, PyAny> = capture_settings(
         py,

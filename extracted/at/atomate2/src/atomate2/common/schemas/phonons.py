@@ -2,8 +2,9 @@
 
 import copy
 import logging
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Union
+from typing import Self, Union
 
 import numpy as np
 from emmet.core.math import Matrix3D
@@ -12,7 +13,7 @@ from monty.json import MSONable
 from phonopy import Phonopy
 from phonopy.phonon.band_structure import get_band_qpoints_and_path_connections
 from phonopy.structure.symmetry import symmetrize_borns_and_epsilon
-from phonopy.units import VaspToTHz
+from phonopy.units import Bohr, Hartree, VaspToTHz
 from pydantic import BaseModel, Field
 from pymatgen.core import Structure
 from pymatgen.io.phonopy import (
@@ -28,7 +29,6 @@ from pymatgen.phonon.plotter import PhononBSPlotter, PhononDosPlotter
 from pymatgen.symmetry.bandstructure import HighSymmKpath
 from pymatgen.symmetry.kpath import KPathSeek
 from ruamel.yaml import YAML
-from typing_extensions import Self
 
 from atomate2.aims.utils.units import omegaToTHz
 
@@ -61,14 +61,75 @@ def get_factor(code: str) -> float:
     raise ValueError(f"Frequency conversion factor for code ({code}) not defined.")
 
 
+def _set_nac_params(
+    phonon: Phonopy,
+    born: Sequence[Matrix3D] | None,
+    epsilon_static: Matrix3D | None,
+    symprec: float,
+    code: str,
+    is_symmetry: bool = True,
+) -> tuple[np.ndarray | None, np.ndarray | None]:
+    """
+    Symmetrize the Born charges and the dielectric tensor and set the NAC.
+
+    The non-analytical correction is set unless all Born charges are zero or
+    the code is FHI-aims.
+
+    Parameters
+    ----------
+    phonon: Phonopy
+        Phonopy object whose unit cell the Born charges belong to.
+    born: Sequence[Matrix3D] | None
+        Born effective charges, one per atom of the unit cell.
+    epsilon_static: Matrix3D | None
+        High-frequency dielectric tensor.
+    symprec: float
+        Symmetry precision.
+    code: str
+        Code of the force calculations.
+    is_symmetry: bool
+        Whether to symmetrize the Born charges and the dielectric tensor.
+
+    Returns
+    -------
+    tuple[np.ndarray | None, np.ndarray | None]
+        The symmetrized Born charges and dielectric tensor, or None if either
+        was not given.
+    """
+    if born is None or epsilon_static is None:
+        return None, None
+    if len(born) != len(phonon.unitcell):
+        raise ValueError("Number of Born charges does not agree with number of atoms")
+    borns, epsilon = symmetrize_borns_and_epsilon(
+        ucell=phonon.unitcell,
+        borns=np.array(born),
+        epsilon=np.array(epsilon_static),
+        symprec=symprec,
+        primitive_matrix=phonon.primitive_matrix,
+        supercell_matrix=phonon.supercell_matrix,
+        is_symmetry=is_symmetry,
+    )
+    if code != "aims" and not np.all(np.isclose(borns, 0.0)):
+        phonon.nac_params = {
+            "born": borns,
+            "dielectric": epsilon,
+            "factor": Hartree * Bohr,
+        }
+    return borns, epsilon
+
+
 class PhononComputationalSettings(BaseModel):
     """Collection to store computational settings for the phonon computation."""
 
     # could be optional and implemented at a later stage?
-    npoints_band: int = Field("number of points for band structure computation")
-    kpath_scheme: str = Field("indicates the kpath scheme")
-    kpoint_density_dos: int = Field(
-        "number of points for computation of free energies and densities of states",
+    npoints_band: int | None = Field(
+        None, description="number of points for band structure computation"
+    )
+    kpath_scheme: str | None = Field(None, description="indicates the kpath scheme")
+    kpoint_density_dos: int | None = Field(
+        None,
+        description="number of points for computation of free energies and "
+        "densities of states",
     )
 
 
@@ -236,6 +297,41 @@ class PhononBSDOSDoc(StructureMetadata, extra="allow"):  # type: ignore[call-arg
         None, description="Field including all relevant uuids"
     )
 
+    def _get_thermo_value(
+        self,
+        temperatures: Sequence[float] | None,
+        values: Sequence[float] | None,
+        temp: float,
+    ) -> float:
+        """Interpolate a thermodynamic quantity at a given temperature."""
+        if temperatures is None or values is None:
+            raise AttributeError(
+                "Thermodynamic data not available in this PhononBSDOSDoc."
+            )
+
+        return float(np.interp(temp, np.array(temperatures), np.array(values)))
+
+    def heat_capacity(self, temp: float) -> float:
+        """Return heat capacity at a given temperature."""
+        return self._get_thermo_value(self.temperatures, self.heat_capacities, temp)
+
+    def entropy(self, temp: float) -> float:
+        """Return entropy at a given temperature."""
+        return self._get_thermo_value(self.temperatures, self.entropies, temp)
+
+    def free_energy(self, temp: float) -> float:
+        """Return Helmholtz free energy at a given temperature."""
+        return self._get_thermo_value(self.temperatures, self.free_energies, temp)
+
+    def internal_energy(self, temp: float) -> float:
+        """Return internal energy at a given temperature."""
+        return self._get_thermo_value(self.temperatures, self.internal_energies, temp)
+
+    @property
+    def post_process_settings(self) -> PhononComputationalSettings | None:
+        """Backward-compatible alias for legacy callers/tests."""
+        return self.phonopy_settings
+
     @classmethod
     def from_forces_born(
         cls,
@@ -296,7 +392,11 @@ class PhononBSDOSDoc(StructureMetadata, extra="allow"):  # type: ignore[call-arg
             primitive_matrix = "auto"
 
         # TARP: THIS IS BAD! Including for discussions sake
-        if cell.magnetic_moments is not None and primitive_matrix == "auto":
+        if (
+            cell.magnetic_moments is not None
+            and isinstance(primitive_matrix, str)
+            and primitive_matrix == "auto"
+        ):
             if np.any(cell.magnetic_moments != 0.0):
                 raise ValueError(
                     "For materials with magnetic moments, "
@@ -315,31 +415,14 @@ class PhononBSDOSDoc(StructureMetadata, extra="allow"):  # type: ignore[call-arg
         phonon.generate_displacements(distance=displacement)
         set_of_forces = [np.array(forces) for forces in displacement_data["forces"]]
 
-        if born is not None and epsilon_static is not None:
-            if len(structure) == len(born):
-                borns, epsilon = symmetrize_borns_and_epsilon(
-                    ucell=phonon.unitcell,
-                    borns=np.array(born),
-                    epsilon=np.array(epsilon_static),
-                    symprec=symprec,
-                    primitive_matrix=phonon.primitive_matrix,
-                    supercell_matrix=phonon.supercell_matrix,
-                    is_symmetry=kwargs.get("symmetrize_born", True),
-                )
-            else:
-                raise ValueError(
-                    "Number of Born charges does not agree with number of atoms"
-                )
-            if code == "vasp" and not np.all(np.isclose(borns, 0.0)):
-                phonon.nac_params = {
-                    "born": borns,
-                    "dielectric": epsilon,
-                    "factor": 14.399652,
-                }
-            # Other codes could be added here
-        else:
-            borns = None
-            epsilon = None
+        borns, epsilon = _set_nac_params(
+            phonon,
+            born,
+            epsilon_static,
+            symprec,
+            code,
+            is_symmetry=kwargs.get("symmetrize_born", True),
+        )
 
         # Produces all force constants
         phonon.produce_force_constants(forces=set_of_forces)
@@ -399,6 +482,10 @@ class PhononBSDOSDoc(StructureMetadata, extra="allow"):  # type: ignore[call-arg
             has_nac=born is not None,
             labels_dict=kpath_dict,
         )
+        # Backward compatibility for older atomate2 tests/callers
+        if not hasattr(bs_symm_line, "frequencies") and hasattr(bs_symm_line, "bands"):
+            bs_symm_line.frequencies = np.array(bs_symm_line.bands)
+
         new_plotter = PhononBSPlotter(bs=bs_symm_line)
         new_plotter.save_plot(
             filename=kwargs.get("filename_bs", "phonon_band_structure.pdf"),
@@ -455,33 +542,28 @@ class PhononBSDOSDoc(StructureMetadata, extra="allow"):  # type: ignore[call-arg
         )
 
         # compute vibrational part of free energies per formula unit
-        temperature_range = np.arange(
-            kwargs.get("tmin", 0), kwargs.get("tmax", 500), kwargs.get("tstep", 10)
+        # the grid includes tmax and defaults to 0-1000 K, as in phonopy
+        tmin = kwargs.get("tmin", 0)
+        tmax = kwargs.get("tmax", 1000)
+        tstep = kwargs.get("tstep", 10)
+        temperature_range = np.arange(tmin, tmax + tstep / 2, tstep)
+
+        # phonopy gives the values per primitive cell, the free energy in kJ/mol.
+        # The three acoustic modes at Gamma should have zero frequency, so they are
+        # left out.
+        phonon.run_thermal_properties(
+            temperatures=temperature_range, exclude_gamma_acoustic=True
         )
-
-        free_energies = [
-            dos.helmholtz_free_energy(
-                temp=temp, structure=get_pmg_structure(phonon.primitive)
-            )
-            for temp in temperature_range
-        ]
-
-        entropies = [
-            dos.entropy(temp=temp, structure=get_pmg_structure(phonon.primitive))
-            for temp in temperature_range
-        ]
-
-        internal_energies = [
-            dos.internal_energy(
-                temp=temp, structure=get_pmg_structure(phonon.primitive)
-            )
-            for temp in temperature_range
-        ]
-
-        heat_capacities = [
-            dos.cv(temp=temp, structure=get_pmg_structure(phonon.primitive))
-            for temp in temperature_range
-        ]
+        _, free_energy, entropy, heat_capacity = (
+            phonon.thermal_properties.thermal_properties
+        )
+        formula_units_primitive = (
+            len(phonon.primitive) / structure.composition.reduced_composition.num_atoms
+        )
+        free_energies = 1000 * free_energy / formula_units_primitive
+        entropies = entropy / formula_units_primitive
+        internal_energies = free_energies + temperature_range * entropies
+        heat_capacities = heat_capacity / formula_units_primitive
 
         # will compute thermal displacement matrices
         # for the primitive cell (phonon.primitive!)

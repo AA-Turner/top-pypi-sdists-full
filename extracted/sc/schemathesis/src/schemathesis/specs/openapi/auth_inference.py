@@ -13,8 +13,8 @@ from schemathesis.core.error_feedback import (
     RequiresAuthPayload,
 )
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.specs.openapi._auth_retry import build_retry_transport_kwargs, clone_case
-from schemathesis.specs.openapi.adapter.security import get_effective_security_scheme_names
+from schemathesis.specs.openapi._auth_retry import build_retry_transport_kwargs
+from schemathesis.specs.openapi.adapter.security import declares_security
 from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 if TYPE_CHECKING:
@@ -43,11 +43,6 @@ def _already_inferred(store: ErrorFeedbackStore, operation_label: str) -> bool:
     return any(observation.kind is ObservationKind.REQUIRES_AUTHENTICATION for observation in observations)
 
 
-def _has_declared_security(operation: APIOperation) -> bool:
-    """Return True iff the operation declares any security (own, schema-level fallback, or inferred overlay)."""
-    return bool(get_effective_security_scheme_names(operation, operation.schema.raw_schema))
-
-
 def _is_auth_success(operation: APIOperation, retry_status: int) -> bool:
     """A retry confirms inference iff it slips past the auth gate without crashing the server."""
     if 200 <= retry_status < 300:
@@ -74,7 +69,7 @@ def _send_with_scheme(
     schema = case.operation.schema
     config = schema.auth_schemes[scheme_name]
 
-    retry_case = clone_case(case)
+    retry_case = case.derive()
     recorder.record_case(parent_id=case.id, case=retry_case, transition=None, is_transition_applied=False)
 
     context = AuthContext(operation=case.operation, app=case.operation.app)
@@ -118,7 +113,7 @@ def record_auth_inference(
     operation = case.operation
     if not isinstance(operation.schema, OpenApiSchema):
         return
-    if _has_declared_security(operation):
+    if declares_security(operation):
         return
     if _already_inferred(store, operation.label):
         return

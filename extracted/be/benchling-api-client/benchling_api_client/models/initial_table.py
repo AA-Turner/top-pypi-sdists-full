@@ -69,7 +69,7 @@ class InitialTable:
 
     @property
     def csv_data(self) -> str:
-        """ blobId of an uploaded csv blob. The CSV should be formatted with column headers of `columnId` which can be found in the [EntryTemplate](#/components/schemas/EntryTemplate). For more information on uploading a blob, [click here](https://docs.benchling.com/docs/uploading-a-blob-to-benchling). """
+        """ blobId of an uploaded csv blob. The CSV should be formatted with column headers of `columnId` which can be found in the `EntryTemplate`. For more information on uploading a blob, [click here](https://docs.benchling.com/docs/uploading-a-blob-to-benchling). """
         if isinstance(self._csv_data, Unset):
             raise NotPresentError(self, "csv_data")
         return self._csv_data

@@ -12,19 +12,19 @@ use sqlbuild_cli::diff_report::main::read_only_query_problem::read_only_query_pr
 use sqlbuild_cli::diff_report::models::QueryShapeFacts;
 use sqlbuild_cli::diff_report::types::PhaseSeconds;
 
+use sqlbuild_host::entries::models::{AdapterHost, ExecutorHost};
+
 use crate::bindings::_helpers::boundary::panics::value_error;
+use crate::bindings::_helpers::boundary::python_calls::{imported, keywords};
 use crate::bindings::_helpers::command_runtime::adapters::resolve_cli_adapter;
 use crate::bindings::_helpers::command_runtime::connection::resolve_project_connection_config;
 use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_runtime_config;
 use crate::bindings::_helpers::compile_attachment::target::build_effective_target_namespace;
-use crate::bindings::_helpers::compile_driver::python_calls::{imported, keywords};
 use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
 use crate::bindings::_helpers::diff_report::support::{
     call, cli_error, error_text, none, object, progress_line,
 };
 use crate::bindings::_helpers::diff_report::tolerances::cli_tolerance_overrides;
-use crate::bindings::_helpers::native_host::adapter::AdapterHost;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::construct::record_class;
 use crate::bindings::_helpers::records::fields::field as native_field;
@@ -162,6 +162,17 @@ fn read_only_query(
     Ok(normalized.to_owned())
 }
 
+positional_record! {
+    extract;
+    /// The target name, target, database and schema a raw-query diff resolves.
+    struct ResolvedNamespace<'py> {
+        target_name: Bound<'py, PyAny>,
+        _target: Bound<'py, PyAny>,
+        database: Bound<'py, PyAny>,
+        schema: Bound<'py, PyAny>,
+    }
+}
+
 /// Resolve raw SQL, the active target namespace, the adapter and its connection.
 pub(crate) fn prepare_query_diff<'py>(
     request: &Bound<'py, PyAny>,
@@ -206,12 +217,12 @@ pub(crate) fn prepare_query_diff<'py>(
         )?),
     )
     .and_then(|value| pyo3::IntoPyObjectExt::into_bound_py_any(value, py))?;
-    let (target_name, _target, database, schema): (
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-        Bound<'py, PyAny>,
-    ) = namespace.extract()?;
+    let ResolvedNamespace {
+        target_name,
+        database,
+        schema,
+        ..
+    }: ResolvedNamespace<'py> = namespace.extract()?;
     if schema.is_none() {
         return Err(failure(
             py,

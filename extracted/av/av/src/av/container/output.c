@@ -10579,7 +10579,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
  *         self.start_timeout()
  *         self._blocking_depth += 1             # <<<<<<<<<<<<<<
  *         try:
- *             if (
+ *             all_options = Dictionary(self.options, self.container_options)
 */
   __pyx_v_self->_blocking_depth = (__pyx_v_self->_blocking_depth + 1);
 
@@ -10587,13 +10587,53 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
  *         self.start_timeout()
  *         self._blocking_depth += 1
  *         try:             # <<<<<<<<<<<<<<
- *             if (
- *                 self.ptr.pb == cython.NULL
+ *             all_options = Dictionary(self.options, self.container_options)
+ *             options = all_options.copy()
 */
   /*try:*/ {
 
+    /* "av/container/output.py":633
+ *         self._blocking_depth += 1
+ *         try:
+ *             all_options = Dictionary(self.options, self.container_options)             # <<<<<<<<<<<<<<
+ *             options = all_options.copy()
+ *             options_ptr = cython.address(options.ptr)
+*/
+    __pyx_t_11 = NULL;
+    __pyx_t_15 = 1;
+    {
+      PyObject *__pyx_callargs[3] = {__pyx_t_11, __pyx_v_self->__pyx_base.options, __pyx_v_self->__pyx_base.container_options};
+      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_10dictionary_Dictionary, __pyx_callargs+__pyx_t_15, (3-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+      __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
+      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 633, __pyx_L17_error)
+      __Pyx_GOTREF((PyObject *)__pyx_t_2);
+    }
+    __pyx_v_all_options = ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_2);
+    __pyx_t_2 = 0;
+
     /* "av/container/output.py":634
  *         try:
+ *             all_options = Dictionary(self.options, self.container_options)
+ *             options = all_options.copy()             # <<<<<<<<<<<<<<
+ *             options_ptr = cython.address(options.ptr)
+ *             if (
+*/
+    __pyx_t_2 = ((PyObject *)((struct __pyx_vtabstruct_2av_10dictionary_Dictionary *)__pyx_v_all_options->__pyx_vtab)->copy(__pyx_v_all_options, 0)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 634, __pyx_L17_error)
+    __Pyx_GOTREF(__pyx_t_2);
+    __pyx_v_options = ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_2);
+    __pyx_t_2 = 0;
+
+    /* "av/container/output.py":635
+ *             all_options = Dictionary(self.options, self.container_options)
+ *             options = all_options.copy()
+ *             options_ptr = cython.address(options.ptr)             # <<<<<<<<<<<<<<
+ *             if (
+ *                 self.ptr.pb == cython.NULL
+*/
+    __pyx_v_options_ptr = (&__pyx_v_options->ptr);
+
+    /* "av/container/output.py":637
+ *             options_ptr = cython.address(options.ptr)
  *             if (
  *                 self.ptr.pb == cython.NULL             # <<<<<<<<<<<<<<
  *                 and not self.ptr.oformat.flags & lib.AVFMT_NOFILE
@@ -10610,7 +10650,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
       goto __pyx_L20_bool_binop_done;
     }
 
-    /* "av/container/output.py":635
+    /* "av/container/output.py":638
  *             if (
  *                 self.ptr.pb == cython.NULL
  *                 and not self.ptr.oformat.flags & lib.AVFMT_NOFILE             # <<<<<<<<<<<<<<
@@ -10624,9 +10664,9 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 
     __pyx_L20_bool_binop_done:;
 
-    /* "av/container/output.py":633
- *         self._blocking_depth += 1
- *         try:
+    /* "av/container/output.py":636
+ *             options = all_options.copy()
+ *             options_ptr = cython.address(options.ptr)
  *             if (             # <<<<<<<<<<<<<<
  *                 self.ptr.pb == cython.NULL
  *                 and not self.ptr.oformat.flags & lib.AVFMT_NOFILE
@@ -10634,7 +10674,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
     if (__pyx_t_1) {
 
 
-      /* "av/container/output.py":639
+      /* "av/container/output.py":642
  *                 # avio_open() would pass the protocol a NULL interrupt
  *                 # callback, so a stalled connect could never be timed out.
  *                 with cython.nogil:             # <<<<<<<<<<<<<<
@@ -10647,17 +10687,17 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
           __Pyx_FastGIL_Remember();
           /*try:*/ {
 
-            /* "av/container/output.py":640
+            /* "av/container/output.py":643
  *                 # callback, so a stalled connect could never be timed out.
  *                 with cython.nogil:
  *                     ret = lib.avio_open2(             # <<<<<<<<<<<<<<
  *                         cython.address(self.ptr.pb),
  *                         name,
 */
-            __pyx_v_ret = avio_open2((&__pyx_v_self->__pyx_base.ptr->pb), __pyx_v_name, AVIO_FLAG_WRITE, (&__pyx_v_self->__pyx_base.ptr->interrupt_callback), NULL);
+            __pyx_v_ret = avio_open2((&__pyx_v_self->__pyx_base.ptr->pb), __pyx_v_name, AVIO_FLAG_WRITE, (&__pyx_v_self->__pyx_base.ptr->interrupt_callback), __pyx_v_options_ptr);
           }
 
-          /* "av/container/output.py":639
+          /* "av/container/output.py":642
  *                 # avio_open() would pass the protocol a NULL interrupt
  *                 # callback, so a stalled connect could never be timed out.
  *                 with cython.nogil:             # <<<<<<<<<<<<<<
@@ -10674,17 +10714,17 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
           }
       }
 
-      /* "av/container/output.py":647
- *                         cython.NULL,
+      /* "av/container/output.py":650
+ *                         options_ptr,
  *                     )
  *                 err_check(ret)             # <<<<<<<<<<<<<<
  *                 opened_pb = True
  * 
 */
-      __pyx_t_10 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 647, __pyx_L17_error)
+      __pyx_t_10 = __pyx_f_2av_5error_err_check(__pyx_v_ret, 0, NULL); if (unlikely(__pyx_t_10 == ((int)-1))) __PYX_ERR(0, 650, __pyx_L17_error)
 
 
-      /* "av/container/output.py":648
+      /* "av/container/output.py":651
  *                     )
  *                 err_check(ret)
  *                 opened_pb = True             # <<<<<<<<<<<<<<
@@ -10693,71 +10733,31 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
 */
       __pyx_v_opened_pb = 1;
 
-      /* "av/container/output.py":633
- *         self._blocking_depth += 1
- *         try:
+      /* "av/container/output.py":636
+ *             options = all_options.copy()
+ *             options_ptr = cython.address(options.ptr)
  *             if (             # <<<<<<<<<<<<<<
  *                 self.ptr.pb == cython.NULL
  *                 and not self.ptr.oformat.flags & lib.AVFMT_NOFILE
 */
     }
 
-    /* "av/container/output.py":651
+    /* "av/container/output.py":654
  * 
  *             # Copy the metadata dict.
  *             dict_to_avdict(cython.address(self.ptr.metadata), self.metadata)             # <<<<<<<<<<<<<<
  * 
- *             all_options = Dictionary(self.options, self.container_options)
+ *             with cython.nogil:
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_metadata); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 651, __pyx_L17_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_metadata); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 654, __pyx_L17_error)
     __Pyx_GOTREF(__pyx_t_2);
-    if (!(likely(PyDict_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_2))) __PYX_ERR(0, 651, __pyx_L17_error)
-    __pyx_f_2av_5utils_dict_to_avdict((&__pyx_v_self->__pyx_base.ptr->metadata), ((PyObject*)__pyx_t_2)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 651, __pyx_L17_error)
+    if (!(likely(PyDict_CheckExact(__pyx_t_2))||((__pyx_t_2) == Py_None) || __Pyx_RaiseUnexpectedTypeError("dict", __pyx_t_2))) __PYX_ERR(0, 654, __pyx_L17_error)
+    __pyx_f_2av_5utils_dict_to_avdict((&__pyx_v_self->__pyx_base.ptr->metadata), ((PyObject*)__pyx_t_2)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 654, __pyx_L17_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-    /* "av/container/output.py":653
+    /* "av/container/output.py":656
  *             dict_to_avdict(cython.address(self.ptr.metadata), self.metadata)
  * 
- *             all_options = Dictionary(self.options, self.container_options)             # <<<<<<<<<<<<<<
- *             options = all_options.copy()
- *             options_ptr = cython.address(options.ptr)
-*/
-    __pyx_t_11 = NULL;
-    __pyx_t_15 = 1;
-    {
-      PyObject *__pyx_callargs[3] = {__pyx_t_11, __pyx_v_self->__pyx_base.options, __pyx_v_self->__pyx_base.container_options};
-      __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_10dictionary_Dictionary, __pyx_callargs+__pyx_t_15, (3-__pyx_t_15) | (__pyx_t_15*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
-      __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 653, __pyx_L17_error)
-      __Pyx_GOTREF((PyObject *)__pyx_t_2);
-    }
-    __pyx_v_all_options = ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "av/container/output.py":654
- * 
- *             all_options = Dictionary(self.options, self.container_options)
- *             options = all_options.copy()             # <<<<<<<<<<<<<<
- *             options_ptr = cython.address(options.ptr)
- *             with cython.nogil:
-*/
-    __pyx_t_2 = ((PyObject *)((struct __pyx_vtabstruct_2av_10dictionary_Dictionary *)__pyx_v_all_options->__pyx_vtab)->copy(__pyx_v_all_options, 0)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 654, __pyx_L17_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_v_options = ((struct __pyx_obj_2av_10dictionary_Dictionary *)__pyx_t_2);
-    __pyx_t_2 = 0;
-
-    /* "av/container/output.py":655
- *             all_options = Dictionary(self.options, self.container_options)
- *             options = all_options.copy()
- *             options_ptr = cython.address(options.ptr)             # <<<<<<<<<<<<<<
- *             with cython.nogil:
- *                 ret = lib.avformat_write_header(self.ptr, options_ptr)
-*/
-    __pyx_v_options_ptr = (&__pyx_v_options->ptr);
-
-    /* "av/container/output.py":656
- *             options = all_options.copy()
- *             options_ptr = cython.address(options.ptr)
  *             with cython.nogil:             # <<<<<<<<<<<<<<
  *                 ret = lib.avformat_write_header(self.ptr, options_ptr)
  *             try:
@@ -10769,7 +10769,7 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
         /*try:*/ {
 
           /* "av/container/output.py":657
- *             options_ptr = cython.address(options.ptr)
+ * 
  *             with cython.nogil:
  *                 ret = lib.avformat_write_header(self.ptr, options_ptr)             # <<<<<<<<<<<<<<
  *             try:
@@ -10779,8 +10779,8 @@ static PyObject *__pyx_f_2av_9container_6output_15OutputContainer_start_encoding
         }
 
         /* "av/container/output.py":656
- *             options = all_options.copy()
- *             options_ptr = cython.address(options.ptr)
+ *             dict_to_avdict(cython.address(self.ptr.metadata), self.metadata)
+ * 
  *             with cython.nogil:             # <<<<<<<<<<<<<<
  *                 ret = lib.avformat_write_header(self.ptr, options_ptr)
  *             try:

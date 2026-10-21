@@ -166,6 +166,7 @@ class ApiKey(TypedDict):
 class AsyncScoringControlAsyncScoringControl(TypedDict):
     kind: Literal['score_update']
     token: NotRequired[str | None]
+    triggered_xact_id: NotRequired[str | None]
 
 
 class AsyncScoringControlAsyncScoringControl2(TypedDict):
@@ -3287,6 +3288,11 @@ class WindowedAutomationConfigWindow(TypedDict):
     """
 
 
+class WindowedAutomationConfigLoopTarget(TypedDict):
+    type: Literal['dashboard']
+    id: str | Literal['overview']
+
+
 class WindowedAutomationConfigLoop(TypedDict):
     prompt: str
     """
@@ -3316,6 +3322,10 @@ class WindowedAutomationConfigLoop(TypedDict):
     reasoning_effort: NotRequired[
         Literal['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
     ]
+    target: NotRequired[WindowedAutomationConfigLoopTarget | None]
+    """
+    The object this automation writes to or maintains
+    """
 
 
 class WindowedAutomationConfigActions(TypedDict):
@@ -3388,7 +3398,7 @@ class WindowedAutomationConfig(TypedDict):
     """
     The type of automation.
     """
-    product_origin: NotRequired[Literal['patterns'] | None]
+    product_origin: NotRequired[Literal['patterns', 'dashboard'] | None]
     """
     The product surface that created and manages the automation
     """

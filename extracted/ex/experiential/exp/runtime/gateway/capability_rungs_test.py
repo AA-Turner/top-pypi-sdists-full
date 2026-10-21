@@ -9,19 +9,24 @@ from exp.common.core.artifacts import JsonObject
 from exp.common.models.catalog import GatewayDeploymentCapabilities, GatewayDeploymentMetadata
 from exp.common.models.gateway_catalog import ExactModelDeployment
 from exp.common.models.model import ModelCapabilities
-from exp.runtime.gateway.capability_rungs import narrow_to_capable_rungs
+from exp.runtime.gateway.capability_rungs import (
+    PROMPT_CACHE_TTL_RUNG_DISCLOSURE,
+    narrow_to_capable_rungs,
+)
 from exp.runtime.gateway.contracts import (
     AuthorizationSnapshot,
     DirectTarget,
-    ExecutionSnapshot,
     GatewayApiSurface,
     GatewayMessage,
     GatewayRequest,
 )
+from exp.runtime.gateway.execution_snapshot import ExecutionSnapshot
 from exp.runtime.gateway.native_accounting import NativeAttemptAccounting
 from exp.runtime.gateway.native_admission import admitted_route_requests
+from exp.runtime.gateway.native_bridge_errors import public_capability_error
 from exp.runtime.gateway.routing import GatewayRoute
 from exp.runtime.models.providers.base import GatewayWireProfile
+from exp.runtime.models.providers.dialect_dispatch import dialect_stream_payload
 from exp.runtime.models.providers.errors import ProviderCapabilityError
 from exp.runtime.models.providers.protocol import NativeWireClient
 from exp.runtime.openai_protocol.requests import decode_chat, decode_responses
@@ -468,3 +473,330 @@ def test_deepseek_origin_relaxes_a_forced_tool_choice_while_thinking() -> None:
     )
     assert provider.tool_choice == "auto"
     assert "tool_choice->auto" in public.ignored_parameters
+
+
+def _astra_rung(deployment_id: str, *, tools: bool) -> ExactModelDeployment:
+    """Build one gpt-6-astra rung that does or does not declare function tools."""
+    return _deployment(deployment_id, structured=True).model_copy(
+        update={
+            "capabilities": ModelCapabilities(
+                maximum_output_tokens=128_000,
+                supports_structured_output=True,
+                supports_tools=tools,
+            ),
+            "gateway": GatewayDeploymentMetadata(
+                capabilities=GatewayDeploymentCapabilities(
+                    supports_streaming=True,
+                    supports_streaming_tool_arguments=True,
+                    supports_parallel_tool_calls=True,
+                    supports_structured_text=True,
+                    supports_developer_messages=True,
+                )
+            ),
+        }
+    )
+
+
+def _astra_profile(url: str, *, sampling: bool) -> tuple[GatewayWireProfile, NativeWireClient]:
+    """One reasoning rung; only ``sampling`` rungs take ``temperature``/``top_p``."""
+    profile = GatewayWireProfile(
+        dialect="openai_compatible",
+        url=url,
+        model_id="gpt-6-astra",
+        supports_temperature=sampling,
+        supports_top_p=sampling,
+        supports_reasoning=True,
+        reasoning_wire_format="reasoning_effort",
+        supported_reasoning_efforts=("none", "low", "medium", "high", "xhigh"),
+        reasoning_effort="medium",
+    )
+    return profile, _CLIENT
+
+
+def _astra_route(
+    order: tuple[str, ...],
+) -> tuple[GatewayRoute, tuple[tuple[GatewayWireProfile, NativeWireClient], ...]]:
+    """Mirror gpt-6-astra (2026-10-20): only the openai rung declares tools, and only
+    the novita rung takes the caller's sampling controls."""
+    rungs = {
+        "openai": (_astra_rung("openai", tools=True), False),
+        "azure_openai": (_astra_rung("azure_openai", tools=False), False),
+        "novita": (_astra_rung("novita", tools=False), True),
+    }
+    route = _route(tuple(rungs[name][0] for name in order))
+    wires = tuple(_astra_profile(f"https://{name}.test", sampling=rungs[name][1]) for name in order)
+    return route, wires
+
+
+def _copilot_chat(*, tools: bool = True) -> GatewayRequest:
+    """Decode the GitHub Copilot 0.69 Chat shape: tools plus temperature, top_p, empty stop."""
+    tool: JsonObject = {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read a file.",
+            "strict": False,
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
+                "required": ["path"],
+            },
+        },
+    }
+    payload: JsonObject = {
+        "model": "public-model",
+        "messages": [{"role": "user", "content": "read it"}],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "temperature": 0.1,
+        "top_p": 1,
+        "stop": [],
+    }
+    if tools:
+        payload["tools"] = [tool]
+    return decode_chat(payload).request
+
+
+@pytest.mark.parametrize(
+    "order",
+    [("novita", "openai", "azure_openai"), ("openai", "azure_openai", "novita")],
+)
+def test_function_tools_route_past_the_sampling_exact_rung(order: tuple[str, ...]) -> None:
+    """Copilot 0.69 on gpt-6-astra sent tools with temperature and top_p. Only the
+    novita rung takes those sampling controls, so the exact-sampling ranking chose
+    it and the capability check then refused ``tools`` that the openai rung serves
+    (production 2026-10-20). Tools now narrow first; openai serves and drops the
+    sampling it does not take, disclosed."""
+    route, wires = _astra_route(order)
+    narrowed, public, provider, _recorded = _admit(route, wires, _copilot_chat())
+    assert _ids(narrowed) == ("openai",)
+    assert provider.tools
+    assert provider.temperature is None
+    assert provider.top_p is None
+    assert "temperature->dropped(unsupported_by_provider)" in public.ignored_parameters
+    moved = "tools->routed(tools_rung)" in public.ignored_parameters
+    assert moved is (order[0] != "openai")
+
+
+def test_tool_free_requests_keep_the_sampling_exact_rung() -> None:
+    """Without tools nothing narrows: the rung that keeps the sampling still wins."""
+    route, wires = _astra_route(("openai", "azure_openai", "novita"))
+    narrowed, public, provider, _recorded = _admit(route, wires, _copilot_chat(tools=False))
+    assert _ids(narrowed) == ("novita",)
+    assert provider.temperature == 0.1
+    assert not any(item.startswith("tools->") for item in public.ignored_parameters)
+
+
+def test_no_rung_with_tools_still_refuses_on_tools() -> None:
+    """When no rung declares tools the route stays whole and the refusal names tools."""
+    route, wires = _astra_route(("azure_openai", "novita"))
+    with pytest.raises(ProviderCapabilityError) as caught:
+        _admit(route, wires, _copilot_chat())
+    assert caught.value.capability == "function_tools"
+
+
+def test_tools_with_a_schema_no_tool_rung_enforces_refuses_on_the_schema() -> None:
+    """No rung carries both: the tool rung is kept and the refusal names the schema it
+    cannot enforce, the conflict the caller can act on, instead of ``tools``."""
+    route, wires = _astra_route(("novita", "openai"))
+    tool_rung = route.deployments[1]
+    assert tool_rung.capabilities is not None
+    no_schema = tool_rung.model_copy(
+        update={
+            "capabilities": tool_rung.capabilities.model_copy(
+                update={"supports_structured_output": False}
+            )
+        }
+    )
+    route = _route((route.deployments[0], no_schema))
+    request = _copilot_chat().model_copy(
+        update={"structured_text": _structured_chat().structured_text}
+    )
+    with pytest.raises(ProviderCapabilityError) as caught:
+        _admit(route, wires, request)
+    assert caught.value.capability == "structured_output"
+
+
+def test_responses_tools_route_past_the_sampling_exact_rung() -> None:
+    """The same narrowing on the Responses surface."""
+    route, wires = _astra_route(("novita", "openai"))
+    request = decode_responses(
+        {
+            "model": "public-model",
+            "input": "read it",
+            "stream": True,
+            "temperature": 0.1,
+            "top_p": 1,
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "read_file",
+                    "parameters": {"type": "object", "properties": {}},
+                }
+            ],
+        }
+    ).request
+    narrowed, public, _provider, _recorded = _admit(route, wires, request)
+    assert _ids(narrowed) == ("openai",)
+    assert "tools->routed(tools_rung)" in public.ignored_parameters
+
+
+def test_images_route_past_the_sampling_exact_rung() -> None:
+    """An image narrows to the rungs that take images before the sampling ranking."""
+    route, wires = _astra_route(("novita", "openai"))
+    sees = route.deployments[1].model_copy(
+        update={
+            "gateway": GatewayDeploymentMetadata(
+                capabilities=GatewayDeploymentCapabilities(
+                    supports_streaming=True,
+                    supports_image_input=True,
+                    supports_image_url_input=True,
+                )
+            )
+        }
+    )
+    route = _route((route.deployments[0], sees))
+    request = decode_chat(
+        {
+            "model": "public-model",
+            "stream": True,
+            "temperature": 0.1,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "what is this"},
+                        {"type": "image_url", "image_url": {"url": "https://example.test/a.png"}},
+                    ],
+                }
+            ],
+        }
+    ).request
+    narrowed, public, provider, _recorded = _admit(route, wires, request)
+    assert _ids(narrowed) == ("openai",)
+    assert provider.temperature is None
+    assert "messages->routed(image_input_rung)" in public.ignored_parameters
+
+
+def _luna_rung(deployment_id: str, *, twelve_hour: bool) -> ExactModelDeployment:
+    """Build one gpt-5.6-luna rung that does or does not declare 12-hour caching."""
+    return _deployment(deployment_id, structured=True).model_copy(
+        update={
+            "gateway": GatewayDeploymentMetadata(
+                capabilities=GatewayDeploymentCapabilities(
+                    supports_streaming=True,
+                    supports_developer_messages=True,
+                    supports_prompt_cache_ttl_12h=twelve_hour,
+                )
+            ),
+        }
+    )
+
+
+def _luna_route(
+    order: tuple[str, ...],
+) -> tuple[GatewayRoute, tuple[tuple[GatewayWireProfile, NativeWireClient], ...]]:
+    """Mirror gpt-5.6-luna: only the house OpenAI Responses rung writes 12-hour caches.
+    Azure serves it over Chat, OpenRouter's relay takes no lifetime, and a ChatGPT
+    plan rung inherits the lane's capabilities but its wire cannot carry one."""
+    rungs = {
+        "openai": (True, "openai_responses", True),
+        "azure_openai": (False, "openai_compatible", False),
+        "openrouter": (False, "openai_responses", False),
+        "chatgpt_plan": (True, "openai_responses", False),
+    }
+    route = _route(
+        tuple(_luna_rung(name, twelve_hour=rungs[name][0]) for name in order),
+        GatewayApiSurface.RESPONSES,
+    )
+    wires = tuple(
+        (
+            GatewayWireProfile(
+                dialect=rungs[name][1],
+                url=f"https://{name}.test",
+                model_id="gpt-5.6-luna",
+                forwards_prompt_cache_ttl=rungs[name][2],
+            ),
+            _CLIENT,
+        )
+        for name in order
+    )
+    return route, wires
+
+
+def _twelve_hour_responses(ttl: str = "12h") -> GatewayRequest:
+    """Decode one Responses request asking for OpenAI's 12-hour cache lifetime."""
+    return decode_responses(
+        {
+            "model": "public-model",
+            "input": "answer",
+            "stream": True,
+            "prompt_cache_options": {"ttl": ttl},
+        }
+    ).request
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        ("azure_openai", "openai", "openrouter"),
+        ("openai", "openrouter", "azure_openai"),
+        ("chatgpt_plan", "openai"),
+    ],
+)
+def test_twelve_hour_caching_routes_only_to_rungs_that_honour_it(order: tuple[str, ...]) -> None:
+    """A lane that would write at the default lifetime is never asked, so no 12-hour
+    write is ever billed at the 30-minute rate; a moved lead is disclosed."""
+    route, wires = _luna_route(order)
+    narrowed, public, provider, _recorded = _admit(route, wires, _twelve_hour_responses())
+    assert _ids(narrowed) == ("openai",)
+    assert provider.prompt_cache_ttl == "12h"
+    moved = PROMPT_CACHE_TTL_RUNG_DISCLOSURE in public.ignored_parameters
+    assert moved is (order[0] != "openai")
+    payload = dialect_stream_payload(wires[order.index("openai")][0], provider)
+    assert payload["prompt_cache_options"] == {"ttl": "12h"}
+
+
+def test_the_default_lifetime_keeps_every_rung_and_sends_no_option() -> None:
+    """``"30m"`` is OpenAI's default: nothing narrows and nothing extra is sent."""
+    route, wires = _luna_route(("azure_openai", "openai"))
+    narrowed, _public, provider, _recorded = _admit(route, wires, _twelve_hour_responses("30m"))
+    assert _ids(narrowed) == ("azure_openai", "openai")
+    assert provider.prompt_cache_ttl is None
+    assert "prompt_cache_options" not in dialect_stream_payload(wires[1][0], provider)
+
+
+@pytest.mark.parametrize("order", [("azure_openai", "openrouter"), ("chatgpt_plan",)])
+def test_no_twelve_hour_rung_refuses_with_a_named_400(order: tuple[str, ...]) -> None:
+    """No rung can carry the lifetime: the request is refused on the caller's field."""
+    route, wires = _luna_route(order)
+    with pytest.raises(ProviderCapabilityError) as caught:
+        _admit(route, wires, _twelve_hour_responses())
+    assert caught.value.capability == "prompt_cache_ttl_12h"
+    public = public_capability_error(
+        caught.value, GatewayApiSurface.RESPONSES, public_stream=True, public_tools=False
+    )
+    assert public.status_code == 400
+    assert public.detail.code == "unsupported_capability"
+    assert public.detail.param == "prompt_cache_options.ttl"
+    assert "12-hour" in public.detail.message
+
+
+@pytest.mark.parametrize(
+    "profile",
+    [
+        GatewayWireProfile(
+            dialect="openai_compatible", url="https://azure.test", model_id="gpt-5.6-luna"
+        ),
+        GatewayWireProfile(
+            dialect="openai_responses", url="https://chatgpt.test", model_id="gpt-5.6-luna"
+        ),
+    ],
+)
+def test_a_twelve_hour_request_rides_only_a_wire_that_carries_it(
+    profile: GatewayWireProfile,
+) -> None:
+    """A Chat wire or a plan wire declines instead of dropping the lifetime."""
+    with pytest.raises(ProviderCapabilityError) as caught:
+        dialect_stream_payload(profile, _twelve_hour_responses())
+    assert caught.value.capability == "prompt_cache_ttl_12h"

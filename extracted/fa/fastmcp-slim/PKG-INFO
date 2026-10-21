@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fastmcp-slim
-Version: 4.1.1
+Version: 4.1.3
 Summary: The dependency-slim FastMCP package.
 Project-URL: Homepage, https://gofastmcp.com
 Project-URL: Repository, https://github.com/PrefectHQ/fastmcp
@@ -28,23 +28,26 @@ Requires-Dist: rich>=13.9.4
 Requires-Dist: typing-extensions>=4.0.0
 Provides-Extra: anthropic
 Requires-Dist: anthropic<2,>=0.48.0; extra == 'anthropic'
+Requires-Dist: certifi>=2026.10.19; extra == 'anthropic'
 Provides-Extra: apps
 Requires-Dist: prefab-ui>=0.18.0; extra == 'apps'
 Provides-Extra: azure
 Requires-Dist: azure-identity>=1.16.0; extra == 'azure'
+Requires-Dist: certifi>=2026.10.19; extra == 'azure'
 Requires-Dist: pyjwt>=2.12.0; extra == 'azure'
 Provides-Extra: client
 Requires-Dist: authlib>=1.6.11; extra == 'client'
 Requires-Dist: beartype>=0.23.0rc2; (python_version >= '3.15') and extra == 'client'
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'client'
 Requires-Dist: httpx2>=2.5.0; extra == 'client'
-Requires-Dist: mcp<3.0.0,>=2.0.0; extra == 'client'
+Requires-Dist: mcp<3.0.0,>=2.2.0; extra == 'client'
 Requires-Dist: opentelemetry-api>=1.28.0; extra == 'client'
 Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == 'client'
 Requires-Dist: starlette>=1.0.1; extra == 'client'
 Provides-Extra: code-mode
 Requires-Dist: pydantic-monty<2,>=1.1; extra == 'code-mode'
 Provides-Extra: gemini
+Requires-Dist: certifi>=2026.10.19; extra == 'gemini'
 Requires-Dist: google-genai>=1.18.0; extra == 'gemini'
 Requires-Dist: jsonref>=1.1.0; extra == 'gemini'
 Provides-Extra: jev
@@ -52,14 +55,16 @@ Requires-Dist: typesafe-sdk>=0.5.7; extra == 'jev'
 Provides-Extra: mcp
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'mcp'
 Requires-Dist: httpx2>=2.5.0; extra == 'mcp'
-Requires-Dist: mcp<3.0.0,>=2.0.0; extra == 'mcp'
+Requires-Dist: mcp<3.0.0,>=2.2.0; extra == 'mcp'
 Requires-Dist: opentelemetry-api>=1.28.0; extra == 'mcp'
 Requires-Dist: starlette>=1.0.1; extra == 'mcp'
 Provides-Extra: openai
+Requires-Dist: certifi>=2026.10.19; extra == 'openai'
 Requires-Dist: openai>=1.102.0; extra == 'openai'
 Provides-Extra: server
 Requires-Dist: authlib>=1.6.11; extra == 'server'
 Requires-Dist: beartype>=0.23.0rc2; (python_version >= '3.15') and extra == 'server'
+Requires-Dist: certifi>=2026.10.19; extra == 'server'
 Requires-Dist: cyclopts>=4.0.0; extra == 'server'
 Requires-Dist: exceptiongroup>=1.2.2; extra == 'server'
 Requires-Dist: griffelib>=2.0.0; extra == 'server'
@@ -67,8 +72,8 @@ Requires-Dist: httpx2>=2.5.0; extra == 'server'
 Requires-Dist: joserfc>=1.5.0; extra == 'server'
 Requires-Dist: jsonref>=1.1.0; extra == 'server'
 Requires-Dist: jsonschema-path>=0.3.4; extra == 'server'
-Requires-Dist: mcp<3.0.0,>=2.0.0; extra == 'server'
-Requires-Dist: openapi-pydantic>=0.5.1; extra == 'server'
+Requires-Dist: mcp<3.0.0,>=2.2.0; extra == 'server'
+Requires-Dist: openapi-pydantic>=0.6.0; extra == 'server'
 Requires-Dist: opentelemetry-api>=1.28.0; extra == 'server'
 Requires-Dist: packaging>=24.0; extra == 'server'
 Requires-Dist: py-key-value-aio[filetree,keyring,memory]<0.5.0,>=0.4.4; extra == 'server'

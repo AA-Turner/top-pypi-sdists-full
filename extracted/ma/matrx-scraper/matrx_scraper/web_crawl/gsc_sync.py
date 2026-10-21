@@ -300,9 +300,14 @@ def compute_sync_window(
 
 @dataclass(frozen=True)
 class GoogleConnectionCredential:
-    refresh_token: str
-    client_id: str
-    client_secret: str
+    """The owner's refresh trio, or — when the connection was reached through a share,
+    a site-binding delegation or a service-account key — one short-lived Search Console
+    ``access_token`` and no refresh material at all."""
+
+    refresh_token: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    access_token: str = ""
 
 
 def _aidream_internal_config() -> tuple[str, str]:
@@ -331,10 +336,14 @@ def _coerce_credential(payload: Any, *, source: str) -> GoogleConnectionCredenti
         refresh_token = payload.get("refresh_token")
         client_id = payload.get("client_id")
         client_secret = payload.get("client_secret")
+        access_token = payload.get("access_token")
     else:
         refresh_token = getattr(payload, "refresh_token", None)
         client_id = getattr(payload, "client_id", None)
         client_secret = getattr(payload, "client_secret", None)
+        access_token = getattr(payload, "access_token", None)
+    if access_token:
+        return GoogleConnectionCredential(access_token=str(access_token))
     if not refresh_token or not client_id or not client_secret:
         raise RuntimeError(
             f"{source} returned an incomplete Google credential — "
@@ -429,6 +438,9 @@ async def resolve_google_credential(
     refresh_token = payload.get("refresh_token") if isinstance(payload, dict) else None
     client_id = payload.get("client_id") if isinstance(payload, dict) else None
     client_secret = payload.get("client_secret") if isinstance(payload, dict) else None
+    access_token = payload.get("access_token") if isinstance(payload, dict) else None
+    if access_token:
+        return GoogleConnectionCredential(access_token=str(access_token))
     if not refresh_token or not client_id or not client_secret:
         raise RuntimeError(
             f"aidream returned an incomplete credential for {credential_ref} — "
@@ -445,11 +457,29 @@ def build_gsc_client(credential: GoogleConnectionCredential) -> GscClient:
     """A refresh-token GscClient on the connection's own OAuth client (the
     token refresh MUST use the client the token was minted for)."""
 
+    if credential.access_token:
+        return _AccessTokenGscClient(credential.access_token)
     return GscClient(
         client_id=credential.client_id,
         client_secret=credential.client_secret,
         refresh_token=credential.refresh_token,
     )
+
+
+class _AccessTokenGscClient(GscClient):
+    """A client holding only a short-lived, Search-Console-scoped access token (the hub
+    minted it for a shared or service-account connection). It can never refresh."""
+
+    def __init__(self, access_token: str) -> None:
+        super().__init__(client_id="-", client_secret="-", refresh_token="-")
+        self._static_access_token = access_token
+
+    @property
+    def auth_mode(self) -> str | None:
+        return "access_token"
+
+    async def _access(self) -> str:
+        return self._static_access_token
 
 
 # ---------------------------------------------------------------------------

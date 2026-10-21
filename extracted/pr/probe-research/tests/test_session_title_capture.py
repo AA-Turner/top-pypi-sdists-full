@@ -174,7 +174,7 @@ def test_a_credential_across_the_length_cap_is_redacted_whole(capture) -> None:
         ("Research-os live run titles", "Research-os live run titles"),
         ("[DONE] ✳ Research-os live run titles", "Research-os live run titles"),
         ("✳ Research-os\n live\trun titles ", "Research-os live run titles"),
-        ("⠂ Capy harness", "Capy harness"),
+        ("⠂ Kimi harness", "Kimi harness"),
         ("[DONE]", None),
         ("   ", None),
         (42, None),

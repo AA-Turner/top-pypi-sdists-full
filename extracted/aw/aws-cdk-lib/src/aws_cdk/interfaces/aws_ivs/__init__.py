@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_ivs.AdConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"ad_configuration_arn": "adConfigurationArn"},
+)
+class AdConfigurationReference:
+    def __init__(self, *, ad_configuration_arn: builtins.str) -> None:
+        '''A reference to a AdConfiguration resource.
+
+        :param ad_configuration_arn: The Arn of the AdConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_ivs as interfaces_ivs
+            
+            ad_configuration_reference = interfaces_ivs.AdConfigurationReference(
+                ad_configuration_arn="adConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__881de9c3257c64d7d78d438db829ce43af66cca9f0e470b2120e1b080b1a1a60)
+            check_type(argname="argument ad_configuration_arn", value=ad_configuration_arn, expected_type=type_hints["ad_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "ad_configuration_arn": ad_configuration_arn,
+        }
+
+    @builtins.property
+    def ad_configuration_arn(self) -> builtins.str:
+        '''The Arn of the AdConfiguration resource.'''
+        result = self._values.get("ad_configuration_arn")
+        assert result is not None, "Required property 'ad_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AdConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_ivs.ChannelReference",
     jsii_struct_bases=[],
     name_mapping={"channel_arn": "channelArn"},
@@ -134,6 +183,51 @@ class EncoderConfigurationReference:
         return "EncoderConfigurationReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IAdConfigurationRef")
+class IAdConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a AdConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="adConfigurationRef")
+    def ad_configuration_ref(self) -> "AdConfigurationReference":
+        '''(experimental) A reference to a AdConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IAdConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a AdConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_ivs.IAdConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="adConfigurationRef")
+    def ad_configuration_ref(self) -> "AdConfigurationReference":
+        '''(experimental) A reference to a AdConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("AdConfigurationReference", jsii.get(self, "adConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IAdConfigurationRef).__jsii_proxy_class__ = lambda : _IAdConfigurationRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_ivs.IChannelRef")
@@ -981,8 +1075,10 @@ class StreamKeyReference:
 
 
 __all__ = [
+    "AdConfigurationReference",
     "ChannelReference",
     "EncoderConfigurationReference",
+    "IAdConfigurationRef",
     "IChannelRef",
     "IEncoderConfigurationRef",
     "IIngestConfigurationRef",
@@ -1004,6 +1100,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__881de9c3257c64d7d78d438db829ce43af66cca9f0e470b2120e1b080b1a1a60(
+    *,
+    ad_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e339be0e2b8a2e7786775e7d7a073c0d9b1b21d2186633192278591cee6af2e1(
     *,
@@ -1075,5 +1178,5 @@ def _typecheckingstub__d0bde005d759333868f9b20462c76032aeeb517956f3679f2a954d0b2
     """Type checking stubs"""
     pass
 
-for cls in [IChannelRef, IEncoderConfigurationRef, IIngestConfigurationRef, IPlaybackKeyPairRef, IPlaybackRestrictionPolicyRef, IPublicKeyRef, IRecordingConfigurationRef, IStageRef, IStorageConfigurationRef, IStreamKeyRef]:
+for cls in [IAdConfigurationRef, IChannelRef, IEncoderConfigurationRef, IIngestConfigurationRef, IPlaybackKeyPairRef, IPlaybackRestrictionPolicyRef, IPublicKeyRef, IRecordingConfigurationRef, IStageRef, IStorageConfigurationRef, IStreamKeyRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -30,7 +30,7 @@ from typing import NamedTuple
 
 from ..sdk.durable import file_lock, fsync_directory, now_iso
 from ..sdk.tls import ssl_context
-from ..tap_core import capy_sanitize, codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
+from ..tap_core import codex_sanitize, kimi_sanitize, pi_sanitize, sanitize
 from ..tap_core.session_identity import compatible_copy, validate_identity
 from ..tap_core.session_journal import (
     DELETED_STATE, RECEIPTED_PROTOCOLS, DeliveryPending, Journal, ProtocolRestarted,
@@ -64,16 +64,8 @@ def _captured_rows():
 
 INGEST_PATH = {h.id: f"/ingest/v1/sessions/{h.route}" for h in _captured_rows()}
 
-#: The agents whose past sessions this lane can import: every captured one
-#: except a cloud harness (Capy), whose sessions never existed on this machine
-#: until `probe capy sync` pulled them, and which that command uploads itself.
-def _importable_rows():
-    from probe.harness import FAMILY_CLOUD
-
-    return tuple(h.id for h in _captured_rows() if h.family != FAMILY_CLOUD)
-
-
-IMPORTABLE = _importable_rows()
+#: The agents whose past sessions this lane can import: every captured one.
+IMPORTABLE = tuple(h.id for h in _captured_rows())
 
 #: The sanitizer modules a registry row can name (`capture.sanitizer`).
 #:
@@ -88,7 +80,6 @@ _SANITIZER_MODULES = {
     "codex_sanitize": codex_sanitize,
     "pi_sanitize": pi_sanitize,
     "kimi_sanitize": kimi_sanitize,
-    "capy_sanitize": capy_sanitize,
 }
 SANITIZER = {h.id: _SANITIZER_MODULES[h.capture.sanitizer].sanitize_event for h in _captured_rows()}
 

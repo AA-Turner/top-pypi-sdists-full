@@ -21,13 +21,14 @@ from arthur_client.api_bindings.models.cloud_agent_creation_source import CloudA
 from arthur_client.api_bindings.models.endpoint_agent_creation_source import EndpointAgentCreationSource
 from arthur_client.api_bindings.models.gcp_agent_creation_source_input import GCPAgentCreationSourceInput
 from arthur_client.api_bindings.models.manual_agent_creation_source_input import ManualAgentCreationSourceInput
+from arthur_client.api_bindings.models.network_agent_creation_source import NetworkAgentCreationSource
 from arthur_client.api_bindings.models.otel_agent_creation_source_input import OTELAgentCreationSourceInput
 from arthur_client.api_bindings.models.siem_agent_creation_source import SIEMAgentCreationSource
 from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-AGENTCREATIONSOURCE_ONE_OF_SCHEMAS = ["CloudAgentCreationSource", "EndpointAgentCreationSource", "GCPAgentCreationSourceInput", "ManualAgentCreationSourceInput", "OTELAgentCreationSourceInput", "SIEMAgentCreationSource"]
+AGENTCREATIONSOURCE_ONE_OF_SCHEMAS = ["CloudAgentCreationSource", "EndpointAgentCreationSource", "GCPAgentCreationSourceInput", "ManualAgentCreationSourceInput", "NetworkAgentCreationSource", "OTELAgentCreationSourceInput", "SIEMAgentCreationSource"]
 
 class AgentCreationSource(BaseModel):
     """
@@ -45,8 +46,10 @@ class AgentCreationSource(BaseModel):
     oneof_schema_5_validator: Optional[SIEMAgentCreationSource] = None
     # data type: EndpointAgentCreationSource
     oneof_schema_6_validator: Optional[EndpointAgentCreationSource] = None
-    actual_instance: Optional[Union[CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource]] = None
-    one_of_schemas: Set[str] = { "CloudAgentCreationSource", "EndpointAgentCreationSource", "GCPAgentCreationSourceInput", "ManualAgentCreationSourceInput", "OTELAgentCreationSourceInput", "SIEMAgentCreationSource" }
+    # data type: NetworkAgentCreationSource
+    oneof_schema_7_validator: Optional[NetworkAgentCreationSource] = None
+    actual_instance: Optional[Union[CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, NetworkAgentCreationSource, OTELAgentCreationSourceInput, SIEMAgentCreationSource]] = None
+    one_of_schemas: Set[str] = { "CloudAgentCreationSource", "EndpointAgentCreationSource", "GCPAgentCreationSourceInput", "ManualAgentCreationSourceInput", "NetworkAgentCreationSource", "OTELAgentCreationSourceInput", "SIEMAgentCreationSource" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -102,12 +105,17 @@ class AgentCreationSource(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `EndpointAgentCreationSource`")
         else:
             match += 1
+        # validate data type: NetworkAgentCreationSource
+        if not isinstance(v, NetworkAgentCreationSource):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `NetworkAgentCreationSource`")
+        else:
+            match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, NetworkAgentCreationSource, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, NetworkAgentCreationSource, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -158,13 +166,19 @@ class AgentCreationSource(BaseModel):
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
+        # deserialize data into NetworkAgentCreationSource
+        try:
+            instance.actual_instance = NetworkAgentCreationSource.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, NetworkAgentCreationSource, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into AgentCreationSource with oneOf schemas: CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, NetworkAgentCreationSource, OTELAgentCreationSourceInput, SIEMAgentCreationSource. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -178,7 +192,7 @@ class AgentCreationSource(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, OTELAgentCreationSourceInput, SIEMAgentCreationSource]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], CloudAgentCreationSource, EndpointAgentCreationSource, GCPAgentCreationSourceInput, ManualAgentCreationSourceInput, NetworkAgentCreationSource, OTELAgentCreationSourceInput, SIEMAgentCreationSource]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

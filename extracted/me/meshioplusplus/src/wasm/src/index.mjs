@@ -32,7 +32,7 @@
 //
 // Beside that lean pair the package ships the FULL pair (roadmap 6.2),
 // meshioplusplus_wasm_full and meshioplusplus_wasm_full_mt: the same API, with
-// OpenCASCADE (STEP/IGES reading, fitCad), zstd, lz4 and bzip2 linked in, and
+// OpenCASCADE (STEP/IGES reading, fitCad's OpenCASCADE backend), zstd, lz4 and bzip2 linked in, and
 // a mixed licence (OpenCASCADE is LGPL-2.1 with its exception; see
 // THIRD_PARTY_NOTICES.md). `{ full: true }` loads it, with the same variant
 // choice. Its import() is deliberately NOT literal: a bundler that saw it would
@@ -249,6 +249,7 @@ export class MeshioPlusPlusLoadError extends Error {
  *   parallelBackend: () => string,
  *   hasCgnslib: () => boolean,
  *   hasOcct: () => boolean,
+ *   hasKahip: () => boolean,
  *   hasZstd: () => boolean,
  *   hasLz4: () => boolean,
  *   hasBzip2: () => boolean,
@@ -275,7 +276,15 @@ export class MeshioPlusPlusLoadError extends Error {
  *   slice: (mesh: Mesh, origin: number[], normal: number[], recordParentIds?: boolean) => Mesh,
  *   isosurface: (mesh: Mesh, array: string, isovalues: number|number[], component?: number, recordParentIds?: boolean) => Mesh,
  *   grid: (dims: number[], origin?: number[], spacing?: number[], maxCells?: number) => Mesh,
+ *   rectangle: (dims?: number[], size?: number[], origin?: number[], cellType?: string, split?: string, order?: number, maxCells?: number) => Mesh,
+ *   box: (dims?: number[], size?: number[], origin?: number[], cellType?: string, order?: number, maxCells?: number) => Mesh,
+ *   disk: (radius?: number, n?: number, center?: number[], cellType?: string, order?: number, maxCells?: number) => Mesh,
+ *   uvSphere: (radius?: number, nu?: number, nv?: number, center?: number[], cellType?: string, order?: number, maxCells?: number) => Mesh,
+ *   icosaSphere: (radius?: number, subdivisions?: number, center?: number[], order?: number, maxCells?: number) => Mesh,
+ *   cylinder: (radius?: number, height?: number, nxy?: number, nz?: number, center?: number[], cellType?: string, order?: number, maxCells?: number) => Mesh,
+ *   referenceCells: (types?: string[], pairs?: boolean) => Mesh,
  *   voxelize: (mesh: Mesh, resolution?: number[], cellSize?: number, bounds?: number[], padding?: number, paddingRelative?: number, fill?: string, sign?: string, attachOccupancy?: boolean, maxCells?: number, watertightCheck?: string) => {mesh: Mesh, dims: number[], origin: number[], spacing: number[], numOccupied: number},
+ *   octree: (mesh: Mesh, rootCells?: number[], minLevel?: number, maxLevel?: number, bounds?: number[], padding?: number, paddingRelative?: number, dimension?: number, sampleDistance?: number, balance?: string, fill?: string, sign?: string, attachDistance?: boolean, evenOdd?: boolean, maxCells?: number, watertightCheck?: string, transition?: string, snap?: boolean, surfaceLevel?: number, curvatureThreshold?: number, featureAngle?: number, sizeArray?: string, plane?: string) => {mesh: Mesh, dimension: number, numLeaves: number, numHanging: number, finestLevel: number, origin: number[], rootSize: number, numSnapped: number, numRefused: number},
  *   surfaceWatertightCheck: (mesh: Mesh) => {boundaryEdges: number, nonManifoldEdges: number, inconsistentPairs: number, degenerateTriangles: number, watertight: boolean},
  *   sampleDistance: (surface: Mesh, points: number[], sign?: string, band?: number, watertightCheck?: string) => Float64Array,
  *   distanceToSurface: (query: Mesh, surface: Mesh, sign?: string, location?: string, band?: number, recordInside?: boolean, watertightCheck?: string) => {mesh: Mesh, numBanded: number, quality: object},
@@ -290,12 +299,12 @@ export class MeshioPlusPlusLoadError extends Error {
  *   computeNormals: (mesh: Mesh, pointNormals?: boolean, cellNormals?: boolean, weight?: string, splitAngle?: number, recordParentIds?: boolean, region?: string) => {mesh: Mesh, numIsolated: number, numUndefined: number, numDegenerate: number, numSplitPoints: number, numAddedPoints: number, quality: {boundaryEdges: number, nonManifoldEdges: number, inconsistentPairs: number, degenerateTriangles: number, watertight: boolean}},
  *   checkQuality: (mesh: Mesh, require?: string, maxInverted?: number, maxDegenerate?: number) => {passed: boolean, numCells: number, numInverted: number, numDegenerate: number, checks: Array<object>, summary: string},
  *   featureEdges: (mesh: Mesh, featureAngle?: number, feature?: boolean, boundary?: boolean, nonManifold?: boolean, inconsistent?: boolean, region?: string) => {mesh: Mesh, numFeature: number, numBoundary: number, numNonManifold: number, numInconsistent: number},
- *   segment: (mesh: Mesh, featureAngle?: number, normalTolerance?: number, curvatureTolerance?: number, minPatchCells?: number, region?: string, prefix?: string) => {mesh: Mesh, numPatches: number, numMerged: number, numFeatureEdges: number, numBoundaryEdges: number, numNonManifoldEdges: number},
+ *   segment: (mesh: Mesh, featureAngle?: number, normalTolerance?: number, curvatureTolerance?: number, minPatchCells?: number, region?: string, prefix?: string, method?: 'angle' | 'primitive', tolerance?: number) => {mesh: Mesh, numPatches: number, numMerged: number, numFeatureEdges: number, numBoundaryEdges: number, numNonManifoldEdges: number},
  *   igaRefine: (info: object, options?: {subdivisions?: number | number[], elevate?: number | number[], sampleSubdivisions?: number, trimSamples?: number, edges?: boolean, trim?: boolean}) => {mesh: Mesh, info: object},
  *   igaSample: (info: object, options?: {sampleSubdivisions?: number, trimSamples?: number, edges?: boolean, trim?: boolean}) => {mesh: Mesh, info: object},
  *   igaEvaluate: (info: object, patch: number, params: ArrayLike<number>, options?: {derivatives?: 0 | 1, trimSamples?: number}) => object,
  *   fitPrimitives: (mesh: Mesh, patchData?: string, tolerance?: number, relative?: boolean, minInlierFraction?: number, types?: string[], maxIterations?: number) => {mesh: Mesh, numPatches: number, numPlane: number, numSphere: number, numCylinder: number, numCone: number, numTorus: number, numUnfitted: number},
- *   fitCad: (mesh: Mesh, options?: {stepPath?: string, tolerance?: number, exactEdges?: boolean, types?: string[], meshDeflection?: number, maxDemotionRounds?: number, freeform?: boolean, freeformDegree?: number, freeformMaxControl?: number, freeformSplit?: boolean, fillets?: boolean, threads?: boolean}) => object,
+ *   fitCad: (mesh: Mesh, options?: {stepPath?: string, tolerance?: number, exactEdges?: boolean, types?: string[], meshDeflection?: number, maxDemotionRounds?: number, freeform?: boolean, freeformDegree?: number, freeformMaxControl?: number, freeformSplit?: boolean, fillets?: boolean, threads?: boolean, mergeFaces?: boolean, backend?: 'auto' | 'occt' | 'native'}) => object,
  *   tessellate: (mesh: Mesh, levels?: number, curved?: boolean, fields?: boolean, recordStencil?: boolean) => {mesh: Mesh, numSourcePoints: number, numSourceCells: number, numCurvedSourceCells: number, numPassThroughSourceCells: number, numPoints: number, numCells: number, numBoundaryFacets: number, numInteriorFacets: number, numFacetsWithBadCount: number},
  *   render: (mesh: Mesh, options?: RenderOptions) => RenderedFrame,
  *   renderText: (mesh: Mesh, options?: RenderOptions, text?: RenderTextOptions) => string,
@@ -600,9 +609,10 @@ export async function loadMeshioPlusPlus(
         // meshioplusplus_wasm_mt one -- which of the two this instance loaded.
         parallelBackend: () => Module.parallelBackend(),
         hasCgnslib: () => Module.hasCgnslib(),
-        // The full artifact's libraries (roadmap 6.2): all four are true there
+        // The full artifact's libraries (roadmap 6.2): all five are true there
         // and false in the lean one. buildFlavour() names which loaded.
         hasOcct: () => Module.hasOcct(),
+        hasKahip: () => Module.hasKahip(),
         hasZstd: () => Module.hasZstd(),
         hasLz4: () => Module.hasLz4(),
         hasBzip2: () => Module.hasBzip2(),
@@ -740,6 +750,28 @@ export async function loadMeshioPlusPlus(
             Module.slice(mesh, origin, normal, recordParentIds),
         grid: (dims, origin = null, spacing = null, maxCells = 20000000) =>
             Module.grid(dims, origin, spacing, maxCells),
+        rectangle: (
+            dims = null, size = null, origin = null, cellType = 'quad', split = 'zigzag',
+            order = 1, maxCells = 20000000,
+        ) => Module.rectangle(dims, size, origin, cellType, split, order, maxCells),
+        box: (
+            dims = null, size = null, origin = null, cellType = 'hexahedron', order = 1,
+            maxCells = 20000000,
+        ) => Module.box(dims, size, origin, cellType, order, maxCells),
+        disk: (
+            radius = 1, n = 8, center = null, cellType = 'quad', order = 1, maxCells = 20000000,
+        ) => Module.disk(radius, n, center, cellType, order, maxCells),
+        uvSphere: (
+            radius = 1, nu = 16, nv = 8, center = null, cellType = 'triangle', order = 1,
+            maxCells = 20000000,
+        ) => Module.uvSphere(radius, nu, nv, center, cellType, order, maxCells),
+        icosaSphere: (radius = 1, subdivisions = 2, center = null, order = 1, maxCells = 20000000) =>
+            Module.icosaSphere(radius, subdivisions, center, order, maxCells),
+        cylinder: (
+            radius = 1, height = 1, nxy = 8, nz = 8, center = null, cellType = 'hexahedron',
+            order = 1, maxCells = 20000000,
+        ) => Module.cylinder(radius, height, nxy, nz, center, cellType, order, maxCells),
+        referenceCells: (types = null, pairs = false) => Module.referenceCells(types, pairs),
         voxelize: (
             mesh,
             resolution = null,
@@ -755,6 +787,35 @@ export async function loadMeshioPlusPlus(
         ) =>
             Module.voxelize(mesh, resolution, cellSize, bounds, padding, paddingRelative,
                 fill, sign, attachOccupancy, maxCells, watertightCheck),
+        octree: (
+            mesh,
+            rootCells = null,
+            minLevel = 0,
+            maxLevel = 4,
+            bounds = null,
+            padding = 0,
+            paddingRelative = 0,
+            dimension = 0,
+            sampleDistance = 0,
+            balance = 'face',
+            fill = 'all',
+            sign = 'pseudonormal',
+            attachDistance = false,
+            evenOdd = false,
+            maxCells = 20000000,
+            watertightCheck = 'warn',
+            transition = 'hanging',
+            snap = false,
+            surfaceLevel = -1,
+            curvatureThreshold = 0,
+            featureAngle = 0,
+            sizeArray = '',
+            plane = 'auto',
+        ) =>
+            Module.octree(mesh, rootCells, minLevel, maxLevel, bounds, padding, paddingRelative,
+                dimension, sampleDistance, balance, fill, sign, attachDistance, evenOdd, maxCells,
+                watertightCheck, transition, snap, surfaceLevel, curvatureThreshold, featureAngle,
+                sizeArray, plane),
         surfaceWatertightCheck: (mesh) => Module.surfaceWatertightCheck(mesh),
         sampleDistance: (surface, points, sign = 'pseudonormal', band = 0, watertightCheck = 'warn') =>
             Module.sampleDistance(surface, points, sign, band, watertightCheck),
@@ -932,9 +993,11 @@ export async function loadMeshioPlusPlus(
             minPatchCells = 1,
             region = '',
             prefix = 'patch',
+            method = 'angle',
+            tolerance = 1e-3,
         ) =>
             Module.segment(mesh, featureAngle, normalTolerance, curvatureTolerance,
-                minPatchCells, region, prefix),
+                minPatchCells, region, prefix, method, tolerance),
         fitPrimitives: (
             mesh,
             patchData = 'segment:patch',

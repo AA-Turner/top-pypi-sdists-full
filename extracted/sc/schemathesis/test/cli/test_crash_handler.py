@@ -5,17 +5,14 @@ from pathlib import Path
 from queue import Queue
 
 import pytest
-import requests
 from flask import jsonify, request
 
 from schemathesis.cli.commands.run.handlers.crashes import (
-    _find_failing_case_ids,
     _Process,
     _run,
 )
 from schemathesis.config import SanitizationConfig
 from schemathesis.core.failures import Failure
-from schemathesis.core.transport import Response
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.reporting.crashes import MANIFEST_FILENAME
 from test.utils import crash_cache_dir
@@ -25,19 +22,11 @@ def _failure() -> Failure:
     return Failure(operation="GET /x", title="Server error", message="boom")
 
 
-def _failing_recorder(case_factory, *, label: str = "GET /users") -> ScenarioRecorder:
+def _failing_recorder(case_factory, response_factory, *, label: str = "GET /users") -> ScenarioRecorder:
     recorder = ScenarioRecorder(label=label)
     case = case_factory()
     recorder.record_case(parent_id=None, case=case, transition=None, is_transition_applied=False)
-    prepared = requests.Request(method="GET", url="http://127.0.0.1/users").prepare()
-    response = Response(
-        status_code=500,
-        headers={"content-type": ["application/json"]},
-        content=b'{"error": "boom"}',
-        request=prepared,
-        elapsed=0.1,
-        verify=False,
-    )
+    response = response_factory.core(status_code=500, content=b'{"error": "boom"}', url="http://127.0.0.1/users")
     recorder.record_response(case_id=case.id, response=response)
     recorder.record_check_failure(name="not_a_server_error", case_id=case.id, code_sample="curl x", failure=_failure())
     return recorder
@@ -62,20 +51,20 @@ def _drive(queue: Queue, directory: Path) -> None:
     )
 
 
-def test_find_failing_case_ids_returns_every_failing_case():
+def test_failing_case_ids_returns_every_failing_case():
     recorder = ScenarioRecorder(label="GET /users")
     recorder.record_check_success(name="not_a_server_error", case_id="ok")
     recorder.record_check_failure(name="not_a_server_error", case_id="bad-1", code_sample="", failure=_failure())
     recorder.record_check_failure(name="not_a_server_error", case_id="bad-2", code_sample="", failure=_failure())
 
-    assert sorted(_find_failing_case_ids(recorder)) == ["bad-1", "bad-2"]
+    assert sorted(recorder.failing_case_ids()) == ["bad-1", "bad-2"]
 
 
-def test_passing_scenario_does_not_delete_failing_crash(case_factory, tmp_path):
+def test_passing_scenario_does_not_delete_failing_crash(case_factory, response_factory, tmp_path):
     # A passing example of an operation must not wipe the crash recorded by a failing example of the same operation.
     crashes_dir = tmp_path / "crashes"
     queue: Queue = Queue()
-    queue.put(_Process(recorder=_failing_recorder(case_factory, label="GET /users"), success=False))
+    queue.put(_Process(recorder=_failing_recorder(case_factory, response_factory, label="GET /users"), success=False))
     queue.put(_Process(recorder=_passing_recorder(case_factory, label="GET /users"), success=True))
     queue.put(None)
 
@@ -85,10 +74,10 @@ def test_passing_scenario_does_not_delete_failing_crash(case_factory, tmp_path):
     assert len(files) == 1
 
 
-def test_fuzz_crash_records_real_operation_not_phase_label(case_factory, tmp_path):
+def test_fuzz_crash_records_real_operation_not_phase_label(case_factory, response_factory, tmp_path):
     crashes_dir = tmp_path / "crashes"
     queue: Queue = Queue()
-    queue.put(_Process(recorder=_failing_recorder(case_factory, label="Fuzz tests"), success=False))
+    queue.put(_Process(recorder=_failing_recorder(case_factory, response_factory, label="Fuzz tests"), success=False))
     queue.put(None)
 
     _drive(queue, crashes_dir)
@@ -97,11 +86,13 @@ def test_fuzz_crash_records_real_operation_not_phase_label(case_factory, tmp_pat
     assert crash["operation"] == "GET /users"
 
 
-def test_passing_operation_removes_only_stale_crash(case_factory, tmp_path):
+def test_passing_operation_removes_only_stale_crash(case_factory, response_factory, tmp_path):
     # Cross-run healing still works: an operation that passed and never failed this run has its stale crash dropped.
     crashes_dir = tmp_path / "crashes"
     writer_queue: Queue = Queue()
-    writer_queue.put(_Process(recorder=_failing_recorder(case_factory, label="GET /users"), success=False))
+    writer_queue.put(
+        _Process(recorder=_failing_recorder(case_factory, response_factory, label="GET /users"), success=False)
+    )
     writer_queue.put(None)
     _drive(writer_queue, crashes_dir)
     assert [f for f in crashes_dir.iterdir() if f.name != MANIFEST_FILENAME]

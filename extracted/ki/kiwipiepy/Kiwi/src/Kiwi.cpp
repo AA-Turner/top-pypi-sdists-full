@@ -675,7 +675,11 @@ namespace kiwi
 				
 				if (parent < ret.size())
 				{
-					ret.push_back(ret[parent]);
+					ret.emplace_back();
+					ret.back().first.reserve(ret[parent].first.size() + pathes[i].path.size());
+					// insert, not =, so the room reserved for the path is kept.
+					ret.back().first.insert(ret.back().first.end(), ret[parent].first.begin(), ret[parent].first.end());
+					ret.back().second = ret[parent].second;
 					spStatesByRet.push_back(spStatesByRet[parent]);
 					parentMap.emplace_back(i);
 				}
@@ -1036,6 +1040,11 @@ namespace kiwi
 		const optional<KiwiConfig>& overrideConfig
 	) const
 	{
+		if (topN == 0)
+		{
+			throw invalid_argument{ "`topN` should be > 0." };
+		}
+
 		thread_local KString normalizedStr;
 		thread_local Vector<uint32_t> positionTable;
 		thread_local PretokenizedSpanGroup pretokenizedGroup;

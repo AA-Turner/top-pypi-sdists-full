@@ -184,6 +184,7 @@ __all__ = [
     "aws_apigateway",
     "aws_apigatewayv2",
     "aws_appconfig",
+    "aws_appfabric",
     "aws_appflow",
     "aws_appintegrations",
     "aws_applicationautoscaling",
@@ -344,6 +345,7 @@ __all__ = [
     "aws_launchwizard",
     "aws_lex",
     "aws_licensemanager",
+    "aws_licensemanagerlinuxsubscriptions",
     "aws_lightsail",
     "aws_location",
     "aws_logs",
@@ -502,6 +504,7 @@ if typing.TYPE_CHECKING:
     from . import aws_apigateway as aws_apigateway
     from . import aws_apigatewayv2 as aws_apigatewayv2
     from . import aws_appconfig as aws_appconfig
+    from . import aws_appfabric as aws_appfabric
     from . import aws_appflow as aws_appflow
     from . import aws_appintegrations as aws_appintegrations
     from . import aws_applicationautoscaling as aws_applicationautoscaling
@@ -662,6 +665,7 @@ if typing.TYPE_CHECKING:
     from . import aws_launchwizard as aws_launchwizard
     from . import aws_lex as aws_lex
     from . import aws_licensemanager as aws_licensemanager
+    from . import aws_licensemanagerlinuxsubscriptions as aws_licensemanagerlinuxsubscriptions
     from . import aws_lightsail as aws_lightsail
     from . import aws_location as aws_location
     from . import aws_logs as aws_logs
@@ -818,6 +822,7 @@ _SUBMODULES = {
     "aws_apigateway",
     "aws_apigatewayv2",
     "aws_appconfig",
+    "aws_appfabric",
     "aws_appflow",
     "aws_appintegrations",
     "aws_applicationautoscaling",
@@ -978,6 +983,7 @@ _SUBMODULES = {
     "aws_launchwizard",
     "aws_lex",
     "aws_licensemanager",
+    "aws_licensemanagerlinuxsubscriptions",
     "aws_lightsail",
     "aws_location",
     "aws_logs",

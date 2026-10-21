@@ -951,6 +951,20 @@ def _load_json_file(file_path: Path) -> dict | None:
         return None
 
 
+def _parse_extra_env(pairs: list[str] | None) -> dict[str, str]:
+    """Parse repeatable KEY=VALUE arguments for connector container env."""
+    parsed: dict[str, str] = {}
+    for item in pairs or []:
+        if "=" not in item:
+            exit_with_error(f"Invalid --extra-env value (expected KEY=VALUE): {item}")
+        key, value = item.split("=", 1)
+        key = key.strip()
+        if not key:
+            exit_with_error(f"Invalid --extra-env value (expected KEY=VALUE): {item}")
+        parsed[key] = value
+    return parsed
+
+
 def _run_connector_command(
     connector_image: str,
     command: Command,
@@ -962,6 +976,7 @@ def _run_connector_command(
     proxy_url: str | None = None,
     ca_cert_path: Path | None = None,
     enable_debug_logs: bool = False,
+    extra_env: dict[str, str] | None = None,
 ) -> tuple[dict, ComparableOutputs]:
     """Run a connector command and return its results and its declared objects.
 
@@ -985,6 +1000,7 @@ def _run_connector_command(
             it. Without it every HTTPS request through the proxy fails TLS
             verification and the capture comes back near-empty.
         enable_debug_logs: If `True`, pass `LOG_LEVEL=DEBUG` to the connector container.
+        extra_env: Additional environment variables for the connector container.
 
     Returns:
         The flattened results, and the objects the connector declared.
@@ -1003,6 +1019,7 @@ def _run_connector_command(
     container_env: dict[str, str] = {}
     if enable_debug_logs:
         container_env["LOG_LEVEL"] = "DEBUG"
+    container_env.update(extra_env or {})
 
     execution_inputs = ExecutionInputs(
         connector_under_test=connector,
@@ -1588,6 +1605,7 @@ def _run_with_optional_http_metrics(
     catalog_path: Path | None,
     state_path: Path | None,
     enable_debug_logs: bool = False,
+    extra_env: dict[str, str] | None = None,
     replay_expected: bool = False,
     replay_from: Path | None = None,
     replay_options: ReplayOptions | None = None,
@@ -1608,6 +1626,7 @@ def _run_with_optional_http_metrics(
         catalog_path: Path to configured catalog JSON file.
         state_path: Path to state JSON file.
         enable_debug_logs: If `True`, pass `LOG_LEVEL=DEBUG` to the connector container.
+        extra_env: Additional environment variables for the connector container.
         replay_expected: Whether this run was *meant* to replay. Separate from
             `replay_from`, which is only non-None once a recording actually
             exists -- when the proxy is unavailable there is no recording to
@@ -1634,6 +1653,7 @@ def _run_with_optional_http_metrics(
             catalog_path=catalog_path,
             state_path=state_path,
             enable_debug_logs=enable_debug_logs,
+            extra_env=extra_env,
         )
 
     # The manager rather than `MitmproxyManager.start`: the reason a startup
@@ -1664,6 +1684,7 @@ def _run_with_optional_http_metrics(
                 catalog_path=catalog_path,
                 state_path=state_path,
                 enable_debug_logs=enable_debug_logs,
+                extra_env=extra_env,
             )
             if replay_expected:
                 # The one skip path that produces no session, and so reported
@@ -1712,6 +1733,7 @@ def _run_with_optional_http_metrics(
             proxy_url=session.proxy_url,
             ca_cert_path=session.ca_cert_path,
             enable_debug_logs=enable_debug_logs,
+            extra_env=extra_env,
         )
 
         # The path, not the metrics: this is what the next run replays from.
@@ -2085,6 +2107,17 @@ def regression_test(
             "Also passed as `LOG_LEVEL=DEBUG` to the connector Docker container."
         ),
     ] = False,
+    extra_env: Annotated[
+        list[str] | None,
+        Parameter(
+            help=(
+                "Additional KEY=VALUE environment variables for the connector "
+                "containers. In comparison mode, applies to both target and "
+                "control. Values are visible in the debug log of the `docker run` "
+                "command; do not use for secrets."
+            )
+        ),
+    ] = None,
     with_state: Annotated[
         bool | None,
         Parameter(
@@ -2150,6 +2183,8 @@ def regression_test(
     You can provide config/catalog either via file paths OR via a connection_id
     that fetches them from Airbyte Cloud.
     """
+    parsed_extra_env = _parse_extra_env(extra_env)
+
     # Configure debug logging for the regression test harness when requested
     if enable_debug_logs:
         logging.basicConfig(
@@ -2584,6 +2619,7 @@ def regression_test(
             catalog_path=catalog_file,
             state_path=state_file,
             enable_debug_logs=enable_debug_logs,
+            extra_env=parsed_extra_env,
         )
 
         # Same per-version rule as comparison mode: for CHECK the exit code alone
@@ -2675,6 +2711,7 @@ def regression_test(
             catalog_path=catalog_file,
             state_path=state_file,
             enable_debug_logs=enable_debug_logs,
+            extra_env=parsed_extra_env,
             stream_large_bodies=http_replay_max_body,
         )
         control_sandbox = _check_sandbox_twin_gaps(
@@ -2702,6 +2739,7 @@ def regression_test(
             catalog_path=catalog_file,
             state_path=state_file,
             enable_debug_logs=enable_debug_logs,
+            extra_env=parsed_extra_env,
             replay_expected=replay_enabled,
             replay_from=replay_from,
             replay_options=replay_options,

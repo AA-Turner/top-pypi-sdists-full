@@ -4709,10 +4709,22 @@ class AuroraPostgresEngineVersion(
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_9"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_18_3")
+    def VER_18_3(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "18.3".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_18_3"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_18_4")
     def VER_18_4(cls) -> "AuroraPostgresEngineVersion":
         '''Version "18.4".'''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_18_4"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_18_6")
+    def VER_18_6(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "18.6".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_18_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_11")
@@ -8122,6 +8134,443 @@ class CfnDBCluster(
             return "ServerlessV2ScalingConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IDBClusterEndpointRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnDBClusterEndpoint(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_rds.CfnDBClusterEndpoint",
+):
+    '''Resource Type definition for AWS::RDS::DBClusterEndpoint.
+
+    Creates a new custom endpoint and associates it with an Amazon Aurora DB cluster. This resource applies only to Aurora DB clusters.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html
+    :cloudformationResource: AWS::RDS::DBClusterEndpoint
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_rds as rds
+        
+        cfn_db_cluster_endpoint = rds.CfnDBClusterEndpoint(self, "MyCfnDBClusterEndpoint",
+            custom_endpoint_type="customEndpointType",
+            db_cluster_endpoint_identifier="dbClusterEndpointIdentifier",
+            db_cluster_identifier="dbClusterIdentifier",
+        
+            # the properties below are optional
+            excluded_members=["excludedMembers"],
+            static_members=["staticMembers"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        custom_endpoint_type: builtins.str,
+        db_cluster_endpoint_identifier: builtins.str,
+        db_cluster_identifier: builtins.str,
+        excluded_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+        static_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::RDS::DBClusterEndpoint``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param custom_endpoint_type: The type of the custom endpoint.
+        :param db_cluster_endpoint_identifier: The identifier to use for the new endpoint. This parameter is stored as a lowercase string.
+        :param db_cluster_identifier: The DB cluster identifier of the DB cluster associated with the endpoint. This parameter is stored as a lowercase string.
+        :param excluded_members: List of DB instance identifiers that aren't part of the custom endpoint group. All other eligible instances are reachable through the custom endpoint. Only relevant if the list of static members is empty. Once either member list is set, it can be changed or replaced by the other list, but both lists cannot be removed in place; removing them requires replacing the endpoint.
+        :param static_members: List of DB instance identifiers that are part of the custom endpoint group. Once either member list is set, it can be changed or replaced by the other list, but both lists cannot be removed in place; removing them requires replacing the endpoint.
+        :param tags: The tags to be assigned to the DB cluster endpoint.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a3f383dffa7bd763cca2c9d818a0306c840e347711537c9d9678a1ec0b00a71c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnDBClusterEndpointProps(
+            custom_endpoint_type=custom_endpoint_type,
+            db_cluster_endpoint_identifier=db_cluster_endpoint_identifier,
+            db_cluster_identifier=db_cluster_identifier,
+            excluded_members=excluded_members,
+            static_members=static_members,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForDBClusterEndpoint")
+    @builtins.classmethod
+    def arn_for_db_cluster_endpoint(
+        cls,
+        resource: "_aws_rds_26740a85.IDBClusterEndpointRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__70a8a2154199f38b93afc27053568c915c4efe094bfc18b68d6a759cf3be9e89)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBClusterEndpoint", [resource]))
+
+    @jsii.member(jsii_name="isCfnDBClusterEndpoint")
+    @builtins.classmethod
+    def is_cfn_db_cluster_endpoint(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDBClusterEndpoint.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__231aeaf81641670e4e5f137288155deec7b629d517bb871bf3c20478b3acb683)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDBClusterEndpoint", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__151bea088e8a6f4c2f23fff8d9c643a1482fc2955eea97fce5f25411052b6905)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fc1440fe454be0491a49729bc643e627fdaeab16a6bb86aad327f47663f6e9c9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbClusterEndpointArn")
+    def attr_db_cluster_endpoint_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the DB cluster endpoint.
+
+        :cloudformationAttribute: DBClusterEndpointArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbClusterEndpointArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDbClusterEndpointResourceIdentifier")
+    def attr_db_cluster_endpoint_resource_identifier(self) -> builtins.str:
+        '''A unique system-generated identifier for an endpoint.
+
+        It remains the same for the whole life of the endpoint.
+
+        :cloudformationAttribute: DBClusterEndpointResourceIdentifier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDbClusterEndpointResourceIdentifier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpoint")
+    def attr_endpoint(self) -> builtins.str:
+        '''The DNS address of the endpoint.
+
+        :cloudformationAttribute: Endpoint
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpoint"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrEndpointType")
+    def attr_endpoint_type(self) -> builtins.str:
+        '''The endpoint classification returned by Amazon RDS.
+
+        :cloudformationAttribute: EndpointType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrEndpointType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the endpoint.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterEndpointRef")
+    def db_cluster_endpoint_ref(self) -> "_aws_rds_26740a85.DBClusterEndpointReference":
+        '''A reference to a DBClusterEndpoint resource.'''
+        return typing.cast("_aws_rds_26740a85.DBClusterEndpointReference", jsii.get(self, "dbClusterEndpointRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="customEndpointType")
+    def custom_endpoint_type(self) -> builtins.str:
+        '''The type of the custom endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "customEndpointType"))
+
+    @custom_endpoint_type.setter
+    def custom_endpoint_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3f3ddcee9ac118bd83d9511969c5756e14d64a4eefbce74845b5dfb9a3517508)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customEndpointType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterEndpointIdentifier")
+    def db_cluster_endpoint_identifier(self) -> builtins.str:
+        '''The identifier to use for the new endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbClusterEndpointIdentifier"))
+
+    @db_cluster_endpoint_identifier.setter
+    def db_cluster_endpoint_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__992aa888c12cd6e3b1df01a903ca138be1f27284452970fa4753ff0a54bb1c2e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbClusterEndpointIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dbClusterIdentifier")
+    def db_cluster_identifier(self) -> builtins.str:
+        '''The DB cluster identifier of the DB cluster associated with the endpoint.'''
+        return typing.cast(builtins.str, jsii.get(self, "dbClusterIdentifier"))
+
+    @db_cluster_identifier.setter
+    def db_cluster_identifier(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e4ec24d91ba3ee08147923a3842432c925069c2f60411a7e27562e235e7f2166)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dbClusterIdentifier", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="excludedMembers")
+    def excluded_members(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of DB instance identifiers that aren't part of the custom endpoint group.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "excludedMembers"))
+
+    @excluded_members.setter
+    def excluded_members(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eff1bbc878c0065a41011698e313fc8e442519aec824cd6eeb6134be802e9c5b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "excludedMembers", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="staticMembers")
+    def static_members(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of DB instance identifiers that are part of the custom endpoint group.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "staticMembers"))
+
+    @static_members.setter
+    def static_members(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__470de6612d62324d29bc0fbba23b9a3563fb39f1c67eafe81ff173deeecfc6ec)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "staticMembers", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be assigned to the DB cluster endpoint.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__13cd16164def3ff8342675535c7b0d19d017a22c4d4c0d6932e4ab82687d7725)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_rds.CfnDBClusterEndpointProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "custom_endpoint_type": "customEndpointType",
+        "db_cluster_endpoint_identifier": "dbClusterEndpointIdentifier",
+        "db_cluster_identifier": "dbClusterIdentifier",
+        "excluded_members": "excludedMembers",
+        "static_members": "staticMembers",
+        "tags": "tags",
+    },
+)
+class CfnDBClusterEndpointProps:
+    def __init__(
+        self,
+        *,
+        custom_endpoint_type: builtins.str,
+        db_cluster_endpoint_identifier: builtins.str,
+        db_cluster_identifier: builtins.str,
+        excluded_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+        static_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDBClusterEndpoint``.
+
+        :param custom_endpoint_type: The type of the custom endpoint.
+        :param db_cluster_endpoint_identifier: The identifier to use for the new endpoint. This parameter is stored as a lowercase string.
+        :param db_cluster_identifier: The DB cluster identifier of the DB cluster associated with the endpoint. This parameter is stored as a lowercase string.
+        :param excluded_members: List of DB instance identifiers that aren't part of the custom endpoint group. All other eligible instances are reachable through the custom endpoint. Only relevant if the list of static members is empty. Once either member list is set, it can be changed or replaced by the other list, but both lists cannot be removed in place; removing them requires replacing the endpoint.
+        :param static_members: List of DB instance identifiers that are part of the custom endpoint group. Once either member list is set, it can be changed or replaced by the other list, but both lists cannot be removed in place; removing them requires replacing the endpoint.
+        :param tags: The tags to be assigned to the DB cluster endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_rds as rds
+            
+            cfn_db_cluster_endpoint_props = rds.CfnDBClusterEndpointProps(
+                custom_endpoint_type="customEndpointType",
+                db_cluster_endpoint_identifier="dbClusterEndpointIdentifier",
+                db_cluster_identifier="dbClusterIdentifier",
+            
+                # the properties below are optional
+                excluded_members=["excludedMembers"],
+                static_members=["staticMembers"],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__66a4dbcb8d6495c469b63c2a5c6d26ee2b3a95a01e2489a60f4a362151f1bc21)
+            check_type(argname="argument custom_endpoint_type", value=custom_endpoint_type, expected_type=type_hints["custom_endpoint_type"])
+            check_type(argname="argument db_cluster_endpoint_identifier", value=db_cluster_endpoint_identifier, expected_type=type_hints["db_cluster_endpoint_identifier"])
+            check_type(argname="argument db_cluster_identifier", value=db_cluster_identifier, expected_type=type_hints["db_cluster_identifier"])
+            check_type(argname="argument excluded_members", value=excluded_members, expected_type=type_hints["excluded_members"])
+            check_type(argname="argument static_members", value=static_members, expected_type=type_hints["static_members"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "custom_endpoint_type": custom_endpoint_type,
+            "db_cluster_endpoint_identifier": db_cluster_endpoint_identifier,
+            "db_cluster_identifier": db_cluster_identifier,
+        }
+        if excluded_members is not None:
+            self._values["excluded_members"] = excluded_members
+        if static_members is not None:
+            self._values["static_members"] = static_members
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def custom_endpoint_type(self) -> builtins.str:
+        '''The type of the custom endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html#cfn-rds-dbclusterendpoint-customendpointtype
+        '''
+        result = self._values.get("custom_endpoint_type")
+        assert result is not None, "Required property 'custom_endpoint_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def db_cluster_endpoint_identifier(self) -> builtins.str:
+        '''The identifier to use for the new endpoint.
+
+        This parameter is stored as a lowercase string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html#cfn-rds-dbclusterendpoint-dbclusterendpointidentifier
+        '''
+        result = self._values.get("db_cluster_endpoint_identifier")
+        assert result is not None, "Required property 'db_cluster_endpoint_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def db_cluster_identifier(self) -> builtins.str:
+        '''The DB cluster identifier of the DB cluster associated with the endpoint.
+
+        This parameter is stored as a lowercase string.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html#cfn-rds-dbclusterendpoint-dbclusteridentifier
+        '''
+        result = self._values.get("db_cluster_identifier")
+        assert result is not None, "Required property 'db_cluster_identifier' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def excluded_members(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of DB instance identifiers that aren't part of the custom endpoint group.
+
+        All other eligible instances are reachable through the custom endpoint. Only relevant if the list of static members is empty. Once either member list is set, it can be changed or replaced by the other list, but both lists cannot be removed in place; removing them requires replacing the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html#cfn-rds-dbclusterendpoint-excludedmembers
+        '''
+        result = self._values.get("excluded_members")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def static_members(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of DB instance identifiers that are part of the custom endpoint group.
+
+        Once either member list is set, it can be changed or replaced by the other list, but both lists cannot be removed in place; removing them requires replacing the endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html#cfn-rds-dbclusterendpoint-staticmembers
+        '''
+        result = self._values.get("static_members")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to be assigned to the DB cluster endpoint.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html#cfn-rds-dbclusterendpoint-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDBClusterEndpointProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_rds_26740a85.IDBClusterParameterGroupRef, _aws_cdk_0cae9daa.ITaggable)
@@ -15091,6 +15540,48 @@ class CfnDBParameterGroup(
             type_hints = cached_type_hints(_typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDBParameterGroup", [resource]))
+
+    @jsii.member(jsii_name="fromDBParameterGroupArn")
+    @builtins.classmethod
+    def from_db_parameter_group_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_rds_26740a85.IDBParameterGroupRef":
+        '''Creates a new IDBParameterGroupRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0e79529645da906d85da3938c20dfc4c79680c5aa7ced9ab1856da737260ba81)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_rds_26740a85.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromDBParameterGroupName")
+    @builtins.classmethod
+    def from_db_parameter_group_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        db_parameter_group_name: builtins.str,
+    ) -> "_aws_rds_26740a85.IDBParameterGroupRef":
+        '''Creates a new IDBParameterGroupRef from a dbParameterGroupName.
+
+        :param scope: -
+        :param id: -
+        :param db_parameter_group_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument db_parameter_group_name", value=db_parameter_group_name, expected_type=type_hints["db_parameter_group_name"])
+        return typing.cast("_aws_rds_26740a85.IDBParameterGroupRef", jsii.sinvoke(cls, "fromDBParameterGroupName", [scope, id, db_parameter_group_name]))
 
     @jsii.member(jsii_name="isCfnDBParameterGroup")
     @builtins.classmethod
@@ -53511,6 +54002,8 @@ __all__ = [
     "CfnCustomDBEngineVersion",
     "CfnCustomDBEngineVersionProps",
     "CfnDBCluster",
+    "CfnDBClusterEndpoint",
+    "CfnDBClusterEndpointProps",
     "CfnDBClusterParameterGroup",
     "CfnDBClusterParameterGroupProps",
     "CfnDBClusterProps",
@@ -54438,6 +54931,92 @@ def _typecheckingstub__5a6717af18f7b2b042b74ca423a540eb39f5ae817292b338733c6a3ce
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a3f383dffa7bd763cca2c9d818a0306c840e347711537c9d9678a1ec0b00a71c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    custom_endpoint_type: builtins.str,
+    db_cluster_endpoint_identifier: builtins.str,
+    db_cluster_identifier: builtins.str,
+    excluded_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+    static_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__70a8a2154199f38b93afc27053568c915c4efe094bfc18b68d6a759cf3be9e89(
+    resource: _aws_rds_26740a85.IDBClusterEndpointRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__231aeaf81641670e4e5f137288155deec7b629d517bb871bf3c20478b3acb683(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__151bea088e8a6f4c2f23fff8d9c643a1482fc2955eea97fce5f25411052b6905(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc1440fe454be0491a49729bc643e627fdaeab16a6bb86aad327f47663f6e9c9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f3ddcee9ac118bd83d9511969c5756e14d64a4eefbce74845b5dfb9a3517508(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__992aa888c12cd6e3b1df01a903ca138be1f27284452970fa4753ff0a54bb1c2e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4ec24d91ba3ee08147923a3842432c925069c2f60411a7e27562e235e7f2166(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eff1bbc878c0065a41011698e313fc8e442519aec824cd6eeb6134be802e9c5b(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__470de6612d62324d29bc0fbba23b9a3563fb39f1c67eafe81ff173deeecfc6ec(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13cd16164def3ff8342675535c7b0d19d017a22c4d4c0d6932e4ab82687d7725(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__66a4dbcb8d6495c469b63c2a5c6d26ee2b3a95a01e2489a60f4a362151f1bc21(
+    *,
+    custom_endpoint_type: builtins.str,
+    db_cluster_endpoint_identifier: builtins.str,
+    db_cluster_identifier: builtins.str,
+    excluded_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+    static_members: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5d66d67784eaba0a01483098e06526f4c025b7ff96275fcc6e41e7d979aa520c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -55359,6 +55938,22 @@ def _typecheckingstub__c10aa78132a0eae6199258b5e55e45968fdce240e932138b48918eafb
 
 def _typecheckingstub__6211884dd5a9686889fb88a972e68b8f6f7834a48e4a61c870f855e73be14824(
     resource: _aws_rds_26740a85.IDBParameterGroupRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e79529645da906d85da3938c20dfc4c79680c5aa7ced9ab1856da737260ba81(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__164cd515e2b7a4d2cbd432b8170f5de34ff55898a532d748e9fcfda16e8122b2(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    db_parameter_group_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

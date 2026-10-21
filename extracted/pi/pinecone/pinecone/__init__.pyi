@@ -8,11 +8,7 @@ from pinecone._internal.config import PineconeConfig as PineconeConfig, RetryCon
 from pinecone.admin import Admin as Admin
 from pinecone.async_client.async_index import AsyncIndex as AsyncIndex
 from pinecone.async_client.pinecone import AsyncPinecone as AsyncPinecone, AsyncPinecone as PineconeAsyncio
-from pinecone.db_control.enums.clouds import AwsRegion as AwsRegion, AzureRegion as AzureRegion, GcpRegion as GcpRegion
-from pinecone.db_control.models.collection_description import CollectionDescription as CollectionDescription
-from pinecone.db_data.dataclasses.search_query import SearchQuery as SearchQuery
-from pinecone.db_data.dataclasses.search_rerank import SearchRerank as SearchRerank
-from pinecone.errors.exceptions import ApiError as ApiError, ConflictError as ConflictError, FailedPreconditionError as FailedPreconditionError, ForbiddenError as ForbiddenError, ForbiddenException as ForbiddenException, IndexInitFailedError as IndexInitFailedError, IndexTerminatedError as IndexTerminatedError, ListConversionException as ListConversionException, NotFoundError as NotFoundError, NotFoundException as NotFoundException, PaymentRequiredError as PaymentRequiredError, PineconeApiAttributeError as PineconeApiAttributeError, PineconeApiException as PineconeApiException, PineconeApiKeyError as PineconeApiKeyError, PineconeApiTypeError as PineconeApiTypeError, PineconeApiValueError as PineconeApiValueError, PineconeConfigurationError as PineconeConfigurationError, PineconeConnectionError as PineconeConnectionError, PineconeError as PineconeError, PineconeException as PineconeException, PineconeProtocolError as PineconeProtocolError, PineconeTimeoutError as PineconeTimeoutError, PineconeTypeError as PineconeTypeError, PineconeValueError as PineconeValueError, RateLimitError as RateLimitError, RateLimitException as RateLimitException, ResponseParsingError as ResponseParsingError, ServiceError as ServiceError, ServiceException as ServiceException, UnauthorizedError as UnauthorizedError, UnauthorizedException as UnauthorizedException
+from pinecone.errors.exceptions import ApiError as ApiError, ConflictError as ConflictError, FailedPreconditionError as FailedPreconditionError, ForbiddenError as ForbiddenError, ForbiddenException as ForbiddenException, IndexInitFailedError as IndexInitFailedError, IndexTerminatedError as IndexTerminatedError, ListConversionException as ListConversionException, NotFoundError as NotFoundError, NotFoundException as NotFoundException, PayloadTooLargeError as PayloadTooLargeError, PaymentRequiredError as PaymentRequiredError, PineconeApiAttributeError as PineconeApiAttributeError, PineconeApiException as PineconeApiException, PineconeApiKeyError as PineconeApiKeyError, PineconeApiTypeError as PineconeApiTypeError, PineconeApiValueError as PineconeApiValueError, PineconeConfigurationError as PineconeConfigurationError, PineconeConnectionError as PineconeConnectionError, PineconeError as PineconeError, PineconeException as PineconeException, PineconeProtocolError as PineconeProtocolError, PineconeTimeoutError as PineconeTimeoutError, PineconeTypeError as PineconeTypeError, PineconeValueError as PineconeValueError, RateLimitError as RateLimitError, RateLimitException as RateLimitException, ResponseParsingError as ResponseParsingError, ServiceError as ServiceError, ServiceException as ServiceException, UnauthorizedError as UnauthorizedError, UnauthorizedException as UnauthorizedException
 from pinecone.grpc import GrpcIndex as GrpcIndex
 from pinecone.grpc.future import PineconeFuture as PineconeFuture
 from pinecone.index import Index as Index
@@ -39,13 +35,15 @@ from pinecone.models.assistant.streaming import AsyncChatCompletionStream as Asy
 from pinecone.models.backups.list import BackupList as BackupList, BackupScheduleHistoryList as BackupScheduleHistoryList, BackupScheduleList as BackupScheduleList, RestoreJobList as RestoreJobList
 from pinecone.models.backups.model import BackupModel as BackupModel, CreateIndexFromBackupRequest as CreateIndexFromBackupRequest, CreateIndexFromBackupResponse as CreateIndexFromBackupResponse, RestoreJobModel as RestoreJobModel
 from pinecone.models.backups.schedules import BackupScheduleHistoryItem as BackupScheduleHistoryItem, BackupScheduleModel as BackupScheduleModel, CreateBackupScheduleRequest as CreateBackupScheduleRequest, UpdateBackupScheduleRequest as UpdateBackupScheduleRequest
+from pinecone.models.batch import BatchError as BatchError, BatchResult as BatchResult
+from pinecone.models.collections.description import CollectionDescription as CollectionDescription
 from pinecone.models.collections.list import CollectionList as CollectionList
 from pinecone.models.collections.model import CollectionModel as CollectionModel
 from pinecone.models.documents.document import Document as Document, DocumentRecord as DocumentRecord, UpdateDocumentRecord as UpdateDocumentRecord
 from pinecone.models.documents.requests import DeleteDocumentsRequest as DeleteDocumentsRequest, FetchDocumentsRequest as FetchDocumentsRequest, ListDocumentsRequest as ListDocumentsRequest, SearchDocumentsRequest as SearchDocumentsRequest, UpdateDocumentsRequest as UpdateDocumentsRequest, UpsertDocumentsRequest as UpsertDocumentsRequest
-from pinecone.models.documents.responses import DeleteDocumentsResponse as DeleteDocumentsResponse, DocumentFetchUsage as DocumentFetchUsage, DocumentListUsage as DocumentListUsage, DocumentSearchUsage as DocumentSearchUsage, FetchDocumentsResponse as FetchDocumentsResponse, ListDocumentsResponse as ListDocumentsResponse, ListedDocumentRecord as ListedDocumentRecord, SearchDocumentsResponse as SearchDocumentsResponse, UpdateDocumentsResponse as UpdateDocumentsResponse, UpsertDocumentsResponse as UpsertDocumentsResponse
-from pinecone.models.documents.score_by import DenseVectorQuery as DenseVectorQuery, DocumentScoringMethod as DocumentScoringMethod, QueryStringQuery as QueryStringQuery, SparseVectorQuery as SparseVectorQuery, TextQuery as TextQuery
-from pinecone.models.enums import CloudProvider as CloudProvider, DeletionProtection as DeletionProtection, EmbedModel as EmbedModel, Metric as Metric, PodIndexEnvironment as PodIndexEnvironment, PodType as PodType, RerankModel as RerankModel, VectorType as VectorType
+from pinecone.models.documents.responses import DeleteDocumentsResponse as DeleteDocumentsResponse, DocumentFetchUsage as DocumentFetchUsage, DocumentListUsage as DocumentListUsage, DocumentSearchUsage as DocumentSearchUsage, DocumentUpdateUsage as DocumentUpdateUsage, DocumentUpsertUsage as DocumentUpsertUsage, FetchDocumentsResponse as FetchDocumentsResponse, ListDocumentsResponse as ListDocumentsResponse, ListedDocumentRecord as ListedDocumentRecord, SearchDocumentsResponse as SearchDocumentsResponse, UpdateDocumentsResponse as UpdateDocumentsResponse, UpsertDocumentsResponse as UpsertDocumentsResponse
+from pinecone.models.documents.score_by import DenseVectorQuery as DenseVectorQuery, DocumentScoringMethod as DocumentScoringMethod, EmbedQuery as EmbedQuery, QueryStringQuery as QueryStringQuery, SparseEmbedQuery as SparseEmbedQuery, SparseVectorQuery as SparseVectorQuery, TextQuery as TextQuery
+from pinecone.models.enums import AwsRegion as AwsRegion, AzureRegion as AzureRegion, CloudProvider as CloudProvider, DeletionProtection as DeletionProtection, EmbedModel as EmbedModel, GcpRegion as GcpRegion, Metric as Metric, PodIndexEnvironment as PodIndexEnvironment, PodType as PodType, RerankModel as RerankModel, VectorType as VectorType
 from pinecone.models.imports.error_mode import ImportErrorMode as ImportErrorMode
 from pinecone.models.imports.list import ImportList as ImportList
 from pinecone.models.imports.model import ImportModel as ImportModel, StartImportResponse as StartImportResponse
@@ -54,7 +52,7 @@ from pinecone.models.indexes.index import ByocSpecInfo as ByocSpecInfo, IndexMod
 from pinecone.models.indexes.list import IndexList as IndexList
 from pinecone.models.indexes.read_capacity import ReadCapacityDedicatedConfig as ReadCapacityDedicatedConfig, ReadCapacityDedicatedResponse as ReadCapacityDedicatedResponse, ReadCapacityOnDemandResponse as ReadCapacityOnDemandResponse, ReadCapacityResponse as ReadCapacityResponse, ReadCapacityStatus as ReadCapacityStatus, ScalingConfigManual as ScalingConfigManual
 from pinecone.models.indexes.requests import ConfigureIndexRequest as ConfigureIndexRequest, CreateIndexRequest as CreateIndexRequest
-from pinecone.models.indexes.schema import BooleanField as BooleanField, DenseVectorField as DenseVectorField, FloatField as FloatField, FullTextSearchConfig as FullTextSearchConfig, IndexSchema as IndexSchema, IndexSchemaField as IndexSchemaField, IntegerField as IntegerField, LegacyMetadataField as LegacyMetadataField, NgramConfig as NgramConfig, SemanticTextField as SemanticTextField, SparseVectorField as SparseVectorField, StringField as StringField, StringListField as StringListField
+from pinecone.models.indexes.schema import BooleanField as BooleanField, DenseVectorField as DenseVectorField, FieldEmbedConfig as FieldEmbedConfig, FieldSparseEmbedConfig as FieldSparseEmbedConfig, FloatField as FloatField, FullTextSearchConfig as FullTextSearchConfig, IndexSchema as IndexSchema, IndexSchemaField as IndexSchemaField, IntegerField as IntegerField, LegacyMetadataField as LegacyMetadataField, NgramConfig as NgramConfig, SemanticTextField as SemanticTextField, SparseVectorField as SparseVectorField, StringField as StringField, StringListField as StringListField
 from pinecone.models.indexes.specs import ByocSpec as ByocSpec, EmbedConfig as EmbedConfig, IntegratedSpec as IntegratedSpec, PodSpec as PodSpec, ServerlessSpec as ServerlessSpec
 from pinecone.models.inference.embed import DenseEmbedding as DenseEmbedding, EmbeddingsList as EmbeddingsList, SparseEmbedding as SparseEmbedding
 from pinecone.models.inference.model_list import ModelInfoList as ModelInfoList
@@ -65,11 +63,11 @@ from pinecone.models.pagination import AsyncPaginator as AsyncPaginator, Page as
 from pinecone.models.response_info import BatchResponseInfo as BatchResponseInfo, ResponseInfo as ResponseInfo
 from pinecone.models.vectors.query_aggregator import QueryNamespacesResults as QueryNamespacesResults, QueryResultsAggregator as QueryResultsAggregator
 from pinecone.models.vectors.responses import DescribeIndexStatsResponse as DescribeIndexStatsResponse, FetchByMetadataResponse as FetchByMetadataResponse, FetchResponse as FetchResponse, ListResponse as ListResponse, QueryResponse as QueryResponse, UpdateResponse as UpdateResponse, UpsertRecordsResponse as UpsertRecordsResponse, UpsertResponse as UpsertResponse
-from pinecone.models.vectors.search import Hit as Hit, RerankConfig as RerankConfig, SearchInputs as SearchInputs, SearchRecordsResponse as SearchRecordsResponse, SearchResult as SearchResult, SearchUsage as SearchUsage
+from pinecone.models.vectors.search import Hit as Hit, RerankConfig as RerankConfig, SearchInputs as SearchInputs, SearchQuery as SearchQuery, SearchRecordsResponse as SearchRecordsResponse, SearchRerank as SearchRerank, SearchResult as SearchResult, SearchUsage as SearchUsage
 from pinecone.models.vectors.sparse import SparseValues as SparseValues
 from pinecone.models.vectors.vector import ScoredVector as ScoredVector, Vector as Vector
 from pinecone.schema_builder import SchemaBuilder as SchemaBuilder
-from pinecone.utils.filter_builder import Field as Field, FilterBuilder as FilterBuilder
+from pinecone.utils.filter_builder import Condition as Condition, Field as Field, FilterBuilder as FilterBuilder
 
 __version__: str
 
@@ -96,7 +94,9 @@ __all__ = [
     "BackupScheduleHistoryList",
     "BackupScheduleList",
     "BackupScheduleModel",
+    "BatchError",
     "BatchResponseInfo",
+    "BatchResult",
     "BooleanField",
     "ByocDeployment",
     "ByocSpec",
@@ -112,6 +112,7 @@ __all__ = [
     "CollectionDescription",
     "CollectionList",
     "CollectionModel",
+    "Condition",
     "ConfigureIndexRequest",
     "ConflictError",
     "ContextOptions",
@@ -133,8 +134,11 @@ __all__ = [
     "DocumentRecord",
     "DocumentScoringMethod",
     "DocumentSearchUsage",
+    "DocumentUpdateUsage",
+    "DocumentUpsertUsage",
     "EmbedConfig",
     "EmbedModel",
+    "EmbedQuery",
     "EmbeddingsList",
     "FailedPreconditionError",
     "FetchByMetadataResponse",
@@ -142,6 +146,8 @@ __all__ = [
     "FetchDocumentsResponse",
     "FetchResponse",
     "Field",
+    "FieldEmbedConfig",
+    "FieldSparseEmbedConfig",
     "FilterBuilder",
     "FloatField",
     "ForbiddenError",
@@ -199,6 +205,7 @@ __all__ = [
     "Page",
     "PaginationResponse",
     "Paginator",
+    "PayloadTooLargeError",
     "PaymentRequiredError",
     "Pinecone",
     "PineconeApiAttributeError",
@@ -269,6 +276,7 @@ __all__ = [
     "ServiceAccountWithSecret",
     "ServiceError",
     "ServiceException",
+    "SparseEmbedQuery",
     "SparseEmbedding",
     "SparseValues",
     "SparseVectorField",

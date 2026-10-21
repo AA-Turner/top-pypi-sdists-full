@@ -228,17 +228,19 @@ class TestResolveSlug:
 
     def test_already_a_slug_is_returned_unchanged_and_silent(self, capsys):
         assert util.resolve_slug("tdd-workflow-3") == "tdd-workflow-3"
-        assert capsys.readouterr().out == ""
+        assert capsys.readouterr() == ("", "")
 
-    def test_differing_slug_is_printed_as_a_note(self, capsys):
+    def test_differing_slug_is_noted_on_stderr_not_stdout(self, capsys):
+        # stdout may be carrying --json; the note there broke `boost profile
+        # save "My Team" --json`, whose output no longer parsed.
         assert util.resolve_slug("My Great Skill") == "my-great-skill"
-        out = capsys.readouterr().out
-        assert "my-great-skill" in out
-        assert "My Great Skill" in out
+        cap = capsys.readouterr()
+        assert cap.out == ""
+        assert cap.err == "  using name 'my-great-skill' (from 'My Great Skill')\n"
 
     def test_what_names_the_field_in_the_note_and_the_error(self, capsys):
         util.resolve_slug("Bad Name!!", what="profile name")
-        assert "profile name" in capsys.readouterr().out
+        assert "profile name" in capsys.readouterr().err
         with pytest.raises(BoostError) as exc:
             util.resolve_slug("!!!", what="profile name")
         assert "profile name" in exc.value.message
@@ -1383,3 +1385,34 @@ class TestCheckPathLength:
         with pytest.raises(BoostError) as exc:
             util.check_path_length(tmp_path / ("a" * 1000))
         assert len(exc.value.message) < 200
+
+
+class TestWriteUnclaimed:
+    """`write_unclaimed` never replaces a file it finds at the guessed name."""
+
+    def test_writes_the_plain_name_when_free(self, tmp_path):
+        dest = util.write_unclaimed(tmp_path, "evil", ".SKILL.md", "gen\n")
+        assert dest == tmp_path / "evil.SKILL.md"
+        assert dest.read_bytes() == b"gen\n"
+
+    def test_an_existing_file_is_left_and_the_next_free_name_taken(self, tmp_path):
+        (tmp_path / "evil.SKILL.md").write_bytes(b"precious notes\n")
+        (tmp_path / "evil.1.SKILL.md").write_bytes(b"older\n")
+        dest = util.write_unclaimed(tmp_path, "evil", ".SKILL.md", "gen\n")
+        assert dest == tmp_path / "evil.2.SKILL.md"
+        assert dest.read_bytes() == b"gen\n"
+        assert (tmp_path / "evil.SKILL.md").read_bytes() == b"precious notes\n"
+        assert (tmp_path / "evil.1.SKILL.md").read_bytes() == b"older\n"
+        assert sorted(p.name for p in tmp_path.iterdir()) == [
+            "evil.1.SKILL.md", "evil.2.SKILL.md", "evil.SKILL.md"]
+
+    def test_first_collision_takes_suffix_one(self, tmp_path):
+        (tmp_path / "x.md").write_text("mine", encoding="utf-8")
+        assert util.write_unclaimed(tmp_path, "x", ".md", "t") == tmp_path / "x.1.md"
+
+    def test_an_unwritable_directory_is_framed_as_a_boost_error(self, tmp_path):
+        missing = tmp_path / "no" / "such"
+        with pytest.raises(BoostError) as exc:
+            util.write_unclaimed(missing, "x", ".md", "t")
+        assert exc.value.message.startswith("cannot write ")
+        assert str(missing / "x.md") in exc.value.message

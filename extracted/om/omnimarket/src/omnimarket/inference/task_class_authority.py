@@ -28,6 +28,10 @@ from omnimarket.inference.request_instruction import (
     opening_sentence,
 )
 from omnimarket.models.delegation.model_deployment_fact_marker import deployment_fact
+from omnimarket.models.delegation.model_lab_rubric import (
+    ModelLabFirstPolicy,
+    ModelLabRubric,
+)
 
 _DEFAULT_AUTHORITY_PATH = (
     Path(__file__).resolve().parent.parent / "configs" / "task_class_contracts.v1.yaml"
@@ -815,6 +819,29 @@ class ModelTaskClassEscalationPolicy(BaseModel):
     )
 
 
+class ModelExternalAcceptance(BaseModel):
+    """An acceptance authority that runs outside the quality gate (OMN-17427).
+
+    ``checker`` decides whether a draft may be used and ``on_refusal`` says what a refusal does to
+    it. ``free_text_slots`` are the only parts the model writes; ``shell_parts`` are filled by code
+    and pasted verbatim, so no part is both.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    checker: str = Field(min_length=1)
+    on_refusal: Literal["reject_draft"]
+    free_text_slots: tuple[str, ...] = Field(min_length=1)
+    shell_parts: tuple[str, ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _slots_and_shell_parts_are_disjoint(self) -> ModelExternalAcceptance:
+        both = sorted(set(self.free_text_slots) & set(self.shell_parts))
+        if both:
+            raise ValueError(f"parts named as both free text and shell: {both}")
+        return self
+
+
 class ModelTaskClassAuthorityEntry(BaseModel):
     """Authority fields shared by every task-class routing contract entry."""
 
@@ -840,6 +867,20 @@ class ModelTaskClassAuthorityEntry(BaseModel):
         ),
     )
     escalation_policy: ModelTaskClassEscalationPolicy | None = None
+    external_acceptance: ModelExternalAcceptance | None = Field(
+        default=None,
+        description=(
+            "Present only on a class whose draft is accepted by a checker outside the "
+            "quality gate (OMN-17427)."
+        ),
+    )
+    lab_rubric: ModelLabRubric | None = Field(
+        default=None,
+        description=(
+            "The lab model's scored verdict for this class (OMN-17427). Every "
+            "routable class declares one; the lab-first check reads it."
+        ),
+    )
     context_profile: str | None = Field(
         default=None,
         pattern=r"^[a-z][a-z0-9_]*$",
@@ -867,6 +908,10 @@ class ModelTaskClassAuthority(BaseModel):
         default_factory=dict,
         description="Per-task-type model id overrides.",
         json_schema_extra=deployment_fact(EnumDeploymentFactKind.MODEL_NAME),
+    )
+    lab_first_policy: ModelLabFirstPolicy | None = Field(
+        default=None,
+        description="The lab tier and the adequacy bar a class must meet there (OMN-17427).",
     )
     quality_rules: dict[str, ModelQualityRule] = Field(default_factory=dict)
     reasoning_preamble: ModelReasoningPreamblePolicy | None = Field(

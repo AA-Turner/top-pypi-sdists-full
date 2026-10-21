@@ -196,6 +196,32 @@ async def _response_format_for(ctx: NodeExecutionContext, kind: str) -> dict[str
     return bound.model_dump(mode="json", by_alias=True, exclude_none=True)
 
 
+async def _apply_mandate_binding(
+    request: Any, resolved: Any, mandate_key: str, node_id: str
+) -> Any:
+    """Put the step's variables through the mandate's BINDING (the host's one
+    consumption pipeline) before the doer runs — runner plan step 1, 2026-10-20.
+
+    Until this date a produce step that named a mandate sent its variables to
+    the doer BY NAME: no binding map, no guaranteed-value gate, no placement.
+    The values the step built (``request.variables``, after every port and
+    authored-variable rule has folded) are the offer; what the pipeline returns
+    is what the doer runs on. A host with no pipeline refuses — the step never
+    runs unbound.
+    """
+    materialize = getattr(resolved, "materialize", None)
+    if materialize is None:
+        raise ExecutionError(
+            f"{_NODE_TYPE} step '{node_id}' runs mandate {mandate_key!r}, but this host "
+            "offers no consumption pipeline to apply the mandate's binding — the step "
+            "does not run unbound."
+        )
+    supplied = dict(getattr(request, "variables", None) or {})
+    variables = await materialize(supplied)
+    request.variables = dict(variables) or None
+    return request
+
+
 def _record_spend(ctx: NodeExecutionContext, normalized: AiExecutionResult) -> None:
     """Declare this invocation's billed usage on the engine plane.
 
@@ -258,7 +284,18 @@ async def agent_produce(
         declared_variables=list(getattr(config, "exposed_variables", None) or []),
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
     )
-    completed = await run_step_agent(ctx, resolved.agent_id, request)
+    mandate_key = getattr(inputs, "mandate_key", None)
+    if mandate_key:
+        request = await _apply_mandate_binding(request, resolved, mandate_key, node_id)
+    completed = await run_step_agent(
+        ctx,
+        resolved.agent_id,
+        request,
+        # THE RUN RECORD (runner plan step 1, 2026-10-20): the same stamp the Run
+        # Mandate node passes, so the host records this step's mandate run.
+        mandate_key=mandate_key or None,
+        run_stamp=getattr(resolved, "run_stamp", None) if mandate_key else None,
+    )
 
     # A host agent_runner may hand back an already-normalized result (a
     # compiled Orchestra whose final step IS the agent result).

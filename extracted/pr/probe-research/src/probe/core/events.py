@@ -127,7 +127,6 @@ class Step(StrEnum):
     CODEX_MCP_LOGIN = "codex_mcp_login"
     MCP_TOKEN_SYNC = "mcp_token_sync"
     CAPTURE = "capture"
-    CLOUD_CAPTURE = "cloud_capture"
     AUTO_UPDATE = "auto_update"
     AGENT_RULES = "agent_rules"
     STATUSLINE = "statusline"

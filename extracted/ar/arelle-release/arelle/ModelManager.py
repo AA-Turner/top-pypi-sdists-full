@@ -63,7 +63,6 @@ class ModelManager:
         self.validateDisclosureSystem = False
         self.disclosureSystem = DisclosureSystem.DisclosureSystem(self)
         self.validateCalcs = 0 # ValidateXbrlCalcs.ValidateCalcsMode
-        self.validateInfoset = False
         self.validateUtr = False
         self.validateTestcaseSchema = True
         self.skipDTS = False
@@ -76,9 +75,11 @@ class ModelManager:
         self.baseTaxonomyValidationMode = ValidateBaseTaxonomiesMode.DISCLOSURE_SYSTEM
         self.validateAllFilesAsReportPackages = False
         self.validateAllFilesAsTaxonomyPackages = False
+        self.requiredDocumentTypes: tuple[int, ...] = ()
         self.validateDuplicateFacts = ValidateDuplicateFactsConst.DuplicateType.NONE
         self.validateXmlOim = False
         self.validateTableConstraintsSkipLoading = False
+        self.skipPackageContentLoading = False
         self.setLocale()
         ValidateXbrlCalcs.init()  # required due to circular dependencies in module
 

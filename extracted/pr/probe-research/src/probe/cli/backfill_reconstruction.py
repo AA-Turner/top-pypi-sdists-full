@@ -15,8 +15,10 @@ from urllib.parse import quote
 
 from ..sdk.durable import fsync_directory, write_text_atomic
 from ..sdk.errors import GENERATION_PAUSED, ConflictError, NotFoundError
+from ..sdk.secret_gate import CredentialBlocked, _redact_read
 from . import backfill as bf
 from . import backfill_prompts as prompts
+from .backfill_coverage import delivers_approved_bytes
 
 CAPABILITY = "project_document_cas_v1"
 MAX_PROJECTS = 20
@@ -190,9 +192,17 @@ def _read_sample(folder: Path, row: dict) -> tuple[str | None, str | None]:
     if b"\x00" in data:
         return None, "binary file: metadata only"
     try:
-        text = data.decode("utf-8")
+        data.decode("utf-8")
     except UnicodeDecodeError:
         return None, "non-UTF-8 file: metadata only"
+    # The excerpt goes into a model's input: mask what the upload gate masked
+    # (the stored artifact may be exactly that redaction), with the gate's own
+    # check. Only text gets here, so no archive is opened.
+    try:
+        data, _ = _redact_read(data, scan_policy=None, full_scan=False)
+    except CredentialBlocked:
+        return None, "credential inspection refused: metadata only"
+    text = data.decode("utf-8")
     if len(data) <= MAX_SAMPLE_BYTES:
         return text, None
     if path.stem.casefold() == "readme" or path.suffix.casefold() in {
@@ -207,14 +217,16 @@ def _read_sample(folder: Path, row: dict) -> tuple[str | None, str | None]:
 
 def _receipt(coverage, row: dict) -> dict:
     value = coverage.conn.execute(
-        "SELECT receipt FROM versions WHERE correlation=?", (row["correlation"],)
+        "SELECT receipt, intent FROM versions WHERE correlation=?", (row["correlation"],)
     ).fetchone()
     receipt = json.loads(value[0]) if value and value[0] else {}
+    intent = json.loads(value[1]) if value and value[1] else {}
     if (
         receipt.get("state") != "delivered"
         or receipt.get("status") != "complete"
         or receipt.get("anchor_id") != row["project_id"]
-        or receipt.get("content_hash") != row["approved_hash"]
+        or intent.get("content_hash") != row["approved_hash"]
+        or not delivers_approved_bytes(intent, receipt)
         or not receipt.get("artifact_id")
     ):
         raise ValueError(f"unverified receipt: {row['path']}")
@@ -237,7 +249,9 @@ def _inputs(client, folder: Path, coverage, rows: list[dict], git_bundle, projec
         inventory.append(
             {
                 "path": row["path"],
-                "sha256": row["approved_hash"],
+                # The stored bytes': for a redacted file, the original's hash
+                # beside its redacted text would let a short secret be guessed.
+                "sha256": receipt["content_hash"],
                 "artifact_id": receipt["artifact_id"],
                 "reference": reference,
             }

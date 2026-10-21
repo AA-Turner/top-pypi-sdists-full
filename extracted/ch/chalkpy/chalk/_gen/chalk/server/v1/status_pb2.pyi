@@ -22,6 +22,11 @@ class HealthCheckStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HEALTH_CHECK_STATUS_OK: _ClassVar[HealthCheckStatus]
     HEALTH_CHECK_STATUS_FAILING: _ClassVar[HealthCheckStatus]
     HEALTH_CHECK_STATUS_NOT_CONFIGURED: _ClassVar[HealthCheckStatus]
+    HEALTH_CHECK_STATUS_DEGRADED: _ClassVar[HealthCheckStatus]
+    HEALTH_CHECK_STATUS_FAILING_RUNNING: _ClassVar[HealthCheckStatus]
+    HEALTH_CHECK_STATUS_UPSTREAM_FAILING: _ClassVar[HealthCheckStatus]
+    HEALTH_CHECK_STATUS_SCALED_DOWN: _ClassVar[HealthCheckStatus]
+    HEALTH_CHECK_STATUS_NOT_APPLICABLE: _ClassVar[HealthCheckStatus]
 
 class HealthCheckName(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -91,11 +96,17 @@ class HealthCheckName(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     HEALTH_CHECK_NAME_ONLINE_NODEPOOL: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_CLICKHOUSE_PVC_UTILIZATION: _ClassVar[HealthCheckName]
     HEALTH_CHECK_NAME_VICTORIA_METRICS_PVC_UTILIZATION: _ClassVar[HealthCheckName]
+    HEALTH_CHECK_NAME_BACKGROUND_PERSISTENCE_DISK_UTILIZATION: _ClassVar[HealthCheckName]
 
 HEALTH_CHECK_STATUS_UNSPECIFIED: HealthCheckStatus
 HEALTH_CHECK_STATUS_OK: HealthCheckStatus
 HEALTH_CHECK_STATUS_FAILING: HealthCheckStatus
 HEALTH_CHECK_STATUS_NOT_CONFIGURED: HealthCheckStatus
+HEALTH_CHECK_STATUS_DEGRADED: HealthCheckStatus
+HEALTH_CHECK_STATUS_FAILING_RUNNING: HealthCheckStatus
+HEALTH_CHECK_STATUS_UPSTREAM_FAILING: HealthCheckStatus
+HEALTH_CHECK_STATUS_SCALED_DOWN: HealthCheckStatus
+HEALTH_CHECK_STATUS_NOT_APPLICABLE: HealthCheckStatus
 HEALTH_CHECK_NAME_UNSPECIFIED: HealthCheckName
 HEALTH_CHECK_NAME_HTTP_ENGINE: HealthCheckName
 HEALTH_CHECK_NAME_SPILLING_CONFIG: HealthCheckName
@@ -162,6 +173,7 @@ HEALTH_CHECK_NAME_INFRASTRUCTURE_NODEPOOL: HealthCheckName
 HEALTH_CHECK_NAME_ONLINE_NODEPOOL: HealthCheckName
 HEALTH_CHECK_NAME_CLICKHOUSE_PVC_UTILIZATION: HealthCheckName
 HEALTH_CHECK_NAME_VICTORIA_METRICS_PVC_UTILIZATION: HealthCheckName
+HEALTH_CHECK_NAME_BACKGROUND_PERSISTENCE_DISK_UTILIZATION: HealthCheckName
 
 class HealthCheck(_message.Message):
     __slots__ = ("name", "status", "message", "latency", "kube_data", "metadata")
@@ -194,6 +206,12 @@ class HealthCheck(_message.Message):
         kube_data: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
         metadata: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
+
+class HealthChecksExport(_message.Message):
+    __slots__ = ("healthchecks",)
+    HEALTHCHECKS_FIELD_NUMBER: _ClassVar[int]
+    healthchecks: _containers.RepeatedCompositeFieldContainer[HealthCheck]
+    def __init__(self, healthchecks: _Optional[_Iterable[_Union[HealthCheck, _Mapping]]] = ...) -> None: ...
 
 class HealthCheckFilters(_message.Message):
     __slots__ = ("name", "status")

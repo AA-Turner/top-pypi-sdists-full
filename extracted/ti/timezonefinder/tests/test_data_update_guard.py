@@ -14,6 +14,7 @@ import pytest
 import yaml
 
 from scripts.configs import PROJECT_ROOT
+from timezonefinder.configs import DATA_FORMAT_VERSION
 from scripts.data_update_guard import (
     ANSWERS_PATH,
     CHANGED_ANSWER_GATE,
@@ -174,30 +175,57 @@ def test_a_change_at_the_gate_still_passes(monkeypatch, tmp_path) -> None:
     assert check() == 0
 
 
-# The four releases the payload bands were calibrated over, each converted from its
-# upstream GeoJSON with the code in this tree. The 2026c row is the committed record -
-# asserted below rather than trusted - which is what makes the other three comparable
-# with it and with whatever the band is set to.
+# The releases the payload bands were calibrated over, each converted from its upstream
+# GeoJSON with the code in this tree. **This history is deliberately allowed to go
+# stale.** It is evidence for one question - are the bands so tight that ordinary
+# refinement trips them - and four real transitions answer that as well as forty would.
+# Requiring the newest release to appear here bought nothing for that question and cost
+# a hand-edit on every data update, discovered after a full converter run: 2026d failed
+# its own release CI on exactly that.
+#
+# What a stale table cannot survive is a *format* change that moves the polygon payload,
+# because it moves every byte count at once and leaves the band test comparing numbers
+# from two different layouts. That is what CALIBRATION_FORMAT_VERSION below guards, and
+# it is the only event that obliges anyone to touch this table again.
+#
+# A format bump does not always move them. Format 4 replaced the shortcut index and left
+# POLYGON_LAYOUT_VERSION at 3: re-compiling 2026d under it reproduced both counts below
+# to the byte, so the table carried over unchanged and only the constant moved. The
+# guard still had to fire, which is the point - the author is the one who can tell the
+# two cases apart, and nothing else would have asked them to.
 CALIBRATION_PAYLOADS = {
     "2025c": {"boundary_payload_bytes": 31_034_584, "hole_payload_bytes": 97_452},
     "2026a": {"boundary_payload_bytes": 31_116_264, "hole_payload_bytes": 94_936},
     "2026b": {"boundary_payload_bytes": 31_304_936, "hole_payload_bytes": 94_936},
     "2026c": {"boundary_payload_bytes": 31_735_692, "hole_payload_bytes": 95_168},
+    "2026d": {"boundary_payload_bytes": 31_979_504, "hole_payload_bytes": 95_216},
 }
 
 
-@pytest.mark.unit
-def test_the_calibration_ends_at_the_data_this_checkout_packages() -> None:
-    """Otherwise the table is four numbers from somewhere, and the band means nothing.
+# The format generation every byte count above was measured in. Restated rather than
+# derived, because the point is to notice when the two stop agreeing.
+CALIBRATION_FORMAT_VERSION = 4
 
-    The last row has to be the record the packaged data produces, because that is the
-    only one this checkout can check - and a format change that moved the bytes would
-    invalidate every earlier row with it.
+
+@pytest.mark.unit
+def test_the_calibration_describes_the_format_this_code_reads() -> None:
+    """A format change invalidates the whole table at once, and silently.
+
+    The numbers are compiled payload sizes, so a layout change moves all of them
+    together. The band test below would keep passing on them - comparing releases
+    measured in a format nothing in the tree produces any more - and the bands would
+    then be calibrated against nothing. A format change is already an ordered
+    two-distribution release, so re-deriving the table is work its author is in a
+    position to do; what they cannot do is notice the obligation unaided. Nor can a
+    check tell a bump that moved the polygon payload from one that did not, which is
+    exactly why this asks a person rather than deriving an answer.
     """
-    committed = json.loads(PAYLOAD_PATH.read_text(encoding="utf-8"))
-    assert CALIBRATION_PAYLOADS["2026c"] == {
-        key: committed[key] for key in CALIBRATION_PAYLOADS["2026c"]
-    }
+    assert DATA_FORMAT_VERSION == CALIBRATION_FORMAT_VERSION, (
+        f"the payload sizes in CALIBRATION_PAYLOADS were measured in data format "
+        f"{CALIBRATION_FORMAT_VERSION}, but this code reads format "
+        f"{DATA_FORMAT_VERSION}; re-derive the table from releases compiled in the "
+        f"new format, then set CALIBRATION_FORMAT_VERSION to match"
+    )
 
 
 @pytest.mark.unit

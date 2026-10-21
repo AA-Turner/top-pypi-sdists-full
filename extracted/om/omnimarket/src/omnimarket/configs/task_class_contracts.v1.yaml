@@ -87,6 +87,29 @@ version: "1.0"
 # local-coder/local-heavy-reasoning and routing_tiers.yaml for the matching backend
 # model ids this id-match escape hatch resolves against).
 default_task_model_ref: "Qwen3.8-27B"
+# OMN-17427 / RULING 2026-10-08T23:48:01Z (OMN-20422): lab models first for
+# appropriate tasks, with a scoring rubric. This is the rubric.
+#
+# `lab_tier` names the routing_tiers.yaml tier that is the lab. `bar` is what a
+# class's held-out set must score there: the shipped value is the 21-of-28 bar
+# the code_review measurement used. Each routable class declares `lab_rubric`:
+# `verdict` is pass, fail or unmeasured, and a pass or fail carries the
+# `measured` score it was earned from; the check refuses a verdict its score
+# does not earn. A class is released from lab-first ONLY by a recorded fail; an
+# unmeasured class keeps the default. For every other routable class the
+# lab-first check (node_lab_first_routing_check_compute, run by the
+# lab-first-routing pre-commit hook and a ci.yml step) refuses a tier_order that does
+# not open on the lab tier, an entry_share that starts a fraction elsewhere, and
+# a model pin the lab tier does not serve. A class with no serving tier
+# (routing_availability) declares no rubric.
+lab_first_policy:
+  lab_tier: local
+  bar:
+    adequate: 21
+    of: 28
+  rationale: >-
+    Appropriate tasks go to the lab models first; a class leaves the lab only on
+    a recorded measurement below the bar, never on a contract edit alone.
 task_model_overrides:
   # OMN-17427 / RULING 2026-10-01T15:49:37Z: ordinary code tasks start on
   # the local served model. Gemini remains declared for backend-id tests only.
@@ -340,6 +363,16 @@ quality_rules:
       in that prompt's definition of done and moves no score.
     waived_unless_prompt_matches:
       - "\\b(?:at\\s+most|no\\s+more\\s+than)\\s+(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\\s+sentences?\\b"
+  # OMN-17427: the prompt's own "at most N words", enforced.
+  within_word_limit:
+    enforcement: blocking
+    rationale: >-
+      A countable instruction the prompt gave. An answer over the limit is a
+      breach of the task, not a weaker answer, and no score makes it usable.
+      Reject-only. A prompt that states no limit waives the rule, so it is not
+      in that prompt's definition of done and moves no score.
+    waived_unless_prompt_matches:
+      - "\\b(?:at\\s+most|no\\s+more\\s+than)\\s+(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\\s+words?\\b(?!\\s+(?:per|a|each|every)\\b)"
   semantic_adequacy:
     enforcement: blocking
     rationale: >-
@@ -469,9 +502,38 @@ quality_rules:
     rationale: A docstring missing its contract sections is incomplete, not merely terse.
   covers_edge_cases:
     enforcement: blocking
+    # OMN-19401: the rule judges coverage the PROMPT asked for. Measured on 46
+    # in-memory-bus `--task-type test` runs (2026-10-19): drafts for a plain
+    # "write a test for X" were refused, scored 0.61-0.88, for lacking one of
+    # edge/boundary/empty/none/invalid, whatever the prompt asked for. A prompt
+    # matching none of these patterns is waived: the rule neither lowers the
+    # score nor appears among the failure reasons. A prompt that asks for edge
+    # cases keeps the rule, and a draft that covers none is still scored down.
+    waived_unless_prompt_matches:
+      - '\bedge[- ]?cases?\b'
+      - '\bcorner[- ]?cases?\b'
+      - '\bboundar(?:y|ies)\b'
+      - '\bempty\b'
+      - '\bnone\b'
+      - '\bnull\b'
+      - '\binvalid\b'
+      - '\bextremes?\b'
+      - '\b(?:comprehensive|thorough|exhaustive)(?:ly)?\b'
     rationale: A declared coverage floor for the classes that require it.
   covers_error_paths:
     enforcement: blocking
+    # OMN-19401: as covers_edge_cases. The rule also applies when the prompt hands
+    # over code that raises, because that code has an error path to cover.
+    waived_unless_prompt_matches:
+      - '\berrors?\b'
+      - '\bexceptions?\b'
+      - '\braises?\b'
+      - '\bfail(?:s|ed|ing|ure|ures)?\b'
+      - '\binvalid\b'
+      - '\bnegative (?:tests?|cases?|paths?)\b'
+      - '\bunhappy\b'
+      - '\bpytest\.raises\b'
+      - '\b(?:comprehensive|thorough|exhaustive)(?:ly)?\b'
     rationale: A declared coverage floor for the classes that require it.
   covers_dependencies:
     enforcement: blocking
@@ -722,6 +784,10 @@ execution_budgets:
   summarization: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
   agent_delegation: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
   escalation: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  brief_drafting: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  extraction_proposer: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  tail_summary: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
+  context_selection: {task_class_timeout_ceiling_seconds: 240, terminal_delivery_margin_seconds: 60}
 
 # S is value <= s_max, M is <= m_max, L is above. Every class inherits this
 # default; task_classes.<class>.size_band_thresholds may override the same shape.
@@ -854,6 +920,9 @@ facts_first_prompt:
 
 task_classes:
   code_generation:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: code, verification: test_run, execution_required: true}
     prompt_shape: facts_first
     gateway_exposure: public
@@ -1080,6 +1149,9 @@ task_classes:
   # output PASS at $0 exactly like code_generation. (A minimal-diff / precision DoD
   # for surgical edits to large files is tracked separately under OMN-14214.)
   refactor:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: patch, verification: patch_and_test, execution_required: true}
     gateway_exposure: public
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -1150,6 +1222,9 @@ task_classes:
         - cheap_cloud
         - claude
   documentation:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     gateway_exposure: internal
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -1252,6 +1327,9 @@ task_classes:
   # `raises:`) and score 0.000 on both tiers (live CID a604cd40). The docstring
   # DoD lives on the `documentation` task class below, which is the correct home.
   document:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     prompt_shape: facts_first
     gateway_exposure: public
@@ -1360,6 +1438,9 @@ task_classes:
         - cheap_frontier
         - cheap_cloud
   research:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     prompt_shape: facts_first
     gateway_exposure: public
@@ -1430,6 +1511,9 @@ task_classes:
         - cheap_cloud
         - claude
   test:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: code, verification: test_run, execution_required: true}
     gateway_exposure: public
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -1604,6 +1688,9 @@ task_classes:
         - cheap_cloud
         - claude
   validator_generation:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: code, verification: test_run, execution_required: true}
     gateway_exposure: internal
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -1670,6 +1757,9 @@ task_classes:
         - cheap_cloud
         - claude
   reasoning:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     prompt_shape: facts_first
     gateway_exposure: public
@@ -1738,6 +1828,9 @@ task_classes:
         - cheap_frontier
         - cheap_cloud
   complex_reasoning:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     gateway_exposure: public
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -1789,6 +1882,9 @@ task_classes:
         - local
         - claude
   planning:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: structured, verification: grounding, execution_required: false}
     gateway_exposure: public
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -1842,6 +1938,21 @@ task_classes:
         - local
         - cheap_cloud
   review:
+    # OMN-17427: the lab model scored 25 of 60 on this class, below the policy bar.
+    # 60 merged omnimarket source diffs (2026-10-01 to 2026-10-18), one local
+    # review each through the delegate with the house tenant, one blind Sonnet
+    # rater per answer (a second rater on 15 of them agreed on 13): adequate
+    # means no finding the diff contradicts and either a real defect found or a
+    # clean "No defects found" on a diff the rater found clean. The class gate
+    # accepted all 60 at score 1.0 and 35 of them were inadequate (58 percent,
+    # Wilson 95 percent interval 46 to 70), so the gate cannot be the evidence.
+    lab_rubric:
+      verdict: fail
+      measured:
+        model: Qwen3.8-27B
+        adequate: 25
+        of: 60
+        source: "OMN-17427 lane deleg-exp-replicate-1-2200, 2026-10-18, replication of the criteria false-accept experiment"
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     prompt_shape: facts_first
     gateway_exposure: public
@@ -1911,6 +2022,14 @@ task_classes:
   # but with code-review-specific DoD heuristics and a declared fallback ladder.
   # OMN-17427: the class stays declared; delegation is withheld below.
   code_review:
+    # OMN-17427: the lab model scored 0 of 28 on this class, below the policy bar.
+    lab_rubric:
+      verdict: fail
+      measured:
+        model: Qwen3.8-27B
+        adequate: 0
+        of: 28
+        source: "OMN-17427 RULING 2026-10-02T19:33:51Z, lane deleg-quality-low-2a21"
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     # OMN-19432: held back by operator instruction until re-measured (it improved
     # under facts-first in the 2026-09-30 re-ask, 9% to 25%).
@@ -1997,6 +2116,9 @@ task_classes:
       # OMN-17427: withheld and no tier serves it, so no tier_order is declared.
       # Restore the ladder in the same change that restores use_for entries.
   summarization:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     gateway_exposure: public
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -2052,6 +2174,9 @@ task_classes:
         # sentences"), counted with a list item as one sentence. Reject-only;
         # without a stated limit it passes.
         - within_sentence_limit
+        # OMN-17427: the word limit the prompt states ("in at most 80 words").
+        # Reject-only; without a stated limit it is waived.
+        - within_word_limit
         # OMN-13218: semantic_adequacy replaces the blunt min_length_chars_100 floor.
         # A correct short summary (one complete sentence) passes at tier 1 instead
         # of escalating on a length floor; an empty/truncated stub still fails.
@@ -2214,6 +2339,9 @@ task_classes:
       # OMN-17427: no tier serves agent_orchestration yet, so no tier_order is
       # declared; declare that ladder in the change that wires the producer.
   escalation:
+    # OMN-17427: no measurement recorded yet, so the class keeps the lab-first default.
+    lab_rubric:
+      verdict: unmeasured
     complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
     gateway_exposure: internal
     output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
@@ -2267,3 +2395,163 @@ task_classes:
       tier_order:
         - local
         - claude
+  # OMN-17427: lane brief drafting (experiment exp-brief-drafting-local, 2026-10-17, h202). The lab Qwen
+  # rung drafts the free-text slots of a lane brief and `lane_brief.py check` is the acceptance gate.
+  # `local` is the whole closed ladder: GLM sits in `cheap_cloud` and the experiment found it not usable
+  # for this class, so no tier after `local` is declared and a refused draft is not escalated to one.
+  # A refusal rejects the draft; the next move (regenerate the shell parts in code, redraft once, or
+  # have Claude write the brief) is node_lane_brief_draft_compute's gate. The shell parts (ticket-state
+  # acknowledgements, quoted criteria, the 3a block) are pasted by code, never written by the model.
+  # Internal: the Gateway does not admit it, and no prompt selects it (empty phrases).
+  brief_drafting:
+    lab_rubric:
+      verdict: unmeasured
+    complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    required_capabilities:
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.0
+    latency_sla_p99_ms: 60000
+    cloud_routing_policy: blocked
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        - semantic_adequacy
+        # OMN-18297: an identifier the draft states must occur in the fact table it was given.
+        - identifiers_grounded
+        - numbers_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    external_acceptance:
+      checker: "lane_brief.py check"
+      on_refusal: reject_draft
+      free_text_slots:
+        - title
+        - premises
+        - task
+      shell_parts:
+        - header
+        - ticket_state_acknowledgements
+        - quoted_criteria
+        - out_of_scope
+        - standing_rules
+        - constraints_block
+    escalation_policy:
+      max_escalations: 0
+      tier_order:
+        - local
+  # OMN-17427: the context-pack model roles, internal and selected only by explicit name.
+  # context_selection is the selection_task_class of lane_brief, lane_brief_section,
+  # session_start and per_prompt; extraction_proposer is the extraction_task_class
+  # of compaction_orchestrator and session_resume. tail_summary is declared because
+  # the core 0.47.48 wire Literal admits it and
+  # test_the_request_wire_contract_and_the_task_class_contract_agree requires this
+  # contract to equal that Literal. context_compaction stays undeclared until core
+  # admits it. These roles inherit summarization's local Qwen placement; no cloud
+  # rung until a measured lab_rubric verdict says one is needed.
+  extraction_proposer:
+    lab_rubric:
+      verdict: unmeasured
+    complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    required_capabilities:
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 120000
+    cloud_routing_policy: opt_in
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        - semantic_adequacy
+        - identifiers_grounded
+        - claims_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      max_escalations: 0
+      tier_order:
+        - local
+  tail_summary:
+    lab_rubric:
+      verdict: unmeasured
+    complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    required_capabilities:
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 120000
+    cloud_routing_policy: opt_in
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        - semantic_adequacy
+        - identifiers_grounded
+        - claims_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      max_escalations: 0
+      tier_order:
+        - local
+  context_selection:
+    lab_rubric:
+      verdict: unmeasured
+    complexity_contract: {output_kind: prose, verification: grounding, execution_required: false}
+    gateway_exposure: internal
+    output_contract: {output_shape: markdown, start_marker: "### ANSWER"}
+    selection:
+      priority: 0
+      phrases: []
+    required_capabilities:
+      - natural_language_generation
+    pricing_ceiling_per_1k_tokens: 0.002
+    latency_sla_p99_ms: 120000
+    cloud_routing_policy: opt_in
+    definition_of_done:
+      deterministic:
+        - response_non_empty
+      heuristic:
+        - no_refusal
+        - semantic_adequacy
+        - identifiers_grounded
+        - claims_grounded
+    quality_gate:
+      score_source: quality_gate_graded_score
+      required_bar: 0.8
+      request_override_bounds:
+        min: 0.6
+        max: 1.0
+    escalation_policy:
+      max_escalations: 0
+      tier_order:
+        - local

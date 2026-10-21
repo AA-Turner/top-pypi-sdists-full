@@ -13,7 +13,7 @@ use crate::bindings::_helpers::boundary::panics::NativeCompilerError;
 use crate::bindings::_helpers::compile_driver::assembly_analysis::{
     AnalysisContext, model_stem, selected_for_analysis,
 };
-use crate::bindings::_helpers::compiled_project::model_input_view::NativeModelInput;
+use crate::bindings::_helpers::compiled_views::model_input_view::NativeModelInput;
 use crate::bindings::_helpers::hand_built::compiled_model::compiled_model as hand_built_model;
 use crate::bindings::_helpers::project_assembly::syntax_checks::model_placeholders;
 use crate::bindings::_helpers::project_assembly::syntax_validation::{
@@ -270,7 +270,7 @@ pub(crate) fn binding_rows<'py>(
         .flatten()
     {
         let position: usize = position.extract()?;
-        rows_by_name.set_item(name, rows.get(position).into_pyobject(py)?)?;
+        rows_by_name.set_item(name, rows.get(position).cloned().into_pyobject(py)?)?;
     }
     Ok(rows_by_name)
 }

@@ -6,21 +6,10 @@ from flask import jsonify, request
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation import GenerationMode
 from schemathesis.resources import PoolDraw
+from test.apps.fragments.handlers import null_name_lookup
+from test.apps.fragments.schemas import null_name_responses
 from test.coverage.helpers import iter_cases, make_request_body
 from test.utils import objects_at
-
-# Consumer responses declare `name` as required; the planted-bug handlers return it as null for known ids.
-PLANTED_BUG_RESPONSES = {
-    "200": {
-        "description": "OK",
-        "content": {
-            "application/json": {
-                "schema": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}}}
-            }
-        },
-    },
-    "404": {"description": "Not found"},
-}
 
 
 def _path_parameter(name, schema=None):
@@ -69,13 +58,6 @@ def _json_string_field(name):
     return value if isinstance(value, str) else None
 
 
-def _planted_bug_lookup(registry, key):
-    if key not in registry:
-        return "", 404
-    # Planted bug: required `name` is null for entries that exist
-    return jsonify({"name": None}), 200
-
-
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_coverage_consumes_path_keyed_pool(cli, snapshot_cli, ctx):
     paths = {
@@ -88,7 +70,7 @@ def test_coverage_consumes_path_keyed_pool(cli, snapshot_cli, ctx):
             "get": {
                 "operationId": "getWidget",
                 "parameters": [_path_parameter("widgetId", {"type": "string", "format": "uuid"})],
-                "responses": PLANTED_BUG_RESPONSES,
+                "responses": null_name_responses(),
             },
         }
     }
@@ -103,7 +85,7 @@ def test_coverage_consumes_path_keyed_pool(cli, snapshot_cli, ctx):
 
     @app.route("/widgets/<widget_id>", methods=["GET"])
     def get_widget(widget_id):
-        return _planted_bug_lookup(widgets, widget_id)
+        return null_name_lookup(widgets, widget_id)
 
     assert cli.run_openapi_app(app, "--phases=coverage", "-c response_schema_conformance") == snapshot_cli
 
@@ -202,7 +184,7 @@ def test_coverage_consumes_body_field_keyed_pool(cli, snapshot_cli, ctx):
                         },
                     }
                 ),
-                "responses": PLANTED_BUG_RESPONSES,
+                "responses": null_name_responses(),
             }
         },
     }
@@ -220,7 +202,7 @@ def test_coverage_consumes_body_field_keyed_pool(cli, snapshot_cli, ctx):
 
     @app.route("/sessions/<session_id>/events", methods=["POST"])
     def create_event(session_id):
-        return _planted_bug_lookup(sessions, session_id)
+        return null_name_lookup(sessions, session_id)
 
     assert cli.run_openapi_app(app, "--phases=coverage", "-c response_schema_conformance") == snapshot_cli
 
@@ -243,7 +225,7 @@ def test_coverage_consumes_pool_for_ref_body_property(cli, snapshot_cli, ctx):
             "post": {
                 "operationId": "createEvent",
                 "requestBody": _id_body("sessionId", {"$ref": "#/components/schemas/SessionId"}),
-                "responses": PLANTED_BUG_RESPONSES,
+                "responses": null_name_responses(),
             }
         },
     }
@@ -267,7 +249,7 @@ def test_coverage_consumes_pool_for_ref_body_property(cli, snapshot_cli, ctx):
 
     @app.route("/events", methods=["POST"])
     def create_event():
-        return _planted_bug_lookup(sessions, _json_string_field("sessionId"))
+        return null_name_lookup(sessions, _json_string_field("sessionId"))
 
     assert cli.run_openapi_app(app, "--phases=coverage", "-c response_schema_conformance") == snapshot_cli
 
@@ -297,7 +279,7 @@ def test_coverage_correlates_nested_resource_pool_picks(cli, snapshot_cli, ctx):
             "get": {
                 "operationId": "getReview",
                 "parameters": [_path_parameter("productId"), _path_parameter("reviewId")],
-                "responses": PLANTED_BUG_RESPONSES,
+                "responses": null_name_responses(),
             }
         },
     }
@@ -326,7 +308,7 @@ def test_coverage_correlates_nested_resource_pool_picks(cli, snapshot_cli, ctx):
 
     @app.route("/products/<product_id>/reviews/<review_id>", methods=["GET"])
     def get_review(product_id, review_id):
-        return _planted_bug_lookup(reviews, (product_id, review_id))
+        return null_name_lookup(reviews, (product_id, review_id))
 
     assert cli.run_openapi_app(app, "--phases=coverage", "-c response_schema_conformance") == snapshot_cli
 
@@ -624,6 +606,33 @@ def test_coverage_pool_overlay_reaches_nested_body_fields(ctx, shipping, path, b
             assert all("note" in item for item in objects), f"Overlay dropped the generated `note`: {objects!r}"
             assert [draw.resource_name for draw in case.meta.pool_draws] == ["Location"]
     assert hits, [case.body for case in cases]
+
+
+@pytest.mark.parametrize("name", ["²", "2024"], ids=["non-ascii-digit", "ascii-digits"])
+def test_coverage_pool_overlay_reaches_field_under_digit_named_property(ctx, name):
+    schema = ctx.openapi.load_schema(
+        {
+            **_id_producer("/locations", "Location", {"type": "integer"}),
+            **_body_consumer(
+                {
+                    "type": "object",
+                    "required": [name],
+                    "properties": {
+                        name: {
+                            "type": "object",
+                            "required": ["location_id"],
+                            "properties": {"location_id": {"type": "integer"}},
+                        }
+                    },
+                }
+            ),
+        }
+    )
+    data_source = schema.create_extra_data_source()
+    data_source.repository.record_response(operation="POST /locations", status_code=201, payload={"id": 7340001})
+
+    cases = iter_cases(schema["/foo"]["POST"], GenerationMode.POSITIVE, extra_data_source=data_source)
+    assert [case.body for case in cases] == [{name: {"location_id": 7340001}}]
 
 
 def test_coverage_pool_overlay_prefers_captured_object_over_its_captured_fields(ctx):

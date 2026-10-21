@@ -23,7 +23,7 @@ from timezonefinder import TimezoneFinder, TimezoneFinderL
 from timezonefinder.coord_accessors import FileCoordAccessor, MemoryCoordAccessor
 from timezonefinder.zone_names import get_zone_names_path, read_zone_names
 
-# the coordinate every snippet in ``README.rst`` and ``docs/1_usage.rst`` queries, and
+# the coordinate every snippet in ``README.md`` and ``docs/1_usage.rst`` queries, and
 # the zone those snippets annotate as its result
 USAGE_DOCS_EXAMPLE_COORDS = {"lng": 13.358, "lat": 52.5061}
 USAGE_DOCS_EXAMPLE_ZONE = "Europe/Berlin"
@@ -169,7 +169,7 @@ def tfl() -> TimezoneFinderL:
 def test_usage_docs_example_returns_the_annotated_zone(
     request: pytest.FixtureRequest, finder_fixture: str, method_name: str
 ):
-    """The running example of ``README.rst`` and ``docs/1_usage.rst`` resolves as annotated.
+    """The running example of ``README.md`` and ``docs/1_usage.rst`` resolves as annotated.
 
     Every snippet on those pages queries this one coordinate and states the answer in a
     trailing comment. Nothing tied those comments to the packaged data, and for several
@@ -189,11 +189,12 @@ def test_usage_docs_example_returns_the_annotated_zone(
 
 @pytest.mark.unit
 @pytest.mark.parametrize("lng", [-180.0, -120.0, 0.0, 120.0, 180.0])
-def test_certain_timezone_at_has_no_match_at_the_exact_south_pole(
+def test_certain_timezone_at_matches_at_the_exact_south_pole(
     tf: TimezoneFinder, lng: float
 ):
-    """The usage docs name the pole as a reachable exact-boundary ambiguity."""
-    assert tf.certain_timezone_at(lng=lng, lat=-90.0) is None
+    """The usage docs say no polygon would own the pole as spelled, so a lookup reads it
+    as the point one unit north and ``certain_timezone_at`` does not return ``None``."""
+    assert tf.certain_timezone_at(lng=lng, lat=-90.0) == "Antarctica/McMurdo"
     assert tf.timezone_at(lng=lng, lat=-90.0) == "Antarctica/McMurdo"
 
 

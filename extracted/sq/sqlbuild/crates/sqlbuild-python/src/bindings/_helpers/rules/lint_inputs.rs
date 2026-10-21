@@ -6,32 +6,17 @@ use std::sync::Arc;
 
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
 
-use crate::bindings::_helpers::compiled_project::compiled_model_view::NativeCompiledModel;
-use crate::bindings::_helpers::compiled_project::model_input_view::{
-    ExpansionRecord, ModelInputRecord, NativeModelInput, model_relation_key_row,
+use crate::bindings::_helpers::compiled_views::model_input_view::{
+    ExpansionRecord, ModelInputRecord, NativeModelInput,
 };
-use crate::bindings::_helpers::compiled_project::project_view::NativeProjectView;
+use crate::bindings::_helpers::compiled_views::project_view::NativeProjectView;
 use crate::bindings::_helpers::records::fields::field as native_field;
+use crate::bindings::_helpers::render::macro_call_rows::SpanRow;
 use crate::bindings::_helpers::rules::lint_pipeline::{
     CompiledExpansion, CompiledSource, span_pass,
 };
-use crate::bindings::_helpers::rules::relation_keys::RelationKeyRow;
 
 const FILE_PATH_ATTRIBUTE: &str = "file_path";
-
-/// The declared key facts of a model input or compiled model.
-pub(crate) fn model_key_row(model: &Bound<'_, PyAny>) -> PyResult<RelationKeyRow> {
-    let py: Python<'_> = model.py();
-    if let Ok(input) = model.downcast::<NativeModelInput>() {
-        return input.get().read_with_owner(py, |owner, record| {
-            model_relation_key_row(owner, record, py)
-        });
-    }
-    if let Ok(compiled) = model.downcast::<NativeCompiledModel>() {
-        return compiled.get().relation_key_row(py);
-    }
-    native_field(model, "relation_key_row")?.extract()
-}
 
 /// The model file path of a native input record.
 fn record_path(record: &ModelInputRecord) -> PathBuf {
@@ -39,10 +24,7 @@ fn record_path(record: &ModelInputRecord) -> PathBuf {
 }
 
 /// The record's shared texts with the given passes, read only when their file is linted.
-fn expansion(
-    expansion: &ExpansionRecord,
-    passes: &[&Vec<(usize, usize, usize, usize)>],
-) -> CompiledSource {
+fn expansion(expansion: &ExpansionRecord, passes: &[&Vec<SpanRow>]) -> CompiledSource {
     CompiledSource::Shared {
         authored_sql: Arc::clone(&expansion.authored_sql),
         expanded_sql: Arc::clone(&expansion.expanded_sql),

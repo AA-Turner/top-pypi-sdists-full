@@ -455,6 +455,8 @@ class ListOfflineQueriesRequest(_message.Message):
         "kind_filters",
         "status_filters",
         "query_names",
+        "operation_id_filter",
+        "correlation_id_filter",
     )
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -475,6 +477,8 @@ class ListOfflineQueriesRequest(_message.Message):
     KIND_FILTERS_FIELD_NUMBER: _ClassVar[int]
     STATUS_FILTERS_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAMES_FIELD_NUMBER: _ClassVar[int]
+    OPERATION_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
+    CORRELATION_ID_FILTER_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     start_date: str
@@ -494,6 +498,8 @@ class ListOfflineQueriesRequest(_message.Message):
     kind_filters: _containers.RepeatedScalarFieldContainer[OfflineQueryKind]
     status_filters: _containers.RepeatedScalarFieldContainer[OfflineQueryStatus]
     query_names: _containers.RepeatedScalarFieldContainer[str]
+    operation_id_filter: str
+    correlation_id_filter: str
     def __init__(
         self,
         cursor: _Optional[str] = ...,
@@ -515,6 +521,8 @@ class ListOfflineQueriesRequest(_message.Message):
         kind_filters: _Optional[_Iterable[_Union[OfflineQueryKind, str]]] = ...,
         status_filters: _Optional[_Iterable[_Union[OfflineQueryStatus, str]]] = ...,
         query_names: _Optional[_Iterable[str]] = ...,
+        operation_id_filter: _Optional[str] = ...,
+        correlation_id_filter: _Optional[str] = ...,
     ) -> None: ...
 
 class ListOfflineQueriesResponse(_message.Message):

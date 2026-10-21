@@ -87,6 +87,7 @@ class SandboxInfo(_message.Message):
         "region",
         "created_by",
         "status_details",
+        "cluster_id",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -99,6 +100,7 @@ class SandboxInfo(_message.Message):
     REGION_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     STATUS_DETAILS_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     status: SandboxStatus
@@ -110,6 +112,7 @@ class SandboxInfo(_message.Message):
     region: str
     created_by: str
     status_details: str
+    cluster_id: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -123,6 +126,7 @@ class SandboxInfo(_message.Message):
         region: _Optional[str] = ...,
         created_by: _Optional[str] = ...,
         status_details: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateSandboxRequest(_message.Message):
@@ -156,21 +160,32 @@ class GetSandboxResponse(_message.Message):
     def __init__(self, sandbox: _Optional[_Union[SandboxInfo, _Mapping]] = ...) -> None: ...
 
 class ListSandboxesFilters(_message.Message):
-    __slots__ = ("names", "statuses", "images", "created_by")
+    __slots__ = ("names", "statuses", "images", "created_by", "tags")
+    class TagsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NAMES_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
     IMAGES_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
     names: _containers.RepeatedScalarFieldContainer[str]
     statuses: _containers.RepeatedScalarFieldContainer[SandboxStatus]
     images: _containers.RepeatedScalarFieldContainer[str]
     created_by: _containers.RepeatedScalarFieldContainer[str]
+    tags: _containers.ScalarMap[str, str]
     def __init__(
         self,
         names: _Optional[_Iterable[str]] = ...,
         statuses: _Optional[_Iterable[_Union[SandboxStatus, str]]] = ...,
         images: _Optional[_Iterable[str]] = ...,
         created_by: _Optional[_Iterable[str]] = ...,
+        tags: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class ListSandboxesRequest(_message.Message):
@@ -320,18 +335,21 @@ class ListSandboxResourcesResponse(_message.Message):
     ) -> None: ...
 
 class RecordSandboxResourceRequest(_message.Message):
-    __slots__ = ("kind", "resource_id", "version_id")
+    __slots__ = ("kind", "resource_id", "version_id", "name")
     KIND_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
     VERSION_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     kind: SandboxResourceKind
     resource_id: str
     version_id: str
+    name: str
     def __init__(
         self,
         kind: _Optional[_Union[SandboxResourceKind, str]] = ...,
         resource_id: _Optional[str] = ...,
         version_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
     ) -> None: ...
 
 class RecordSandboxResourceResponse(_message.Message):

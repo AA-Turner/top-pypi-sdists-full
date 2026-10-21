@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 import io
 import math
+from functools import lru_cache
 
 from termcolor import colored
 
@@ -10,8 +11,10 @@ from pykdebugparser.callstacks_parser import CallstacksParser
 from pykdebugparser.highlight import highlight
 from pykdebugparser.kd_buf_parser import KdBufParser
 from pykdebugparser.kevent import DgbFuncQual
+from pykdebugparser.line_filter import emphasize
 from pykdebugparser.trace_codes import default_trace_codes
 from pykdebugparser.trace_handlers import UnknownEnumValue
+from pykdebugparser.trace_handlers.fsystem import DBG_DKRW
 from pykdebugparser.trace_handlers.trace import TRACE_DATA_EXEC, TRACE_DATA_NEWTHREAD, TRACE_DATA_THREAD_TERMINATE_PID, \
     TRACE_LOST_EVENTS, TRACE_STRING_EXEC, TRACE_STRING_NEWTHREAD
 from pykdebugparser.traces_parser import TracesParser
@@ -21,6 +24,10 @@ from pykdebugparser.os_log_event import OsLogEvent
 DBG_TRACE = 7
 DBG_FSYSTEM = 3
 DBG_BSD = 4
+DBG_PERF = 0x25
+# BSC_execve, BSC_mac_execve and BSC_posix_spawn (with POSIX_SPAWN_SETEXEC): the process of the calling thread changes
+# during the call.
+EXEC_EVENTIDS = {0x40c00ec, 0x40c05f0, 0x40c03d0}
 
 
 def _fields(trace) -> dict:
@@ -49,6 +56,12 @@ def _jsonable(value):
     return str(value)
 
 
+@lru_cache(maxsize=1 << 14)
+def _emphasized_event(event_rep, spans):
+    """A trace's event colored, with the `spans` (in its plain text) emphasized."""
+    return emphasize(highlight(event_rep), spans)
+
+
 class PyKdebugParser:
     def __init__(self):
         self.filter_tid = None
@@ -58,6 +71,8 @@ class PyKdebugParser:
         # Event ids (debugids without the function qualifier) to include, on top of the class/subclass filters.
         # Those without a handler are shown by name and raw values.
         self.filter_eventid = set()
+        # Whether the trace is live, which keeps the memory of a long trace flat (see `TracesParser`).
+        self.live = False
         self.show_timestamp = True
         self.show_name = True
         self.show_func_qual = True
@@ -65,6 +80,9 @@ class PyKdebugParser:
         self.show_process = True
         self.show_args = True
         self.color = True
+        # A `LineFilter` of the printed traces (their plain text): `formatted_traces` and `dict_traces` only give the
+        # lines it keeps, with its matches emphasized when colored.
+        self.line_filter = None
         self.numer = None
         self.denom = None
         self.mach_absolute_time = None
@@ -80,26 +98,50 @@ class PyKdebugParser:
         self._exec_pid = None
 
     def kevents(self, kdebug: io.IOBase):
+        return self._kevents(kdebug)
+
+    def _kevents(self, kdebug: io.IOBase, ongoing_calls=None, process=None):
         events_generator = KdBufParser(self.threads_pids, self.pids_names).parse(kdebug)
         return self._filter_kevents(events_generator, self.filter_tid is not None,
-                                    bool(self.filter_class or self.filter_subclass or self.filter_eventid))
+                                    bool(self.filter_class or self.filter_subclass or self.filter_eventid),
+                                    ongoing_calls, process)
 
-    def _filter_kevents(self, events_generator, by_tid, by_class):
+    def _filter_kevents(self, events_generator, by_tid, by_class, ongoing_calls=None, process=None):
+        """
+        :param ongoing_calls: The ongoing calls of each thread (`TracesParser.on_going_events`), to drop the kevents of
+            DBG_FSYSTEM that no call takes (when that class is only traced for the paths of BSD syscalls).
+        :param process: A process (name or pid) whose traces are the only ones kept, to drop the kevents of the threads
+            known to be of other processes before they are parsed into traces. The traces still need filtering by
+            their process, since the process of a thread may be learned only after its first kevents.
+        """
         # A single generator instead of a `filter` chain, avoiding a lambda call per kevent per filter.
         filter_class = self.filter_class
         filter_subclass = self.filter_subclass
         filter_eventid = set(self.filter_eventid)
+        threads_pids = self.threads_pids
+        pids_names = self.pids_names
+        process_pid = int(process) if process is not None and process.isdigit() else None
         for event in events_generator:
             if isinstance(event, OsLogEvent):
                 continue
             eventid = event.eventid
             if eventid >> 24 == DBG_TRACE:
                 self._track_process(event)
+            elif process is not None:
+                # Kept whatever their thread: a kperf sample may learn the process of its thread, and a disk I/O
+                # completes on another thread than the one that issued it (to which its trace belongs).
+                if not (eventid >> 24 == DBG_PERF or eventid >> 16 == DBG_DKRW or eventid in EXEC_EVENTIDS):
+                    pid = threads_pids.get(event.tid)
+                    if pid is not None and pid != process_pid and pids_names.get(pid) != process:
+                        continue
             if by_tid and event.tid != self.filter_tid:
                 continue
             if by_class:
                 if not ((eventid >> 24 in filter_class) or (eventid >> 16 in filter_subclass)
                         or eventid in filter_eventid):
+                    continue
+                # Without a call of its thread, a lookup would only be a trace of its own, which isn't printed.
+                if ongoing_calls is not None and eventid >> 24 == DBG_FSYSTEM and not ongoing_calls.get(event.tid):
                     continue
             yield event
 
@@ -141,9 +183,10 @@ class PyKdebugParser:
         if add_fs_class:
             self.filter_class.append(DBG_FSYSTEM)
 
-        traces_parser = TracesParser(trace_codes_map, self.threads_pids, self.pids_names)
+        traces_parser = TracesParser(trace_codes_map, self.threads_pids, self.pids_names, self.live)
         traces_parser.raw_eventids = set(self.filter_eventid)
-        trace_generator = traces_parser.feed_generator(self.kevents(kdebug))
+        trace_generator = traces_parser.feed_generator(
+            self._kevents(kdebug, traces_parser.on_going_events if add_fs_class else None, self.filter_process))
 
         if self.filter_process is not None:
             trace_generator = filter(self._filter_process_callback, trace_generator)
@@ -158,7 +201,11 @@ class PyKdebugParser:
     def dict_traces(self, kdebug: io.IOBase, trace_codes=None):
         """The traces as JSON-compatible dicts (see `trace_dict`)."""
         trace_codes_map = default_trace_codes() if trace_codes is None else trace_codes
-        return map(lambda t: self.trace_dict(t, trace_codes_map), self.traces(kdebug, trace_codes_map))
+        traces = self.traces(kdebug, trace_codes_map)
+        if self.line_filter:
+            # As printed by `formatted_traces`, so the same traces are kept in both forms.
+            traces = (trace for trace in traces if self.line_filter.keep(self._trace_prefix(trace) + str(trace)))
+        return map(lambda t: self.trace_dict(t, trace_codes_map), traces)
 
     def trace_dict(self, trace, trace_codes=None) -> dict:
         """
@@ -182,7 +229,10 @@ class PyKdebugParser:
         }
 
     def formatted_traces(self, kdebug: io.IOBase, trace_codes=None):
-        return map(lambda t: self._format_trace(t), self.traces(kdebug, trace_codes))
+        traces = self.traces(kdebug, trace_codes)
+        if self.line_filter:
+            return (line for line in map(self._format_filtered_trace, traces) if line is not None)
+        return map(self._format_trace, traces)
 
     def callstacks(self, kdebug: io.IOBase, trace_codes=None):
         callstacks_parser = CallstacksParser(self.dyld_addresses, self.dyld_uuids)
@@ -266,7 +316,8 @@ class PyKdebugParser:
         formatted_data += f'{str(event.data):<34}' if self.show_args else ''
         return formatted_data
 
-    def _format_trace(self, trace):
+    def _trace_prefix(self, trace):
+        """The columns before the event: time, thread and process."""
         tid = trace.ktraces[0].tid
         formatted_data = ''
         if self.show_timestamp:
@@ -274,11 +325,31 @@ class PyKdebugParser:
         formatted_data += f'{tid:>11} ' if self.show_tid else ''
         if self.show_process:
             formatted_data += f'{self._format_process(tid):<34}'
+        return formatted_data
+
+    def _format_trace(self, trace):
         event_rep = str(trace)
         if self.color:
             event_rep = highlight(event_rep)
+        return self._trace_prefix(trace) + event_rep
 
-        return formatted_data + event_rep
+    def _format_filtered_trace(self, trace):
+        """The trace's line if `line_filter` keeps it (colored only then), `None` otherwise."""
+        prefix = self._trace_prefix(trace)
+        event_rep = str(trace)
+        line = prefix + event_rep
+        if not self.color:
+            return line if self.line_filter.keep(line) else None
+        spans = self.line_filter.kept_spans(line)
+        if spans is None:
+            return None
+        if not spans:
+            return prefix + highlight(event_rep)
+        # The prefix is plain, and the event's emphasized form is cached like its colors: most lines repeat it.
+        split = len(prefix)
+        return (emphasize(prefix, [(start, min(end, split)) for start, end in spans if start < split])
+                + _emphasized_event(event_rep, tuple((max(start, split) - split, end - split)
+                                                     for start, end in spans if end > split)))
 
     def _format_callstack(self, callstack):
         tid = callstack.tid

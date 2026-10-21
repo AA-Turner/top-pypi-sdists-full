@@ -513,6 +513,22 @@ def _repo_root_guard(request):
 
 
 @pytest.fixture(autouse=True)
+def _no_dumb_term():
+    """TERM=dumb turns color and the spinner off (output.use_color), so a
+    developer running the suite from an Emacs buffer would see every
+    fake-TTY color test fail. A test about TERM sets it itself.
+
+    Its own `MonkeyPatch`, not the `monkeypatch` fixture: requesting that
+    here moves its setup ahead of the test's, so a test's patched
+    `Path.stat` is still live when `_repo_root_guard` fingerprints in
+    teardown, and the guard crashes on it."""
+    with pytest.MonkeyPatch.context() as mp:
+        if os.environ.get("TERM") == "dumb":
+            mp.delenv("TERM")
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _reset_logging():
     """Rebind the diagnostic logger to each test's sandbox HOME."""
     from boost_cli.core import logs
@@ -660,9 +676,11 @@ def sandbox(tmp_path, monkeypatch):
     # Once-per-process warnings for a cache boost could not save. A flag one
     # test left set would silence the warning in the next, so an assertion
     # that it is absent would pass for the wrong reason.
-    from boost_cli.core import catalog, complete, lockfile
+    from boost_cli.core import catalog, complete, lockfile, policy, projectlock
     monkeypatch.setattr(complete, "_WARNED_UNSAVED", False)
     monkeypatch.setattr(lockfile, "_WARNED_CORRUPT", False)
+    monkeypatch.setattr(policy, "_WARNED_CORRUPT", False)
+    monkeypatch.setattr(projectlock, "_WARNED_CORRUPT", set())
     monkeypatch.setattr(catalog, "_UNSAVED", set())
     return home
 

@@ -37,6 +37,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <iterator>
+#include <map>
+#include <set>
 #include <cstring>
 #include <utility>
 #include <exception>
@@ -89,6 +91,8 @@
 #include "meshioplusplus/operations/merge.hpp"
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
+#include "meshioplusplus/operations/primitives.hpp"
+#include "meshioplusplus/operations/octree.hpp"
 #include "meshioplusplus/operations/error.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
@@ -408,8 +412,8 @@ void print_usage(std::ostream& os) {
           "  iga-evaluate            Evaluate a NURBS patch at parametric coordinates (JSON)\n"
           "  to-cad                  Fitted patches as a STEP solid with analytic and\n"
           "                            freeform B-spline, fillet and thread faces (--cad-json: as\n"
-          "                            Kratos CAD JSON too)\n"
-          "                            (needs a build with -DMESHIOPLUSPLUS_WITH_OCCT=ON)\n"
+          "                            Kratos CAD JSON too; without OpenCASCADE, analytic\n"
+          "                            faces only)\n"
           "  region-adjacency        Shared facets between Cell regions or cell blocks\n"
           "  find-interface         Match boundary facets of two Cell regions\n"
           "  contact-pairs          Project slave Point regions onto master facets\n"
@@ -429,8 +433,15 @@ void print_usage(std::ostream& os) {
           "  crop                    Subset by bounding box, half-space or a data\n"
           "                            predicate: --bbox / --plane / --where 'N < V'\n"
           "  slice                   Planar cross-section (volume->surface, surface->lines)\n"
+          "  generate                Build a mesh from parameters: SHAPE OUTFILE with\n"
+          "                            rectangle | box | disk | uv-sphere | icosa-sphere |\n"
+          "                            cylinder | reference-cells; --order 2 for curved\n"
+          "                            quadratic cells\n"
           "  voxelize                Regular hexahedron grid around a mesh\n"
           "                            exactly one of --resolution/--cell-size;\n"
+          "                            --fill all|surface|inside\n"
+          "  octree                  Octree / quadtree around a skin, fine only where\n"
+          "                            the skin is: --max-level N --balance none|face|full\n"
           "                            --fill all|surface|inside\n"
           "  isosurface              Level set of a scalar point_data field (contours)\n"
           "                            --array NAME --values v1,v2 [--component I]\n"
@@ -1749,6 +1760,15 @@ int cmd_feature_edges(const std::vector<std::string>& rArgs) {
     return 0;
 }
 
+// A segment method by name.
+meshioplusplus::SegmentMethod cli_segment_method(const std::string& rName, const char* pCommand) {
+    if (rName == "angle")
+        return meshioplusplus::SegmentMethod::Angle;
+    if (rName == "primitive")
+        return meshioplusplus::SegmentMethod::Primitive;
+    throw std::runtime_error(std::string(pCommand) + ": the method must be 'angle' or 'primitive'");
+}
+
 int cmd_segment(const std::vector<std::string>& rArgs) {
     auto p = cli_parse(rArgs, {
                                   {"input-format", {"-i"}, true},
@@ -1759,6 +1779,8 @@ int cmd_segment(const std::vector<std::string>& rArgs) {
                                   {"min-patch-cells", {}, true},
                                   {"region", {}, true},
                                   {"prefix", {}, true},
+                                  {"method", {}, true},
+                                  {"tolerance", {}, true},
                                   {"json", {}, false},
                                   {"quiet", {"-q"}, false},
                               });
@@ -1779,6 +1801,10 @@ int cmd_segment(const std::vector<std::string>& rArgs) {
     options.mRegion = opt_value(p, "region");
     if (has_opt(p, "prefix"))
         options.mPrefix = opt_value(p, "prefix");
+    if (has_opt(p, "method"))
+        options.mMethod = cli_segment_method(opt_value(p, "method"), "segment");
+    if (has_opt(p, "tolerance"))
+        options.mTolerance = meshioplusplus::detail::stod_c(opt_value(p, "tolerance"));
     meshioplusplus::SegmentResult r = meshioplusplus::segment(mesh, options);
     write_mesh_cli(p.positionals[1], r.mMesh, opt_value(p, "output-format"));
     if (has_flag(p, "json")) {
@@ -1793,7 +1819,11 @@ int cmd_segment(const std::vector<std::string>& rArgs) {
     } else if (!has_flag(p, "quiet")) {
         char deg[32];
         meshioplusplus::detail::snprintf_c(deg, sizeof(deg), "%g", options.mFeatureAngleDeg);
-        std::cout << "segment (" << deg << " degrees): " << r.mNumPatches << " patch(es)\n";
+        std::cout << "segment ("
+                  << (options.mMethod == meshioplusplus::SegmentMethod::Primitive
+                          ? std::string("primitive")
+                          : std::string(deg) + " degrees")
+                  << "): " << r.mNumPatches << " patch(es)\n";
         std::cout << "  merged:        " << r.mNumMerged << "\n";
         std::cout << "  feature edges: " << r.mNumFeatureEdges << "\n";
         std::cout << "  open edges:    " << r.mNumBoundaryEdges << "\n";
@@ -2134,6 +2164,8 @@ int cmd_iga_evaluate(const std::vector<std::string>& rArgs) {
 int cmd_to_cad(const std::vector<std::string>& rArgs) {
     auto p = cli_parse(rArgs, {
                                   {"input-format", {"-i"}, true},
+                                  {"segment-method", {}, true},
+                                  {"segment-tolerance", {}, true},
                                   {"curvature-tolerance", {}, true},
                                   {"min-patch-cells", {}, true},
                                   {"fit-tolerance", {}, true},
@@ -2148,6 +2180,8 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
                                   {"no-freeform-split", {}, false},
                                   {"no-fillets", {}, false},
                                   {"no-threads", {}, false},
+                                  {"no-merge-faces", {}, false},
+                                  {"backend", {}, true},
                                   {"mesh-out", {}, true},
                                   {"cad-json", {}, true},
                                   {"json", {}, false},
@@ -2156,21 +2190,46 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
     if (p.positionals.size() != 2)
         throw std::runtime_error("to-cad requires exactly INFILE and OUTFILE.step");
     Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
-    // An unlabelled skin is segmented and fitted here, so the two tolerances
-    // that matter most for a scan are reachable from the command line.
+    // An unlabelled skin is segmented and fitted here, so the tolerances that
+    // matter most for a scan are reachable from the command line. The
+    // primitive method (the default) fits at its own tolerance, as a length.
+    meshioplusplus::FitPrimitivesOptions fo;
     if (!mesh.HasCellData("segment:patch")) {
         meshioplusplus::SegmentOptions so;
+        so.mMethod = cli_segment_method(
+            has_opt(p, "segment-method") ? opt_value(p, "segment-method") : "primitive", "to-cad");
+        if (has_opt(p, "segment-tolerance"))
+            so.mTolerance = meshioplusplus::detail::stod_c(opt_value(p, "segment-tolerance"));
         if (has_opt(p, "curvature-tolerance"))
             so.mCurvatureTolerance =
                 meshioplusplus::detail::stod_c(opt_value(p, "curvature-tolerance"));
         if (has_opt(p, "min-patch-cells"))
             so.mMinPatchCells = std::stoll(opt_value(p, "min-patch-cells"));
         mesh = meshioplusplus::segment(mesh, so).mMesh;
+        if (so.mMethod == meshioplusplus::SegmentMethod::Primitive) {
+            double lo[3] = {0.0, 0.0, 0.0}, hi[3] = {0.0, 0.0, 0.0};
+            const NDArray& pts = mesh.Points();
+            const std::size_t dim = mesh.PointDim();
+            for (std::size_t i = 0; i < mesh.NumPoints(); ++i)
+                for (std::size_t k = 0; k < dim && k < 3; ++k) {
+                    const double v = meshioplusplus::detail::read_double(pts, i * dim + k);
+                    lo[k] = i == 0 ? v : std::min(lo[k], v);
+                    hi[k] = i == 0 ? v : std::max(hi[k], v);
+                }
+            const double diag =
+                std::sqrt((hi[0] - lo[0]) * (hi[0] - lo[0]) + (hi[1] - lo[1]) * (hi[1] - lo[1]) +
+                          (hi[2] - lo[2]) * (hi[2] - lo[2]));
+            if (diag > 0.0) {
+                fo.mTolerance = so.mTolerance * diag;
+                fo.mRelative = false;
+            }
+        }
     }
     if (!mesh.HasFieldData("fit:patch_id")) {
-        meshioplusplus::FitPrimitivesOptions fo;
-        if (has_opt(p, "fit-tolerance"))
+        if (has_opt(p, "fit-tolerance")) {
             fo.mTolerance = meshioplusplus::detail::stod_c(opt_value(p, "fit-tolerance"));
+            fo.mRelative = true;
+        }
         mesh = meshioplusplus::fit_primitives(mesh, fo).mMesh;
     }
     meshioplusplus::FitCadOptions options;
@@ -2191,7 +2250,20 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
     options.mFreeformSplit = !has_flag(p, "no-freeform-split");
     options.mFillets = !has_flag(p, "no-fillets");
     options.mThreads = !has_flag(p, "no-threads");
+    options.mMergeFaces = !has_flag(p, "no-merge-faces");
+    if (has_opt(p, "backend")) {
+        const std::string backend = opt_value(p, "backend");
+        if (backend == "auto")
+            options.mBackend = meshioplusplus::FitCadBackend::Auto;
+        else if (backend == "occt")
+            options.mBackend = meshioplusplus::FitCadBackend::Occt;
+        else if (backend == "native")
+            options.mBackend = meshioplusplus::FitCadBackend::Native;
+        else
+            throw std::runtime_error("to-cad: the backend must be 'auto', 'occt' or 'native'");
+    }
     meshioplusplus::FitCadResult r = meshioplusplus::fit_cad(mesh, p.positionals[1], options);
+    const char* engine = r.mBackend == meshioplusplus::FitCadBackend::Native ? "native" : "occt";
     if (has_opt(p, "mesh-out"))
         write_mesh_cli(opt_value(p, "mesh-out"), r.mMesh, "");
     if (has_opt(p, "cad-json"))
@@ -2200,6 +2272,7 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
         meshioplusplus::cli::JsonOut json(std::cout);
         json.BeginObject();
         json.Field("valid", r.mValid);
+        json.Field("backend", std::string(engine));
         json.Field("tolerance", r.mTolerance);
         json.Field("volume", r.mVolume);
         json.Field("skin_volume", r.mSkinVolume);
@@ -2231,8 +2304,8 @@ int cmd_to_cad(const std::vector<std::string>& rArgs) {
         json.Field("num_variable_pitch_thread", r.mNumVariablePitchThread);
         json.EndObject();
     } else if (!has_flag(p, "quiet")) {
-        std::cout << "to-cad: " << r.mNumFaces << " face(s) in " << r.mNumSolids << " solid(s), "
-                  << (r.mValid ? "valid" : "NOT valid") << "\n";
+        std::cout << "to-cad (" << engine << "): " << r.mNumFaces << " face(s) in "
+                  << r.mNumSolids << " solid(s), " << (r.mValid ? "valid" : "NOT valid") << "\n";
         std::cout << "  plane:     " << r.mNumPlane << "\n";
         std::cout << "  sphere:    " << r.mNumSphere << "\n";
         std::cout << "  cylinder:  " << r.mNumCylinder << "\n";
@@ -3295,8 +3368,10 @@ int cmd_voxelize(const std::vector<std::string>& rArgs) {
         // parse_doubles rather than the int64 parser, which is defined further
         // down this file; the values are small counts either way.
         auto v = parse_doubles(opt_value(p, "resolution"));
+        if (v.size() == 2)
+            v.push_back(0.0);  // two entries select the 2-D pixels
         if (v.size() != 3)
-            throw std::runtime_error("voxelize: --resolution expects 'nx,ny,nz'");
+            throw std::runtime_error("voxelize: --resolution expects 'nx,ny,nz' (or 'nx,ny')");
         options.mResolution = std::array<std::int64_t, 3>{{static_cast<std::int64_t>(v[0]),
                                                            static_cast<std::int64_t>(v[1]),
                                                            static_cast<std::int64_t>(v[2])}};
@@ -3335,6 +3410,261 @@ int cmd_voxelize(const std::vector<std::string>& rArgs) {
         std::cout << "  cell size:      " << r.mSpacing[0] << ", " << r.mSpacing[1] << ", "
                   << r.mSpacing[2] << "\n";
         std::cout << "  cells kept:     " << r.mNumOccupied << "\n";
+    }
+    write_mesh_cli(p.positionals[1], r.mMesh, opt_value(p, "output-format"));
+    return 0;
+}
+
+int cmd_generate(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"output-format", {"-o"}, true},
+                                  {"dims", {}, true},
+                                  {"size", {}, true},
+                                  {"origin", {}, true},
+                                  {"center", {}, true},
+                                  {"radius", {}, true},
+                                  {"height", {}, true},
+                                  {"n", {}, true},
+                                  {"nu", {}, true},
+                                  {"nv", {}, true},
+                                  {"nxy", {}, true},
+                                  {"nz", {}, true},
+                                  {"subdivisions", {}, true},
+                                  {"cell-type", {}, true},
+                                  {"split", {}, true},
+                                  {"order", {}, true},
+                                  {"max-cells", {}, true},
+                                  {"types", {}, true},
+                                  {"pairs", {}, false},
+                                  {"quiet", {"-q"}, false},
+                              });
+    if (p.positionals.size() != 2)
+        throw std::runtime_error("generate requires exactly SHAPE and OUTFILE");
+    const std::string& shape = p.positionals[0];
+
+    // Which options each shape reads: an option a shape ignores is an error
+    // rather than a silently dropped request.
+    static const std::map<std::string, std::set<std::string>> kAllowed = {
+        {"rectangle", {"dims", "size", "origin", "cell-type", "split", "order", "max-cells"}},
+        {"box", {"dims", "size", "origin", "cell-type", "order", "max-cells"}},
+        {"disk", {"radius", "n", "center", "cell-type", "order", "max-cells"}},
+        {"uv-sphere", {"radius", "nu", "nv", "center", "cell-type", "order", "max-cells"}},
+        {"icosa-sphere", {"radius", "subdivisions", "center", "order", "max-cells"}},
+        {"cylinder",
+         {"radius", "height", "nxy", "nz", "center", "cell-type", "order", "max-cells"}},
+        {"reference-cells", {"types", "pairs"}},
+    };
+    const auto allowed = kAllowed.find(shape);
+    if (allowed == kAllowed.end())
+        throw std::runtime_error("generate: unknown shape '" + shape +
+                                 "' (expected one of: rectangle, box, disk, uv-sphere, "
+                                 "icosa-sphere, cylinder, reference-cells)");
+    for (const auto& kv : p.values)
+        if (kv.first != "output-format" && kv.first != "quiet" && !allowed->second.count(kv.first))
+            throw std::runtime_error("generate " + shape + ": --" + kv.first + " does not apply");
+    if (p.flags.count("pairs") && shape != "reference-cells")
+        throw std::runtime_error("generate " + shape + ": --pairs does not apply");
+
+    auto number = [&](const char* pName, double Default) {
+        return p.values.count(pName) ? meshioplusplus::detail::stod_c(opt_value(p, pName))
+                                     : Default;
+    };
+    auto count = [&](const char* pName, std::int64_t Default) {
+        return p.values.count(pName) ? static_cast<std::int64_t>(std::stoll(opt_value(p, pName)))
+                                     : Default;
+    };
+    auto vec3 = [&](const char* pName, std::array<double, 3> Default, bool PadZero) {
+        if (!p.values.count(pName))
+            return Default;
+        auto v = parse_doubles(opt_value(p, pName));
+        if (v.size() == 2 && PadZero)
+            v.push_back(0.0);
+        if (v.size() != 3)
+            throw std::runtime_error(std::string("generate: --") + pName +
+                                     " expects three comma-separated values");
+        return std::array<double, 3>{{v[0], v[1], v[2]}};
+    };
+    auto vec2 = [&](const char* pName, std::array<double, 2> Default) {
+        if (!p.values.count(pName))
+            return Default;
+        auto v = parse_doubles(opt_value(p, pName));
+        if (v.size() != 2)
+            throw std::runtime_error(std::string("generate: --") + pName +
+                                     " expects two comma-separated values");
+        return std::array<double, 2>{{v[0], v[1]}};
+    };
+    auto dims = [&](std::size_t N, std::int64_t Default) {
+        std::vector<std::int64_t> out(N, Default);
+        if (p.values.count("dims")) {
+            const auto v = parse_doubles(opt_value(p, "dims"));
+            if (v.size() != N)
+                throw std::runtime_error("generate: --dims expects " + std::to_string(N) +
+                                         " comma-separated counts");
+            for (std::size_t k = 0; k < N; ++k)
+                out[k] = static_cast<std::int64_t>(v[k]);
+        }
+        return out;
+    };
+    const int order = static_cast<int>(count("order", 1));
+    const std::int64_t max_cells = count("max-cells", 20000000);
+    const std::array<double, 3> zero = {{0.0, 0.0, 0.0}};
+
+    Mesh mesh;
+    if (shape == "rectangle") {
+        const auto d = dims(2, 1);
+        mesh = meshioplusplus::rectangle({{d[0], d[1]}}, vec2("size", {{1.0, 1.0}}),
+                                         vec3("origin", zero, true),
+                                         opt_value(p, "cell-type", "quad"),
+                                         opt_value(p, "split", "zigzag"), order, max_cells);
+    } else if (shape == "box") {
+        const auto d = dims(3, 1);
+        mesh = meshioplusplus::box({{d[0], d[1], d[2]}}, vec3("size", {{1.0, 1.0, 1.0}}, false),
+                                   vec3("origin", zero, false),
+                                   opt_value(p, "cell-type", "hexahedron"), order, max_cells);
+    } else if (shape == "disk") {
+        mesh = meshioplusplus::disk(number("radius", 1.0), count("n", 8), vec3("center", zero, false),
+                                    opt_value(p, "cell-type", "quad"), order, max_cells);
+    } else if (shape == "uv-sphere") {
+        mesh = meshioplusplus::uv_sphere(number("radius", 1.0), count("nu", 16), count("nv", 8),
+                                         vec3("center", zero, false),
+                                         opt_value(p, "cell-type", "triangle"), order, max_cells);
+    } else if (shape == "icosa-sphere") {
+        mesh = meshioplusplus::icosa_sphere(number("radius", 1.0), count("subdivisions", 2),
+                                            vec3("center", zero, false), order, max_cells);
+    } else if (shape == "cylinder") {
+        mesh = meshioplusplus::cylinder(number("radius", 1.0), number("height", 1.0),
+                                        count("nxy", 8), count("nz", 8),
+                                        vec3("center", zero, false),
+                                        opt_value(p, "cell-type", "hexahedron"), order, max_cells);
+    } else {
+        std::vector<std::string> types;
+        if (p.values.count("types")) {
+            std::string current;
+            for (char c : opt_value(p, "types") + ",") {
+                if (c == ',') {
+                    if (!current.empty())
+                        types.push_back(current);
+                    current.clear();
+                } else {
+                    current.push_back(c);
+                }
+            }
+        }
+        mesh = meshioplusplus::reference_cells(types, has_flag(p, "pairs"));
+    }
+
+    if (!has_flag(p, "quiet")) {
+        std::cout << "generated " << shape << "\n";
+        std::cout << "  points: " << mesh.NumPoints() << "\n";
+        for (std::size_t b = 0; b < mesh.NumCellBlocks(); ++b)
+            std::cout << "  " << mesh.Cells(b).Type() << ": " << mesh.Cells(b).NumCells() << "\n";
+        for (std::size_t r = 0; r < mesh.NumRegions(); ++r)
+            std::cout << "  region " << mesh.Region(r).mName << ": " << mesh.Region(r).NumEntries()
+                      << "\n";
+    }
+    write_mesh_cli(p.positionals[1], mesh, opt_value(p, "output-format"));
+    return 0;
+}
+
+int cmd_octree(const std::vector<std::string>& rArgs) {
+    auto p = cli_parse(rArgs, {
+                                  {"input-format", {"-i"}, true},
+                                  {"output-format", {"-o"}, true},
+                                  {"root-cells", {}, true},
+                                  {"min-level", {}, true},
+                                  {"max-level", {}, true},
+                                  {"bounds", {}, true},
+                                  {"padding", {}, true},
+                                  {"padding-relative", {}, true},
+                                  {"dimension", {}, true},
+                                  {"sample-distance", {}, true},
+                                  {"balance", {}, true},
+                                  {"fill", {}, true},
+                                  {"sign", {}, true},
+                                  {"attach-distance", {}, false},
+                                  {"even-odd", {}, false},
+                                  {"max-cells", {}, true},
+                                  {"transition", {}, true},
+                                  {"snap", {}, false},
+                                  {"surface-level", {}, true},
+                                  {"curvature-threshold", {}, true},
+                                  {"feature-angle", {}, true},
+                                  {"size-array", {}, true},
+                                  {"plane", {}, true},
+                                  {"quiet", {"-q"}, false},
+                              });
+    if (p.positionals.size() != 2)
+        throw std::runtime_error("octree requires exactly INFILE and OUTFILE");
+
+    meshioplusplus::OctreeOptions options;
+    if (p.values.count("root-cells")) {
+        auto v = parse_doubles(opt_value(p, "root-cells"));
+        if (v.size() == 1)
+            v = {v[0], v[0], v[0]};
+        else if (v.size() == 2)
+            v.push_back(1.0);
+        if (v.size() != 3)
+            throw std::runtime_error("octree: --root-cells expects 'nx,ny,nz'");
+        options.mRootCells = std::array<std::int64_t, 3>{{static_cast<std::int64_t>(v[0]),
+                                                          static_cast<std::int64_t>(v[1]),
+                                                          static_cast<std::int64_t>(v[2])}};
+    }
+    if (p.values.count("min-level"))
+        options.mMinLevel = std::stoll(opt_value(p, "min-level"));
+    if (p.values.count("max-level"))
+        options.mMaxLevel = std::stoll(opt_value(p, "max-level"));
+    // Negatives need the --bounds= form (the parser rule shared with --bbox).
+    if (p.values.count("bounds")) {
+        auto v = parse_doubles(opt_value(p, "bounds"));
+        if (v.size() != 6)
+            throw std::runtime_error("octree: --bounds expects 'xlo,ylo,zlo,xhi,yhi,zhi'");
+        options.mBounds = std::array<double, 6>{{v[0], v[1], v[2], v[3], v[4], v[5]}};
+    }
+    if (p.values.count("padding"))
+        options.mPadding = meshioplusplus::detail::stod_c(opt_value(p, "padding"));
+    if (p.values.count("padding-relative"))
+        options.mPaddingRelative = meshioplusplus::detail::stod_c(opt_value(p, "padding-relative"));
+    if (p.values.count("dimension"))
+        options.mDimension = std::stoll(opt_value(p, "dimension"));
+    if (p.values.count("sample-distance"))
+        options.mSampleDistance = meshioplusplus::detail::stod_c(opt_value(p, "sample-distance"));
+    options.mBalance = meshioplusplus::octree_balance_from_name(opt_value(p, "balance", "face"));
+    options.mFill = meshioplusplus::voxel_fill_from_name(opt_value(p, "fill", "all"));
+    options.mDistance.mSign =
+        meshioplusplus::sdf_sign_from_name(opt_value(p, "sign", "pseudonormal"));
+    options.mAttachDistance = has_flag(p, "attach-distance");
+    options.mEvenOdd = has_flag(p, "even-odd");
+    if (p.values.count("max-cells"))
+        options.mMaxCells = std::stoll(opt_value(p, "max-cells"));
+    options.mTransition =
+        meshioplusplus::octree_transition_from_name(opt_value(p, "transition", "hanging"));
+    options.mSnap = has_flag(p, "snap");
+    if (p.values.count("surface-level"))
+        options.mSurfaceLevel = std::stoll(opt_value(p, "surface-level"));
+    if (p.values.count("curvature-threshold"))
+        options.mCurvatureThreshold =
+            meshioplusplus::detail::stod_c(opt_value(p, "curvature-threshold"));
+    if (p.values.count("feature-angle"))
+        options.mFeatureAngle = meshioplusplus::detail::stod_c(opt_value(p, "feature-angle"));
+    options.mSizeArray = opt_value(p, "size-array", "");
+    options.mPlane = meshioplusplus::detail::planar_plane_from_name(opt_value(p, "plane", "auto"));
+    options.mDistance.mWatertightCheck = options.mFill == meshioplusplus::VoxelFill::Inside
+                                             ? meshioplusplus::SdfWatertightCheck::Warn
+                                             : meshioplusplus::SdfWatertightCheck::Off;
+
+    Mesh mesh = read_mesh_cli(p.positionals[0], opt_value(p, "input-format"));
+    meshioplusplus::OctreeResult r = meshioplusplus::octree(mesh, options);
+
+    if (!has_flag(p, "quiet")) {
+        std::cout << (r.mDimension == 2 ? "quadtree" : "octree") << " (" << opt_value(p, "fill", "all")
+                  << ")\n";
+        std::cout << "  root size:      " << r.mRootSize << "\n";
+        std::cout << "  finest level:   " << r.mFinestLevel << "\n";
+        std::cout << "  leaves kept:    " << r.mNumLeaves << "\n";
+        std::cout << "  hanging nodes:  " << r.mNumHanging << "\n";
+        if (options.mSnap)
+            std::cout << "  snapped nodes:  " << r.mNumSnapped << " (" << r.mNumRefused
+                      << " refused)\n";
     }
     write_mesh_cli(p.positionals[1], r.mMesh, opt_value(p, "output-format"));
     return 0;
@@ -5964,6 +6294,10 @@ int main(int argc, char** argv) {
             return cmd_isosurface(rest);
         if (cmd == "voxelize")
             return cmd_voxelize(rest);
+        if (cmd == "generate")
+            return cmd_generate(rest);
+        if (cmd == "octree")
+            return cmd_octree(rest);
         if (cmd == "sdf")
             return cmd_sdf(rest);
         if (cmd == "split")

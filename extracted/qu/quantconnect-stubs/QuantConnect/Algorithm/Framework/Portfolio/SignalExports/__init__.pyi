@@ -144,7 +144,7 @@ class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExp
         
         :param parameters: A list of holdings from the portfolio,
         expected to be sent to CrunchDAO API and the algorithm being ran
-        :returns: True if the positions were sent to CrunchDAO succesfully and errors were returned, false otherwise.
+        :returns: True if the positions were sent to CrunchDAO successfully and errors were returned, false otherwise.
         """
         ...
 

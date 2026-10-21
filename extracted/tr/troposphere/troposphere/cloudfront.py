@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -886,6 +886,103 @@ class DistributionTenant(AWSObject):
         "Name": (str, True),
         "Parameters": ([Parameter], False),
         "Tags": (Tags, False),
+    }
+
+
+class ContentTypeProfile(AWSProperty):
+    """
+    `ContentTypeProfile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofile.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContentType": (str, True),
+        "Format": (str, True),
+        "ProfileId": (str, True),
+    }
+
+
+class ContentTypeProfileConfig(AWSProperty):
+    """
+    `ContentTypeProfileConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-contenttypeprofileconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContentTypeProfiles": ([ContentTypeProfile], True),
+        "ForwardWhenContentTypeIsUnknown": (boolean, True),
+    }
+
+
+class QueryArgProfile(AWSProperty):
+    """
+    `QueryArgProfile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofile.html>`__
+    """
+
+    props: PropsDictType = {
+        "ProfileId": (str, True),
+        "QueryArg": (str, True),
+    }
+
+
+class QueryArgProfileConfig(AWSProperty):
+    """
+    `QueryArgProfileConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionconfig-queryargprofileconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ForwardWhenQueryArgProfileIsUnknown": (boolean, True),
+        "QueryArgProfiles": ([QueryArgProfile], True),
+    }
+
+
+class FieldLevelEncryptionConfig(AWSObject):
+    """
+    `FieldLevelEncryptionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionconfig.html>`__
+    """
+
+    resource_type = "AWS::CloudFront::FieldLevelEncryptionConfig"
+
+    props: PropsDictType = {
+        "CallerReference": (str, True),
+        "Comment": (str, False),
+        "ContentTypeProfileConfig": (ContentTypeProfileConfig, True),
+        "QueryArgProfileConfig": (QueryArgProfileConfig, True),
+    }
+
+
+class EncryptionEntity(AWSProperty):
+    """
+    `EncryptionEntity <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-encryptionentity.html>`__
+    """
+
+    props: PropsDictType = {
+        "FieldPatterns": ([str], True),
+        "ProviderId": (str, True),
+        "PublicKeyId": (str, True),
+    }
+
+
+class FieldLevelEncryptionProfileConfig(AWSProperty):
+    """
+    `FieldLevelEncryptionProfileConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudfront-fieldlevelencryptionprofile-fieldlevelencryptionprofileconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CallerReference": (str, True),
+        "Comment": (str, False),
+        "EncryptionEntities": ([EncryptionEntity], True),
+        "Name": (str, True),
+    }
+
+
+class FieldLevelEncryptionProfile(AWSObject):
+    """
+    `FieldLevelEncryptionProfile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudfront-fieldlevelencryptionprofile.html>`__
+    """
+
+    resource_type = "AWS::CloudFront::FieldLevelEncryptionProfile"
+
+    props: PropsDictType = {
+        "FieldLevelEncryptionProfileConfig": (FieldLevelEncryptionProfileConfig, True),
     }
 
 

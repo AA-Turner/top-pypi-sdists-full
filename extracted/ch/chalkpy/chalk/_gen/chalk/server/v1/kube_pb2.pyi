@@ -75,21 +75,24 @@ class GetPodStackTraceDumpResponse(_message.Message):
     def __init__(self, stack_trace: _Optional[str] = ...) -> None: ...
 
 class GetKubernetesEventsRequest(_message.Message):
-    __slots__ = ("cluster_name", "namespace", "label_selector", "field_selector")
+    __slots__ = ("cluster_name", "namespace", "label_selector", "field_selector", "cluster_id")
     CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     FIELD_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     cluster_name: str
     namespace: str
     label_selector: str
     field_selector: str
+    cluster_id: str
     def __init__(
         self,
         cluster_name: _Optional[str] = ...,
         namespace: _Optional[str] = ...,
         label_selector: _Optional[str] = ...,
         field_selector: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetKubernetesEventsResponse(_message.Message):
@@ -101,21 +104,24 @@ class GetKubernetesEventsResponse(_message.Message):
     ) -> None: ...
 
 class GetKubernetesPodLogsRequest(_message.Message):
-    __slots__ = ("cluster_name", "namespace", "pod_name", "container_name")
+    __slots__ = ("cluster_name", "namespace", "pod_name", "container_name", "cluster_id")
     CLUSTER_NAME_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     POD_NAME_FIELD_NUMBER: _ClassVar[int]
     CONTAINER_NAME_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     cluster_name: str
     namespace: str
     pod_name: str
     container_name: str
+    cluster_id: str
     def __init__(
         self,
         cluster_name: _Optional[str] = ...,
         namespace: _Optional[str] = ...,
         pod_name: _Optional[str] = ...,
         container_name: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetKubernetesPodLogsResponse(_message.Message):

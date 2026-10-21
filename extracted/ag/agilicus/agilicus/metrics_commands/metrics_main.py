@@ -21,7 +21,10 @@ cmd = Command()
     "--fleet",
     is_flag=True,
     default=False,
-    help="Query across all organisations (fleet-wide)",
+    help=(
+        "Query across all organisations (fleet-wide). Requires a token with "
+        "the multiorg scope (urn:agilicus:token_payload:multiorg:true)."
+    ),
 )
 @click.option(
     "--dt-from",
@@ -67,7 +70,10 @@ cmd = Command()
     "--limit",
     default=None,
     type=int,
-    help="Maximum records returned (default 500, max 2000)",
+    help=(
+        "Maximum total records returned (default 500). Values above the "
+        "server page size are fetched over multiple pages."
+    ),
 )
 @click.option(
     "--get-all", default=False, is_flag=True, help="Fetch all pages of results"

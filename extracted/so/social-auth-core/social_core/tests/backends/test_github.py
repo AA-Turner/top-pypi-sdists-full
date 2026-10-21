@@ -6,6 +6,7 @@ import responses
 
 from social_core.exceptions import (
     AuthCanceled,
+    AuthCredentialError,
     AuthInputError,
     AuthPolicyError,
     AuthSessionError,
@@ -148,7 +149,12 @@ class GithubAppAuthTest(GithubOAuth2Test, OAuth2StateTestMixin):
         self.assertTrue(redirect.url.startswith(self.backend.authorization_url()))
         state = get_querystring(redirect.url).get("state")
         self.assertIsNotNone(state)
-        self.assertEqual(state, self.backend.get_session_state())
+        transaction = self.strategy.session_get(self.backend.transaction_key(state))
+        assert isinstance(transaction, dict)
+        self.assertEqual(
+            state,
+            transaction["state"],
+        )
         self.assertEqual(len(responses.calls), 0)
 
     def test_restarted_oauth_exchanges_only_fresh_code(self) -> None:
@@ -193,6 +199,20 @@ class GithubAppAuthTest(GithubOAuth2Test, OAuth2StateTestMixin):
 
         self.assertEqual(len(responses.calls), 0)
 
+    def test_rejected_refresh_token_requires_reauthentication(self) -> None:
+        # GitHub answers an expired or reused refresh token with HTTP 200.
+        self.refresh_token_body = json.dumps(
+            {
+                "error": "bad_refresh_token",
+                "error_description": "The refresh token passed is incorrect or expired.",
+            }
+        )
+
+        with self.assertRaises(AuthCredentialError) as context:
+            self.do_refresh_token()
+        self.assertEqual(context.exception.code, "reauthentication_required")
+        self.assertEqual(context.exception.stage, "refresh")
+
     def test_installation_callback_preserves_provider_errors(self) -> None:
         data = self.installation_callback_data()
         data["error"] = "access_denied"
@@ -216,7 +236,7 @@ class GithubAppAuthTest(GithubOAuth2Test, OAuth2StateTestMixin):
 
     def test_installation_callback_accepts_matching_state(self) -> None:
         start_url = self.backend.start().url
-        state = self.backend.get_session_state()
+        state = get_querystring(start_url)["state"]
         self.strategy.set_request_data(
             self.installation_callback_data(state), self.backend
         )
@@ -296,6 +316,15 @@ class GithubOAuth2NoEmailTest(GithubOAuth2Test):
     def test_login_email_denied(self) -> None:
         self.add_emails_response([], status=403)
         self.do_login()
+
+    def test_login_email_denied_with_domain_whitelist(self) -> None:
+        self.strategy.set_settings(
+            {"SOCIAL_AUTH_GITHUB_WHITELISTED_DOMAINS": ["example.com"]}
+        )
+        self.add_emails_response([], status=403)
+
+        with self.assertRaises(AuthPolicyError):
+            self.do_login()
 
     def test_login_with_empty_email_list(self) -> None:
         self.add_emails_response([])

@@ -83,6 +83,13 @@ class TestXmlBlockDetection:
     def test_detect_unknown(self):
         assert detect_xml_block_type("<unknown>") is None
 
+    def test_thinking_keeps_raw_xml_metadata(self):
+        blocks = split_content_into_blocks("<thinking>\ncheck the cone packs\n</thinking>")
+        assert blocks[0].metadata == {
+            "isComplete": True,
+            "rawXml": "check the cone packs",
+        }
+
 
 class TestMediaDetection:
     def test_detect_image(self):
@@ -133,15 +140,52 @@ class TestSplitContentIntoBlocks:
         assert len(code_blocks) == 1
         assert code_blocks[0].language == "javascript"
 
-    def test_embedded_kind_json_escapes_non_json_fence_losslessly(self):
+    def test_embedded_kind_json_stays_inside_a_non_json_fence(self):
         payload = '{"__kind":"rating","value":4.5}'
         source = f"before\n{payload}\nafter"
         blocks = split_content_into_blocks(f"```python\n{source}\n```")
 
-        assert [block.type for block in blocks] == ["code", "code", "code"]
+        assert len(blocks) == 1
+        assert blocks[0].language == "python"
+        assert blocks[0].content == source
+
+    @pytest.mark.parametrize("fence", ["```", "```jsonc", "```json5"])
+    def test_json_fence_places_residual_at_its_first_data_span(self, fence):
+        first_payload = '{"__kind":"rating","value":1}'
+        second_payload = '{"__kind":"rating","value":2}'
+        blocks = split_content_into_blocks(
+            f"{fence}\n"
+            f'{{"left":{first_payload},"note":"keep","right":{second_payload}}}\n'
+            "```"
+        )
+
+        assert len(blocks) == 3
+        assert blocks[0].language == "json"
+        assert blocks[0].content == first_payload
         assert blocks[1].language == "json"
-        assert blocks[1].content == payload
-        assert "".join(block.content for block in blocks) == source
+        assert blocks[1].content == '{\n  "note": "keep"\n}'
+        assert blocks[2].language == "json"
+        assert blocks[2].content == second_payload
+
+    @pytest.mark.parametrize("prefix", ['{', '{ ', '{\n'])
+    def test_incomplete_self_described_json_is_an_opaque_code_block(self, prefix):
+        blocks = split_content_into_blocks(f'{prefix}"__kind":"unfinished".')
+
+        assert len(blocks) == 1
+        assert blocks[0].language == "json"
+        assert blocks[0].content == f'{prefix}"__kind":"unfinished".'
+        assert blocks[0].metadata == {"isComplete": False}
+
+    @pytest.mark.parametrize(
+        "source",
+        ['`{ "__kind":"unfinished".`', '`{ "__kind":"unfinished".'],
+    )
+    def test_incomplete_kind_inside_inline_code_stays_literal(self, source):
+        blocks = split_content_into_blocks(source)
+
+        assert len(blocks) == 1
+        assert blocks[0].type == "text"
+        assert blocks[0].content == source
 
     def test_kind_marker_in_value_and_malformed_json_stay_in_container(self):
         source = '{"label":"__kind"}\n{"__kind":"unfinished".'
@@ -255,7 +299,7 @@ def test_generic_xml_boundary_preserves_frontend_separator_before_embedded_kind(
         "code",
         "text",
     ]
-    assert blocks[5].content == "\n\n\nInline "
+    assert blocks[5].content == "\n\n\nInline"
     assert blocks[6].content == payload
 
 

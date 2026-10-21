@@ -15,21 +15,34 @@ import numpy.typing as npt
 from timezonefinder.configs import (
     COORD2INT_FACTOR,
     DEFAULT_DATA_DIR,
+    INT2COORD_FACTOR,
     MAX_LAT_VAL,
     MAX_LNG_VAL,
+    MAX_LNG_VAL_INT,
     MIN_LAT_VAL,
+    MIN_LAT_VAL_INT,
     MIN_LNG_VAL,
+    MIN_LNG_VAL_INT,
     NO_ZONE_ID,
     OCEAN_TIMEZONE_PREFIX,
     CoordArrayLike,
+    CoordLists,
+    CoordPairs,
     OnInvalid,
 )
-from timezonefinder import utils_numba, utils_clang
+
+# `utils_numba` is deliberately NOT imported here. Importing it is what pulls Numba
+# into the process - its signatures are eager, so the import compiles - and that costs
+# ~100 MiB of resident memory and a compilation pause. Nothing above the dispatch below
+# needs it: the kernels are the only thing this module takes from it, and only where
+# the C extension did not load. See the dispatch for the whole rule.
+from timezonefinder import utils_clang
 
 __all__ = [
     "is_valid_lat",
     "is_valid_lng",
     "coord2int",
+    "query2int",
     "validate_lat",
     "validate_lng",
     "validate_coordinates",
@@ -53,12 +66,42 @@ __all__ = [
 ]
 
 
-# make numba functions available via utils
-using_numba = utils_numba.using_numba
 clang_extension_loaded = utils_clang.clang_extension_loaded
-int2coord = utils_numba.int2coord
-convert2coords = utils_numba.convert2coords
-convert2coord_pairs = utils_numba.convert2coord_pairs
+
+
+# --- the coordinate converters ----------------------------------------------------
+#
+# NumPy rather than ``njit``, and defined here rather than in ``utils_numba``, for the
+# same reason the scalar helpers below moved out: the decorator has to earn the module
+# it lives in, and these do not need it. They are one multiplication per coordinate
+# over a whole ring, which is what NumPy is for - and keeping them out of
+# ``utils_numba`` is what lets an installation with the C extension never import that
+# module, and therefore never import Numba at all.
+#
+# ``get_polygon``/``get_geometry`` are the only runtime callers; a lookup never
+# converts back to degrees.
+
+
+def int2coord(i4: int) -> float:
+    """A stored scaled integer back as a coordinate in degrees."""
+    return float(i4 * INT2COORD_FACTOR)
+
+
+def convert2coords(polygon_data: np.ndarray) -> CoordLists:
+    """The two axes of a stored ring as separate lists of degrees."""
+    # One vectorised multiply per axis. `tolist()` is what makes the result plain
+    # Python floats rather than `np.float64`, which is the type the public API has
+    # always returned here.
+    scaled = polygon_data * INT2COORD_FACTOR
+    return [scaled[0].tolist(), scaled[1].tolist()]
+
+
+def convert2coord_pairs(polygon_data: np.ndarray) -> CoordPairs:
+    """A stored ring as ``(lng, lat)`` pairs in degrees."""
+    scaled = polygon_data * INT2COORD_FACTOR
+    # strict, because the two axes of a stored ring are one (2, N) array and a length
+    # mismatch would mean a malformed payload rather than a short pair list
+    return list(zip(scaled[0].tolist(), scaled[1].tolist(), strict=True))
 
 
 # --- the scalar coordinate helpers ------------------------------------------------
@@ -66,20 +109,23 @@ convert2coord_pairs = utils_numba.convert2coord_pairs
 # Plain Python, and defined *here* rather than in ``utils_numba`` beside ``int2coord``
 # for exactly that reason: that module is what the package compiles, and a reader
 # reaching for a function there is entitled to assume it is compiled. Each of these
-# takes one number and performs one operation, which is the shape ``njit`` cannot pay
+# does a few operations on one point at most, which is the shape ``njit`` cannot pay
 # for - an empty dispatch is ~98 ns against ~40 ns to do the work - so the decorator
 # came off and the definitions followed it out. The rule is in the
 # `query-path decisions <../contributing/improvements/decisions/query-performance-and-shortcut-index-decisions.md>`__.
 #
-# ``int2coord`` above stays where it is and stays compiled, which is the line between
-# the two modules: ``convert2coords`` and ``convert2coord_pairs`` call it from nopython
-# mode over a whole ring, where the dispatch amortises to nothing. Same for the
-# vectorised bounds validators the data converter uses (``scripts/utils_numba.py``) -
-# those inline the comparison below rather than calling it, because numba cannot call a
-# pure-Python function from nopython mode, and ``tests/test_property_validation.py``
+# ``int2coord`` and the two ring converters above are here for the same reason and are
+# not compiled either: importing ``utils_numba`` is what pulls Numba into the process,
+# so anything this module needs unconditionally has to live outside it. The ring
+# converters do their scaling in one NumPy multiply instead, which beats the
+# interpreted loops a plain install used to run by 14-46x and loses 1.2-2.6x against
+# the jitted ones - the trade recorded at the decision site. The vectorised bounds
+# validators the data converter uses (``scripts/utils_numba.py``) are still compiled,
+# and they inline the comparison below rather than calling it, because numba cannot
+# call a pure-Python function from nopython mode; ``tests/test_property_validation.py``
 # holds the two forms to each other.
 #
-# All three read the bounds and the scale from ``configs``; do not restate them as
+# All of them read the bounds and the scale from ``configs``; do not restate them as
 # literals, and see the comment beside ``MIN_LAT_VAL`` for why they are declared
 # pre-negated.
 
@@ -104,10 +150,37 @@ def coord2int(double: float) -> int:
 
     Nothing narrows the result. The former ``njit`` signature cast it to ``int32``, so an
     out-of-range product wrapped silently under numba while the no-numba configuration a
-    plain ``pip install`` gives never did; both answer the same now. Query-path callers
-    are bounded to +-180 degrees by :func:`validate_coordinates` first, i.e. +-1.8e9.
+    plain ``pip install`` gives never did; both answer the same now. A lookup scales its
+    point through :func:`query2int` instead, after :func:`validate_coordinates` has
+    bounded it to +-180 degrees, i.e. +-1.8e9.
     """
     return int(double * COORD2INT_FACTOR)
+
+
+def query2int(lng: float, lat: float) -> tuple[int, int]:
+    """A validated query point as the integer point a lookup tests polygons against.
+
+    Each axis is scaled as :func:`coord2int` scales it, except on the two lines no
+    polygon owns. A kernel gives a point on a boundary to the polygon whose interior lies
+    immediately west of it, or south where the boundary runs east-west, and nothing lies
+    west of -180 degrees or south of -90. So -180 is read as +180, the same meridian,
+    whose points the polygon west of it owns; and -90 as the point one unit north, since
+    every longitude there names the one pole. One physical point then answers one zone
+    whichever spelling it arrives in, and the answer does not depend on the shortcut
+    index - which puts -180 in +180's cell, so a lookup testing no polygon agrees too.
+
+    The scaling is written out rather than calling :func:`coord2int` per axis, which
+    measured 1-3 % slower over an ambiguous ``timezone_at`` and lost about 70 % of paired
+    rounds to this body. ``tests/test_property_validation.py`` holds the two to each
+    other off the two lines.
+    """
+    x = int(lng * COORD2INT_FACTOR)
+    if x == MIN_LNG_VAL_INT:
+        x = MAX_LNG_VAL_INT
+    y = int(lat * COORD2INT_FACTOR)
+    if y == MIN_LAT_VAL_INT:
+        y += 1
+    return x, y
 
 
 inside_polygon: Callable[[int, int, np.ndarray], bool]
@@ -124,17 +197,40 @@ inside_polygon_packed: Callable[..., bool]
 packed_buffers: Callable[
     [np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray], tuple
 ]
-# at import time fix which "point-in-polygon" implementation will be used
-if clang_extension_loaded and not using_numba:
-    # use the C implementation only if Numba is not present
+# At import time fix which "point-in-polygon" implementation will be used. The C
+# extension wins wherever it loaded, and the `utils_numba` source - JIT-compiled where
+# Numba is installed, plain Python where it is not - is what it falls back to. That is
+# the ordering the measurements support, not a statement about the technologies: Numba
+# used to win whenever it was importable, an ordering predating both the C extension and
+# the packed payload the kernels now read, and
+# `docs/benchmark_results_acceleration_paths.rst` has since measured the JIT kernel
+# slower than the extension on every polygon stratum and never faster on a whole lookup.
+# The reasoning, and what would reopen it, is recorded in
+# `contributing/improvements/decisions/query-performance-and-shortcut-index-decisions.md`.
+#
+# **The import is inside the branch on purpose.** `utils_numba`'s signatures are eager,
+# so importing it *is* the compilation, and where Numba is installed that import is what
+# costs the process ~100 MiB and the pause. Nothing else in this module needs it, so an
+# installation whose extension loaded never imports it - and therefore never imports
+# Numba, whatever the environment has installed. Keep it that way: a module-level import
+# here, or a helper moved back into `utils_numba`, silently reinstates that cost for
+# every such process. `tests/test_acceleration_paths.py` holds the rule by asserting
+# that a fresh process with Numba installed leaves `numba` out of `sys.modules`.
+if clang_extension_loaded:
     inside_polygon = utils_clang.pt_in_poly_clang
     inside_polygon_packed = utils_clang.pt_in_poly_clang_packed
     packed_buffers = utils_clang.packed_buffers_clang
+    # Nothing compiled anything here, so nothing is JIT-compiled in this process.
+    using_numba = False
 else:
-    # use the (JIT compiled) python function if Numba is present or the C extension cannot be loaded
+    from timezonefinder import utils_numba  # noqa: PLC0415 - see above
+
     inside_polygon = utils_numba.pt_in_poly_python
     inside_polygon_packed = utils_numba.pt_in_poly_packed
     packed_buffers = utils_numba.packed_buffers_numba
+    # Whether that source arrived compiled or interpreted is the whole difference
+    # between the `numba` and `python` paths, and this flag is what reports it.
+    using_numba = utils_numba.using_numba
 
 
 def _validate_coordinate(

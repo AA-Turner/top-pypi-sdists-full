@@ -33,6 +33,8 @@ __all__ = (
     "DataProductSortByType",
     "DataProductVisibilityStringType",
     "DescribeAssessmentPaginatorName",
+    "ExpressPrivateOfferConfigurationSortByType",
+    "ExpressPrivateOfferConfigurationStateStringType",
     "FailureCodeType",
     "IntentType",
     "ListAssessmentsPaginatorName",
@@ -74,6 +76,10 @@ ControlAssessmentResultType = Literal["EXEMPTION_PASS", "FAIL", "NOT_EXECUTED", 
 DataProductSortByType = Literal["EntityId", "LastModifiedDate", "ProductTitle", "Visibility"]
 DataProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted", "Unavailable"]
 DescribeAssessmentPaginatorName = Literal["describe_assessment"]
+ExpressPrivateOfferConfigurationSortByType = Literal[
+    "EntityId", "LastModifiedDate", "ProductId", "State"
+]
+ExpressPrivateOfferConfigurationStateStringType = Literal["ACTIVE", "INACTIVE"]
 FailureCodeType = Literal["CLIENT_ERROR", "SERVER_FAULT"]
 IntentType = Literal["APPLY", "VALIDATE"]
 ListAssessmentsPaginatorName = Literal["list_assessments"]
@@ -214,6 +220,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -286,8 +293,10 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
     "finspace",
@@ -359,6 +368,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -411,6 +421,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -492,6 +503,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",

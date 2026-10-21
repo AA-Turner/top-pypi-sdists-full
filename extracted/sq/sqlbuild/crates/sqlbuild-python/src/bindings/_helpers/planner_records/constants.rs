@@ -1,7 +1,8 @@
 //! Layouts of the planner, migration, cursor and fingerprint value records hosted natively.
 
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
-use crate::bindings::_helpers::record_behaviours::planner::forward_only_backfill;
+use sqlbuild_host::entries::models::ExecutorHost;
+
+use crate::bindings::_helpers::planner_records::defaults::forward_only_backfill;
 use crate::bindings::_helpers::records::ids::RecordId;
 use crate::bindings::_helpers::records::models::{EnumSpec, FieldDefault, FieldSpec, RecordSpec};
 
@@ -86,6 +87,7 @@ const R_PLANNER_OVERRIDES: RecordSpec = RecordSpec {
         FieldSpec::new("forced_stale_model_names", FieldDefault::EmptyTuple),
         FieldSpec::new("external_blocked_model_names", FieldDefault::EmptyTuple),
         FieldSpec::new("max_microbatches", FieldDefault::None),
+        FieldSpec::new("concurrency", FieldDefault::None),
     ],
 };
 const R_DEFERRAL_INPUTS: RecordSpec = RecordSpec {

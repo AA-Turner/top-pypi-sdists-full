@@ -3,14 +3,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::sync::Mutex;
 
-use crate::bindings::_helpers::compiled_project::resource_diagnostics::{
-    DiagnosticSettings, ResourceDiagnostics, resource_diagnostics,
-};
-use crate::bindings::_helpers::compiled_project::scenario_loop::ScenarioRow;
-use crate::bindings::_helpers::compiled_project::sql_test_loop::{
-    AttachedSqlTests, SqlTestSettings, TestFileRow,
-};
-
 use pyo3::exceptions::{PyIndexError, PyRuntimeError};
 use pyo3::prelude::{
     Bound, Py, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyRef, PyResult, Python,
@@ -28,53 +20,86 @@ use sqlbuild_analysis::compiled_project::models::{
 };
 
 use crate::bindings::_helpers::boundary::panics::NativeCompilerError;
-use crate::bindings::_helpers::compiled_project::audit_loop::{
-    AttachmentOwner, AuditFileRow, AuditSettings, model_owner, resource_owner,
+use crate::bindings::_helpers::compiled_project::attachment_inputs::AttachedSqlTests;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::AuditFileRow;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::AuditSettings;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::DiagnosticSettings;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::FunctionRow;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::FunctionSettings;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::ResourceDiagnostics;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::ScenarioRow;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::SourceRow;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::SourceSettings;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::SqlTestSettings;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::TestFileRow;
+use crate::bindings::_helpers::compiled_project::attachment_inputs::resource_attachment;
+use crate::bindings::_helpers::compiled_project::values::{object_value, plain_value};
+use crate::bindings::_helpers::compiled_views::audit_views::{
+    AttachedAudit, AuditRecord, NativeAuditInput, NativeCompiledAudit,
 };
-use crate::bindings::_helpers::compiled_project::audit_views::{
-    AuditRecord, NativeAuditInput, NativeCompiledAudit,
-};
-use crate::bindings::_helpers::compiled_project::compiled_model_view::{
+use crate::bindings::_helpers::compiled_views::compiled_model_view::{
     CompiledViewClasses, InferredRow, NativeCompiledModel,
 };
-use crate::bindings::_helpers::compiled_project::function_loop::{FunctionRow, FunctionSettings};
-use crate::bindings::_helpers::compiled_project::function_views::{
+use crate::bindings::_helpers::compiled_views::function_views::{
     AttachedFunction, FunctionRecord, NativeCompiledFunction, NativeFunctionInput, ObjectKeyRow,
 };
-use crate::bindings::_helpers::compiled_project::inputs_view::NativeInputsView;
-use crate::bindings::_helpers::compiled_project::model_input_view::{
+use crate::bindings::_helpers::compiled_views::inputs_view::NativeInputsView;
+use crate::bindings::_helpers::compiled_views::model_input_view::{
     ModelInputRecord, NativeModelInput,
 };
-use crate::bindings::_helpers::compiled_project::model_loop::NativeModelLoop;
-use crate::bindings::_helpers::compiled_project::model_loop_host::ReferenceRow;
-use crate::bindings::_helpers::compiled_project::project_view::NativeProjectView;
-use crate::bindings::_helpers::compiled_project::seed_views::{
+use crate::bindings::_helpers::compiled_views::project_view::NativeProjectView;
+use crate::bindings::_helpers::compiled_views::seed_views::{
     NativeCompiledSeed, NativeSeedInput, SeedNamespace, SeedRecord, paired_seeds,
 };
-use crate::bindings::_helpers::compiled_project::source_loop::{SourceRow, SourceSettings};
-use crate::bindings::_helpers::compiled_project::source_views::{
-    AttachedSource, NativeCompiledSource, NativeSourceInput, SourceNamespace, SourceRecord,
+use crate::bindings::_helpers::compiled_views::source_views::{
+    NativeCompiledSource, NativeSourceInput, SourceNamespace, SourceRecord,
 };
-use crate::bindings::_helpers::compiled_project::values::{object_value, plain_value};
-use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::render::declaration_values::ConstantRendering;
 
 pub(crate) const CONTRACT_KEY: &str = "contract";
 const INPUT_CLASSES_UNSET: &str = "no model loop recorded inputs into this project";
-const RELATIVE_PATH_ATTRIBUTE: &str = "relative_path";
-const SOURCE_OWNER: &str = "source";
-const SEED_OWNER: &str = "seed";
 const ATTACHMENT_LOOP_UNSET: &str = "no model loop was kept to attach this project's resources";
 pub(crate) const INCREMENTAL_MODE_KEY: &str = "incremental_mode";
 const MATERIALIZED_KEY: &str = "materialized";
 const TABLE_MATERIALIZATION: &str = "table";
 
 /// `(name, type)`.
-type NamedType = (String, Option<String>);
-/// `(output proven, bare dynamic pivot, (family key, inferred type), failure, (family, type))`.
-type ProofPy = (bool, bool, Vec<NamedType>, Option<String>, Vec<NamedType>);
-/// `(inferred, (name, type), nullable per column, has star, unchecked output columns)`.
-type AnalysisPy = (bool, Vec<NamedType>, Vec<bool>, bool, Vec<String>);
+pub(crate) type NamedType = (String, Option<String>);
+positional_record! {
+    extract;
+    /// `(output proven, bare dynamic pivot, (family key, inferred type), failure, (family, type))`.
+    pub(crate) struct ProofPy {
+        pub(crate) output_proven: bool,
+        pub(crate) bare_dynamic_pivot: bool,
+        pub(crate) families: Vec<NamedType>,
+        pub(crate) failure_reason: Option<String>,
+        pub(crate) named_families: Vec<NamedType>,
+    }
+}
+
+positional_record! {
+    extract;
+    /// `(inferred, (name, type), nullable per column, has star, unchecked output columns)`.
+    pub(crate) struct AnalysisPy {
+        pub(crate) inferred: bool,
+        pub(crate) inferred_columns: Vec<NamedType>,
+        pub(crate) nullable_columns: Vec<bool>,
+        pub(crate) fast_lineage_has_star: bool,
+        pub(crate) unchecked: Vec<String>,
+    }
+}
+
+positional_record! {
+    extract;
+    /// A model's name, relative path, compiled and authored queries, and authored SQL file.
+    pub(crate) struct ModelTextsPy {
+        name: String,
+        relative_path: String,
+        query_sql: String,
+        authored_query_sql: String,
+        authored_sql: String,
+    }
+}
 
 /// Encoded config values and the encoder's error, if any.
 pub(crate) type ConfigValues = (BTreeMap<String, Value>, Option<String>);
@@ -82,7 +107,7 @@ pub(crate) type ConfigValues = (BTreeMap<String, Value>, Option<String>);
 /// One model as the compile-input stage produced it.
 #[derive(FromPyObject)]
 pub(crate) struct ModelInputPy<'py>(
-    (String, String, String, String, String),
+    ModelTextsPy,
     (Bound<'py, PyDict>, Vec<String>, Option<String>),
     Vec<(String, String, Option<String>)>,
     Vec<String>,
@@ -122,7 +147,7 @@ pub(crate) struct NativeCompiledProject {
     /// Each singular, then model-, source- and seed-attached, audit in attachment order.
     audits: Vec<AuditRecord>,
     /// The model loop and its constant rendering, which attach the project's other resources.
-    attachment: Option<(Py<NativeModelLoop>, Py<ConstantRendering>)>,
+    attachment: Option<(Py<PyAny>, Py<ConstantRendering>)>,
 }
 
 impl NativeCompiledProject {
@@ -160,67 +185,11 @@ impl NativeCompiledProject {
         self.graph_builds += 1;
     }
 
-    /// Each schema-attached model, then each source and seed, with the audits attached to it.
-    fn attachment_owners<'py>(&self, py: Python<'py>) -> PyResult<Vec<AttachmentOwner<'py>>> {
-        let mut owners: Vec<AttachmentOwner<'py>> = Vec::new();
-        for record in &self.inputs {
-            let (Some(schema), Some(fact)) = (&record.schema, self.input_schema_fact(record))
-            else {
-                continue;
-            };
-            owners.push(model_owner(
-                record.name.clone(),
-                record.model_file.get().relative_text(py)?,
-                (
-                    schema.audits.bind(py),
-                    (schema.columns.as_ref(), &fact.columns),
-                ),
-            )?);
-        }
-        for source in &self.sources {
-            let attached: &AttachedSource = source.attached();
-            let path: String =
-                native_field(attached.source_file.bind(py), RELATIVE_PATH_ATTRIBUTE)?
-                    .str()?
-                    .to_string();
-            owners.push(resource_owner(
-                SOURCE_OWNER,
-                attached.name.clone(),
-                (path.clone(), path),
-                (
-                    attached.audits.bind(py).as_any(),
-                    attached.columns.bind(py).as_any(),
-                ),
-            )?);
-        }
-        for seed in &self.seeds {
-            let (name, seed_file, schema_entry, schema_file) = seed.parts();
-            let schema_entry: &Bound<'py, PyAny> = schema_entry.bind(py);
-            owners.push(resource_owner(
-                SEED_OWNER,
-                name.to_owned(),
-                (
-                    native_field(seed_file.bind(py), RELATIVE_PATH_ATTRIBUTE)?
-                        .str()?
-                        .to_string(),
-                    native_field(schema_file.bind(py), RELATIVE_PATH_ATTRIBUTE)?
-                        .str()?
-                        .to_string(),
-                ),
-                (
-                    &native_field(schema_entry, "audits")?,
-                    &native_field(schema_entry, "columns")?,
-                ),
-            )?);
-        }
-        Ok(owners)
-    }
-
     /// The kept model loop and its constant rendering.
-    fn attachment_loop(
+    pub(crate) fn attachment_loop(
         &self,
         py: Python<'_>,
-    ) -> PyResult<(Py<NativeModelLoop>, Py<ConstantRendering>)> {
+    ) -> PyResult<(Py<PyAny>, Py<ConstantRendering>)> {
         match &self.attachment {
             Some((model_loop, host)) => Ok((model_loop.clone_ref(py), host.clone_ref(py))),
             None => Err(PyRuntimeError::new_err(ATTACHMENT_LOOP_UNSET)),
@@ -230,10 +199,26 @@ impl NativeCompiledProject {
     /// Keep the model loop and its constant rendering for attaching the project's other resources.
     pub(crate) fn keep_attachment_loop(
         &mut self,
-        model_loop: Py<NativeModelLoop>,
+        model_loop: Py<PyAny>,
         host: Py<ConstantRendering>,
     ) {
         self.attachment = Some((model_loop, host));
+    }
+
+    /// Retain attached functions; return the index of the first.
+    pub(crate) fn extend_functions(&mut self, attached: Vec<AttachedFunction>) -> usize {
+        let first: usize = self.functions.len();
+        self.functions
+            .extend(attached.into_iter().map(FunctionRecord::new));
+        first
+    }
+
+    /// Retain attached audits; return the index of the first.
+    pub(crate) fn extend_audits(&mut self, attached: Vec<AttachedAudit>) -> usize {
+        let first: usize = self.audits.len();
+        self.audits
+            .extend(attached.into_iter().map(AuditRecord::new));
+        first
     }
 
     /// Every attached audit, in attachment order.
@@ -335,19 +320,28 @@ impl NativeCompiledProject {
         columns: AnalysisPy,
         dynamic_proof: Option<ProofPy>,
     ) -> bool {
-        let (inferred, inferred_columns, nullable_columns, fast_lineage_has_star, unchecked) =
-            columns;
+        let AnalysisPy {
+            inferred,
+            inferred_columns,
+            nullable_columns,
+            fast_lineage_has_star,
+            unchecked,
+        } = columns;
         let analysis: ModelAnalysisFact = ModelAnalysisFact {
             inferred_columns,
             dynamic_proof: dynamic_proof.map(
-                |(output_proven, bare_dynamic_pivot, families, failure_reason, named_families)| {
-                    DynamicProofFact {
-                        output_proven,
-                        bare_dynamic_pivot,
-                        families,
-                        failure_reason,
-                        named_families,
-                    }
+                |ProofPy {
+                     output_proven,
+                     bare_dynamic_pivot,
+                     families,
+                     failure_reason,
+                     named_families,
+                 }| DynamicProofFact {
+                    output_proven,
+                    bare_dynamic_pivot,
+                    families,
+                    failure_reason,
+                    named_families,
                 },
             ),
             inferred,
@@ -424,15 +418,7 @@ impl NativeCompiledProject {
         rows: Vec<SourceRow>,
         settings: SourceSettings,
     ) -> PyResult<Vec<NativeSourceInput>> {
-        if rows.is_empty() {
-            return Ok(Vec::new());
-        }
-        let py: Python<'_> = slf.py();
-        let (model_loop, host) = slf.borrow().attachment_loop(py)?;
-        model_loop
-            .bind(py)
-            .get()
-            .run_sources(slf, host.bind(py), rows, settings)
+        (resource_attachment()?.sources)(slf, rows, settings)
     }
 
     /// Attach every SQL, then Python, function with the kept loop; return each one's view.
@@ -441,32 +427,7 @@ impl NativeCompiledProject {
         rows: (Vec<FunctionRow>, Vec<FunctionRow>),
         settings: FunctionSettings,
     ) -> PyResult<Vec<NativeFunctionInput>> {
-        let py: Python<'_> = slf.py();
-        let (model_loop, host) = slf.borrow().attachment_loop(py)?;
-        let models: Vec<(String, Vec<ReferenceRow>)> = slf
-            .borrow()
-            .inputs
-            .iter()
-            .map(|record| {
-                Ok((
-                    record.model_file.get().relative_text(py)?,
-                    record.references.clone(),
-                ))
-            })
-            .collect::<PyResult<_>>()?;
-        let attached: Vec<AttachedFunction> =
-            model_loop
-                .bind(py)
-                .get()
-                .run_functions(host.bind(py), rows, settings, &models)?;
-        let first: usize = slf.borrow().functions.len();
-        let count: usize = attached.len();
-        slf.borrow_mut()
-            .functions
-            .extend(attached.into_iter().map(FunctionRecord::new));
-        Ok((first..first + count)
-            .map(|index| NativeFunctionInput::new(slf.clone().unbind(), index))
-            .collect())
+        (resource_attachment()?.functions)(slf, rows, settings)
     }
 
     /// The orphaned audit factory warnings, missing descriptions and cursor-input errors.
@@ -475,7 +436,7 @@ impl NativeCompiledProject {
         py: Python<'py>,
         settings: DiagnosticSettings,
     ) -> PyResult<ResourceDiagnostics<'py>> {
-        resource_diagnostics(self, py, &settings)
+        (resource_attachment()?.diagnostics)(self, py, &settings)
     }
 
     /// Attach every SQL test case, then every scenario, with the kept loop.
@@ -485,26 +446,7 @@ impl NativeCompiledProject {
         scenarios: Vec<ScenarioRow>,
         settings: SqlTestSettings,
     ) -> PyResult<AttachedSqlTests> {
-        let py: Python<'_> = slf.py();
-        let (model_loop, host) = slf.borrow().attachment_loop(py)?;
-        let arities: HashMap<String, usize> = slf
-            .borrow()
-            .functions
-            .iter()
-            .filter(|record| !record.attached.return_columns.is_empty())
-            .map(|record| {
-                (
-                    record.attached.name.clone(),
-                    record.attached.arguments.len(),
-                )
-            })
-            .collect();
-        model_loop.bind(py).get().run_sql_tests(
-            host.bind(py),
-            (&files, &scenarios),
-            &settings,
-            arities,
-        )
+        (resource_attachment()?.sql_tests)(slf, files, scenarios, settings)
     }
 
     /// Attach singular, then resource-attached, audits; return views and override warnings.
@@ -513,27 +455,8 @@ impl NativeCompiledProject {
         files: Vec<AuditFileRow>,
         settings: AuditSettings,
     ) -> PyResult<(Vec<NativeAuditInput>, Vec<Bound<'py, PyAny>>)> {
-        let py: Python<'py> = slf.py();
-        let (model_loop, host) = slf.borrow().attachment_loop(py)?;
-        let owners: Vec<AttachmentOwner<'py>> = slf.borrow().attachment_owners(py)?;
-        let (attached, shadows) =
-            model_loop
-                .bind(py)
-                .get()
-                .run_audits(host.bind(py), &files, owners, &settings)?;
-        let first: usize = slf.borrow().audits.len();
-        let count: usize = attached.len();
-        slf.borrow_mut()
-            .audits
-            .extend(attached.into_iter().map(AuditRecord::new));
-        Ok((
-            (first..first + count)
-                .map(|index| NativeAuditInput::new(slf.clone().unbind(), index))
-                .collect(),
-            shadows,
-        ))
+        (resource_attachment()?.audits)(slf, files, settings)
     }
-
     /// Keep the scope dependency keys native project assembly resolved, in audit order.
     fn record_audit_scope_deps(&mut self, deps: Vec<Vec<ObjectKeyRow>>) -> PyResult<()> {
         for (index, keys) in deps.into_iter().enumerate() {
@@ -620,7 +543,13 @@ impl NativeCompiledProject {
 
 pub(crate) fn model_facts(model: ModelInputPy<'_>) -> PyResult<CompiledModelFacts> {
     let ModelInputPy(
-        (name, relative_path, query_sql, authored_query_sql, authored_sql),
+        ModelTextsPy {
+            name,
+            relative_path,
+            query_sql,
+            authored_query_sql,
+            authored_sql,
+        },
         (values, header_keys, layer_schema),
         references,
         enum_columns,

@@ -2,14 +2,15 @@ from django.conf import settings
 from django.contrib.auth import REDIRECT_FIELD_NAME, login
 from django.contrib.auth.decorators import login_not_required, login_required
 from django.core.exceptions import BadRequest
-from django.http import Http404
-from django.shortcuts import redirect, render
+from django.http import Http404, HttpResponseRedirect
+from django.shortcuts import render, resolve_url
 from django.urls import reverse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.clickjacking import xframe_options_deny
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.views.decorators.http import require_GET, require_POST
 from social_core.actions import do_auth, do_complete, do_disconnect
+from social_core.backends.legacy import LegacyAuth
 from social_core.utils import setting_name, social_logger
 
 from .constants import LaunchBridge, RedirectParamName
@@ -99,13 +100,14 @@ def idp_launch(request, backend):
     # Layer 4: Authenticated session bypass — Skip authentication roundtrip if session is already authenticated
     user = getattr(request, "user", None)
     if user and user.is_authenticated:
-        redirect_to = safe_target_link_uri or settings.LOGIN_REDIRECT_URL
+        # Request targets are literal URLs; only the configured fallback may be a URL name.
+        redirect_to = safe_target_link_uri or resolve_url(settings.LOGIN_REDIRECT_URL)
         social_logger.info(
             "idp_launch: User `%s` already authenticated, redirecting to `%s`",
             user,
             redirect_to,
         )
-        return redirect(redirect_to)
+        return HttpResponseRedirect(redirect_to)
 
     # Layers 5 & 6: Fetch Metadata validation & Manual confirmation fallback — Inspect Sec-Fetch-* headers
     auto_submit, _ = check_fetch_metadata(request, "idp_launch")
@@ -193,13 +195,14 @@ def app_launch(request, backend):
     # Layer 5: Authenticated session bypass — Skip authentication roundtrip if session is already authenticated
     user = getattr(request, "user", None)
     if user and user.is_authenticated:
-        redirect_to = safe_next_url or settings.LOGIN_REDIRECT_URL
+        # Request targets are literal URLs; only the configured fallback may be a URL name.
+        redirect_to = safe_next_url or resolve_url(settings.LOGIN_REDIRECT_URL)
         social_logger.info(
             "app_launch: User `%s` already authenticated, redirecting to `%s`",
             user,
             redirect_to,
         )
-        return redirect(redirect_to)
+        return HttpResponseRedirect(redirect_to)
 
     # Layers 6 & 7: Fetch Metadata validation & Manual confirmation fallback — Inspect Sec-Fetch-* headers
     auto_submit, _ = check_fetch_metadata(request, "app_launch")
@@ -233,18 +236,30 @@ def app_launch(request, backend):
     return apply_framing_protection(response)
 
 
-@never_cache
-@login_not_required
-@csrf_exempt
-@psa(f"{NAMESPACE}:complete")
-def complete(request, backend, *args, **kwargs):
-    """Authentication complete view"""
+def _complete(request, backend, *args, **kwargs):
     kwargs.update(
         user=request.user,
         redirect_name=REDIRECT_FIELD_NAME,
         request=request,
     )
     return do_complete(request.backend, _do_login, *args, **kwargs)
+
+
+# Legacy backends have no provider callback. A request carrying their identity
+# field is a local form submission and needs the same protections as
+# ``social:begin``. Partial-pipeline resumes do not carry that field.
+_complete_legacy_form = require_POST(csrf_protect(_complete))
+
+
+@never_cache
+@login_not_required
+@csrf_exempt
+@psa(f"{NAMESPACE}:complete")
+def complete(request, backend, *args, **kwargs):
+    """Authentication complete view"""
+    if isinstance(request.backend, LegacyAuth) and request.backend.id_key() in request.backend.data:
+        return _complete_legacy_form(request, backend, *args, **kwargs)
+    return _complete(request, backend, *args, **kwargs)
 
 
 @never_cache
@@ -306,9 +321,6 @@ def _do_login(backend, user, social_user):
     enable_session_expiration = backend.setting("SESSION_EXPIRATION", False)
     max_session_length_setting = backend.setting("MAX_SESSION_LENGTH", None)
 
-    # Log the user in, creating a new session.
-    login(backend.strategy.request, user)
-
     # Make sure that the max_session_length value is either an integer or
     # None. Because we get this as a setting from the backend, it can be set
     # to whatever the backend creator wants; we want to be resilient against
@@ -321,11 +333,15 @@ def _do_login(backend, user, social_user):
 
     # Get the session expiration length based on the maximum session length
     # setting, combined with any session length received from the backend.
+    # Resolve invalid expiry errors before authenticating the session.
     session_expiry = get_session_timeout(
         social_user,
         enable_session_expiration=enable_session_expiration,
         max_session_length=max_session_length,
     )
+
+    # Log the user in, creating a new session.
+    login(backend.strategy.request, user)
 
     try:
         # Set the session length to our previously determined expiry length.

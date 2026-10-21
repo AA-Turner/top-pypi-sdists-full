@@ -21,6 +21,10 @@ NON_TURN_CLIENT_ATTRS: dict[str, str] = {
     # LiveKit agent worker's SDK (aidream services/meet/worker.py) — the
     # catalog names the model so a mandate Holder can carry it.
     "livekit_inference_stt": "stt_realtime",
+    # Streaming text-to-speech the BROWSER speaks straight to Cartesia with a
+    # token-broker credential; the catalog prices the usage it reports to
+    # POST /broker/usage (aidream services/token_broker/session_usage.py).
+    "cartesia_tts": "tts_realtime",
     "typesafe_systemone": "decision",
 }
 

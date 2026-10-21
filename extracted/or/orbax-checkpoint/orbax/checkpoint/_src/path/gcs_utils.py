@@ -17,6 +17,7 @@
 import functools
 import os
 import pathlib
+from typing import Any
 from urllib import parse
 from absl import logging
 from etils import epath
@@ -28,17 +29,101 @@ def is_gcs_path(path: pathlib.PurePosixPath) -> bool:
   return path.as_posix().startswith(_GCS_PATH_PREFIX)
 
 
-def parse_gcs_path(path: epath.PathLike) -> tuple[str, str]:
-  parsed = parse.urlparse(str(path))
+def parse_gcs_path(
+    path: epath.PathLike, add_trailing_slash: bool = True
+) -> tuple[str, str]:
+  """Parses a GCS path into a bucket name and a path within the bucket."""
+  path_str = str(path)
+  for prefix in _GCS_PATH_PREFIX:
+    if prefix != 'gs://' and path_str.startswith(prefix):
+      path_str = 'gs://' + path_str.removeprefix(prefix)
+      break
+  parsed = parse.urlparse(path_str)
   assert parsed.scheme == 'gs', f'Unsupported scheme for GCS: {parsed.scheme}'
+  if not parsed.netloc:
+    raise ValueError(
+        'The GCS path should contain the bucket name and the '
+        f'file path inside the bucket. Got: {path}'
+    )
   # Strip the leading slash from the path.
   standardized_path = parsed.path
   if standardized_path.startswith('/'):
     standardized_path = standardized_path[1:]
   # Add a trailing slash if it's missing.
-  if not standardized_path.endswith('/'):
+  if add_trailing_slash and not standardized_path.endswith('/'):
     standardized_path = standardized_path + '/'
   return parsed.netloc, standardized_path
+
+
+def split_gcs_path(path: epath.PathLike) -> tuple[str, str]:
+  """Splits a GCS path into (bucket_name, relative_blob_path).
+
+  `parse_gcs_path` is intentionally not reused: it asserts a `gs` scheme,
+  appends a trailing slash to the returned object path, and does not understand
+  non-URL GCS mount points. Blob names here are passed directly to the storage
+  client and must not gain a trailing slash.
+
+  Args:
+    path: The GCS path to split.
+
+  Returns:
+    A tuple of (bucket_name, relative_blob_path).
+  """
+  path_str = str(path)
+  if path_str.startswith('gs://'):
+    parsed = parse.urlparse(path_str)
+    return parsed.netloc, parsed.path.lstrip('/')
+  for prefix in _GCS_PATH_PREFIX:
+    if path_str.startswith(prefix):
+      parts = path_str[len(prefix) :].split('/', 1)
+      bucket = parts[0]
+      blob_path = parts[1] if len(parts) > 1 else ''
+      return bucket, blob_path
+  parsed = parse.urlparse(path_str)
+  return parsed.netloc, parsed.path.lstrip('/')
+
+
+def gcs_bucket_root(path: epath.PathLike) -> str:
+  """Returns the bucket root of a GCS path, preserving its access prefix.
+
+  `is_gcs_path` accepts `gs://` URLs as well as non-URL GCS mount points. Paths
+  derived from the source (such as a relocation destination) must keep the same
+  prefix so that they are reached through the same filesystem as the source.
+
+  Args:
+    path: The GCS path.
+
+  Returns:
+    The prefix and bucket, e.g. `gs://bucket` or `/gcs/bucket`.
+
+  Raises:
+    ValueError: If `path` is not a recognized GCS path.
+  """
+  path_str = str(path)
+  bucket, _ = split_gcs_path(path)
+  if bucket:
+    for prefix in _GCS_PATH_PREFIX:
+      if path_str.startswith(prefix):
+        return f'{prefix}{bucket}'
+  raise ValueError(f'Could not parse GCS bucket from path: {path}.')
+
+
+def get_kvstore_for_gcs(ckpt_path: str) -> dict[str, Any]:
+  """Constructs a TensorStore kvstore spec for a GCS path."""
+  gcs_bucket, path_without_bucket = parse_gcs_path(
+      ckpt_path, add_trailing_slash=False
+  )
+  # TODO(b/518937340): Consider enabling gcs_grpc by default.
+  # TODO(b/518937340): Migrate TENSORSTORE_GCS_BACKEND flag to `Context`.
+  gcs_backend = os.environ.get('TENSORSTORE_GCS_BACKEND', 'gcs')
+  logging.vlog(
+      1, 'Using GCS backend (TENSORSTORE_GCS_BACKEND): %s', gcs_backend
+  )
+  return {
+      'driver': gcs_backend,
+      'bucket': gcs_bucket,
+      'path': path_without_bucket,
+  }
 
 
 @functools.lru_cache(maxsize=32)

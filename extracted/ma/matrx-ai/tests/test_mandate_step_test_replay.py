@@ -45,7 +45,13 @@ def step(monkeypatch: pytest.MonkeyPatch):
     runs: list[Any] = []
 
     async def resolve(*_a: Any, **_k: Any) -> StepAgent:
-        return StepAgent(agent_id="agent-1", is_version=False, config_overrides={"m": 1}, declared_output_kind=None)
+        # A Run Mandate step hands its state over and the binding picks (cd3a048b87): the doer's
+        # ``facts`` arrive through the mandate's map, never fed by name.
+        async def materialize(supplied: dict[str, Any]) -> dict[str, Any]:
+            return {"facts": supplied["facts"]}
+
+        return StepAgent(agent_id="agent-1", is_version=False, config_overrides={"m": 1}, declared_output_kind=None,
+                         materialize=materialize, consumption_map={"facts": [{"target": "facts"}]})
 
     async def limit(_ctx: Any, _authored: Any) -> Any:
         return SimpleNamespace(value=10, name_on=lambda r: r)
@@ -64,7 +70,7 @@ def step(monkeypatch: pytest.MonkeyPatch):
 
 def _go() -> Any:
     ctx = SimpleNamespace(node_id="we_think", run_id="run-9")
-    inputs = ma.MandateStartInput.model_validate({"mandate_key": "brand_intake.we_think", "facts": "x"})
+    inputs = ma.MandateStartInput.model_validate({"mandate_key": "brand_intake.we_think", "provision_values": {"facts": "x"}})
     return asyncio.run(ma._mandate_start_body(ctx, inputs, None)).result
 
 

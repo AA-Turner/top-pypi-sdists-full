@@ -38,6 +38,7 @@ __all__ = (
     "ContributorInsightsModeType",
     "ContributorInsightsStatusType",
     "DestinationStatusType",
+    "DisassociationModeType",
     "DynamoDBServiceName",
     "ExportCompletedWaiterName",
     "ExportFormatType",
@@ -131,6 +132,7 @@ ContributorInsightsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENA
 DestinationStatusType = Literal[
     "ACTIVE", "DISABLED", "DISABLING", "ENABLE_FAILED", "ENABLING", "UPDATING"
 ]
+DisassociationModeType = Literal["WAIT_FOR_REPLICATION"]
 ExportCompletedWaiterName = Literal["export_completed"]
 ExportFormatType = Literal["DYNAMODB_JSON", "ION"]
 ExportStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]

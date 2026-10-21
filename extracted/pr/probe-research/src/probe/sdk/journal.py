@@ -112,11 +112,6 @@ from .stamp_scrub import scrub_body, scrub_envelope, scrub_op
 log = logging.getLogger(__name__)
 
 
-def _source_digest(path: str) -> str:
-    """sha256 of the file AS IT SITS, before any redaction."""
-    return hashlib.sha256(read_source(path)).hexdigest()
-
-
 def _same_file(handle, path: Path) -> bool:
     """The locked handle is still the file at `path`. Item locks are unlinked
     when an item is done; one opened just before that unlink and locked just
@@ -1610,7 +1605,7 @@ class Journal:
                 before = source.stat()
                 if not source.is_file():
                     raise ValueError("receipt upload source is not a regular file")
-                snapshot_file(source, staging)
+                source_digest = snapshot_file(source, staging)
                 digest, size = fingerprint(str(staging))
                 after = source.stat()
 
@@ -1627,7 +1622,7 @@ class Journal:
                     raise ValueError("source changed while its snapshot was staged")
                 if expected_content_hash is not None and expected_content_hash not in (
                     digest,
-                    _source_digest(fields["src_path"]),
+                    source_digest,
                 ):
                     # The caller's hash describes the file it censused, and the
                     # snapshot is redacted, so the two legitimately differ. A
@@ -1639,6 +1634,12 @@ class Journal:
                 upload.update(
                     {"blob": digest, "size_bytes": size, "staged": True, "unstaged_reason": None}
                 )
+                if expected_content_hash is not None:
+                    # The source this snapshot was read from, taken from that
+                    # same read. The receipt carries it, so a caller holding the
+                    # source's hash can tell its own file, redacted, from other
+                    # bytes -- and a receipt without it predates the stamp.
+                    upload["source_content_hash"] = source_digest
                 op["upload"] = upload
 
                 def publish():
@@ -1753,6 +1754,8 @@ class Journal:
             "anchor_id": upload.get("anchor_id") or op.get("path", "").split("/")[3],
             "delivered_at": now_iso(),
         }
+        if upload.get("source_content_hash"):
+            receipt["source_content_hash"] = upload["source_content_hash"]
         key = self._correlation_key(correlation)
         with self._correlation_lock(key):
             existing = self.receipt(correlation)

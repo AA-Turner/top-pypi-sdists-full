@@ -1,6 +1,6 @@
 [project]
 name = "stackone-defender"
-version = "0.8.2"
+version = "0.9.3"
 description = "Indirect prompt injection defense for AI agents using tool calls"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,14 +20,18 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/StackOneHQ/stackone-defender"
-Repository = "https://github.com/StackOneHQ/stackone-defender"
+Homepage = "https://defender.stackone.com/?utm_source=pypi&utm_medium=listing&utm_campaign=homepage"
+Repository = "https://github.com/StackOneHQ/defender-py"
+Issues = "https://github.com/StackOneHQ/defender-py/issues"
+Changelog = "https://github.com/StackOneHQ/defender-py/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 onnx = ["onnxruntime>=1.16.0", "tokenizers>=0.15.0", "numpy>=1.24.0"]
 # fasttext-ng provides the `fasttext` module (maintained bindings; supports 3.13).
 # Pulls numpy>=2.3; SFE still fail-opens when import/load fails.
 sfe = ["fasttext-ng>=0.9.3"]
+# create_openai_compatible_tier3_provider (Tier 3 over any OpenAI-compatible endpoint).
+llm = ["httpx>=0.27"]
 
 [dependency-groups]
 dev = [
@@ -38,6 +42,8 @@ dev = [
   "tokenizers>=0.15.0",
   "numpy>=1.24.0",
   "fasttext-ng>=0.9.3",
+  "httpx>=0.27",
+  "hatchling",
 ]
 
 [build-system]
@@ -46,6 +52,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/stackone_defender"]
+
+# Fails the build if a bundled model is a Git LFS pointer, truncated, or missing (hatch_build.py).
+[tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.sdist]
 exclude = ["/models", "/.github"]  # legacy model + CI, dev-only

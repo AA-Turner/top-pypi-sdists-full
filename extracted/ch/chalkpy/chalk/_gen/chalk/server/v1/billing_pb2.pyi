@@ -44,6 +44,12 @@ class UsageChartTimeRange(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     USAGE_CHART_TIME_RANGE_1D: _ClassVar[UsageChartTimeRange]
     USAGE_CHART_TIME_RANGE_7D: _ClassVar[UsageChartTimeRange]
 
+class UsageChartSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    USAGE_CHART_SOURCE_UNSPECIFIED: _ClassVar[UsageChartSource]
+    USAGE_CHART_SOURCE_NODE: _ClassVar[UsageChartSource]
+    USAGE_CHART_SOURCE_COMPUTE: _ClassVar[UsageChartSource]
+
 class MaterializedFeatureViewUsageKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     MATERIALIZED_FEATURE_VIEW_USAGE_KIND_UNSPECIFIED: _ClassVar[MaterializedFeatureViewUsageKind]
@@ -64,6 +70,9 @@ USAGE_CHART_GROUPING_WORKLOAD_TYPE: UsageChartGrouping
 USAGE_CHART_TIME_RANGE_UNSPECIFIED: UsageChartTimeRange
 USAGE_CHART_TIME_RANGE_1D: UsageChartTimeRange
 USAGE_CHART_TIME_RANGE_7D: UsageChartTimeRange
+USAGE_CHART_SOURCE_UNSPECIFIED: UsageChartSource
+USAGE_CHART_SOURCE_NODE: UsageChartSource
+USAGE_CHART_SOURCE_COMPUTE: UsageChartSource
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_UNSPECIFIED: MaterializedFeatureViewUsageKind
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_FILL: MaterializedFeatureViewUsageKind
 MATERIALIZED_FEATURE_VIEW_USAGE_KIND_COMPACTION: MaterializedFeatureViewUsageKind
@@ -96,6 +105,86 @@ class GetUsageChartResponse(_message.Message):
     CHART_FIELD_NUMBER: _ClassVar[int]
     chart: _chart_pb2.Chart
     def __init__(self, chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...) -> None: ...
+
+class UsageFacet(_message.Message):
+    __slots__ = ("path", "name")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    name: str
+    def __init__(self, path: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class GetUsageFacetsRequest(_message.Message):
+    __slots__ = ("source",)
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    source: UsageChartSource
+    def __init__(self, source: _Optional[_Union[UsageChartSource, str]] = ...) -> None: ...
+
+class GetUsageFacetsResponse(_message.Message):
+    __slots__ = ("facets",)
+    FACETS_FIELD_NUMBER: _ClassVar[int]
+    facets: _containers.RepeatedCompositeFieldContainer[UsageFacet]
+    def __init__(self, facets: _Optional[_Iterable[_Union[UsageFacet, _Mapping]]] = ...) -> None: ...
+
+class GetUsageChartV2Request(_message.Message):
+    __slots__ = ("start_time", "end_time", "period", "group_by", "query", "source")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    PERIOD_FIELD_NUMBER: _ClassVar[int]
+    GROUP_BY_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    period: UsageChartPeriod
+    group_by: _containers.RepeatedScalarFieldContainer[str]
+    query: str
+    source: UsageChartSource
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        period: _Optional[_Union[UsageChartPeriod, str]] = ...,
+        group_by: _Optional[_Iterable[str]] = ...,
+        query: _Optional[str] = ...,
+        source: _Optional[_Union[UsageChartSource, str]] = ...,
+    ) -> None: ...
+
+class GetUsageChartV2Response(_message.Message):
+    __slots__ = ("chart",)
+    CHART_FIELD_NUMBER: _ClassVar[int]
+    chart: _chart_pb2.Chart
+    def __init__(self, chart: _Optional[_Union[_chart_pb2.Chart, _Mapping]] = ...) -> None: ...
+
+class GetUsageFacetValuesRequest(_message.Message):
+    __slots__ = ("path", "limit", "value_search", "source")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    VALUE_SEARCH_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    limit: int
+    value_search: str
+    source: UsageChartSource
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
+        value_search: _Optional[str] = ...,
+        source: _Optional[_Union[UsageChartSource, str]] = ...,
+    ) -> None: ...
+
+class UsageFacetValue(_message.Message):
+    __slots__ = ("value",)
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    def __init__(self, value: _Optional[str] = ...) -> None: ...
+
+class GetUsageFacetValuesResponse(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedCompositeFieldContainer[UsageFacetValue]
+    def __init__(self, values: _Optional[_Iterable[_Union[UsageFacetValue, _Mapping]]] = ...) -> None: ...
 
 class GetUtilizationRatesRequest(_message.Message):
     __slots__ = ()
@@ -177,19 +266,48 @@ class PublishPodUsageResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class ProductAnalyticsEvent(_message.Message):
+    __slots__ = ("data", "attributes")
+    class AttributesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    ATTRIBUTES_FIELD_NUMBER: _ClassVar[int]
+    data: bytes
+    attributes: _containers.ScalarMap[str, str]
+    def __init__(self, data: _Optional[bytes] = ..., attributes: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class PublishProductAnalyticsEventsRequest(_message.Message):
+    __slots__ = ("events",)
+    EVENTS_FIELD_NUMBER: _ClassVar[int]
+    events: _containers.RepeatedCompositeFieldContainer[ProductAnalyticsEvent]
+    def __init__(self, events: _Optional[_Iterable[_Union[ProductAnalyticsEvent, _Mapping]]] = ...) -> None: ...
+
+class PublishProductAnalyticsEventsResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class GetNodesAndPodsUIRequest(_message.Message):
-    __slots__ = ("namespace", "pod_label_selector", "environment_id")
+    __slots__ = ("namespace", "pod_label_selector", "environment_id", "cluster_id")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     POD_LABEL_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     pod_label_selector: str
     environment_id: str
+    cluster_id: str
     def __init__(
         self,
         namespace: _Optional[str] = ...,
         pod_label_selector: _Optional[str] = ...,
         environment_id: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetNodesAndPodsUIResponse(_message.Message):

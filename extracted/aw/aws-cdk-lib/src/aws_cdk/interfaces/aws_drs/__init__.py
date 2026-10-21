@@ -89,6 +89,51 @@ class _ILaunchConfigurationTemplateRefProxy(
 typing.cast(typing.Any, ILaunchConfigurationTemplateRef).__jsii_proxy_class__ = lambda : _ILaunchConfigurationTemplateRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_drs.IRecoveryPlanRef")
+class IRecoveryPlanRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecoveryPlan.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="recoveryPlanRef")
+    def recovery_plan_ref(self) -> "RecoveryPlanReference":
+        '''(experimental) A reference to a RecoveryPlan resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRecoveryPlanRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RecoveryPlan.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_drs.IRecoveryPlanRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="recoveryPlanRef")
+    def recovery_plan_ref(self) -> "RecoveryPlanReference":
+        '''(experimental) A reference to a RecoveryPlan resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RecoveryPlanReference", jsii.get(self, "recoveryPlanRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRecoveryPlanRef).__jsii_proxy_class__ = lambda : _IRecoveryPlanRefProxy
+
+
 @jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_drs.IReplicationConfigurationTemplateRef"
 )
@@ -237,6 +282,55 @@ class LaunchConfigurationTemplateReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_drs.RecoveryPlanReference",
+    jsii_struct_bases=[],
+    name_mapping={"recovery_plan_arn": "recoveryPlanArn"},
+)
+class RecoveryPlanReference:
+    def __init__(self, *, recovery_plan_arn: builtins.str) -> None:
+        '''A reference to a RecoveryPlan resource.
+
+        :param recovery_plan_arn: The Arn of the RecoveryPlan resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_drs as interfaces_drs
+            
+            recovery_plan_reference = interfaces_drs.RecoveryPlanReference(
+                recovery_plan_arn="recoveryPlanArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0f01360113444b96a2a9ca4d11e44bd736dcfbc72b64856aca6a8bd0d603ee36)
+            check_type(argname="argument recovery_plan_arn", value=recovery_plan_arn, expected_type=type_hints["recovery_plan_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "recovery_plan_arn": recovery_plan_arn,
+        }
+
+    @builtins.property
+    def recovery_plan_arn(self) -> builtins.str:
+        '''The Arn of the RecoveryPlan resource.'''
+        result = self._values.get("recovery_plan_arn")
+        assert result is not None, "Required property 'recovery_plan_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecoveryPlanReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_drs.ReplicationConfigurationTemplateReference",
     jsii_struct_bases=[],
     name_mapping={
@@ -338,9 +432,11 @@ class SourceNetworkReference:
 
 __all__ = [
     "ILaunchConfigurationTemplateRef",
+    "IRecoveryPlanRef",
     "IReplicationConfigurationTemplateRef",
     "ISourceNetworkRef",
     "LaunchConfigurationTemplateReference",
+    "RecoveryPlanReference",
     "ReplicationConfigurationTemplateReference",
     "SourceNetworkReference",
 ]
@@ -350,6 +446,13 @@ publication.publish()
 def _typecheckingstub__5d95ab27ea78585e2287a23cf787eb706880955298a4fa5a7a9fddf5d7b8a58c(
     *,
     launch_configuration_template_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f01360113444b96a2a9ca4d11e44bd736dcfbc72b64856aca6a8bd0d603ee36(
+    *,
+    recovery_plan_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -368,5 +471,5 @@ def _typecheckingstub__1a58b357a9776e9a00ee15c041375d33ac5d4ecb8f9a9c0c37c98cee7
     """Type checking stubs"""
     pass
 
-for cls in [ILaunchConfigurationTemplateRef, IReplicationConfigurationTemplateRef, ISourceNetworkRef]:
+for cls in [ILaunchConfigurationTemplateRef, IRecoveryPlanRef, IReplicationConfigurationTemplateRef, ISourceNetworkRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,6 +1,6 @@
 name = "labelbox"
 
-__version__ = "7.15.0"
+__version__ = "7.16.0"
 
 from labelbox.client import Client
 from labelbox.schema.annotation_import import (
@@ -43,7 +43,12 @@ from labelbox.schema.export_task import (
 from labelbox.schema.iam_integration import IAMIntegration
 from labelbox.schema.identifiable import GlobalKey, UniqueId
 from labelbox.schema.identifiables import DataRowIds, GlobalKeys, UniqueIds
-from labelbox.schema.invite import Invite, InviteLimit
+from labelbox.schema.invite import (
+    Invite,
+    InviteLimit,
+    InviteMemberStatus,
+    InviteResult,
+)
 from labelbox.schema.issue import Comment, Issue, IssueStatus
 from labelbox.schema.issue_category import IssueCategory
 from labelbox.schema.issue_position import (
@@ -78,7 +83,12 @@ from labelbox.schema.tool_building.step_reasoning_tool import StepReasoningTool
 from labelbox.schema.tool_building.prompt_issue_tool import PromptIssueTool
 from labelbox.schema.tool_building.relationship_tool import RelationshipTool
 from labelbox.schema.role import Role, ProjectRole, UserGroupRole
-from labelbox.schema.invite import Invite, InviteLimit
+from labelbox.schema.invite import (
+    Invite,
+    InviteLimit,
+    InviteMemberStatus,
+    InviteResult,
+)
 from labelbox.schema.data_row_metadata import (
     DataRowMetadataOntology,
     DataRowMetadataField,
@@ -102,6 +112,11 @@ from labelbox.schema.ontology_kind import OntologyKind
 from labelbox.schema.organization import Organization
 from labelbox.schema.project import Project
 from labelbox.schema.project_model_config import ProjectModelConfig
+from labelbox.schema.label_version import (
+    LabelVersion,
+    LabelVersionAction,
+    LabelVersionStage,
+)
 from labelbox.schema.performance import (
     PerformanceCursorRows,
     PerformanceDeletedLabels,

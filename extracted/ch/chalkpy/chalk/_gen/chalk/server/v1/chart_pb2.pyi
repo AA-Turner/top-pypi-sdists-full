@@ -85,16 +85,30 @@ METRIC_HEALTH_STATUS_HEALTHY: MetricHealthStatus
 METRIC_HEALTH_STATUS_UNHEALTHY: MetricHealthStatus
 METRIC_HEALTH_STATUS_NO_CHECKS: MetricHealthStatus
 
+class SeriesGroupValue(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    value: str
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
 class Series(_message.Message):
-    __slots__ = ("points", "label", "units")
+    __slots__ = ("points", "label", "units", "group_values")
     POINTS_FIELD_NUMBER: _ClassVar[int]
     LABEL_FIELD_NUMBER: _ClassVar[int]
     UNITS_FIELD_NUMBER: _ClassVar[int]
+    GROUP_VALUES_FIELD_NUMBER: _ClassVar[int]
     points: _containers.RepeatedScalarFieldContainer[float]
     label: str
     units: str
+    group_values: _containers.RepeatedCompositeFieldContainer[SeriesGroupValue]
     def __init__(
-        self, points: _Optional[_Iterable[float]] = ..., label: _Optional[str] = ..., units: _Optional[str] = ...
+        self,
+        points: _Optional[_Iterable[float]] = ...,
+        label: _Optional[str] = ...,
+        units: _Optional[str] = ...,
+        group_values: _Optional[_Iterable[_Union[SeriesGroupValue, _Mapping]]] = ...,
     ) -> None: ...
 
 class Chart(_message.Message):
@@ -444,6 +458,7 @@ class GetChartSnapshotRequest(_message.Message):
         "exclude_incomplete_last_bucket",
         "metrics_backend",
         "comparison_lookback_offset",
+        "cluster_id",
     )
     METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -454,6 +469,7 @@ class GetChartSnapshotRequest(_message.Message):
     EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
     METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
     COMPARISON_LOOKBACK_OFFSET_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     metric_config: _chart_pb2.MetricConfig
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -463,6 +479,7 @@ class GetChartSnapshotRequest(_message.Message):
     exclude_incomplete_last_bucket: bool
     metrics_backend: ChartMetricsBackend
     comparison_lookback_offset: _duration_pb2.Duration
+    cluster_id: str
     def __init__(
         self,
         metric_config: _Optional[_Union[_chart_pb2.MetricConfig, _Mapping]] = ...,
@@ -474,6 +491,7 @@ class GetChartSnapshotRequest(_message.Message):
         exclude_incomplete_last_bucket: bool = ...,
         metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
         comparison_lookback_offset: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetChartSnapshotResponse(_message.Message):
@@ -498,6 +516,70 @@ class GetChartSnapshotResponse(_message.Message):
         sql_query_strings: _Optional[_Iterable[str]] = ...,
         metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
         statistic: _Optional[_Union[StatisticResult, _Mapping]] = ...,
+    ) -> None: ...
+
+class ClusterMetricConfigSeries(_message.Message):
+    __slots__ = ("metric", "name")
+    METRIC_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    metric: _chart_pb2.MetricKind
+    name: str
+    def __init__(
+        self, metric: _Optional[_Union[_chart_pb2.MetricKind, str]] = ..., name: _Optional[str] = ...
+    ) -> None: ...
+
+class ClusterMetricConfig(_message.Message):
+    __slots__ = ("name", "series")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SERIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    series: _containers.RepeatedCompositeFieldContainer[ClusterMetricConfigSeries]
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        series: _Optional[_Iterable[_Union[ClusterMetricConfigSeries, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetClusterChartSnapshotRequest(_message.Message):
+    __slots__ = ("cluster_id", "metric_config", "start_time", "end_time", "step", "exclude_incomplete_last_bucket")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    METRIC_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    EXCLUDE_INCOMPLETE_LAST_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    metric_config: ClusterMetricConfig
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    step: _duration_pb2.Duration
+    exclude_incomplete_last_bucket: bool
+    def __init__(
+        self,
+        cluster_id: _Optional[str] = ...,
+        metric_config: _Optional[_Union[ClusterMetricConfig, _Mapping]] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        step: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        exclude_incomplete_last_bucket: bool = ...,
+    ) -> None: ...
+
+class GetClusterChartSnapshotResponse(_message.Message):
+    __slots__ = ("charts", "x_series", "window_period", "metrics_backend")
+    CHARTS_FIELD_NUMBER: _ClassVar[int]
+    X_SERIES_FIELD_NUMBER: _ClassVar[int]
+    WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
+    charts: _containers.RepeatedCompositeFieldContainer[_densetimeserieschart_pb2.DenseTimeSeriesChart]
+    x_series: _containers.RepeatedCompositeFieldContainer[_timestamp_pb2.Timestamp]
+    window_period: _duration_pb2.Duration
+    metrics_backend: ChartMetricsBackend
+    def __init__(
+        self,
+        charts: _Optional[_Iterable[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]]] = ...,
+        x_series: _Optional[_Iterable[_Union[_timestamp_pb2.Timestamp, _Mapping]]] = ...,
+        window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
     ) -> None: ...
 
 class GetChartSnapshotByQueryRequest(_message.Message):

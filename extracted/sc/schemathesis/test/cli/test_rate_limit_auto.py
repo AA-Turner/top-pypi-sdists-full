@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from flask import jsonify, make_response
 
 from schemathesis.core.rate_limit import RATE_LIMIT_AUTO_MAX_RETRIES
@@ -172,11 +173,40 @@ def test_stateful_retried_failure_surfaces_when_final_passes(ctx, cli):
     def get_user(user_id):
         calls["n"] += 1
         if calls["n"] == 1:
-            return _rate_limited()
-        return jsonify({"id": user_id}), 200
+            response = _rate_limited()
+            response.set_data("Slow down")
+            return response
+        return jsonify({"id": user_id, "note": "final response"}), 200
 
     result = cli.run_openapi_app(_stateful_429_app(ctx, get_user), *_STATEFUL_ARGS)
-    # The first 429 fails the check; the retry returns a valid 200, yet the failure is still reported.
+    # The first 429 fails the check; the retry returns a valid 200, yet the failure is still reported with the 429.
+    assert result.exit_code == 1, result.stdout
+    assert "Undocumented status code" in result.stdout
+    assert "Received: 429" in result.stdout
+    assert "[429] Too Many Requests:\n\n    `Slow down`" in result.stdout
+    assert "final response" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "args",
+    [("run", "--phases=fuzzing", "--max-examples=1"), ("fuzz", "--max-time=10")],
+    ids=["unit", "fuzz"],
+)
+def test_retried_failure_surfaces_when_final_passes(ctx, cli, app_runner, args):
+    calls = {"n": 0}
+    app, _ = ctx.openapi.make_flask_app({"/users": {"get": {"responses": {"200": {"description": "OK"}}}}})
+
+    @app.route("/users")
+    def users():
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return _rate_limited()
+        return jsonify([])
+
+    command, *rest = args
+    result = cli.main(
+        command, app_runner.openapi_url(app), "--rate-limit=auto", "--checks=status_code_conformance", *rest
+    )
     assert result.exit_code == 1, result.stdout
     assert "Undocumented status code" in result.stdout
     assert "Received: 429" in result.stdout

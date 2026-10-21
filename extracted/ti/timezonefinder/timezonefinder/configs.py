@@ -24,7 +24,8 @@ import timezonefinder_data
 __all__ = [
     "DEFAULT_DATA_DIR",
     "PACKAGE_DIR",
-    "SHORTCUT_H3_RES",
+    "SHORTCUT_ROOT_COLUMNS",
+    "SHORTCUT_BLOCK_SIDE",
     "OCEAN_TIMEZONE_PREFIX",
     "COORD2INT_FACTOR",
     "INT2COORD_FACTOR",
@@ -35,6 +36,8 @@ __all__ = [
     "MAX_LAT_VAL",
     "MAX_LNG_VAL_INT",
     "MAX_LAT_VAL_INT",
+    "MIN_LNG_VAL_INT",
+    "MIN_LAT_VAL_INT",
     "DATA_VERSION_FILENAME",
     "UNKNOWN_DATA_VERSION",
     "DATA_FORMAT_VERSION",
@@ -60,9 +63,29 @@ __all__ = [
 ]
 
 # SHORTCUT SETTINGS
-# H3 resolution level for spatial indexing shortcuts
-# Determines the granularity of the H3 cell grid used for fast lookups
-SHORTCUT_H3_RES: int = 4
+# The shape of the grid tree the shortcut index is built on: how many root cells span
+# the full longitude range, and how many child cells a root cell several zones can own
+# refines into per axis. 480 columns is 0.75 degrees, and one level of 4x4 blocks
+# reaches 0.1875 degrees where zones meet. `timezonefinder/shortcut_index.py` derives
+# the rows, the cell widths and the lookup's arithmetic from these two numbers.
+#
+# Measured rather than chosen, within the 800 KB index cap: every root aligned with the
+# 7.5-degree ocean meridians, one to three levels with a block side each, and selective
+# refinement, each answered through the real query path. Under full refinement the
+# finest cell width alone sets the polygon work, and every level costs the batch lookup
+# a pass, so the best tree reaches the finest cells the cap allows in one level - this
+# one. **Refused, so do not re-propose without new evidence:** a flat grid of the finest
+# cells, which spends two bytes on every cell of the open ocean; a deeper or selectively
+# refined tree, slower per batch within the cap; and a cell reached by search rather
+# than by arithmetic. The sizes the shipped index reaches are in `docs/data_report.rst`;
+# the verdicts and every refused variant are in
+# `contributing/improvements/decisions/longitude-latitude-aligned-index-decisions.md`;
+# `prototypes/grid_tree_config_sweep.py` re-runs the search.
+#
+# Both numbers are stamped into the index file, because changing either changes what
+# every cell *means* without changing the layout a reader would notice.
+SHORTCUT_ROOT_COLUMNS: int = 480
+SHORTCUT_BLOCK_SIDE: int = 4
 
 # Pattern for identifying ocean timezones (fixed-offset zones for international waters)
 OCEAN_TIMEZONE_PREFIX = r"Etc/GMT"
@@ -129,7 +152,7 @@ UNKNOWN_DATA_VERSION = "unknown"
 # into one field written into every binary would rewrite the 63 MB coordinate file to
 # record a shortcut-format change that did not touch its layout, and those binaries
 # are committed.
-DATA_FORMAT_VERSION: Final[int] = 3
+DATA_FORMAT_VERSION: Final[int] = 4
 
 # What this generation is made of: the per-file layout versions in force when
 # DATA_FORMAT_VERSION was last bumped. Restated rather than imported, because
@@ -140,7 +163,7 @@ DATA_FORMAT_VERSION: Final[int] = 3
 # tests/test_data_version.py asserts it; nothing else would notice.
 DATA_FORMAT_LAYOUT_VERSIONS: Final[dict[str, int]] = {
     "POLYGON_LAYOUT_VERSION": 3,
-    "SHORTCUT_LAYOUT_VERSION": 2,
+    "SHORTCUT_LAYOUT_VERSION": 3,
 }
 
 
@@ -264,6 +287,10 @@ MIN_LNG_VAL = -180.0
 MIN_LAT_VAL = -90.0
 MAX_LNG_VAL_INT = int(MAX_LNG_VAL * COORD2INT_FACTOR)
 MAX_LAT_VAL_INT = int(MAX_LAT_VAL * COORD2INT_FACTOR)
+# Declared negative for the same reason: `utils.query2int` compares against both on
+# every lookup that tests a polygon.
+MIN_LNG_VAL_INT = -MAX_LNG_VAL_INT
+MIN_LAT_VAL_INT = -MAX_LAT_VAL_INT
 MAX_INT_VAL = MAX_LNG_VAL_INT
 assert MAX_INT_VAL < MAX_ALLOWED_COORD_VAL
 
@@ -298,8 +325,8 @@ IdArrayLike: TypeAlias = npt.ArrayLike
 # lists is derived from this alias rather than written out again.
 OnInvalid: TypeAlias = Literal["raise", "skip"]
 
-# hexagon id to list of polygon ids
-ShortcutMapping: TypeAlias = dict[int, np.ndarray]
+# grid-tree cell id to the zone id covering it or the polygon ids to test in it
+ShortcutMapping: TypeAlias = dict[int, int | np.ndarray]
 CoordPairs: TypeAlias = list[tuple[float, float]]
 CoordLists: TypeAlias = list[list[float]]
 IntLists: TypeAlias = list[list[int]]

@@ -26,8 +26,9 @@ UPLOAD_BATCH_FILES = 64
 DEFAULT_UPLOAD_TIMEOUT = 60 * 60.0
 DEFAULT_UPLOAD_CONCURRENCY = 8
 BENCHMARK_UPLOAD_CONCURRENCY = 64
-# Room for two 1,000-file allocation batches ahead of completed PUTs.
-MAX_PENDING_FILES = 2 * 1000
+# Room for two 5,000-file allocation batches ahead of completed uploads, so workers stay busy
+# while the next batch is allocated.
+MAX_PENDING_FILES = 2 * 5000
 # Signed URLs expire after 60 minutes, so bytes waiting for a worker are bounded too.
 MAX_WAITING_BYTES = 4 * 1024 * 1024 * 1024
 

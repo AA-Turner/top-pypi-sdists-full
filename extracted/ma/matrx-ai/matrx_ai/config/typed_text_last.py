@@ -53,6 +53,27 @@ def _role(message: Any) -> str:
     return str(getattr(role, "value", role) or "").lower()
 
 
+def typed_words_of(content: Any) -> str:
+    """A message's own words: the string itself, or its text blocks joined — never a Python repr.
+
+    Dict-shaped (``{"type": "text", "text": ...}``) and object-shaped (``TextContent``) blocks both
+    count; attachments and tool blocks carry no typed words.
+    """
+    if isinstance(content, str):
+        return content
+    texts: list[str] = []
+    for block in content or []:
+        if isinstance(block, str):
+            texts.append(block)
+            continue
+        kind = block.get("type") if isinstance(block, dict) else getattr(block, "type", None)
+        kind = str(getattr(kind, "value", kind) or "text")
+        text = block.get("text") if isinstance(block, dict) else getattr(block, "text", None)
+        if kind in ("text", "input_text") and isinstance(text, str) and text.strip():
+            texts.append(text)
+    return "\n\n".join(texts)
+
+
 def person_turn_index(messages: list[Any]) -> int | None:
     """Index of the newest PERSON turn the reply answers, or ``None`` (mid tool loop, no user turn).
 

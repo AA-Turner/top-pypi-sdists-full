@@ -7,7 +7,6 @@ from urllib.parse import urlsplit
 
 from schemathesis.cli.commands.run.filters import describe_filter
 from schemathesis.cli.context import BaseExecutionContext
-from schemathesis.cli.summary import WarningData
 from schemathesis.config import ProjectConfig, SchemathesisWarning
 from schemathesis.core import SpecificationFeature
 from schemathesis.core.errors import RefResolutionError
@@ -16,7 +15,8 @@ from schemathesis.core.statistic import ApiStatistic
 from schemathesis.core.transport import CallOutcome
 from schemathesis.engine import Status, events
 from schemathesis.engine.recorder import CaseNode, RecordedScenario
-from schemathesis.engine.run import PhaseName
+from schemathesis.engine.run import UNIT_PHASES, PhaseName
+from schemathesis.engine.summary import ValidRate, WarningData
 from schemathesis.generation.meta import REQUEST_SHAPE_PROBES, CoveragePhaseData, CoverageScenario, coverage_scenario
 from schemathesis.generation.modes import GenerationMode
 
@@ -92,27 +92,6 @@ RATE_LIMITED_THRESHOLD = 0.9
 OTHER_CLIENT_ERRORS_THRESHOLD = 0.1
 # Fewer calls than this and the share accepted is noise rather than a rate.
 MIN_CALLS_FOR_VALID_RATE = 10
-
-
-@dataclass(slots=True)
-class ValidRate:
-    """How many positive cases an API accepted, and why the rest were turned away."""
-
-    accepted: int = 0
-    # Well-formed, but the addressed resource does not exist.
-    unreachable: int = 0
-    # Well-formed, but at odds with the current state of the resource.
-    conflicts: int = 0
-    # Refused on the data itself.
-    rejected: int = 0
-
-    @property
-    def total(self) -> int:
-        return self.accepted + self.unreachable + self.conflicts + self.rejected
-
-    @property
-    def rate(self) -> float:
-        return self.accepted / self.total if self.total else 0.0
 
 
 def positive_call_outcomes(recorder: RecordedScenario) -> ValidRate:
@@ -302,7 +281,7 @@ class WarningCollector:
             self.fails = True
 
     def on_scenario_finished(self, ctx: BaseExecutionContext, event: events.ScenarioFinished) -> None:
-        if event.phase in (PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING):
+        if event.phase in UNIT_PHASES:
             self._check_warnings(ctx, event)
         elif (
             event.phase == PhaseName.STATEFUL_TESTING
@@ -365,10 +344,9 @@ class WarningCollector:
         # Warnings that explain why valid input was rejected look only at valid input.
         positive = aggregate_status_codes(event.recorder, positive_only=True)
 
-        assert ctx.find_operation_by_label is not None
         assert event.label is not None
         try:
-            operation = ctx.find_operation_by_label(event.label)
+            operation = ctx.find_operation(event.label)
         except RefResolutionError:
             # This error will be reported elsewhere anyway
             return None
@@ -511,8 +489,7 @@ class WarningCollector:
         """Record a warning surfaced via a supervisor-driven scenario skip."""
         assert event.skip_warning is not None
         assert event.label is not None
-        assert ctx.find_operation_by_label is not None
-        operation = ctx.find_operation_by_label(event.label)
+        operation = ctx.find_operation(event.label)
         warnings = self.config.warnings_for(operation=operation)
         if event.skip_warning is SchemathesisWarning.METHOD_NOT_ALLOWED and warnings.should_display(
             SchemathesisWarning.METHOD_NOT_ALLOWED

@@ -105,6 +105,54 @@ def test_worker_records_progress_and_keeps_full_log_with_short_report(queued, mo
     assert "Uploading approved session" in log
 
 
+def test_worker_activity_records_public_progress_and_state_changes_without_raw_stdout(queued, monkeypatch):
+    from probe.cli import desktop
+    job = _enqueue()
+    folder = Path(job["log_path"]).parent
+    initial = jobs.get_job(job["id"])["activity"]
+    jobs._update(folder, progress={"message": "Uploading", "completed": 1})
+    first = jobs.get_job(job["id"])["activity"]
+    assert len(first) == len(initial) + 1
+    jobs._update(folder, progress={"message": "Uploading", "completed": 2})
+    assert jobs.get_job(job["id"])["activity"] == first
+    jobs._update(folder, state=jobs.State.RUNNING)
+    assert len(jobs._read(folder)["activity"]) == len(first) + 1
+    # Return queued ownership so the real worker can claim this stub job.
+    jobs._update(folder, state=jobs.State.QUEUED)
+    def execute(kind, payload, progress):
+        print("RAW-TRANSCRIPT-OUTPUT-MUST-STAY-LOCAL")
+        progress("Approved upload is progressing", completed=1, total=2)
+        return ["One session received"]
+    monkeypatch.setattr(jobs, "_dispatch", execute)
+    assert jobs.run_worker(job["id"]) == 0
+    saved = jobs.get_job(job["id"])
+    shown = desktop._public_job(saved)
+    assert any("Approved upload is progressing" in line for line in shown["activity"])
+    assert shown["activity"][-1].endswith("succeeded: Import finished.")
+    assert "RAW-TRANSCRIPT" in Path(saved["log_path"]).read_text()
+    assert "RAW-TRANSCRIPT" not in json.dumps(shown)
+    assert shown["report"] == ["One session received"]
+
+
+def test_worker_activity_bounds_are_durable_and_redact_progress(queued):
+    from probe.cli import desktop
+    job = _enqueue()
+    folder = Path(job["log_path"]).parent
+    for index in range(205):
+        jobs._update(folder, progress={"message": f"Approved upload {index}"})
+    saved = jobs._read(folder)
+    assert len(saved["activity"]) == 200 and saved["activity_truncated"]
+    assert saved["activity"][0]["message"] == "Approved upload 5"
+    secret = "ghp_" + "A1b2C3d4E5" * 3 + "A1b2C3"
+    jobs._update(folder, progress={"message": "Progress " + secret + " " + "x" * 3000})
+    saved = jobs._read(folder)
+    assert len(saved["activity"][-1]["message"]) <= 2000
+    shown = desktop._public_job(saved)
+    assert secret not in json.dumps(shown["activity"])
+    assert len(shown["activity"]) == 200 and shown["activityTruncated"]
+    assert all(len(line) <= 2000 for line in shown["activity"])
+
+
 def test_connection_retry_keeps_approval_owner_and_caps_backoff(queued, monkeypatch):
     job = _enqueue()
     folder = Path(job["log_path"]).parent

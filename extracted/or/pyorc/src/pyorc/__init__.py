@@ -19,7 +19,7 @@ from .reader import Column, Reader, Stripe
 from .typedescription import *
 from .writer import Writer
 
-__version__ = "0.11.0"
+__version__ = "0.12.0"
 
 orc_version = _orc_version()
 protobuf_version = _protobuf_version()
@@ -36,9 +36,9 @@ ProtobufVersionInfo = NamedTuple(
 
 
 def __extract_version_info() -> ORCVersionInfo:
-    splitted = _orc_version().split("-")
-    ver = splitted[0]
-    rel_level = splitted[1] if len(splitted) > 1 else ""
+    parts = _orc_version().split("-")
+    ver = parts[0]
+    rel_level = parts[1] if len(parts) > 1 else ""
     major, minor, patch = map(int, ver.split("."))
     return ORCVersionInfo(major, minor, patch, rel_level)
 

@@ -1,0 +1,1 @@
+import"./rolldown-runtime-CM1DJQSe.js";import{E as e}from"./vendor-vueuse-C6_JFg54.js";function useImageQuiet(t,n){return e(t,{...n,onError:()=>{}})}export{useImageQuiet as t};

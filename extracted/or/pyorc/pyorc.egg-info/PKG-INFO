@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyorc
-Version: 0.11.0
+Version: 0.12.0
 Summary: Python module for reading and writing Apache ORC file format.
 Author-email: noirello <noirello@gmail.com>
 License-Expression: Apache-2.0
@@ -14,24 +14,23 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Programming Language :: C++
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: <4.0,>=3.6
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: <4.0,>=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: tzdata>=2020.5; sys_platform == "win32"
-Requires-Dist: backports.zoneinfo>=0.2.1; python_version < "3.9"
 Dynamic: license-file
 
 PyORC
 =====
 
-.. image:: https://dev.azure.com/noirello/pyorc/_apis/build/status/noirello.pyorc?branchName=master
-    :target: https://dev.azure.com/noirello/pyorc/_build?definitionId=1
-    :alt: Azure Pipelines Status
+.. image:: https://github.com/noirello/pyorc/actions/workflows/ci.yml/badge.svg?branch=master
+    :target: https://github.com/noirello/pyorc/actions/workflows/ci.yml
+    :alt: GitHub Actions CI Status
 
 .. image:: https://codecov.io/gh/noirello/pyorc/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/noirello/pyorc
@@ -44,7 +43,7 @@ PyORC
 Python module for reading and writing `Apache ORC`_ file format. It uses the Apache ORC's Core C++ API
 under the hood, and provides a similar interface as the `csv module`_ in the Python standard library.
 
-Supports only Python 3.10 or newer and ORC 1.7.
+Supports Python 3.11 or newer and ORC 1.8 or newer library version.
 
 Features
 --------
@@ -82,8 +81,8 @@ And another for writing one:
 Contribution
 ============
 
-Any contributions are welcome. If you would like to help in development fork
-or report issue here on Github. You can also help in improving the
+Any contributions are welcome. If you would like to help in development, fork the
+repository, or report an issue here on GitHub. You can also help in improving the
 documentation.
 
 .. _Apache ORC: https://orc.apache.org/

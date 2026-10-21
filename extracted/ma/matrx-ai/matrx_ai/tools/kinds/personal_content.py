@@ -35,6 +35,9 @@ class NoteToolResult(KindModel):
     id: str | None = None
     label: str | None = None
     home: str | None = None
+    # Old note receipts used folder_name. Keep it readable at the published
+    # kind boundary while current writers emit home instead.
+    folder_name: str | None = None
     content: str | None = None
     tags: list[str] | None = None
     # Pre-T-13 note receipts use this retiring projection.  Preserve it at the

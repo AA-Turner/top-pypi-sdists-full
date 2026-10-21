@@ -58,18 +58,8 @@ def _read(p: Path) -> str:
         raise BoostError("cannot read %s: %s" % (_tilde(p), e)) from e
 
 
-def _for_tap(entry, qualifier):
-    """``entry`` unless a ``tap:`` qualifier was given that it does not satisfy.
-
-    A qualifier has to be honored against the *installed* record, not only the
-    catalog: with one skill installed from tap A and asked about via
-    ``tap-b:skill``, tap A's lock entry is the wrong answer, and reporting it
-    would describe another tap's install as this one's.
-    """
-    if entry and qualifier and not catalog.tap_matches(
-            str(entry.get("tap") or ""), qualifier):
-        return None
-    return entry
+# Moved to core so the MCP tools resolve a `tap:name` exactly as these do.
+_for_tap = catalog.for_tap
 
 
 def _resolve_skill_md(name: str):
@@ -82,16 +72,18 @@ def _resolve_skill_md(name: str):
 
     Returns (path, lock_entry_or_None, catalog_entry_or_None).
     """
-    qualifier, bare = catalog.split_name(name)
-    lock = _for_tap(lockfile.get_skill(bare), qualifier)
-    if lock:
+    # User scope first, then a `--local` install in the current project:
+    # the copy `boost list` shows is the one served, edits included, and it
+    # stays readable after its tap is gone.
+    row = integrity.resolve_skill(name)
+    lock = row.entry if row is not None else None
+    if row is not None:
         # The single place skill content is served from — so it is the single
         # place to refuse serving a tree that has drifted from its locked digest
         # (a no-op unless enforcement is switched on).
-        integrity.enforce(bare, lock)
-        p = store.skill_store_dir(bare) / "SKILL.md"
-        if p.exists():
-            return p, lock, None
+        integrity.enforce_row(row)
+        if row.dir is not None and (row.dir / "SKILL.md").exists():
+            return row.dir / "SKILL.md", lock, None
     entry = catalog.resolve_one(name)
     return registry.get(entry["tap"]).path / entry["skill_md"], lock, entry
 
@@ -190,7 +182,7 @@ def _resolve_text(name: str):
 
 def _as_list(v) -> list:
     """Normalize a frontmatter value to a list of non-empty strings."""
-    if v in (None, "", False):
+    if v in (None, "", False) or isinstance(v, dict):
         return []
     if isinstance(v, list):
         return [str(x).strip() for x in v if str(x).strip()]
@@ -542,8 +534,13 @@ def cmd_info(argv):
     if lock:
         matches = catalog.find(args.name)
         same_tap = [e for e in matches if e["tap"] == lock.get("tap")]
-        candidates = same_tap or matches
-        cat = candidates[0] if candidates else None
+        # Describe the copy that is installed: a tap can ship one name twice,
+        # and `same_tap[0]` showed the other copy's description beside this
+        # one's `source`.
+        if same_tap:
+            cat, _ = catalog.select_lock_source(same_tap, lock)
+        else:
+            cat = matches[0] if matches else None
     else:
         cat = catalog.resolve_one(args.name)   # raises if unknown anywhere
     # `lock`/`plock` only ever hold a *skill* lock entry (they read the
@@ -771,6 +768,9 @@ def cmd_edit(argv):
     # installed tap rather than rejecting the string as an invalid skill name.
     name, kind, lock = store.resolve_lock_entry(args.name)
     if lock is None:
+        # A project skill is one real copy per agent dir: editing one would
+        # leave the others serving the old text, so say which scope it is in.
+        integrity.refuse_project_only(args.name, "boost edit")
         raise BoostError("%s is not installed" % args.name,
                         hint="install it first, or `boost cat %s` to read the tap copy"
                         % args.name)
@@ -1101,15 +1101,23 @@ def cmd_log(argv):
         else:
             entry = catalog.resolve_one(args.name)
             tap_name, rel = entry["tap"], entry["rel_dir"]
-        try:
-            tap = registry.get(tap_name)
-        except BoostError:
+        if tap_name == "local":
             if args.as_json:
                 print(json.dumps({"kind": "history", "name": bare,
                                   "tap": None, "commits": []}, indent=2))
                 return 0
             out.info("no upstream history (imported locally)")
             return 0
+        # Only `local` is an import. Any other failure here is a recorded tap
+        # that has since been untapped, and calling that a local import hid
+        # the one fact the user needs (`changelog` already says it).
+        try:
+            tap = registry.get(tap_name)
+        except BoostError:
+            raise BoostError(
+                "%s comes from tap %s, which is no longer tapped"
+                % (bare, tap_name),
+                hint="re-tap it with `boost tap`, or see `boost taps`") from None
         if not tap.is_cloned:
             raise BoostError("tap %s is not cloned" % tap.name,
                             hint="run `boost update %s`" % tap.name)
@@ -1397,6 +1405,9 @@ def cmd_tag(argv):
     # installed tap rather than rejecting the string as an invalid skill name.
     name, kind, entry = store.resolve_lock_entry(args.name)
     if entry is None:
+        # Tags are a personal label in the user lock; the project lock is a
+        # committed file every teammate shares, so it carries none.
+        integrity.refuse_project_only(args.name, "boost tag")
         raise BoostError("%s is not installed" % args.name,
                         hint="see what is with `boost list`")
     if kind != "skill":

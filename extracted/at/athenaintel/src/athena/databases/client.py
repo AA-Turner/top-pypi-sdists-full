@@ -4,12 +4,14 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.database_compute_settings_response_out import DatabaseComputeSettingsResponseOut
 from ..types.database_data_response import DatabaseDataResponse
 from ..types.database_mutation_response import DatabaseMutationResponse
 from ..types.database_sql_response import DatabaseSqlResponse
 from ..types.database_status_response import DatabaseStatusResponse
 from ..types.database_table_schema_response import DatabaseTableSchemaResponse
 from ..types.database_tables_response import DatabaseTablesResponse
+from ..types.database_wake_response_out import DatabaseWakeResponseOut
 from ..types.delete_data_request import DeleteDataRequest
 from .raw_client import AsyncRawDatabasesClient, RawDatabasesClient
 from .types.insert_data_request_data import InsertDataRequestData
@@ -41,10 +43,13 @@ class DatabasesClient:
 
         **Status Values:**
         - `running` - Database is active and accepting connections
-        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
-        - `starting` - Database is waking up
-        - `failed` - Database failed to start
-        - `unknown` - Status could not be determined
+        - `suspended` - Database is suspended (scale-to-zero). It wakes on `POST /databases/{asset_id}/wake` or on the first SQL request. When `reason` is `ComputeUnschedulable`, no node could host its compute size: waking it only restarts the same wait
+        - `starting` - Database is waking up, or its compute is being recreated
+        - `creating` - Database is being created; it has no compute yet
+        - `failed` - Database failed to start, or its creation failed (`message` says which)
+        - `unknown` - Status could not be determined (the control plane did not answer); retry
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
 
         Parameters
         ----------
@@ -415,6 +420,82 @@ class DatabasesClient:
         _response = self._raw_client.get_table_schema(asset_id, table_name, request_options=request_options)
         return _response.data
 
+    def get_settings(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseComputeSettingsResponseOut:
+        """
+        Read the database's auto-suspend window, the same setting as auto-suspend in the database's Settings in Athena. Reading never wakes the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseComputeSettingsResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.databases.get_settings(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.get_settings(asset_id, request_options=request_options)
+        return _response.data
+
+    def update_settings(
+        self, asset_id: str, *, suspend_timeout_seconds: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseComputeSettingsResponseOut:
+        """
+        Set the database's auto-suspend window: 0 keeps the database running (it never suspends, and keeps using compute capacity), otherwise 60 to 86400 seconds. The same setting, values and edit-access rule as auto-suspend in the database's Settings in Athena; the change applies at once and does not restart or wake the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        suspend_timeout_seconds : int
+            Seconds without activity after which the database suspends (scales to zero). 0 means it never suspends: the compute keeps running, and keeps using capacity, until you change this. Otherwise 60 to 86400 (24 hours). A new database starts with 1800 (30 minutes). The same setting as auto-suspend in the database's Settings in Athena.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseComputeSettingsResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.databases.update_settings(
+            asset_id="asset_id",
+            suspend_timeout_seconds=3600,
+        )
+        """
+        _response = self._raw_client.update_settings(
+            asset_id, suspend_timeout_seconds=suspend_timeout_seconds, request_options=request_options
+        )
+        return _response.data
+
     def execute_sql(
         self, asset_id: str, *, sql: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DatabaseSqlResponse:
@@ -452,6 +533,41 @@ class DatabasesClient:
         _response = self._raw_client.execute_sql(asset_id, sql=sql, request_options=request_options)
         return _response.data
 
+    def wake(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseWakeResponseOut:
+        """
+        Start a suspended database's compute and answer at once, without waiting for it to run. Poll `GET /databases/{asset_id}/compute-status` until it reports `running`. Waking a running database resets its idle clock and answers 200 with `running`, so it is safe to call before every batch of work. The same action as Resume Database in Athena; it needs edit access to the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseWakeResponseOut
+            The database was already running (idle clock reset)
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.databases.wake(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.wake(asset_id, request_options=request_options)
+        return _response.data
+
 
 class AsyncDatabasesClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -476,10 +592,13 @@ class AsyncDatabasesClient:
 
         **Status Values:**
         - `running` - Database is active and accepting connections
-        - `suspended` - Database is suspended (scale-to-zero), will auto-resume on first query
-        - `starting` - Database is waking up
-        - `failed` - Database failed to start
-        - `unknown` - Status could not be determined
+        - `suspended` - Database is suspended (scale-to-zero). It wakes on `POST /databases/{asset_id}/wake` or on the first SQL request. When `reason` is `ComputeUnschedulable`, no node could host its compute size: waking it only restarts the same wait
+        - `starting` - Database is waking up, or its compute is being recreated
+        - `creating` - Database is being created; it has no compute yet
+        - `failed` - Database failed to start, or its creation failed (`message` says which)
+        - `unknown` - Status could not be determined (the control plane did not answer); retry
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
 
         Parameters
         ----------
@@ -906,6 +1025,98 @@ class AsyncDatabasesClient:
         _response = await self._raw_client.get_table_schema(asset_id, table_name, request_options=request_options)
         return _response.data
 
+    async def get_settings(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseComputeSettingsResponseOut:
+        """
+        Read the database's auto-suspend window, the same setting as auto-suspend in the database's Settings in Athena. Reading never wakes the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseComputeSettingsResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.databases.get_settings(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_settings(asset_id, request_options=request_options)
+        return _response.data
+
+    async def update_settings(
+        self, asset_id: str, *, suspend_timeout_seconds: int, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseComputeSettingsResponseOut:
+        """
+        Set the database's auto-suspend window: 0 keeps the database running (it never suspends, and keeps using compute capacity), otherwise 60 to 86400 seconds. The same setting, values and edit-access rule as auto-suspend in the database's Settings in Athena; the change applies at once and does not restart or wake the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        suspend_timeout_seconds : int
+            Seconds without activity after which the database suspends (scales to zero). 0 means it never suspends: the compute keeps running, and keeps using capacity, until you change this. Otherwise 60 to 86400 (24 hours). A new database starts with 1800 (30 minutes). The same setting as auto-suspend in the database's Settings in Athena.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseComputeSettingsResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.databases.update_settings(
+                asset_id="asset_id",
+                suspend_timeout_seconds=3600,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update_settings(
+            asset_id, suspend_timeout_seconds=suspend_timeout_seconds, request_options=request_options
+        )
+        return _response.data
+
     async def execute_sql(
         self, asset_id: str, *, sql: str, request_options: typing.Optional[RequestOptions] = None
     ) -> DatabaseSqlResponse:
@@ -949,4 +1160,47 @@ class AsyncDatabasesClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.execute_sql(asset_id, sql=sql, request_options=request_options)
+        return _response.data
+
+    async def wake(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> DatabaseWakeResponseOut:
+        """
+        Start a suspended database's compute and answer at once, without waiting for it to run. Poll `GET /databases/{asset_id}/compute-status` until it reports `running`. Waking a running database resets its idle clock and answers 200 with `running`, so it is safe to call before every batch of work. The same action as Resume Database in Athena; it needs edit access to the database.
+
+        A database suspends (scales to zero) after `suspend_timeout_seconds` without activity; `GET`/`PATCH /databases/{asset_id}/settings` read and set that window, and 0 keeps it running. Reading the compute status or the settings never wakes a suspended database. Two things do: `POST /databases/{asset_id}/wake`, which answers at once while the compute starts, or any request that runs SQL on it, such as `POST /databases/{asset_id}/sql`, which waits for the compute up to 120 seconds; if the compute is still starting then, the answer is 503 with `Retry-After` and the statement did not run. A cold start usually takes 30 seconds to 2 minutes.
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DatabaseWakeResponseOut
+            The database was already running (idle clock reset)
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.databases.wake(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.wake(asset_id, request_options=request_options)
         return _response.data

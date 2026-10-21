@@ -28,6 +28,7 @@ from .common import _AssembleDatasetParameters
 from .common import _AssessDatasetParameters
 from .common import _CancelQueryJobRuntimeRequestParameters
 from .common import _CheckQueryJobRuntimeRequestParameters
+from .common import _CreateBatchPredictionJobParameters
 from .common import _CreateDatasetParameters
 from .common import _CreateDatasetVersionParameters
 from .common import _CreateEvaluationExperimentParameters
@@ -80,6 +81,7 @@ from .common import _GenerateInstanceRubricsRequest
 from .common import _GenerateLossClustersParameters
 from .common import _GenerateMemoriesRequestParameters
 from .common import _GenerateUserScenariosParameters
+from .common import _GetBatchPredictionJobParameters
 from .common import _GetCorpusOperationParameters
 from .common import _GetCustomJobParameters
 from .common import _GetCustomJobParameters
@@ -183,6 +185,7 @@ from .common import _SearchExamplesParameters
 from .common import _UndeployModelRequestParameters
 from .common import _UpdateDatasetParameters
 from .common import _UpdateEvaluationExperimentParameters
+from .common import _UpdateMemoryBankRequestParameters
 from .common import _UpdateMemoryRequestParameters
 from .common import _UpdateMultimodalDatasetParameters
 from .common import _UpdateRagConfigRequestParameters
@@ -246,6 +249,12 @@ from .common import AutomaticResourcesOrDict
 from .common import AutoscalingMetricSpec
 from .common import AutoscalingMetricSpecDict
 from .common import AutoscalingMetricSpecOrDict
+from .common import BatchDedicatedResources
+from .common import BatchDedicatedResourcesDict
+from .common import BatchDedicatedResourcesOrDict
+from .common import BatchPredictConfig
+from .common import BatchPredictConfigDict
+from .common import BatchPredictConfigOrDict
 from .common import BatchPredictionResourceUsageAssessmentConfig
 from .common import BatchPredictionResourceUsageAssessmentConfigDict
 from .common import BatchPredictionResourceUsageAssessmentConfigOrDict
@@ -328,6 +337,9 @@ from .common import CorpusOperationOrDict
 from .common import CorpusStatus
 from .common import CorpusStatusDict
 from .common import CorpusStatusOrDict
+from .common import CreateBatchPredictionJobConfig
+from .common import CreateBatchPredictionJobConfigDict
+from .common import CreateBatchPredictionJobConfigOrDict
 from .common import CreateDatasetConfig
 from .common import CreateDatasetConfigDict
 from .common import CreateDatasetConfigOrDict
@@ -537,6 +549,9 @@ from .common import DeleteSkillOperationOrDict
 from .common import DeployConfig
 from .common import DeployConfigDict
 from .common import DeployConfigOrDict
+from .common import DeployCustomModelConfig
+from .common import DeployCustomModelConfigDict
+from .common import DeployCustomModelConfigOrDict
 from .common import DeployedModel
 from .common import DeployedModelDict
 from .common import DeployedModelOrDict
@@ -866,6 +881,9 @@ from .common import GenerateUserScenariosConfigOrDict
 from .common import GenerateUserScenariosResponse
 from .common import GenerateUserScenariosResponseDict
 from .common import GenerateUserScenariosResponseOrDict
+from .common import GetBatchPredictionJobConfig
+from .common import GetBatchPredictionJobConfigDict
+from .common import GetBatchPredictionJobConfigOrDict
 from .common import GetCorpusOperationConfig
 from .common import GetCorpusOperationConfigDict
 from .common import GetCorpusOperationConfigOrDict
@@ -1366,6 +1384,18 @@ from .common import Modality
 from .common import ModelContainerSpec
 from .common import ModelContainerSpecDict
 from .common import ModelContainerSpecOrDict
+from .common import ModelGardenBatchJobDestination
+from .common import ModelGardenBatchJobDestinationDict
+from .common import ModelGardenBatchJobDestinationOrDict
+from .common import ModelGardenBatchJobSource
+from .common import ModelGardenBatchJobSourceDict
+from .common import ModelGardenBatchJobSourceOrDict
+from .common import ModelGardenBatchPredictionJob
+from .common import ModelGardenBatchPredictionJobDict
+from .common import ModelGardenBatchPredictionJobOrDict
+from .common import ModelGardenBatchPredictionOutputInfo
+from .common import ModelGardenBatchPredictionOutputInfoDict
+from .common import ModelGardenBatchPredictionOutputInfoOrDict
 from .common import ModelProvider
 from .common import MultimodalDataset
 from .common import MultimodalDatasetDict
@@ -2030,6 +2060,9 @@ from .common import SchemaPromptSpecAppBuilderDataLinkedResource
 from .common import SchemaPromptSpecAppBuilderDataLinkedResourceDict
 from .common import SchemaPromptSpecAppBuilderDataLinkedResourceOrDict
 from .common import SchemaPromptSpecAppBuilderDataOrDict
+from .common import SchemaPromptSpecContentMetadata
+from .common import SchemaPromptSpecContentMetadataDict
+from .common import SchemaPromptSpecContentMetadataOrDict
 from .common import SchemaPromptSpecInteractionData
 from .common import SchemaPromptSpecInteractionDataDict
 from .common import SchemaPromptSpecInteractionDataOrDict
@@ -2265,6 +2298,9 @@ from .common import UnifiedMetricOrDict
 from .common import UpdateEvaluationExperimentConfig
 from .common import UpdateEvaluationExperimentConfigDict
 from .common import UpdateEvaluationExperimentConfigOrDict
+from .common import UpdateMemoryBankConfig
+from .common import UpdateMemoryBankConfigDict
+from .common import UpdateMemoryBankConfigOrDict
 from .common import UpdateMemoryConfig
 from .common import UpdateMemoryConfigDict
 from .common import UpdateMemoryConfigOrDict
@@ -3024,6 +3060,9 @@ __all__ = [
     "MemoryBankOperation",
     "MemoryBankOperationDict",
     "MemoryBankOperationOrDict",
+    "UpdateMemoryBankConfig",
+    "UpdateMemoryBankConfigDict",
+    "UpdateMemoryBankConfigOrDict",
     "DeleteMemoryBankConfig",
     "DeleteMemoryBankConfigDict",
     "DeleteMemoryBankConfigOrDict",
@@ -3699,6 +3738,9 @@ __all__ = [
     "SchemaPromptSpecInteractionData",
     "SchemaPromptSpecInteractionDataDict",
     "SchemaPromptSpecInteractionDataOrDict",
+    "SchemaPromptSpecContentMetadata",
+    "SchemaPromptSpecContentMetadataDict",
+    "SchemaPromptSpecContentMetadataOrDict",
     "SchemaPromptSpecStructuredPrompt",
     "SchemaPromptSpecStructuredPromptDict",
     "SchemaPromptSpecStructuredPromptOrDict",
@@ -3972,6 +4014,27 @@ __all__ = [
     "GetDeployOperationConfig",
     "GetDeployOperationConfigDict",
     "GetDeployOperationConfigOrDict",
+    "ModelGardenBatchJobSource",
+    "ModelGardenBatchJobSourceDict",
+    "ModelGardenBatchJobSourceOrDict",
+    "ModelGardenBatchJobDestination",
+    "ModelGardenBatchJobDestinationDict",
+    "ModelGardenBatchJobDestinationOrDict",
+    "BatchDedicatedResources",
+    "BatchDedicatedResourcesDict",
+    "BatchDedicatedResourcesOrDict",
+    "CreateBatchPredictionJobConfig",
+    "CreateBatchPredictionJobConfigDict",
+    "CreateBatchPredictionJobConfigOrDict",
+    "ModelGardenBatchPredictionOutputInfo",
+    "ModelGardenBatchPredictionOutputInfoDict",
+    "ModelGardenBatchPredictionOutputInfoOrDict",
+    "ModelGardenBatchPredictionJob",
+    "ModelGardenBatchPredictionJobDict",
+    "ModelGardenBatchPredictionJobOrDict",
+    "GetBatchPredictionJobConfig",
+    "GetBatchPredictionJobConfigDict",
+    "GetBatchPredictionJobConfigOrDict",
     "CreateRuntimeFeedbackEntryConfig",
     "CreateRuntimeFeedbackEntryConfigDict",
     "CreateRuntimeFeedbackEntryConfigOrDict",
@@ -4353,6 +4416,12 @@ __all__ = [
     "DeployPublisherModelConfig",
     "DeployPublisherModelConfigDict",
     "DeployPublisherModelConfigOrDict",
+    "DeployCustomModelConfig",
+    "DeployCustomModelConfigDict",
+    "DeployCustomModelConfigOrDict",
+    "BatchPredictConfig",
+    "BatchPredictConfigDict",
+    "BatchPredictConfigOrDict",
     "DeployOption",
     "DeployOptionDict",
     "DeployOptionOrDict",
@@ -4493,6 +4562,7 @@ __all__ = [
     "_GetDeleteRuntimeRevisionOperationParameters",
     "_QueryRuntimeRevisionRequestParameters",
     "_CreateMemoryBankRequestParameters",
+    "_UpdateMemoryBankRequestParameters",
     "_DeleteMemoryBankRequestParameters",
     "_GetMemoryBankRequestParameters",
     "_IngestEventsRequestParameters",
@@ -4593,6 +4663,8 @@ __all__ = [
     "_GetExportPublisherModelOperationParameters",
     "_DeployRequestParameters",
     "_GetDeployOperationParameters",
+    "_CreateBatchPredictionJobParameters",
+    "_GetBatchPredictionJobParameters",
     "_CreateRuntimeFeedbackEntryRequestParameters",
     "_DeleteRuntimeFeedbackEntryRequestParameters",
     "_GetRuntimeFeedbackRequestParameters",

@@ -33,6 +33,7 @@ class RawSheetsClient:
         column: int,
         row: int,
         value: str,
+        formatting: typing.Optional[CellFormat] = OMIT,
         sheet_id: typing.Optional[int] = OMIT,
         treat_as_text: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -54,6 +55,9 @@ class RawSheetsClient:
         value : str
             Value to set in the cell
 
+        formatting : typing.Optional[CellFormat]
+            Optional cell format (textFormat, backgroundColor, numberFormat, alignment, borders) applied in the same write as the value, like `formatting` on range/update.
+
         sheet_id : typing.Optional[int]
             Sheet ID (defaults to 1)
 
@@ -74,6 +78,9 @@ class RawSheetsClient:
             json={
                 "asset_id": asset_id,
                 "column": column,
+                "formatting": convert_and_respect_annotation_metadata(
+                    object_=formatting, annotation=typing.Optional[CellFormat], direction="write"
+                ),
                 "row": row,
                 "sheet_id": sheet_id,
                 "treat_as_text": treat_as_text,
@@ -1404,6 +1411,7 @@ class AsyncRawSheetsClient:
         column: int,
         row: int,
         value: str,
+        formatting: typing.Optional[CellFormat] = OMIT,
         sheet_id: typing.Optional[int] = OMIT,
         treat_as_text: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1425,6 +1433,9 @@ class AsyncRawSheetsClient:
         value : str
             Value to set in the cell
 
+        formatting : typing.Optional[CellFormat]
+            Optional cell format (textFormat, backgroundColor, numberFormat, alignment, borders) applied in the same write as the value, like `formatting` on range/update.
+
         sheet_id : typing.Optional[int]
             Sheet ID (defaults to 1)
 
@@ -1445,6 +1456,9 @@ class AsyncRawSheetsClient:
             json={
                 "asset_id": asset_id,
                 "column": column,
+                "formatting": convert_and_respect_annotation_metadata(
+                    object_=formatting, annotation=typing.Optional[CellFormat], direction="write"
+                ),
                 "row": row,
                 "sheet_id": sheet_id,
                 "treat_as_text": treat_as_text,

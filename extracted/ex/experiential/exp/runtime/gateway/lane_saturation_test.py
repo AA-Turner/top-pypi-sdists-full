@@ -10,9 +10,9 @@ from exp.common.models.gateway_catalog import ExactModelDeployment
 from exp.runtime.gateway.contracts import (
     AuthorizationSnapshot,
     DirectTarget,
-    ExecutionSnapshot,
     GatewayApiSurface,
 )
+from exp.runtime.gateway.execution_snapshot import ExecutionSnapshot
 from exp.runtime.gateway.lane_saturation import (
     DEFAULT_BOUND_OVERFLOW_FACTORS,
     DEFAULT_LANE_SHARE,
@@ -132,6 +132,13 @@ def test_overflow_target_keeps_the_historical_overflow_for_an_authored_bound() -
     )
     sheds = {0: RungShed("queue_bound"), 1: RungShed("queue_bound")}
     assert overflow_target(route, [(0, "queue_bound"), (1, "queue_bound")], sheds) == 0
+
+
+def test_overflow_target_never_forces_a_hard_shed_for_a_free_caller() -> None:
+    """A class cap or the :fast split sheds a forced retry too, so it is refused."""
+    route = _route(_deployment("a", GatewayRungDispatchPolicy(concurrency_bound=2)))
+    sheds = {0: RungShed("queue_bound", overflow_ceiling=True)}
+    assert overflow_target(route, [(0, "queue_bound")], sheds) is None
 
 
 def test_overflow_target_refuses_when_the_first_shed_rung_authors_refuse() -> None:

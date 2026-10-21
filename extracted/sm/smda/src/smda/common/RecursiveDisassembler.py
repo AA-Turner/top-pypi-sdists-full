@@ -40,6 +40,8 @@ class RecursiveDisassembler:
     injected :class:`~smda.common.arch.ArchBackend.ArchBackend`.
     """
 
+    decode_window_size = None
+
     def __init__(self, config, backend, forced_bitness=None):
         self.config = config
         self.backend = backend
@@ -161,6 +163,13 @@ class RecursiveDisassembler:
         return 0xFFFFFFFF
 
     def getReferencedAddr(self, op_str):
+        if "0x" not in op_str:
+            return 0
+        if op_str.startswith("0x"):
+            try:
+                return int(op_str, 16)
+            except ValueError:
+                pass
         # preserve a leading sign so that negative displacements (e.g. "qword ptr [rip - 0x20]")
         # resolve to the correct address instead of being treated as positive
         referenced_addr = _REFERENCED_ADDR_RE.search(op_str)
@@ -191,14 +200,15 @@ class RecursiveDisassembler:
     def _updateApiInformation(self, from_addr, to_addr, dll, api):
         self.disassembly.addApiReference(to_addr, from_addr, dll, api)
 
-    def _getDisasmWindowBuffer(self, addr):
+    def _getDisasmWindowBuffer(self, addr, size=None):
         binary_info = self.disassembly.binary_info
         if binary_info is None:
             return b""
         relative_start = addr - binary_info.base_addr
         if relative_start < 0 or relative_start >= len(binary_info.binary):
             return b""
-        relative_end = relative_start + self.backend.max_instruction_size
+        window_size = self.backend.max_instruction_size if size is None else size
+        relative_end = relative_start + window_size
         return binary_info.binary[relative_start:relative_end]
 
     def _revertGapFunction(self, colliding_addr, current_start_addr):
@@ -338,6 +348,9 @@ class RecursiveDisassembler:
                 f"inside the declared range of function 0x{declared_owner:08x}",
             )
             return state
+        # in capstone, disassembly is more expensive than calling the function, so we decode a window of several
+        # instructions per call. disasm_lite() also provides faster disassembly than disasm(), so we work with tuples.
+        decode_window_size = self.decode_window_size or self.backend.max_instruction_size * 2
         blocks_processed = 0
         reverted_gap_functions = []
         while state.hasUnprocessedBlocks():
@@ -353,9 +366,10 @@ class RecursiveDisassembler:
             state.chooseNextBlock()
             if debug_logging:
                 LOGGER.debug("  analyzeFunction() now processing block @0x%08x", state.block_start)
-            # in capstone, disassembly is more expensive than calling the function, so we use the maximum instruction
-            # size as look-ahead. disasm_lite() also provides faster disassembly than disasm(), so we work with tuples.
-            cache = self.capstone.disasm_lite(self._getDisasmWindowBuffer(state.block_start), state.block_start)
+            cache = self.capstone.disasm_lite(
+                self._getDisasmWindowBuffer(state.block_start, size=decode_window_size),
+                state.block_start,
+            )
             cache_pos = 0
             previous_i = None
             # per-instruction locals: the maps are only ever mutated in place during
@@ -364,6 +378,7 @@ class RecursiveDisassembler:
             data_map = self.disassembly.data_map
             ins2fn = self.disassembly.ins2fn
             raw_binary = binary_info.binary
+            base_addr = binary_info.base_addr
             analyze_instruction = self.backend.analyzeInstruction
             add_instruction = state.addInstruction
             processed_bytes = state.processed_bytes
@@ -382,7 +397,7 @@ class RecursiveDisassembler:
                         break
 
                     i_op_str = i_op_str.strip()
-                    i_relative_address = i_address - binary_info.base_addr
+                    i_relative_address = i_address - base_addr
                     i_bytes = raw_binary[i_relative_address : i_relative_address + i_size]
                     if debug_logging:
                         LOGGER.debug(
@@ -451,7 +466,7 @@ class RecursiveDisassembler:
                 else:
                     # if the inner loop did not break, we need to refill the cache in order to finish the block-analysis
                     cache = self.capstone.disasm_lite(
-                        self._getDisasmWindowBuffer(state.block_start + cache_pos),
+                        self._getDisasmWindowBuffer(state.block_start + cache_pos, size=decode_window_size),
                         state.block_start + cache_pos,
                     )
                     # a generator is always truthy, so emptiness has to be probed by consuming

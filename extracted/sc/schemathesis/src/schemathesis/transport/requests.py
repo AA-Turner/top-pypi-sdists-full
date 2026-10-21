@@ -8,7 +8,7 @@ import time
 from collections.abc import Iterator, Mapping, MutableMapping
 from http.client import RemoteDisconnected
 from io import BytesIO
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode, urljoin, urlparse
 
 import requests
@@ -19,7 +19,7 @@ from urllib3.filepost import encode_multipart_formdata
 
 from schemathesis.core import Body, NotSet, media_types
 from schemathesis.core.errors import IncorrectUsage, SerializationNotPossible
-from schemathesis.core.jsonschema import maybe_resolve_bundled, schema_with_bundle
+from schemathesis.core.jsonschema import resolve_with_root_bundle
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, RawQueryString, split_delimited_query
 from schemathesis.core.rate_limit import ratelimit
 from schemathesis.core.transforms import merge_at, to_wire_text
@@ -130,13 +130,13 @@ class RequestsTransport(BaseTransport["requests.Session"]):
         if not isinstance(case.body, NotSet) and media_type is not None:
             media_type, serializer = self._resolve_serializer(media_type)
             # The multipart encoder picks the boundary; a header naming the bare media type leaves the body unparsable.
-            if media_type.startswith("multipart/") and final_headers.get("Content-Type") == case.media_type:
+            if media_types.is_multipart(media_type) and final_headers.get("Content-Type") == case.media_type:
                 del final_headers["Content-Type"]
 
-        # Set content type header if needed
+        # Set content type header if needed. Multipart headers come from the encoder, which picks the boundary.
         if (
             media_type
-            and media_type != "multipart/form-data"
+            and not media_types.is_multipart(media_type)
             and not isinstance(case.body, NotSet)
             and "content-type" not in final_headers
         ):
@@ -471,15 +471,11 @@ def _encode_multipart(value: Any, boundary: str) -> bytes:
     return body.getvalue()
 
 
-def _resolve_property(schema: dict[str, Any], root_schema: dict[str, Any]) -> dict[str, Any]:
-    return maybe_resolve_bundled(cast("dict[str, Any]", schema_with_bundle(schema, root_schema)))
-
-
 def _is_structured_schema(schema: dict[str, Any], root_schema: dict[str, Any]) -> bool:
     # An array part takes the default of its items: JSON for nested structures, plain text for primitives and files.
     items = schema.get("items")
     if isinstance(items, dict) and items:
-        return _declares_structure(_resolve_property(items, root_schema))
+        return _declares_structure(resolve_with_root_bundle(items, root_schema))
     return _declares_structure(schema)
 
 
@@ -498,8 +494,7 @@ def _collect_encoded_fields(ctx: SerializationContext) -> dict[str, str]:
     selected = ctx.case.multipart_content_types or {}
     result: dict[str, str] = {}
     for body in operation.body:
-        main, sub = media_types.parse(body.media_type)
-        if main not in ("*", "multipart") or sub not in ("*", "form-data", "mixed"):
+        if not media_types.is_multipart_form_parts(media_types.parse(body.media_type)):
             continue
         for name in body.definition.get("encoding", {}):
             # Without a recorded choice, a part is sent with the first listed media type.
@@ -516,7 +511,7 @@ def _collect_encoded_fields(ctx: SerializationContext) -> dict[str, str]:
                         continue
                     # Resolve a property-level `$ref` against the body schema's bundle so
                     # a referent like `{type: string}` is left alone and `{type: object}` triggers JSON.
-                    if _is_structured_schema(_resolve_property(prop, schema_node), schema_node):
+                    if _is_structured_schema(resolve_with_root_bundle(prop, schema_node), schema_node):
                         result[name] = "application/json"
         break
     return result
@@ -537,7 +532,7 @@ def _property_schema(ctx: SerializationContext, name: str) -> dict[str, Any]:
     schema_node = body.definition.get("schema")
     properties = schema_node.get("properties", {}) if isinstance(schema_node, dict) else {}
     if isinstance(properties.get(name), dict):
-        return _resolve_property(properties[name], schema_node)
+        return resolve_with_root_bundle(properties[name], schema_node)
     return {}
 
 
@@ -597,15 +592,22 @@ def multipart_serializer(ctx: SerializationContext, value: Body) -> dict[str, An
         return {"data": value}
     if isinstance(value, dict):
         files, data = prepare_multipart_parts(ctx, value)
+        main, sub = media_types.parse(ctx.case.media_type or "multipart/form-data")
         if not files and not data:
             boundary = choose_boundary()
-            main, sub = media_types.parse(ctx.case.media_type or "multipart/form-data")
             content_type = f"{main}/{sub}; boundary={boundary}"
             return {
                 "files": None,
                 "data": f"--{boundary}--\r\n".encode("latin-1"),
                 "headers": {"Content-Type": content_type},
             }
+        if sub == "mixed":
+            # `requests` labels every encoded body `multipart/form-data`; keep the declared subtype instead.
+            prepared = requests.PreparedRequest()
+            prepared.prepare_headers(None)
+            prepared.prepare_body(data, files)
+            content_type = prepared.headers["Content-Type"].replace("multipart/form-data", "multipart/mixed", 1)
+            return {"data": prepared.body, "headers": {"Content-Type": content_type}}
         return {"files": files, "data": data}
     # Uncommon schema. For example - `{"type": "string"}`
     boundary = choose_boundary()

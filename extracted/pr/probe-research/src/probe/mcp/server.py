@@ -1675,7 +1675,7 @@ def create_server(
 
         ### CONSTRUCTED FORMS:
         - `artifact:<name>` for the shared-registry reuse check
-        - `session:<agent>/<session_id>` `agent` = claude_code|codex|pi|kimi_code|capy
+        - `session:<agent>/<session_id>` `agent` = claude_code|codex|pi|kimi_code
         - `trial:<rollout span id>` from a run's trials view
         - `dataset:`, `source:`, `checkpoint:` - forms in `refs`
 

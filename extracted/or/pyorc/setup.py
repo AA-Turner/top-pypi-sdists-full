@@ -8,7 +8,7 @@ import subprocess
 import urllib.request
 import tarfile
 import logging
-import fileinput
+import re
 
 from setuptools import setup
 
@@ -31,6 +31,7 @@ HEADERS = [
     "PyORCStream.h",
     "Reader.h",
     "SearchArgument.h",
+    "UseGuard.h",
     "Writer.h",
     "verguard.h",
 ]
@@ -38,15 +39,14 @@ HEADERS = [
 if sys.platform.startswith("win32"):
     LIBS = [
         "orc",
-        "libprotobuf",
-        "libprotoc",
+        "protobuf",
         "lz4",
-        "zstd_static",
-        "zlibstatic",
+        "zstd",
+        "zlib",
         "snappy",
     ]
 else:
-    LIBS = ["orc", "protobuf", "protoc", "lz4", "zstd", "z", "snappy", "pthread"]
+    LIBS = ["orc", "protobuf", "lz4", "zstd", "z", "snappy", "pthread"]
 
 LIBS = os.getenv("PYORC_LIBRARIES", ",".join(LIBS)).split(",")
 
@@ -84,7 +84,7 @@ class BuildExt(build_ext):
     def initialize_options(self) -> None:
         """Set default values for options."""
         super().initialize_options()
-        self.orc_version = "2.1.4"
+        self.orc_version = "2.3.1"
         self.output_dir = pathlib.Path("deps")
         self.source_url = "https://archive.apache.org/dist/orc/"
         self.download_only = False
@@ -112,22 +112,86 @@ class BuildExt(build_ext):
         tar_src.extractall(self.output_dir)
         tar_src.close()
 
-    def _patch_protobuf_version(self, version) -> None:
+    def _patch_protobuf_version(self, version, hash) -> None:
         file_path = (
             self.output_dir
             / f"orc-{self.orc_version}"
             / "cmake_modules"
             / "ThirdpartyToolchain.cmake"
         )
-        with fileinput.input(file_path, inplace=True, encoding="utf-8") as cmake_file:
-            for line in cmake_file:
-                if "set(PROTOBUF_VERSION " in line:
-                    line = f'set(PROTOBUF_VERSION "{version}")\n'
-                print(line, end="")
-        logging.info(f"Overrode protobuf version to: {version}")
+        content = file_path.read_text("utf-8")
+        # Replace protobuf version.
+        content = re.sub(
+            r'set\(PROTOBUF_VERSION "[^"]*"\)',
+            f'set(PROTOBUF_VERSION "{version}")',
+            content,
+        )
+        # Protobuf 23 and later moved the CMake entry point from the "cmake"
+        # subfolder to the repository root.
+        source_subdir = (
+            "cmake" if int(version.split(".")[0]) < 23 else "."
+        )
+        content = re.sub(
+            r'(fetchcontent_declare\(Protobuf\b.*?)\n(\s*)SOURCE_SUBDIR "[^"]*"',
+            rf'\1\n\g<2>SOURCE_SUBDIR "{source_subdir}"',
+            content,
+            count=1,
+            flags=re.DOTALL,
+        )
+        if int(version.split(".")[0]) >= 23:
+            # Protobuf 23 and later depends on Abseil, which has to be built
+            # (and vendored) along with protobuf.
+            content = content.replace(
+                "    set(protobuf_INSTALL OFF)\n",
+                "    set(protobuf_INSTALL OFF)\n"
+                "    set(protobuf_FORCE_FETCH_DEPENDENCIES ON)\n",
+            )
+        content = re.sub(
+            r"(fetchcontent_declare\(Protobuf\b.*?)\n\s*URL_HASH SHA256=\w+",
+            r"\1",
+            content,
+            count=1,
+            flags=re.DOTALL
+        )
+        # Replace protobuf hash when it's set, otherwise the entire url hash line.
+        if hash:
+            content = re.sub(
+                r"(fetchcontent_declare\(Protobuf\b.*?\n\s*URL_HASH SHA256=)\w+",
+                rf"\g<1>{hash}",
+                content,
+                count=1,
+                flags=re.DOTALL
+            )
+        else:
+            content = re.sub(
+                r"(fetchcontent_declare\(Protobuf\b.*?)\n\s*URL_HASH SHA256=\w+",
+                r"\1",
+                content,
+                count=1,
+                flags=re.DOTALL
+            )
+        # Newer protobuf creates these aliases itself, avoid clash with already
+        # defined ones.
+        content = content.replace(
+            "      add_library(protobuf::libprotobuf ALIAS libprotobuf)\n"
+            "      add_executable(protobuf::protoc ALIAS protoc)\n",
+            "      if(NOT TARGET protobuf::libprotobuf)\n"
+            "        add_library(protobuf::libprotobuf ALIAS libprotobuf)\n"
+            "      endif()\n"
+            "      if(NOT TARGET protobuf::protoc)\n"
+            "        add_executable(protobuf::protoc ALIAS protoc)\n"
+            "      endif()\n",
+        )
+        content = content.replace(
+            "        install(TARGETS libprotobuf\n"
+            "                EXPORT orc_targets\n",
+            "        install(TARGETS libprotobuf\n"
+        )
+        file_path.write_text(content, "utf-8")
+        logging.info(f"Overrode protobuf version to: {version} (hash: {hash})")
 
     @staticmethod
-    def _get_build_envs() -> dict:
+    def _get_build_envs() -> dict[str, str]:
         env = os.environ.copy()
 
         if sys.platform != "win32":
@@ -136,7 +200,7 @@ class BuildExt(build_ext):
 
         return env
 
-    def _build_with_cmake(self) -> pathlib.Path:
+    def _build_with_cmake(self) -> tuple[pathlib.Path, pathlib.Path]:
         build_type = "DEBUG" if self.debug else "RELEASE"
 
         cmake_args = [
@@ -144,67 +208,74 @@ class BuildExt(build_ext):
             "-DBUILD_JAVA=OFF",
             "-DBUILD_LIBHDFSPP=OFF",
             "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+            "-DSTOP_BUILD_ON_WARNING=OFF",
         ]
         if sys.platform == "win32":
-            cmake_args.append("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded")
+            cmake_args.append("-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
+            if self.debug:
+                cmake_args.append("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDebugDLL")
+            else:
+                cmake_args.append("-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL")
+        if os.getenv("PYORC_OVERRIDDEN_PROTOBUF_VERSION"):
+            cmake_args.append("-DCMAKE_DISABLE_FIND_PACKAGE_Protobuf=ON")
         if not self.debug or sys.platform == "win32":
             # Skip building tools and tests.
             cmake_args.append("-DBUILD_TOOLS=OFF")
             cmake_args.append("-DBUILD_CPP_TESTS=OFF")
+        if self.debug:
+            cmake_args.append("-Dprotobuf_DEBUG_POSTFIX=")
         env = self._get_build_envs()
         build_dir = self.output_dir / f"orc-{self.orc_version}" / "build"
-        if not os.path.exists(build_dir):
+        pack_dir = (build_dir / "final-package").resolve()
+        if not build_dir.exists():
             os.makedirs(build_dir)
         logging.info("Build libraries with cmake")
         cmake_cmd = ["cmake", ".."] + cmake_args
         logging.info(f"Cmake command: {cmake_cmd}")
         subprocess.check_call(cmake_cmd, cwd=build_dir, env=env)
-        if sys.platform == "win32":
-            subprocess.check_call(
-                [
-                    "cmake",
-                    "--build",
-                    ".",
-                    "--config",
-                    build_type,
-                    "--target",
-                    "PACKAGE",
-                ],
-                cwd=build_dir,
-                env=env,
-            )
-        else:
-            j_flag = f"-j{os.cpu_count() or 1}"
-            subprocess.check_call(["make", j_flag, "package"], cwd=build_dir, env=env)
-        return build_dir
+
+        logging.info("Calling cmake build")
+        subprocess.check_call(
+            ["cmake", "--build", ".", "--config", build_type,
+             "-j", str(os.cpu_count() or 1)],
+            cwd=build_dir, env=env,
+        )
+        logging.info(f"Calling cmake install with prefix: {pack_dir}")
+        subprocess.check_call(
+            ["cmake", "--install", ".", "--config", build_type,
+             "--prefix", str(pack_dir)],
+            cwd=build_dir, env=env,
+        )
+
+        return build_dir, pack_dir
 
     def _build_orc_lib(self) -> None:
         logging.info("Build ORC C++ Core library")
-        build_dir = self._build_with_cmake()
-        plat = (
-            sys.platform.title()
-            if not sys.platform.startswith("win32")
-            # Change platform title on Windows depending on arch (32/64bit)
-            else sys.platform.title().replace("32", platform.architecture()[0][:2])
-        )
-        pack_dir = (
-            build_dir
-            / "_CPack_Packages"
-            / plat
-            / "TGZ"
-            / f"ORC-{self.orc_version}-{plat}"
-        )
-        proto_src_dir = build_dir / "protobuf_ep-prefix" / "src" / "protobuf_ep" / "src"
+        build_dir, pack_dir = self._build_with_cmake()
+        proto_src_dir = build_dir / "_deps" / "protobuf-src" / "src"
+        if not proto_src_dir.exists():
+            proto_src_dir = build_dir / "protobuf_ep-prefix" / "src" / "protobuf_ep" / "src"
         logging.info(
             f"Move artifacts from '{pack_dir}' to the '{self.output_dir}' folder"
         )
         try:
             shutil.move(pack_dir / "include", self.output_dir)
-            shutil.move(proto_src_dir / "google", self.output_dir / "include")
+            if (proto_src_dir / "google").exists():
+                shutil.move(proto_src_dir / "google", self.output_dir / "include")
             lib_dir = (
-                "lib64" if os.path.exists(os.path.join(pack_dir, "lib64")) else "lib"
+                "lib64" if (pack_dir / "lib64").exists() else "lib"
             )
             shutil.move(pack_dir / lib_dir, self.output_dir / "lib")
+
+            for ven_lib in (self.output_dir / "lib").glob("*orc_vendored_*"):
+                if ven_lib.suffix in (".a", ".lib"):
+                    dst_name = ven_lib.name.replace("orc_vendored_", "", 1)
+                    ven_lib.replace(ven_lib.with_name(dst_name))
+                    logging.info(f"Renamed {ven_lib} to {dst_name}")
+
+            if self._uses_abseil():
+                self._vendor_protobuf_dependencies(build_dir)
+
             if self.debug and not sys.platform.startswith("win32"):
                 shutil.move(pack_dir / "bin", self.output_dir)
             shutil.move(
@@ -213,6 +284,76 @@ class BuildExt(build_ext):
             )
         except Exception as exc:
             logging.warning(exc)
+
+    @staticmethod
+    def _uses_abseil() -> bool:
+        version = os.getenv("PYORC_OVERRIDDEN_PROTOBUF_VERSION", "")
+        if not version:
+            return False
+        return int(version.split(".")[0]) >= 23
+
+    def _vendor_protobuf_dependencies(self, build_dir: pathlib.Path) -> None:
+        """
+        Copy the Abseil and utf8_range headers and static libraries built by
+        protobuf next to liborc, because protobuf 23 and later depend on them.
+        """
+        lib_dir = self.output_dir / "lib"
+        patterns = ("libabsl_*.*", "libutf8_*.*", "absl_*.*", "utf8_*.*")
+        copied = set[str]()
+        for pattern in patterns:
+            for lib in build_dir.rglob(pattern):
+                if lib.suffix not in (".a", ".lib") or lib.name in copied:
+                    continue
+                copied.add(lib.name)
+                shutil.copy2(lib, lib_dir / lib.name)
+        logging.info(f"Copied {len(copied)} protobuf dependency libraries")
+
+        include_dir = self.output_dir / "include"
+        # Abseil headers, because protobuf 23+ headers include "absl/...".
+        absl_src = build_dir / "_deps" / "absl-src" / "absl"
+        if absl_src.is_dir():
+            dst = include_dir / "absl"
+            if dst.exists():
+                shutil.rmtree(dst)
+            shutil.copytree(absl_src, dst)
+            logging.info("Copied Abseil headers")
+        # utf8_range headers, because protobuf 23+ headers include
+        # "utf8_validity.h" and "utf8_range.h" unqualified.
+        utf8_src = (
+            build_dir / "_deps" / "protobuf-src" / "third_party" / "utf8_range"
+        )
+        if utf8_src.is_dir():
+            for hdr in list(utf8_src.glob("*.h")) + list(utf8_src.glob("*.inc")):
+                shutil.copy2(hdr, include_dir / hdr.name)
+            logging.info("Copied utf8_range headers")
+
+    def _link_protobuf_dependencies(self) -> None:
+        """Add the vendored Abseil and utf8_range libraries to the link line."""
+        lib_dir = self.output_dir / "lib"
+        is_win = sys.platform.startswith("win32")
+        names = []
+        for lib in sorted(lib_dir.iterdir()):
+            stem = lib.name
+            if not (stem.startswith("libabsl_") or stem.startswith("libutf8_")
+                    or stem.startswith("absl_") or stem.startswith("utf8_")):
+                continue
+            if not is_win and stem.endswith(".a"):
+                names.append(stem[len("lib"):-len(".a")])
+            elif is_win and stem.endswith(".lib"):
+                names.append(stem[:-len(".lib")])
+        if not names:
+            return
+        logging.info(f"Linking protobuf dependencies: {names}")
+        if is_win or sys.platform == "darwin":
+            # On Windows the linker does not care about the order and on macOS
+            # the linker does not support grouping.
+            self.extensions[0].libraries.extend(names)
+        else:
+            link_args = list(self.extensions[0].extra_link_args or [])
+            link_args += ["-Wl,--start-group"]
+            link_args += [f"-l{name}" for name in names]
+            link_args += ["-Wl,--end-group"]
+            self.extensions[0].extra_link_args = link_args
 
     def get_version_macros(self):
         parts = self.orc_version.split(".")
@@ -237,17 +378,22 @@ class BuildExt(build_ext):
                 return
 
             protobuf_ver = os.getenv("PYORC_OVERRIDDEN_PROTOBUF_VERSION")
+            protobuf_hash = os.getenv("PYORC_OVERRIDDEN_PROTOBUF_HASH")
             if protobuf_ver:
-                self._patch_protobuf_version(protobuf_ver)
+                self._patch_protobuf_version(protobuf_ver, protobuf_hash)
 
-            if not os.path.exists(orc_lib):
+            if not orc_lib.exists():
                 self._build_orc_lib()
+
+        if self._uses_abseil():
+            self._link_protobuf_dependencies()
 
         if sys.platform.startswith("win32") and self.debug:
             self.extensions[0].libraries = [
-                lib if lib != "zlibstatic" else "zlibstaticd"
+                lib if lib != "zlib" else "zlibd"
                 for lib in self.extensions[0].libraries
             ]
+
         self.extensions[0].define_macros.extend(self.get_version_macros())
         super().build_extensions()
 

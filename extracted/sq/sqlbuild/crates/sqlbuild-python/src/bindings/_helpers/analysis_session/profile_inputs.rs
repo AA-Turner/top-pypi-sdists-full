@@ -3,11 +3,11 @@
 use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::types::{PyDict, PyDictMethods};
 use sqlbuild_analysis::assembly::analysis_session::types::{Pairs, Shapes};
+use sqlbuild_host::entries::models::AdapterHost;
 
 use crate::bindings::_helpers::analysis::binding_catalog::{
-    BindingCatalog, CASE_SENSITIVE_BINDING_DIALECTS, NATIVE_DIALECT_ALIASES,
+    BindingCatalog, CASE_SENSITIVE_BINDING_DIALECTS, CatalogKey, NATIVE_DIALECT_ALIASES,
 };
-use crate::bindings::_helpers::native_host::adapter::AdapterHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::construct::record_class;
 use crate::bindings::_helpers::records::fields::field as native_field;
@@ -135,12 +135,13 @@ pub(crate) fn profile_catalog<'py>(
     let py: Python<'py> = profile.py();
     let catalog: BindingCatalog = BindingCatalog::create(
         py,
-        (
-            dialect.to_owned(),
-            native_field(profile, "quoted_identifiers_ignore_case")?.extract()?,
-            Vec::new(),
-            Vec::new(),
-        ),
+        CatalogKey {
+            dialect: dialect.to_owned(),
+            quoted_ignore_case: native_field(profile, "quoted_identifiers_ignore_case")?
+                .extract()?,
+            known_functions: Vec::new(),
+            known_types: Vec::new(),
+        },
         PyDict::new(py).as_any(),
     )?;
     Ok(Bound::new(py, catalog)?.into_any())

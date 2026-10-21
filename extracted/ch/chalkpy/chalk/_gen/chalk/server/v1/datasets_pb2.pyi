@@ -54,6 +54,7 @@ class DatasetSortColumn(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     DATASET_SORT_COLUMN_UNSPECIFIED: _ClassVar[DatasetSortColumn]
     DATASET_SORT_COLUMN_CREATED_AT: _ClassVar[DatasetSortColumn]
+    DATASET_SORT_COLUMN_UPDATED_AT: _ClassVar[DatasetSortColumn]
 
 class SortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -104,6 +105,7 @@ OFFLINE_QUERY_GIVENS_VERSION_SINGLE_TS_COL_NAME: OfflineQueryGivensVersion
 OFFLINE_QUERY_GIVENS_VERSION_SINGLE_TS_COL_NAME_WITH_URI_PREFIX: OfflineQueryGivensVersion
 DATASET_SORT_COLUMN_UNSPECIFIED: DatasetSortColumn
 DATASET_SORT_COLUMN_CREATED_AT: DatasetSortColumn
+DATASET_SORT_COLUMN_UPDATED_AT: DatasetSortColumn
 SORT_ORDER_UNSPECIFIED: SortOrder
 SORT_ORDER_DESC: SortOrder
 SORT_ORDER_ASC: SortOrder
@@ -145,6 +147,7 @@ class DatasetRevisionMeta(_message.Message):
         "created_at",
         "archived_at",
         "output_arrow_schema_serialized",
+        "feature_distribution_fqns",
     )
     NUMERIC_ID_FIELD_NUMBER: _ClassVar[int]
     OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -169,6 +172,7 @@ class DatasetRevisionMeta(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_ARROW_SCHEMA_SERIALIZED_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_DISTRIBUTION_FQNS_FIELD_NUMBER: _ClassVar[int]
     numeric_id: int
     offline_query_id: str
     dataset_id: str
@@ -192,6 +196,7 @@ class DatasetRevisionMeta(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     archived_at: _timestamp_pb2.Timestamp
     output_arrow_schema_serialized: bytes
+    feature_distribution_fqns: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         numeric_id: _Optional[int] = ...,
@@ -217,6 +222,7 @@ class DatasetRevisionMeta(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         output_arrow_schema_serialized: _Optional[bytes] = ...,
+        feature_distribution_fqns: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class DatasetMeta(_message.Message):
@@ -255,6 +261,7 @@ class ListDatasetsRequest(_message.Message):
         "kind",
         "ids",
         "read_mask",
+        "filters",
     )
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
@@ -266,6 +273,7 @@ class ListDatasetsRequest(_message.Message):
     KIND_FIELD_NUMBER: _ClassVar[int]
     IDS_FIELD_NUMBER: _ClassVar[int]
     READ_MASK_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     search: str
@@ -276,6 +284,7 @@ class ListDatasetsRequest(_message.Message):
     kind: _containers.RepeatedScalarFieldContainer[DatasetKind]
     ids: _containers.RepeatedScalarFieldContainer[str]
     read_mask: _field_mask_pb2.FieldMask
+    filters: ListDatasetsFilters
     def __init__(
         self,
         cursor: _Optional[str] = ...,
@@ -288,6 +297,31 @@ class ListDatasetsRequest(_message.Message):
         kind: _Optional[_Iterable[_Union[DatasetKind, str]]] = ...,
         ids: _Optional[_Iterable[str]] = ...,
         read_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+        filters: _Optional[_Union[ListDatasetsFilters, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListDatasetsFilters(_message.Message):
+    __slots__ = ("agent_ids", "search", "status", "kind", "ids", "feature_drift_eligible")
+    AGENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    SEARCH_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    IDS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_DRIFT_ELIGIBLE_FIELD_NUMBER: _ClassVar[int]
+    agent_ids: _containers.RepeatedScalarFieldContainer[str]
+    search: str
+    status: _containers.RepeatedScalarFieldContainer[DatasetRevisionStatus]
+    kind: _containers.RepeatedScalarFieldContainer[DatasetKind]
+    ids: _containers.RepeatedScalarFieldContainer[str]
+    feature_drift_eligible: bool
+    def __init__(
+        self,
+        agent_ids: _Optional[_Iterable[str]] = ...,
+        search: _Optional[str] = ...,
+        status: _Optional[_Iterable[_Union[DatasetRevisionStatus, str]]] = ...,
+        kind: _Optional[_Iterable[_Union[DatasetKind, str]]] = ...,
+        ids: _Optional[_Iterable[str]] = ...,
+        feature_drift_eligible: bool = ...,
     ) -> None: ...
 
 class ListDatasetsResponse(_message.Message):
@@ -313,19 +347,21 @@ class GetDatasetResponse(_message.Message):
     def __init__(self, dataset: _Optional[_Union[DatasetMeta, _Mapping]] = ...) -> None: ...
 
 class ListDatasetRevisionsRequest(_message.Message):
-    __slots__ = ("dataset_id", "cursor", "limit", "include_archived", "start_time", "end_time")
+    __slots__ = ("dataset_id", "cursor", "limit", "include_archived", "start_time", "end_time", "filters")
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
     cursor: str
     limit: int
     include_archived: bool
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
+    filters: ListDatasetRevisionsFilters
     def __init__(
         self,
         dataset_id: _Optional[str] = ...,
@@ -334,6 +370,28 @@ class ListDatasetRevisionsRequest(_message.Message):
         include_archived: bool = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        filters: _Optional[_Union[ListDatasetRevisionsFilters, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListDatasetRevisionsFilters(_message.Message):
+    __slots__ = ("agent_ids", "include_archived", "start_time", "end_time", "feature_drift_eligible")
+    AGENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    INCLUDE_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_DRIFT_ELIGIBLE_FIELD_NUMBER: _ClassVar[int]
+    agent_ids: _containers.RepeatedScalarFieldContainer[str]
+    include_archived: bool
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    feature_drift_eligible: bool
+    def __init__(
+        self,
+        agent_ids: _Optional[_Iterable[str]] = ...,
+        include_archived: bool = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        feature_drift_eligible: bool = ...,
     ) -> None: ...
 
 class ListDatasetRevisionsResponse(_message.Message):
@@ -787,15 +845,18 @@ class ListMaterializedAggregateTilesForTimelineRequest(_message.Message):
     ) -> None: ...
 
 class ListMaterializedAggregateTilesForTimelineResponse(_message.Message):
-    __slots__ = ("tiles", "next_cursor")
+    __slots__ = ("tiles", "next_cursor", "total_rows")
     TILES_FIELD_NUMBER: _ClassVar[int]
     NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_ROWS_FIELD_NUMBER: _ClassVar[int]
     tiles: _containers.RepeatedCompositeFieldContainer[MaterializedAggregateTileMeta]
     next_cursor: str
+    total_rows: int
     def __init__(
         self,
         tiles: _Optional[_Iterable[_Union[MaterializedAggregateTileMeta, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
+        total_rows: _Optional[int] = ...,
     ) -> None: ...
 
 class ListMaterializedAggregateTileFilesRequest(_message.Message):

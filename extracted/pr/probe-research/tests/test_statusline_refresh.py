@@ -144,15 +144,14 @@ def test_the_hook_is_wired_into_the_shared_hooks_file() -> None:
 
 def test_captured_agents_match_the_servers_list() -> None:
     """`AGENT_KEYS` builds the `<agent>_session_id` foreign-key lookups, and the
-    server only records the agents it captures, and a run only names the
-    session of an agent that exposes one (a cloud agent, Capy, does not).
-    Drift here means a silently missing liveness source."""
+    server only records the agents it captures. Drift here means a silently
+    missing liveness source."""
     spec = importlib.util.spec_from_file_location("statusline_refresh", _REFRESH)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     from probe.sdk.agent_session import AGENTS
 
-    assert set(mod.AGENT_KEYS) == {spec.label for spec in AGENTS if spec.captured and spec.session_env}
+    assert set(mod.AGENT_KEYS) == {spec.label for spec in AGENTS if spec.captured}
 
 
 # -- maintenance is not tracking ---------------------------------------------

@@ -17,7 +17,7 @@ from pinecone._internal.validation import require_non_empty
 
 if TYPE_CHECKING:
     from pinecone.models.indexes.index import IndexModel
-from pinecone.errors.exceptions import ValidationError
+from pinecone.errors.exceptions import PineconeValueError, ValidationError
 from pinecone.models.enums import DeletionProtection, Metric, VectorType
 from pinecone.models.indexes.specs import ByocSpec, IntegratedSpec
 
@@ -59,6 +59,37 @@ class _LegacyIndexKwargs(IndexKwargs, total=False):
 def resolve_enum_value(value: Any) -> Any:
     """Extract ``.value`` from enum-like objects, pass through otherwise."""
     return value.value if hasattr(value, "value") else value
+
+
+def lowercase_metric(value: Any) -> Any:
+    """Return a similarity metric in the lowercase form the server writes with.
+
+    The server accepts a mixed-case metric such as ``"EUCLIDEAN"`` when an
+    index is created but cannot derive a data schema from it, so every write
+    to that index then fails. An enum member is resolved to its value first;
+    anything that is not a string passes through for the server to judge.
+    """
+    resolved = resolve_enum_value(value)
+    return resolved.lower() if isinstance(resolved, str) else resolved
+
+
+def lowercase_schema_metrics(fields: Any) -> None:
+    """Lowercase, in place, every ``metric`` a ``schema.fields`` mapping declares.
+
+    Covers the dense vector field's own ``metric`` and the ``metric`` inside a
+    string field's ``embed`` config. Anything that is not shaped like a field
+    is left alone.
+    """
+    if not isinstance(fields, dict):
+        return
+    for field in fields.values():
+        if not isinstance(field, dict):
+            continue
+        if "metric" in field:
+            field["metric"] = lowercase_metric(field["metric"])
+        embed = field.get("embed")
+        if isinstance(embed, dict) and "metric" in embed:
+            embed["metric"] = lowercase_metric(embed["metric"])
 
 
 def validate_read_capacity(read_capacity: dict[str, Any]) -> None:
@@ -139,18 +170,18 @@ def validate_integrated_inputs(
     spec: IntegratedSpec,
     deletion_protection: DeletionProtection | str = "disabled",
 ) -> None:
-    """Client-side validation for integrated index creation."""
+    """Client-side validation for legacy integrated index creation."""
     require_non_empty("name", name)
     if len(name) > 45:
         raise ValidationError("index name must not exceed 45 characters")
     if not re.fullmatch(r"[a-z0-9-]+", name):
         raise ValidationError("index name must contain only lowercase letters, digits, and hyphens")
     if not spec.cloud or not spec.cloud.strip():
-        raise ValidationError("cloud is required for integrated indexes")
+        raise ValidationError("cloud is required for legacy integrated indexes")
     if not spec.embed.model or not spec.embed.model.strip():
-        raise ValidationError("embed model is required for integrated indexes")
+        raise ValidationError("embed model is required for legacy integrated indexes")
     if not spec.embed.field_map:
-        raise ValidationError("embed field_map is required for integrated indexes")
+        raise ValidationError("embed field_map is required for legacy integrated indexes")
     _validate_deletion_protection(deletion_protection)
 
 
@@ -163,7 +194,7 @@ def build_integrated_body(
     schema: dict[str, Any] | None = None,
     read_capacity: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build the JSON body for POST /indexes (integrated/model-backed)."""
+    """Build the JSON body for POST /indexes (legacy integrated, model-backed)."""
     embed_body: dict[str, Any] = {
         "model": resolve_enum_value(spec.embed.model),
         "field_map": spec.embed.field_map,
@@ -213,6 +244,27 @@ def _normalize_schema(raw: dict[str, Any]) -> dict[str, Any]:
     return {"fields": raw}
 
 
+def validate_wait_timeout(timeout: int | None) -> None:
+    """Reject a ``timeout`` that is neither ``None``, ``-1`` nor non-negative.
+
+    Raises:
+        PineconeValueError: If *timeout* is negative and not ``-1``.
+    """
+    if timeout is not None and timeout < 0 and timeout != -1:
+        raise PineconeValueError(
+            f"timeout must be None (wait indefinitely), -1 (do not wait), or a "
+            f"non-negative number of seconds, got {timeout}. Pass -1 to skip waiting."
+        )
+
+
+def poll_sleep_seconds(poll_interval: float, timeout: float | None, start: float) -> float:
+    """Return how long to sleep before the next poll without overshooting the deadline."""
+    if timeout is None:
+        return poll_interval
+    remaining = timeout - (time.monotonic() - start)
+    return max(0.0, min(poll_interval, remaining))
+
+
 def poll_index_until_ready(
     describe_fn: Callable[[str], IndexModel],
     name: str,
@@ -255,7 +307,7 @@ def poll_index_until_ready(
             elapsed = time.monotonic() - start
             if elapsed >= timeout:
                 raise PineconeTimeoutError(f"Index '{name}' not ready after {timeout}s")
-        time.sleep(poll_interval)
+        time.sleep(poll_sleep_seconds(poll_interval, timeout, start))
 
 
 async def async_poll_index_until_ready(
@@ -300,4 +352,4 @@ async def async_poll_index_until_ready(
             elapsed = time.monotonic() - start
             if elapsed >= timeout:
                 raise PineconeTimeoutError(f"Index '{name}' not ready after {timeout}s")
-        await asyncio.sleep(poll_interval)
+        await asyncio.sleep(poll_sleep_seconds(poll_interval, timeout, start))

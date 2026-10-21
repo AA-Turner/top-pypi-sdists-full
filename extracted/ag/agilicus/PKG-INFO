@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agilicus
-Version: 1.442.2
+Version: 1.443.3
 Summary: Agilicus SDK
 License: MIT
 License-File: LICENSE.txt
@@ -17,7 +17,7 @@ Provides-Extra: billing
 Requires-Dist: PyJWT (>=2.13.0)
 Requires-Dist: appdirs (>=1.4.4)
 Requires-Dist: babel (>=2.18.0)
-Requires-Dist: certifi (==2026.10.18)
+Requires-Dist: certifi (==2026.10.19)
 Requires-Dist: click (>=8.4.1)
 Requires-Dist: click-shell (>=2.1)
 Requires-Dist: colorama (>=0.4.6)
@@ -130,4 +130,32 @@ api = agilicus.GetClient(
 ```
 
 The token is used as-is; `api.default_org_id` is read from its `org` claim.
+
+### Usage metrics
+
+All services are available on the returned helper. The CLI's
+`get-usage-metrics` command is built on the same endpoint:
+
+```python
+usage = api.metrics.list_usage_metrics(
+    org_id=api.default_org_id,
+    dt_from="now-30d",
+    bucket_size="P1D",
+    breakdown_by=["org_id", "resource_type"],
+)
+for bucket in usage.data:
+    print(bucket.time, bucket.org_id, bucket.resource_type, bucket.access_count)
+
+# Page through every row; `limit` is a total and pages are fetched for you.
+rows = api.metrics.list_usage_metrics.auto_paging_iter(
+    org_id=api.default_org_id,
+    bucket_size="P1D",
+    breakdown_by=["org_id", "resource_type"],
+    page_size=500,
+).all()
+```
+
+The helper exposes both naming conventions: `api.metrics` (the historical
+`GetClient` style) and `api.metrics_api` (the CLI ``ApiHelper`` style), so code
+can move between the two without changes. The same applies to every service.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: semantic-router
-Version: 1.0.2
+Version: 1.1.0
 Summary: Super fast semantic router for AI decision making
 Author-email: Aurelio AI <hello@aurelio.ai>
 License-Expression: MIT
@@ -32,6 +32,7 @@ Requires-Dist: ollama>=0.1.7; extra == 'all'
 Requires-Dist: pillow>=10.2.0; (python_version < '3.13') and extra == 'all'
 Requires-Dist: pinecone[asyncio]<8.0.0,>=7.0.0; extra == 'all'
 Requires-Dist: psycopg[binary]<4,>=3.1.0; extra == 'all'
+Requires-Dist: pymongo<5,>=4.13.0; extra == 'all'
 Requires-Dist: qdrant-client<2,>=1.11.1; extra == 'all'
 Requires-Dist: sentence-transformers>=5.0.0; (python_version < '3.13') and extra == 'all'
 Requires-Dist: tokenizers>=0.19; (python_version < '3.13') and extra == 'all'
@@ -53,6 +54,8 @@ Requires-Dist: sentence-transformers>=5.0.0; (python_version < '3.13') and extra
 Requires-Dist: tokenizers>=0.19; (python_version < '3.13') and extra == 'local'
 Requires-Dist: torch>=2.6.0; (python_version < '3.13') and extra == 'local'
 Requires-Dist: transformers>=4.36.2; (python_version < '3.13') and extra == 'local'
+Provides-Extra: mongodb
+Requires-Dist: pymongo<5,>=4.13.0; extra == 'mongodb'
 Provides-Extra: ollama
 Requires-Dist: ollama>=0.1.7; extra == 'ollama'
 Provides-Extra: pinecone

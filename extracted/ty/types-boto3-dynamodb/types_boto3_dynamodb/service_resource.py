@@ -175,6 +175,7 @@ class Table(ServiceResource):
     archival_summary: ArchivalSummaryTypeDef
     table_class_summary: TableClassSummaryTypeDef
     deletion_protection_enabled: bool
+    disassociation_protection_enabled: bool
     on_demand_throughput: OnDemandThroughputTypeDef
     warm_throughput: TableWarmThroughputDescriptionTypeDef
     multi_region_consistency: MultiRegionConsistencyType
@@ -248,8 +249,8 @@ class Table(ServiceResource):
 
     def update(self, **kwargs: Unpack[UpdateTableInputTableUpdateTypeDef]) -> _Table:
         """
-        Modifies the provisioned throughput settings, global secondary indexes, or
-        DynamoDB Streams settings for a given table.
+        Modifies the provisioned throughput settings, global secondary indexes,
+        DynamoDB Streams settings, or global table replica settings for a given table.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/update.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_dynamodb/service_resource/#tableupdate-method)

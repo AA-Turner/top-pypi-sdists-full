@@ -24,7 +24,6 @@ import inspect
 import json
 import logging
 import math
-import os
 import re
 import threading
 import time
@@ -63,6 +62,9 @@ from local_operator.model.registry import (
     unknown_model_info,
 )
 from local_operator.model.speed import supports_fast_mode
+from local_operator.providers.registry import (
+    env_secret_is_oauth as _env_secret_is_oauth,
+)
 from local_operator.session.request_observation import (
     RequestSubscriberHolder,
     build_request_final_observation,
@@ -1877,34 +1879,6 @@ def _catalogue_api_key(provider: str, *, base: Path | None = None) -> str:
     return ""
 
 
-def _env_secret_is_oauth(secret: str) -> bool:
-    """True when ``secret`` came ONLY out of OAuth-named env variables.
-
-    The callable ``env_keys`` resolvers can hand back either kind of credential —
-    ``_anthropic_env_key`` prefers ``ANTHROPIC_OAUTH_TOKEN`` over
-    ``ANTHROPIC_API_KEY`` — and return only the VALUE, so the caller cannot tell
-    which it got. Getting that wrong is not cosmetic: Anthropic rejects an OAuth
-    token sent as ``x-api-key`` with a 401, which is exactly the "model cannot be
-    described" outcome this whole path exists to avoid.
-
-    Matching on the variable NAME keeps this a general rule instead of a second
-    place that knows about Anthropic specifically, and it runs at most once per
-    model id per TTL bucket.
-
-    ``all`` and not ``any``, because the two misclassifications do not cost the
-    same. A plain ``OPENAI_API_KEY`` whose value happens to equal that of any
-    other variable with OAUTH in its name was reported as an OAuth token, and
-    OpenAI's OAuth route needs a ChatGPT account id that an env key cannot
-    supply — so the provider became unlistable outright, silently and for as
-    long as the variables stayed set. An OAuth token misread as a key costs one
-    401 on one provider and falls back to the bundled registry. When a value
-    appears under both kinds of name it is genuinely ambiguous, and this resolves
-    the ambiguity toward the cheaper mistake.
-    """
-    names = [name.upper() for name, value in os.environ.items() if value == secret]
-    return bool(names) and all("OAUTH" in name for name in names)
-
-
 def _catalogue_credential(
     provider: str, *, base: Path | None = None
 ) -> tuple[str, bool, str | None]:
@@ -1924,6 +1898,68 @@ def _catalogue_credential(
     if key:
         return key, _env_secret_is_oauth(key), None
     return _oauth_listing_token(provider, base=base)
+
+
+#: How long the synchronous listing bridge waits for its borrow thread. The
+#: borrow itself is bounded well below classification's budget; this adds thread
+#: startup and store teardown, and caps the caller's wait so a stuck daemon thread
+#: cannot freeze the event loop it was created to protect.
+_LISTING_BORROW_JOIN_S = 1.5
+
+
+def _borrowed_listing_token(provider: str, *, base: Path | None = None) -> str:
+    """A listing credential this device may BORROW from a mesh owner, or ``""``.
+
+    THE MODEL PICKER'S HALF OF THE MESH CREDENTIAL RUNG. ``_oauth_listing_token``
+    reads the local store only, so a provider login that exists on the head of a
+    mesh leaves a node unable to list that provider's models — the same measured
+    gap classification had (``docs/design/mesh-mcp-credentials.md`` §7). The
+    borrow helper is the one mechanism: it returns an access token, never copies a
+    refresh token, and is a no-op unless local placement says this device is a
+    holder.
+
+    Best-effort and silent: every failure is ``""``, no value is printed, logged
+    or persisted here, and the caller falls back to its unchanged "no listing"
+    shape.
+
+    WHY A THREAD IN THE RUNNING-LOOP CASE: this function is synchronous (the
+    catalogue/diagnostics callers are), while the borrow is async by contract.
+    ``asyncio.run`` handles the ordinary path; inside a live event loop (the TUI
+    can reach a listing call from a handler) it cannot nest, so the borrow runs in
+    one short-lived thread with its own loop. The listing path already blocks on
+    provider HTTP, so this adds no new blocking pattern.
+    """
+    try:
+        from local_operator.network.credentials.placement import placement_for_store
+
+        # Zero-peer devices pay nothing: no store, no client, no socket, exactly
+        # the pre-slice path.
+        if placement_for_store(base) is None:
+            return ""
+        from local_operator.network.credentials import borrowed_provider_key
+        from local_operator.providers.registry import credential_provider_id
+
+        storage = credential_provider_id(provider)
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(borrowed_provider_key(storage, base)) or ""
+
+        outcome: list[str] = []
+
+        def _run() -> None:
+            try:
+                outcome.append(asyncio.run(borrowed_provider_key(storage, base)) or "")
+            except BaseException:  # noqa: BLE001 — a listing token is never worth a raise
+                outcome.append("")
+
+        worker = threading.Thread(target=_run, daemon=True)
+        worker.start()
+        worker.join(timeout=_LISTING_BORROW_JOIN_S)
+        return outcome[0] if outcome else ""
+    except Exception as exc:  # noqa: BLE001 - metadata is never worth a failed start
+        logger.debug("could not borrow a %s token for the listing: %s", provider, exc)
+        return ""
 
 
 def _oauth_listing_token(
@@ -1983,6 +2019,15 @@ def _oauth_listing_token(
                 )
     except Exception as exc:  # noqa: BLE001 - metadata is never worth a failed start
         logger.debug("could not read a stored %s token for the listing: %s", provider, exc)
+    borrowed = _borrowed_listing_token(provider, base=base)
+    if borrowed:
+        # The borrow returns a VALUE only (its contract is ``str | None``), so the
+        # credential KIND is unknown here. Reporting a plain key is the
+        # conservative reading: send it down the key wire, and a token that needed
+        # the OAuth wire costs one 401 that falls back to the bundled registry —
+        # exactly what "no listing" did before this rung existed. The provider
+        # this path was measured for (Radient) does not branch on the flag.
+        return borrowed, False, None
     return "", False, None
 
 
@@ -7162,15 +7207,30 @@ class SessionStreamFn:
             from local_operator.providers.registry import credential_provider_id
             from local_operator.session.spend import inference_billing_labels
 
-            # The basis/source labels are decided from the RAW provider id and
-            # the receipt BEFORE the collapse below (PR-3, design §3.4): the
-            # raw stamp is the only place a subscription login flavour
-            # (``openai-device``) is distinguishable from the metered provider
-            # it stores under, and the receipt is a fact of this call alone.
-            # The background writer prices later and cannot recover either.
+            # Prefer the credential-stamped relationship while retaining raw-id
+            # defaults for direct/old streams. Canonicalizing the provider first
+            # would erase login-flavour provenance on those unstamped calls.
             billing_basis, cost_source = inference_billing_labels(
                 str(serving_provider or ""), getattr(usage, "usd_cost", None)
             )
+            from local_operator.session.channel_spend import BASIS_VALUES
+
+            stamped_basis = getattr(usage, "billing_basis", None)
+            if stamped_basis in BASIS_VALUES:
+                billing_basis = stamped_basis
+                # The final payment relationship owns the source too. In
+                # particular, an OpenAI key overrides the old plan default,
+                # so its receipt must not keep the plan's catalogue label.
+                if billing_basis == "billed":
+                    cost_source = (
+                        "provider_reported"
+                        if getattr(usage, "usd_cost", None) is not None
+                        else "catalogue"
+                    )
+                elif billing_basis == "not_tracked":
+                    cost_source = "none"
+                else:
+                    cost_source = "catalogue"
 
             # Login flavours (``xai-oauth``, ``openai-device``) are the same
             # billable provider as their storage id. Canonicalize at record

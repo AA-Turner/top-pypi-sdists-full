@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -216,6 +216,18 @@ class ClientVpnAuthorizationRule(AWSObject):
     }
 
 
+class AuthorizationPolicy(AWSProperty):
+    """
+    `AuthorizationPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-clientvpnendpoint-authorizationpolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "PolicyDocument": (str, True),
+        "ShadowMode": (str, False),
+    }
+
+
 class CertificateAuthenticationRequest(AWSProperty):
     """
     `CertificateAuthenticationRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-clientvpnendpoint-certificateauthenticationrequest.html>`__
@@ -301,6 +313,30 @@ class ConnectionLogOptions(AWSProperty):
         "CloudwatchLogGroup": (str, False),
         "CloudwatchLogStream": (str, False),
         "Enabled": (boolean, True),
+        "IncludeAuthorizationPolicyContext": (boolean, False),
+    }
+
+
+class DevicePostureTrustProvider(AWSProperty):
+    """
+    `DevicePostureTrustProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-clientvpnendpoint-deviceposturetrustprovider.html>`__
+    """
+
+    props: PropsDictType = {
+        "PublicSigningKeyUrl": (str, False),
+        "TenantId": (str, True),
+        "TrustProviderType": (str, True),
+    }
+
+
+class DevicePostureOptions(AWSProperty):
+    """
+    `DevicePostureOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-clientvpnendpoint-devicepostureoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, True),
+        "TrustProviders": ([DevicePostureTrustProvider], True),
     }
 
 
@@ -325,12 +361,14 @@ class ClientVpnEndpoint(AWSObject):
 
     props: PropsDictType = {
         "AuthenticationOptions": ([ClientAuthenticationRequest], True),
+        "AuthorizationPolicy": (AuthorizationPolicy, False),
         "ClientCidrBlock": (str, False),
         "ClientConnectOptions": (ClientConnectOptions, False),
         "ClientLoginBannerOptions": (ClientLoginBannerOptions, False),
         "ClientRouteEnforcementOptions": (ClientRouteEnforcementOptions, False),
         "ConnectionLogOptions": (ConnectionLogOptions, True),
         "Description": (str, False),
+        "DevicePostureOptions": (DevicePostureOptions, False),
         "DisconnectOnSessionTimeout": (boolean, False),
         "DnsServers": ([str], False),
         "EndpointIpAddressType": (str, False),
@@ -414,20 +452,18 @@ class DHCPOptions(AWSObject):
     }
 
 
-class EBSBlockDevice(AWSProperty):
+class EbsBlockDevice(AWSProperty):
     """
-    `EBSBlockDevice <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-ebs.html>`__
+    `EbsBlockDevice <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-ebsblockdevice.html>`__
     """
 
     props: PropsDictType = {
         "DeleteOnTermination": (boolean, False),
-        "EbsCardIndex": (integer, False),
         "Encrypted": (boolean, False),
         "Iops": (integer, False),
         "KmsKeyId": (str, False),
         "SnapshotId": (str, False),
         "Throughput": (integer, False),
-        "VolumeInitializationRate": (integer, False),
         "VolumeSize": (integer, False),
         "VolumeType": (str, False),
     }
@@ -435,12 +471,12 @@ class EBSBlockDevice(AWSProperty):
 
 class BlockDeviceMapping(AWSProperty):
     """
-    `BlockDeviceMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instance-blockdevicemapping.html>`__
+    `BlockDeviceMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-blockdevicemapping.html>`__
     """
 
     props: PropsDictType = {
-        "DeviceName": (str, True),
-        "Ebs": (EBSBlockDevice, False),
+        "DeviceName": (str, False),
+        "Ebs": (EbsBlockDevice, False),
         "NoDevice": (dict, False),
         "VirtualName": (str, False),
     }
@@ -448,11 +484,12 @@ class BlockDeviceMapping(AWSProperty):
 
 class IamInstanceProfileSpecification(AWSProperty):
     """
-    `IamInstanceProfileSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-iaminstanceprofilespecification.html>`__
+    `IamInstanceProfileSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-iaminstanceprofilespecification.html>`__
     """
 
     props: PropsDictType = {
         "Arn": (str, False),
+        "Name": (str, False),
     }
 
 
@@ -1075,6 +1112,20 @@ class Host(AWSObject):
     }
 
 
+class HostReservation(AWSObject):
+    """
+    `HostReservation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-hostreservation.html>`__
+    """
+
+    resource_type = "AWS::EC2::HostReservation"
+
+    props: PropsDictType = {
+        "HostIdSet": ([str], False),
+        "OfferingId": (str, False),
+        "Tags": (Tags, False),
+    }
+
+
 class IpamOperatingRegion(AWSProperty):
     """
     `IpamOperatingRegion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-ipamresourcediscovery-ipamoperatingregion.html>`__
@@ -1329,6 +1380,121 @@ class IPAMScope(AWSObject):
     }
 
 
+class IPv4Pool(AWSObject):
+    """
+    `IPv4Pool <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-ipv4pool.html>`__
+    """
+
+    resource_type = "AWS::EC2::IPv4Pool"
+
+    props: PropsDictType = {
+        "Tags": (Tags, False),
+    }
+
+
+class Image(AWSObject):
+    """
+    `Image <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-image.html>`__
+    """
+
+    resource_type = "AWS::EC2::Image"
+
+    props: PropsDictType = {}
+
+
+class ImageUsageResourceTypeOption(AWSProperty):
+    """
+    `ImageUsageResourceTypeOption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-imageusagereport-imageusageresourcetypeoption.html>`__
+    """
+
+    props: PropsDictType = {
+        "OptionName": (str, False),
+        "OptionValues": ([str], False),
+    }
+
+
+class ImageUsageResourceType(AWSProperty):
+    """
+    `ImageUsageResourceType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-imageusagereport-imageusageresourcetype.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourceType": (str, False),
+        "ResourceTypeOptions": ([ImageUsageResourceTypeOption], False),
+    }
+
+
+class ImageUsageReport(AWSObject):
+    """
+    `ImageUsageReport <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-imageusagereport.html>`__
+    """
+
+    resource_type = "AWS::EC2::ImageUsageReport"
+
+    props: PropsDictType = {
+        "AccountIds": ([str], False),
+        "ImageId": (str, True),
+        "ResourceTypes": ([ImageUsageResourceType], True),
+        "Tags": (Tags, False),
+    }
+
+
+class ImportImageLicenseConfiguration(AWSProperty):
+    """
+    `ImportImageLicenseConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-importimagetask-importimagelicenseconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LicenseConfigurationArn": (str, False),
+    }
+
+
+class ImportImageTask(AWSObject):
+    """
+    `ImportImageTask <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-importimagetask.html>`__
+    """
+
+    resource_type = "AWS::EC2::ImportImageTask"
+
+    props: PropsDictType = {
+        "BootMode": (str, False),
+        "Description": (str, False),
+        "Encrypted": (boolean, False),
+        "KmsKeyId": (str, False),
+        "LicenseSpecifications": ([ImportImageLicenseConfiguration], False),
+        "LicenseType": (str, False),
+        "Tags": (Tags, False),
+        "UsageOperation": (str, False),
+    }
+
+
+class UserBucket(AWSProperty):
+    """
+    `UserBucket <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-importsnapshottask-userbucket.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Bucket": (str, False),
+        "S3Key": (str, False),
+    }
+
+
+class ImportSnapshotTask(AWSObject):
+    """
+    `ImportSnapshotTask <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-importsnapshottask.html>`__
+    """
+
+    resource_type = "AWS::EC2::ImportSnapshotTask"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Encrypted": (boolean, False),
+        "Format": (str, False),
+        "Tags": (Tags, False),
+        "UserBucket": (UserBucket, False),
+    }
+
+
 class CpuOptions(AWSProperty):
     """
     `CpuOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-cpuoptions.html>`__
@@ -1398,11 +1564,11 @@ class HibernationOptions(AWSProperty):
 
 class InstanceIpv6Address(AWSProperty):
     """
-    `InstanceIpv6Address <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-instanceipv6address.html>`__
+    `InstanceIpv6Address <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-instanceipv6address.html>`__
     """
 
     props: PropsDictType = {
-        "Ipv6Address": (str, True),
+        "Ipv6Address": (str, False),
     }
 
 
@@ -1465,12 +1631,12 @@ class EnaSrdSpecification(AWSProperty):
 
 class PrivateIpAddressSpecification(AWSProperty):
     """
-    `PrivateIpAddressSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-privateipaddressspecification.html>`__
+    `PrivateIpAddressSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-privateipaddressspecification.html>`__
     """
 
     props: PropsDictType = {
         "Primary": (boolean, False),
-        "PrivateIpAddress": (str, True),
+        "PrivateIpAddress": (str, False),
     }
 
 
@@ -1599,6 +1765,34 @@ class InstanceConnectEndpoint(AWSObject):
     }
 
 
+class TimeRange(AWSProperty):
+    """
+    `TimeRange <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-instanceeventwindow-timerange.html>`__
+    """
+
+    props: PropsDictType = {
+        "EndHour": (integer, False),
+        "EndWeekDay": (str, False),
+        "StartHour": (integer, False),
+        "StartWeekDay": (str, False),
+    }
+
+
+class InstanceEventWindow(AWSObject):
+    """
+    `InstanceEventWindow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-instanceeventwindow.html>`__
+    """
+
+    resource_type = "AWS::EC2::InstanceEventWindow"
+
+    props: PropsDictType = {
+        "CronExpression": (str, False),
+        "Name": (str, False),
+        "Tags": (Tags, False),
+        "TimeRanges": ([TimeRange], False),
+    }
+
+
 class InternetGateway(AWSObject):
     """
     `InternetGateway <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-internetgateway.html>`__
@@ -1633,6 +1827,22 @@ class IpamExternalResourceVerificationToken(AWSObject):
 
     props: PropsDictType = {
         "IpamId": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class IpamInternetRegistryAssociation(AWSObject):
+    """
+    `IpamInternetRegistryAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-ipaminternetregistryassociation.html>`__
+    """
+
+    resource_type = "AWS::EC2::IpamInternetRegistryAssociation"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "IpamId": (str, True),
+        "OrganizationHandle": (str, True),
+        "Rir": (str, True),
         "Tags": (Tags, False),
     }
 
@@ -1871,6 +2081,25 @@ class InstanceRequirements(AWSProperty):
         "SpotMaxPricePercentageOverLowestPrice": (integer, False),
         "TotalLocalStorageGB": (TotalLocalStorageGB, False),
         "VCpuCount": (VCpuCount, False),
+    }
+
+
+class EBSBlockDevice(AWSProperty):
+    """
+    `EBSBlockDevice <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-launchtemplate-ebs.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeleteOnTermination": (boolean, False),
+        "EbsCardIndex": (integer, False),
+        "Encrypted": (boolean, False),
+        "Iops": (integer, False),
+        "KmsKeyId": (str, False),
+        "SnapshotId": (str, False),
+        "Throughput": (integer, False),
+        "VolumeInitializationRate": (integer, False),
+        "VolumeSize": (integer, False),
+        "VolumeType": (str, False),
     }
 
 
@@ -2460,6 +2689,16 @@ class NetworkPerformanceMetricSubscription(AWSObject):
     }
 
 
+class OutpostLag(AWSObject):
+    """
+    `OutpostLag <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-outpostlag.html>`__
+    """
+
+    resource_type = "AWS::EC2::OutpostLag"
+
+    props: PropsDictType = {}
+
+
 class PlacementGroup(AWSObject):
     """
     `PlacementGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-placementgroup.html>`__
@@ -2514,6 +2753,18 @@ class ReplaceRootVolumeTask(AWSObject):
         "DeleteReplacedRootVolume": (boolean, False),
         "InstanceId": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class ReservedInstances(AWSObject):
+    """
+    `ReservedInstances <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-reservedinstances.html>`__
+    """
+
+    resource_type = "AWS::EC2::ReservedInstances"
+
+    props: PropsDictType = {
+        "InstanceCount": (integer, False),
     }
 
 
@@ -2642,6 +2893,20 @@ class RouteTable(AWSObject):
     }
 
 
+class SecondaryNetwork(AWSObject):
+    """
+    `SecondaryNetwork <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-secondarynetwork.html>`__
+    """
+
+    resource_type = "AWS::EC2::SecondaryNetwork"
+
+    props: PropsDictType = {
+        "Ipv4CidrBlock": (str, True),
+        "NetworkType": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class SecurityGroup(AWSObject):
     """
     `SecurityGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-securitygroup.html>`__
@@ -2735,7 +3000,7 @@ class SnapshotBlockPublicAccess(AWSObject):
 
 class InstanceNetworkInterfaceSpecification(AWSProperty):
     """
-    `InstanceNetworkInterfaceSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-instancenetworkinterfacespecification.html>`__
+    `InstanceNetworkInterfaceSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-instancenetworkinterfacespecification.html>`__
     """
 
     props: PropsDictType = {
@@ -2743,10 +3008,10 @@ class InstanceNetworkInterfaceSpecification(AWSProperty):
         "DeleteOnTermination": (boolean, False),
         "Description": (str, False),
         "DeviceIndex": (integer, False),
-        "Groups": ([str], False),
         "Ipv6AddressCount": (integer, False),
         "Ipv6Addresses": ([InstanceIpv6Address], False),
         "NetworkInterfaceId": (str, False),
+        "PrivateIpAddress": (str, False),
         "PrivateIpAddresses": ([PrivateIpAddressSpecification], False),
         "SecondaryPrivateIpAddressCount": (integer, False),
         "SubnetId": (str, False),
@@ -2776,7 +3041,7 @@ class SpotFleetTagSpecification(AWSProperty):
 
 class SpotPlacement(AWSProperty):
     """
-    `SpotPlacement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-spotplacement.html>`__
+    `SpotPlacement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-spotplacement.html>`__
     """
 
     props: PropsDictType = {
@@ -2974,6 +3239,70 @@ class SpotFleet(AWSObject):
     }
 
 
+class GroupIdentifier(AWSProperty):
+    """
+    `GroupIdentifier <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-groupidentifier.html>`__
+    """
+
+    props: PropsDictType = {
+        "GroupId": (str, False),
+        "GroupName": (str, False),
+    }
+
+
+class MonitoringEnabled(AWSProperty):
+    """
+    `MonitoringEnabled <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-monitoringenabled.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, True),
+    }
+
+
+class LaunchSpecification(AWSProperty):
+    """
+    `LaunchSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-launchspecification.html>`__
+    """
+
+    props: PropsDictType = {
+        "AddressingType": (str, False),
+        "BlockDeviceMappings": ([BlockDeviceMapping], False),
+        "EbsOptimized": (boolean, False),
+        "IamInstanceProfile": (IamInstanceProfileSpecification, False),
+        "ImageId": (str, False),
+        "InstanceType": (str, False),
+        "KernelId": (str, False),
+        "KeyName": (str, False),
+        "Monitoring": (MonitoringEnabled, False),
+        "NetworkInterfaces": ([InstanceNetworkInterfaceSpecification], False),
+        "Placement": (SpotPlacement, False),
+        "RamdiskId": (str, False),
+        "SecurityGroups": ([GroupIdentifier], False),
+        "SubnetId": (str, False),
+    }
+
+
+class SpotInstancesRequest(AWSObject):
+    """
+    `SpotInstancesRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-spotinstancesrequest.html>`__
+    """
+
+    resource_type = "AWS::EC2::SpotInstancesRequest"
+
+    props: PropsDictType = {
+        "AvailabilityZoneGroup": (str, False),
+        "InstanceInterruptionBehavior": (str, False),
+        "LaunchGroup": (str, False),
+        "LaunchSpecification": (LaunchSpecification, False),
+        "SpotPrice": (str, False),
+        "Tags": (Tags, False),
+        "Type": (str, False),
+        "ValidFrom": (str, False),
+        "ValidUntil": (str, False),
+    }
+
+
 class SqlHaStandbyDetectedInstance(AWSObject):
     """
     `SqlHaStandbyDetectedInstance <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-sqlhastandbydetectedinstance.html>`__
@@ -3042,6 +3371,22 @@ class SubnetCidrBlock(AWSObject):
         "Ipv6IpamPoolId": (str, False),
         "Ipv6NetmaskLength": (integer, False),
         "SubnetId": (str, True),
+    }
+
+
+class SubnetCidrReservation(AWSObject):
+    """
+    `SubnetCidrReservation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-subnetcidrreservation.html>`__
+    """
+
+    resource_type = "AWS::EC2::SubnetCidrReservation"
+
+    props: PropsDictType = {
+        "Cidr": (str, True),
+        "Description": (str, False),
+        "ReservationType": (str, True),
+        "SubnetId": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -3478,6 +3823,16 @@ class TransitGatewayRouteTable(AWSObject):
     }
 
 
+class TransitGatewayRouteTableAnnouncement(AWSObject):
+    """
+    `TransitGatewayRouteTableAnnouncement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewayroutetableannouncement.html>`__
+    """
+
+    resource_type = "AWS::EC2::TransitGatewayRouteTableAnnouncement"
+
+    props: PropsDictType = {}
+
+
 class TransitGatewayRouteTableAssociation(AWSObject):
     """
     `TransitGatewayRouteTableAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewayroutetableassociation.html>`__
@@ -3713,6 +4068,16 @@ class VPCEndpoint(AWSObject):
     }
 
 
+class VPCEndpointConnection(AWSObject):
+    """
+    `VPCEndpointConnection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpcendpointconnection.html>`__
+    """
+
+    resource_type = "AWS::EC2::VPCEndpointConnection"
+
+    props: PropsDictType = {}
+
+
 class VPCEndpointConnectionNotification(AWSObject):
     """
     `VPCEndpointConnectionNotification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpcendpointconnectionnotification.html>`__
@@ -3816,7 +4181,7 @@ class VPNConcentrator(AWSObject):
 
     props: PropsDictType = {
         "Tags": (Tags, False),
-        "TransitGatewayId": (str, True),
+        "TransitGatewayId": (str, False),
         "Type": (str, True),
     }
 
@@ -4348,6 +4713,22 @@ class VpnConnectionDeviceType(AWSObject):
     props: PropsDictType = {}
 
 
+class AnalysisTransitGatewayPolicyTableEntry(AWSProperty):
+    """
+    `AnalysisTransitGatewayPolicyTableEntry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-networkinsightsanalysis-analysistransitgatewaypolicytableentry.html>`__
+    """
+
+    props: PropsDictType = {
+        "DestinationCidr": (str, False),
+        "DestinationPortRange": (PortRange, False),
+        "Protocol": (str, False),
+        "RuleNumber": (integer, False),
+        "SourceCidr": (str, False),
+        "SourcePortRange": (PortRange, False),
+        "TargetRouteTableId": (str, False),
+    }
+
+
 class BlockPublicAccessStates(AWSProperty):
     """
     `BlockPublicAccessStates <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-subnet-blockpublicaccessstates.html>`__
@@ -4380,18 +4761,14 @@ class CommitmentInfo(AWSProperty):
     }
 
 
-class EbsBlockDevice(AWSProperty):
+class DnsEntry(AWSProperty):
     """
-    `EbsBlockDevice <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotfleet-ebsblockdevice.html>`__
+    `DnsEntry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpcendpointconnection-dnsentry.html>`__
     """
 
     props: PropsDictType = {
-        "DeleteOnTermination": (boolean, False),
-        "Encrypted": (boolean, False),
-        "Iops": (integer, False),
-        "SnapshotId": (str, False),
-        "VolumeSize": (integer, False),
-        "VolumeType": (str, False),
+        "DnsName": (str, False),
+        "HostedZoneId": (str, False),
     }
 
 
@@ -4409,6 +4786,20 @@ class Egress(AWSProperty):
         "FromPort": (integer, False),
         "IpProtocol": (str, True),
         "ToPort": (integer, False),
+    }
+
+
+class ImageWatermark(AWSProperty):
+    """
+    `ImageWatermark <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-image-imagewatermark.html>`__
+    """
+
+    props: PropsDictType = {
+        "SourceImageCreationTime": (str, False),
+        "SourceImageId": (str, False),
+        "SourceImageRegion": (str, False),
+        "WatermarkCreationTime": (str, False),
+        "WatermarkKey": (str, False),
     }
 
 
@@ -4450,6 +4841,18 @@ class InstanceConnectEndpointPublicDnsNames(AWSProperty):
     props: PropsDictType = {
         "Dualstack": (InstanceConnectEndpointDnsNames, False),
         "Ipv4": (InstanceConnectEndpointDnsNames, False),
+    }
+
+
+class Ipv4CidrBlockAssociation(AWSProperty):
+    """
+    `Ipv4CidrBlockAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-secondarynetwork-ipv4cidrblockassociation.html>`__
+    """
+
+    props: PropsDictType = {
+        "AssociationId": (str, False),
+        "CidrBlock": (str, False),
+        "State": (str, False),
     }
 
 
@@ -4497,6 +4900,17 @@ class PeeringAttachmentStatus(AWSProperty):
     }
 
 
+class ProductCode(AWSProperty):
+    """
+    `ProductCode <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-image-productcode.html>`__
+    """
+
+    props: PropsDictType = {
+        "ProductCodeId": (str, False),
+        "ProductCodeType": (str, False),
+    }
+
+
 class PublicIpDnsNameOptions(AWSProperty):
     """
     `PublicIpDnsNameOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-networkinterface-publicipdnsnameoptions.html>`__
@@ -4507,6 +4921,17 @@ class PublicIpDnsNameOptions(AWSProperty):
         "PublicDualStackDnsName": (str, False),
         "PublicIpv4DnsName": (str, False),
         "PublicIpv6DnsName": (str, False),
+    }
+
+
+class RecurringCharge(AWSProperty):
+    """
+    `RecurringCharge <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-reservedinstances-recurringcharge.html>`__
+    """
+
+    props: PropsDictType = {
+        "Amount": (double, False),
+        "Frequency": (str, False),
     }
 
 
@@ -4528,6 +4953,32 @@ class SecurityGroupRule(AWSProperty):
         "SourceSecurityGroupName": (str, False),
         "SourceSecurityGroupOwnerId": (str, False),
         "ToPort": (validate_network_port, False),
+    }
+
+
+class SnapshotDetail(AWSProperty):
+    """
+    `SnapshotDetail <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-importimagetask-snapshotdetail.html>`__
+    """
+
+    props: PropsDictType = {
+        "DiskImageSize": (double, False),
+        "Format": (str, False),
+        "SnapshotId": (str, False),
+        "Status": (str, False),
+        "UserBucket": (UserBucket, False),
+    }
+
+
+class SpotInstanceStatus(AWSProperty):
+    """
+    `SpotInstanceStatus <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-spotinstancesrequest-spotinstancestatus.html>`__
+    """
+
+    props: PropsDictType = {
+        "Code": (str, False),
+        "Message": (str, False),
+        "UpdateTime": (str, False),
     }
 
 

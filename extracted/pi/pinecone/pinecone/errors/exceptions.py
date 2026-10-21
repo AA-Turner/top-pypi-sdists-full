@@ -36,7 +36,8 @@ class PineconeError(Exception):
         NotFoundError No index named 'movie-recommendations'
 
     .. seealso::
-       :doc:`/guides/error-handling` — which errors a given call produces, what
+       `Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__
+       — which errors a given call produces, what
        the SDK retries before raising, and how to order handlers.
     """
 
@@ -74,7 +75,8 @@ class ApiError(PineconeError):
         (404, 'NOT_FOUND')
 
     .. seealso::
-       :doc:`/guides/error-handling` — the full attribute table, and the
+       `Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__
+       — the full attribute table, and the
        handler shape for each status.
     """
 
@@ -344,6 +346,49 @@ class FailedPreconditionError(ApiError):
         )
 
 
+class PayloadTooLargeError(ApiError):
+    """413 — the request body is over the size the server accepts.
+
+    The cap is on the encoded body, not on a count of items, so a count that
+    fits one time can exceed it the next when the items are larger. The
+    request was well-formed and a retry unchanged answers ``413`` again; send
+    fewer items per request. A batch of one that still raises this cannot be
+    shrunk further. Only the REST clients raise it; the gRPC transport reports
+    an oversize message with its own status.
+
+    The class keys on the status code alone. A proxy in front of the service
+    rejects the largest bodies with a bare ``413`` and no JSON error code, so
+    ``error_code`` may be ``None`` and ``body`` may be ``None`` here.
+
+    Examples:
+        >>> from pinecone import ApiError, PayloadTooLargeError
+        >>> exc = PayloadTooLargeError("Request body is too large")
+        >>> exc.status_code, isinstance(exc, ApiError)
+        (413, True)
+    """
+
+    def __init__(
+        self,
+        message: str = "Payload too large",
+        status_code: int = 413,
+        body: dict[str, Any] | None = None,
+        *,
+        reason: str | None = None,
+        headers: dict[str, str] | None = None,
+        error_code: str | None = None,
+        request_id: str | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            status_code=status_code,
+            body=body,
+            reason=reason,
+            headers=headers,
+            error_code=error_code,
+            request_id=request_id,
+        )
+
+
 class RateLimitError(ApiError):
     """429 — the request was throttled.
 
@@ -357,7 +402,8 @@ class RateLimitError(ApiError):
     value is not parsed, and leaves ``retry_after`` as ``None``.
 
     .. seealso::
-       :doc:`/guides/retries` — what the SDK retries by default and how to
+       `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__
+       — what the SDK retries by default and how to
        change it.
     """
 
@@ -397,7 +443,8 @@ class ServiceError(ApiError):
     the failure persists.
 
     .. seealso::
-       :doc:`/guides/retries` — which statuses are retried by default.
+       `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__
+       — which statuses are retried by default.
     """
 
     def __init__(
@@ -451,7 +498,7 @@ class IndexTerminatedError(PineconeError):
     def __init__(self, name: str, state: str) -> None:
         super().__init__(
             f"Index '{name}' entered terminal state '{state}'. "
-            f"Check status with pc.describe_index(name='{name}')."
+            f"Check status with pc.indexes.describe(name='{name}')."
         )
         self.name = name
         self.state = state
@@ -511,8 +558,8 @@ class PineconeValueError(PineconeError, ValueError):
 
     Examples:
         >>> from pinecone import PineconeValueError
-        >>> print(PineconeValueError("dimension must be positive", "fields.embedding"))
-        at fields.embedding: dimension must be positive
+        >>> print(PineconeValueError("dimension must be positive", "fields.your_vector"))
+        at fields.your_vector: dimension must be positive
     """
 
     def __init__(self, message: str, path: str | None = None) -> None:
@@ -536,7 +583,7 @@ class PineconeTypeError(PineconeError, TypeError):
     with a message naming the current argument to use instead.
 
     When the failure is a value inside a request body that will not
-    JSON-encode, ``path`` locates it — ``records[2].embedding`` — which is
+    JSON-encode, ``path`` locates it — ``records[2].your_vector`` — which is
     the part worth reading on a bulk call. ``str(exc)`` prefixes the message
     with ``at <path>:``. Also derives from :class:`TypeError`.
     """

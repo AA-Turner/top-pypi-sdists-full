@@ -3,7 +3,8 @@
 ``from pinecone.errors import NotFoundError`` and
 ``from pinecone import NotFoundError`` reach the same class. The classes are
 defined in :mod:`pinecone.errors.exceptions`, and
-:doc:`/guides/error-handling` covers which call produces which.
+`Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__
+covers which call produces which.
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from pinecone.errors.exceptions import (
     IndexInitFailedError,
     IndexTerminatedError,
     NotFoundError,
+    PayloadTooLargeError,
     PaymentRequiredError,
     PineconeConnectionError,
     PineconeError,
@@ -38,6 +40,7 @@ __all__ = [
     "IndexInitFailedError",
     "IndexTerminatedError",
     "NotFoundError",
+    "PayloadTooLargeError",
     "PaymentRequiredError",
     "PineconeConnectionError",
     "PineconeError",

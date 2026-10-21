@@ -68,14 +68,15 @@ from pydantic import (
     validator,
 )
 
-from polyfactory.exceptions import ParameterException
+from polyfactory.exceptions import ConfigurationException, ParameterException
 from polyfactory.factories import DataclassFactory
-from polyfactory.factories.pydantic_factory import _IS_PYDANTIC_V1, ModelFactory
+from polyfactory.factories.pydantic_factory import _IS_PYDANTIC_V1, _PYDANTIC_HAS_BY_NAME, ModelFactory
 from polyfactory.field_meta import FieldMeta
 from tests.models import Person, PetFactory
 
 IS_PYDANTIC_V1 = _IS_PYDANTIC_V1
 IS_PYDANTIC_V2 = not _IS_PYDANTIC_V1
+IS_PYDANTIC_HAS_BY_NAME = _PYDANTIC_HAS_BY_NAME
 REGEX_PATTERN = r"(a|b|c)zz"
 
 
@@ -308,6 +309,72 @@ def test_factory_use_examples_coverage() -> None:
     assert {instance.number for instance in instances} == set(example_numbers)
 
 
+@pytest.mark.skipif(_IS_PYDANTIC_V1, reason="Pydantic 1 doesn't support examples")
+def test_factory_use_examples_coverage_when_examples_in_annotations() -> None:
+    class TopLevel(BaseModel):
+        f: Annotated[int, Field(examples=[1, 2, 3, 4])]
+
+    class WithOptional(BaseModel):
+        f: Optional[Annotated[int, Field(examples=[1, 2, 3, 4])]]
+
+    class OrNone(BaseModel):
+        f: Union[Annotated[int, Field(examples=[1, 2, 3, 4])], None]
+
+    class ExamplesInBothSubtypes(BaseModel):
+        f: Union[Annotated[int, Field(examples=[1, 2])], Annotated[int, Field(examples=[3, 4])], None]
+
+    class OuterMostExampleIsRespected(BaseModel):
+        f: Annotated[
+            Union[Annotated[int, Field(examples=[1, 2])], Annotated[int, Field(examples=[3, 4])], None],
+            Field(examples=[6, 7, 8, 9]),
+        ]
+
+    for cls, expected in (
+        (TopLevel, [1, 2, 3, 4]),
+        (WithOptional, [1, 2, 3, 4, None]),
+        (OrNone, [1, 2, 3, 4, None]),
+        (ExamplesInBothSubtypes, [1, 2, 3, 4, None]),
+        (OuterMostExampleIsRespected, [6, 7, 8, 9]),
+    ):
+
+        class ClsFactory(ModelFactory[cls]):  # type: ignore[valid-type]
+            __use_examples__ = True
+
+        instances = list(ClsFactory.coverage())
+        assert {instance.f for instance in instances} == set(expected)  # type: ignore[attr-defined]
+
+
+@pytest.mark.skipif(_IS_PYDANTIC_V1, reason="Pydantic 1 doesn't support examples")
+def test_factory_use_examples_coverage_with_collections() -> None:
+    class Foo(BaseModel):
+        name: str = Field(examples=["a", "b"])
+        items: list[int]
+        mapping: dict[str, int]
+        optional_items: Optional[list[int]]
+
+    class FooFactory(ModelFactory[Foo]):
+        __use_examples__ = True
+
+    instances = list(FooFactory.coverage())
+    assert {instance.name for instance in instances} == {"a", "b"}
+    assert all(isinstance(instance.items, list) for instance in instances)
+    assert all(isinstance(instance.mapping, dict) for instance in instances)
+    assert {type(instance.optional_items) for instance in instances} == {list, type(None)}
+
+
+@pytest.mark.skipif(_IS_PYDANTIC_V1, reason="Pydantic 1 doesn't support examples")
+def test_use_examples_in_collection_items() -> None:
+    class Foo(BaseModel):
+        items: list[Annotated[int, Field(examples=[1, 2])]]
+
+    class FooFactory(ModelFactory[Foo]):
+        __use_examples__ = True
+
+    foo = FooFactory.build()
+    assert foo.items
+    assert set(foo.items) <= {1, 2}
+
+
 def test_factory_use_construct_nested() -> None:
     class Child(BaseModel):
         a: int = Field(ge=0)
@@ -494,10 +561,10 @@ def test_build_instance_by_field_alias_with_populate_by_name_flag_pydantic_v2() 
     assert instance.aliased_field == "some"
 
 
-@pytest.mark.skipif(IS_PYDANTIC_V1, reason="pydantic 2 only test")
+@pytest.mark.skipif(not IS_PYDANTIC_HAS_BY_NAME, reason="by_name requires pydantic>=2.11")
 def test_build_instance_with_by_name_class_variable() -> None:
     """Test that __by_name__ class variable enables by_name for model validation."""
-    from pydantic import AliasPath
+    from pydantic import AliasPath  # noqa: PLC0415
 
     class MyModel(BaseModel):
         field_a: str = Field(..., validation_alias="special_field_a")
@@ -518,10 +585,10 @@ def test_build_instance_with_by_name_class_variable() -> None:
     assert instance2.field_b == 42
 
 
-@pytest.mark.skipif(IS_PYDANTIC_V1, reason="pydantic 2 only test")
+@pytest.mark.skipif(not IS_PYDANTIC_HAS_BY_NAME, reason="by_name requires pydantic>=2.11")
 def test_build_instance_with_by_name_and_alias_path() -> None:
     """Test that __by_name__ class variable works with AliasPath validation aliases."""
-    from pydantic import AliasPath
+    from pydantic import AliasPath  # noqa: PLC0415
 
     class NestedModel(BaseModel):
         value: str = Field(..., validation_alias=AliasPath("b", "a"))  # type: ignore[pydantic-alias]
@@ -535,10 +602,10 @@ def test_build_instance_with_by_name_and_alias_path() -> None:
     assert isinstance(instance.value, str)
 
 
-@pytest.mark.skipif(IS_PYDANTIC_V1, reason="pydantic 2 only test")
+@pytest.mark.skipif(not IS_PYDANTIC_HAS_BY_NAME, reason="by_name requires pydantic>=2.11")
 def test_build_instance_with_by_name_and_factory_field_values() -> None:
     """Test that __by_name__ class variable works with factory field value overrides."""
-    from pydantic import AliasPath
+    from pydantic import AliasPath  # noqa: PLC0415
 
     class MyModel(BaseModel):
         field_a: str = Field(..., validation_alias="special_field_a")
@@ -564,6 +631,36 @@ def test_build_instance_with_by_name_and_factory_field_values() -> None:
     assert instance2.field_a == "override_a"
     assert instance2.field_b == 99
     assert instance2.field_c == "factory_default_c"
+
+
+@pytest.mark.skipif(
+    IS_PYDANTIC_V1 or IS_PYDANTIC_HAS_BY_NAME, reason="only pydantic 2.0-2.10 lack the by_name argument"
+)
+def test_by_name_raises_configuration_exception_when_by_name_is_unavailable() -> None:
+    """__by_name__ fails at class definition time when the installed pydantic has no by_name argument."""
+
+    class MyModel(BaseModel):
+        field_a: str = Field(..., validation_alias="special_field_a")
+
+    with pytest.raises(ConfigurationException, match=r"requires pydantic>=2\.11"):
+
+        class MyFactory(ModelFactory):
+            __model__ = MyModel
+            __by_name__ = True
+
+
+@pytest.mark.skipif(IS_PYDANTIC_V2, reason="pydantic v1 only test")
+def test_by_name_is_ignored_for_pydantic_v1() -> None:
+    """With pydantic v1 installed the setting is documented as having no effect, so it must not raise."""
+
+    class MyModel(BaseModel):
+        field_a: str = Field(..., alias="special_field_a")
+
+    class MyFactory(ModelFactory):
+        __model__ = MyModel
+        __by_name__ = True
+
+    assert isinstance(MyFactory.build(), MyModel)
 
 
 def test_build_instance_by_field_name_with_allow_population_by_field_name_flag() -> None:
@@ -734,7 +831,7 @@ def test_union_types() -> None:
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="requires modern union types")
 @pytest.mark.skipif(IS_PYDANTIC_V1, reason="pydantic 2 only test")
 def test_optional_custom_type() -> None:
-    from pydantic_core import core_schema
+    from pydantic_core import core_schema  # noqa: PLC0415
 
     class CustomType:
         def __init__(self, _: Any) -> None:
@@ -1023,7 +1120,13 @@ def test_nested_constrained_attribute_handling_pydantic_1() -> None:
     # subclassing the constrained fields is not documented by pydantic,
     # but is supported apparently
 
-    from pydantic import ConstrainedBytes, ConstrainedDecimal, ConstrainedFloat, ConstrainedInt, ConstrainedStr
+    from pydantic import (  # noqa: PLC0415
+        ConstrainedBytes,
+        ConstrainedDecimal,
+        ConstrainedFloat,
+        ConstrainedInt,
+        ConstrainedStr,
+    )
 
     class MyConstrainedString(ConstrainedStr):  # type: ignore[misc,valid-type]
         regex = re.compile("^vpc-.*$")

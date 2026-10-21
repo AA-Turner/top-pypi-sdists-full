@@ -72,6 +72,484 @@ else:
     _constructs_77d1e7e8 = _LazyImport("constructs")
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ivs_9a304e2f.IAdConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnAdConfiguration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_ivs.CfnAdConfiguration",
+):
+    '''Resource type definition for AWS::IVS::AdConfiguration.
+
+    An ad configuration links Amazon IVS resources to AWS Elemental MediaTailor playback configurations, enabling server-side ad insertion for a channel.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-adconfiguration.html
+    :cloudformationResource: AWS::IVS::AdConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_ivs as ivs
+        
+        cfn_ad_configuration = ivs.CfnAdConfiguration(self, "MyCfnAdConfiguration",
+            media_tailor_playback_configurations=[ivs.CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty(
+                playback_configuration_arn="playbackConfigurationArn"
+            )],
+        
+            # the properties below are optional
+            name="name",
+            post_roll_configuration=ivs.CfnAdConfiguration.PostRollConfigurationProperty(
+                duration_seconds=123,
+                enabled=False
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        media_tailor_playback_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: typing.Optional[builtins.str] = None,
+        post_roll_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAdConfiguration.PostRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IVS::AdConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param media_tailor_playback_configurations: List of integration configurations with MediaTailor resources. The first item in the list is the default playback configuration used for the ad configuration.
+        :param name: Ad configuration name. The value does not need to be unique.
+        :param post_roll_configuration: Configuration for the post-roll ad break to use for this ad configuration.
+        :param tags: Tags attached to the resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c72bc2491700399bd29034641e2789151404f4425e3f96413f04268467c23e04)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAdConfigurationProps(
+            media_tailor_playback_configurations=media_tailor_playback_configurations,
+            name=name,
+            post_roll_configuration=post_roll_configuration,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAdConfiguration")
+    @builtins.classmethod
+    def arn_for_ad_configuration(
+        cls,
+        resource: "_aws_ivs_9a304e2f.IAdConfigurationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f3562e488e3c18ec24356a7d2f65598ec36677a7ecc76dc58c7afb0ac8f1bec3)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAdConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnAdConfiguration")
+    @builtins.classmethod
+    def is_cfn_ad_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAdConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__185cfc3045400604e85bc06d61f48183a8bf6f7e6bc16873a2bd7d355a150866)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAdConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__876af52512dc6c2348baae8d1c4f8e5a65e5c49b5477ed5f350b1819e49aed80)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bcbe412b2550fbacf52d14d106ca5077d8ebe67cf07a7a05fad336f36a165ec8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="adConfigurationRef")
+    def ad_configuration_ref(self) -> "_aws_ivs_9a304e2f.AdConfigurationReference":
+        '''A reference to a AdConfiguration resource.'''
+        return typing.cast("_aws_ivs_9a304e2f.AdConfigurationReference", jsii.get(self, "adConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Ad configuration ARN.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="mediaTailorPlaybackConfigurations")
+    def media_tailor_playback_configurations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty"]]]:
+        '''List of integration configurations with MediaTailor resources.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty"]]], jsii.get(self, "mediaTailorPlaybackConfigurations"))
+
+    @media_tailor_playback_configurations.setter
+    def media_tailor_playback_configurations(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty"]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9f1ab666316b9d9dd735d391734281b4e1aad83db64d9b65d1df0e1f169f8efb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "mediaTailorPlaybackConfigurations", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Ad configuration name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a143eee0f4789cee55c353fba3d2c4035a0f8d3cbf927be55f0306a8e56fbc47)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="postRollConfiguration")
+    def post_roll_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.PostRollConfigurationProperty"]]:
+        '''Configuration for the post-roll ad break to use for this ad configuration.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.PostRollConfigurationProperty"]], jsii.get(self, "postRollConfiguration"))
+
+    @post_roll_configuration.setter
+    def post_roll_configuration(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.PostRollConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f2225a4153f4d020aaabe3119e6a27ba1fb7678d4e91faf9cf8dd4fca6ae8f76)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "postRollConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags attached to the resource.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__83634fe0c4ec9767d8e976becb006fa0ae0f4e5dbbf249085e4d8e74eaae919a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ivs.CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"playback_configuration_arn": "playbackConfigurationArn"},
+    )
+    class MediaTailorPlaybackConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            playback_configuration_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Object specifying a configuration for integration with an AWS Elemental MediaTailor (EMT).
+
+            :param playback_configuration_arn: ARN of the customer-created EMT PlaybackConfiguration resource in the same region and account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-adconfiguration-mediatailorplaybackconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ivs as ivs
+                
+                media_tailor_playback_configuration_property = ivs.CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty(
+                    playback_configuration_arn="playbackConfigurationArn"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ed6ec3b57d8bb055928e92fd734c8368b930590d8478acd427f90776086f6f53)
+                check_type(argname="argument playback_configuration_arn", value=playback_configuration_arn, expected_type=type_hints["playback_configuration_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if playback_configuration_arn is not None:
+                self._values["playback_configuration_arn"] = playback_configuration_arn
+
+        @builtins.property
+        def playback_configuration_arn(self) -> typing.Optional[builtins.str]:
+            '''ARN of the customer-created EMT PlaybackConfiguration resource in the same region and account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-adconfiguration-mediatailorplaybackconfiguration.html#cfn-ivs-adconfiguration-mediatailorplaybackconfiguration-playbackconfigurationarn
+            '''
+            result = self._values.get("playback_configuration_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaTailorPlaybackConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_ivs.CfnAdConfiguration.PostRollConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"duration_seconds": "durationSeconds", "enabled": "enabled"},
+    )
+    class PostRollConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            duration_seconds: jsii.Number,
+            enabled: typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"],
+        ) -> None:
+            '''Configuration for the post-roll ad break to use for this ad configuration.
+
+            :param duration_seconds: Duration of the post-roll ad break, in seconds.
+            :param enabled: Whether the post-roll ad configuration is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-adconfiguration-postrollconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_ivs as ivs
+                
+                post_roll_configuration_property = ivs.CfnAdConfiguration.PostRollConfigurationProperty(
+                    duration_seconds=123,
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f99cb99a500898efcc778ac5d8a18b7c11c495e182970bff674e67cba8f15c99)
+                check_type(argname="argument duration_seconds", value=duration_seconds, expected_type=type_hints["duration_seconds"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "duration_seconds": duration_seconds,
+                "enabled": enabled,
+            }
+
+        @builtins.property
+        def duration_seconds(self) -> jsii.Number:
+            '''Duration of the post-roll ad break, in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-adconfiguration-postrollconfiguration.html#cfn-ivs-adconfiguration-postrollconfiguration-durationseconds
+            '''
+            result = self._values.get("duration_seconds")
+            assert result is not None, "Required property 'duration_seconds' is missing"
+            return typing.cast(jsii.Number, result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]:
+            '''Whether the post-roll ad configuration is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ivs-adconfiguration-postrollconfiguration.html#cfn-ivs-adconfiguration-postrollconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            assert result is not None, "Required property 'enabled' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PostRollConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ivs.CfnAdConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "media_tailor_playback_configurations": "mediaTailorPlaybackConfigurations",
+        "name": "name",
+        "post_roll_configuration": "postRollConfiguration",
+        "tags": "tags",
+    },
+)
+class CfnAdConfigurationProps:
+    def __init__(
+        self,
+        *,
+        media_tailor_playback_configurations: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        name: typing.Optional[builtins.str] = None,
+        post_roll_configuration: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAdConfiguration.PostRollConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnAdConfiguration``.
+
+        :param media_tailor_playback_configurations: List of integration configurations with MediaTailor resources. The first item in the list is the default playback configuration used for the ad configuration.
+        :param name: Ad configuration name. The value does not need to be unique.
+        :param post_roll_configuration: Configuration for the post-roll ad break to use for this ad configuration.
+        :param tags: Tags attached to the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-adconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ivs as ivs
+            
+            cfn_ad_configuration_props = ivs.CfnAdConfigurationProps(
+                media_tailor_playback_configurations=[ivs.CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty(
+                    playback_configuration_arn="playbackConfigurationArn"
+                )],
+            
+                # the properties below are optional
+                name="name",
+                post_roll_configuration=ivs.CfnAdConfiguration.PostRollConfigurationProperty(
+                    duration_seconds=123,
+                    enabled=False
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3d45744d6b831dcf50657eddee04473f17d53c508c5a7c9ac8481fe39646e551)
+            check_type(argname="argument media_tailor_playback_configurations", value=media_tailor_playback_configurations, expected_type=type_hints["media_tailor_playback_configurations"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument post_roll_configuration", value=post_roll_configuration, expected_type=type_hints["post_roll_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "media_tailor_playback_configurations": media_tailor_playback_configurations,
+        }
+        if name is not None:
+            self._values["name"] = name
+        if post_roll_configuration is not None:
+            self._values["post_roll_configuration"] = post_roll_configuration
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def media_tailor_playback_configurations(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty"]]]:
+        '''List of integration configurations with MediaTailor resources.
+
+        The first item in the list is the default playback configuration used for the ad configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-adconfiguration.html#cfn-ivs-adconfiguration-mediatailorplaybackconfigurations
+        '''
+        result = self._values.get("media_tailor_playback_configurations")
+        assert result is not None, "Required property 'media_tailor_playback_configurations' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty"]]], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''Ad configuration name.
+
+        The value does not need to be unique.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-adconfiguration.html#cfn-ivs-adconfiguration-name
+        '''
+        result = self._values.get("name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def post_roll_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.PostRollConfigurationProperty"]]:
+        '''Configuration for the post-roll ad break to use for this ad configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-adconfiguration.html#cfn-ivs-adconfiguration-postrollconfiguration
+        '''
+        result = self._values.get("post_roll_configuration")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAdConfiguration.PostRollConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags attached to the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ivs-adconfiguration.html#cfn-ivs-adconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAdConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_ivs_9a304e2f.IChannelRef, _aws_cdk_0cae9daa.ITaggable)
 class CfnChannel(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4795,6 +5273,8 @@ class CfnStreamKeyProps:
 
 
 __all__ = [
+    "CfnAdConfiguration",
+    "CfnAdConfigurationProps",
     "CfnChannel",
     "CfnChannelProps",
     "CfnEncoderConfiguration",
@@ -4818,6 +5298,91 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__c72bc2491700399bd29034641e2789151404f4425e3f96413f04268467c23e04(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    media_tailor_playback_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: typing.Optional[builtins.str] = None,
+    post_roll_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAdConfiguration.PostRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3562e488e3c18ec24356a7d2f65598ec36677a7ecc76dc58c7afb0ac8f1bec3(
+    resource: _aws_ivs_9a304e2f.IAdConfigurationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__185cfc3045400604e85bc06d61f48183a8bf6f7e6bc16873a2bd7d355a150866(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__876af52512dc6c2348baae8d1c4f8e5a65e5c49b5477ed5f350b1819e49aed80(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bcbe412b2550fbacf52d14d106ca5077d8ebe67cf07a7a05fad336f36a165ec8(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f1ab666316b9d9dd735d391734281b4e1aad83db64d9b65d1df0e1f169f8efb(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a143eee0f4789cee55c353fba3d2c4035a0f8d3cbf927be55f0306a8e56fbc47(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f2225a4153f4d020aaabe3119e6a27ba1fb7678d4e91faf9cf8dd4fca6ae8f76(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnAdConfiguration.PostRollConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83634fe0c4ec9767d8e976becb006fa0ae0f4e5dbbf249085e4d8e74eaae919a(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed6ec3b57d8bb055928e92fd734c8368b930590d8478acd427f90776086f6f53(
+    *,
+    playback_configuration_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f99cb99a500898efcc778ac5d8a18b7c11c495e182970bff674e67cba8f15c99(
+    *,
+    duration_seconds: jsii.Number,
+    enabled: typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d45744d6b831dcf50657eddee04473f17d53c508c5a7c9ac8481fe39646e551(
+    *,
+    media_tailor_playback_configurations: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAdConfiguration.MediaTailorPlaybackConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    name: typing.Optional[builtins.str] = None,
+    post_roll_configuration: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAdConfiguration.PostRollConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__998485c6924ca07e096c10b7976e238a36e5cfb75264ee66a67de472363369d6(
     scope: _constructs_77d1e7e8.Construct,

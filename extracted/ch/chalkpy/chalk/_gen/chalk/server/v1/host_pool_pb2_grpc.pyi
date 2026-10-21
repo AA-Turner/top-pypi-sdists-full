@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.host_pool_pb2 import (
+    BatchUpdateHostPoolStatusRequest,
+    BatchUpdateHostPoolStatusResponse,
     CreateClusterHostPoolRequest,
     CreateClusterHostPoolResponse,
     CreateEnvironmentHostPoolRequest,
@@ -26,6 +28,8 @@ from chalk._gen.chalk.server.v1.host_pool_pb2 import (
     UpdateClusterHostPoolResponse,
     UpdateEnvironmentHostPoolRequest,
     UpdateEnvironmentHostPoolResponse,
+    ValidateHostPoolConfigurationRequest,
+    ValidateHostPoolConfigurationResponse,
 )
 from grpc import (
     Channel,
@@ -36,6 +40,10 @@ from grpc import (
 
 class HostPoolServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    BatchUpdateHostPoolStatus: UnaryUnaryMultiCallable[
+        BatchUpdateHostPoolStatusRequest,
+        BatchUpdateHostPoolStatusResponse,
+    ]
     CreateEnvironmentHostPool: UnaryUnaryMultiCallable[
         CreateEnvironmentHostPoolRequest,
         CreateEnvironmentHostPoolResponse,
@@ -60,6 +68,13 @@ class HostPoolServiceStub:
         DeleteClusterHostPoolRequest,
         DeleteClusterHostPoolResponse,
     ]
+    ValidateHostPoolConfiguration: UnaryUnaryMultiCallable[
+        ValidateHostPoolConfigurationRequest,
+        ValidateHostPoolConfigurationResponse,
+    ]
+    """Validates catalog and regional compatibility without creating resources or probing live
+    capacity. UI option discovery and create/update admission use the same configuration rules.
+    """
     GetHostPool: UnaryUnaryMultiCallable[
         GetHostPoolRequest,
         GetHostPoolResponse,
@@ -72,12 +87,17 @@ class HostPoolServiceStub:
         GetHostPoolCapacityRequest,
         GetHostPoolCapacityResponse,
     ]
-    """Reports live host capacity for the environment: what is free now, what a full scale-out would
-    add, and the scaling configuration that bounds both. Host pools back sandboxes and other
-    host-compute-class containers, which serverless environments do not use.
+    """Reports the latest controller capacity for an environment, cluster, or all clusters,
+    with metrics history where available. Cluster and global views require Chalk employee access.
     """
 
 class HostPoolServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def BatchUpdateHostPoolStatus(
+        self,
+        request: BatchUpdateHostPoolStatusRequest,
+        context: ServicerContext,
+    ) -> BatchUpdateHostPoolStatusResponse: ...
     @abstractmethod
     def CreateEnvironmentHostPool(
         self,
@@ -115,6 +135,15 @@ class HostPoolServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> DeleteClusterHostPoolResponse: ...
     @abstractmethod
+    def ValidateHostPoolConfiguration(
+        self,
+        request: ValidateHostPoolConfigurationRequest,
+        context: ServicerContext,
+    ) -> ValidateHostPoolConfigurationResponse:
+        """Validates catalog and regional compatibility without creating resources or probing live
+        capacity. UI option discovery and create/update admission use the same configuration rules.
+        """
+    @abstractmethod
     def GetHostPool(
         self,
         request: GetHostPoolRequest,
@@ -132,9 +161,8 @@ class HostPoolServiceServicer(metaclass=ABCMeta):
         request: GetHostPoolCapacityRequest,
         context: ServicerContext,
     ) -> GetHostPoolCapacityResponse:
-        """Reports live host capacity for the environment: what is free now, what a full scale-out would
-        add, and the scaling configuration that bounds both. Host pools back sandboxes and other
-        host-compute-class containers, which serverless environments do not use.
+        """Reports the latest controller capacity for an environment, cluster, or all clusters,
+        with metrics history where available. Cluster and global views require Chalk employee access.
         """
 
 def add_HostPoolServiceServicer_to_server(servicer: HostPoolServiceServicer, server: Server) -> None: ...

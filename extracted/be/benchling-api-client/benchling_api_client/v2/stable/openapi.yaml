@@ -385,9 +385,9 @@ paths:
 
 
         Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value).
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value).
 
         '
       operationId: upsertAaSequence
@@ -465,7 +465,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -496,7 +496,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the DNA Sequence entities
@@ -527,7 +527,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of AA Sequences that were created.
@@ -601,10 +601,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [AA Sequence](#/AA%20Sequences/bulkGetAASequences)
+            When successful, the task returns a full list of [AA Sequence](https://docs.benchling.com/docs/api/v2/benchling-api/aa-sequences/bulk-get-aa-sequences)
             resources
 
             that were updated.
@@ -633,10 +633,9 @@ paths:
         skipping any schema field links between objects.
 
         3. Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value). You may link to objects
-        being created in the same operation.
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value). You may link to objects being created in the same operation.
 
         4. Entities are registered, using the provided name and entity registry ID.
 
@@ -668,7 +667,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the objects that were
@@ -699,7 +698,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             It is used to search for AA sequences that are either subsequences or
@@ -2187,7 +2186,7 @@ paths:
       description: 'Create 1 or more results.
 
         If you are looking to add results to a specific table in a notebook entry,
-        please use the  [assay-results bulk-create](#/Assay%20Results/bulkCreateAssayResults)
+        please use the  [assay-results bulk-create](https://docs.benchling.com/docs/api/v2/benchling-api/assay-results/bulk-create-assay-results)
         endpoint instead.
 
         '
@@ -2283,7 +2282,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task. The task response contains
             the full list of results that were created.
 
@@ -2746,7 +2745,7 @@ paths:
       - Assay Runs
   /audit/log/{object_id}:
     post:
-      description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+      description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
         and returns the Task ID of the launched task. The `ExportAuditLogAsyncTask`
         response contains a link to download the exported audit log file from Amazon
         S3. This endpoint is subject to a rate limit of 500 requests per hour, in
@@ -2912,7 +2911,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the Automation Input Generator with the generated
@@ -3105,7 +3104,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the Automation Output Processor that was processed.
@@ -3283,7 +3282,7 @@ paths:
         This endpoint uploads a blob in a single API call.
 
 
-        Blobs larger than 10MB should be uploaded in [multiple parts](#/Blobs/createMultipartBlob).
+        Blobs larger than 10MB should be uploaded in [multiple parts](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob).
         The data64 parameter is the base64-encoded part contents, and the md5 parameter
         is the hex-encoded MD5 hash of the part contents. For example, given the string
         hello, data64 is aGVsbG8= and md5 is 5d41402abc4b2a76b9719d911017c592.
@@ -3444,11 +3443,11 @@ paths:
         If a blob is larger than 10MB, it should be uploaded in multiple parts using
         the following endpoints:
 
-        - [Start a multi-part blob upload](#/Blobs/createMultipartBlob)
+        - [Start a multi-part blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob)
 
-        - [Upload a blob part](#/Blobs/createBlobPart)
+        - [Upload a blob part](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-blob-part)
 
-        - [Complete a blob upload](#/Blobs/completeMultipartBlob)
+        - [Complete a blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/complete-multipart-blob)
 
 
         Each part has a *partNumber* and an *eTag*. The part number can be any number
@@ -3525,11 +3524,11 @@ paths:
         If a blob is larger than 10MB, it should be uploaded in multiple parts using
         the following endpoints:
 
-        - [Start a multi-part blob upload](#/Blobs/createMultipartBlob)
+        - [Start a multi-part blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob)
 
-        - [Upload a blob part](#/Blobs/createBlobPart)
+        - [Upload a blob part](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-blob-part)
 
-        - [Complete a blob upload](#/Blobs/completeMultipartBlob)
+        - [Complete a blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/complete-multipart-blob)
 
 
         Each part must be at least 5MB in size, except for the last part. We recommend
@@ -3619,11 +3618,11 @@ paths:
         If a blob is larger than 10MB, it should be uploaded in multiple parts using
         the following endpoints:
 
-        - [Start a multi-part blob upload](#/Blobs/createMultipartBlob)
+        - [Start a multi-part blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob)
 
-        - [Upload a blob part](#/Blobs/createBlobPart)
+        - [Upload a blob part](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-blob-part)
 
-        - [Complete a blob upload](#/Blobs/completeMultipartBlob)
+        - [Complete a blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/complete-multipart-blob)
 
 
         Each part must be at least 5MB in size, except for the last part. We recommend
@@ -5277,7 +5276,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of Containers that were created.
@@ -5354,7 +5353,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of Containers that were updated.
@@ -5877,9 +5876,9 @@ paths:
 
 
         Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value).
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value).
 
         '
       operationId: upsertCustomEntity
@@ -5958,7 +5957,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of custom entities that were
@@ -6026,7 +6025,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of custom entities that were
@@ -6056,10 +6055,9 @@ paths:
         skipping any schema field links between objects.
 
         3. Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value). You may link to objects
-        being created in the same operation.
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value). You may link to objects being created in the same operation.
 
         4. Entities are registered, using the provided name and entity registry ID.
 
@@ -6084,7 +6082,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the objects that were
@@ -6163,7 +6161,7 @@ paths:
     post:
       description: "Create a data frame.\n\nData frames can be created from `.csv`\
         \ files, and only 1 `.csv` file can currently be uploaded.\n\nA successful\
-        \ data frame upload requires 3 calls in serial:\n1. [Create a data frame](#/Data%20Frames/createDataFrame),\
+        \ data frame upload requires 3 calls in serial:\n1. [Create a data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame),\
         \ this endpoint, specifying the files to upload. This\n   returns a `manifest`\
         \ containing S3 `PUT` URLs corresponding to the files that will be uploaded\
         \ for\n   the 2nd call and a data frame ID for the 3rd call.\n2. Upload the\
@@ -6171,10 +6169,10 @@ paths:
         \ to the request\n   headers, because we use server-side encryption. Here\
         \ is a `curl` example:\n   ```bash\n   curl -H \"x-amz-server-side-encryption:\
         \ AES256\" -X PUT -T <LOCAL_FILE> -L <S3_PUT_URL>\n   ```\n3. [Update the\
-        \ data frame](#/Data%20Frames/patchDataFrame) to mark as `IN_PROGRESS` to\
-        \ start a [long-running task](#/Tasks/getTask)\n  to process and validate\
-        \ the data frame.\n    - For more details on how we process and validate data\
-        \ frames, [click here](https://docs.benchling.com/docs/datasets-ingestion-reference).\n\
+        \ data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/patch-data-frame)\
+        \ to mark as `IN_PROGRESS` to start a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)\n\
+        \  to process and validate the data frame.\n    - For more details on how\
+        \ we process and validate data frames, [click here](https://docs.benchling.com/docs/datasets-ingestion-reference).\n\
         \nNote: Manifest URLs are valid for 1 hour after being returned from this\
         \ endpoint. They should not be stored\npersistently for later use.\n\nCSV\
         \ files up to 150MB are supported.\n"
@@ -6227,7 +6225,7 @@ paths:
         \ contain URLs to each\npart of a data frame that can be downloaded and the\
         \ names of the files.\n\nIf the data frame has `NOT_UPLOADED` status, the\
         \ `manifest` field in the response will contain S3 `PUT` URLs\nto upload data\
-        \ frame `.csv` files. See [Create a data frame](#/Data%20Frames/createDataFrames)\
+        \ frame `.csv` files. See [Create a data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame)\
         \ for documentation of\nthe full upload flow.\n\nIf the data frame has `FAILED_VALIDATION`\
         \ or `IN_PROGRESS` status, the `manifest` field in the response will\nonly\
         \ contain the names of the files and urls will be `null`.\n\nNotes:\n  - Using\
@@ -6346,8 +6344,8 @@ paths:
         After uploading a `.csv` data drame file to S3, call this endpoint to mark
         the upload status as `IN_PROGRESS`
 
-        to launch a [long-running task](#/Tasks/getTask) to validate and transform
-        the raw `.csv` file into a
+        to launch a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
+        to validate and transform the raw `.csv` file into a
 
         data frame. Once complete, the data frame''s status will either be updated
         to `SUCCEEDED` or `FAILED_VALIDATION`.
@@ -6356,8 +6354,8 @@ paths:
         For more details on how we process and validate data frames, [click here](https://docs.benchling.com/docs/datasets-ingestion-reference).
 
 
-        See [Create a data frame](#/Data%20Frames/createDataFrame) for documentation
-        of the full upload flow.
+        See [Create a data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame)
+        for documentation of the full upload flow.
 
         '
       operationId: patchDataFrame
@@ -6382,11 +6380,11 @@ paths:
                 taskId: task_b2ZtLWZha2UtZGVwbG95LWhlbGxvX3dvcmxkOm9mbS1mYWtlLWRlcGxveS1oZWxsb193b3JsZC1zZXEtMTIzNDU2Nzg=
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns the [DataFrame](#/components/schemas/DataFrame)
-            resource for the related data frame.
+            When successful, the task returns the `DataFrame` resource for the related
+            data frame.
 
             '
         '400':
@@ -6828,10 +6826,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns the [DNA Alignment](#/DNA%20Alignments/getDNAAlignment)
+            When successful, the task returns the [DNA Alignment](https://docs.benchling.com/docs/api/v2/benchling-api/dna-alignments/get-dna-alignment)
             resource that was created.
 
             '
@@ -6854,10 +6852,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns the [DNA Alignment](#/DNA%20Alignments/getDNAAlignment)
+            When successful, the task returns the [DNA Alignment](https://docs.benchling.com/docs/api/v2/benchling-api/dna-alignments/get-dna-alignment)
             resource that was created.
 
             '
@@ -7182,9 +7180,9 @@ paths:
 
 
         Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value).
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value).
 
         '
       operationId: upsertDnaOligo
@@ -7324,7 +7322,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of DNA Oligos that were created.
@@ -7354,10 +7352,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [DNA Oligo](#/DNA%20Oligos/getDNAOligo)
+            When successful, the task returns a full list of [DNA Oligo](https://docs.benchling.com/docs/api/v2/benchling-api/dna-oligos/get-dna-oligo)
             resources that were updated.
 
             '
@@ -7384,10 +7382,9 @@ paths:
         skipping any schema field links between objects.
 
         3. Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value). You may link to objects
-        being created in the same operation.
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value). You may link to objects being created in the same operation.
 
         4. Entities are registered, using the provided name and entity registry ID.
 
@@ -7422,7 +7419,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the objects that were
@@ -7851,9 +7848,9 @@ paths:
 
 
         Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value).
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value).
 
         '
       operationId: upsertDNASequence
@@ -7931,7 +7928,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -7962,7 +7959,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -7993,7 +7990,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -8024,7 +8021,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -8054,10 +8051,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [DNA Sequence](#/DNA%20Sequences/getDNASequence)
+            When successful, the task returns a full list of [DNA Sequence](https://docs.benchling.com/docs/api/v2/benchling-api/dna-sequences/get-dna-sequence)
             resources that were created.
 
             '
@@ -8129,10 +8126,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [DNA Sequence](#/DNA%20Sequences/getDNASequence)
+            When successful, the task returns a full list of [DNA Sequence](https://docs.benchling.com/docs/api/v2/benchling-api/dna-sequences/get-dna-sequence)
             resources that were updated.
 
             '
@@ -8159,10 +8156,9 @@ paths:
         skipping any schema field links between objects.
 
         3. Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value). You may link to objects
-        being created in the same operation.
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value). You may link to objects being created in the same operation.
 
         4. Entities are registered, using the provided name and entity registry ID.
 
@@ -8197,7 +8193,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the objects that were
@@ -8229,7 +8225,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             It is used to search for DNA sequences that are either subsequences or
@@ -8290,7 +8286,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -8666,10 +8662,9 @@ paths:
         skipping any schema field links between objects.
 
         3. Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value). You may link to objects
-        being created in the same operation.
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value). You may link to objects being created in the same operation.
 
         4. Entities are registered, using the provided name and entity registry ID.
 
@@ -8701,7 +8696,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the objects that were
@@ -9768,7 +9763,7 @@ paths:
           description: '
 
             Returns a list of event resources. For additional JSON examples, [click
-            here](https://docs.benchling.com/docs/events-reference#json-examples).
+            here](https://docs.benchling.com/docs/events-reference#json-example-pages).
 
             '
         '400':
@@ -9782,7 +9777,7 @@ paths:
       - Events
   /exports:
     post:
-      description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+      description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
         and returns the Task ID of the launched task.
 
         The task response contains a link to download the exported item from Amazon
@@ -9816,7 +9811,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains a link to download the exported item from Amazon
@@ -10297,7 +10292,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of features that were created.
@@ -10377,15 +10372,16 @@ paths:
       description: "Create a file of a supported type. Currently, we support these\
         \ file extensions: .csv; .html;\n.jmp, .jrn, .jrp (JMP); .jpeg, .jpg (JPEG);\
         \ .png; .pdf; .zip; and .txt.\n\nA successful file upload requires 3 calls\
-        \ in serial:\n1. [Create a file](#/Analyses/createFile), this endpoint, which\
-        \ returns an S3 `PUT` URL for the 2nd\n   call and a file ID for the 3rd call\n\
-        2. Upload the file contents to S3. Add `x-amz-server-side-encryption: AES256`\
-        \ to the request headers,\n   because we use server-side encryption. Here\
-        \ is a `curl` example:\n   ```bash\n   curl -H \"x-amz-server-side-encryption:\
+        \ in serial:\n1. [Create a file](https://docs.benchling.com/docs/api/v2/benchling-api/files/create-file),\
+        \ this endpoint, which returns an S3 `PUT` URL for the 2nd\n   call and a\
+        \ file ID for the 3rd call\n2. Upload the file contents to S3. Add `x-amz-server-side-encryption:\
+        \ AES256` to the request headers,\n   because we use server-side encryption.\
+        \ Here is a `curl` example:\n   ```bash\n   curl -H \"x-amz-server-side-encryption:\
         \ AES256\" -X PUT -T <LOCAL_FILE> -L <S3_PUT_URL>\n   ```\n3. [Update the\
-        \ file](#/Analyses/patchFile), which marks the upload as `SUCCEEDED`\n\nNote:\
-        \ URL is valid for 1 hour after being returned from this endpoint. It should\
-        \ not be stored\npersistently for later use.\n\nFiles up to 30MB are supported.\n"
+        \ file](https://docs.benchling.com/docs/api/v2/benchling-api/files/patch-file),\
+        \ which marks the upload as `SUCCEEDED`\n\nNote: URL is valid for 1 hour after\
+        \ being returned from this endpoint. It should not be stored\npersistently\
+        \ for later use.\n\nFiles up to 30MB are supported.\n"
       operationId: createFile
       requestBody:
         content:
@@ -10481,7 +10477,7 @@ paths:
       - Files
     patch:
       description: 'Update a file. After you upload the file contents to S3, call
-        this endpoint to mark the upload as `SUCCEEDED`. See [Create a file](#/Analyses/createFile)
+        this endpoint to mark the upload as `SUCCEEDED`. See [Create a file](https://docs.benchling.com/docs/api/v2/benchling-api/files/create-file)
         for documentation of the full upload flow.
 
         '
@@ -11877,7 +11873,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of mixtures that were created.
@@ -11916,7 +11912,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of mixtures that were updated.
@@ -12248,9 +12244,9 @@ paths:
 
 
         Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value).
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value).
 
         '
       operationId: upsertMolecule
@@ -12408,10 +12404,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [Molecule](#/Molecules/getMolecule)
+            When successful, the task returns a full list of [Molecule](https://docs.benchling.com/docs/api/v2/benchling-api/molecules/get-molecule)
             resources that were updated.
 
             '
@@ -12438,10 +12434,9 @@ paths:
         skipping any schema field links between objects.
 
         3. Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value). You may link to objects
-        being created in the same operation.
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value). You may link to objects being created in the same operation.
 
         4. Entities are registered, using the provided name and entity registry ID.
 
@@ -12473,7 +12468,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the objects that were
@@ -12931,10 +12926,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns the [Nucleotide Alignment](#/Nucleotide%20Alignments/getNucleotideAlignment)
+            When successful, the task returns the [Nucleotide Alignment](https://docs.benchling.com/docs/api/v2/benchling-api/nucleotide-alignments/get-nucleotide-alignment)
             resource that was created.
 
             '
@@ -12956,10 +12951,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns the [Nucleotide Alignment](#/Nucleotide%20Alignments/getNucleotideAlignment)
+            When successful, the task returns the [Nucleotide Alignment](https://docs.benchling.com/docs/api/v2/benchling-api/nucleotide-alignments/get-nucleotide-alignment)
             resource that was created.
 
             '
@@ -13337,7 +13332,7 @@ paths:
       deprecated: true
       description: 'Bulk Create DNA Oligos
 
-        Please migrate to [Bulk Create DNA Oligos](#/DNA%20Oligos/bulkCreateDNAOligos)
+        Please migrate to [Bulk Create DNA Oligos](https://docs.benchling.com/docs/api/v2/benchling-api/dna-oligos/bulk-create-dna-oligos)
         so that we can support RNA Oligos.
 
         '
@@ -13353,7 +13348,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of DNA Oligos that were created.
@@ -15034,8 +15029,8 @@ paths:
                 $ref: '#/components/schemas/AsyncTaskLink'
           description: '
 
-            This endpoint launches a [long-running task](#/Tasks/getTask) and returns
-            the Task ID of the launched task.
+            This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
+            and returns the Task ID of the launched task.
 
 
             When successful, the task has an empty response. Benchling cannot always
@@ -16165,9 +16160,9 @@ paths:
 
 
         Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value).
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value).
 
         '
       operationId: upsertRnaOligo
@@ -16315,7 +16310,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains the full list of RNA Oligos that were created.
@@ -16345,10 +16340,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [RNA Oligo](#/RNA%20Oligos/getRNAOligo)
+            When successful, the task returns a full list of [RNA Oligo](https://docs.benchling.com/docs/api/v2/benchling-api/rna-oligos/get-rna-oligo)
             resources that were updated.
 
             '
@@ -16375,10 +16370,9 @@ paths:
         skipping any schema field links between objects.
 
         3. Schema field links can be populated using entity registry IDs or API IDs.
-        In the `value` field of the [Field](#/components/schemas/FieldWithResolution)
-        resource, the object `{"entityRegistryId": ENTITY_REGISTRY_ID}` may be provided
-        instead of the API ID if desired (see example value). You may link to objects
-        being created in the same operation.
+        In the `value` field of the `Field` resource, the object `{"entityRegistryId":
+        ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see
+        example value). You may link to objects being created in the same operation.
 
         4. Entities are registered, using the provided name and entity registry ID.
 
@@ -16413,7 +16407,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns the resources of the objects that were
@@ -16891,7 +16885,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -16922,7 +16916,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -16952,7 +16946,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task has an empty response.
@@ -16983,10 +16977,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [RNA Sequence](#/RNA%20Sequences/bulkGetRNASequences)
+            When successful, the task returns a full list of [RNA Sequence](https://docs.benchling.com/docs/api/v2/benchling-api/rna-sequences/bulk-get-rna-sequences)
             resources that were created.
 
             '
@@ -17058,10 +17052,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [RNA Sequences](#/RNA%20Sequences/bulkGetRNASequences)
+            When successful, the task returns a full list of [RNA Sequences](https://docs.benchling.com/docs/api/v2/benchling-api/rna-sequences/bulk-get-rna-sequences)
             resources that were updated.
 
             '
@@ -17954,7 +17948,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             When successful, the task returns a full list of test order resources
@@ -18027,10 +18021,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            The task response contains the full list of destination [containers](#/Containers/getContainer).
+            The task response contains the full list of destination [containers](https://docs.benchling.com/docs/api/v2/benchling-api/containers/get-container).
 
             '
         '400':
@@ -18367,10 +18361,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [Users](#/users/bulkCreateUsers)
+            When successful, the task returns a full list of [Users](https://docs.benchling.com/docs/api/v2/benchling-api/users/bulk-create-users)
             resources that were created.
 
             '
@@ -18401,10 +18395,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
-            When successful, the task returns a full list of [Users](#/users/bulkUpdateUsers)
+            When successful, the task returns a full list of [Users](https://docs.benchling.com/docs/api/v2/benchling-api/users/bulk-update-users)
             resources that were updated.
 
             '
@@ -25633,7 +25627,7 @@ components:
           description: 'Registry ID into which entity should be registered. this is
             the ID of the registry which was configured for a particular organization
 
-            To get available registryIds, use the [/registries endpoint](#/Registry/listRegistries)
+            To get available registryIds, use the [/registries endpoint](https://docs.benchling.com/docs/api/v2/benchling-api/registry/list-registries)
 
 
             Required in order for entities to be created directly in the registry.
@@ -29472,7 +29466,7 @@ components:
       properties:
         csvData:
           description: blobId of an uploaded csv blob. The CSV should be formatted
-            with column headers of `columnId` which can be found in the [EntryTemplate](#/components/schemas/EntryTemplate).
+            with column headers of `columnId` which can be found in the `EntryTemplate`.
             For more information on uploading a blob, [click here](https://docs.benchling.com/docs/uploading-a-blob-to-benchling).
           type: string
         templateTableID:
@@ -33945,7 +33939,7 @@ components:
       properties:
         dataFrameId:
           description: '`dataFrameId` of an uploaded data frame (see [Create Data
-            Frame endpoint](https://benchling.com/api/v2-beta/reference#/Data%20Frames)).
+            Frame endpoint](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame)).
             Note: Canvas tables currently support only text-type columns.
 
             '
@@ -33965,7 +33959,7 @@ components:
       properties:
         datasetId:
           description: '`datasetId` of an uploaded dataset (see [Create Data Frame
-            endpoint](https://benchling.com/api/v2-beta/reference#/Data%20Frames)).
+            endpoint](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame)).
             Note: Canvas tables currently support only text-type columns. Datasets
             are currently undergoing re-work. datasetId will refer to a DataFrame
             until Dataset APIs are stable. Prefer `TableUiBlockDataFrameSource` meanwhile.
@@ -36198,7 +36192,7 @@ tags:
   name: Datasets
 - description: A DNA alignment is a Benchling object representing an alignment of
     multiple DNA sequences. This endpoint is deprecated, please migrate to the existing
-    [Nucleotide Alignments endpoints.](#/Nucleotide%20Alignments)
+    [Nucleotide Alignments endpoints.](https://docs.benchling.com/docs/api/v2/benchling-api/nucleotide-alignments/list-nucleotide-alignments)
   name: DNA Alignments
 - description: DNA Oligos are short linear DNA sequences that can be attached as primers
     to full DNA sequences. Just like other entities, they support schemas, tags, and
@@ -36345,7 +36339,7 @@ tags:
     endpoints return the task ID (a UUID) in the response body.
 
 
-    After launching a task, periodically invoke the [Get a task](#/Tasks/getTask)
+    After launching a task, periodically invoke the [Get a task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
     endpoint with the task UUID (e.g., every 10 seconds), until the status is no longer
     RUNNING.
 

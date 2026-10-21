@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: port-ocean
-Version: 0.54.1
+Version: 0.55.1
 Summary: Port Ocean is a Python framework for building integrations that ingest data into Port, the platform for building your AI software factory.
 License-File: LICENSE.md
 Keywords: ocean,port-ocean,port

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import typer
 
+from plato.utils.pypi_index import plato_build_env
 from plato.v1.cli.utils import console, require_api_key
 
 if TYPE_CHECKING:
@@ -464,6 +465,7 @@ def _publish_package(path: str, repo: str, dry_run: bool = False):
         result = subprocess.run(
             ["uv", "build"],
             cwd=pkg_path,
+            env=plato_build_env(),
             capture_output=True,
             text=True,
         )
@@ -580,7 +582,9 @@ def agent_schema(
     except ImportError:
         console.print("[red]Error: plato.agents module not available[/red]")
         console.print("\n[yellow]Install with:[/yellow]")
-        console.print("  pip install 'plato-sdk-v2[agents]'")
+        console.print(
+            "  pip install 'plato-sdk-v2[agents]' --index-url \"https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/\""
+        )
         raise typer.Exit(1) from None
 
     schema = get_agent_schema(agent_name)
@@ -929,6 +933,7 @@ def agent_deploy(
         result = subprocess.run(
             ["uv", "build"],
             cwd=pkg_path,
+            env=plato_build_env(),
             capture_output=True,
             text=True,
             check=True,

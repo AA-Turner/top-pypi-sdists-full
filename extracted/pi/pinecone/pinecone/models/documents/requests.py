@@ -11,17 +11,21 @@ is why "omitted" and "explicitly empty" can mean different things below.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, get_args
 
 import msgspec
 from msgspec import Struct
 
+from pinecone.errors.exceptions import PineconeTypeError
 from pinecone.models.documents.document import DocumentRecord, UpdateDocumentRecord
 from pinecone.models.documents.score_by import (
     DenseVectorQuery,
     DocumentScoringMethod,
+    EmbedQuery,
+    SparseEmbedQuery,
     SparseVectorQuery,
 )
+from pinecone.models.vectors.search import SearchQuery
 
 __all__ = [
     "DeleteDocumentsRequest",
@@ -36,8 +40,43 @@ _MAX_DOCUMENTS_PER_REQUEST = 1000
 _MAX_IDS_PER_REQUEST = 1000
 _MAX_SCORING_METHODS = 100
 _MAX_TOP_K = 10000
+_CLAUSE_TYPES = ", ".join(t.__name__ for t in get_args(DocumentScoringMethod))
+
+
+def _check_score_by_item(index: int, item: object) -> None:
+    if isinstance(item, (dict, *get_args(DocumentScoringMethod))):
+        return
+    hint = (
+        " SearchQuery belongs to the legacy records API; use TextQuery for full-text search "
+        "or EmbedQuery for a field with integrated embedding."
+        if isinstance(item, SearchQuery)
+        else " Import the clause classes from pinecone, for example "
+        "TextQuery(fields=['body'], query='...')."
+    )
+    raise PineconeTypeError(
+        f"'score_by[{index}]' must be a dict or one of {_CLAUSE_TYPES}, "
+        f"got {type(item).__name__}.{hint}"
+    )
+
+
+_MAX_FETCH_LIMIT = 10000
 _MAX_LIST_LIMIT = 100
 _MAX_PREFIX_LENGTH = 512
+
+
+class _NotAnIntegerError(TypeError):
+    """``top_k`` or ``limit`` was not an ``int``; re-raised as ``PineconeTypeError``."""
+
+
+def _require_int(name: str, value: Any) -> None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise _NotAnIntegerError(
+            f"'{name}' must be an integer, not {type(value).__name__} ({value!r}); "
+            "booleans are not accepted."
+        )
+
+
+_STANDALONE_CLAUSES = (DenseVectorQuery, SparseVectorQuery, EmbedQuery, SparseEmbedQuery)
 
 _FILTER_EMPTY_ERR = (
     "The 'filter' field must be a non-empty object of filter predicates, "
@@ -98,18 +137,31 @@ class SearchDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
         score_by: How to rank the documents, 1 to 100 clauses. Each may be a typed
             :data:`~pinecone.models.documents.score_by.DocumentScoringMethod` variant or a
             plain dict with a ``type`` key. Several ``text`` and ``query_string`` clauses
-            can be combined to score on more than one signal at once; a ``dense_vector``
-            or ``sparse_vector`` clause has to stand alone, and combining one with
-            anything else is rejected here.
+            can be combined to score on more than one signal at once; a
+            ``dense_vector``, ``sparse_vector``, ``embed`` or ``sparse_embed`` clause has
+            to stand alone, and combining one with anything else is rejected here.
         top_k: How many documents to return, 1 to 10000.
         include_fields: Which of your fields to return on each match. Omitting it, and
             passing ``[]``, both mean the same thing — only ``_id`` and ``_score`` come
-            back. Pass ``["*"]`` for every field, or name the ones you need.
-        filter: A metadata filter narrowing which documents are searched at all, or
-            ``None`` to search the whole namespace. It restricts the candidates; it does
-            not contribute to the score.
+            back. Pass ``["*"]`` for every field, or name the ones you need. Naming a
+            field declared with ``store_text: false`` is rejected by the server with a
+            ``400``, since its text is not stored; ``["*"]`` leaves such fields out.
+        filter: A filter narrowing which documents are searched at all, or ``None`` to
+            search the whole namespace. It restricts the candidates; it does not
+            contribute to the score. A data field (a vector field, or a string the schema
+            declares with ``full_text_search``, ``embed`` or ``sparse_embed``) rejects
+            comparison operators such as ``$eq`` with a ``400``. A string whose text is stored
+            and searchable takes the text-match operators ``$match_phrase``, ``$match_all`` and
+            ``$match_any``: one declared with ``full_text_search``, or with ``embed`` or
+            ``sparse_embed`` and the default ``store_text``. A ``store_text=False`` string and a
+            vector field do not. A
+            metadata field, one the schema does not declare or declares only for filtering,
+            takes the comparison, set and logical operators and rejects a text-match
+            operator with a ``400``. The two kinds combine under ``$and``.
 
     Raises:
+        PineconeTypeError: If a ``score_by`` item is neither a dict nor a clause type.
+        TypeError: If ``top_k`` is not an integer (a bool is not accepted).
         ValueError: If ``score_by`` is empty or holds over 100 clauses, if a vector clause
             is combined with another clause, or if ``top_k`` is outside 1 to 10000.
     """
@@ -127,6 +179,8 @@ class SearchDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
                 f"Number of scoring methods exceeds the maximum limit of "
                 f"{_MAX_SCORING_METHODS} methods"
             )
+        for position, item in enumerate(self.score_by):
+            _check_score_by_item(position, item)
         normalized: list[DocumentScoringMethod | dict[str, Any]] = [
             item
             if not isinstance(item, dict)
@@ -134,14 +188,15 @@ class SearchDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
             for item in self.score_by
         ]
         if len(normalized) > 1 and any(
-            isinstance(item, (DenseVectorQuery, SparseVectorQuery)) for item in normalized
+            isinstance(item, _STANDALONE_CLAUSES) for item in normalized
         ):
             raise ValueError(
                 "'score_by' clauses of type 'text' and 'query_string' may be combined, "
-                "but 'dense_vector' and 'sparse_vector' clauses must appear alone in "
-                "'score_by'"
+                "but 'dense_vector', 'sparse_vector', 'embed', and 'sparse_embed' "
+                "clauses must appear alone in 'score_by'"
             )
         self.score_by = normalized
+        _require_int("top_k", self.top_k)
         if not 1 <= self.top_k <= _MAX_TOP_K:
             raise ValueError(f"'top_k' must be between 1 and {_MAX_TOP_K} (got {self.top_k}).")
 
@@ -155,24 +210,38 @@ class FetchDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
 
     Attributes:
         ids: The document IDs to fetch, 1 to 1000. Mutually exclusive with ``filter``.
-        filter: A non-empty metadata filter selecting the documents to fetch. Mutually
-            exclusive with ``ids``.
+        filter: A non-empty filter selecting the documents to fetch. Mutually exclusive
+            with ``ids``. A data field (a vector field, or a string the schema declares with
+            ``full_text_search``, ``embed`` or ``sparse_embed``) rejects comparison operators
+            such as ``$eq`` with a ``400``. A string whose text is stored and searchable takes
+            the text-match operators ``$match_phrase``, ``$match_all`` and ``$match_any``: one
+            declared with ``full_text_search``, or with ``embed`` or ``sparse_embed`` and the
+            default ``store_text``. A ``store_text=False`` string and a vector field do not. A
+            metadata field, one the schema does not declare or declares only for filtering,
+            takes the comparison, set and logical operators and rejects a text-match
+            operator with a ``400``. The two kinds combine under ``$and``.
         include_fields: Which of your fields to return. Omitting it, passing ``[]``, and
             passing ``["*"]`` all return every field — the opposite of the default on a
-            search, which returns none of them.
+            search, which returns none of them. Every field here means every field the
+            index stores: a field declared with ``store_text: false`` is left out, and
+            naming one is rejected by the server with a ``400``.
         pagination_token: The token from a previous fetch response, to get the next page.
-            Valid only with ``filter``; the server chooses the page size.
+            Valid only with ``filter``.
+        limit: How many documents per page, 1 to 10000, or ``None`` for the server default
+            of 100. Only a ``filter`` fetch pages; an ``ids`` fetch ignores it.
 
     Raises:
+        TypeError: If ``limit`` is not an integer (a bool is not accepted).
         ValueError: If both or neither of ``ids`` and ``filter`` are given, if ``filter``
-            is an empty object, if ``ids`` holds over 1000 IDs, or if
-            ``pagination_token`` is given without ``filter``.
+            is an empty object, if ``ids`` holds over 1000 IDs, if ``pagination_token``
+            is given without ``filter``, or if ``limit`` is outside 1 to 10000.
     """
 
     ids: list[str] | None = None
     filter: dict[str, Any] | None = None
     include_fields: list[str] | None = None
     pagination_token: str | None = None
+    limit: int | None = None
 
     def __post_init__(self) -> None:
         if self.pagination_token is not None and self.filter is None:
@@ -196,6 +265,12 @@ class FetchDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
         _validate_filter_not_empty(self.filter)
         if self.ids is not None:
             _validate_id_count(len(self.ids))
+        if self.limit is not None:
+            _require_int("limit", self.limit)
+        if self.limit is not None and not 1 <= self.limit <= _MAX_FETCH_LIMIT:
+            raise ValueError(
+                f"'limit' must be between 1 and {_MAX_FETCH_LIMIT} (got {self.limit})."
+            )
 
 
 class DeleteDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
@@ -339,6 +414,7 @@ class ListDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
         pagination_token: The token from a previous list response, to get the next page.
 
     Raises:
+        TypeError: If ``limit`` is not an integer (a bool is not accepted).
         ValueError: If ``prefix`` is over 512 characters or contains a non-ASCII character
             or NUL, or if ``limit`` is outside 1 to 100.
     """
@@ -359,5 +435,7 @@ class ListDocumentsRequest(Struct, kw_only=True, omit_defaults=True):
                     "'prefix' must contain only ASCII characters in the range "
                     "\\x01-\\x7F (no NUL byte, no non-ASCII characters)."
                 )
+        if self.limit is not None:
+            _require_int("limit", self.limit)
         if self.limit is not None and not 1 <= self.limit <= _MAX_LIST_LIMIT:
             raise ValueError(f"'limit' must be between 1 and {_MAX_LIST_LIMIT} (got {self.limit}).")

@@ -18,12 +18,13 @@ from pinecone._internal.adapters.imports_adapter import ImportsAdapter
 from pinecone._internal.adapters.vectors_adapter import VectorsAdapter, extract_response_info
 from pinecone._internal.batching import validate_batch_size
 from pinecone._internal.bulk import bulk_execute_sync
-from pinecone._internal.config import PineconeConfig
+from pinecone._internal.config import PineconeConfig, check_api_key_is_header_safe
 from pinecone._internal.constants import DATA_PLANE_API_VERSION, DEFAULT_MAX_CONCURRENCY
 from pinecone._internal.data_plane_helpers import (
     _build_search_records_body,
     _validate_host,
     _vector_to_dict,
+    _warn_if_plaintext_public_host,
 )
 from pinecone._internal.dataframe import _resolve_on_error, extract_records
 from pinecone._internal.keyword_only import keyword_only_methods
@@ -49,7 +50,7 @@ from pinecone._internal.validation import (
     require_valid_vector_ids,
 )
 from pinecone._internal.vector_factory import VectorFactory
-from pinecone.errors.exceptions import PineconeValueError, ValidationError
+from pinecone.errors.exceptions import PineconeTypeError, PineconeValueError, ValidationError
 from pinecone.models.imports.list import ImportList
 from pinecone.models.imports.model import ImportModel, StartImportResponse
 from pinecone.models.namespaces.models import ListNamespacesResponse, NamespaceDescription
@@ -88,12 +89,18 @@ class Index:
     :class:`~pinecone.async_client.async_index.AsyncIndex` is the ``asyncio`` twin.
 
     Only errors specific to a single method are documented on that method. For the
-    exception hierarchy every method shares, see :doc:`/guides/error-handling`.
+    exception hierarchy every method shares, see
+    `Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__.
 
     Args:
         host (str): The index-specific data plane host URL.
+            A scheme you include is kept as given; ``"http://"`` is sent in
+            cleartext and emits a :class:`RuntimeWarning` unless the host is a
+            loopback or RFC 1918 IP address, ``localhost``, or ``*.localhost``.
         api_key (str | None): Pinecone API key. Falls back to ``PINECONE_API_KEY`` env var.
         additional_headers (Mapping[str, str] | None): Extra headers included in every request.
+            A name matching one of the SDK's own headers, in any capitalization,
+            replaces it.
         timeout (float): Request timeout in seconds. Defaults to ``30.0``.
         proxy_url (str | None): HTTP proxy URL for outgoing requests.
         ssl_ca_certs (str | None): Path to a CA certificate bundle for SSL verification.
@@ -112,7 +119,8 @@ class Index:
             backcompat with pre-rewrite callers.
 
     Raises:
-        :exc:`PineconeValueError`: If no API key can be resolved or the host is invalid.
+        :exc:`PineconeValueError`: If no API key can be resolved or the host is invalid,
+            or the key is not a valid HTTP header value (blank, or with a trailing newline).
         :exc:`FileNotFoundError`: If ``ssl_ca_certs`` names a path that does not
             exist, raised when the client is constructed, so a mistyped path
             cannot leave you silently verifying against the default trust store
@@ -160,6 +168,7 @@ class Index:
 
         # Validate and normalize host
         self._host = _validate_host(host)
+        _warn_if_plaintext_public_host(self._host)
 
         config = PineconeConfig(
             api_key=resolved_key,
@@ -173,6 +182,7 @@ class Index:
             source_tag=source_tag or "",
             connection_pool_maxsize=connection_pool_maxsize,
         )
+        check_api_key_is_header_safe(config.api_key)
         self._config = config
 
         from pinecone._internal.http_client import HTTPClient
@@ -212,13 +222,17 @@ class Index:
             :class:`~pinecone.client.documents.Documents` namespace instance.
 
         Examples:
+            On an index whose schema declares ``embedding`` as a 1536-dimension
+            ``dense_vector`` and ``title`` as a full-text ``string``:
 
             >>> from pinecone import Pinecone
             >>> pc = Pinecone(api_key="your-api-key")
             >>> idx = pc.index(name="article-search")
             >>> response = idx.documents.upsert(
             ...     namespace="published",
-            ...     documents=[{"_id": "article-101", "title": "Intro to vectors"}],
+            ...     documents=[
+            ...         {"_id": "article-101", "embedding": [0.1] * 1536, "title": "Vector basics"}
+            ...     ],
             ... )
             >>> response.upserted_count
             1
@@ -281,6 +295,7 @@ class Index:
                 batch. On expiry no further batches are submitted; batches already
                 in flight are awaited and never cancelled; unsent batches are
                 reported in ``failed_items``. ``None`` (default) means no deadline.
+                Zero or a negative value raises :exc:`PineconeValueError`.
 
         Returns:
             :class:`UpsertResponse` with ``upserted_count``. When ``batch_size``
@@ -293,8 +308,11 @@ class Index:
                 listed above.
             :exc:`PineconeValueError`: If a vector element is malformed, *batch_size*
                 is not a positive integer, or *max_concurrency* falls outside 1-64.
+            :exc:`~pinecone.errors.exceptions.PayloadTooLargeError`: If one request
+                exceeds the server's cap on encoded request size — lower
+                ``batch_size`` and retry.
             :exc:`ApiError`: If one request exceeds the server's cap on vectors per
-                request or on encoded request size — lower ``batch_size`` and retry.
+                request.
 
         Examples:
             All three vector forms are interchangeable within one call. The values
@@ -335,11 +353,12 @@ class Index:
            and ``response.failed_items`` report it, and ``failed_items`` can be
            passed straight back to ``upsert``. Each batch is retried on its own
            under the client's retry policy, timeouts included, so *timeout* bounds
-           one attempt rather than the batch; see :doc:`/guides/retries`.
+           one attempt rather than the batch; see
+           `Retries and resilience <https://sdk.pinecone.io/python/guides/retries.html>`__.
 
         .. seealso::
-           - :meth:`upsert_records` — text in, embedded server-side, for an index
-             with integrated inference.
+           - :meth:`upsert_records` — text in, embedded server-side, for a legacy
+             integrated index.
            - :meth:`upsert_from_dataframe` — the same write from a pandas
              DataFrame, batched for you.
            - :meth:`start_import` — millions of vectors from cloud storage,
@@ -470,10 +489,13 @@ class Index:
                 batches already in flight are awaited and never cancelled;
                 unsent batches are reported in ``failed_items``. ``None``
                 (default) means no deadline.
+                Zero or a negative value raises :exc:`PineconeValueError`.
             on_error: What to do when some batches fail. ``"collect"`` (the
                 default) returns an :class:`UpsertResponse` carrying
-                ``failed_item_count``, ``errors`` and ``failed_items``.
-                ``"raise"`` re-raises the lowest-indexed batch failure once
+                ``failed_item_count``, ``errors`` and ``failed_items``. This
+                holds when every batch fails too: nothing raises, so check
+                ``if response.has_errors:`` rather than assuming the call
+                succeeded. ``"raise"`` re-raises the lowest-indexed batch failure once
                 every batch has settled, with the partial result attached to
                 the exception's ``response`` attribute.
 
@@ -529,8 +551,8 @@ class Index:
         .. seealso::
            - :meth:`upsert` — the same write from a list of vectors, with the same
              ``batch_size`` and no ``pandas`` dependency.
-           - :meth:`upsert_records` — text in, embedded server-side, for an index
-             with integrated inference.
+           - :meth:`upsert_records` — text in, embedded server-side, for a legacy
+             integrated index.
            - :meth:`start_import` — millions of vectors from cloud storage,
              server-side and asynchronous.
         """
@@ -577,10 +599,14 @@ class Index:
         namespace: str,
         timeout: float | None = None,
     ) -> UpsertRecordsResponse:
-        """Upsert records for indexes with integrated inference.
+        """Upsert records for legacy integrated indexes (legacy Records API).
 
         Records are sent as newline-delimited JSON (NDJSON). Embeddings are
         generated server-side.
+
+        Part of the legacy Records API. For a new index, give a document index a
+        ``string`` field that uses integrated embedding and write through
+        ``documents.upsert`` instead.
 
         Args:
             records: Record dicts, each carrying an ``_id`` (or ``id``) plus the
@@ -588,7 +614,7 @@ class Index:
                 embeds. A record giving both ``_id`` and ``id`` keeps ``_id`` and
                 the client drops the ``id`` before sending.
             namespace (str): Target namespace, e.g. ``"articles-en"``. Required and
-                non-empty — unlike :meth:`upsert`, the records API has no default
+                non-empty — unlike :meth:`upsert`, the legacy Records API has no default
                 namespace to fall back on.
             timeout (float | None): Per-request timeout in seconds. Overrides the
                 client-level default for this call only.
@@ -615,7 +641,7 @@ class Index:
             2
 
         .. seealso::
-           - :meth:`search` — the read side of an integrated-inference index: text
+           - :meth:`search` — the read side of a legacy integrated index: text
              in, embedded server-side.
            - :meth:`upsert` — for an index where you embed the text yourself and
              send vectors.
@@ -762,7 +788,7 @@ class Index:
             'Noise-cancelling over-ear headphones 0'
 
         .. seealso::
-           - :meth:`search` — the same search on an integrated-inference index:
+           - :meth:`search` — the same search on a legacy integrated index:
              you pass text, the server embeds it.
            - :attr:`documents` — ``documents.search`` for a schema-based index,
              which stores JSON records rather than raw vectors.
@@ -1014,7 +1040,7 @@ class Index:
 
         A lookup, not a search: matches are not ranked and carry no score. One page
         is returned per call, so follow ``pagination.next`` to reach the rest — see
-        :doc:`/guides/pagination`.
+        `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
 
         Args:
             filter (dict[str, Any]): Metadata filter expression, e.g.
@@ -1052,7 +1078,8 @@ class Index:
            - :meth:`fetch` — when you already know the IDs.
            - :meth:`query` — when you want the nearest vectors to a query rather
              than every vector a filter admits.
-           - :doc:`/guides/pagination` — walking every page.
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — walking every page.
         """
         if limit is not None:
             require_valid_fetch_by_metadata_limit("limit", limit)
@@ -1370,12 +1397,15 @@ class Index:
         query: SearchQuery | Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
-        """Search records by text, vector, or ID, optionally reranking the hits.
+        """Search records by text, vector, or ID, optionally reranking (legacy Records API).
 
         Pass *inputs* and the index's own embedding model turns your text into the
         query vector server-side — that is what separates this from :meth:`query`,
         where you supply the vector. A *vector* or an *id* works here too, for the
         cases where you already have one.
+
+        Part of the legacy Records API. On a document index, including one with
+        an integrated-embedding field, search through ``documents.search`` instead.
 
         Args:
             namespace (str): Namespace to search, e.g. ``"articles-en"``. Required
@@ -1510,7 +1540,7 @@ class Index:
         query: SearchQuery | Mapping[str, Any] | None = None,
         timeout: float | None = None,
     ) -> SearchRecordsResponse:
-        """Alias for :meth:`search`, kept for callers written against 9.x.
+        """Alias for :meth:`search` (legacy Records API), kept for callers written against 9.x.
 
         Every argument, return value and error is :meth:`search`'s. Call that one in
         new code; nothing here differs.
@@ -1723,7 +1753,7 @@ class Index:
 
         :meth:`list_namespaces` walks the pages for you; reach for this one when you
         need to persist the token between calls or hand it to a caller of your own.
-        See :doc:`/guides/pagination`.
+        See `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
 
         Args:
             prefix (str | None): Return only namespaces whose names start with this
@@ -1755,7 +1785,8 @@ class Index:
         .. seealso::
            - :meth:`list_namespaces` — the same listing with the token handled for
              you.
-           - :doc:`/guides/pagination` — how the SDK pages generally.
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the SDK pages generally.
         """
         params: dict[str, Any] = {}
         if prefix is not None:
@@ -1813,7 +1844,8 @@ class Index:
            - :meth:`list_namespaces_paginated` — one page, with the token in your
              hands.
            - :meth:`describe_namespace` — one namespace, when you know its name.
-           - :doc:`/guides/pagination` — how the SDK pages generally.
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the SDK pages generally.
         """
         pagination_token: str | None = None
         while True:
@@ -1842,7 +1874,7 @@ class Index:
 
         IDs only — no values and no metadata. :meth:`list` walks the pages for you;
         reach for this one when you need to persist the token between calls. See
-        :doc:`/guides/pagination`.
+        `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
 
         Args:
             prefix (str | None): Return only IDs starting with this prefix, e.g.
@@ -1880,7 +1912,8 @@ class Index:
         .. seealso::
            - :meth:`list` — the same listing with the token handled for you.
            - :meth:`fetch` — the vectors behind those IDs.
-           - :doc:`/guides/pagination` — how the SDK pages generally.
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the SDK pages generally.
         """
         if prefix is not None:
             require_valid_id_prefix("prefix", prefix)
@@ -1946,7 +1979,8 @@ class Index:
         .. seealso::
            - :meth:`list_paginated` — one page, with the token in your hands.
            - :meth:`fetch` — the vectors behind a page of IDs.
-           - :doc:`/guides/pagination` — how the SDK pages generally.
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the SDK pages generally.
         """
         pagination_token: str | None = None
         while True:
@@ -1974,8 +2008,11 @@ class Index:
             The validated string ID.
 
         Raises:
+            :exc:`PineconeTypeError`: If the ID is not a ``str`` or an ``int``.
             :exc:`PineconeValueError`: If the ID is empty or exceeds 1000 characters.
         """
+        if not isinstance(id, (str, int)):
+            raise PineconeTypeError(f"id must be a string or an integer, got {type(id).__name__}")
         str_id = str(id) if isinstance(id, int) else id
         if not str_id or len(str_id) > 1000:
             raise ValidationError(
@@ -2092,6 +2129,7 @@ class Index:
             ``uri``, and ``error`` when it failed.
 
         Raises:
+            :exc:`PineconeTypeError`: If *id* is neither a ``str`` nor an ``int``.
             :exc:`PineconeValueError`: If *id* is empty or over 1000 characters.
                 Raised before any HTTP request is made.
 
@@ -2131,6 +2169,7 @@ class Index:
             :meth:`describe_import` to see the operation reach ``"Cancelled"``.
 
         Raises:
+            :exc:`PineconeTypeError`: If *id* is neither a ``str`` nor an ``int``.
             :exc:`PineconeValueError`: If *id* is empty or over 1000 characters.
                 Raised before any HTTP request is made.
 
@@ -2156,7 +2195,8 @@ class Index:
 
         Yields the :class:`ImportModel` objects themselves rather than pages, and
         fetches the next page as you exhaust the current one, so nothing is
-        requested until you iterate. See :doc:`/guides/pagination`.
+        requested until you iterate. See
+        `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
 
         Args:
             limit (int | None): Maximum number of imports per page, e.g. ``10``.
@@ -2179,7 +2219,8 @@ class Index:
            - :meth:`list_imports_paginated` — one page, with the token in your
              hands.
            - :meth:`describe_import` — one import, when you know its ``id``.
-           - :doc:`/guides/pagination` — how the SDK pages generally.
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the SDK pages generally.
         """
         params: dict[str, Any] = {}
         if limit is not None:
@@ -2205,7 +2246,8 @@ class Index:
         """Fetch one page of bulk imports, holding the token yourself.
 
         :meth:`list_imports` walks the pages for you; reach for this one when you
-        need to persist the token between calls. See :doc:`/guides/pagination`.
+        need to persist the token between calls. See
+        `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
 
         Args:
             limit (int | None): Maximum number of imports in this page, e.g.
@@ -2232,7 +2274,8 @@ class Index:
         .. seealso::
            - :meth:`list_imports` — the same listing with the token handled for
              you.
-           - :doc:`/guides/pagination` — how the SDK pages generally.
+           - `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+             — how the SDK pages generally.
         """
         params: dict[str, Any] = {}
         if limit is not None:

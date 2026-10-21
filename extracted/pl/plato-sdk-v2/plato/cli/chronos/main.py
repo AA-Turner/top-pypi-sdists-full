@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import logging
 import os
 import tempfile
 import time
-from contextlib import contextmanager
+from collections.abc import Generator, Iterable
+from contextlib import closing, contextmanager, suppress
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any
+from typing import IO, Annotated, Any, cast
 
 import httpx
 import typer
 from pydantic import ValidationError
 from rich.table import Table
 
-from plato.chronos.analysis import analyze_session
+from plato.chronos.analysis import ProgressCallback, SpanFilters, SpanStream, analyze_session
 from plato.chronos.api.settings import get_setting, update_setting
 from plato.chronos.errors import NotFoundError
 from plato.chronos.models import (
@@ -464,9 +466,9 @@ _api_key_option = typer.Option(None, "--api-key", "-k", envvar="PLATO_API_KEY", 
 _output_option = typer.Option(None, "--output", "-o", help="Override output file path")
 
 
-def _default_output_path(command: str, session_id: str) -> Path:
+def _default_output_path(command: str, session_id: str, suffix: str = ".json") -> Path:
     """Generate a default output file path in /tmp."""
-    return Path(tempfile.gettempdir()) / f"chronos-{command}-{session_id[:12]}.json"
+    return Path(tempfile.gettempdir()) / f"chronos-{command}-{session_id[:12]}{suffix}"
 
 
 @contextmanager
@@ -497,12 +499,120 @@ def _write_output(data: str, output: Path, command: str = "") -> None:
 
 
 def _spans_cache_path(session_id: str) -> Path:
-    """On-disk cache of a session's full (unfiltered) span set.
+    """On-disk cache of a session's full (unfiltered) span set, one span per line.
 
     Shared by ``traces`` and ``analysis`` so a session's 90k+ spans only have
     to be streamed once — the second command reuses the cache unless
-    ``--refresh`` is passed."""
-    return Path(tempfile.gettempdir()) / f"chronos-spans-{session_id}.json"
+    ``--refresh`` is passed. Written as the spans stream in and moved into
+    place only once the stream completed, so it is never partial."""
+    return Path(tempfile.gettempdir()) / f"chronos-spans-{session_id}.ndjson"
+
+
+def _valid_span_cache(session_id: str) -> Path | None:
+    """The session's span cache, if present and every line is a span.
+
+    Checked line by line (nothing kept), so a big cache costs no memory."""
+    path = _spans_cache_path(session_id)
+    try:
+        with path.open() as f:
+            for line in f:
+                OTelSpanSchema.model_validate_json(line)
+    # OSError: missing or unreadable; ValueError (covers ValidationError): a
+    # line that isn't a span. Either way: stream fresh.
+    except (OSError, ValueError):
+        return None
+    return path
+
+
+def _read_span_cache(path: Path) -> Generator[OTelSpanSchema]:
+    with path.open() as f:
+        for line in f:
+            yield OTelSpanSchema.model_validate_json(line)
+
+
+def _staging_file(path: Path) -> tuple[IO[str], Path]:
+    """A new, uniquely named file next to ``path`` to write into, then rename onto it.
+
+    Unique per writer, so two commands pulling the same session (or writing
+    the same output) never write into each other's file."""
+    fd, name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".part")
+    return os.fdopen(fd, "w"), Path(name)
+
+
+def _tee_to_cache(spans: Iterable[OTelSpanSchema], session_id: str) -> Generator[OTelSpanSchema]:
+    """Yield ``spans``, writing each to the span cache on the way.
+
+    The cache goes to its own staging file and is renamed into place only
+    after the last span, so a failed or abandoned stream never leaves a
+    partial cache. The cache is best-effort: any cache error (write, close,
+    rename) stops caching, never the command."""
+    path = _spans_cache_path(session_id)
+    cache: IO[str] | None = None
+    part: Path | None = None
+    try:
+        cache, part = _staging_file(path)
+    except OSError:
+        pass
+
+    def drop_cache() -> None:
+        nonlocal cache
+        if cache is not None:
+            with suppress(OSError):
+                cache.close()
+            cache = None
+        if part is not None:
+            with suppress(OSError):
+                part.unlink(missing_ok=True)
+
+    try:
+        for span in spans:
+            if cache is not None:
+                try:
+                    cache.write(span.model_dump_json() + "\n")
+                except OSError:
+                    drop_cache()
+            yield span
+        if cache is not None and part is not None:
+            try:
+                cache.close()
+                cache = None
+                part.replace(path)
+                part = None
+            except OSError:
+                pass
+    finally:
+        drop_cache()
+
+
+def _open_spans(
+    client: Chronos,
+    session_id: str,
+    filters: SpanFilters,
+    *,
+    refresh: bool = False,
+    max_spans: int | None = None,
+    cursor: str | None = None,
+    on_progress: ProgressCallback | None = None,
+) -> tuple[Generator[OTelSpanSchema], SpanStream | None]:
+    """The session's spans as a generator, from the cache or streamed live.
+
+    Only the full, unfiltered span set is cached and reused; with any filter,
+    ``max_spans`` or ``cursor`` the stream always runs live (filters are
+    applied by Chronos). The ``SpanStream`` is returned for its ``has_more`` /
+    ``cursor`` once iterated; it is None when the spans come from the cache.
+    """
+    cacheable = filters == SpanFilters() and max_spans is None and cursor is None
+    if cacheable and not refresh:
+        cached = _valid_span_cache(session_id)
+        if cached is not None:
+            console.print(f"[dim]Using cached spans ({cached}) — pass --refresh to re-download[/dim]")
+            return _read_span_cache(cached), None
+
+    stream = client.iter_traces(session_id, filters, max_spans=max_spans, cursor=cursor, on_progress=on_progress)
+    spans = cast(Generator[OTelSpanSchema], iter(stream))
+    if cacheable:
+        spans = _tee_to_cache(spans, session_id)
+    return spans, stream
 
 
 def _get_spans(
@@ -515,44 +625,63 @@ def _get_spans(
     refresh: bool = False,
     label: str = "Streaming spans",
 ) -> list[OTelSpanSchema]:
-    """Return all spans for a session, reusing the on-disk cache when possible.
-
-    Only the full, unfiltered span set is cached/reused — when any filter is
-    active the stream is always run live (filters are applied server-side).
-    """
-    filtered = atif_only or errors_only or bool(search)
-    cache_path = _spans_cache_path(session_id)
-
-    if not filtered and not refresh and cache_path.exists():
-        try:
-            cached = json.loads(cache_path.read_text())
-            spans = [OTelSpanSchema.model_validate(s) for s in cached]
-            console.print(
-                f"[dim]Using {len(spans):,} cached spans ({cache_path}) — pass --refresh to re-download[/dim]"
-            )
-            return spans
-        # OSError: unreadable file; ValueError (covers JSONDecodeError): bad JSON;
-        # TypeError: non-list payload; ValidationError: stale/invalid span shape.
-        # Any of these means an unusable cache — fall through to a fresh stream.
-        except (OSError, ValueError, TypeError, ValidationError):
-            pass
-
+    """Return all spans for a session (in memory), reusing the on-disk cache when possible."""
+    filters = SpanFilters(search=search, errors_only=errors_only, atif_only=atif_only)
     with _span_stream_progress(label) as on_progress:
-        spans = client.get_all_traces(
-            session_id,
-            atif_only=atif_only,
-            errors_only=errors_only,
-            search=search,
-            on_progress=on_progress,
-        )
+        spans, _ = _open_spans(client, session_id, filters, refresh=refresh, on_progress=on_progress)
+        with closing(spans):
+            return list(spans)
 
-    if not filtered:
-        try:
-            cache_path.write_text(json.dumps([s.model_dump() for s in spans]))
-        except OSError:
-            pass  # Cache is best-effort; never fail the command over it.
 
-    return spans
+class _SpanFileWriter:
+    """Writes spans to a file as they arrive, so no command holds a whole session.
+
+    ``json`` keeps the shape ``traces`` always wrote (``filters``, ``session_id``,
+    ``spans``, ``total_count``) with one span per line; ``ndjson`` is one span
+    per line and nothing else. Spans go to a staging file of this writer's own,
+    renamed onto ``output`` by ``finish``. Used as a context manager, leaving
+    without ``finish`` (an error, Ctrl+C) deletes the staging file.
+    """
+
+    def __init__(self, output: Path, fmt: TraceFormat, header: dict[str, Any]) -> None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        self.output = output
+        self.count = 0
+        self._fmt = fmt
+        self._file, self._part = _staging_file(output)
+        self._done = False
+        if fmt is TraceFormat.json:
+            head = json.dumps(header)[:-1]  # drop the closing brace
+            try:
+                self._file.write(f'{head}{", " if header else ""}"spans": [')
+            except BaseException:
+                self.__exit__()
+                raise
+
+    def __enter__(self) -> _SpanFileWriter:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if not self._done:
+            with suppress(OSError):
+                self._file.close()
+            self._part.unlink(missing_ok=True)
+
+    def write(self, span: OTelSpanSchema) -> None:
+        if self._fmt is TraceFormat.json:
+            self._file.write(",\n" if self.count else "\n")
+            self._file.write(span.model_dump_json())
+        else:
+            self._file.write(span.model_dump_json() + "\n")
+        self.count += 1
+
+    def finish(self, trailer: dict[str, Any]) -> None:
+        if self._fmt is TraceFormat.json:
+            tail = json.dumps({"total_count": self.count, **trailer})[1:]  # drop the opening brace
+            self._file.write(f"\n], {tail}\n")
+        self._file.close()
+        self._part.replace(self.output)
+        self._done = True
 
 
 # ---------------------------------------------------------------------------
@@ -588,55 +717,164 @@ def session_info(
 # ---------------------------------------------------------------------------
 
 
+class TraceFormat(str, Enum):
+    json = "json"
+    ndjson = "ndjson"
+
+
+class SpanStatusFilter(str, Enum):
+    unset = "unset"
+    ok = "ok"
+    error = "error"
+
+
+_TIME_FORMATS = [
+    "%Y-%m-%d",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%dT%H:%M:%S.%f%z",
+]
+
+
 @chronos_app.command("traces")
 def traces(
     session_id: Annotated[str, typer.Argument(help="Session ID")],
     atif_only: Annotated[bool, typer.Option("--atif-only", help="Agent traces only")] = False,
     errors_only: Annotated[bool, typer.Option("--errors-only", help="Error traces only")] = False,
     search: Annotated[str | None, typer.Option(help="Search filter")] = None,
+    names: Annotated[
+        list[str] | None,
+        typer.Option("--name", help="Span name (repeatable); a trailing * matches a prefix, e.g. 'tool.*'"),
+    ] = None,
+    kinds: Annotated[
+        list[str] | None, typer.Option("--kind", help="atif.kind attribute (repeatable): agent, llm")
+    ] = None,
+    status: Annotated[SpanStatusFilter | None, typer.Option(help="OTel span status")] = None,
+    since: Annotated[
+        datetime | None,
+        typer.Option(
+            help="Spans that started at or after this time (UTC unless an offset is given)", formats=_TIME_FORMATS
+        ),
+    ] = None,
+    until: Annotated[
+        datetime | None,
+        typer.Option(help="Spans that started before this time (UTC unless an offset is given)", formats=_TIME_FORMATS),
+    ] = None,
+    attrs: Annotated[
+        list[str] | None,
+        typer.Option("--attr", help="Attribute match (repeatable): key=value, or a bare key for 'present'"),
+    ] = None,
+    ancestors: Annotated[
+        bool | None,
+        typer.Option(
+            "--ancestors/--no-ancestors",
+            help="Include matched spans' ancestor chains (default: on, off with --limit or --name/--kind/--status/--since/--until/--attr)",
+        ),
+    ] = None,
+    limit: Annotated[
+        int | None,
+        typer.Option(min=1, help="Stop after this many spans; the output then says where to --cursor from"),
+    ] = None,
+    cursor: Annotated[str | None, typer.Option(help="Continue a --limit'ed pull from this cursor")] = None,
+    fmt: Annotated[
+        TraceFormat, typer.Option("--format", help="json (one document) or ndjson (one span per line)")
+    ] = TraceFormat.json,
     refresh: Annotated[bool, typer.Option("--refresh", help="Ignore the local span cache and re-download")] = False,
     chronos_url: str = _chronos_url_option,
     api_key: str = _api_key_option,
     output: Path | None = _output_option,
 ):
-    """Fetch ALL session traces (OTel spans) via the logs-stream endpoint.
+    """Fetch session traces (OTel spans) via the logs-stream endpoint.
 
-    Streams the entire session in one pass — no cursor cap — so large sessions
-    (10k+ spans) come back complete. The unfiltered span set is cached locally
-    and reused by ``analysis``; pass ``--refresh`` to re-download.
+    Spans are written to the output file as they stream in, so even 200k+ span
+    sessions run in little memory. Filters are applied by Chronos, so a slice
+    of a big session downloads only that slice. The unfiltered span set is
+    cached locally and reused by ``analysis``; pass ``--refresh`` to
+    re-download.
     """
     chronos_url = chronos_url or settings.chronos_url
     api_key = _require_api_key(api_key)
 
+    filters = SpanFilters(
+        search=search,
+        errors_only=errors_only,
+        atif_only=atif_only,
+        names=tuple(names or ()),
+        kinds=tuple(kinds or ()),
+        status=status.value if status else None,
+        started_after=since,
+        started_before=until,
+        attributes=tuple(attrs or ()),
+    )
+    # A field-level slice or a --limit'ed pull is what was asked for:
+    # ancestors only on request.
+    include_ancestors = ancestors if ancestors is not None else not (filters.field_level or limit)
+    if limit and include_ancestors and filters.active:
+        raise typer.BadParameter("--limit counts matched spans, so it can't be combined with --ancestors and filters")
+    filters = dataclasses.replace(filters, include_ancestors=include_ancestors)
+
+    shown: dict[str, Any] = {}
+    if atif_only:
+        shown["atif_only"] = True
+    if errors_only:
+        shown["errors_only"] = True
+    if search:
+        shown["search"] = search
+    if filters.names:
+        shown["name"] = list(filters.names)
+    if filters.kinds:
+        shown["kind"] = list(filters.kinds)
+    if filters.status:
+        shown["status"] = filters.status
+    if since:
+        shown["since"] = since.isoformat()
+    if until:
+        shown["until"] = until.isoformat()
+    if filters.attributes:
+        shown["attr"] = list(filters.attributes)
+    if ancestors is not None:
+        shown["ancestors"] = ancestors
+    if limit:
+        shown["limit"] = limit
+    if cursor:
+        shown["cursor"] = cursor
+    header: dict[str, Any] = {"filters": shown} if shown else {}
+    header["session_id"] = session_id
+
+    out = output or _default_output_path("traces", session_id, ".ndjson" if fmt is TraceFormat.ndjson else ".json")
     try:
-        with Chronos(base_url=chronos_url, api_key=api_key) as client:
-            spans = _get_spans(
+        with (
+            Chronos(base_url=chronos_url, api_key=api_key) as client,
+            _span_stream_progress("Streaming spans") as on_progress,
+        ):
+            spans, stream = _open_spans(
                 client,
                 session_id,
-                atif_only=atif_only,
-                errors_only=errors_only,
-                search=search,
+                filters,
                 refresh=refresh,
+                max_spans=limit,
+                cursor=cursor,
+                on_progress=on_progress,
             )
+            # Both clean up on any exit, Ctrl+C included: no partial output or cache.
+            with closing(spans), _SpanFileWriter(out, fmt, header) as writer:
+                for span in spans:
+                    writer.write(span)
+                trailer: dict[str, Any] = {}
+                if stream is not None and stream.has_more:
+                    trailer = {"has_more": True, "next_cursor": stream.cursor}
+                writer.finish(trailer)
 
-        output_dict: dict[str, Any] = {
-            "session_id": session_id,
-            "total_count": len(spans),
-            "spans": [s.model_dump() for s in spans],
-        }
-        filters: dict[str, str | bool] = {}
-        if atif_only:
-            filters["atif_only"] = True
-        if errors_only:
-            filters["errors_only"] = True
-        if search:
-            filters["search"] = search
-        if filters:
-            output_dict = {"filters": filters, **output_dict}
-        data = json.dumps(output_dict, indent=2)
-        out = output or _default_output_path("traces", session_id)
-        console.print(f"[green]{len(spans):,}[/green] spans")
-        _write_output(data, out)
+        console.print(f"[green]{writer.count:,}[/green] spans")
+        if stream is not None and stream.dropped_locally:
+            console.print(
+                f"[yellow]Chronos ignored the span filters (an older deploy?): streamed the whole session "
+                f"and dropped {stream.dropped_locally:,} non-matching spans locally[/yellow]"
+            )
+        if stream is not None and stream.has_more:
+            console.print(f"[yellow]More spans left: continue with --cursor {stream.cursor}[/yellow]")
+        console.print(f"[green]{out}[/green]")
     except Exception as e:
         console.print(f"[red]Failed: {e}[/red]")
         raise typer.Exit(1)

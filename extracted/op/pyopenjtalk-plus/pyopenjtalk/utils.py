@@ -1,16 +1,19 @@
+import difflib
 import unicodedata
 from threading import Lock, local
 from typing import Any, Literal
 
 from sudachipy import dictionary, tokenizer
 
+from ._cjkvi_variants_map import CJKVI_VARIANTS
+from ._itaiji_map import ITAIJI_MAP
 from .openjtalk import OpenJTalk
-from .types import NJDFeature
+from .types import IuPronunciation, MeCabMorph, NJDFeature, NormalizeMode
 from .yomi_model.nani_predict import predict
 
 
 # 小書き仮名の集合 (モーラ分割で前の文字と結合される文字)
-_SMALL_KANA = frozenset("ャュョァィゥェォ")
+_SMALL_KANA = frozenset("ャュョァィゥェォヮ")
 
 # 濁音→清音の 1 文字マップ (detect_odori_unit での清音化に使用)
 _SEION_CHAR_MAP: dict[str, str] = {
@@ -137,6 +140,152 @@ _DAN_MAP: dict[str, Literal["a", "i", "u", "e", "o"]] = {
     "ォ": "o",
 }
 
+# 直後に接尾辞「国」が続くと、「国」を「コク」でなく「ノクニ」と読む令制国の名前 (例: 石見国 = イワミノクニ)
+## 「中国」「外国」のように MeCab が1語として解析する語は、接尾辞の条件で対象から外れる
+_OLD_PROVINCE_NAMES = frozenset(
+    {
+        # 畿内
+        "山城",
+        "大和",
+        "河内",
+        "和泉",
+        "摂津",
+        # 東海道
+        "伊賀",
+        "伊勢",
+        "志摩",
+        "尾張",
+        "三河",
+        "遠江",
+        "駿河",
+        "伊豆",
+        "甲斐",
+        "相模",
+        "武蔵",
+        "安房",
+        "上総",
+        "下総",
+        "常陸",
+        # 東山道
+        "近江",
+        "美濃",
+        "飛騨",
+        "信濃",
+        "上野",
+        "下野",
+        "陸奥",
+        "出羽",
+        # 北陸道
+        "若狭",
+        "越前",
+        "加賀",
+        "能登",
+        "越中",
+        "越後",
+        "佐渡",
+        # 山陰道
+        "丹波",
+        "丹後",
+        "但馬",
+        "因幡",
+        "伯耆",
+        "出雲",
+        "石見",
+        "隠岐",
+        # 山陽道
+        "播磨",
+        "美作",
+        "備前",
+        "備中",
+        "備後",
+        "安芸",
+        "周防",
+        "長門",
+        # 南海道
+        "紀伊",
+        "淡路",
+        "阿波",
+        "讃岐",
+        "伊予",
+        "土佐",
+        # 西海道
+        "筑前",
+        "筑後",
+        "豊前",
+        "豊後",
+        "肥前",
+        "肥後",
+        "日向",
+        "大隅",
+        "薩摩",
+        "壱岐",
+        "対馬",
+        # 明治期に分立した国
+        "岩代",
+        "磐城",
+        "陸前",
+        "陸中",
+        "羽前",
+        "羽後",
+        # 北海道の11国
+        "渡島",
+        "後志",
+        "胆振",
+        "石狩",
+        "天塩",
+        "北見",
+        "日高",
+        "十勝",
+        "釧路",
+        "根室",
+        "千島",
+        # 記紀や風土記などに現れる古い表記
+        "大倭",
+        "御野",
+        "諏方",
+        "石城",
+        "石背",
+        "多禰",
+        "筑紫",
+        "末廬",
+        "高志",
+        "上毛野",
+        "下毛野",
+        "三野",
+        "針間",
+        "吉備",
+        "科野",
+    }
+)
+
+# 後ろの語を独立したアクセント句として読む、指示的な漢語の接頭辞 (「本論文」の「本」など)
+## 収集した例で、後ろの語が接頭辞と切れて発音されていたものだけを持つ
+_INDEPENDENT_PREFIXES = frozenset({"本", "当", "同", "全"})
+
+# 旧字体・異体字を OpenJTalk の辞書で使われる通用字へ置き換えるための対応
+## 手で整えた ITAIJI_MAP を、CJKVI の字体表から生成した対応より優先する
+_VARIANT_MAP: dict[str, str] = {**CJKVI_VARIANTS, **ITAIJI_MAP}
+_ITAIJI_TRANSLATION = str.maketrans(_VARIANT_MAP)
+
+# ローマ数字の専用文字 (大文字の「Ⅰ」〜「Ⅿ」と小文字の「ⅰ」〜「ⅿ」) の値
+_ROMAN_NUMERAL_VALUES: dict[str, int] = {
+    character: value
+    for start in (0x2160, 0x2170)
+    for character, value in zip(
+        (chr(start + offset) for offset in range(16)),
+        (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 50, 100, 500, 1000),
+    )
+}
+
+# 算用数字を全角の数字へ置き換えるための変換表
+_FULLWIDTH_DIGIT_TRANSLATION = str.maketrans("0123456789", "０１２３４５６７８９")
+
+# 長音を戻すとき、発音の「ー」に対応する読みの文字がこれらの仮名なら、その仮名へ戻す
+_LONG_VOWEL_KANA = frozenset("アイウエオァィゥェォ")
+
+# 四つ仮名を戻すときの、読みの文字と発音の文字の組み合わせ
+_YOTSUGANA_PAIRS = frozenset({("ヅ", "ズ"), ("ヂ", "ジ")})
+
 # Sudachi の Dictionary はスレッド間で共有可能だが、Tokenizer はスレッドセーフでないため
 # Dictionary をモジュールレベルで一度だけ生成し、Tokenizer のみスレッドごとに遅延初期化する
 _SUDACHI_DICTIONARY: dictionary.Dictionary | None = None
@@ -144,7 +293,7 @@ _SUDACHI_DICTIONARY_LOCK = Lock()
 _SUDACHI_TOKENIZER_LOCAL = local()
 
 
-def _get_sudachi_tokenizer() -> tokenizer.Tokenizer:
+def get_sudachi_tokenizer() -> tokenizer.Tokenizer:
     """
     現在のスレッドに紐づく Sudachi Tokenizer を取得する。
 
@@ -168,14 +317,14 @@ def _get_sudachi_tokenizer() -> tokenizer.Tokenizer:
 
 def normalize_text(
     text: str,
-    normalize_mode: Literal["None", "NFC", "NFKC"] = "None",
+    normalize_mode: NormalizeMode = "None",
 ) -> str:
     """
     指定された方式で Unicode 正規化を行う。
 
     Args:
         text (str): 正規化対象のテキスト
-        normalize_mode (Literal["None", "NFC", "NFKC"]): 正規化方式
+        normalize_mode (NormalizeMode): 正規化方式
             `"NFC"` は結合文字を正規化し、`"NFKC"` は半角カナなどの互換文字も正規化する
             デフォルト: `"None"`
 
@@ -195,6 +344,384 @@ def normalize_text(
     if unicodedata.is_normalized(normalized_form, text) is True:
         return text
     return unicodedata.normalize(normalized_form, text)
+
+
+def normalize_itaiji(
+    text: str,
+    target_characters: frozenset[str] | None = None,
+) -> str:
+    """
+    旧字体と異体字を、OpenJTalk の辞書で使われる通用字へ置き換える。
+
+    Args:
+        text (str): 正規化対象のテキスト
+        target_characters (frozenset[str] | None): 置き換えてよい文字。None の場合はすべての異体字を置き換える
+
+    Returns:
+        str: 通用字へ置き換えたテキスト
+    """
+
+    if target_characters is not None:
+        return "".join(
+            _VARIANT_MAP.get(character, character) if character in target_characters else character
+            for character in text
+        )
+    return text.translate(_ITAIJI_TRANSLATION)
+
+
+def normalize_unknown_itaiji(text: str, *, inference_jtalk: OpenJTalk) -> str:
+    """
+    辞書で読めない異体字を通用字へ置き換える。
+    置き換えるのは、置き換えた字が2字以上の辞書の語に入るか、前後に漢字がなくその字だけで1語になる場合に限る。
+    「齒性」の「齒」を「歯」にすると1字の語「歯」の「ハ」で読まれてしまうので、置き換えずに字ごとの音読みの「シ」で読む。
+
+    Args:
+        text (str): 正規化済みの入力テキスト
+        inference_jtalk (OpenJTalk): 異体字を読めるかどうかを確かめる OpenJTalk インスタンス
+
+    Returns:
+        str: 辞書で読めない異体字を通用字へ置き換えたテキスト
+    """
+
+    def _is_kanji(character: str) -> bool:
+        """
+        CJK 統合漢字かを判定する。
+
+        Args:
+            character (str): 判定する1文字
+
+        Returns:
+            bool: CJK 統合漢字 (拡張 A 以降と互換漢字を含む) の場合は True
+        """
+
+        codepoint = ord(character)
+        return (
+            0x3400 <= codepoint <= 0x4DBF
+            or 0x4E00 <= codepoint <= 0x9FFF
+            or 0xF900 <= codepoint <= 0xFAFF
+            or 0x20000 <= codepoint <= 0x3FFFF
+        )
+
+    def _is_resolved_replacement(
+        index: int,
+        original_morphs: list[MeCabMorph],
+        candidate_morphs: list[MeCabMorph],
+        mecab_indices: list[int],
+    ) -> bool:
+        """
+        置き換えた字が、置き換え後の解析で辞書の語として読めるかを判定する。
+
+        Args:
+            index (int): 置き換えた字の入力上の位置
+            original_morphs (list[MeCabMorph]): 置き換える前の入力の形態素
+            candidate_morphs (list[MeCabMorph]): 置き換えた後の入力の形態素
+            mecab_indices (list[int]): 入力の各文字に対応する正規化後の位置
+
+        Returns:
+            bool: 置き換えを採る場合は True
+        """
+
+        mecab_index = mecab_indices[index]
+        morph = next(
+            (
+                candidate_morph
+                for candidate_morph in candidate_morphs
+                if candidate_morph["char_span"][0] <= mecab_index < candidate_morph["char_span"][1]
+            ),
+            None,
+        )
+        if morph is None or morph["is_unknown"] is True:
+            return False
+        span_start, span_end = morph["char_span"]
+        # 「𠮷」「﨔の木」のように前後に漢字がなく、置き換えた字だけで1語になるときは、その語の読みを使う
+        if span_end - span_start == 1:
+            return (index == 0 or _is_kanji(text[index - 1]) is False) and (
+                index + 1 == len(text) or _is_kanji(text[index + 1]) is False
+            )
+        # 2字以上の語は、システム辞書の語のときだけ採る
+        if morph["dictionary_index"] != 0:
+            return False
+        # 「高 + 﨑駅」を「高﨑 + 駅」と区切り直すように、未知語は区切り直してよい
+        # 置き換える前に既知だった語の途中で分ける解析と、ユーザー辞書の語を吸収する解析は採らない
+        for original_morph in original_morphs:
+            original_start, original_end = original_morph["char_span"]
+            if original_end <= span_start or original_start >= span_end:
+                continue
+            if original_morph["is_unknown"] is True:
+                continue
+            if (
+                original_morph["dictionary_index"] != 0
+                or original_start < span_start
+                or original_end > span_end
+            ):
+                return False
+        return True
+
+    # 異体字を含まない通常の文では、追加の形態素解析をしない
+    if all(character not in _VARIANT_MAP for character in text):
+        return text
+
+    # ユーザー辞書を含む今の辞書で読める字形は、その字形に固有の読み・品詞・アクセントを残すため置き換えない
+    # 同じ異体字が既知語と未知語の両方に現れることがあるので、置き換えるのは未知語の位置にある字だけにする
+    # 未知語の位置は MeCab 向けに正規化した本文上の位置なので、入力の1文字ずつを正規化して入力上の位置へ対応付ける
+    _, original_morphs = inference_jtalk.run_mecab_detailed(text)
+    mecab_indices = _mecab_index_by_original_index(text, inference_jtalk=inference_jtalk)
+    if mecab_indices is None:
+        # 位置を対応付けられない場合は字形を保ち、同じ異体字を含む登録語まで一括で置き換えない
+        return text
+    unknown_mecab_indices = {
+        mecab_index
+        for morph in original_morphs
+        if morph["is_unknown"] is True
+        for mecab_index in range(*morph["char_span"])
+    }
+    replacements = {
+        index: _VARIANT_MAP[character]
+        for index, character in enumerate(text)
+        if character in _VARIANT_MAP and mecab_indices[index] in unknown_mecab_indices
+    }
+
+    # 置き換えを1つ取り消すと、ほかの字の解析も変わるので、採らない置き換えを外して1回だけ解析し直す
+    for _ in range(2):
+        if len(replacements) == 0:
+            break
+        candidate_text = "".join(
+            replacements.get(index, character) for index, character in enumerate(text)
+        )
+        # 通用字の正規化後の長さが異体字と違うと位置を対応付けられないので、置き換えない
+        if (
+            _mecab_index_by_original_index(candidate_text, inference_jtalk=inference_jtalk)
+            != mecab_indices
+        ):
+            break
+        _, candidate_morphs = inference_jtalk.run_mecab_detailed(candidate_text)
+        retained = {
+            index: proper
+            for index, proper in replacements.items()
+            if _is_resolved_replacement(index, original_morphs, candidate_morphs, mecab_indices)
+        }
+        if len(retained) == len(replacements):
+            return candidate_text
+        replacements = retained
+    return text
+
+
+def normalize_roman_numerals(text: str, *, inference_jtalk: OpenJTalk | None = None) -> str:
+    """
+    ローマ数字の専用文字を、同じ文字数の全角の算用数字へ置き換える。
+    「Ⅰ章」「Ⅱ日」「ⅩⅩ」は、ローマ数字のままでは1字ずつ数詞の行に置き換わるだけで助数詞の処理を通らず、「イチショー」「ニニチ」「ジュージュー」と読まれる。
+    算用数字へ置き換えると「イッショー」「フツカ」「ニジュー」のように、算用数字と同じ音便と和語の読みになる。
+    置き換えは1文字ずつで文字数を変えないので、形態素の文字位置は入力のまま保たれる。
+    値の桁数が文字数と合わない「Ⅹ」(10) や「Ⅻ」(12)、「ⅩⅩⅩ」(30) は、辞書の読みのまま残す。
+    ユーザー辞書に登録した「Ⅲ型」のような語の中のローマ数字は、置き換えると登録した語に当たらなくなるので、置き換えない。
+
+    Args:
+        text (str): 正規化済みの入力テキスト
+        inference_jtalk (OpenJTalk | None): ユーザー辞書の語に含まれるローマ数字を確かめる OpenJTalk インスタンス
+            None の場合は確かめずに、すべてのローマ数字の並びを置き換える (デフォルト: None)
+
+    Returns:
+        str: ローマ数字を算用数字へ置き換えたテキスト
+    """
+
+    def _roman_numeral_value(numeral: str) -> int | None:
+        """
+        ローマ数字の並びを値へ変換する。
+
+        Args:
+            numeral (str): ローマ数字の専用文字の並び
+
+        Returns:
+            int | None: 値 (「ⅠⅤⅩ」のように標準の書き方でない並びは None)
+        """
+
+        values = [_ROMAN_NUMERAL_VALUES[character] for character in numeral]
+        value = sum(
+            -current if index + 1 < len(values) and current < values[index + 1] else current
+            for index, current in enumerate(values)
+        )
+        # 値から作り直した標準の書き方と一致する並びだけを数として読む
+        canonical = ""
+        remaining = value
+        for symbol_value, symbol in (
+            (1000, "M"),
+            (900, "CM"),
+            (500, "D"),
+            (400, "CD"),
+            (100, "C"),
+            (90, "XC"),
+            (50, "L"),
+            (40, "XL"),
+            (10, "X"),
+            (9, "IX"),
+            (5, "V"),
+            (4, "IV"),
+            (1, "I"),
+        ):
+            count, remaining = divmod(remaining, symbol_value)
+            canonical += symbol * count
+        if unicodedata.normalize("NFKC", numeral).upper() != canonical:
+            return None
+        return value
+
+    # ローマ数字を含まない通常の文では、文字列を組み立て直さない
+    if any(character in _ROMAN_NUMERAL_VALUES for character in text) is False:
+        return text
+
+    # ユーザー辞書の語の中にあるローマ数字の位置を集め、その語の登録した読みと読み保護を保つため置き換えない
+    ## 形態素の位置は MeCab 向けに正規化した本文上の位置なので、入力の1文字ずつを正規化して入力上の位置へ対応付ける
+    kept_indices: set[int] = set()
+    kept_characters: set[str] = set()
+    user_dictionary_count = (
+        len(inference_jtalk.userdic_reading_protection) if inference_jtalk is not None else 0
+    )
+    if inference_jtalk is not None and user_dictionary_count > 0:
+        _, morphs = inference_jtalk.run_mecab_detailed(text)
+        user_dictionary_morphs = [
+            morph
+            for morph in morphs
+            if morph["is_unknown"] is False
+            and 1 <= morph["dictionary_index"] <= user_dictionary_count
+        ]
+        user_dictionary_mecab_indices = {
+            mecab_index
+            for morph in user_dictionary_morphs
+            for mecab_index in range(*morph["char_span"])
+        }
+        mecab_indices = _mecab_index_by_original_index(text, inference_jtalk=inference_jtalk)
+        if mecab_indices is None:
+            # 位置を対応付けられない入力では、ユーザー辞書の語に現れるローマ数字の字をどこでも置き換えない
+            kept_characters = {
+                character
+                for morph in user_dictionary_morphs
+                for character in morph["surface"]
+                if character in _ROMAN_NUMERAL_VALUES
+            }
+        else:
+            kept_indices = {
+                index
+                for index, character in enumerate(text)
+                if character in _ROMAN_NUMERAL_VALUES
+                and mecab_indices[index] in user_dictionary_mecab_indices
+            }
+
+    def _is_replaceable(index: int) -> bool:
+        """
+        入力の index 文字目が、置き換えてよいローマ数字かを判定する。
+
+        Args:
+            index (int): 入力上の位置
+
+        Returns:
+            bool: ローマ数字で、ユーザー辞書の語の中にない場合は True
+        """
+
+        character = text[index]
+        return (
+            character in _ROMAN_NUMERAL_VALUES
+            and index not in kept_indices
+            and character not in kept_characters
+        )
+
+    pieces: list[str] = []
+    index = 0
+    while index < len(text):
+        if _is_replaceable(index) is False:
+            pieces.append(text[index])
+            index += 1
+            continue
+        end = index
+        while end < len(text) and _is_replaceable(end) is True:
+            end += 1
+        numeral = text[index:end]
+        value = _roman_numeral_value(numeral)
+        # 「パートⅡ５階」の建物番号と階数は別の数なので、隣に算用数字がある並びは元の文字で区切りを保つ
+        is_adjacent_digit = (index > 0 and text[index - 1] in "0123456789０１２３４５６７８９") or (
+            end < len(text) and text[end] in "0123456789０１２３４５６７８９"
+        )
+        if value is not None and len(str(value)) == len(numeral) and is_adjacent_digit is False:
+            pieces.append(str(value).translate(_FULLWIDTH_DIGIT_TRANSLATION))
+        else:
+            pieces.append(numeral)
+        index = end
+    return "".join(pieces)
+
+
+def _mecab_index_by_original_index(source: str, *, inference_jtalk: OpenJTalk) -> list[int] | None:
+    """
+    入力の各文字が、MeCab 向けに正規化した本文の何文字目から始まるかを返す。
+
+    Args:
+        source (str): 入力テキスト
+        inference_jtalk (OpenJTalk): MeCab 向けの正規化に使う OpenJTalk インスタンス
+
+    Returns:
+        list[int] | None: 入力の各文字に対応する正規化後の位置 (1文字ずつの正規化と本文全体の正規化が食い違う場合は None)
+    """
+
+    # 半角濁点は直前のカナと合わせて「ｶﾞ」→「ガ」に縮約されるので、その2文字には同じ開始位置を割り当てる
+    chunks: list[tuple[int, str]] = []
+    index = 0
+    while index < len(source):
+        end = index + 1
+        if end < len(source) and source[end] in "ﾞﾟ゙゚":
+            end += 1
+        # 異体字セレクターも直前の文字と正規化し、漢字の開始位置へ対応させる
+        while end < len(source) and (
+            "\ufe00" <= source[end] <= "\ufe0f" or "\U000e0100" <= source[end] <= "\U000e01ef"
+        ):
+            end += 1
+        chunks.append((end - index, inference_jtalk.normalize_for_mecab(source[index:end])))
+        index = end
+    if "".join(normalized for _, normalized in chunks) != inference_jtalk.normalize_for_mecab(
+        source
+    ):
+        return None
+    mecab_indices: list[int] = []
+    mecab_index = 0
+    for source_size, normalized in chunks:
+        if source_size == len(normalized):
+            mecab_indices.extend(range(mecab_index, mecab_index + source_size))
+        else:
+            mecab_indices.extend([mecab_index] * source_size)
+        mecab_index += len(normalized)
+    return mecab_indices
+
+
+def fill_missing_feature_flags(njd_features: list[NJDFeature]) -> list[NJDFeature]:
+    """
+    呼び出し元が作った NJDFeature に読み保護と読みの書き換えの印がなければ、False を入れる。
+    pyopenjtalk-plus が作る NJDFeature には必ず印が入っているので、印を足す前の版で作った素性を公開関数の入口で受け取るときだけ使う。
+
+    Args:
+        njd_features (list[NJDFeature]): NJDNode 用 features。インプレースで更新される
+
+    Returns:
+        list[NJDFeature]: 印を補った njd_features (同一オブジェクト)
+    """
+
+    for feature in njd_features:
+        feature.setdefault("is_reading_protected", False)
+        feature.setdefault("is_reading_rewritten", False)
+    return njd_features
+
+
+def fill_missing_morph_flags(morphs: list[MeCabMorph]) -> list[MeCabMorph]:
+    """
+    呼び出し元が作った MeCabMorph に tsqyomi の判定の印がなければ、False を入れる。
+    pyopenjtalk-plus が作る MeCabMorph には必ず印が入っているので、印を足す前の版で作った形態素を公開関数の入口で受け取るときだけ使う。
+
+    Args:
+        morphs (list[MeCabMorph]): MeCab の形態素解析結果。インプレースで更新される
+
+    Returns:
+        list[MeCabMorph]: 印を補った morphs (同一オブジェクト)
+    """
+
+    for morph in morphs:
+        morph.setdefault("is_tsqyomi_selected", False)
+        morph.setdefault("is_tsqyomi_target", False)
+    return morphs
 
 
 def merge_njd_marine_features(
@@ -240,6 +767,8 @@ def modify_kanji_yomi(
     text: str,
     pyopen_njd: list[NJDFeature],
     target_kanji_set: frozenset[str],
+    *,
+    jtalk: OpenJTalk,
 ) -> list[NJDFeature]:
     """
     Sudachi を用いて、複数の読みを持つ漢字の読みを補正する。
@@ -250,6 +779,7 @@ def modify_kanji_yomi(
         text (str): 読み対象となるテキスト
         pyopen_njd (list[NJDFeature]): OpenJTalk の形態素解析結果
         target_kanji_set (frozenset[str]): 複数の読みを持つ対象漢字の集合
+        jtalk (OpenJTalk): 読み候補の解析に使う OpenJTalk インスタンス
 
     Returns:
         list[NJDFeature]: 漢字の読み補正を適用した形態素解析結果。
@@ -266,7 +796,8 @@ def modify_kanji_yomi(
 
     # 全対象の対応が確認できるまではコピーだけを変更する
     ## 逆順照合の途中で失敗しても、呼び出し元が渡した NJD features へ半端な補正を残さない
-    for feature in reversed(corrected_njd):
+    for feature_index in reversed(range(len(corrected_njd))):
+        feature = corrected_njd[feature_index]
         if feature["orig"] in target_kanji_set:
             try:
                 correct_yomi = sudachi_yomi.pop()
@@ -276,14 +807,81 @@ def modify_kanji_yomi(
                 return pyopen_njd
 
             # OpenJTalk が接尾辞として確定した読みは、前接語との結合を反映した結果なので保持する
-            ## Sudachi の単漢字読みは「支払時」の「時」を一般名詞のトキとして返すため、ここで上書きすると
-            ## 文脈解析済みのジを失う一方、「その時」のような非自立名詞には既存の補正を適用できる
+            ## Sudachi の単漢字読みは「支払時」の「時」を一般名詞の「トキ」として返すため、ここで上書きすると
+            ## 文脈解析済みの「ジ」を失う一方、「その時」のような非自立名詞には既存の補正を適用できる
             if feature["pos_group1"] == "接尾":
                 continue
 
-            corrected_yomi = "ホオ" if correct_yomi == ["方", "ホウ"] else correct_yomi[1]
-            feature["pron"] = corrected_yomi
-            feature["read"] = corrected_yomi
+            corrected_pron = correct_yomi[1]
+            if (
+                feature["read"] != correct_yomi[1]
+                and feature["mora_size"] != len(split_kana_mora(correct_yomi[1]))
+                and feature["chain_flag"] != 1
+            ):
+                # 読みを「オモテ」から「ヒョウ」へ変えた語へ元の核3を残すと、後続の助詞「だけ」の「ダ」で下がる
+                ## モーラ数が変わった句頭だけ新しい辞書行へ置き換え、後続語との結合を NJD で計算し直す
+                ## モーラ数が同じ場合は既存の句の核を保ち、「金」「前」などの読み替えで核だけが変わるのを防ぐ
+                surface = jtalk.normalize_for_mecab(feature["orig"])
+                candidates = jtalk.analyze_mecab_candidates(surface, ((0, len(surface)),))
+                matching_nodes = [
+                    node
+                    for node in candidates["nodes"]
+                    if node["surface"] == surface
+                    and node["is_unknown"] is False
+                    and node["feature"].split(",")[8] == correct_yomi[1]
+                ]
+                if matching_nodes:
+                    # 「表1」の接頭詞「オモテ」には「ヒョウ」の同品詞候補がないため、読みの合う名詞候補も使う
+                    selected = min(
+                        matching_nodes,
+                        key=lambda node: (
+                            node["feature"].split(",")[1:5]
+                            != [
+                                feature["pos"],
+                                feature["pos_group1"],
+                                feature["pos_group2"],
+                                feature["pos_group3"],
+                            ],
+                            node["word_cost"],
+                        ),
+                    )
+                    corrected_pron = selected["feature"].split(",")[9]
+                    phrase_features = [selected["feature"]]
+                    for following in corrected_njd[feature_index + 1 :]:
+                        if following["chain_flag"] != 1:
+                            break
+                        phrase_features.append(
+                            ",".join(
+                                [
+                                    following["string"],
+                                    following["pos"],
+                                    following["pos_group1"],
+                                    following["pos_group2"],
+                                    following["pos_group3"],
+                                    following["ctype"],
+                                    following["cform"],
+                                    following["orig"],
+                                    following["read"],
+                                    following["pron"],
+                                    f"{following['acc']}/{following['mora_size']}",
+                                    following["chain_rule"],
+                                    str(following["chain_flag"]),
+                                ]
+                            )
+                        )
+                    feature["acc"] = jtalk.run_njd_from_mecab(phrase_features)[0]["acc"]
+
+            # Sudachi の「ホウ」を正書法の読みとして保持し、発音のみ長音表記へ変換する
+            ## 他の語と同様に両方を Sudachi の「ホウ」で上書きすると発音の長音化「ホー」が失われ、
+            ## かといって read まで「ホー」にすると正書法のかな読みが崩れるため、pron だけを差し替える
+            if correct_yomi == ["方", "ホウ"]:
+                feature["read"] = "ホウ"
+                feature["pron"] = "ホー"
+            else:
+                feature["read"] = correct_yomi[1]
+                feature["pron"] = corrected_pron
+            # 読みの差し替えでモーラ数が変わるため、後続のアクセント計算が参照する値を変更後の発音へ揃える
+            feature["mora_size"] = len(split_kana_mora(feature["pron"]))
 
     # Sudachi 側に未対応の対象語が残る場合も、形態素境界が一致していないと判断する
     if len(sudachi_yomi) > 0:
@@ -308,7 +906,7 @@ def sudachi_analyze(text: str, target_kanji_set: frozenset[str]) -> list[list[st
         return []
 
     text = text.replace("ー", "")
-    tokenizer_obj = _get_sudachi_tokenizer()
+    tokenizer_obj = get_sudachi_tokenizer()
     mode = tokenizer.Tokenizer.SplitMode.C
     m_list = tokenizer_obj.tokenize(text, mode)
     yomi_list = [[m.surface(), m.reading_form()] for m in m_list if m.surface() in target_kanji_set]
@@ -317,7 +915,7 @@ def sudachi_analyze(text: str, target_kanji_set: frozenset[str]) -> list[list[st
 
 def is_high_confidence_nani_context(next_feature: NJDFeature | None) -> bool:
     """
-    後続形態素だけで「何」をナニと確定できる文脈か判定する。
+    後続形態素だけで「何」を「ナニ」と確定できる文脈か判定する。
 
     Args:
         next_feature (NJDFeature | None): 「何」の次にある NJD feature
@@ -361,7 +959,7 @@ def predict_nani_reading(njd_features: list[NJDFeature]) -> list[NJDFeature]:
             njd_features[feature_index + 1] if feature_index + 1 < len(njd_features) else None
         )
         # 後続形態素で読みが確定する文脈と、既定読みを保つ格助詞「で」はモデル判定を省く
-        ## 格助詞「で」は、単一形態素「何で」が担っていた製品既定のナンを分割後も維持する
+        ## 格助詞「で」は、単一形態素「何で」が担っていた製品既定の「ナン」を分割後も維持する
         is_high_confidence_nani = is_high_confidence_nani_context(next_feature)
         should_keep_default_nan = (
             next_feature is not None
@@ -369,7 +967,16 @@ def predict_nani_reading(njd_features: list[NJDFeature]) -> list[NJDFeature]:
             and next_feature["pos"] == "助詞"
             and next_feature["pos_group1"] == "格助詞"
         )
-        if is_high_confidence_nani is True:
+        # 「3分の何」の分子の「何」は数を問う語なので、分母を「ブン」と読んだ分数の後では「ナン」を保つ
+        is_fraction_numerator = (
+            feature_index >= 2
+            and njd_features[feature_index - 1]["string"] == "の"
+            and njd_features[feature_index - 2]["string"].endswith("分")
+            and njd_features[feature_index - 2]["pron"].endswith("ブン")
+        )
+        if is_fraction_numerator is True:
+            is_read_nan = 1
+        elif is_high_confidence_nani is True:
             is_read_nan = 0
         elif should_keep_default_nan is True:
             is_read_nan = 1
@@ -421,7 +1028,9 @@ def suppress_unnatural_auxiliary_u_long_vowel(
 
 def retreat_acc_nuc(njd_features: list[NJDFeature]) -> list[NJDFeature]:
     """
-    長音、促音、撥音がアクセント核に来た場合に、核位置を1モーラ前へずらす。
+    特殊拍上のアクセント核と、前部末型の結合で準特殊拍に来た核を1モーラ前へずらす。
+    準特殊拍はア段に続く「イ」と、発音に無声化記号が付いた拍を対象とする。
+    NHK アクセント辞典の「警戒心」「仙台市」と同じ補正を、C3 で結合する語に適用する。
 
     Args:
         njd_features (list[NJDFeature]): run_frontend() の結果
@@ -434,12 +1043,12 @@ def retreat_acc_nuc(njd_features: list[NJDFeature]) -> list[NJDFeature]:
         return njd_features
 
     inappropriate_for_nuclear_chars = ["ー", "ッ", "ン"]
-    delete_youon = str.maketrans("", "", "ャュョァィゥェォ")
+    delete_youon = str.maketrans("", "", "".join(_SMALL_KANA))
     phase_len = 0
     acc = 0
     head = njd_features[0]
 
-    for _, njd in enumerate(njd_features):
+    for index, njd in enumerate(njd_features):
         # アクセント境界直後の node (chain_flag 0 or -1) にアクセント核の位置の情報が入っている
         if njd["chain_flag"] in [0, -1]:
             head = njd
@@ -447,17 +1056,37 @@ def retreat_acc_nuc(njd_features: list[NJDFeature]) -> list[NJDFeature]:
             phase_len = 0
 
         phase_len += njd["mora_size"]
-        pron = njd["pron"].translate(delete_youon)
+        # 拗音の小書きと無声化記号「’」は拍に数えないので外してから、核の拍を位置で引く
+        ## 「アサヒ’ソーゴービョーイン」の「’」を残すと、核より後ろの拍が1文字ずれて長音を核と取り違える
+        pron = njd["pron"].translate(delete_youon).replace("’", "")
         if len(pron) == 0:
             pron = njd["pron"]
 
         if acc > 0:
             if acc <= njd["mora_size"]:
+                # C3 が置いた前部末の核だけ、二重母音と無声化拍の補正も適用する
+                ## 「クイ」などの母音連続は仮名だけでは二重母音と確定できないため、ア段＋イに限定する
+                next_njd = njd_features[index + 1] if index + 1 < len(njd_features) else None
+                is_c3_boundary = (
+                    acc == njd["mora_size"]
+                    and next_njd is not None
+                    and next_njd["chain_flag"] == 1
+                    and next_njd["chain_rule"] == "C3"
+                )
+                # 前部末の拍とその直前の母音を調べる
                 try:
                     nuc_pron = pron[acc - 1]
                 except IndexError:
                     nuc_pron = pron[0]
-                if nuc_pron in inappropriate_for_nuclear_chars:
+                previous_kana = njd["pron"].replace("’", "")[-2:-1]
+                is_quasi_special_mora = (
+                    len(pron) >= 2
+                    and nuc_pron == "イ"
+                    and (_DAN_MAP.get(previous_kana) == "a" or previous_kana == "ャ")
+                ) or njd["pron"].endswith("’")
+                if nuc_pron in inappropriate_for_nuclear_chars or (
+                    is_c3_boundary is True and is_quasi_special_mora is True
+                ):
                     head["acc"] += -1
                 acc = -1
             else:
@@ -524,38 +1153,189 @@ def revert_pron_to_read(
     use_read_as_pron: bool = False,
     revert_long_vowels: bool = False,
     revert_yotsugana: bool = False,
+    *,
+    jtalk: OpenJTalk,
 ) -> list[NJDFeature]:
     """
-    辞書によって自動的に正規化・変換された発音 (pron) を、元のテキスト通りの読み (read) に復元する。
+    辞書が発音 (pron) で書き換えた長音と四つ仮名を、元のテキスト通りの読み (read) の表記に戻す。
+    revert_long_vowels と revert_yotsugana は、名前が指す違いだけを文字単位で戻し、助詞の「ワ」「エ」、連濁、無声化の記号などは発音のまま残す。
 
     Args:
         njd_features (list[NJDFeature]): OpenJTalk の形態素解析結果
-        use_read_as_pron (bool): True の場合、全ての発音を強制的に読みに置き換える。
+        use_read_as_pron (bool): True の場合、全ての発音を読みで丸ごと上書きする。
             助詞「は」も「ハ」になるため、TTS 用途には適さない。デフォルト: False
-        revert_long_vowels (bool): True の場合、辞書が自動的に長音化した発音を元に復元する。
-            pron に「ー」が含まれ、かつ orig に「ー」が含まれていない場合のみ復元する。
+        revert_long_vowels (bool): True の場合、辞書が長音にした母音を、読みの仮名へ戻す。
+            元の表記に「ー」がある語は、書かれた長音なので戻さない。
             (例: 「効果」コーカ → コウカ / 「人生」ジンセー → ジンセイ)
             デフォルト: False
-        revert_yotsugana (bool): True の場合、四つ仮名 (ヅ・ヂ) の発音統合を元に復元する。
-            read に「ヅ」「ヂ」が含まれている場合、pron を read で上書きする。
+        revert_yotsugana (bool): True の場合、辞書が「ズ」「ジ」にした四つ仮名を、読みの「ヅ」「ヂ」へ戻す。
             (例: 「気づかず」キズカズ → キヅカズ / 「鼻血」ハナジ → ハナヂ)
             デフォルト: False
+        jtalk (OpenJTalk): 復元した発音の音素からモーラ数を数えるインスタンス
 
     Returns:
         list[NJDFeature]: 発音復元後の形態素解析結果
     """
 
     for feature in njd_features:
-        is_should_revert = use_read_as_pron
-        # 辞書が自動的に長音化した発音を復元
-        # pron に「ー」が含まれ、かつ orig に「ー」が含まれていない場合のみ復元
-        if revert_long_vowels is True and "ー" in feature["pron"] and "ー" not in feature["orig"]:
-            is_should_revert = True
-        # 四つ仮名の発音統合を復元
-        if revert_yotsugana is True and ("ヅ" in feature["read"] or "ヂ" in feature["read"]):
-            is_should_revert = True
-        if is_should_revert is True:
+        if use_read_as_pron is True:
+            if feature["pron"] == feature["read"]:
+                continue
             feature["pron"] = feature["read"]
+            # 「メェ」のように小書き仮名が独立した拍になる発音も、JPCommon と同じ拍数にする
+            feature["mora_size"] = sum(
+                phoneme in {"a", "i", "u", "e", "o", "A", "I", "U", "E", "O", "N", "cl"}
+                for entry in jtalk.make_phoneme_mapping([feature])
+                for phoneme in entry["phonemes"]
+            )
+            continue
+        read = feature["read"]
+        # 無声化の記号「’」は読みにないので、位置を合わせる間だけ外しておく
+        pronunciation_chars = [char for char in feature["pron"] if char != "’"]
+        if read == "".join(pronunciation_chars):
+            continue
+        is_long_vowel_target = revert_long_vowels is True and "ー" not in feature["orig"]
+        for read_char, pronunciation_index in _align_read_with_pronunciation(
+            read, pronunciation_chars
+        ):
+            pronunciation_char = pronunciation_chars[pronunciation_index]
+            is_long_vowel = pronunciation_char == "ー" and read_char in _LONG_VOWEL_KANA
+            is_yotsugana = (read_char, pronunciation_char) in _YOTSUGANA_PAIRS
+            if (is_long_vowel_target is True and is_long_vowel is True) or (
+                revert_yotsugana is True and is_yotsugana is True
+            ):
+                pronunciation_chars[pronunciation_index] = read_char
+        reverted_chars = iter(pronunciation_chars)
+        feature["pron"] = "".join(
+            char if char == "’" else next(reverted_chars) for char in feature["pron"]
+        )
+
+    return njd_features
+
+
+def _align_read_with_pronunciation(
+    read: str, pronunciation_chars: list[str]
+) -> list[tuple[str, int]]:
+    """
+    読みと発音で、同じ位置にあるのに文字が違う箇所を、読みの文字と発音の位置の組で返す。
+    長さが同じなら先頭から1文字ずつ対応させ、違えば一致しない区間のうち長さが同じものだけを対応させる。
+
+    Args:
+        read (str): 形態素の読み
+        pronunciation_chars (list[str]): 無声化の記号を除いた形態素の発音の文字
+
+    Returns:
+        list[tuple[str, int]]: 文字が違う箇所の、読みの文字と発音の位置の組
+    """
+
+    if len(read) == len(pronunciation_chars):
+        blocks = [(0, len(read), 0)]
+    else:
+        # 「アトリウム」と「アトリューム」のように長さが違う語は、一致する部分を除いた区間でだけ対応を取る
+        matcher = difflib.SequenceMatcher(None, read, "".join(pronunciation_chars), autojunk=False)
+        blocks = [
+            (read_start, read_end, pronunciation_start)
+            for tag, read_start, read_end, pronunciation_start, pronunciation_end in matcher.get_opcodes()
+            if tag == "replace" and read_end - read_start == pronunciation_end - pronunciation_start
+        ]
+    return [
+        (read[read_index], pronunciation_start + read_index - read_start)
+        for read_start, read_end, pronunciation_start in blocks
+        for read_index in range(read_start, read_end)
+        if read[read_index] != pronunciation_chars[pronunciation_start + read_index - read_start]
+    ]
+
+
+def normalize_iu(
+    njd_features: list[NJDFeature],
+    pronunciation: IuPronunciation,
+) -> list[NJDFeature]:
+    """
+    動詞「言う」と、「という」などの定型表現に含まれる「イウ」の発音を、指定した方式に揃える。
+
+    Args:
+        njd_features (list[NJDFeature]): 補正対象の NJDNode 用 features
+        pronunciation (IuPronunciation): 「イウ」をどう発音するかの方式
+
+    Returns:
+        list[NJDFeature]: 「イウ」の発音を揃えた NJDNode 用 features
+    """
+
+    is_kanji_only = pronunciation in {"KanjiIu", "KanjiYuu", "KanjiYuuBase"}
+    is_base_only = pronunciation in {"YuuBase", "KanjiYuuBase"}
+    replacement = "イ" if pronunciation in {"Iu", "KanjiIu"} else "ユ"
+
+    def _replace_at(feature: NJDFeature, index: int) -> None:
+        """
+        発音の指定した位置が「言う」の「イ」(または「ユ」) なら、選んだ方式の発音に置き換える。
+
+        Args:
+            feature (NJDFeature): 書き換える NJDNode 用 feature
+            index (int): 発音の中の「イ」または「ユ」の位置
+        """
+
+        if index < 0 or index >= len(feature["pron"]):
+            return
+        if feature["pron"][index] not in {"イ", "ユ"}:
+            return
+        if is_base_only is True and feature["pron"][index + 1 : index + 2] != "ウ":
+            return
+        if is_base_only is True:
+            feature["pron"] = feature["pron"][:index] + "ユー" + feature["pron"][index + 2 :]
+            return
+        feature["pron"] = feature["pron"][:index] + replacement + feature["pron"][index + 1 :]
+
+    for feature in njd_features:
+        original = feature["orig"]
+        if is_kanji_only is True and "言" not in original and "云" not in original:
+            continue
+
+        # 定型表現では「言う」にあたる音の位置が語形ごとに決まっているので、表層形ごとに置き換える位置を固定する
+        if feature["pos"] == "連体詞" and original in {
+            "こういう",
+            "そういう",
+            "どういう",
+            "ああいう",
+        }:
+            _replace_at(feature, 2)
+            continue
+        if original.startswith(("ていう", "という")):
+            _replace_at(feature, 1)
+            continue
+        if original.startswith(("っていう", "とかいう")):
+            _replace_at(feature, 2)
+            continue
+        if original.startswith(("あっという", "アッという", "あっと言う", "アッと言う")):
+            _replace_at(feature, 3)
+            continue
+
+        is_target_pos = (
+            (feature["pos"] == "動詞" and feature["pos_group1"] == "自立")
+            or (
+                feature["pos"] == "形容詞"
+                and feature["pos_group1"].endswith("自立")
+                and feature["ctype"] == "形容詞・アウオ段"
+            )
+            or (feature["pos"] == "副詞" and feature["pos_group1"] == "一般")
+        )
+        if is_target_pos is False:
+            continue
+
+        if feature["pron"] == "イウ" or original.startswith(("いう", "言う", "云う")):
+            _replace_at(feature, 0)
+            continue
+        if "言う" in original:
+            # 複合語では後ろ側の「言う」にあたる音を対象にし、語幹側にある同じ音の並びは変えない
+            for index in range(len(feature["pron"]) - 2, -1, -1):
+                if feature["pron"][index] in {"イ", "ユ"} and feature["pron"][index + 1] in {
+                    "ウ",
+                    "ッ",
+                    "エ",
+                    "オ",
+                    "ー",
+                }:
+                    _replace_at(feature, index)
+                    break
 
     return njd_features
 
@@ -563,7 +1343,7 @@ def revert_pron_to_read(
 def split_kana_mora(text: str) -> list[str]:
     """
     カタカナ/ひらがな文字列をモーラ単位に分割する。
-    小書き仮名 (ャュョァィゥェォ) は前の文字と結合して1モーラとして扱う。
+    小書き仮名 (ャュョァィゥェォヮ) は前の文字と結合して1モーラとして扱う。
 
     Args:
         text (str): 分割対象のカタカナ/ひらがな文字列
@@ -584,6 +1364,59 @@ def split_kana_mora(text: str) -> list[str]:
             result.append(char)
             idx += 1
     return result
+
+
+def modify_old_province_yomi(njd_features: list[NJDFeature]) -> list[NJDFeature]:
+    """
+    令制国の名前に続く接尾辞「国」の読みを「コク」から「ノクニ」に変える。
+    名前の側の読みは変えないので、名前そのものを誤読する語は辞書で直す必要がある。
+
+    Args:
+        njd_features (list[NJDFeature]): 補正対象の NJDNode 用 features
+
+    Returns:
+        list[NJDFeature]: 旧国名に続く「国」の読みを補正した NJDNode 用 features
+    """
+
+    for index in range(1, len(njd_features)):
+        feature = njd_features[index]
+        if (
+            feature["string"] != "国"
+            or feature["pos_group1"] != "接尾"
+            or njd_features[index - 1]["string"] not in _OLD_PROVINCE_NAMES
+        ):
+            continue
+
+        feature["read"] = "ノクニ"
+        feature["pron"] = "ノクニ"
+        feature["mora_size"] = 3
+
+    return njd_features
+
+
+def split_prefix_accent_phrase(njd_features: list[NJDFeature]) -> list[NJDFeature]:
+    """
+    「本論文」「当ホテル」のような指示的な漢語の接頭辞の後ろの語を、独立したアクセント句にする。
+    NJD が複合語の核を計算する前に呼び出し、接頭辞の後ろの句の核を計算させる。
+
+    Args:
+        njd_features (list[NJDFeature]): 補正対象の NJDNode 用 features
+
+    Returns:
+        list[NJDFeature]: 接頭辞の後ろでアクセント句を分けた NJDNode 用 features
+    """
+
+    # 接頭辞と同じアクセント句につながっている後ろの語だけを、新しいアクセント句の始まりにする
+    for index in range(1, len(njd_features)):
+        previous = njd_features[index - 1]
+        if (
+            njd_features[index]["chain_flag"] != 0
+            and previous["pos"] == "接頭詞"
+            and previous["string"] in _INDEPENDENT_PREFIXES
+        ):
+            njd_features[index]["chain_flag"] = 0
+
+    return njd_features
 
 
 def detect_odori_unit(read: str) -> int | None:
@@ -618,6 +1451,7 @@ def detect_odori_unit(read: str) -> int | None:
 
 def process_odori_features(
     njd_features: list[NJDFeature],
+    *,
     jtalk: OpenJTalk | None = None,
 ) -> list[NJDFeature]:
     """
@@ -762,7 +1596,7 @@ def process_odori_features(
 
         return False, "", None
 
-    def reanalyze_kanji(kanji: str, jtalk: OpenJTalk) -> list[NJDFeature]:
+    def reanalyze_kanji(kanji: str, *, jtalk: OpenJTalk) -> list[NJDFeature]:
         """
         漢字を再解析して読みを取得する。
 
@@ -809,12 +1643,11 @@ def process_odori_features(
                 prev_read_chars.append(char)
                 i += 1
 
-        # 無声化サインなどアクセント用の記号はモーラとして扱わないように除去してから分割する。
-        # これを行わないと、「マス’」のような読みが「マ」「ス」「’」の3文字に分割され、
-        # モーラ数や一の字点展開時の読みが不整合になる。
+        # 無声化記号 (’) などはモーラとして扱わないよう除去してから分割する
+        ## これを行わないと「マス’」のような発音が「マ」「ス」「’」の3文字に分割され、
+        ## モーラ数や一の字点展開時の読みが不整合になる
         prev_pron_source = prev_feature["pron"].replace("’", "")
-        # 万が一、除去の結果として空文字列になってしまった場合は、読みの情報を失わないように
-        # read 側を pron のソースとして利用する。
+        # 万が一除去の結果として空文字列になった場合は、読みの情報を失わないよう read 側を代替とする
         if prev_pron_source == "":
             prev_pron_source = prev_feature["read"]
 
@@ -899,7 +1732,7 @@ def process_odori_features(
                 odori_feature["pron"] = prev_pron
             odori_feature["mora_size"] = int(prev_mora_size)
 
-        # 記号扱いにすると後の処理で誤作動するケースがありそうな気がするので、適当に一般名詞としておく
+        # 踊り字は元の MeCab 解析で「記号」に分類されるが、展開後は実体を持つ単語となるため「名詞,一般」へ変更して後続処理での誤作動を防ぐ
         if odori_feature["pos"] == "記号":
             odori_feature["pos"] = "名詞"
             odori_feature["pos_group1"] = "一般"
@@ -912,17 +1745,24 @@ def process_odori_features(
 
     i = 0
     while i < len(njd_features):
+        # 登録した読みと核は展開の直前に復元されているので、保護した踊り字はそのまま残す
+        if njd_features[i]["is_reading_protected"] is True:
+            i += 1
+            continue
         if is_dancing(njd_features[i]["orig"]):
             # 単独の踊り字で再解析が必要な場合
             if i > 0 and jtalk is not None:
                 next_feature = njd_features[i + 1] if i + 1 < len(njd_features) else None
+                # 再解析で後ろの漢字も取り込む場合、保護された語の登録読みを失わせない
+                if next_feature is not None and next_feature["is_reading_protected"] is True:
+                    next_feature = None
                 needs_reanalysis_flag, target_kanji, next_kanji = needs_reanalysis(
                     njd_features[i], njd_features[i - 1], next_feature
                 )
                 if needs_reanalysis_flag:
                     # 後続の漢字も含めて再解析する場合
                     if next_kanji is not None:
-                        analyzed = reanalyze_kanji(target_kanji + next_kanji, jtalk)
+                        analyzed = reanalyze_kanji(target_kanji + next_kanji, jtalk=jtalk)
                         # 再解析結果は直前の語の一部を繰り返して合成した語なので、
                         # 直前の語に連結させる (chain_flag=1)
                         # (reanalyze_kanji は独立テキストとして解析するため先頭が -1 になる)
@@ -934,12 +1774,12 @@ def process_odori_features(
                         continue
                     else:
                         # 最後の漢字のみを再解析
-                        analyzed = reanalyze_kanji(target_kanji, jtalk)
+                        analyzed = reanalyze_kanji(target_kanji, jtalk=jtalk)
                         # 再解析結果を踊り字トークンに反映
                         njd_features[i] = analyzed[0]
                         # 踊り字は直前の語の繰り返しなので連結させる
                         njd_features[i]["chain_flag"] = 1
-                        # 記号扱いにすると後の処理で誤作動するケースがありそうな気がするので、適当に一般名詞としておく
+                        # 踊り字の展開結果を後続の NJD 処理で通常の形態素として扱わせるため、「名詞,一般」へ変更する
                         njd_features[i]["pos"] = "名詞"
                         njd_features[i]["pos_group1"] = "一般"
                         njd_features[i]["pos_group2"] = "*"
@@ -953,7 +1793,11 @@ def process_odori_features(
             start = i
             end = i
             total_odori = 0
-            while end < len(njd_features) and is_dancing(njd_features[end]["orig"]):
+            while (
+                end < len(njd_features)
+                and is_dancing(njd_features[end]["orig"])
+                and njd_features[end]["is_reading_protected"] is False
+            ):
                 total_odori += count_odori(njd_features[end]["orig"])
                 end += 1
 
@@ -979,6 +1823,7 @@ def process_odori_features(
                         current_feat["mora_size"] = unit_mora * current_odori
                         current_feat["acc"] = base_acc
                         current_feat["chain_flag"] = 1
+                        # 展開後の踊り字を後続の NJD 処理で通常の形態素として扱わせるため、「名詞,一般」へ変更する
                         if current_feat["pos"] == "記号":
                             current_feat["pos"] = "名詞"
                             current_feat["pos_group1"] = "一般"
@@ -1055,7 +1900,7 @@ def process_odori_features(
 
                 processed_odori += current_odori
 
-                # 記号扱いにすると後の処理で誤作動するケースがありそうな気がするので、適当に一般名詞としておく
+                # 展開後の踊り字を後続の NJD 処理で通常の形態素として扱わせるため、「名詞,一般」へ変更する
                 if njd_features[j]["pos"] == "記号":
                     njd_features[j]["pos"] = "名詞"
                     njd_features[j]["pos_group1"] = "一般"

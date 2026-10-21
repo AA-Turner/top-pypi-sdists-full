@@ -58,6 +58,21 @@ class SetClickhouseOtelTtlsRequest(_message.Message):
     trace_ttl_minutes: int
     def __init__(self, log_ttl_minutes: _Optional[int] = ..., trace_ttl_minutes: _Optional[int] = ...) -> None: ...
 
+class SetClusterClickhouseOtelTtlsRequest(_message.Message):
+    __slots__ = ("cluster_id", "log_ttl_minutes", "trace_ttl_minutes")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    LOG_TTL_MINUTES_FIELD_NUMBER: _ClassVar[int]
+    TRACE_TTL_MINUTES_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    log_ttl_minutes: int
+    trace_ttl_minutes: int
+    def __init__(
+        self,
+        cluster_id: _Optional[str] = ...,
+        log_ttl_minutes: _Optional[int] = ...,
+        trace_ttl_minutes: _Optional[int] = ...,
+    ) -> None: ...
+
 class SetClickhouseOtelTtlsResponse(_message.Message):
     __slots__ = ("ttls",)
     TTLS_FIELD_NUMBER: _ClassVar[int]
@@ -145,6 +160,12 @@ class ClickhouseDiskUsage(_message.Message):
 class GetClickhouseInfoRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class GetClusterClickhouseInfoRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
 
 class GetClickhouseInfoResponse(_message.Message):
     __slots__ = (
@@ -393,11 +414,169 @@ class GetClickhouseRetentionHistoryResponse(_message.Message):
         ingest: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
     ) -> None: ...
 
+class GetClusterClickhouseRetentionHistoryRequest(_message.Message):
+    __slots__ = ("cluster_id", "start_time", "end_time", "step")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    STEP_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    step: _duration_pb2.Duration
+    def __init__(
+        self,
+        cluster_id: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        step: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+    ) -> None: ...
+
 class GetClickhouseAdminDiagnosticsRequest(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class GetClusterClickhouseAdminDiagnosticsRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
 class GetClickhouseAdminDiagnosticsResponse(_message.Message):
+    __slots__ = (
+        "slow_reads",
+        "ttl_alignments",
+        "slow_read_lookback_minutes",
+        "slow_reads_error",
+        "ttl_alignments_error",
+    )
+    SLOW_READS_FIELD_NUMBER: _ClassVar[int]
+    TTL_ALIGNMENTS_FIELD_NUMBER: _ClassVar[int]
+    SLOW_READ_LOOKBACK_MINUTES_FIELD_NUMBER: _ClassVar[int]
+    SLOW_READS_ERROR_FIELD_NUMBER: _ClassVar[int]
+    TTL_ALIGNMENTS_ERROR_FIELD_NUMBER: _ClassVar[int]
+    slow_reads: _containers.RepeatedCompositeFieldContainer[ClickhouseSlowRead]
+    ttl_alignments: _containers.RepeatedCompositeFieldContainer[ClickhouseTtlAlignment]
+    slow_read_lookback_minutes: int
+    slow_reads_error: str
+    ttl_alignments_error: str
+    def __init__(
+        self,
+        slow_reads: _Optional[_Iterable[_Union[ClickhouseSlowRead, _Mapping]]] = ...,
+        ttl_alignments: _Optional[_Iterable[_Union[ClickhouseTtlAlignment, _Mapping]]] = ...,
+        slow_read_lookback_minutes: _Optional[int] = ...,
+        slow_reads_error: _Optional[str] = ...,
+        ttl_alignments_error: _Optional[str] = ...,
+    ) -> None: ...
+
+class SetClusterClickhouseOtelTtlsResponse(_message.Message):
+    __slots__ = ("ttls",)
+    TTLS_FIELD_NUMBER: _ClassVar[int]
+    ttls: OtelTtls
+    def __init__(self, ttls: _Optional[_Union[OtelTtls, _Mapping]] = ...) -> None: ...
+
+class GetClusterClickhouseInfoResponse(_message.Message):
+    __slots__ = (
+        "ttls",
+        "storage",
+        "tables",
+        "total_size_bytes",
+        "resources",
+        "latest_migration",
+        "insert_failures",
+        "resources_error",
+        "latest_migration_error",
+        "insert_failures_error",
+        "insert_failure_lookback_minutes",
+        "log_partitions",
+        "trace_partitions",
+        "partition_volumes_error",
+        "disk",
+        "disk_error",
+    )
+    TTLS_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_FIELD_NUMBER: _ClassVar[int]
+    TABLES_FIELD_NUMBER: _ClassVar[int]
+    TOTAL_SIZE_BYTES_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
+    LATEST_MIGRATION_FIELD_NUMBER: _ClassVar[int]
+    INSERT_FAILURES_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_ERROR_FIELD_NUMBER: _ClassVar[int]
+    LATEST_MIGRATION_ERROR_FIELD_NUMBER: _ClassVar[int]
+    INSERT_FAILURES_ERROR_FIELD_NUMBER: _ClassVar[int]
+    INSERT_FAILURE_LOOKBACK_MINUTES_FIELD_NUMBER: _ClassVar[int]
+    LOG_PARTITIONS_FIELD_NUMBER: _ClassVar[int]
+    TRACE_PARTITIONS_FIELD_NUMBER: _ClassVar[int]
+    PARTITION_VOLUMES_ERROR_FIELD_NUMBER: _ClassVar[int]
+    DISK_FIELD_NUMBER: _ClassVar[int]
+    DISK_ERROR_FIELD_NUMBER: _ClassVar[int]
+    ttls: OtelTtls
+    storage: ClickhouseStorageSpec
+    tables: _containers.RepeatedCompositeFieldContainer[ClickhouseOtelTableStorage]
+    total_size_bytes: int
+    resources: ClickhouseResourceUsage
+    latest_migration: ClickhouseMigration
+    insert_failures: _containers.RepeatedCompositeFieldContainer[ClickhouseInsertFailure]
+    resources_error: str
+    latest_migration_error: str
+    insert_failures_error: str
+    insert_failure_lookback_minutes: int
+    log_partitions: _containers.RepeatedCompositeFieldContainer[ClickhousePartitionVolume]
+    trace_partitions: _containers.RepeatedCompositeFieldContainer[ClickhousePartitionVolume]
+    partition_volumes_error: str
+    disk: ClickhouseDiskUsage
+    disk_error: str
+    def __init__(
+        self,
+        ttls: _Optional[_Union[OtelTtls, _Mapping]] = ...,
+        storage: _Optional[_Union[ClickhouseStorageSpec, _Mapping]] = ...,
+        tables: _Optional[_Iterable[_Union[ClickhouseOtelTableStorage, _Mapping]]] = ...,
+        total_size_bytes: _Optional[int] = ...,
+        resources: _Optional[_Union[ClickhouseResourceUsage, _Mapping]] = ...,
+        latest_migration: _Optional[_Union[ClickhouseMigration, _Mapping]] = ...,
+        insert_failures: _Optional[_Iterable[_Union[ClickhouseInsertFailure, _Mapping]]] = ...,
+        resources_error: _Optional[str] = ...,
+        latest_migration_error: _Optional[str] = ...,
+        insert_failures_error: _Optional[str] = ...,
+        insert_failure_lookback_minutes: _Optional[int] = ...,
+        log_partitions: _Optional[_Iterable[_Union[ClickhousePartitionVolume, _Mapping]]] = ...,
+        trace_partitions: _Optional[_Iterable[_Union[ClickhousePartitionVolume, _Mapping]]] = ...,
+        partition_volumes_error: _Optional[str] = ...,
+        disk: _Optional[_Union[ClickhouseDiskUsage, _Mapping]] = ...,
+        disk_error: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetClusterClickhouseRetentionHistoryResponse(_message.Message):
+    __slots__ = ("retention", "disk_utilization", "cpu", "memory", "parts", "concurrency", "query_rate", "ingest")
+    RETENTION_FIELD_NUMBER: _ClassVar[int]
+    DISK_UTILIZATION_FIELD_NUMBER: _ClassVar[int]
+    CPU_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
+    PARTS_FIELD_NUMBER: _ClassVar[int]
+    CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
+    QUERY_RATE_FIELD_NUMBER: _ClassVar[int]
+    INGEST_FIELD_NUMBER: _ClassVar[int]
+    retention: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    disk_utilization: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    cpu: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    memory: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    parts: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    concurrency: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    query_rate: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    ingest: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    def __init__(
+        self,
+        retention: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+        disk_utilization: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+        cpu: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+        memory: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+        parts: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+        concurrency: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+        query_rate: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+        ingest: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetClusterClickhouseAdminDiagnosticsResponse(_message.Message):
     __slots__ = (
         "slow_reads",
         "ttl_alignments",

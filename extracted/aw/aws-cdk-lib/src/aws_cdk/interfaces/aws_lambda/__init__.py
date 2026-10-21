@@ -1624,13 +1624,19 @@ class WebFunctionEndpointReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_lambda.WebFunctionReference",
     jsii_struct_bases=[],
-    name_mapping={"function_arn": "functionArn"},
+    name_mapping={"function_arn": "functionArn", "function_name": "functionName"},
 )
 class WebFunctionReference:
-    def __init__(self, *, function_arn: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        function_arn: builtins.str,
+        function_name: builtins.str,
+    ) -> None:
         '''A reference to a WebFunction resource.
 
         :param function_arn: The FunctionArn of the WebFunction resource.
+        :param function_name: The FunctionName of the WebFunction resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -1641,14 +1647,17 @@ class WebFunctionReference:
             from aws_cdk.interfaces import aws_lambda as interfaces_lambda
             
             web_function_reference = interfaces_lambda.WebFunctionReference(
-                function_arn="functionArn"
+                function_arn="functionArn",
+                function_name="functionName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7bd92300e29d4d6f87a65614de15d9dfd15781ddc2478c031d931f93fed9694c)
             check_type(argname="argument function_arn", value=function_arn, expected_type=type_hints["function_arn"])
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "function_arn": function_arn,
+            "function_name": function_name,
         }
 
     @builtins.property
@@ -1656,6 +1665,13 @@ class WebFunctionReference:
         '''The FunctionArn of the WebFunction resource.'''
         result = self._values.get("function_arn")
         assert result is not None, "Required property 'function_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def function_name(self) -> builtins.str:
+        '''The FunctionName of the WebFunction resource.'''
+        result = self._values.get("function_name")
+        assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -1871,6 +1887,7 @@ def _typecheckingstub__c47755ff19cf70d30d473f4e117e2057040893cdb671292a42c6b5611
 def _typecheckingstub__7bd92300e29d4d6f87a65614de15d9dfd15781ddc2478c031d931f93fed9694c(
     *,
     function_arn: builtins.str,
+    function_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

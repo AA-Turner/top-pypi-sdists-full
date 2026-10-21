@@ -102,18 +102,35 @@ class DeleteBranchResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class ListBranchWithLatestDeploymentsFilters(_message.Message):
+    __slots__ = ("search_string", "statuses", "deployed_by")
+    SEARCH_STRING_FIELD_NUMBER: _ClassVar[int]
+    STATUSES_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYED_BY_FIELD_NUMBER: _ClassVar[int]
+    search_string: str
+    statuses: _containers.RepeatedScalarFieldContainer[_deployment_pb2.DeploymentStatus]
+    deployed_by: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        search_string: _Optional[str] = ...,
+        statuses: _Optional[_Iterable[_Union[_deployment_pb2.DeploymentStatus, str]]] = ...,
+        deployed_by: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
 class ListBranchWithLatestDeploymentsRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "status", "deployed_by", "sort_ascending")
+    __slots__ = ("cursor", "limit", "status", "deployed_by", "sort_ascending", "filters")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     DEPLOYED_BY_FIELD_NUMBER: _ClassVar[int]
     SORT_ASCENDING_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     status: _containers.RepeatedScalarFieldContainer[_deployment_pb2.DeploymentStatus]
     deployed_by: _containers.RepeatedScalarFieldContainer[str]
     sort_ascending: bool
+    filters: ListBranchWithLatestDeploymentsFilters
     def __init__(
         self,
         cursor: _Optional[str] = ...,
@@ -121,6 +138,7 @@ class ListBranchWithLatestDeploymentsRequest(_message.Message):
         status: _Optional[_Iterable[_Union[_deployment_pb2.DeploymentStatus, str]]] = ...,
         deployed_by: _Optional[_Iterable[str]] = ...,
         sort_ascending: bool = ...,
+        filters: _Optional[_Union[ListBranchWithLatestDeploymentsFilters, _Mapping]] = ...,
     ) -> None: ...
 
 class ListBranchWithLatestDeploymentsResponse(_message.Message):

@@ -6,13 +6,14 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import unquote
 
 from schemathesis.auths import AuthContext
+from schemathesis.core.jsonschema import resolve_with_root_bundle
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.core.transport import SAFE_METHODS
+from schemathesis.core.transport import SAFE_METHODS, response_content_type
 from schemathesis.openapi.checks import ObjectLevelAuthorizationViolation
-from schemathesis.specs.openapi._auth_retry import clone_case, remove_auth_from_cookie_header, send_probe
-from schemathesis.specs.openapi.adapter.security import get_effective_security_scheme_names
+from schemathesis.specs.openapi._auth_retry import remove_auth_from_cookie_header, send_probe
+from schemathesis.specs.openapi.adapter.security import declares_security
 from schemathesis.specs.openapi.extra_data_source import declared_response_schema, referenced_by
-from schemathesis.specs.openapi.semantic_pool import resolve_combinator, resolve_ref
+from schemathesis.specs.openapi.semantic_pool import resolve_combinator
 from schemathesis.specs.openapi.stateful.dependencies import naming
 from schemathesis.specs.openapi.stateful.dependencies.models import Cardinality
 from schemathesis.wfc.escalation import EscalatingAuthProvider, escalating_provider
@@ -66,8 +67,7 @@ def _owner_read(ctx: CheckContext, response: Response, case: Case) -> _OwnerRead
     owner = case._auth_identity
     if provider is None or owner is None or owner not in provider.peers or _declared_public(case.operation):
         return None
-    content_types = response.headers.get("content-type")
-    schema = declared_response_schema(case.operation, response.status_code, content_types[0] if content_types else None)
+    schema = declared_response_schema(case.operation, response.status_code, response_content_type(response))
     return _OwnerRead(ctx, case, response, _json_body(response), schema or {}, provider, owner)
 
 
@@ -142,13 +142,13 @@ def _drawn_values(read: _OwnerRead) -> Iterator[tuple[str, object, Case | None]]
 def _linked_values(read: _OwnerRead) -> Iterator[tuple[str, object, Case | None]]:
     """Path values the owner's previous stateful step created or listed, with that step when it was a list."""
     case = read.case
-    parent = read.ctx._find_parent(case_id=case.id)
+    parent = read.ctx.internals.find_parent(case_id=case.id)
     if parent is None or parent._auth_identity != read.owner:
         return
     is_read = parent.method.upper() in SAFE_METHODS
     if is_read and not is_collection(parent.operation):
         return
-    parent_response = read.ctx._find_response(case_id=parent.id)
+    parent_response = read.ctx.internals.find_response(case_id=parent.id)
     parent_body = _json_body(parent_response) if parent_response is not None else None
     referenced = referenced_by(parent)
     for name, value in (case.path_parameters or {}).items():
@@ -159,7 +159,7 @@ def _linked_values(read: _OwnerRead) -> Iterator[tuple[str, object, Case | None]
 
 def _declared_public(operation: APIOperation) -> bool:
     """Whether the schema says anyone may call `operation`."""
-    if get_effective_security_scheme_names(operation, operation.schema.raw_schema):
+    if declares_security(operation):
         return False
     # Without schema-wide `security` the server may still require credentials; the anonymous replay decides.
     return "security" in operation.schema.raw_schema
@@ -178,9 +178,9 @@ def owner_provider(case: Case) -> AuthProvider:
 
 def strip_credentials(case: Case, provider: AuthProvider) -> Case:
     """Copy `case` without anything `provider` puts on a request."""
-    stripped = clone_case(case)
+    stripped = case.derive()
     # Applying the provider to an empty request reveals which keys it owns, whatever their names.
-    probe = clone_case(case)
+    probe = case.derive()
     probe.headers.clear()
     probe.query.clear()
     probe.cookies.clear()
@@ -232,7 +232,7 @@ def value_paths(body: object, value: object, path: JsonPath = ()) -> set[JsonPat
 def _declared_scalars(
     schema: JsonSchemaObject, body: object, root: JsonSchemaObject, path: JsonPath = ()
 ) -> Iterator[tuple[JsonPath, object]]:
-    schema = resolve_combinator(resolve_ref(schema, root), root)
+    schema = resolve_combinator(resolve_with_root_bundle(schema, root), root)
     properties = schema.get("properties")
     items = schema.get("items")
     if isinstance(body, dict) and isinstance(properties, dict):

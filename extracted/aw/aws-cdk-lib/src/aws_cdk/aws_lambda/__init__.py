@@ -17741,6 +17741,41 @@ class CfnWebFunction(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForWebFunction")
+    @builtins.classmethod
+    def arn_for_web_function(
+        cls,
+        resource: "_aws_lambda_aaab8031.IWebFunctionRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eb9b6b147b8123f2976855c58dc674532c13e9768c5f67a9774e84a603e41163)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForWebFunction", [resource]))
+
+    @jsii.member(jsii_name="fromFunctionName")
+    @builtins.classmethod
+    def from_function_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        function_name: builtins.str,
+    ) -> "_aws_lambda_aaab8031.IWebFunctionRef":
+        '''Creates a new IWebFunctionRef from a functionName.
+
+        :param scope: -
+        :param id: -
+        :param function_name: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e653411c552d8a95f77b707df8212e6b67ca99aabd6b485d335e4f281ecb62b9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument function_name", value=function_name, expected_type=type_hints["function_name"])
+        return typing.cast("_aws_lambda_aaab8031.IWebFunctionRef", jsii.sinvoke(cls, "fromFunctionName", [scope, id, function_name]))
+
     @jsii.member(jsii_name="isCfnWebFunction")
     @builtins.classmethod
     def is_cfn_web_function(cls, x: typing.Any) -> builtins.bool:
@@ -18964,6 +18999,7 @@ class CfnWebFunctionRevision(
                 execution_role_arn="executionRoleArn",
         
                 # the properties below are optional
+                egress_network_connector_arn="egressNetworkConnectorArn",
                 environment_variables={
                     "environment_variables_key": "environmentVariables"
                 },
@@ -19591,6 +19627,7 @@ class CfnWebFunctionRevision(
         jsii_struct_bases=[],
         name_mapping={
             "execution_role_arn": "executionRoleArn",
+            "egress_network_connector_arn": "egressNetworkConnectorArn",
             "environment_variables": "environmentVariables",
             "max_concurrency_per_environment": "maxConcurrencyPerEnvironment",
             "telemetry_config": "telemetryConfig",
@@ -19602,6 +19639,7 @@ class CfnWebFunctionRevision(
             self,
             *,
             execution_role_arn: builtins.str,
+            egress_network_connector_arn: typing.Optional[builtins.str] = None,
             environment_variables: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]] = None,
             max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
             telemetry_config: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnWebFunctionRevision.TelemetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -19610,6 +19648,7 @@ class CfnWebFunctionRevision(
             '''The service configuration for the revision.
 
             :param execution_role_arn: The ARN of the execution role.
+            :param egress_network_connector_arn: The versioned ARN of the network connector used for outbound network access from the revision.
             :param environment_variables: Environment variables for the function.
             :param max_concurrency_per_environment: The maximum concurrency per environment.
             :param telemetry_config: The telemetry configuration.
@@ -19628,6 +19667,7 @@ class CfnWebFunctionRevision(
                     execution_role_arn="executionRoleArn",
                 
                     # the properties below are optional
+                    egress_network_connector_arn="egressNetworkConnectorArn",
                     environment_variables={
                         "environment_variables_key": "environmentVariables"
                     },
@@ -19645,6 +19685,7 @@ class CfnWebFunctionRevision(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__6b1b5f4e3e954bc685328a073beeaf9eb34f3cd52cbdee29a143e6329b7ce17f)
                 check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+                check_type(argname="argument egress_network_connector_arn", value=egress_network_connector_arn, expected_type=type_hints["egress_network_connector_arn"])
                 check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
                 check_type(argname="argument max_concurrency_per_environment", value=max_concurrency_per_environment, expected_type=type_hints["max_concurrency_per_environment"])
                 check_type(argname="argument telemetry_config", value=telemetry_config, expected_type=type_hints["telemetry_config"])
@@ -19652,6 +19693,8 @@ class CfnWebFunctionRevision(
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "execution_role_arn": execution_role_arn,
             }
+            if egress_network_connector_arn is not None:
+                self._values["egress_network_connector_arn"] = egress_network_connector_arn
             if environment_variables is not None:
                 self._values["environment_variables"] = environment_variables
             if max_concurrency_per_environment is not None:
@@ -19670,6 +19713,15 @@ class CfnWebFunctionRevision(
             result = self._values.get("execution_role_arn")
             assert result is not None, "Required property 'execution_role_arn' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def egress_network_connector_arn(self) -> typing.Optional[builtins.str]:
+            '''The versioned ARN of the network connector used for outbound network access from the revision.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-webfunctionrevision-serviceconfig.html#cfn-lambda-webfunctionrevision-serviceconfig-egressnetworkconnectorarn
+            '''
+            result = self._values.get("egress_network_connector_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def environment_variables(
@@ -19842,6 +19894,7 @@ class CfnWebFunctionRevisionProps:
                     execution_role_arn="executionRoleArn",
             
                     # the properties below are optional
+                    egress_network_connector_arn="egressNetworkConnectorArn",
                     environment_variables={
                         "environment_variables_key": "environmentVariables"
                     },
@@ -43242,6 +43295,20 @@ def _typecheckingstub__e4d3fc9a426fe917f75ce0f42bfab8922dc51b1ddec691110b5512d3c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eb9b6b147b8123f2976855c58dc674532c13e9768c5f67a9774e84a603e41163(
+    resource: _aws_lambda_aaab8031.IWebFunctionRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e653411c552d8a95f77b707df8212e6b67ca99aabd6b485d335e4f281ecb62b9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    function_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9f1af08f3d76cbe8b5fb4dcda5a4c6ef626b2e4b2f638dec8dca1b7fc8f32441(
     x: typing.Any,
 ) -> None:
@@ -43525,6 +43592,7 @@ def _typecheckingstub__538922f968e0596feb26874c3ad609ee30c9171c75847b9aac5724af1
 def _typecheckingstub__6b1b5f4e3e954bc685328a073beeaf9eb34f3cd52cbdee29a143e6329b7ce17f(
     *,
     execution_role_arn: builtins.str,
+    egress_network_connector_arn: typing.Optional[builtins.str] = None,
     environment_variables: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]] = None,
     max_concurrency_per_environment: typing.Optional[jsii.Number] = None,
     telemetry_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnWebFunctionRevision.TelemetryConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,

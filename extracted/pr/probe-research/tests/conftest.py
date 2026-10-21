@@ -300,24 +300,6 @@ def _no_ambient_pi_binary(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _no_ambient_cloud_app(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Pin cloud-agent app detection OFF for the whole suite, for the same
-    reason as pi above: `detectable_sources()` finds Capy by its desktop app
-    on disk (`/Applications/Capy.app`, `~/.capy`, ...), so a developer with
-    Capy installed would get a source leaking into every picker test written
-    against the agents CI has. A connection made inside a test's HOME still
-    counts. Tests that want the app found override this themselves."""
-    from probe.cli import capy_cli, cloud_agents
-
-    monkeypatch.setattr(cloud_agents, "found_here", lambda source: False)
-    # Never start a real, detached `probe capy sync` from a test.
-    monkeypatch.setattr(capy_cli, "start_background_sync", lambda: "The first sync runs in the background.")
-    # Never open the real Capy app (`/Applications/Capy.app` is absolute, so
-    # a test HOME does not hide it); tests of the opener patch `open` itself.
-    monkeypatch.setattr(capy_cli, "can_open_add_plugin", lambda base_url=None: False)
-
-
-@pytest.fixture(autouse=True)
 def _no_ambient_marketplace_agent(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin claude/codex detection OFF for the whole suite -- the other half of
     `_no_ambient_pi_binary` above.
@@ -579,6 +561,10 @@ def _isolate_config_home(monkeypatch: pytest.MonkeyPatch, tmp_path_factory) -> N
     # KIMI_CODE_HOME, likewise: the daemon's shell lets the agent's instruction
     # file there be read, and the Kimi adapter lists it.
     monkeypatch.delenv("KIMI_CODE_HOME", raising=False)
+    # The removed Capy capture's folders: `capy_retire` deletes what they name,
+    # and an update test reaches it.
+    monkeypatch.delenv("PROBE_CAPY_TAP_PLUGIN_DIR", raising=False)
+    monkeypatch.delenv("PROBE_CAPY_THREADS_DIR", raising=False)
     # XDG_STATE_HOME is the telemetry flavor of the same hole: machine_id and
     # the identity cache live under it, and the plugin's build_batch now mints
     # a machine id on every call — a developer exporting XDG_STATE_HOME would

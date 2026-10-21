@@ -56,9 +56,10 @@ class Trajectories(APIResource):
     """Create a trajectory, or return the existing trajectory for a managed run.
 
     Args:
-      idempotency_key: Required. A missing, blank or over-long key is rejected, including an SDK call
-        that passes `idempotency_key=None`. Reuse this key when retrying a submission; the
-        SDK generates one per call and reuses it across automatic retries.
+      idempotency_key: Optional. Without a key the API generates one, so a retried submission creates a
+        second resource. A blank or over-long key is rejected. Reuse this key when
+        retrying a submission; the SDK generates one per call and reuses it across
+        automatic retries.
 
       extra_headers: Send extra headers
 

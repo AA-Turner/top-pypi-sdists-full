@@ -90,7 +90,7 @@ class ConnectResource:
         signup: str | None = None,
         brand_name: str | None = None,
         primary_color: str | None = None,
-        welcome: bool | None = False,
+        welcome: bool | None = None,
         welcome_theme: str | None = None,
         logo_url: str | None = None,
         language: str | None = None,
@@ -190,6 +190,16 @@ class ConnectResource:
             access_token=access_token,
         )
         return self._client._post("/v1/connect/shopify/token", data=payload)
+
+    def get_hub_spot_connect_url(
+        self, profile_id: str, *, redirect_url: str | None = None
+    ) -> dict[str, Any]:
+        """Get HubSpot OAuth connect URL"""
+        params = self._build_params(
+            profile_id=profile_id,
+            redirect_url=redirect_url,
+        )
+        return self._client._get("/v1/connect/hubspot", params=params)
 
     def get_word_press_auth_url(
         self, profile_id: str, *, redirect_url: str | None = None
@@ -344,6 +354,27 @@ class ConnectResource:
         return self._client._post(
             "/v1/connect/googlebusiness/select-location", data=payload
         )
+
+    def get_connect_welcome_screen(self) -> dict[str, Any]:
+        """Get the saved welcome screen"""
+        return self._client._get("/v1/connect/welcome-screen")
+
+    def update_connect_welcome_screen(
+        self,
+        show_by_default: bool,
+        *,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        theme: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Save the welcome screen"""
+        payload = self._build_payload(
+            show_by_default=show_by_default,
+            brand_name=brand_name,
+            logo_url=logo_url,
+            theme=theme,
+        )
+        return self._client._put("/v1/connect/welcome-screen", data=payload)
 
     def get_pending_o_auth_data(self, token: str) -> dict[str, Any]:
         """Get pending OAuth data"""
@@ -983,7 +1014,7 @@ class ConnectResource:
         signup: str | None = None,
         brand_name: str | None = None,
         primary_color: str | None = None,
-        welcome: bool | None = False,
+        welcome: bool | None = None,
         welcome_theme: str | None = None,
         logo_url: str | None = None,
         language: str | None = None,
@@ -1083,6 +1114,16 @@ class ConnectResource:
             access_token=access_token,
         )
         return await self._client._apost("/v1/connect/shopify/token", data=payload)
+
+    async def aget_hub_spot_connect_url(
+        self, profile_id: str, *, redirect_url: str | None = None
+    ) -> dict[str, Any]:
+        """Get HubSpot OAuth connect URL (async)"""
+        params = self._build_params(
+            profile_id=profile_id,
+            redirect_url=redirect_url,
+        )
+        return await self._client._aget("/v1/connect/hubspot", params=params)
 
     async def aget_word_press_auth_url(
         self, profile_id: str, *, redirect_url: str | None = None
@@ -1241,6 +1282,27 @@ class ConnectResource:
         return await self._client._apost(
             "/v1/connect/googlebusiness/select-location", data=payload
         )
+
+    async def aget_connect_welcome_screen(self) -> dict[str, Any]:
+        """Get the saved welcome screen (async)"""
+        return await self._client._aget("/v1/connect/welcome-screen")
+
+    async def aupdate_connect_welcome_screen(
+        self,
+        show_by_default: bool,
+        *,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        theme: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Save the welcome screen (async)"""
+        payload = self._build_payload(
+            show_by_default=show_by_default,
+            brand_name=brand_name,
+            logo_url=logo_url,
+            theme=theme,
+        )
+        return await self._client._aput("/v1/connect/welcome-screen", data=payload)
 
     async def aget_pending_o_auth_data(self, token: str) -> dict[str, Any]:
         """Get pending OAuth data (async)"""

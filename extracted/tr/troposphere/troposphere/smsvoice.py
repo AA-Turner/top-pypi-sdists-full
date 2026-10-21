@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -71,6 +71,25 @@ class ConfigurationSet(AWSObject):
         "MessageFeedbackEnabled": (boolean, False),
         "ProtectConfigurationId": (str, False),
         "Tags": (Tags, False),
+    }
+
+
+class NotifyConfiguration(AWSObject):
+    """
+    `NotifyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html>`__
+    """
+
+    resource_type = "AWS::SMSVOICE::NotifyConfiguration"
+
+    props: PropsDictType = {
+        "DefaultTemplateId": (str, False),
+        "DeletionProtectionEnabled": (boolean, False),
+        "DisplayName": (str, True),
+        "EnabledChannels": ([str], True),
+        "EnabledCountries": ([str], False),
+        "PoolId": (str, False),
+        "Tags": (Tags, False),
+        "UseCase": (str, True),
     }
 
 
@@ -210,6 +229,28 @@ class ProtectConfiguration(AWSObject):
     }
 
 
+class RcsAgent(AWSObject):
+    """
+    `RcsAgent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html>`__
+    """
+
+    resource_type = "AWS::SMSVOICE::RcsAgent"
+
+    props: PropsDictType = {
+        "DeletionProtectionEnabled": (boolean, False),
+        "OptOutListName": (str, False),
+        "SelfManagedOptOutsEnabled": (boolean, False),
+        "Tags": (Tags, False),
+        "TwoWayChannelArn": (str, False),
+        "TwoWayChannelRole": (str, False),
+        "TwoWayEnabled": (boolean, False),
+        "TwoWayMediaS3BucketName": (str, False),
+        "TwoWayMediaS3KeyPrefix": (str, False),
+        "TwoWayMediaS3Role": (str, False),
+        "TwoWayRcsEventsEnabled": ([str], False),
+    }
+
+
 class Registration(AWSObject):
     """
     `Registration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registration.html>`__
@@ -219,6 +260,20 @@ class Registration(AWSObject):
 
     props: PropsDictType = {
         "RegistrationType": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class RegistrationAttachment(AWSObject):
+    """
+    `RegistrationAttachment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-registrationattachment.html>`__
+    """
+
+    resource_type = "AWS::SMSVOICE::RegistrationAttachment"
+
+    props: PropsDictType = {
+        "AttachmentBody": (str, False),
+        "AttachmentUrl": (str, False),
         "Tags": (Tags, False),
     }
 
@@ -248,4 +303,29 @@ class SenderId(AWSObject):
         "IsoCountryCode": (str, True),
         "SenderId": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class VerifiedDestinationNumber(AWSObject):
+    """
+    `VerifiedDestinationNumber <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-verifieddestinationnumber.html>`__
+    """
+
+    resource_type = "AWS::SMSVOICE::VerifiedDestinationNumber"
+
+    props: PropsDictType = {
+        "DestinationPhoneNumber": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class TestingAgentInformation(AWSProperty):
+    """
+    `TestingAgentInformation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-smsvoice-rcsagent-testingagentinformation.html>`__
+    """
+
+    props: PropsDictType = {
+        "RegistrationId": (str, True),
+        "TestingAgentId": (str, False),
+        "TestingAgentStatus": (str, True),
     }

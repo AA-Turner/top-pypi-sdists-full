@@ -1,14 +1,14 @@
 //! Cursor MIN/MAX inspection of selected incremental models and their watermark inputs.
 
-use crate::bindings::_helpers::analysis::model_reads;
+use crate::bindings::_helpers::boundary::python_calls::{call_with, imported, keywords};
 use crate::bindings::_helpers::compile_attachment::cursor_roles::resolve_cursor_input_roles;
-use crate::bindings::_helpers::compile_driver::python_calls::{call_with, imported, keywords};
+use crate::bindings::_helpers::compiled_views::model_reads;
 use crate::bindings::_helpers::cursor::intervals::partition;
 use crate::bindings::_helpers::cursor::scalars;
 use crate::bindings::_helpers::cursor::scalars::compare_values;
 use crate::bindings::_helpers::cursor::scalars::render_value;
 use crate::bindings::_helpers::cursor::scalars::to_inclusive;
-use crate::bindings::_helpers::model_config::config_values::config_cursor_bound;
+use crate::bindings::_helpers::model_config::typed_config::{config_cursor_bound, model_values};
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_phases::objects::object;
 use crate::bindings::_helpers::planner_phases::objects::{
@@ -282,13 +282,7 @@ fn terminal_bound<'py>(
     let Some(upstream) = maps.models.get_item(native_field(reference, "ref_name")?)? else {
         return Ok(None);
     };
-    let value = object(
-        py,
-        config_cursor_bound(
-            &native_field(&native_field(&upstream, "config")?, "values")?,
-            key,
-        )?,
-    )?;
+    let value = object(py, config_cursor_bound(py, &model_values(&upstream)?, key)?)?;
     if value.is_none() {
         return Ok(None);
     }

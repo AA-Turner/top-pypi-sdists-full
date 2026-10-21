@@ -85,6 +85,8 @@ from .sandbox.sandbox_api import (
     McpServer,
     SandboxEgressProxyInfo,
     SandboxEgressProxyOpts,
+    SandboxEgressProxyTLSInfo,
+    SandboxEgressProxyTLSOpts,
     SandboxIamOpts,
     SandboxIamToken,
     SandboxIamTokenType,
@@ -112,6 +114,7 @@ from .sandbox.sandbox_api import (
     SnapshotMode,
 )
 from .sandbox_async.commands.command_handle import AsyncCommandHandle
+from .sandbox_async.commands.command_input_handle import AsyncCommandInputHandle
 from .sandbox_async.filesystem.watch_handle import AsyncWatchHandle
 from .sandbox_async.main import AsyncSandbox
 from .sandbox_async.paginator import AsyncSandboxPaginator, AsyncSnapshotPaginator
@@ -232,6 +235,8 @@ __all__ = [
     # Network
     "SandboxEgressProxyOpts",
     "SandboxEgressProxyInfo",
+    "SandboxEgressProxyTLSOpts",
+    "SandboxEgressProxyTLSInfo",
     "SandboxNetworkOpts",
     "SandboxNetworkInfo",
     "SandboxNetworkSelector",
@@ -276,6 +281,7 @@ __all__ = [
     "AsyncSandbox",
     "AsyncWatchHandle",
     "AsyncCommandHandle",
+    "AsyncCommandInputHandle",
     # Template
     "Template",
     "AsyncTemplate",

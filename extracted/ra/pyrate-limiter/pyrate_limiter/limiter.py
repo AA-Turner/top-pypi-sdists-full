@@ -58,6 +58,18 @@ class SingleBucketFactory(BucketFactory):
     def get(self, _: RateItem) -> AbstractBucket:
         return self.bucket
 
+    def owned_buckets(self) -> List[AbstractBucket]:
+        """This factory holds ``self.bucket`` for its whole life, so it must be
+        closed even when it was never registered for leaking
+        (``schedule_leak=False``) or has since been disposed.
+        """
+        buckets = super().owned_buckets()
+
+        if all(bucket is not self.bucket for bucket in buckets):
+            buckets.append(self.bucket)
+
+        return buckets
+
 
 @contextmanager
 def combined_lock(locks: Union[Iterable[LockLike], RLock], blocking: bool, timeout: int | float = -1):
@@ -206,14 +218,14 @@ class Limiter:
 
         if _force_async or isawaitable(delay):
 
-            async def _handle_async(delay):
+            async def _retry_async(delay):
                 while True:
                     if deadline is not None:
                         remaining_ms = (deadline - monotonic()) * 1000
                         if remaining_ms <= 0:
                             raise TimeoutError()
 
-                    d = await self._handle_async_result(delay, deadline=deadline) if isawaitable(delay) else delay
+                    d = await delay if isawaitable(delay) else delay
                     assert isinstance(d, int)
                     sleep_ms = self._delay_to_sleep_ms(d)
                     if sleep_ms is None:
@@ -225,14 +237,20 @@ class Limiter:
                     if timed_out:
                         raise TimeoutError()
 
-                    item.timestamp += d
+                    refreshed = self.bucket_factory.wrap_item(item.name, item.weight)
+                    refreshed = await refreshed if isawaitable(refreshed) else refreshed
+                    assert isinstance(refreshed, RateItem)
+                    item.timestamp = refreshed.timestamp
                     r = bucket.put(item)
                     r = await r if isawaitable(r) else r
                     if r:
                         return True
                     delay = bucket.waiting(item)
 
-            return _handle_async(delay)
+            async def _run_async_with_deadline():
+                return await self._handle_async_result(_retry_async(delay), deadline=deadline)
+
+            return _run_async_with_deadline()
         else:
             total_delay = 0
 
@@ -648,6 +666,11 @@ class Limiter:
                     r = await self.try_acquire_async(name=name, weight=weight)
                     while isawaitable(r):
                         r = await r
+                    if not r:
+                        # blocking=True/timeout=-1 (the defaults here) only ever
+                        # return False when `weight` can never be admitted under
+                        # the configured rate(s) - not on a transient delay.
+                        raise RuntimeError(f"Rate limit for {name!r} can never admit weight={weight}; call denied.")
                     return await func(*args, **kwargs)
 
                 return wrapper
@@ -664,6 +687,9 @@ class Limiter:
                             self._cleanup_awaitable(r)
                         finally:
                             raise RuntimeError("Can't use async bucket with sync decorator")
+                    if not r:
+                        # Same reasoning as the async branch above.
+                        raise RuntimeError(f"Rate limit for {name!r} can never admit weight={weight}; call denied.")
                     return func(*args, **kwargs)
 
                 return wrapper

@@ -8,18 +8,28 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.offline_wide_tables_pb2 import (
+    DeleteOfflineWideTableFeatureWatermarksRequest,
+    DeleteOfflineWideTableFeatureWatermarksResponse,
     GetActiveOfflineWideTableSchedulesRequest,
     GetActiveOfflineWideTableSchedulesResponse,
+    GetOfflineWideTableFeatureWatermarksRequest,
+    GetOfflineWideTableFeatureWatermarksResponse,
     GetOfflineWideTableNamespacesRequest,
     GetOfflineWideTableNamespacesResponse,
     GetOfflineWideTableRunRequest,
     GetOfflineWideTableRunResponse,
     ListOfflineWideTableRunsRequest,
     ListOfflineWideTableRunsResponse,
+    SetOfflineWideTableFeatureWatermarksRequest,
+    SetOfflineWideTableFeatureWatermarksResponse,
     TriggerOfflineWideTableCompactionRequest,
     TriggerOfflineWideTableCompactionResponse,
     TriggerOfflineWideTableFillRequest,
     TriggerOfflineWideTableFillResponse,
+    TriggerOfflineWideTableOverrideFillRequest,
+    TriggerOfflineWideTableOverrideFillResponse,
+    UpdateMaterializedFeatureViewControlRequest,
+    UpdateMaterializedFeatureViewControlResponse,
 )
 from grpc import (
     Channel,
@@ -30,6 +40,10 @@ from grpc import (
 
 class OfflineWideTablesServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    UpdateMaterializedFeatureViewControl: UnaryUnaryMultiCallable[
+        UpdateMaterializedFeatureViewControlRequest,
+        UpdateMaterializedFeatureViewControlResponse,
+    ]
     ListOfflineWideTableRuns: UnaryUnaryMultiCallable[
         ListOfflineWideTableRunsRequest,
         ListOfflineWideTableRunsResponse,
@@ -53,12 +67,34 @@ class OfflineWideTablesServiceStub:
         TriggerOfflineWideTableFillRequest,
         TriggerOfflineWideTableFillResponse,
     ]
+    TriggerOfflineWideTableOverrideFill: UnaryUnaryMultiCallable[
+        TriggerOfflineWideTableOverrideFillRequest,
+        TriggerOfflineWideTableOverrideFillResponse,
+    ]
     TriggerOfflineWideTableCompaction: UnaryUnaryMultiCallable[
         TriggerOfflineWideTableCompactionRequest,
         TriggerOfflineWideTableCompactionResponse,
     ]
+    GetOfflineWideTableFeatureWatermarks: UnaryUnaryMultiCallable[
+        GetOfflineWideTableFeatureWatermarksRequest,
+        GetOfflineWideTableFeatureWatermarksResponse,
+    ]
+    SetOfflineWideTableFeatureWatermarks: UnaryUnaryMultiCallable[
+        SetOfflineWideTableFeatureWatermarksRequest,
+        SetOfflineWideTableFeatureWatermarksResponse,
+    ]
+    DeleteOfflineWideTableFeatureWatermarks: UnaryUnaryMultiCallable[
+        DeleteOfflineWideTableFeatureWatermarksRequest,
+        DeleteOfflineWideTableFeatureWatermarksResponse,
+    ]
 
 class OfflineWideTablesServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def UpdateMaterializedFeatureViewControl(
+        self,
+        request: UpdateMaterializedFeatureViewControlRequest,
+        context: ServicerContext,
+    ) -> UpdateMaterializedFeatureViewControlResponse: ...
     @abstractmethod
     def ListOfflineWideTableRuns(
         self,
@@ -93,11 +129,35 @@ class OfflineWideTablesServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> TriggerOfflineWideTableFillResponse: ...
     @abstractmethod
+    def TriggerOfflineWideTableOverrideFill(
+        self,
+        request: TriggerOfflineWideTableOverrideFillRequest,
+        context: ServicerContext,
+    ) -> TriggerOfflineWideTableOverrideFillResponse: ...
+    @abstractmethod
     def TriggerOfflineWideTableCompaction(
         self,
         request: TriggerOfflineWideTableCompactionRequest,
         context: ServicerContext,
     ) -> TriggerOfflineWideTableCompactionResponse: ...
+    @abstractmethod
+    def GetOfflineWideTableFeatureWatermarks(
+        self,
+        request: GetOfflineWideTableFeatureWatermarksRequest,
+        context: ServicerContext,
+    ) -> GetOfflineWideTableFeatureWatermarksResponse: ...
+    @abstractmethod
+    def SetOfflineWideTableFeatureWatermarks(
+        self,
+        request: SetOfflineWideTableFeatureWatermarksRequest,
+        context: ServicerContext,
+    ) -> SetOfflineWideTableFeatureWatermarksResponse: ...
+    @abstractmethod
+    def DeleteOfflineWideTableFeatureWatermarks(
+        self,
+        request: DeleteOfflineWideTableFeatureWatermarksRequest,
+        context: ServicerContext,
+    ) -> DeleteOfflineWideTableFeatureWatermarksResponse: ...
 
 def add_OfflineWideTablesServiceServicer_to_server(
     servicer: OfflineWideTablesServiceServicer, server: Server

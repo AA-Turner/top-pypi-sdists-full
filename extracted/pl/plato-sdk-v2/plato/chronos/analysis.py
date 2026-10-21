@@ -6,8 +6,10 @@ import asyncio
 import json
 import time
 from collections import defaultdict
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -88,6 +90,276 @@ _STREAM_RETRY_BASE_DELAY_S = 1.0
 ProgressCallback = Callable[[int, int], None]
 
 
+def _resume_cursor(event: dict[str, Any], current: str | None) -> str | None:
+    """Where to resume the stream after ``event`` if the connection drops.
+
+    Every span-carrying chunk of a page carries the cursor of the page's END,
+    so resuming from it after a drop mid-page would skip the rest of that page.
+    Only empty chunks (the heartbeat before each page load, or an empty page)
+    mark a point where everything before the cursor has been delivered.
+    """
+    if event.get("logs"):
+        return current
+    return event.get("cursor") or current
+
+
+@dataclass(frozen=True)
+class SpanFilters:
+    """Span filters applied by Chronos (logs-stream query parameters).
+
+    ``names`` match exactly, or by prefix with a trailing ``*``; ``kinds`` match
+    the ``atif.kind`` attribute; ``status`` is the OTel status; the start time
+    window is ``[started_after, started_before)``; ``attributes`` entries are
+    ``key=value`` (the value compared as a string) or a bare ``key`` (present).
+    ``include_ancestors`` adds the matched spans' ancestor chains, which the
+    trace viewer needs for its tree.
+    """
+
+    search: str | None = None
+    errors_only: bool = False
+    atif_only: bool = False
+    plato_type: str | None = None
+    names: tuple[str, ...] = ()
+    kinds: tuple[str, ...] = ()
+    status: Literal["unset", "ok", "error"] | None = None
+    started_after: datetime | None = None
+    started_before: datetime | None = None
+    attributes: tuple[str, ...] = ()
+    include_ancestors: bool = True
+
+    @property
+    def active(self) -> bool:
+        """True when any filter is set; Chronos then adds ancestors unless told not to."""
+        return bool(self.search or self.errors_only or self.atif_only or self.plato_type or self.field_level)
+
+    @property
+    def field_level(self) -> bool:
+        """True when a filter needs a Chronos that knows the field-level params."""
+        return bool(
+            self.names or self.kinds or self.status or self.started_after or self.started_before or self.attributes
+        )
+
+    def matches(self, span: OTelSpan) -> bool:
+        """The field-level filters, evaluated locally.
+
+        A Chronos deployed before these filters ignores their query params and
+        streams every span; checking each span here keeps the result right
+        (only slower) against such a server.
+        """
+        if self.names and not any(
+            span.name.startswith(n[:-1]) if n.endswith("*") else span.name == n for n in self.names
+        ):
+            return False
+        attrs = span.attributes or {}
+        if self.kinds and _attr_str(attrs.get("atif.kind")) not in self.kinds:
+            return False
+        if self.status is not None:
+            code = (span.status or {}).get("code", 0)
+            if _STATUS_CODES.get(self.status) != code:
+                return False
+        start_ns = span.start_time_unix_nano
+        if self.started_after is not None and start_ns < _unix_nanos(self.started_after):
+            return False
+        if self.started_before is not None and start_ns >= _unix_nanos(self.started_before):
+            return False
+        for item in self.attributes:
+            key, sep, value = item.partition("=")
+            if key not in attrs or attrs[key] is None:
+                return False
+            if sep and _attr_str(attrs[key]) != value:
+                return False
+        return True
+
+
+_STATUS_CODES = {"unset": 0, "ok": 1, "error": 2}
+
+
+def _applied_all(event: dict[str, Any], filters: SpanFilters) -> bool:
+    """Whether the stream's first event says Chronos applied every field filter."""
+    applied = event.get("applied_filters")
+    if applied is None:
+        return False
+    wanted = {
+        "name": bool(filters.names),
+        "kind": bool(filters.kinds),
+        "status": filters.status is not None,
+        "started_after": filters.started_after is not None,
+        "started_before": filters.started_before is not None,
+        "attr": bool(filters.attributes),
+    }
+    return {k for k, on in wanted.items() if on} <= set(applied)
+
+
+def _attr_str(value: Any) -> str | None:
+    """An attribute value as Chronos' ``toString`` renders it, near enough."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, separators=(",", ":"))
+    return str(value)
+
+
+def _unix_nanos(value: datetime) -> int:
+    """Unix nanoseconds; a naive datetime is UTC (as Chronos reads it)."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    delta = value - datetime(1970, 1, 1, tzinfo=UTC)
+    return (delta.days * 86_400 + delta.seconds) * 1_000_000_000 + delta.microseconds * 1_000
+
+
+class UnsupportedSpanFilterError(ValueError):
+    """Chronos ignored a requested filter, and the result can't be fixed locally."""
+
+
+class SpanStream:
+    """A session's spans, yielded as the logs-stream delivers them.
+
+    Holds one NDJSON chunk at a time (plus the set of span ids seen, for
+    dedupe), so pulling a 200k-span session never holds the whole session.
+    Resumes from the last fully delivered page on a mid-stream drop.
+
+    ``max_spans`` stops after that many spans; then ``has_more`` says whether
+    the session had more and ``cursor`` is where to continue (pass it back as
+    ``cursor``). Both are set once iteration ends. Chronos counts matched spans
+    only, so ``max_spans`` can't be combined with filters plus ancestors.
+
+    A Chronos without the field-level filters ignores them and ``max_spans``.
+    Without ancestors the filters are then checked locally (``dropped_locally``
+    counts what that removed). With ancestors, or with ``max_spans``, the
+    stream raises ``UnsupportedSpanFilterError`` before yielding anything:
+    matches and ancestors can't be told apart, and no cursor would advance.
+    """
+
+    def __init__(
+        self,
+        client: httpx.Client,
+        session_id: str,
+        filters: SpanFilters | None = None,
+        *,
+        max_spans: int | None = None,
+        cursor: str | None = None,
+        on_progress: ProgressCallback | None = None,
+    ) -> None:
+        self._client = client
+        self._session_id = session_id
+        self.filters = filters or SpanFilters()
+        if max_spans is not None and self.filters.active and self.filters.include_ancestors:
+            raise ValueError("max_spans counts matched spans: pass include_ancestors=False with filters")
+        self._max_spans = max_spans
+        self._start_cursor = cursor
+        self._on_progress = on_progress
+        self.count = 0
+        self.has_more = False
+        self.cursor: str | None = cursor
+        # Spans the local check dropped: non-zero means Chronos ignored a filter.
+        self.dropped_locally = 0
+
+    def _check_server_support(self, first_event: dict[str, Any]) -> None:
+        """Fail before any span if Chronos can't do what was asked.
+
+        Chronos lists the field filters it applied on the first event; one
+        that doesn't know them sends no list and also ignores ``max_spans``.
+        """
+        f = self.filters
+        if "applied_filters" in first_event and _applied_all(first_event, f):
+            return
+        if self._max_spans is not None:
+            raise UnsupportedSpanFilterError("This Chronos can't stop at max_spans; pull without a limit")
+        if f.field_level and f.include_ancestors:
+            raise UnsupportedSpanFilterError(
+                "This Chronos ignores the name/kind/status/time/attr filters; pull without ancestors to filter locally"
+            )
+
+    def __iter__(self) -> Iterator[OTelSpan]:
+        f = self.filters
+        # Ancestors don't match the filters; only check locally without them.
+        check_locally = f.field_level and not f.include_ancestors
+        seen: set[str] = set()
+        resume = self._start_cursor
+        # Spans yielded since `resume`: a retry replays them (dedupe skips
+        # them), and Chronos counts them against max_spans again.
+        since_resume = 0
+        page_count = 0
+        attempt = 0
+
+        while True:
+            completed = False
+            first_event = True
+            try:
+                remaining = None
+                if self._max_spans is not None:
+                    remaining = self._max_spans - self.count + since_resume
+                    if remaining <= 0:
+                        # The budget was spent and only `complete` was lost:
+                        # the next slice starts where this one stopped.
+                        self.has_more = True
+                        self.cursor = resume
+                        return
+                for event in stream_session_logs.sync_stream(
+                    self._client,
+                    public_id=self._session_id,
+                    limit=_STREAM_PAGE_LIMIT,
+                    cursor=resume,
+                    search=f.search,
+                    errors_only=f.errors_only,
+                    atif_only=f.atif_only,
+                    plato_type=f.plato_type,
+                    include_ancestors=f.include_ancestors,
+                    max_spans=remaining,
+                    name=list(f.names) or None,
+                    kind=list(f.kinds) or None,
+                    status=f.status,
+                    started_after=f.started_after,
+                    started_before=f.started_before,
+                    attr=list(f.attributes) or None,
+                ):
+                    if first_event:
+                        first_event = False
+                        self._check_server_support(event)
+                    kind = event.get("kind")
+                    if kind == "error":
+                        raise RuntimeError(event.get("error") or "Log stream failed")
+                    if kind == "complete":
+                        completed = True
+                        self.has_more = bool(event.get("has_more"))
+                        self.cursor = event.get("cursor") or resume
+                        break
+                    for raw in event.get("logs") or []:
+                        span = OTelSpan.model_validate(raw)
+                        if span.span_id in seen:
+                            continue
+                        seen.add(span.span_id)
+                        if check_locally and not f.matches(span):
+                            self.dropped_locally += 1
+                            continue
+                        self.count += 1
+                        since_resume += 1
+                        yield span
+                    # Only a resume point that moved ends the replay: a retry's
+                    # first heartbeat repeats the one it resumed from.
+                    advanced = _resume_cursor(event, resume)
+                    if advanced != resume:
+                        since_resume = 0
+                    resume = advanced
+                    page_count += 1
+                    if self._on_progress is not None:
+                        self._on_progress(self.count, page_count)
+
+                # `complete` is the only signal the session fully streamed. A
+                # loop that ends without it means a truncated body or a quiet
+                # disconnect: resume rather than return a partial span set.
+                if not completed:
+                    raise RuntimeError("Log stream ended before completion")
+                return
+            except (httpx.HTTPError, RuntimeError):
+                attempt += 1
+                if attempt > _STREAM_MAX_RETRIES:
+                    raise
+                time.sleep(_STREAM_RETRY_BASE_DELAY_S * attempt)
+
+
 def stream_all_spans(
     client: httpx.Client,
     session_id: str,
@@ -100,58 +372,14 @@ def stream_all_spans(
 ) -> list[OTelSpan]:
     """Fetch ALL spans for a session by draining the logs-stream endpoint.
 
-    Dedupes by ``span_id`` and resumes from the last cursor on a mid-stream
-    drop (network blip or backend ``error`` event), so retries never duplicate
-    or re-fetch already-streamed spans. ``on_progress`` is called after each
-    chunk with the running span count and page count.
+    Dedupes by ``span_id`` and resumes from the last fully delivered page on a
+    mid-stream drop (network blip or backend ``error`` event). ``on_progress``
+    is called after each chunk with the running span count and page count.
+    Holds every span in memory: for big sessions iterate ``SpanStream``
+    instead.
     """
-    spans: list[OTelSpan] = []
-    seen: set[str] = set()
-    cursor: str | None = None
-    page_count = 0
-    attempt = 0
-
-    while True:
-        completed = False
-        try:
-            for event in stream_session_logs.sync_stream(
-                client,
-                public_id=session_id,
-                limit=_STREAM_PAGE_LIMIT,
-                cursor=cursor,
-                search=search,
-                errors_only=errors_only,
-                atif_only=atif_only,
-                plato_type=plato_type,
-            ):
-                if event.get("cursor"):
-                    cursor = event["cursor"]
-                kind = event.get("kind")
-                if kind == "error":
-                    raise RuntimeError(event.get("error") or "Log stream failed")
-                if kind == "complete":
-                    completed = True
-                    break
-                for raw in event.get("logs") or []:
-                    span = OTelSpan.model_validate(raw)
-                    if span.span_id not in seen:
-                        seen.add(span.span_id)
-                        spans.append(span)
-                page_count += 1
-                if on_progress is not None:
-                    on_progress(len(spans), page_count)
-
-            # `complete` is the only signal the session fully streamed. A loop
-            # that ends without it means a truncated body or quiet disconnect —
-            # resume from the cursor rather than returning a partial span set.
-            if not completed:
-                raise RuntimeError("Log stream ended before completion")
-            return spans
-        except (httpx.HTTPError, RuntimeError):
-            attempt += 1
-            if attempt > _STREAM_MAX_RETRIES:
-                raise
-            time.sleep(_STREAM_RETRY_BASE_DELAY_S * attempt)
+    filters = SpanFilters(search=search, errors_only=errors_only, atif_only=atif_only, plato_type=plato_type)
+    return list(SpanStream(client, session_id, filters, on_progress=on_progress))
 
 
 async def stream_all_spans_async(
@@ -184,8 +412,7 @@ async def stream_all_spans_async(
                 atif_only=atif_only,
                 plato_type=plato_type,
             ):
-                if event.get("cursor"):
-                    cursor = event["cursor"]
+                cursor = _resume_cursor(event, cursor)
                 kind = event.get("kind")
                 if kind == "error":
                     raise RuntimeError(event.get("error") or "Log stream failed")

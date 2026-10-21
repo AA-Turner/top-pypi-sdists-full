@@ -5,6 +5,7 @@ use pyo3::prelude::{
 };
 use pyo3::types::{PyDict, PyDictMethods, PyTuple, PyTupleMethods};
 use pyo3::{IntoPyObjectExt, pyfunction, wrap_pyfunction};
+use sqlbuild_scopes::compile_usages::models::UsageKey;
 use sqlbuild_scopes::placement::main::diagnostic_order::diagnostic_order;
 use sqlbuild_scopes::placement::main::placement_diagnostics::placement_diagnostics;
 use sqlbuild_scopes::placement::main::relocate_for_resource_move::relocate_for_resource_move;
@@ -14,13 +15,11 @@ use sqlbuild_scopes::placement::models::{
 use sqlbuild_scopes::scope_index::models::ResourceIdentity;
 
 use crate::bindings::_helpers::boundary::panics::compiler_error;
-use crate::bindings::_helpers::records::construct::enum_member;
-use crate::bindings::_helpers::records::construct::error_class;
-use crate::bindings::_helpers::records::fields::field as native_field;
-use crate::bindings::_helpers::records::fields::replaced_keywords;
+use crate::bindings::_helpers::records::construct::{enum_member, error_class};
+use crate::bindings::_helpers::records::fields::{field as native_field, replaced_keywords};
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use crate::bindings::_helpers::scopes::compile_usages::{
-    MergeRows, SourceRow, UsageRow, merged_usage_rows, model_schema_scope_usages,
+    MergeRows, SourceRow, merged_usage_rows, model_schema_scope_usages,
 };
 use crate::bindings::_helpers::scopes::placement::{QualifiedRow, resource_identity};
 use crate::bindings::_helpers::scopes::scope_objects::{
@@ -56,16 +55,16 @@ fn tuple_from<'py>(py: Python<'py>, items: Vec<Bound<'py, PyAny>>) -> PyResult<B
     Ok(PyTuple::new(py, items)?.into_any())
 }
 
-fn usage_row(usage: &Bound<'_, PyAny>) -> PyResult<UsageRow> {
-    Ok((
-        qualified_row(&native_field(usage, "consumer")?)?,
-        qualified_row(&native_field(usage, "declaration")?)?,
-        value_of(usage, "kind")?,
-        optional_item(usage, "through")?
+fn usage_row(usage: &Bound<'_, PyAny>) -> PyResult<UsageKey> {
+    Ok(UsageKey {
+        consumer: qualified_row(&native_field(usage, "consumer")?)?,
+        declaration: qualified_row(&native_field(usage, "declaration")?)?,
+        kind: value_of(usage, "kind")?,
+        through: optional_item(usage, "through")?
             .map(|through| qualified_row(&through))
             .transpose()?,
-        field(usage, "enum_member")?,
-    ))
+        enum_member: field(usage, "enum_member")?,
+    })
 }
 
 fn dependency_row(
@@ -125,11 +124,11 @@ fn merged_usage_index<'py>(
         .iter()
         .map(|record| dependency_row(&record))
         .collect::<PyResult<_>>()?;
-    let prior_rows: Vec<UsageRow> = prior
+    let prior_rows: Vec<UsageKey> = prior
         .iter()
         .map(|usage| usage_row(&usage))
         .collect::<PyResult<_>>()?;
-    let collected_rows: Vec<UsageRow> = collected
+    let collected_rows: Vec<UsageKey> = collected
         .iter()
         .map(|usage| usage_row(&usage))
         .collect::<PyResult<_>>()?;
@@ -355,7 +354,7 @@ pub(crate) fn scope_index_with_compile_usages<'py>(
     usages.extend(usage_records(
         model_schema_scope_usages(&schema_files, &resolver)?.as_any(),
     )?);
-    let digests: bool = crate::bindings::_helpers::compile_delta::context::capturing();
+    let digests: bool = crate::bindings::_helpers::compile_context::delta::capturing();
     for model in native_field(inputs, "model_inputs")?.try_iter()? {
         let model: Bound<'py, PyAny> = model?;
         let macro_usages: Vec<Bound<'py, PyAny>> =
@@ -363,7 +362,7 @@ pub(crate) fn scope_index_with_compile_usages<'py>(
         let declaration_usages: Vec<Bound<'py, PyAny>> =
             usage_records(&native_field(&model, "declaration_usages")?)?;
         if digests {
-            crate::bindings::_helpers::compile_delta::image_facts::record_model_usages(
+            crate::bindings::_helpers::compile_context::image_facts::record_model_usages(
                 &model,
                 (&macro_usages, &declaration_usages),
             )?;

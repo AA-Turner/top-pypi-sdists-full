@@ -239,6 +239,9 @@ class OpenAPIApps:
     def stateful_users(self, *modifiers: Modifier[openapi_stateful.UserStore]) -> OpenAPIServer:
         return _start(self.parent, openapi_stateful.stateful_users(*modifiers))
 
+    def flaky_branch_blocks(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_stateful.flaky_branch_blocks())
+
     def users_crud(self) -> OpenAPIServer:
         return _start(self.parent, openapi_users.crud())
 
@@ -250,6 +253,9 @@ class OpenAPIApps:
 
     def users_crud_with_failure(self) -> OpenAPIServer:
         return _start(self.parent, openapi_users.crud_with_failure())
+
+    def linked_users(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_users.linked_users())
 
     def aspnet_planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_envelopes.planted_bug(openapi_envelopes.ASPNET))

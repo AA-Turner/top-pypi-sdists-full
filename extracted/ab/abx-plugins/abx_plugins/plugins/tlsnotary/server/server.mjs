@@ -10,6 +10,11 @@ const MiB = 1024 * 1024;
 const sessionHeadroom = Number(process.env.TLSNOTARY_MIN_AVAILABLE_MEMORY_MB || 1024) * MiB;
 if (!Number.isSafeInteger(sessionHeadroom) || sessionHeadroom < 512 * MiB)
   throw new Error("TLSNOTARY_MIN_AVAILABLE_MEMORY_MB must be an integer of at least 512");
+// Host headroom does not reserve the sibling verifier's container budget.
+// Its shipped 3 GiB limit must not admit two simultaneous MPC allocations.
+const maxSessions = Number(process.env.TLSNOTARY_MAX_SESSIONS || 1);
+if (!Number.isSafeInteger(maxSessions) || maxSessions < 1)
+  throw new Error("TLSNOTARY_MAX_SESSIONS must be a positive integer");
 const key = createPrivateKey(
   fs.readFileSync(process.env.SIGNING_KEY || "/state/signing.pem")
 );
@@ -20,8 +25,7 @@ const upstream = process.env.VERIFIER_URL || "ws://verifier:7047";
 const sessions = new Map(),
   byId = new Map(),
   receipts = new Map();
-const maxSessions = 2,
-  lifetime = 180000,
+const lifetime = 180000,
   maxRecv = 262144,
   maxSent = 16384;
 function proofMemoryAvailable(required) {
@@ -89,7 +93,7 @@ const app = http.createServer((req, res) => {
       receipts.delete(id);
       return json(res, 404, { error: "Receipt not ready" });
     }
-    if (result.error) return json(res, 503, { error: result.error });
+    if (result.error) return json(res, result.status || 503, { error: result.error });
     return json(res, 200, result);
   }
   const files = {
@@ -310,6 +314,16 @@ app.on("upgrade", async (req, socket, head) => {
               if (m.type === "session_registered") {
                 session.id = m.sessionId;
                 byId.set(m.sessionId, session);
+              } else if (m.type === "error" && typeof m.message === "string" &&
+                session.receiptId && !receipts.has(session.receiptId)) {
+                // The SDK can remain pending after a typed upstream rejection.
+                // Preserve that failure, not ordinary successful socket closure.
+                if (receipts.size >= 1000) receipts.delete(receipts.keys().next().value);
+                receipts.set(session.receiptId, {
+                  error: "TLSNotary verifier rejected this proof.",
+                  status: 502,
+                  expiresAt: Date.now() + 3600000,
+                });
               }
             } catch {
               session.close("invalid control response");

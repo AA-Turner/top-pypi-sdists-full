@@ -17,6 +17,7 @@ use chematic_smarts::{MatchConfig, parse_smarts};
 
 mod cleanup;
 mod groups;
+mod reionize;
 pub use cleanup::cleanup;
 pub use groups::normalize_groups;
 
@@ -512,6 +513,127 @@ enum FragmentClass {
     StructuralSalt,
 }
 
+struct ScoredFragment {
+    heavy: usize,
+    rank_size: usize,
+    has_carbon: bool,
+    canon: String,
+    class: FragmentClass,
+}
+
+fn score_fragments(frags: &[Molecule], policy: &FragmentPolicy) -> Vec<ScoredFragment> {
+    frags
+        .iter()
+        .map(|fragment| {
+            let heavy = heavy_atom_count(fragment);
+            ScoredFragment {
+                heavy,
+                rank_size: if policy.count_heavy_atoms_only {
+                    heavy
+                } else {
+                    fragment.atom_count()
+                },
+                has_carbon: fragment_has_carbon(fragment),
+                canon: chematic_smiles::canonical_smiles(fragment),
+                class: classify_fragment(fragment, policy),
+            }
+        })
+        .collect()
+}
+
+fn fragment_rank_key<'a>(
+    score: &'a ScoredFragment,
+    policy: &FragmentPolicy,
+) -> (usize, bool, std::cmp::Reverse<&'a str>) {
+    (
+        score.rank_size,
+        policy.prefer_organic && score.has_carbon,
+        std::cmp::Reverse(score.canon.as_str()),
+    )
+}
+
+fn select_fragment_winner(
+    scored: &[ScoredFragment],
+    policy: &FragmentPolicy,
+) -> (usize, Option<String>) {
+    let kept = (0..scored.len()).filter(|&i| scored[i].class == FragmentClass::Kept);
+    if let Some(winner) = kept.max_by_key(|&i| fragment_rank_key(&scored[i], policy)) {
+        return (winner, None);
+    }
+
+    let winner = (0..scored.len())
+        .max_by_key(|&i| fragment_rank_key(&scored[i], policy))
+        .expect("non-empty molecule has at least one fragment");
+    let reason = format!(
+        "no_fragment_classified_kept: all {} fragment(s) matched a salt/ion/water \
+         classification rule; falling back to the size-ranked choice among them",
+        scored.len()
+    );
+    (winner, Some(reason))
+}
+
+fn removed_fragment_decision(score: &ScoredFragment) -> FragmentDecision {
+    let (rule_id, reason) = match score.class {
+        FragmentClass::AlwaysStripWater => (
+            "water_always_strip",
+            "single neutral oxygen fragment (water)".to_string(),
+        ),
+        FragmentClass::AlwaysStripIon => (
+            "monatomic_always_strip_ion",
+            "single charged atom on the fixed always-strip element list".to_string(),
+        ),
+        FragmentClass::StructuralSalt => (
+            "structural_no_carbon_small_fragment",
+            format!("no carbon and <= {MAX_SALT_HEAVY_ATOMS_NO_CARBON} heavy atoms"),
+        ),
+        FragmentClass::Kept => (
+            "ranked_out_by_size",
+            "outranked by the kept fragment under the fragment policy".to_string(),
+        ),
+    };
+    FragmentDecision::Removed {
+        rule_id: rule_id.to_string(),
+        reason,
+    }
+}
+
+fn fragment_records(
+    frags: &[Molecule],
+    scored: &[ScoredFragment],
+    winner: usize,
+) -> Vec<FragmentRecord> {
+    let winner_canon = &scored[winner].canon;
+    frags
+        .iter()
+        .enumerate()
+        .map(|(i, fragment)| {
+            let snapshot = FragmentSnapshot {
+                atom_count: fragment.atom_count(),
+                heavy_atom_count: scored[i].heavy,
+                formula: fragment.formula(),
+                canonical_smiles: scored[i].canon.clone(),
+            };
+            let decision = if i == winner {
+                FragmentDecision::Kept {
+                    rank_key: format!(
+                        "rank_size={}, has_carbon={}, canonical_smiles={}",
+                        scored[i].rank_size, scored[i].has_carbon, scored[i].canon
+                    ),
+                }
+            } else if scored[i].canon == *winner_canon {
+                FragmentDecision::Removed {
+                    rule_id: "duplicate_of_kept_fragment".to_string(),
+                    reason: "identical structure to the kept fragment (same canonical SMILES)"
+                        .to_string(),
+                }
+            } else {
+                removed_fragment_decision(&scored[i])
+            };
+            FragmentRecord { snapshot, decision }
+        })
+        .collect()
+}
+
 fn classify_fragment(frag: &Molecule, policy: &FragmentPolicy) -> FragmentClass {
     if policy.preserve_isotopes && fragment_has_isotope(frag) {
         return FragmentClass::Kept;
@@ -564,62 +686,8 @@ pub fn select_fragment(
         .map(|c| extract_fragment(mol, c))
         .collect();
 
-    struct Scored {
-        heavy: usize,
-        rank_size: usize,
-        has_carbon: bool,
-        canon: String,
-        class: FragmentClass,
-    }
-
-    let scored: Vec<Scored> = frags
-        .iter()
-        .map(|f| {
-            let heavy = heavy_atom_count(f);
-            let rank_size = if policy.count_heavy_atoms_only {
-                heavy
-            } else {
-                f.atom_count()
-            };
-            Scored {
-                heavy,
-                rank_size,
-                has_carbon: fragment_has_carbon(f),
-                canon: chematic_smiles::canonical_smiles(f),
-                class: classify_fragment(f, policy),
-            }
-        })
-        .collect();
-
-    let rank_key = |i: usize| -> (usize, bool, std::cmp::Reverse<String>) {
-        let s = &scored[i];
-        let carbon_key = policy.prefer_organic && s.has_carbon;
-        (s.rank_size, carbon_key, std::cmp::Reverse(s.canon.clone()))
-    };
-
-    let kept_candidates: Vec<usize> = (0..frags.len())
-        .filter(|&i| scored[i].class == FragmentClass::Kept)
-        .collect();
-
-    let (winner, abstained) = if kept_candidates.is_empty() {
-        let w = (0..frags.len()).max_by_key(|&i| rank_key(i)).unwrap();
-        (
-            w,
-            Some(format!(
-                "no_fragment_classified_kept: all {} fragment(s) matched a salt/ion/water \
-                 classification rule; falling back to the size-ranked choice among them",
-                frags.len()
-            )),
-        )
-    } else {
-        let w = *kept_candidates
-            .iter()
-            .max_by_key(|&&i| rank_key(i))
-            .unwrap();
-        (w, None)
-    };
-
-    let winner_canon = scored[winner].canon.clone();
+    let scored = score_fragments(&frags, policy);
+    let (winner, abstained) = select_fragment_winner(&scored, policy);
     let mut warnings = Vec::new();
     if let Some(reason) = &abstained {
         warnings.push(StandardizationWarning::new(
@@ -628,56 +696,7 @@ pub fn select_fragment(
         ));
     }
 
-    let fragments: Vec<FragmentRecord> = frags
-        .iter()
-        .enumerate()
-        .map(|(i, f)| {
-            let snapshot = FragmentSnapshot {
-                atom_count: f.atom_count(),
-                heavy_atom_count: scored[i].heavy,
-                formula: f.formula(),
-                canonical_smiles: scored[i].canon.clone(),
-            };
-            let decision = if i == winner {
-                FragmentDecision::Kept {
-                    rank_key: format!(
-                        "rank_size={}, has_carbon={}, canonical_smiles={}",
-                        scored[i].rank_size, scored[i].has_carbon, scored[i].canon
-                    ),
-                }
-            } else if scored[i].canon == winner_canon {
-                FragmentDecision::Removed {
-                    rule_id: "duplicate_of_kept_fragment".to_string(),
-                    reason: "identical structure to the kept fragment (same canonical SMILES)"
-                        .to_string(),
-                }
-            } else {
-                let (rule_id, reason) = match scored[i].class {
-                    FragmentClass::AlwaysStripWater => (
-                        "water_always_strip",
-                        "single neutral oxygen fragment (water)".to_string(),
-                    ),
-                    FragmentClass::AlwaysStripIon => (
-                        "monatomic_always_strip_ion",
-                        "single charged atom on the fixed always-strip element list".to_string(),
-                    ),
-                    FragmentClass::StructuralSalt => (
-                        "structural_no_carbon_small_fragment",
-                        format!("no carbon and <= {MAX_SALT_HEAVY_ATOMS_NO_CARBON} heavy atoms"),
-                    ),
-                    FragmentClass::Kept => (
-                        "ranked_out_by_size",
-                        "outranked by the kept fragment under the fragment policy".to_string(),
-                    ),
-                };
-                FragmentDecision::Removed {
-                    rule_id: rule_id.to_string(),
-                    reason,
-                }
-            };
-            FragmentRecord { snapshot, decision }
-        })
-        .collect();
+    let fragments = fragment_records(&frags, &scored, winner);
 
     let output = frags[winner].clone();
     let after = MoleculeSnapshot::from_mol(&output);
@@ -1133,93 +1152,14 @@ pub fn prefer_organic(mol: &Molecule) -> Molecule {
     }
 }
 
-/// Reionize a molecule by adjusting protonation to favored forms.
+/// Move an existing negative charge to a stronger acid site when the acid/base
+/// classes are supported. Neutral acids and bases are not independently ionized.
 ///
-/// Simple heuristic approach that adjusts charges on common acidic and basic groups:
-/// - Carboxylic acids with OH: deprotonate to COO- (carboxylate)
-/// - Phenols: deprotonate to phenoxide (O-)
-/// - Primary amines: protonate to ammonium (NH3+)
-/// - Imidazoles: protonate to imidazolium (N+)
-///
-/// This is a simplified version suitable for typical organic molecules.
+/// This bounded RDKit-compatible operation currently handles a single simple
+/// carbanion or oxygen anion and unique oxygen-acid donors. Other charge and
+/// resonance patterns are returned unchanged, with their stereo metadata intact.
 pub fn reionize(mol: &Molecule) -> Molecule {
-    let mut builder = MoleculeBuilder::new();
-    let mut remap: HashMap<AtomIdx, AtomIdx> = HashMap::new();
-
-    // Copy all atoms, adjusting charges
-    for i in 0..mol.atom_count() {
-        let idx = AtomIdx(i as u32);
-        let mut atom = mol.atom(idx).clone();
-        let an = atom.element.atomic_number();
-
-        // Check for carboxylic acid or phenol: C=O with O-H or Ar-O-H. Only
-        // an O that has an H and a single carbon neighbour (an ether or ester
-        // O was charged with two bonds before, depending on atom order).
-        let oh_carbon = (an == 8
-            && atom.charge == 0
-            && chematic_core::implicit_hcount(mol, idx) > 0
-            && mol.degree(idx) == 1)
-            .then(|| mol.neighbors(idx).next())
-            .flatten()
-            .filter(|&(neighbor, bond_idx)| {
-                mol.bond(bond_idx).order == chematic_core::BondOrder::Single
-                    && mol.atom(neighbor).element.atomic_number() == 6
-            });
-        if let Some((c_idx, _)) = oh_carbon {
-            // Check if C is aromatic (phenol) or has a double-bonded O (carboxylic acid)
-            let is_aromatic = mol.atom(c_idx).aromatic;
-            let has_double_bonded_o = mol.neighbors(c_idx).any(|(other, bond_idx)| {
-                mol.bond(bond_idx).order == chematic_core::BondOrder::Double
-                    && mol.atom(other).element.atomic_number() == 8
-                    && other != idx
-            });
-
-            // Only deprotonate if it's a phenol or carboxylic acid, not aliphatic OH
-            if is_aromatic || has_double_bonded_o {
-                atom.charge -= 1; // Deprotonate: OH → O-
-                if let Some(h) = atom.hydrogen_count {
-                    atom.hydrogen_count = Some(h.saturating_sub(1));
-                }
-            }
-        }
-
-        // Check for primary/secondary amines (but NOT amides)
-        if an == 7 && !atom.aromatic && atom.charge == 0 {
-            // A primary/secondary aliphatic amine: single bonds only, no
-            // aromatic neighbour (aniline), and no neighbour doubly bonded
-            // to O/S (amide, thioamide, sulfonamide, carbamate).
-            let all_single = mol
-                .neighbors(idx)
-                .all(|(_, b)| mol.bond(b).order == chematic_core::BondOrder::Single);
-            let conjugated = mol.neighbors(idx).any(|(neighbor, _)| {
-                mol.atom(neighbor).aromatic
-                    || mol.neighbors(neighbor).any(|(o_neighbor, o_bond)| {
-                        o_neighbor != idx
-                            && matches!(
-                                mol.bond(o_bond).order,
-                                chematic_core::BondOrder::Double | chematic_core::BondOrder::Triple
-                            )
-                    })
-            });
-            let h_count = chematic_core::implicit_hcount(mol, idx);
-            if all_single && !conjugated && (h_count == 2 || h_count == 1) {
-                atom.charge += 1; // Protonate: NH2 → NH3+
-                if let Some(h) = atom.hydrogen_count {
-                    atom.hydrogen_count = Some(h + 1);
-                }
-            }
-        }
-
-        let new_idx = builder.add_atom(atom);
-        remap.insert(idx, new_idx);
-    }
-
-    copy_bonds(mol, &mut builder, &remap);
-    // Identity-preserving rebuild -- see issue #399.
-    builder.copy_stereo_from(mol);
-    builder.copy_bond_directions_from(mol);
-    builder.copy_stereo_groups_from(mol);
-    builder.build()
+    reionize::reionize(mol)
 }
 
 /// Remove formal charges by protonation/deprotonation, as RDKit's
@@ -2441,32 +2381,32 @@ mod tests {
         }
         let canon = |s: &str| chematic_smiles::canonical_smiles(&parse(s).unwrap());
         let run = |s: &str| chematic_smiles::canonical_smiles(&reionize(&parse(s).unwrap()));
-        assert_eq!(run("OC(=O)CCN"), canon("[O-]C(=O)CC[NH3+]"));
-        // Anilines and sulfonamides are not protonated.
+        assert_eq!(run("OC(=O)CCN"), canon("OC(=O)CCN"));
+        // Neutral acid/base groups do not ionize independently.
         assert_eq!(run("Nc1ccccc1"), canon("Nc1ccccc1"));
         assert_eq!(run("CS(=O)(=O)NC"), canon("CS(=O)(=O)NC"));
     }
 
     #[test]
-    fn reionize_deprotonates_carboxylic_acids() {
+    fn reionize_keeps_neutral_carboxylic_acids() {
         // "CC(=O)O" — acetic acid
         let mol = parse("CC(=O)O").unwrap();
 
         let result = reionize(&mol);
 
-        // Should have a negatively charged oxygen (carboxylate anion)
+        // A neutral acid does not create an anion without an existing base.
         let has_negative_oxygen = result
             .atoms()
             .any(|(_, a)| a.element.atomic_number() == 8 && a.charge < 0);
 
         assert!(
-            has_negative_oxygen,
-            "reionize should deprotonate carboxylic acids"
+            !has_negative_oxygen,
+            "reionize must not independently deprotonate carboxylic acids"
         );
     }
 
     #[test]
-    fn reionize_protonates_amines() {
+    fn reionize_keeps_neutral_amines() {
         // "CC(N)C" — secondary amine
         let mol = parse("CC(N)C").unwrap();
 
@@ -2477,7 +2417,10 @@ mod tests {
             .atoms()
             .any(|(_, a)| a.element.atomic_number() == 7 && a.charge > 0);
 
-        assert!(has_positive_nitrogen, "reionize should protonate amines");
+        assert!(
+            !has_positive_nitrogen,
+            "reionize must not independently protonate amines"
+        );
     }
 
     #[test]

@@ -18,19 +18,12 @@ from collections.abc import Sequence
 from typing import Any, TypeVar, override
 
 import jax
-from tokamax._src.ops import op as jax_tokamax_op
-from tokamax._src.ops.experimental.lightning_indexer import base as jax_base
-from tokamax._src.ops.experimental.lightning_indexer.kernel import config as kernel_config
+from tokamax._src.ops.lightning_indexer import base as jax_base
+from tokamax._src.ops.lightning_indexer.kernel import config as kernel_config
 from tokamax.experimental.torch_tpu.ops import torch_op
 import torch
 
-KVLayout = kernel_config.KVLayout
 _Config = TypeVar("_Config")
-
-
-def kv_layout_to_str(kv_layout: KVLayout | str) -> str:
-  """Converts a KVLayout or string to its canonical lowercase string name."""
-  return KVLayout.parse(kv_layout).name.lower()
 
 
 class _LightningIndexer(torch_op.TorchOp[_Config]):
@@ -72,23 +65,6 @@ class _LightningIndexer(torch_op.TorchOp[_Config]):
         q.new_empty(out_shape, dtype=torch.int32),
     )
 
-  # `TorchOp.get_bound_args` builds `BoundArguments` directly from
-  # `op_impl_jax._fwd`'s signature without calling `LightningIndexer.bind`.
-  # Because `__call__` serializes `kv_layout` into a `str` for `jax_op` (and
-  # callers of `torch_utils.get_configs` may also pass a `str`), we override
-  # `get_bound_args` to canonicalize `kv_layout` back into a `KVLayout` enum
-  # via `KVLayout.parse`—matching `LightningIndexer.bind` so autotuning cache
-  # keys and config resolution see a canonical `KVLayout`.
-  @override
-  def get_bound_args(self, *args: Any, **kwargs: Any) -> Any:
-    ba = super().get_bound_args(*args, **kwargs)
-    if "kv_layout" in ba.arguments:
-      assert self.op_impl_jax is not None, "Forward class not set."
-      args_dict = dict(ba.arguments)
-      args_dict["kv_layout"] = KVLayout.parse(args_dict["kv_layout"])
-      return jax_tokamax_op.BoundArguments(self.op_impl_jax, args_dict)
-    return ba
-
   @override
   def __call__(
       self,
@@ -101,7 +77,7 @@ class _LightningIndexer(torch_op.TorchOp[_Config]):
       distribution: torch.Tensor,
       k: int,
       compression_ratio: int = 1,
-      kv_layout: KVLayout | str = KVLayout.HEAD_ALONG_SUBLANE,
+      kv_layout: str = "head_along_sublane",
       cp_size: int = 1,
       cp_rank: torch.Tensor | int = 0,
       interleave_size: int = 1,
@@ -127,7 +103,7 @@ class _LightningIndexer(torch_op.TorchOp[_Config]):
         distribution,
         k=k,
         compression_ratio=compression_ratio,
-        kv_layout=kv_layout_to_str(kv_layout),
+        kv_layout=kv_layout,
         cp_size=cp_size,
         cp_rank=cp_rank,
         interleave_size=interleave_size,
@@ -172,7 +148,7 @@ class _LightningIndexer(torch_op.TorchOp[_Config]):
         distribution,
         k=k,
         compression_ratio=compression_ratio,
-        kv_layout=KVLayout.parse(kv_layout),
+        kv_layout=kernel_config.KVLayout(kv_layout),
         cp_size=cp_size,
         cp_rank=cp_rank,
         interleave_size=interleave_size,

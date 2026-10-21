@@ -19,8 +19,8 @@ from math import ceil, floor, inf, isinf, nextafter, ulp
 from schemathesis.core.jsonschema import (
     CANONICALIZE_DRAFT_BY_VALIDATOR,
     FANCY_REGEX_OPTIONS,
+    STANDARD_FORMATS,
     VALIDATED_FORMATS_BY_DRAFT,
-    compile_ecma_pattern,
     is_unsatisfiable,
     is_valid,
     make_validator,
@@ -66,6 +66,7 @@ from schemathesis.core import (
 from schemathesis.core.cache import MISSING
 from schemathesis.core.errors import InvalidSchema, RefResolutionError
 from schemathesis.core.jsonschema.patterns import (
+    compile_ecma_pattern,
     matches_every_string,
     pattern_length_bounds,
     pattern_length_is_unreachable,
@@ -97,31 +98,6 @@ from schemathesis.specs.openapi.coverage._wire import (
 from schemathesis.specs.openapi.formats import format_length_bounds, format_lengths_for
 from schemathesis.specs.openapi.utils import parameter_types, sent_text_is_valid
 from schemathesis.transport.serialization import contains_binary
-
-VALIDATED_FORMATS = frozenset(
-    {
-        "date",
-        "date-time",
-        "duration",
-        "email",
-        "hostname",
-        "idn-email",
-        "idn-hostname",
-        "ipv4",
-        "ipv6",
-        "iri",
-        "iri-reference",
-        "json-pointer",
-        "regex",
-        "relative-json-pointer",
-        "time",
-        "uri",
-        "uri-reference",
-        "uri-template",
-        "uuid",
-    }
-)
-
 
 # A string where these alone surround `format`: nothing else can widen what the generator produces.
 _FORMAT_WITH_LENGTH_KEYS = frozenset({"format", "maxLength", "minLength", "type"})
@@ -1080,7 +1056,7 @@ class CoverageContext:
             # search that broad character classes need. Check one candidate against the original
             # schema; a restrictive pattern still gets its own generator below.
             lengths = format_lengths_for(self.custom_formats).get(fmt or "")
-            if lengths is not None and lengths.within is not None and fmt in VALIDATED_FORMATS:
+            if lengths is not None and lengths.within is not None and fmt in STANDARD_FORMATS:
                 strategy = lengths.within(min_length or 0, max_length if max_length is not None else inf)
                 if strategy is not None:
                     candidate = cached_draw(self.session, strategy)
@@ -1099,7 +1075,7 @@ class CoverageContext:
             pattern = updated
         if min_length is not None and min_length > MAX_GENERATED_PATTERN_LENGTH:
             return self._long_string_matching(schema, min_length)
-        validated = fmt if fmt in VALIDATED_FORMATS else None
+        validated = fmt if fmt in STANDARD_FORMATS else None
         # Spelling the length into the pattern fixes the shape of every match, so a format the
         # first match fails is one no redraw satisfies; checking once beats searching for it.
         strategy = _pattern_strategy(
@@ -1260,7 +1236,7 @@ class CoverageContext:
         # This avoids producing positive values that the validator for the same schema would reject.
         if (
             isinstance(schema, dict)
-            and (fmt := schema.get("format")) in VALIDATED_FORMATS
+            and (fmt := schema.get("format")) in STANDARD_FORMATS
             and fmt in self.custom_formats
         ):
             validator = _get_format_validator(self.session, fmt, self.validator_cls)
@@ -1385,6 +1361,26 @@ def _to_hashable_key(value: T, _encode: Callable = _encode) -> tuple[type, str |
     return type(value), value
 
 
+def _to_hashable_key_with_json_parts(value: dict[str, Any]) -> tuple[tuple, dict[str, int]]:
+    serialized_parts: dict[str, str] = {}
+    try:
+        for name, item in value.items():
+            serialized_parts[name] = jsonschema_rs.canonical.json.to_string(item)
+    except (TypeError, ValueError):
+        return _to_hashable_key(value), {}
+    serialized = (
+        "{"
+        + ",".join(f"{jsonschema_rs.canonical.json.to_string(name)}:{serialized_parts[name]}" for name in sorted(value))
+        + "}"
+    )
+    hashes = {
+        name: hash((type(value[name]), item))
+        for name, item in serialized_parts.items()
+        if type(value[name]) is dict or type(value[name]) is list
+    }
+    return (dict, _digest(serialized)), hashes
+
+
 class HashSet:
     """Helper to track already generated values."""
 
@@ -1406,9 +1402,9 @@ class HashSet:
         key = _to_hashable_key(value)
         return key if self._insert_key(key) else None
 
-    def insert_unless_in(self, other: HashSet, value: Any) -> bool:
+    def insert_unless_in(self, other: HashSet, value: Any, *, key: tuple | None = None) -> bool:
         """Insert the value unless `other` already holds it; the key is built once for both sets."""
-        key = _to_hashable_key(value)
+        key = _to_hashable_key(value) if key is None else key
         return key not in other._data and self._insert_key(key)
 
     def _insert_key(self, key: tuple) -> bool:
@@ -1548,6 +1544,13 @@ def _merge_all_of(schema: JsonSchemaObject, *, judge_inherited_names: bool = Fal
     if "$ref" in merged and any(key != "$ref" and key not in ANNOTATION_KEYWORDS for key in merged):
         # A reference that stays unresolved overrides everything folded in beside it, so those
         # constraints would silently vanish from the value.
+        return None
+    if any(
+        branch.get("additionalProperties", True) is not True
+        and any(other is not branch and other.get("patternProperties") for other in folded_branches)
+        for branch in folded_branches
+    ):
+        # A branch judging the names it does not match would stop judging the ones another branch's patterns match.
         return None
     merged_names = set(merged.get("properties", {}))
     for branch in folded_branches:
@@ -1740,9 +1743,7 @@ def _has_array_sibling(sub_schemas: list) -> bool:
     return False
 
 
-def _generate_oversized_string(
-    ctx: CoverageContext, original_schema: JsonSchemaObject, new_schema: dict[str, Any], target_length: int
-) -> str | None:
+def _generate_oversized_string(ctx: CoverageContext, new_schema: dict[str, Any], target_length: int) -> str | None:
     pattern = new_schema.get("pattern")
     if not isinstance(pattern, str):
         try:
@@ -2292,7 +2293,7 @@ def _negative_max_length(
             new_schema.pop("enum", None)
             new_schema.pop("const", None)
             new_schema["type"] = "string"
-            new_value = _generate_oversized_string(ctx, schema, new_schema, target_length)
+            new_value = _generate_oversized_string(ctx, new_schema, target_length)
         if new_value is not None and seen.insert(new_value):
             yield NegativeValue(
                 new_value,
@@ -3117,6 +3118,34 @@ def _get_template_schema(schema: JsonSchemaObject, ty: str, ctx: CoverageContext
     return {**schema, "type": ty}
 
 
+_SPEC_HINT_KEYS = frozenset({"example", "examples", "default"})
+
+
+def _spec_hint_values(
+    schema: JsonSchemaObject, accepts: Callable[[Any], bool], seen: HashSet
+) -> Generator[GeneratedValue, None, None]:
+    """The `example`, `examples` and `default` values `accepts` admits, each one not yet in `seen`."""
+    # Sentinel-based reads so falsy spec hints (`default: 0`, `example: ""`) and explicit
+    # `default: null` / `example: null` aren't confused with "key absent".
+    example = schema.get("example", NOT_SET)
+    examples = schema.get("examples")
+    default = schema.get("default", NOT_SET)
+    if example is not NOT_SET and accepts(example) and seen.insert(example):
+        yield PositiveValue(example, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
+    if examples:
+        for item in examples:
+            if accepts(item) and seen.insert(item):
+                yield PositiveValue(item, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
+    if (
+        default is not NOT_SET
+        and not (example is not NOT_SET and default == example)
+        and not (examples is not None and any(default == ex for ex in examples))
+        and accepts(default)
+        and seen.insert(default)
+    ):
+        yield PositiveValue(default, scenario=CoverageScenario.DEFAULT_VALUE, description="Default value")
+
+
 def _positive_string(ctx: CoverageContext, schema: JsonSchemaObject) -> Generator[GeneratedValue, None, None]:
     """Generate positive string values."""
     # Pin type to "string"; for unions like ["string","null"] the dispatcher yields null separately,
@@ -3145,51 +3174,17 @@ def _positive_string(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
         declared = schema
         min_length = 1
 
-    # Sentinel-based reads so falsy spec hints (`default: 0`, `example: ""`) and explicit
-    # `default: null` / `example: null` aren't confused with "key absent".
-    example = schema.get("example", NOT_SET)
-    examples = schema.get("examples")
-    default = schema.get("default", NOT_SET)
-
     # Two-layer check to avoid potentially expensive data generation using schema constraints as a key
     seen_values = HashSet()
     seen_constraints: set[tuple] = set()
 
-    if example is not NOT_SET or examples or default is not NOT_SET:
-        has_valid_example = False
-        if (
-            example is not NOT_SET
-            and _is_valid_with_formats(example, declared, ctx)
-            and ctx.wire.representable(example)
-            and seen_values.insert(example)
-        ):
-            has_valid_example = True
-            yield PositiveValue(example, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
-        if examples:
-            for example in examples:
-                if (
-                    _is_valid_with_formats(example, declared, ctx)
-                    and ctx.wire.representable(example)
-                    and seen_values.insert(example)
-                ):
-                    has_valid_example = True
-                    yield PositiveValue(example, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
-        if (
-            default is not NOT_SET
-            and not (example is not NOT_SET and default == example)
-            and not (examples is not None and any(default == ex for ex in examples))
-            and _is_valid_with_formats(default, declared, ctx)
-            and ctx.wire.representable(default)
-            and seen_values.insert(default)
-        ):
-            has_valid_example = True
-            yield PositiveValue(default, scenario=CoverageScenario.DEFAULT_VALUE, description="Default value")
-        if not has_valid_example and (not min_length and not max_length or "pattern" in schema):
-            value = ctx.generate_from_schema(schema)
-            seen_values.insert(value)
-            seen_constraints.add((min_length, max_length))
-            yield PositiveValue(value, scenario=CoverageScenario.VALID_STRING, description="Valid string")
-    elif not min_length and not max_length or "pattern" in schema:
+    if not _SPEC_HINT_KEYS.isdisjoint(schema):
+        yield from _spec_hint_values(
+            schema,
+            lambda value: _is_valid_with_formats(value, declared, ctx) and ctx.wire.representable(value),
+            seen_values,
+        )
+    if not seen_values and (not min_length and not max_length or "pattern" in schema):
         value = ctx.generate_from_schema(schema)
         seen_values.insert(value)
         seen_constraints.add((min_length, max_length))
@@ -3379,10 +3374,6 @@ def _positive_number(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
     if is_integer and multiple_of is not None and not isinstance(multiple_of, int):
         # Integer multiples of `p/q` are exactly the multiples of `p`.
         multiple_of = Fraction(Decimal(str(multiple_of))).numerator
-    example = schema.get("example", NOT_SET)
-    examples = schema.get("examples")
-    default = schema.get("default", NOT_SET)
-
     seen = HashSet()
 
     def _within_adjusted_bounds(value: object) -> bool:
@@ -3393,40 +3384,11 @@ def _positive_number(ctx: CoverageContext, schema: JsonSchemaObject) -> Generato
         exact = _exact(value)
         return (minimum is None or exact >= _exact(minimum)) and (maximum is None or exact <= _exact(maximum))
 
-    if example is not NOT_SET or examples or default is not NOT_SET:
-        has_valid_example = False
-        if (
-            example is not NOT_SET
-            and _is_valid_with_formats(example, schema, ctx)
-            and _within_adjusted_bounds(example)
-            and seen.insert(example)
-        ):
-            has_valid_example = True
-            yield PositiveValue(example, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
-        if examples:
-            for example in examples:
-                if (
-                    _is_valid_with_formats(example, schema, ctx)
-                    and _within_adjusted_bounds(example)
-                    and seen.insert(example)
-                ):
-                    has_valid_example = True
-                    yield PositiveValue(example, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
-        if (
-            default is not NOT_SET
-            and not (example is not NOT_SET and default == example)
-            and not (examples is not None and any(default == ex for ex in examples))
-            and _is_valid_with_formats(default, schema, ctx)
-            and _within_adjusted_bounds(default)
-            and seen.insert(default)
-        ):
-            has_valid_example = True
-            yield PositiveValue(default, scenario=CoverageScenario.DEFAULT_VALUE, description="Default value")
-        if not has_valid_example and minimum is None and maximum is None:
-            value = ctx.generate_from_schema(schema)
-            seen.insert(value)
-            yield PositiveValue(value, scenario=CoverageScenario.VALID_NUMBER, description="Valid number")
-    elif minimum is None and maximum is None:
+    if not _SPEC_HINT_KEYS.isdisjoint(schema):
+        yield from _spec_hint_values(
+            schema, lambda value: _is_valid_with_formats(value, schema, ctx) and _within_adjusted_bounds(value), seen
+        )
+    if not seen and minimum is None and maximum is None:
         value = ctx.generate_from_schema(schema)
         seen.insert(value)
         yield PositiveValue(value, scenario=CoverageScenario.VALID_NUMBER, description="Valid number")
@@ -3496,9 +3458,6 @@ def _fits_array_length(schema: JsonSchemaObject, length: int) -> bool:
 def _positive_array(
     ctx: CoverageContext, schema: JsonSchemaObject, template: list
 ) -> Generator[GeneratedValue, None, None]:
-    example = schema.get("example", NOT_SET)
-    examples = schema.get("examples")
-    default = schema.get("default", NOT_SET)
     # The first `prefixItems` positions answer to their own schemas, so an `items` value can only
     # sit behind values that fill them.
     prefix_values = _tuple_prefix_values(ctx, schema)
@@ -3506,21 +3465,8 @@ def _positive_array(
     seen = HashSet()
     seen_constraints: set[tuple] = set()
 
-    if example is not NOT_SET or examples or default is not NOT_SET:
-        if example is not NOT_SET and _is_valid_with_formats(example, schema, ctx) and seen.insert(example):
-            yield PositiveValue(example, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
-        if examples:
-            for example in examples:
-                if _is_valid_with_formats(example, schema, ctx) and seen.insert(example):
-                    yield PositiveValue(example, scenario=CoverageScenario.EXAMPLE_VALUE, description="Example value")
-        if (
-            default is not NOT_SET
-            and not (example is not NOT_SET and default == example)
-            and not (examples is not None and any(default == ex for ex in examples))
-            and _is_valid_with_formats(default, schema, ctx)
-            and seen.insert(default)
-        ):
-            yield PositiveValue(default, scenario=CoverageScenario.DEFAULT_VALUE, description="Default value")
+    if not _SPEC_HINT_KEYS.isdisjoint(schema):
+        yield from _spec_hint_values(schema, lambda value: _is_valid_with_formats(value, schema, ctx), seen)
     # Rejected annotations must not suppress the generated baseline.
     if not seen:
         # An empty template skips every items-level keyword on the wire; surface a non-empty
@@ -3853,12 +3799,7 @@ def _negative_enum(
     # on the positive path, so emit each mismatched entry as a negative to keep the keyword covered.
     declared_types = set(get_type(schema))
     if declared_types:
-        judges = [judge for (judge,) in _make_branch_validators([schema], ctx, strict=False)]
-        types = parameter_types(schema)
-
-        def is_valid(instance: Any) -> bool:
-            return any(judge.is_valid(instance) for judge in judges)
-
+        reads_as_valid = _reads_as_valid(ctx, schema)
         for entry in value:
             entry_type = to_json_type_name(entry)
             if entry_type in declared_types:
@@ -3867,7 +3808,7 @@ def _negative_enum(
             if entry_type == "integer" and "number" in declared_types:
                 continue
             # A parameter entry travels as text the server may read as valid, e.g. `"1"` as `true`.
-            if any(sent_text_is_valid(text, is_valid, types) for text in ctx.wire.sent_texts(entry)):
+            if reads_as_valid(entry):
                 continue
             if not ctx.wire.representable(entry) or not seen.insert(entry):
                 continue
@@ -3990,15 +3931,10 @@ def _negative_array_for_conflicting_type(
     # Forcing `type: array` keeps an `example`/`default` describing the declared (non-array) type
     # from validating as a positive array value and leaking through unchanged below.
     array_schema = {**schema, "type": "array"}
-    judges = [judge for (judge,) in _make_branch_validators([schema], ctx, strict=False)]
-    types = parameter_types(schema)
-
-    def is_valid(instance: Any) -> bool:
-        return any(judge.is_valid(instance) for judge in judges)
-
+    reads_as_valid = _reads_as_valid(ctx, schema)
     for value in _cover_positive_for_type(ctx.with_positive(), array_schema, "array"):
         # A parameter array travels as text the server may read as valid, e.g. `[""]` as an empty header.
-        if any(sent_text_is_valid(text, is_valid, types) for text in ctx.wire.sent_texts(value.value)):
+        if reads_as_valid(value.value):
             continue
         if value.generation_mode == GenerationMode.POSITIVE:
             yield NegativeValue(
@@ -4173,11 +4109,16 @@ def _sent_text_judge(ctx: CoverageContext, schema: JsonSchemaObject) -> Callable
     # A body array stays an array, and a query array travels as repeated parameters the server reads as one list.
     if ctx.location in (ParameterLocation.BODY, ParameterLocation.QUERY):
         return lambda value: False
+    return _reads_as_valid(ctx, schema)
+
+
+def _reads_as_valid(ctx: CoverageContext, schema: JsonSchema) -> Callable[[Any], bool]:
+    """Whether a server reads one of a value's wire texts as valid under any draft's reading of the schema."""
     judges = [judge for (judge,) in _make_branch_validators([schema], ctx, strict=False)]
     types = parameter_types(schema)
 
     def is_valid(instance: Any) -> bool:
-        return _admitted_by_any(judges, instance)
+        return any(judge.is_valid(instance) for judge in judges)
 
     return lambda value: any(sent_text_is_valid(text, is_valid, types) for text in ctx.wire.sent_texts(value))
 
@@ -4303,8 +4244,8 @@ def _negative_format(
     # Only generate negative format cases for formats that have validation semantics.
     # In OpenAPI 3.0, `format` is an annotation and does NOT impose validation constraints by itself.
     # Formats like "password" have no validation - any string is valid.
-    # We can only generate truly invalid data for formats in VALIDATED_FORMATS (e.g., "email", "uri", "uuid").
-    if format not in VALIDATED_FORMATS:
+    # We can only generate truly invalid data for formats in STANDARD_FORMATS (e.g., "email", "uri", "uuid").
+    if format not in STANDARD_FORMATS:
         return
     # The active draft determines which formats actually validate (Draft 4 treats
     # iri-reference / json-pointer / etc. as annotation-only). Skip when the format

@@ -91,11 +91,11 @@ def sync(
     ids inside the `dataFrameIds` and `fileIds` elements. This will append the dataFramess and files to the analysis.
 
     If attaching files:
-    1. Upload the files with the [Create a file](#/Files/createFile) endpoint
+    1. Upload the files with the [Create a file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/create-file) endpoint
     2. Use this endpoint to attach file ids via the `fileIds` array element
 
     If attaching data frames:
-    1. Create the data frames from existing files using the [Create a data frame](#/Data%20Frames/createDataFrame)
+    1. Create the data frames from existing files using the [Create a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/create-data-frame)
     endpoint
     2. Use this endpoint to attach data frame ids via the `dataFrameIds` array element
 
@@ -139,11 +139,11 @@ async def asyncio(
     ids inside the `dataFrameIds` and `fileIds` elements. This will append the dataFramess and files to the analysis.
 
     If attaching files:
-    1. Upload the files with the [Create a file](#/Files/createFile) endpoint
+    1. Upload the files with the [Create a file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/create-file) endpoint
     2. Use this endpoint to attach file ids via the `fileIds` array element
 
     If attaching data frames:
-    1. Create the data frames from existing files using the [Create a data frame](#/Data%20Frames/createDataFrame)
+    1. Create the data frames from existing files using the [Create a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/create-data-frame)
     endpoint
     2. Use this endpoint to attach data frame ids via the `dataFrameIds` array element
 

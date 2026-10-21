@@ -22,6 +22,10 @@ class ConfluenceError(RuntimeError):
     "Raised when a Confluence API call fails."
 
 
+class ConfluenceAPIVersionMismatch(ConfluenceError):
+    "Raised when a feature is unavailable in the selected Confluence REST API version."
+
+
 @overload
 def _validate_domain(domain: str) -> str: ...
 

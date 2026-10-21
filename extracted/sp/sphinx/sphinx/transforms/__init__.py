@@ -28,10 +28,9 @@ from sphinx.util.nodes import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
-    from typing import Any, ClassVar, Literal
+    from typing import Any, ClassVar, Literal, TypeIs
 
     from docutils.nodes import Node
-    from typing_extensions import TypeIs
 
     from sphinx.application import Sphinx
     from sphinx.config import Config
@@ -387,7 +386,7 @@ class SphinxSmartQuotes(SmartQuotes, SphinxTransform):
         # TODO: TYPING: Upstream docutils should be updated so that
         #       smartquotes_action accepts any iterable of characters
         #       and can be overridden per-instance.
-        self.smartquotes_action = self.config.smartquotes_action  # type: ignore[misc]
+        self.smartquotes_action = self.config.smartquotes_action  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
 
         super().apply()
 

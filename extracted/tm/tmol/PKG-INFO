@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tmol
-Version: 0.1.64
+Version: 0.2.0
 Summary: GPU-accelerated PyTorch reimplementation of the Rosetta energy function
 Author-Email: Institute for Protein Design <contact@ipd.uw.edu>
 License: Apache-2.0
@@ -47,9 +47,9 @@ Requires-Dist: atomworks<4,>=3.0.0
 Requires-Dist: rdkit>=2024.3.5
 Requires-Dist: openbabel-wheel<4,>=3.1.1.23
 Provides-Extra: cu12
-Requires-Dist: tmol-ops-cu12==0.1.64; extra == "cu12"
+Requires-Dist: tmol-ops-cu12==0.2.0; extra == "cu12"
 Provides-Extra: cu13
-Requires-Dist: tmol-ops-cu13==0.1.64; extra == "cu13"
+Requires-Dist: tmol-ops-cu13==0.2.0; extra == "cu13"
 Provides-Extra: dev
 Requires-Dist: black==26.10.0; extra == "dev"
 Requires-Dist: flake8==7.4.1; extra == "dev"
@@ -115,18 +115,21 @@ on CPU or CUDA, with gradients through coordinate scoring.
 
 ## Install
 
-The upcoming 0.1.64 release supports PyTorch 2.11+ without a separate wheel
-for each PyTorch minor. Install the CPU package or add matching CUDA operators:
+Install from PyPI. For GPU use, first install [PyTorch](https://pytorch.org/get-started/locally/)
+with the matching CUDA major, then choose one command:
 
 ```bash
-python -m pip install "tmol==0.1.64"             # CPU, including Apple Silicon
-python -m pip install "tmol[cu13]==0.1.64"       # CUDA 13-enabled PyTorch
-python -m pip install "tmol[cu12]==0.1.64"       # CUDA 12-enabled PyTorch
+python -m pip install tmol          # CPU, including Apple Silicon
+python -m pip install "tmol[cu12]"   # CUDA 12-enabled PyTorch
+python -m pip install "tmol[cu13]"   # CUDA 13-enabled PyTorch
 ```
 
-GPU use needs CUDA-enabled PyTorch and a compatible driver. Pip does not detect
-the GPU. The [installation guide](https://uw-ipd.github.io/tmol/latest/installation.html)
-covers PyTorch installation, binary compatibility, and source builds.
+The base package contains the Python API, data, and CPU kernels. GPU extras add
+`tmol-ops-cu12` or `tmol-ops-cu13` at the same version. GPU use also needs a
+compatible NVIDIA driver; pip does not detect GPUs or select a PyTorch CUDA build.
+The [installation guide](https://uw-ipd.github.io/tmol/latest/installation.html)
+covers requirements, verification, upgrades, and source builds. TMol wheels work
+across supported PyTorch minor versions; no per-Torch wheel selection is needed.
 
 ```python
 import torch, tmol
@@ -135,14 +138,15 @@ print(tmol.__version__, tmol.has_cuda(), torch.cuda.is_available())
 
 ## Quick start
 
-Score a structure on CPU. With a CUDA TMol wheel, use `torch.device("cuda")`:
+Score a structure on CPU. With matching CUDA-enabled PyTorch and TMol operators,
+use `torch.device("cuda")`:
 
 ```python
 import torch
 import tmol
 
 device = torch.device("cpu")
-pose = tmol.pose_stack_from_pdb("input.pdb", device)
+pose = tmol.pose_stack_from_file("input.pdb", device)
 
 score_function = tmol.beta2016_score_function(device)
 score = score_function.render_whole_pose_scoring_module(pose)
@@ -154,8 +158,8 @@ scoring, minimization, repacking, FastRelax, batching, and ligand preparation.
 The [visual glossary](https://uw-ipd.github.io/tmol/latest/terminology.html) explains
 the concepts, and the [score playground](https://uw-ipd.github.io/tmol/latest/playground.html)
 lets you rotate a side chain and inspect TMol scores in the browser. The
-[task index](https://uw-ipd.github.io/tmol/latest/tutorial/recipe_index.html)
-links individual operations to examples and APIs.
+[tutorials](https://uw-ipd.github.io/tmol/latest/examples_index.html) are
+runnable notebooks, each also available in Colab.
 
 ## Development
 

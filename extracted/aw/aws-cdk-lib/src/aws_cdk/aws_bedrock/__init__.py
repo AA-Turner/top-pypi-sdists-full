@@ -31241,243 +31241,20 @@ class CfnKnowledgeBase(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html
     :cloudformationResource: AWS::Bedrock::KnowledgeBase
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_bedrock as bedrock
+        # role: iam.Role
         
-        # model_configuration: Any
         
-        cfn_knowledge_base = bedrock.CfnKnowledgeBase(self, "MyCfnKnowledgeBase",
-            knowledge_base_configuration=bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
-                type="type",
-        
-                # the properties below are optional
-                kendra_knowledge_base_configuration=bedrock.CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty(
-                    kendra_index_arn="kendraIndexArn"
-                ),
-                managed_knowledge_base_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty(
-                    embedding_model_arn="embeddingModelArn",
-                    embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
-                        bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
-                            audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
-                                segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
-                                    fixed_length_duration=123
-                                )
-                            )],
-                            dimensions=123,
-                            embedding_data_type="embeddingDataType",
-                            model_configuration=model_configuration,
-                            video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
-                                segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
-                                    fixed_length_duration=123
-                                )
-                            )]
-                        )
-                    ),
-                    embedding_model_type="embeddingModelType",
-                    server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
-                        kms_key_arn="kmsKeyArn"
-                    ),
-                    supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
-                        supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
-                            supplemental_data_storage_location_type="supplementalDataStorageLocationType",
-        
-                            # the properties below are optional
-                            s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
-                                uri="uri"
-                            )
-                        )]
-                    )
-                ),
-                sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
-                    type="type",
-        
-                    # the properties below are optional
-                    redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftConfigurationProperty(
-                        query_engine_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineConfigurationProperty(
-                            type="type",
-        
-                            # the properties below are optional
-                            provisioned_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedConfigurationProperty(
-                                auth_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedAuthConfigurationProperty(
-                                    type="type",
-        
-                                    # the properties below are optional
-                                    database_user="databaseUser",
-                                    username_password_secret_arn="usernamePasswordSecretArn"
-                                ),
-                                cluster_identifier="clusterIdentifier"
-                            ),
-                            serverless_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessConfigurationProperty(
-                                auth_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessAuthConfigurationProperty(
-                                    type="type",
-        
-                                    # the properties below are optional
-                                    username_password_secret_arn="usernamePasswordSecretArn"
-                                ),
-                                workgroup_arn="workgroupArn"
-                            )
-                        ),
-                        storage_configurations=[bedrock.CfnKnowledgeBase.RedshiftQueryEngineStorageConfigurationProperty(
-                            type="type",
-        
-                            # the properties below are optional
-                            aws_data_catalog_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineAwsDataCatalogStorageConfigurationProperty(
-                                table_names=["tableNames"]
-                            ),
-                            redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineRedshiftStorageConfigurationProperty(
-                                database_name="databaseName"
-                            )
-                        )],
-        
-                        # the properties below are optional
-                        query_generation_configuration=bedrock.CfnKnowledgeBase.QueryGenerationConfigurationProperty(
-                            execution_timeout_seconds=123,
-                            generation_context=bedrock.CfnKnowledgeBase.QueryGenerationContextProperty(
-                                curated_queries=[bedrock.CfnKnowledgeBase.CuratedQueryProperty(
-                                    natural_language="naturalLanguage",
-                                    sql="sql"
-                                )],
-                                tables=[bedrock.CfnKnowledgeBase.QueryGenerationTableProperty(
-                                    name="name",
-        
-                                    # the properties below are optional
-                                    columns=[bedrock.CfnKnowledgeBase.QueryGenerationColumnProperty(
-                                        description="description",
-                                        inclusion="inclusion",
-                                        name="name"
-                                    )],
-                                    description="description",
-                                    inclusion="inclusion"
-                                )]
-                            )
-                        )
-                    )
-                ),
-                vector_knowledge_base_configuration=bedrock.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
-                    embedding_model_arn="embeddingModelArn",
-        
-                    # the properties below are optional
-                    embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
-                        bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
-                            audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
-                                segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
-                                    fixed_length_duration=123
-                                )
-                            )],
-                            dimensions=123,
-                            embedding_data_type="embeddingDataType",
-                            model_configuration=model_configuration,
-                            video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
-                                segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
-                                    fixed_length_duration=123
-                                )
-                            )]
-                        )
-                    ),
-                    supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
-                        supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
-                            supplemental_data_storage_location_type="supplementalDataStorageLocationType",
-        
-                            # the properties below are optional
-                            s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
-                                uri="uri"
-                            )
-                        )]
-                    )
-                )
-            ),
-            name="name",
-            role_arn="roleArn",
-        
-            # the properties below are optional
-            description="description",
-            storage_configuration=bedrock.CfnKnowledgeBase.StorageConfigurationProperty(
-                type="type",
-        
-                # the properties below are optional
-                mongo_db_atlas_configuration=bedrock.CfnKnowledgeBase.MongoDbAtlasConfigurationProperty(
-                    collection_name="collectionName",
-                    credentials_secret_arn="credentialsSecretArn",
-                    database_name="databaseName",
-                    endpoint="endpoint",
-                    field_mapping=bedrock.CfnKnowledgeBase.MongoDbAtlasFieldMappingProperty(
-                        metadata_field="metadataField",
-                        text_field="textField",
-                        vector_field="vectorField"
-                    ),
-                    vector_index_name="vectorIndexName",
-        
-                    # the properties below are optional
-                    endpoint_service_name="endpointServiceName",
-                    text_index_name="textIndexName"
-                ),
-                neptune_analytics_configuration=bedrock.CfnKnowledgeBase.NeptuneAnalyticsConfigurationProperty(
-                    field_mapping=bedrock.CfnKnowledgeBase.NeptuneAnalyticsFieldMappingProperty(
-                        metadata_field="metadataField",
-                        text_field="textField"
-                    ),
-                    graph_arn="graphArn"
-                ),
-                opensearch_managed_cluster_configuration=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterConfigurationProperty(
-                    domain_arn="domainArn",
-                    domain_endpoint="domainEndpoint",
-                    field_mapping=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterFieldMappingProperty(
-                        metadata_field="metadataField",
-                        text_field="textField",
-                        vector_field="vectorField"
-                    ),
-                    vector_index_name="vectorIndexName"
-                ),
-                opensearch_serverless_configuration=bedrock.CfnKnowledgeBase.OpenSearchServerlessConfigurationProperty(
-                    collection_arn="collectionArn",
-                    field_mapping=bedrock.CfnKnowledgeBase.OpenSearchServerlessFieldMappingProperty(
-                        metadata_field="metadataField",
-                        text_field="textField",
-                        vector_field="vectorField"
-                    ),
-                    vector_index_name="vectorIndexName"
-                ),
-                pinecone_configuration=bedrock.CfnKnowledgeBase.PineconeConfigurationProperty(
-                    connection_string="connectionString",
-                    credentials_secret_arn="credentialsSecretArn",
-                    field_mapping=bedrock.CfnKnowledgeBase.PineconeFieldMappingProperty(
-                        metadata_field="metadataField",
-                        text_field="textField"
-                    ),
-        
-                    # the properties below are optional
-                    namespace="namespace"
-                ),
-                rds_configuration=bedrock.CfnKnowledgeBase.RdsConfigurationProperty(
-                    credentials_secret_arn="credentialsSecretArn",
-                    database_name="databaseName",
-                    field_mapping=bedrock.CfnKnowledgeBase.RdsFieldMappingProperty(
-                        metadata_field="metadataField",
-                        primary_key_field="primaryKeyField",
-                        text_field="textField",
-                        vector_field="vectorField",
-        
-                        # the properties below are optional
-                        custom_metadata_field="customMetadataField"
-                    ),
-                    resource_arn="resourceArn",
-                    table_name="tableName"
-                ),
-                s3_vectors_configuration=bedrock.CfnKnowledgeBase.S3VectorsConfigurationProperty(
-                    index_arn="indexArn",
-                    index_name="indexName",
-                    vector_bucket_arn="vectorBucketArn"
-                )
-            ),
-            tags={
-                "tags_key": "tags"
-            }
-        )
+        aws_bedrock_cfn.CfnKnowledgeBase(self, "KnowledgeBase",
+            name="product-documentation",
+            role_arn=role.role_arn,
+            knowledge_base_configuration=aws_bedrock_cfn.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(type="VECTOR")
+        ).with(bedrock.mixins.KnowledgeBaseEmbeddingsModel(
+            embeddings_model=bedrock.BedrockFoundationModel.TITAN_EMBED_TEXT_V2_1024
+        ))
     '''
 
     def __init__(
@@ -36375,243 +36152,30 @@ class CfnKnowledgeBaseProps:
         :param tags: Metadata that you can assign to a resource as key-value pairs. For more information, see the following resources:. - `Tag naming limits and requirements <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-conventions>`_ - `Tagging best practices <https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html#tag-best-practices>`_
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebase.html
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_bedrock as bedrock
+            # collection: opensearchserverless.ICollectionRef
+            # role: iam.Role
             
-            # model_configuration: Any
             
-            cfn_knowledge_base_props = bedrock.CfnKnowledgeBaseProps(
-                knowledge_base_configuration=bedrock.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    kendra_knowledge_base_configuration=bedrock.CfnKnowledgeBase.KendraKnowledgeBaseConfigurationProperty(
-                        kendra_index_arn="kendraIndexArn"
-                    ),
-                    managed_knowledge_base_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseConfigurationProperty(
-                        embedding_model_arn="embeddingModelArn",
-                        embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
-                            bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
-                                audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
-                                    segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
-                                        fixed_length_duration=123
-                                    )
-                                )],
-                                dimensions=123,
-                                embedding_data_type="embeddingDataType",
-                                model_configuration=model_configuration,
-                                video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
-                                    segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
-                                        fixed_length_duration=123
-                                    )
-                                )]
-                            )
-                        ),
-                        embedding_model_type="embeddingModelType",
-                        server_side_encryption_configuration=bedrock.CfnKnowledgeBase.ManagedKnowledgeBaseServerSideEncryptionConfigurationProperty(
-                            kms_key_arn="kmsKeyArn"
-                        ),
-                        supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
-                            supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
-                                supplemental_data_storage_location_type="supplementalDataStorageLocationType",
-            
-                                # the properties below are optional
-                                s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
-                                    uri="uri"
-                                )
-                            )]
-                        )
-                    ),
-                    sql_knowledge_base_configuration=bedrock.CfnKnowledgeBase.SqlKnowledgeBaseConfigurationProperty(
-                        type="type",
-            
-                        # the properties below are optional
-                        redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftConfigurationProperty(
-                            query_engine_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineConfigurationProperty(
-                                type="type",
-            
-                                # the properties below are optional
-                                provisioned_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedConfigurationProperty(
-                                    auth_configuration=bedrock.CfnKnowledgeBase.RedshiftProvisionedAuthConfigurationProperty(
-                                        type="type",
-            
-                                        # the properties below are optional
-                                        database_user="databaseUser",
-                                        username_password_secret_arn="usernamePasswordSecretArn"
-                                    ),
-                                    cluster_identifier="clusterIdentifier"
-                                ),
-                                serverless_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessConfigurationProperty(
-                                    auth_configuration=bedrock.CfnKnowledgeBase.RedshiftServerlessAuthConfigurationProperty(
-                                        type="type",
-            
-                                        # the properties below are optional
-                                        username_password_secret_arn="usernamePasswordSecretArn"
-                                    ),
-                                    workgroup_arn="workgroupArn"
-                                )
-                            ),
-                            storage_configurations=[bedrock.CfnKnowledgeBase.RedshiftQueryEngineStorageConfigurationProperty(
-                                type="type",
-            
-                                # the properties below are optional
-                                aws_data_catalog_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineAwsDataCatalogStorageConfigurationProperty(
-                                    table_names=["tableNames"]
-                                ),
-                                redshift_configuration=bedrock.CfnKnowledgeBase.RedshiftQueryEngineRedshiftStorageConfigurationProperty(
-                                    database_name="databaseName"
-                                )
-                            )],
-            
-                            # the properties below are optional
-                            query_generation_configuration=bedrock.CfnKnowledgeBase.QueryGenerationConfigurationProperty(
-                                execution_timeout_seconds=123,
-                                generation_context=bedrock.CfnKnowledgeBase.QueryGenerationContextProperty(
-                                    curated_queries=[bedrock.CfnKnowledgeBase.CuratedQueryProperty(
-                                        natural_language="naturalLanguage",
-                                        sql="sql"
-                                    )],
-                                    tables=[bedrock.CfnKnowledgeBase.QueryGenerationTableProperty(
-                                        name="name",
-            
-                                        # the properties below are optional
-                                        columns=[bedrock.CfnKnowledgeBase.QueryGenerationColumnProperty(
-                                            description="description",
-                                            inclusion="inclusion",
-                                            name="name"
-                                        )],
-                                        description="description",
-                                        inclusion="inclusion"
-                                    )]
-                                )
-                            )
-                        )
-                    ),
-                    vector_knowledge_base_configuration=bedrock.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
-                        embedding_model_arn="embeddingModelArn",
-            
-                        # the properties below are optional
-                        embedding_model_configuration=bedrock.CfnKnowledgeBase.EmbeddingModelConfigurationProperty(
-                            bedrock_embedding_model_configuration=bedrock.CfnKnowledgeBase.BedrockEmbeddingModelConfigurationProperty(
-                                audio=[bedrock.CfnKnowledgeBase.AudioConfigurationProperty(
-                                    segmentation_configuration=bedrock.CfnKnowledgeBase.AudioSegmentationConfigurationProperty(
-                                        fixed_length_duration=123
-                                    )
-                                )],
-                                dimensions=123,
-                                embedding_data_type="embeddingDataType",
-                                model_configuration=model_configuration,
-                                video=[bedrock.CfnKnowledgeBase.VideoConfigurationProperty(
-                                    segmentation_configuration=bedrock.CfnKnowledgeBase.VideoSegmentationConfigurationProperty(
-                                        fixed_length_duration=123
-                                    )
-                                )]
-                            )
-                        ),
-                        supplemental_data_storage_configuration=bedrock.CfnKnowledgeBase.SupplementalDataStorageConfigurationProperty(
-                            supplemental_data_storage_locations=[bedrock.CfnKnowledgeBase.SupplementalDataStorageLocationProperty(
-                                supplemental_data_storage_location_type="supplementalDataStorageLocationType",
-            
-                                # the properties below are optional
-                                s3_location=bedrock.CfnKnowledgeBase.S3LocationProperty(
-                                    uri="uri"
-                                )
-                            )]
-                        )
+            aws_bedrock_cfn.CfnKnowledgeBase(self, "KnowledgeBase",
+                name="product-documentation",
+                role_arn=role.role_arn,
+                knowledge_base_configuration=aws_bedrock_cfn.CfnKnowledgeBase.KnowledgeBaseConfigurationProperty(
+                    type="VECTOR",
+                    vector_knowledge_base_configuration=aws_bedrock_cfn.CfnKnowledgeBase.VectorKnowledgeBaseConfigurationProperty(
+                        embedding_model_arn=bedrock.BedrockFoundationModel.TITAN_EMBED_TEXT_V2_1024.model_arn
                     )
-                ),
-                name="name",
-                role_arn="roleArn",
-            
-                # the properties below are optional
-                description="description",
-                storage_configuration=bedrock.CfnKnowledgeBase.StorageConfigurationProperty(
-                    type="type",
-            
-                    # the properties below are optional
-                    mongo_db_atlas_configuration=bedrock.CfnKnowledgeBase.MongoDbAtlasConfigurationProperty(
-                        collection_name="collectionName",
-                        credentials_secret_arn="credentialsSecretArn",
-                        database_name="databaseName",
-                        endpoint="endpoint",
-                        field_mapping=bedrock.CfnKnowledgeBase.MongoDbAtlasFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField",
-                            vector_field="vectorField"
-                        ),
-                        vector_index_name="vectorIndexName",
-            
-                        # the properties below are optional
-                        endpoint_service_name="endpointServiceName",
-                        text_index_name="textIndexName"
-                    ),
-                    neptune_analytics_configuration=bedrock.CfnKnowledgeBase.NeptuneAnalyticsConfigurationProperty(
-                        field_mapping=bedrock.CfnKnowledgeBase.NeptuneAnalyticsFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField"
-                        ),
-                        graph_arn="graphArn"
-                    ),
-                    opensearch_managed_cluster_configuration=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterConfigurationProperty(
-                        domain_arn="domainArn",
-                        domain_endpoint="domainEndpoint",
-                        field_mapping=bedrock.CfnKnowledgeBase.OpenSearchManagedClusterFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField",
-                            vector_field="vectorField"
-                        ),
-                        vector_index_name="vectorIndexName"
-                    ),
-                    opensearch_serverless_configuration=bedrock.CfnKnowledgeBase.OpenSearchServerlessConfigurationProperty(
-                        collection_arn="collectionArn",
-                        field_mapping=bedrock.CfnKnowledgeBase.OpenSearchServerlessFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField",
-                            vector_field="vectorField"
-                        ),
-                        vector_index_name="vectorIndexName"
-                    ),
-                    pinecone_configuration=bedrock.CfnKnowledgeBase.PineconeConfigurationProperty(
-                        connection_string="connectionString",
-                        credentials_secret_arn="credentialsSecretArn",
-                        field_mapping=bedrock.CfnKnowledgeBase.PineconeFieldMappingProperty(
-                            metadata_field="metadataField",
-                            text_field="textField"
-                        ),
-            
-                        # the properties below are optional
-                        namespace="namespace"
-                    ),
-                    rds_configuration=bedrock.CfnKnowledgeBase.RdsConfigurationProperty(
-                        credentials_secret_arn="credentialsSecretArn",
-                        database_name="databaseName",
-                        field_mapping=bedrock.CfnKnowledgeBase.RdsFieldMappingProperty(
-                            metadata_field="metadataField",
-                            primary_key_field="primaryKeyField",
-                            text_field="textField",
-                            vector_field="vectorField",
-            
-                            # the properties below are optional
-                            custom_metadata_field="customMetadataField"
-                        ),
-                        resource_arn="resourceArn",
-                        table_name="tableName"
-                    ),
-                    s3_vectors_configuration=bedrock.CfnKnowledgeBase.S3VectorsConfigurationProperty(
-                        index_arn="indexArn",
-                        index_name="indexName",
-                        vector_bucket_arn="vectorBucketArn"
-                    )
-                ),
-                tags={
-                    "tags_key": "tags"
-                }
-            )
+                )
+            ).with(bedrock.mixins.KnowledgeBaseOpenSearchServerlessStorage(
+                collection=collection,
+                vector_index_name="bedrock-knowledge-base-default-index",
+                vector_field="bedrock-knowledge-base-default-vector",
+                text_field="AMAZON_BEDROCK_TEXT_CHUNK",
+                metadata_field="AMAZON_BEDROCK_METADATA"
+            ))
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a5f6560ff734e79a877ac4cd934408cd79b9c6a6c1dac195972f27ac455fce2f)
@@ -42528,6 +42092,12 @@ class FoundationModelIdentifier(
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_HAIKU_4_5_20251001_V1_0"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="ANTHROPIC_CLAUDE_HAIKU_5_5")
+    def ANTHROPIC_CLAUDE_HAIKU_5_5(cls) -> "FoundationModelIdentifier":
+        '''Base model "anthropic.claude-haiku-5-5".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "ANTHROPIC_CLAUDE_HAIKU_5_5"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="ANTHROPIC_CLAUDE_INSTANT_V1")
     def ANTHROPIC_CLAUDE_INSTANT_V1(cls) -> "FoundationModelIdentifier":
         '''(deprecated) Base model "anthropic.claude-instant-v1".
@@ -43061,6 +42631,30 @@ class FoundationModelIdentifier(
     def OPENAI_GPT_5_6_TERRA(cls) -> "FoundationModelIdentifier":
         '''Base model "openai.gpt-5.6-terra".'''
         return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_5_6_TERRA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_6_1_SOL")
+    def OPENAI_GPT_6_1_SOL(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-6.1-sol".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_1_SOL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_6_ASTRA")
+    def OPENAI_GPT_6_ASTRA(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-6-astra".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_ASTRA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_6_LUNA")
+    def OPENAI_GPT_6_LUNA(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-6-luna".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_LUNA"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="OPENAI_GPT_6_SOL")
+    def OPENAI_GPT_6_SOL(cls) -> "FoundationModelIdentifier":
+        '''Base model "openai.gpt-6-sol".'''
+        return typing.cast("FoundationModelIdentifier", jsii.sget(cls, "OPENAI_GPT_6_SOL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENAI_GPT_DAYBREAK_BLUE_5_6_SOL")

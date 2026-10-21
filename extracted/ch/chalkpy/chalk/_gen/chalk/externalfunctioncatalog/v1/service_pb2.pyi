@@ -164,6 +164,18 @@ class TracingPolicy(_message.Message):
         self, mode: _Optional[_Union[TracingMode, str]] = ..., sample_rate: _Optional[float] = ...
     ) -> None: ...
 
+class FunctionSourceLocation(_message.Message):
+    __slots__ = ("path", "line_number", "column_number")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    LINE_NUMBER_FIELD_NUMBER: _ClassVar[int]
+    COLUMN_NUMBER_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    line_number: int
+    column_number: int
+    def __init__(
+        self, path: _Optional[str] = ..., line_number: _Optional[int] = ..., column_number: _Optional[int] = ...
+    ) -> None: ...
+
 class FunctionConfig(_message.Message):
     __slots__ = (
         "serialization_format",
@@ -176,6 +188,7 @@ class FunctionConfig(_message.Message):
         "queue",
         "schedule",
         "tracing",
+        "source_location",
     )
     class OptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -195,6 +208,7 @@ class FunctionConfig(_message.Message):
     QUEUE_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     TRACING_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_LOCATION_FIELD_NUMBER: _ClassVar[int]
     serialization_format: SerializationFormat
     options: _containers.ScalarMap[str, str]
     max_buffer_duration: int
@@ -205,6 +219,7 @@ class FunctionConfig(_message.Message):
     queue: QueuePolicy
     schedule: str
     tracing: TracingPolicy
+    source_location: FunctionSourceLocation
     def __init__(
         self,
         serialization_format: _Optional[_Union[SerializationFormat, str]] = ...,
@@ -217,6 +232,7 @@ class FunctionConfig(_message.Message):
         queue: _Optional[_Union[QueuePolicy, _Mapping]] = ...,
         schedule: _Optional[str] = ...,
         tracing: _Optional[_Union[TracingPolicy, _Mapping]] = ...,
+        source_location: _Optional[_Union[FunctionSourceLocation, _Mapping]] = ...,
     ) -> None: ...
 
 class ExternalFunctionVersion(_message.Message):
@@ -890,15 +906,18 @@ class ListExternalFunctionsRequest(_message.Message):
     ) -> None: ...
 
 class ListExternalFunctionsFilters(_message.Message):
-    __slots__ = ("visibility", "statuses")
+    __slots__ = ("visibility", "statuses", "created_by")
     VISIBILITY_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     visibility: _containers.RepeatedScalarFieldContainer[ExternalFunctionVisibility]
     statuses: _containers.RepeatedScalarFieldContainer[str]
+    created_by: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         visibility: _Optional[_Iterable[_Union[ExternalFunctionVisibility, str]]] = ...,
         statuses: _Optional[_Iterable[str]] = ...,
+        created_by: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class ListExternalFunctionsResponse(_message.Message):

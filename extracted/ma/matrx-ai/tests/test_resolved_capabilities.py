@@ -191,3 +191,17 @@ def test_offering_capabilities_override_merges_per_key():
     assert resolve_model_capabilities(base, capabilities_override={}) == resolve_model_capabilities(
         base
     )
+
+
+def test_every_vocabulary_interaction_mode_resolves():
+    # The vocabulary accepted "detection" (the 2026-10-17 wake-word models) while the resolver's
+    # pydantic models still typed the older list, so every resolve of those rows raised — and
+    # scripts/validate_model_pricing.py crashed before checking any price.
+    from matrx_ai.providers.capability_vocabulary import INTERACTION_MODES
+
+    for mode in sorted(INTERACTION_MODES):
+        model = _model(
+            f"probe-{mode}",
+            capabilities={"input": ["audio"], "output": ["text"], "features": [], "interaction": mode},
+        )
+        assert resolve_model_capabilities(model).interaction == mode

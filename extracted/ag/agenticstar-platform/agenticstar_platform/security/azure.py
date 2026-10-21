@@ -123,6 +123,13 @@ def _env_retry_count(name: str, default: int) -> int:
 _AZURE_LANG_429_RETRIES = _env_retry_count("AGENTICSTAR_AZURE_LANG_429_RETRIES", 2)
 _AZURE_LANG_RETRY_AFTER_CAP_SECONDS = 5.0
 
+# 要求を送る前の失敗 (プロキシが CONNECT を断った・接続できない・接続の時間切れ) だけの再試行の間隔 (秒)。
+# Marketplace の Pod は egress のサイドカー (Envoy) 経由で外へ出るが、サイドカーの起動直後 (workers 開始から
+# 0.6 秒以内) は上流につなげず CONNECT に 503 を返す (devdocs 3.2req reviews 06: ワークフロー型が最初の
+# Content Safety の呼び出しで落ちた)。要求は Azure に届いていないので、送り直しても二重にならない。
+_AZURE_CONNECT_RETRY_DELAYS: Tuple[float, ...] = (0.5, 1.0, 2.0)
+_CONNECT_PHASE_ERRORS = (httpx.ProxyError, httpx.ConnectError, httpx.ConnectTimeout)
+
 
 def _utf8_safe_truncate_bytes(text: str, max_bytes: int) -> Tuple[str, bool]:
     """UTF-8 で max_bytes 以下に切り詰める (マルチバイト境界 respect)。
@@ -420,7 +427,7 @@ class AzureSecurityClient(SecurityClientBase):
                     "categories": ["Hate", "Sexual", "SelfHarm", "Violence"],
                     "outputType": "FourSeverityLevels",
                 }
-                response = await client.post(endpoint, headers=headers, json=request_body)
+                response = await self._post_with_connect_retry(client, endpoint, headers, request_body)
                 if response.status_code != 200:
                     error_msg = f"Status {response.status_code}: {response.text}"
                     logger.error(f"Content Safety Moderation API error: {error_msg}")
@@ -559,7 +566,7 @@ class AzureSecurityClient(SecurityClientBase):
                 if idx < len(doc_batches):
                     request_body["documents"] = doc_batches[idx]
 
-                response = await client.post(endpoint, headers=headers, json=request_body)
+                response = await self._post_with_connect_retry(client, endpoint, headers, request_body)
                 if response.status_code != 200:
                     error_msg = f"Status {response.status_code}: {response.text}"
                     logger.error(f"Prompt Shield API error: {error_msg}")
@@ -661,6 +668,33 @@ class AzureSecurityClient(SecurityClientBase):
                 spans.append((win_start, window_text))
         return spans
 
+    async def _post_with_connect_retry(
+        self,
+        client: httpx.AsyncClient,
+        endpoint: str,
+        headers: Dict[str, str],
+        request_body: Dict[str, Any],
+    ) -> httpx.Response:
+        """POST する。要求を送る前の失敗 (_CONNECT_PHASE_ERRORS) だけ、_AZURE_CONNECT_RETRY_DELAYS の間隔で送り直す。
+
+        応答を受けた後の失敗 (5xx・読み取りの時間切れ等) は送り直さない (Azure に届いた可能性がある)。
+        送り直しを使い切ったら最後の例外をそのまま上げる (呼び出し元の SecurityAPIError への変換は従来どおり)。
+        """
+        delays = _AZURE_CONNECT_RETRY_DELAYS
+        for attempt in range(len(delays) + 1):
+            try:
+                return await client.post(endpoint, headers=headers, json=request_body)
+            except _CONNECT_PHASE_ERRORS as e:
+                if attempt >= len(delays):
+                    raise
+                delay = delays[attempt]
+                logger.warning(
+                    "Azure request not sent (%s); retrying in %.1fs (attempt %d/%d)",
+                    type(e).__name__, delay, attempt + 1, len(delays),
+                )
+                await asyncio.sleep(delay)
+        raise RuntimeError("unreachable")  # pragma: no cover
+
     async def _post_pii_with_retry(
         self,
         client: httpx.AsyncClient,
@@ -675,7 +709,7 @@ class AzureSecurityClient(SecurityClientBase):
         """
         attempt = 0
         while True:
-            response = await client.post(endpoint, headers=headers, json=request_body)
+            response = await self._post_with_connect_retry(client, endpoint, headers, request_body)
             if response.status_code != 429 or attempt >= _AZURE_LANG_429_RETRIES:
                 return response
             attempt += 1

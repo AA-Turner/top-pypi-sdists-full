@@ -428,3 +428,27 @@ def test_auto_patch_endpoint():
 
     assert foo.auto_paging_iter is not None
     assert next(foo.auto_paging_iter()).name == "item_0"
+
+
+def test_page_size_is_capped_by_endpoint_limit_validation():
+    """One request must never exceed the endpoint's maximum limit."""
+    mock_list_function = MockListFunction(items_per_page=10, total_items=50)
+    mock_list_function.validations = {("limit",): {"inclusive_maximum": 5}}
+    iterator = AutoIterator(mock_list_function, limit=None, page_size=500, page_sort=[])
+    assert iterator.page_size == 5
+
+
+def test_page_size_cap_still_pages_every_item():
+    mock_list_function = MockListFunction(items_per_page=10, total_items=50)
+    mock_list_function.validations = {("limit",): {"inclusive_maximum": 5}}
+    iterator = AutoIterator(mock_list_function, limit=None, page_size=500, page_sort=[])
+    items = iterator.all()
+    assert len(items) == 50
+    assert mock_list_function.call_count > 1
+    assert iterator.page_size == 5
+
+
+def test_page_size_not_capped_without_limit_validation():
+    mock_list_function = MockListFunction(items_per_page=10, total_items=50)
+    iterator = AutoIterator(mock_list_function, limit=None, page_size=500, page_sort=[])
+    assert iterator.page_size == 500

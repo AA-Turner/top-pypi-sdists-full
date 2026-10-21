@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: coreforecast
-Version: 0.0.18
+Version: 0.0.19
 Summary: Fast implementations of common forecasting routines
 Keywords: forecasting,time-series
 Author-Email: Jose Morales <jmoralz92@gmail.com>
@@ -9,15 +9,15 @@ Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Project-URL: homepage, https://nixtla.github.io/coreforecast
 Project-URL: documentation, https://nixtlaverse.nixtla.io/coreforecast
 Project-URL: repository, https://github.com/Nixtla/coreforecast
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: numpy>=1.20.0
 Description-Content-Type: text/markdown
 

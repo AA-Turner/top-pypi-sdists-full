@@ -57,6 +57,7 @@ try:
     polars_csv_renames_before_selection = is_version_gte(polars_version, "2.0.0")
     polars_uses_total_microseconds = is_version_gte(polars_version, "1.0.0")
     polars_hist_column_is_breakpoint = is_version_gte(polars_version, "1.0.0")
+    polars_join_has_maintain_order = is_version_gte(polars_version, "1.17.0")
 except PackageNotFoundError:
     is_new_polars = False
     polars_has_pad_start = False
@@ -72,6 +73,7 @@ except PackageNotFoundError:
     polars_csv_renames_before_selection = False
     polars_uses_total_microseconds = False
     polars_hist_column_is_breakpoint = False
+    polars_join_has_maintain_order = False
 
 
 def pl_array(inner: PolarsDataType, size: int) -> pl.Array:

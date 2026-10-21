@@ -1,6 +1,7 @@
 # File generated from our OpenAPI spec by Spotless. See CONTRIBUTING.md for details.
 
 import email.utils
+import importlib.metadata
 import json
 import platform
 import re
@@ -56,6 +57,14 @@ _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
 _AUTH_ORIGIN_EXTENSION = "spotless_auth_origin"
 
 
+def _get_sdk_version() -> str:
+  try:
+    return importlib.metadata.version("trajectory-sdk")
+  except importlib.metadata.PackageNotFoundError:
+    # Vendored or source-tree copies have no installed distribution metadata.
+    return "unknown"
+
+
 def _platform_headers() -> dict[str, str]:
   machine = platform.machine().lower()
   architecture = {
@@ -69,6 +78,8 @@ def _platform_headers() -> dict[str, str]:
   system = platform.system()
   operating_system = "MacOS" if system == "Darwin" else system or "Unknown"
   return {
+    # The API logs this so it can tell which SDK release each caller runs.
+    "User-Agent": f"trajectory-sdk/{_get_sdk_version()}",
     "X-Stainless-Lang": "python",
     "X-Stainless-OS": operating_system,
     "X-Stainless-Arch": architecture,

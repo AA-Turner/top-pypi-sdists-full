@@ -61,7 +61,8 @@ OWNERS: dict[str, str] = {
     "artifact gc-uploads": SERVER, "artifact list": READ, "artifact move": DAEMON, "artifact pin-impact": READ,
     "artifact set": DAEMON, "artifact tree": READ, "artifact version-add": DAEMON, "artifact versions": READ,
     "backfill": RESEARCHER, "bundle": READ,
-    "capy connect": SETUP, "capy disconnect": SETUP, "capy setup": READ, "capy status": READ, "capy sync": RESEARCHER,
+    # Hidden: what an old Capy timer still runs; it takes down what Capy left (capy_retire).
+    "capy disconnect": SETUP, "capy sync": RESEARCHER,
     "commits": READ,
     "companion authorize": SETUP, "companion feedback": RESEARCHER, "companion log": READ,
     "companion report": READ, "companion trace": READ,

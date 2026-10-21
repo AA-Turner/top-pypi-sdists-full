@@ -25,6 +25,8 @@ from .literals import (
     ActionsSuppressedByType,
     AlarmMuteRuleStatusType,
     AlarmTypeType,
+    AnomalyDetectorAdaptationSpeedType,
+    AnomalyDetectorOutlierFilteringStrengthType,
     AnomalyDetectorStateValueType,
     AnomalyDetectorTypeType,
     ComparisonOperatorType,
@@ -672,6 +674,8 @@ class EvaluationCriteriaTypeDef(TypedDict):
 class AnomalyDetectorConfigurationOutputTypeDef(TypedDict):
     ExcludedTimeRanges: NotRequired[list[RangeOutputTypeDef]]
     MetricTimezone: NotRequired[str]
+    AdaptationSpeed: NotRequired[AnomalyDetectorAdaptationSpeedType]
+    OutlierFilteringStrength: NotRequired[AnomalyDetectorOutlierFilteringStrengthType]
 
 
 class DescribeAlarmsForMetricInputTypeDef(TypedDict):
@@ -1209,6 +1213,8 @@ CloudwatchEventMetricTypeDef = TypedDict(
 class AnomalyDetectorConfigurationTypeDef(TypedDict):
     ExcludedTimeRanges: NotRequired[Sequence[RangeTypeDef]]
     MetricTimezone: NotRequired[str]
+    AdaptationSpeed: NotRequired[AnomalyDetectorAdaptationSpeedType]
+    OutlierFilteringStrength: NotRequired[AnomalyDetectorOutlierFilteringStrengthType]
 
 
 EvaluationWindowUnionTypeDef = Union[EvaluationWindowTypeDef, EvaluationWindowOutputTypeDef]

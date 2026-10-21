@@ -85,14 +85,14 @@ def sync(
     .jmp, .jrn, .jrp (JMP); .jpeg, .jpg (JPEG); .png; .pdf; .zip; and .txt.
 
     A successful file upload requires 3 calls in serial:
-    1. [Create a file](#/Analyses/createFile), this endpoint, which returns an S3 `PUT` URL for the 2nd
+    1. [Create a file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/create-file), this endpoint, which returns an S3 `PUT` URL for the 2nd
        call and a file ID for the 3rd call
     2. Upload the file contents to S3. Add `x-amz-server-side-encryption: AES256` to the request headers,
        because we use server-side encryption. Here is a `curl` example:
        ```bash
        curl -H \"x-amz-server-side-encryption: AES256\" -X PUT -T <LOCAL_FILE> -L <S3_PUT_URL>
        ```
-    3. [Update the file](#/Analyses/patchFile), which marks the upload as `SUCCEEDED`
+    3. [Update the file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/patch-file), which marks the upload as `SUCCEEDED`
 
     Note: URL is valid for 1 hour after being returned from this endpoint. It should not be stored
     persistently for later use.
@@ -131,14 +131,14 @@ async def asyncio(
     .jmp, .jrn, .jrp (JMP); .jpeg, .jpg (JPEG); .png; .pdf; .zip; and .txt.
 
     A successful file upload requires 3 calls in serial:
-    1. [Create a file](#/Analyses/createFile), this endpoint, which returns an S3 `PUT` URL for the 2nd
+    1. [Create a file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/create-file), this endpoint, which returns an S3 `PUT` URL for the 2nd
        call and a file ID for the 3rd call
     2. Upload the file contents to S3. Add `x-amz-server-side-encryption: AES256` to the request headers,
        because we use server-side encryption. Here is a `curl` example:
        ```bash
        curl -H \"x-amz-server-side-encryption: AES256\" -X PUT -T <LOCAL_FILE> -L <S3_PUT_URL>
        ```
-    3. [Update the file](#/Analyses/patchFile), which marks the upload as `SUCCEEDED`
+    3. [Update the file](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/files/patch-file), which marks the upload as `SUCCEEDED`
 
     Note: URL is valid for 1 hour after being returned from this endpoint. It should not be stored
     persistently for later use.

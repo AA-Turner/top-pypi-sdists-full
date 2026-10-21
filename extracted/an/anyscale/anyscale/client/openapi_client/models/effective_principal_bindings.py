@@ -34,6 +34,7 @@ class EffectivePrincipalBindings(object):
     """
     openapi_types = {
         'principal_type': 'RoleBindingPrincipalType',
+        'principal_sub_type': 'RoleBindingPrincipalSubType',
         'principal_id': 'str',
         'name': 'str',
         'email': 'str',
@@ -43,6 +44,7 @@ class EffectivePrincipalBindings(object):
 
     attribute_map = {
         'principal_type': 'principal_type',
+        'principal_sub_type': 'principal_sub_type',
         'principal_id': 'principal_id',
         'name': 'name',
         'email': 'email',
@@ -50,13 +52,14 @@ class EffectivePrincipalBindings(object):
         'role_bindings': 'role_bindings'
     }
 
-    def __init__(self, principal_type=None, principal_id=None, name=None, email=None, joined_at=None, role_bindings=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, principal_type=None, principal_sub_type=None, principal_id=None, name=None, email=None, joined_at=None, role_bindings=None, local_vars_configuration=None):  # noqa: E501
         """EffectivePrincipalBindings - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._principal_type = None
+        self._principal_sub_type = None
         self._principal_id = None
         self._name = None
         self._email = None
@@ -65,6 +68,7 @@ class EffectivePrincipalBindings(object):
         self.discriminator = None
 
         self.principal_type = principal_type
+        self.principal_sub_type = principal_sub_type
         self.principal_id = principal_id
         if name is not None:
             self.name = name
@@ -97,6 +101,31 @@ class EffectivePrincipalBindings(object):
             raise ValueError("Invalid value for `principal_type`, must not be `None`")  # noqa: E501
 
         self._principal_type = principal_type
+
+    @property
+    def principal_sub_type(self):
+        """Gets the principal_sub_type of this EffectivePrincipalBindings.  # noqa: E501
+
+        Whether a user is a person or a service account; user_group for a group.  # noqa: E501
+
+        :return: The principal_sub_type of this EffectivePrincipalBindings.  # noqa: E501
+        :rtype: RoleBindingPrincipalSubType
+        """
+        return self._principal_sub_type
+
+    @principal_sub_type.setter
+    def principal_sub_type(self, principal_sub_type):
+        """Sets the principal_sub_type of this EffectivePrincipalBindings.
+
+        Whether a user is a person or a service account; user_group for a group.  # noqa: E501
+
+        :param principal_sub_type: The principal_sub_type of this EffectivePrincipalBindings.  # noqa: E501
+        :type: RoleBindingPrincipalSubType
+        """
+        if self.local_vars_configuration.client_side_validation and principal_sub_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `principal_sub_type`, must not be `None`")  # noqa: E501
+
+        self._principal_sub_type = principal_sub_type
 
     @property
     def principal_id(self):

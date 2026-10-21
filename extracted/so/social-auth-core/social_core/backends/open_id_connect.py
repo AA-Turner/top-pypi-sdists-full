@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-import datetime
+import datetime as dt
 import time
 from calendar import timegm
 from json import loads
@@ -24,6 +24,7 @@ from social_core.exceptions import (
     AuthConfigurationError,
     AuthCredentialError,
     AuthResponseError,
+    AuthSessionError,
     ErrorStage,
     SocialAuthBaseException,
 )
@@ -114,14 +115,30 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
     ) -> None:
         super().__init__(strategy, redirect_uri=redirect_uri)
         self.id_token: dict[str, Any] | None = None
+        self._oidc_association_transaction: dict[str, Any] | None = None
+
+    def validate_association_state(
+        self, request_state: Any, user: UserProtocol | None = None
+    ) -> str:
+        """Retain the validated association context through token validation."""
+        self._oidc_association_transaction = None
+        context = self.strategy.session_get(f"{self.name}_state")
+        state = super().validate_association_state(request_state, user)
+        if isinstance(context, dict):
+            self._oidc_association_transaction = context
+        return state
 
     def pipeline(
         self, pipeline, pipeline_index: int = 0, *args, **kwargs
     ) -> UserProtocol | HttpResponseProtocol | None:
         # Only persist claims validated by this backend, never caller-supplied
         # pipeline arguments. Partial storage will carry them across requests.
-        if self.id_token is not None:
-            kwargs[_VALIDATED_ID_TOKEN_KEY] = self.id_token.copy()
+        # The strategy may run the pipeline on a new backend instance, so read
+        # the claims from the instance the pipeline steps receive.
+        backend = kwargs.get("backend", self)
+        id_token = backend.id_token if isinstance(backend, OpenIdConnectAuth) else None
+        if id_token is not None:
+            kwargs[_VALIDATED_ID_TOKEN_KEY] = id_token.copy()
         else:
             kwargs.pop(_VALIDATED_ID_TOKEN_KEY, None)
         return super().pipeline(pipeline, pipeline_index, *args, **kwargs)
@@ -249,7 +266,9 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
         """Return extra arguments needed on auth process."""
         params = super().auth_params(state)
         if self.USE_NONCE:
-            params["nonce"] = self.get_and_store_nonce(self.authorization_url(), state)
+            nonce = self.get_and_store_nonce(self.authorization_url(), state)
+            self._store_session_nonce(state, nonce)
+            params["nonce"] = nonce
 
         display = self.setting("DISPLAY", default=self.DISPLAY)
         if display is not None:
@@ -330,6 +349,22 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
 
         return params
 
+    def _store_session_nonce(self, state: str | None, nonce: str) -> None:
+        """Bind the nonce to the browser's pending authorization context."""
+        if self.ASSOCIATION_ONLY:
+            key = f"{self.name}_state"
+            transaction = self.strategy.session_get(key)
+        elif isinstance(state, str):
+            key = self.transaction_key(state)
+            transaction = self.strategy.session_get(key)
+        else:
+            transaction = None
+        if not isinstance(transaction, dict) or transaction.get("state") != state:
+            raise AuthSessionError(
+                self, "state", code="session_context_missing", stage="begin"
+            )
+        self.strategy.session_set(key, {**transaction, "oidc_nonce": nonce})
+
     def get_and_store_nonce(self, url, state):
         lifetime = self.setting("NONCE_LIFETIME", self.NONCE_LIFETIME)
         if isinstance(lifetime, bool) or not isinstance(lifetime, int) or lifetime <= 0:
@@ -361,7 +396,7 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
         self.strategy.storage.association.remove([nonce_id])
 
     def validate_temporal_claims(self, id_token) -> None:
-        utc_timestamp = timegm(datetime.datetime.now(datetime.timezone.utc).timetuple())
+        utc_timestamp = timegm(dt.datetime.now(dt.timezone.utc).timetuple())
 
         if "nbf" in id_token and utc_timestamp < id_token["nbf"]:
             raise AuthResponseError(
@@ -393,9 +428,26 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
     def validate_claims(self, id_token) -> None:
         self.validate_temporal_claims(id_token)
 
-        # Validate the nonce to ensure the request was not modified
+        # The token nonce must belong to the state validated for this browser.
         nonce = id_token.get("nonce")
-        if not nonce:
+        transaction = (
+            self._oidc_association_transaction
+            if self.ASSOCIATION_ONLY
+            else self._oauth2_transaction
+        )
+        expected = (
+            transaction.get("oidc_nonce") if isinstance(transaction, dict) else None
+        )
+        state = transaction.get("state") if isinstance(transaction, dict) else None
+        if not isinstance(nonce, str):
+            nonce = ""
+        if not isinstance(expected, str):
+            expected = ""
+        if not isinstance(state, str):
+            state = ""
+        if not (
+            nonce and expected and state and constant_time_compare(nonce, expected)
+        ):
             raise AuthResponseError(
                 self,
                 "Incorrect id_token: nonce",
@@ -404,7 +456,7 @@ class OpenIdConnectAuth(OIDCDiscoveryMixin, BaseOAuth2PKCE):
             )
 
         nonce_obj = self.get_nonce(nonce)
-        if nonce_obj:
+        if nonce_obj and nonce_obj.assoc_type == state:
             self.remove_nonce(nonce_obj.id)
         else:
             raise AuthResponseError(

@@ -31,6 +31,7 @@ from pinecone.errors.exceptions import (
     FailedPreconditionError,
     ForbiddenError,
     NotFoundError,
+    PayloadTooLargeError,
     PaymentRequiredError,
     PineconeConnectionError,
     PineconeTimeoutError,
@@ -358,8 +359,10 @@ def _build_headers(config: PineconeConfig, api_version: str) -> dict[str, str]:
     }
     if config.api_key:
         headers["Api-Key"] = config.api_key
-    if config.additional_headers:
-        headers.update(config.additional_headers)
+    for name, value in (config.additional_headers or {}).items():
+        for existing in [key for key in headers if key.lower() == name.lower()]:
+            del headers[existing]
+        headers[name] = value
     return headers
 
 
@@ -571,6 +574,8 @@ class _RetryTransport(httpx.BaseTransport):
         for attempt in range(self._config.max_retries + 1):
             try:
                 response = self._transport.handle_request(request)
+            except httpx.LocalProtocolError:
+                raise
             except httpx.TransportError as exc:
                 last_exc = exc
                 budget.record_failure()
@@ -611,6 +616,7 @@ class _RetryTransport(httpx.BaseTransport):
             else:
                 return response
         if last_exc is not None:
+            last_exc.request = request
             raise last_exc
         raise RuntimeError("max_retries must be non-negative")
 
@@ -639,6 +645,8 @@ class _AsyncRetryTransport(httpx.AsyncBaseTransport):
         for attempt in range(self._config.max_retries + 1):
             try:
                 response = await self._transport.handle_async_request(request)
+            except httpx.LocalProtocolError:
+                raise
             except httpx.TransportError as exc:
                 last_exc = exc
                 budget.record_failure()
@@ -679,6 +687,7 @@ class _AsyncRetryTransport(httpx.AsyncBaseTransport):
             else:
                 return response
         if last_exc is not None:
+            last_exc.request = request
             raise last_exc
         raise RuntimeError("max_retries must be non-negative")
 
@@ -810,6 +819,16 @@ def _raise_for_status(response: httpx.Response) -> None:
             error_code=error_code,
             request_id=request_id,
         )
+    if status == 413:
+        raise PayloadTooLargeError(
+            message=message,
+            status_code=status,
+            body=body,
+            reason=reason,
+            headers=headers,
+            error_code=error_code,
+            request_id=request_id,
+        )
     if status == 429:
         retry_after_raw = response.headers.get("retry-after")
         retry_after: float | None
@@ -863,19 +882,54 @@ def _raise_for_status(response: httpx.Response) -> None:
     )
 
 
+def _request_origin(exc: httpx.TransportError) -> str:
+    """The ``scheme://host[:port]`` the failed request was addressed to, or ``""``.
+
+    httpx raises ``RuntimeError`` from ``exc.request`` when the transport never
+    attached one, and a request without a host has nothing to report.
+    """
+    try:
+        url = exc.request.url
+    except RuntimeError:
+        return ""
+    if not url.host:
+        return ""
+    port = f":{url.port}" if url.port is not None else ""
+    host = f"[{url.host}]" if ":" in url.host else url.host
+    return f"{url.scheme}://{host}{port}"
+
+
 def _raise_transport_error(exc: httpx.TransportError) -> NoReturn:
     """Translate an httpx transport failure into the SDK's error type.
 
     The async transport reports timeouts with an empty message
     (``ReadTimeout('')``) where the sync transport says ``'timed out'``, so
     fall back to naming the httpx fault rather than raising an error whose
-    ``str()`` is empty.
+    ``str()`` is empty. httpx's own message never says where the request was
+    going, so the scheme and host are appended: a wrong scheme or a mistyped
+    host is the usual cause, and the message is where a caller looks first.
     """
+    origin = _request_origin(exc)
+    where = f"; request to {origin}" if origin else ""
     if isinstance(exc, httpx.TimeoutException):
         message = str(exc) or f"Request timed out ({type(exc).__name__})"
-        raise PineconeTimeoutError(message) from exc
+        raise PineconeTimeoutError(f"{message}{where}") from exc
+    if isinstance(exc, httpx.LocalProtocolError) and "Illegal header value" in str(exc):
+        message = (
+            "The request could not be encoded and nothing was sent. A header value is "
+            "not valid HTTP: check api_key and additional_headers for leading or trailing "
+            "whitespace, a newline, or another control character."
+        )
+        seen: set[int] = set()
+        link: BaseException | None = exc
+        while link is not None and id(link) not in seen:
+            seen.add(id(link))
+            if "Illegal header value" in str(link):
+                link.args = (message,)
+            link = link.__cause__ or link.__context__
+        raise PineconeConnectionError(message) from exc
     message = str(exc) or f"Connection failed ({type(exc).__name__})"
-    raise PineconeConnectionError(message) from exc
+    raise PineconeConnectionError(f"{message}{where}") from exc
 
 
 class HTTPClient:

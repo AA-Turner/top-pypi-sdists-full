@@ -15,6 +15,7 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import sys
 from datetime import UTC, datetime, timedelta
 
@@ -171,6 +172,32 @@ class TestCohort:
         r = boost("cohort", "apply")  # no name -> all cohorts
         assert "brainstorming already installed" in r.out
         assert "applied: 0 installed, 1 already present" in r.out
+
+    def test_reapply_sees_a_tap_qualified_member_as_installed(self, boost,
+                                                               tapped):
+        # The lock keys by the bare name, so `fixture-tap:brainstorming` was
+        # never found: the second apply re-installed it, hit "already
+        # installed" and exited 1 with the rest of the cohort unprocessed.
+        boost("cohort", "create", "pilot", "--percent", "100",
+             "--skills", "fixture-tap:brainstorming,tdd-workflow")
+        r = boost("cohort", "apply")
+        assert "applied: 2 installed, 0 already present" in r.out
+        r = boost("cohort", "apply")
+        assert "fixture-tap:brainstorming already installed" in r.out
+        assert "tdd-workflow already installed" in r.out
+        assert "applied: 0 installed, 2 already present" in r.out
+
+    def test_a_mismatched_qualifier_skips_that_member_only(self, boost,
+                                                           tapped):
+        # `othertap:brainstorming` while brainstorming is installed from
+        # fixture-tap: installed_name raises, which must not abort the apply.
+        boost("install", "brainstorming")
+        boost("cohort", "create", "pilot", "--percent", "100",
+             "--skills", "othertap:brainstorming,tdd-workflow")
+        r = boost("cohort", "apply")
+        assert "othertap:brainstorming not found in any tap" in r.out
+        assert "installed tdd-workflow" in r.out
+        assert "applied: 1 installed, 0 already present, 1 not found" in r.out
 
     def test_apply_reports_missing_members_and_exits_nonzero_when_nothing_landed(
             self, boost, tapped):
@@ -523,6 +550,18 @@ class TestProfile:
         assert lockfile.get_skill("brainstorming") is None
         assert lockfile.get_rule("brainstorming")["version"] == "1.0.0"
 
+    def test_delete_with_closed_stdin_declines_cleanly(self, boost, installed,
+                                                       monkeypatch):
+        # out.confirm() under `<&-` (sys.stdin None) crashed with
+        # AttributeError; it now answers its default, like a pipe.
+        boost("profile", "save", "gone")
+        monkeypatch.delenv("BOOST_ASSUME_YES")
+        monkeypatch.setattr("sys.stdin", None)
+        r = boost("profile", "delete", "gone", expect=1)
+        assert "unexpected error" not in r.err
+        assert "pass -y or set BOOST_ASSUME_YES=1" in r.out
+        assert "deleted profile gone" not in r.out
+
     def test_delete_and_unknown(self, boost, installed):
         boost("profile", "save", "gone")
         r = boost("profile", "delete", "gone")
@@ -557,6 +596,19 @@ class TestProfile:
         assert second["updated"] is True
         assert second["was_skills"] == 1
         assert second["skills"] == 2
+
+    def test_a_name_that_is_not_a_slug_keeps_stdout_pure_json(self, boost,
+                                                              installed):
+        # The slug note used to land on stdout ahead of the object, so
+        # json.loads failed at char 2 for every action but `list`.
+        note = "  using profile name 'my-team' (from 'My Team')\n"
+        r = boost("profile", "save", "My Team", "--json")
+        assert json.loads(r.out)["name"] == "My Team"
+        assert r.err == note
+        for action in ("show", "diff", "use", "delete"):
+            r = boost("profile", action, "My Team", "--json")
+            assert json.loads(r.out), action
+            assert r.err == note, action
 
     def test_use_json_reports_installs_and_sidelines(self, boost, tapped):
         boost("install", "brainstorming")
@@ -639,7 +691,8 @@ class TestProfile:
     def test_save_prints_a_note_when_the_name_is_slugified(self, boost, installed):
         r = boost("profile", "save", "My Daily")
         assert "My Daily" in r.out
-        assert "my-daily" in r.out
+        # On stderr, so the same note cannot corrupt `--json` on stdout.
+        assert r.err == "  using profile name 'my-daily' (from 'My Daily')\n"
         assert (paths.profiles_dir() / "my-daily.json").is_file()
 
     def test_list_sorts_by_the_displayed_name_not_the_slugged_filename(
@@ -729,6 +782,98 @@ class TestProtocol:
         r = boost("protocol", "open", "boost://tap/owner/repo", expect=1)
         assert "cancelled" in r.out
 
+    def test_declined_hint_names_a_flag_that_parses(self, boost, tapped,
+                                                    monkeypatch):
+        # The decline prints "pass -y …"; `protocol open -y` used to be an
+        # argparse error (rc 2), so the hint named a flag that did not run.
+        monkeypatch.delenv("BOOST_ASSUME_YES")
+        r = boost("protocol", "open", "boost://install/brainstorming", expect=1)
+        assert "pass -y or set BOOST_ASSUME_YES=1" in r.out
+        r = boost("protocol", "open", "-y", "boost://install/brainstorming")
+        assert (paths.store_dir() / "brainstorming" / "SKILL.md").is_file()
+        assert "cancelled" not in r.out
+
+    def test_yes_and_gui_are_exclusive(self, boost, tapped):
+        r = boost("protocol", "open", "-y", "--gui",
+                  "boost://install/brainstorming", expect=2)
+        assert "not allowed with argument" in r.err
+
+    def _dialog(self, monkeypatch, rc, stdout=""):
+        calls = []
+
+        def run(argv, **kw):
+            calls.append(argv)
+            return subprocess.CompletedProcess(argv, rc, stdout, "")
+        self._fake_desktop(monkeypatch, run=run,
+                           which=lambda c: "/usr/bin/zenity" if c == "zenity" else None)
+        return calls
+
+    @staticmethod
+    def _fake_desktop(monkeypatch, which, run=None):
+        # Through ask()'s own seams, not by patching shutil.which itself:
+        # that is one module object, and install needs the real one for git.
+        from boost_cli.core import dialog
+        real = dialog.ask
+        monkeypatch.setattr("boost_cli.commands.team.platform.system",
+                            lambda: "Linux")
+        monkeypatch.setattr(
+            "boost_cli.core.dialog.ask",
+            lambda prompt, ok, system: real(prompt, ok, system, which=which,
+                                            run=run, env={"DISPLAY": ":0"}))
+
+    def test_gui_installs_after_the_dialog_says_yes(self, boost, tapped,
+                                                    monkeypatch):
+        calls = self._dialog(monkeypatch, 0)
+        boost("protocol", "open", "--gui", "boost://install/brainstorming")
+        assert (paths.store_dir() / "brainstorming" / "SKILL.md").is_file()
+        assert calls == [[
+            "zenity", "--question", "--no-markup", "--title=boost",
+            "--ok-label=Install", "--cancel-label=Cancel", "--timeout=120",
+            "--text=A boost:// link asks to install brainstorming from "
+            "fixture-tap?"]]
+
+    def test_gui_ignores_assume_yes_and_honours_a_decline(self, boost, tapped,
+                                                          monkeypatch):
+        # BOOST_ASSUME_YES is set by the sandbox: the handler mode must still
+        # ask, because the person who clicked is the only one who can say yes.
+        calls = self._dialog(monkeypatch, 1)
+        r = boost("protocol", "open", "--gui", "boost://install/brainstorming",
+                  expect=1)
+        assert len(calls) == 1
+        assert "cancelled" in r.out
+        assert not (paths.store_dir() / "brainstorming").exists()
+        r = boost("protocol", "open", "--gui", "boost://tap/owner/repo",
+                  expect=1)
+        assert calls[1][4] == "--ok-label=Tap"
+        assert calls[1][-1] == "--text=A boost:// link asks to tap owner/repo?"
+        assert "cancelled" in r.out
+
+    def test_gui_with_no_dialog_changes_nothing_and_names_the_command(
+            self, boost, tapped, monkeypatch):
+        self._fake_desktop(monkeypatch, which=lambda c: None)
+        r = boost("protocol", "open", "--gui",
+                  "boost://install/brainstorming", expect=1)
+        assert "no terminal and no dialog tool to ask with — nothing was changed" in r.out
+        assert ("to go ahead, run in a terminal:" in r.out)
+        assert ("`boost protocol open "
+                "boost://install/brainstorming`") in r.out
+        assert "cancelled" in r.out
+        assert not (paths.store_dir() / "brainstorming").exists()
+
+    def test_status_flags_a_handler_written_before_the_dialog(
+            self, boost, sandbox, monkeypatch):
+        monkeypatch.setattr("boost_cli.commands.team.platform.system",
+                            lambda: "Linux")
+        paths.ensure_dirs()
+        script = paths.state_dir() / "boost-protocol-handler.sh"
+        script.write_text('#!/usr/bin/env bash\nexec boost protocol open "$1"\n',
+                          encoding="utf-8")
+        r = boost("protocol", "status")
+        assert "re-run `boost protocol register`" in r.out
+        monkeypatch.setattr("boost_cli.commands.team.shutil.which", lambda c: None)
+        boost("protocol", "register")
+        assert "re-run" not in boost("protocol", "status").out
+
     def test_open_tap_refreshes_the_completion_cache(self, boost, sandbox,
                                                       fixture_tap_src,
                                                       monkeypatch):
@@ -758,7 +903,12 @@ class TestProtocol:
             # Windows filesystems have no POSIX exec bit for chmod to set.
             assert script.stat().st_mode & stat.S_IEXEC
         body = script.read_text(encoding="utf-8")
-        assert 'protocol open "$1"' in body
+        assert 'protocol open --gui "$1"' in body
+        # Any page can open a boost:// link: the handler must never carry a
+        # bypass, and must drop one inherited from the launching session.
+        assert "unset BOOST_ASSUME_YES\n" in body
+        assert " -y" not in body and "--yes" not in body
+        assert "asks in a desktop dialog before it installs" in r.out
         assert str(paths.repo_root() / "boost") in body
         assert "Automator" in r.out  # macOS guidance
         r = boost("protocol", "status")
@@ -784,6 +934,7 @@ class TestProtocol:
         assert desktop.exists()
         assert "x-scheme-handler/boost" in desktop.read_text(encoding="utf-8")
         assert "xdg-mime not found — handler written but not registered" in r.out
+        assert "neither zenity nor kdialog found" in r.out
         r = boost("protocol", "status")
         assert "boost-protocol.desktop" in r.out
         boost("protocol", "unregister")
@@ -921,6 +1072,48 @@ class TestReplay:
 
         r = boost("replay", "rollback", snap_id)
         assert "already at this snapshot — nothing to do" in r.out
+
+    def test_rollback_restores_recorded_scope_and_pins(self, boost, tapped,
+                                                       tick_clock):
+        # Regression: a removed skill came back from its tap with defaults —
+        # linked into every agent, unpinned, and with no commit pin — while
+        # rollback reported "complete" and `boost verify` passed.
+        boost("install", "brainstorming", "--agent", "cursor")
+        boost("pin", "brainstorming", "--commit")
+        recorded = lockfile.get_skill("brainstorming")
+        assert recorded["commit_pin"] == recorded["commit"]
+        boost("install", "tdd-workflow")
+        snap_id = lockfile.history_list()[-1]["id"]   # {brainstorming, tdd}
+        assert "brainstorming" in lockfile.history_read(snap_id)["skills"]
+        boost("uninstall", "brainstorming")
+
+        r = boost("replay", "rollback", snap_id)
+        assert "restored brainstorming → cursor" in r.out
+        assert "verify` will flag" not in r.out
+        assert "rollback to %s complete" % snap_id in r.out
+        row = lockfile.get_skill("brainstorming")
+        assert row["only_agents"] == ["cursor"]
+        assert row["agents"] == ["cursor"]
+        assert row["pinned"] is True
+        assert row["commit_pin"] == recorded["commit_pin"]
+        assert not os.path.lexists(
+            paths.home() / ".claude" / "skills" / "brainstorming")
+        assert (paths.home() / ".cursor" / "skills" / "brainstorming").is_symlink()
+        boost("verify")
+
+    def test_rollback_without_holds_restores_none(self, boost, tapped,
+                                                  tick_clock):
+        boost("install", "brainstorming")
+        boost("install", "tdd-workflow")
+        snap_id = lockfile.history_list()[-1]["id"]
+        boost("uninstall", "brainstorming")
+        boost("replay", "rollback", snap_id)
+        row = lockfile.get_skill("brainstorming")
+        assert not row.get("pinned")
+        assert "commit_pin" not in row
+        assert not row.get("only_agents")
+        assert os.path.lexists(
+            paths.home() / ".claude" / "skills" / "brainstorming")
 
     def test_rollback_keeps_a_skill_whose_only_copy_is_the_store(
             self, boost, tapped, tick_clock):
@@ -1227,3 +1420,161 @@ class TestWho:
         r = boost("who")
         for ln in r.out.split("\n"):
             assert len(ln) <= 60, ln
+
+
+# ------------------------------------------------- unusable team state files
+
+_UNUSABLE = [
+    pytest.param(b"[]", "expected a JSON object, found list", id="list"),
+    pytest.param(b'{"a": "\xff\xfe"}', "not valid UTF-8", id="non-utf8"),
+    pytest.param(b'{"a": 1,}', "invalid JSON", id="garbage"),
+]
+
+
+class TestUnusableTeamState:
+    """Each reader refuses with rc 1 naming the file; each writer quarantines.
+
+    These used to be rc 70 (AttributeError / UnicodeDecodeError / TypeError),
+    and `cohort create` silently wrote one cohort over all of them.
+    """
+
+    @pytest.mark.parametrize("raw, why", [*_UNUSABLE,
+        pytest.param(b'{"skills": {"a": "b"}}',
+                     "'skills' entry 'a' is a str, not an object",
+                     id="non-object-record")])
+    @pytest.mark.parametrize("action", ["show", "diff", "use"])
+    def test_profile_readers_refuse_cleanly(self, boost, sandbox, action,
+                                            raw, why):
+        paths.ensure_dirs()
+        p = paths.profiles_dir() / "p1.json"
+        p.write_bytes(raw)
+        r = boost("profile", action, "p1", expect=1)
+        assert r.err.startswith("Error: profile p1 is unreadable: %s: " % p)
+        assert why in r.err
+        assert "boost profile save p1" in r.err
+        assert p.read_bytes() == raw
+
+    @pytest.mark.parametrize("raw, why", [*_UNUSABLE,
+        pytest.param(b'{"skills": 3}', "'skills' is a int, not an object",
+                     id="non-object-skills")])
+    def test_profile_save_replaces_and_keeps_the_bad_bytes(
+            self, boost, installed, raw, why):
+        paths.ensure_dirs()
+        p = paths.profiles_dir() / "p1.json"
+        p.write_bytes(raw)
+        assert "unreadable" in boost("profile", "list").out
+        r = boost("profile", "save", "p1")
+        assert "saved profile p1 (1 skill)" in r.out
+        assert "was corrupt and has been moved to" in r.err
+        assert p.with_name("p1.json.corrupt").read_bytes() == raw
+        assert list(json.loads(p.read_text(encoding="utf-8"))["skills"]) == [
+            "brainstorming"]
+
+    def test_profile_save_json_over_a_corrupt_profile_is_not_an_update(
+            self, boost, installed):
+        paths.ensure_dirs()
+        (paths.profiles_dir() / "p1.json").write_bytes(b"[]")
+        r = boost("profile", "save", "p1", "--json")
+        data = json.loads(r.out)
+        assert data["updated"] is False
+        assert data["was_skills"] is None
+
+    @pytest.mark.parametrize("raw, why", [*_UNUSABLE,
+        pytest.param(b'{"c1": "x"}', "cohort 'c1' is a str, not an object",
+                     id="non-object-cohort"),
+        pytest.param(b'{"c1": {"skills": ["a"]}}',
+                     "cohort 'c1' has no integer percent", id="no-percent")])
+    @pytest.mark.parametrize("argv", [["list"], ["status"], ["apply"],
+                                      ["delete", "c1"]])
+    def test_cohort_readers_refuse_cleanly(self, boost, sandbox, argv, raw,
+                                           why):
+        paths.ensure_dirs()
+        p = paths.state_dir() / "cohorts.json"
+        p.write_bytes(raw)
+        r = boost("cohort", *argv, expect=1)
+        assert r.err.startswith("Error: cohorts are unreadable: %s: " % p)
+        assert why in r.err
+        assert p.read_bytes() == raw
+
+    @pytest.mark.parametrize("raw, why", _UNUSABLE)
+    def test_cohort_create_quarantines_instead_of_overwriting(
+            self, boost, tapped, raw, why):
+        paths.ensure_dirs()
+        p = paths.state_dir() / "cohorts.json"
+        p.write_bytes(raw)
+        r = boost("cohort", "create", "c3", "--skills", "brainstorming")
+        assert "created cohort c3" in r.out
+        assert ("~/.boost/state/cohorts.json was corrupt and has been moved "
+                "to ~/.boost/state/cohorts.json.corrupt before writing the "
+                "new file") in r.err
+        assert p.with_name("cohorts.json.corrupt").read_bytes() == raw
+        assert list(json.loads(p.read_text(encoding="utf-8"))) == ["c3"]
+
+    def test_cohort_create_over_a_good_file_keeps_the_rest(self, boost, tapped):
+        boost("cohort", "create", "c1", "--skills", "brainstorming")
+        r = boost("cohort", "create", "c2", "--skills", "brainstorming")
+        assert "corrupt" not in r.err
+        assert not (paths.state_dir() / "cohorts.json.corrupt").exists()
+        assert sorted(json.loads((paths.state_dir() / "cohorts.json")
+                                 .read_text(encoding="utf-8"))) == ["c1", "c2"]
+
+    @pytest.mark.parametrize("snap", [{"version": 3, "skills": {"a": "b"}},
+                                      {"version": 3, "skills": "x"}])
+    @pytest.mark.parametrize("action", ["show", "rollback"])
+    def test_replay_refuses_a_malformed_entry_before_acting(
+            self, boost, installed, action, snap):
+        paths.ensure_dirs()
+        h = paths.lock_history_dir() / "lock-20200101T000000Z.json"
+        h.write_text(json.dumps(snap), encoding="utf-8")
+        before = paths.lockfile_path().read_bytes()
+        r = boost("replay", action, "20200101T000000Z", expect=1)
+        assert r.err.startswith(
+            "Error: lock history entry 20200101T000000Z is unreadable: %s: "
+            % h)
+        assert paths.lockfile_path().read_bytes() == before
+
+
+# ------------------------------------------- -y on every confirming action
+
+class TestYesFlag:
+    """The decline hint says "pass -y"; each of these used to reject it rc 2."""
+
+    @pytest.fixture()
+    def no_answer(self, monkeypatch):
+        # No env bypass, and a non-tty stdin: confirm() alone would decline.
+        monkeypatch.delenv("BOOST_ASSUME_YES")
+        monkeypatch.setattr("sys.stdin", io.StringIO(""))
+
+    @pytest.mark.parametrize("flag", ["-y", "--yes"])
+    def test_cohort_delete(self, boost, tapped, no_answer, flag):
+        boost("cohort", "create", "c1", "--skills", "brainstorming")
+        r = boost("cohort", "delete", "c1", expect=1)
+        assert "pass -y" in r.out + r.err
+        r = boost("cohort", "delete", "c1", flag)
+        assert "deleted cohort c1" in r.out
+        assert "pass -y" not in r.out + r.err
+
+    @pytest.mark.parametrize("flag", ["-y", "--yes"])
+    def test_profile_delete(self, boost, installed, no_answer, flag):
+        boost("profile", "save", "p1")
+        boost("profile", "delete", "p1", expect=1)
+        r = boost("profile", "delete", "p1", flag)
+        assert "deleted profile p1" in r.out
+        assert not (paths.profiles_dir() / "p1.json").exists()
+
+    def test_profile_use_prune(self, boost, tapped, no_answer):
+        boost("install", "brainstorming")
+        boost("profile", "save", "solo")
+        boost("install", "cowboy-coding")
+        r = boost("profile", "use", "solo", "--prune", "-y")
+        assert "uninstalled cowboy-coding" in r.out
+        assert not (paths.store_dir() / "cowboy-coding").exists()
+
+    def test_replay_rollback(self, boost, tapped, tick_clock, no_answer):
+        _history_ops(boost)
+        snap_id = lockfile.history_list()[1]["id"]
+        boost("replay", "rollback", snap_id, expect=1)
+        r = boost("replay", "rollback", snap_id, "-y")
+        assert "rollback to %s complete" % snap_id in r.out
+        assert "cowboy-coding" not in json.loads(
+            paths.lockfile_path().read_text(encoding="utf-8"))["skills"]

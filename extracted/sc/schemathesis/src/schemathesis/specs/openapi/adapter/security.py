@@ -9,7 +9,7 @@ from schemathesis.config._error import ConfigError
 from schemathesis.core.errors import InvalidSchema
 from schemathesis.core.jsonschema.resolver import Resolver, resolve_reference
 from schemathesis.core.parameters import ParameterLocation
-from schemathesis.generation.meta import CoveragePhaseData, FuzzingPhaseData, StatefulPhaseData
+from schemathesis.generation.meta import negated_parameters
 from schemathesis.specs.openapi.adapter.validators import ensure_object
 from schemathesis.specs.openapi.auths import (
     ApiKeyAuthProvider,
@@ -29,6 +29,25 @@ ORIGINAL_SECURITY_TYPE_KEY = "x-original-security-type"
 # OpenAPI `security` array: each entry maps scheme name to required scopes.
 SecurityRequirements: TypeAlias = list[Mapping[str, list[str]]]
 
+# Credential `in` value -> location; anything else is not a place a credential can go.
+_IN_TO_CREDENTIAL_LOCATION = {
+    "header": ParameterLocation.HEADER,
+    "query": ParameterLocation.QUERY,
+    "cookie": ParameterLocation.COOKIE,
+}
+
+
+@dataclass(slots=True, frozen=True)
+class SecurityParameter:
+    """A credential that an operation's security scheme sends, e.g. an API key header."""
+
+    name: str
+    location: ParameterLocation
+    # Scheme `type` from the schema: `apiKey`, `http` or Swagger 2.0 `basic`.
+    scheme_type: str
+    # Parameter definition shaped like a declared one, for generating and serializing the credential.
+    definition: dict[str, Any]
+
 
 def _matches_security_parameter(
     definition: Mapping[str, Any],
@@ -43,13 +62,12 @@ def _matches_security_parameter(
         return param_name == "Authorization" and param_location == ParameterLocation.HEADER
 
     if ty == "apiKey":
-        location_map = {
-            "header": ParameterLocation.HEADER,
-            "query": ParameterLocation.QUERY,
-            "cookie": ParameterLocation.COOKIE,
-        }
         loc = definition.get("in")
-        return isinstance(loc, str) and param_name == definition.get("name") and param_location == location_map.get(loc)
+        return (
+            isinstance(loc, str)
+            and param_name == definition.get("name")
+            and param_location == _IN_TO_CREDENTIAL_LOCATION.get(loc)
+        )
 
     return False
 
@@ -98,20 +116,11 @@ class OpenApiSecurity:
 
     def is_security_param_negated(self, case: Case) -> bool:
         """Return True if this case is in negative mode targeting one of the schema's security parameters."""
-        meta = case.meta
-        if not meta or not meta.generation.mode.is_negative:
-            return False
-        phase_data = meta.phase.data
-        if not isinstance(phase_data, (FuzzingPhaseData, CoveragePhaseData, StatefulPhaseData)):
-            return False
-        mutated_param = phase_data.parameter
-        mutated_location = phase_data.parameter_location
-        if not mutated_param or not mutated_location:
-            return False
-        for definition in self.security_definitions.values():
-            if _matches_security_parameter(definition, mutated_param, mutated_location):
-                return True
-        return False
+        return any(
+            _matches_security_parameter(definition, name, location)
+            for name, location in negated_parameters(case.meta)
+            for definition in self.security_definitions.values()
+        )
 
     def apply_auth(
         self,
@@ -175,7 +184,7 @@ class OpenApiSecurity:
 class OpenApiSecurityParameters:
     """Security parameters for an API operation."""
 
-    _parameters: list[Mapping[str, Any]]
+    _parameters: list[SecurityParameter]
 
     @classmethod
     def from_definition(
@@ -187,13 +196,13 @@ class OpenApiSecurityParameters:
     ) -> OpenApiSecurityParameters:
         return cls(list(adapter.extract_security_parameters(schema, operation, resolver)))
 
-    def iter_parameters(self) -> Iterator[Mapping[str, Any]]:
+    def iter_parameters(self) -> Iterator[SecurityParameter]:
         return iter(self._parameters)
 
 
 def extract_security_parameters_v2(
     schema: Mapping[str, Any], operation: Mapping[str, Any], resolver: Resolver
-) -> Iterator[Mapping[str, Any]]:
+) -> Iterator[SecurityParameter]:
     """Extract all required security parameters for this operation."""
     defined = extract_security_definitions_v2(schema, resolver)
     unconditional = get_unconditional_security_schemes(schema, operation)
@@ -213,16 +222,14 @@ def extract_security_parameters_v2(
         else:
             continue
 
-        param[ORIGINAL_SECURITY_TYPE_KEY] = ty
-
-        yield param
+        yield _security_parameter(param, ty)
 
 
 def extract_security_parameters_v3(
     schema: Mapping[str, Any],
     operation: Mapping[str, Any],
     resolver: Resolver,
-) -> Iterator[Mapping[str, Any]]:
+) -> Iterator[SecurityParameter]:
     """Extract all required security parameters for this operation."""
     defined = extract_security_definitions_v3(schema, resolver)
     unconditional = get_unconditional_security_schemes(schema, operation)
@@ -242,9 +249,17 @@ def extract_security_parameters_v3(
         else:
             continue
 
-        param[ORIGINAL_SECURITY_TYPE_KEY] = ty
+        yield _security_parameter(param, ty)
 
-        yield param
+
+def _security_parameter(definition: dict[str, Any], scheme_type: str) -> SecurityParameter:
+    definition[ORIGINAL_SECURITY_TYPE_KEY] = scheme_type
+    return SecurityParameter(
+        name=definition["name"],
+        location=_IN_TO_CREDENTIAL_LOCATION.get(definition["in"], ParameterLocation.UNKNOWN),
+        scheme_type=scheme_type,
+        definition=definition,
+    )
 
 
 def make_auth_header_schema(definition: dict[str, Any]) -> dict[str, str]:
@@ -306,6 +321,11 @@ def get_effective_security_scheme_names(operation: APIOperation, raw_schema: Map
         if isinstance(requirement, dict)
         for key in requirement
     ]
+
+
+def declares_security(operation: APIOperation) -> bool:
+    """Whether the operation requires credentials: its own, schema-level or inferred security."""
+    return bool(get_effective_security_scheme_names(operation, operation.schema.raw_schema))
 
 
 def has_effective_optional_auth(operation: APIOperation, raw_schema: Mapping[str, Any]) -> bool:

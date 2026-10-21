@@ -152,8 +152,8 @@ def test_package_migration_views_project_exactly_the_model_columns() -> None:
 
     # Self-test: the census must notice a column dropped from a view.
     doctored = sql.replace(
-        ", category_reason, metadata, deleted_at\nFROM public.scrape_path_pattern",
-        ", metadata, deleted_at\nFROM public.scrape_path_pattern",
+        ", category_reason, metadata, deleted_at,\n       test_run_id, test_expires_at\nFROM public.scrape_path_pattern",
+        ", metadata, deleted_at,\n       test_run_id, test_expires_at\nFROM public.scrape_path_pattern",
     )
     assert doctored != sql, "self-test anchor moved — re-point the doctoring above"
     assert "category_reason" not in _scraper_view_columns(doctored)["scrape_path_pattern"]

@@ -30,6 +30,11 @@ class DatabaseStatusResponse(UniversalBaseModel):
     Database provider ('kronos')
     """
 
+    reason: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Why the compute is in this state, when the control plane says: `ComputeUnschedulable` on a `suspended` database means no node could host its compute size, so a wake only restarts the same wait; choose a smaller compute size in the database's Settings in Athena first. Absent on older control planes.
+    """
+
     status: DatabaseStatusResponseStatus = pydantic.Field()
     """
     Standardized database status

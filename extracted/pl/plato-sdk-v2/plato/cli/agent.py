@@ -17,6 +17,7 @@ from plato.cli.utils import (
     prepare_build_context_with_sdk,
     require_api_key,
 )
+from plato.utils.pypi_index import plato_build_env
 
 
 def _extract_schemas(pkg_path: Path, package_name: str) -> tuple[dict | None, dict | None, dict | None]:
@@ -223,6 +224,7 @@ def _publish_package(path: str, repo: str, dry_run: bool = False):
             cwd=pkg_path,
             capture_output=True,
             text=True,
+            env=plato_build_env(api_key=api_key),
         )
         if result.returncode != 0:
             console.print("[red]Build failed:[/red]")
@@ -337,7 +339,9 @@ def agent_schema(
     except ImportError:
         console.print("[red]Error: plato.agents module not available[/red]")
         console.print("\n[yellow]Install with:[/yellow]")
-        console.print("  pip install 'plato-sdk-v2[agents]'")
+        console.print(
+            "  pip install 'plato-sdk-v2[agents]' --index-url \"https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/\""
+        )
         raise typer.Exit(1) from None
 
     schema = get_agent_schema(agent_name)
@@ -547,6 +551,7 @@ def _push_single_agent(
             cwd=pkg_path,
             capture_output=True,
             text=True,
+            env=plato_build_env(api_key=api_key),
         )
         if result.returncode != 0:
             console.print("[red]Build failed:[/red]")
@@ -1040,6 +1045,7 @@ def agent_deploy(
             capture_output=True,
             text=True,
             check=True,
+            env=plato_build_env(api_key=api_key),
         )
         console.print("[green]✅ Build successful[/green]")
     except subprocess.CalledProcessError as e:

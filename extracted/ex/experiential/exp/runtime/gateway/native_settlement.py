@@ -326,6 +326,8 @@ def terminal_from_settlement(
         raw_usage if isinstance(raw_usage, dict) else None,
         [str(name) for name in raw_tool_names] if isinstance(raw_tool_names, list) else [],
         web_search_requests=web_search_requests_from_settlement(data),
+        web_search_results=web_search_results_from_settlement(data),
+        web_search_cost_nano_usd=web_search_cost_from_settlement(data),
         tool_search_requests=tool_search_requests_from_settlement(data),
     )
     failure_payload = data.get("failure")
@@ -459,6 +461,33 @@ def web_search_requests_from_settlement(data: JsonObject | None) -> int:
     return count if count is not None and count > 0 else 0
 
 
+def web_search_results_from_settlement(data: JsonObject | None) -> int | None:
+    """Return the results the settlement's web searches returned, ``None`` when unnamed.
+
+    The data plane writes ``web_search_results`` only beside a positive
+    ``web_search_requests``; a missing, non-integer, boolean, or negative value
+    (and every settlement without a search) reads as ``None`` so the host
+    prices the search exactly as before the field existed.
+    """
+    if not web_search_requests_from_settlement(data) or data is None:
+        return None
+    count = _optional_count(data.get("web_search_results"))
+    return count if count is not None and count >= 0 else None
+
+
+def web_search_cost_from_settlement(data: JsonObject | None) -> int | None:
+    """Return the search vendor's reported cost in nano-USD, ``None`` when unreported.
+
+    Same rules as :func:`web_search_results_from_settlement`: present only
+    beside a positive search count, and anything but a nonnegative integer
+    reads as unreported.
+    """
+    if not web_search_requests_from_settlement(data) or data is None:
+        return None
+    cost = _optional_count(data.get("web_search_cost_nano_usd"))
+    return cost if cost is not None and cost >= 0 else None
+
+
 def web_search_requests_from_terminal(terminal: GatewayEvent | None) -> int:
     """Return the web-search count the settled usage carries, zero without usage."""
     if terminal is None or terminal.usage is None:
@@ -526,6 +555,7 @@ def settlement_metadata(
     settle: Callable[..., object],
     *,
     service_tier: GatewayServiceTierAdmission | None = None,
+    self_served: bool = False,
 ) -> SettlementMetadata:
     """Project original observations while withholding unsupported host keywords."""
     observed = settlement_rate_limit(data)
@@ -539,7 +569,9 @@ def settlement_metadata(
     }
     if accepts_keyword(settle, "upstream_provider"):
         fields["upstream_provider"] = upstream_provider_from_settlement(data)
-    fields.update(settlement_kwarg(service_tier, {} if data is None else data))
+    fields.update(
+        settlement_kwarg(service_tier, {} if data is None else data, self_served=self_served)
+    )
     return fields
 
 
@@ -634,6 +666,8 @@ def _usage_from_payload(
     tool_names: list[str],
     *,
     web_search_requests: int = 0,
+    web_search_results: int | None = None,
+    web_search_cost_nano_usd: int | None = None,
     tool_search_requests: int = 0,
 ) -> GatewayUsage | None:
     """Build normalized usage without inventing absent token or TTL evidence.
@@ -643,6 +677,8 @@ def _usage_from_payload(
         tool_names: Observed tool names in invocation order.
         web_search_requests: Gateway-executed searches billed to this attempt; rides on
             whichever usage shape the payload yields (a bare count is not usage and is dropped).
+        web_search_results: Results those searches returned; rides beside the count.
+        web_search_cost_nano_usd: The vendor's reported cost; rides beside the count.
         tool_search_requests: Gateway-executed tool-search rounds billed to this attempt;
             rides on the usage exactly as ``web_search_requests`` does.
 
@@ -663,6 +699,8 @@ def _usage_from_payload(
         return GatewayUsage(
             tool_names=names,
             web_search_requests=web_search_requests,
+            web_search_results=web_search_results,
+            web_search_cost_nano_usd=web_search_cost_nano_usd,
             tool_search_requests=tool_search_requests,
             billed_units=billed,
         )
@@ -674,10 +712,15 @@ def _usage_from_payload(
         cache_creation_1h_input_tokens=_optional_count(
             payload.get("cache_creation_1h_input_tokens")
         ),
+        cache_creation_12h_input_tokens=_optional_count(
+            payload.get("cache_creation_12h_input_tokens")
+        ),
         reasoning_tokens=_optional_count(payload.get("reasoning_tokens")),
         image_output_tokens=_optional_count(payload.get("image_output_tokens")),
         tool_names=names,
         web_search_requests=web_search_requests,
+        web_search_results=web_search_results,
+        web_search_cost_nano_usd=web_search_cost_nano_usd,
         tool_search_requests=tool_search_requests,
         billed_units=billed,
     )

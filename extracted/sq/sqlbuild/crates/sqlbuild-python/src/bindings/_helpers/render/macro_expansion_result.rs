@@ -5,13 +5,11 @@ use pyo3::prelude::{Bound, Py, PyAny, PyAnyMethods, PyModule, PyModuleMethods, P
 use pyo3::sync::PyOnceLock;
 use pyo3::types::{PyDict, PyDictMethods, PyList, PyString, PyStringMethods, PyTuple};
 use pyo3::{pyfunction, wrap_pyfunction};
+use sqlbuild_host::entries::models::UserCodeHost;
 
-use crate::bindings::_helpers::compile_driver::python_calls::{
-    KeywordArguments, imported, keywords,
-};
+use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, imported, keywords};
 use crate::bindings::_helpers::discovery::guidance::explicit_references_help;
 use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::native_host::user_code::UserCodeHost;
 use crate::bindings::_helpers::records::construct::error_class;
 use crate::bindings::_helpers::records::construct::{
     enum_member, new_record, new_record_with, record_class,
@@ -19,9 +17,9 @@ use crate::bindings::_helpers::records::construct::{
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use crate::bindings::_helpers::render::declaration_values::resolved_declaration_context;
-use crate::bindings::_helpers::render::macro_call_rows::span_row;
+use crate::bindings::_helpers::render::macro_call_rows::{SpanRow, span_row};
 use crate::bindings::_helpers::render::macro_expansion::{
-    ExpansionOutput, NativeMacroExpansion, expanded,
+    ExpansionOutput, NativeMacroExpansion, StateInput, expanded,
 };
 use crate::bindings::_helpers::sqltext::sql_references::extract_references;
 
@@ -189,16 +187,16 @@ pub(crate) fn macro_output(request: ExpansionRequest<'_>) -> PyResult<Option<Exp
     };
     let expansion: NativeMacroExpansion = NativeMacroExpansion::new(
         &request.file_path,
-        (
-            request.loaded_macros.unbind(),
-            request
+        StateInput {
+            loaded_macros: request.loaded_macros.unbind(),
+            overrides: request
                 .macro_overrides
                 .unwrap_or_else(|| PyDict::new(py))
                 .unbind(),
-            request.macro_context.clone().unbind(),
-            declarations.unbind(),
-            request.consumer.map_or_else(|| py.None(), Bound::unbind),
-        ),
+            macro_context: request.macro_context.clone().unbind(),
+            declarations: declarations.unbind(),
+            consumer: request.consumer.map_or_else(|| py.None(), Bound::unbind),
+        },
         native_field(&request.macro_context, "_enforce_explicit_references")?.is_truthy()?,
         macro_expansion_classes(py)?.unbind(),
     )?;
@@ -215,7 +213,12 @@ pub(crate) fn expansion_result<'py>(request: ExpansionRequest<'py>) -> PyResult<
     };
     let mut spans: Vec<Bound<'py, PyAny>> = Vec::with_capacity(output.spans.len());
     for span in output.spans {
-        let (source_start, source_end, output_start, output_end) = span_row(span);
+        let SpanRow {
+            source_start,
+            source_end,
+            output_start,
+            output_end,
+        } = span_row(span);
         spans.push(new_record_with(
             py,
             RecordId::ExpansionSpan,

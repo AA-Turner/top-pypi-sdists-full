@@ -8,14 +8,16 @@ import argparse
 import difflib
 import json
 import os
-import re
+import plistlib
+import shlex
 import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from itertools import chain
 from pathlib import Path
+from xml.parsers.expat import ExpatError
 
 from .. import __version__, cliparse
 from ..core import (
@@ -525,6 +527,9 @@ def cmd_create(argv) -> int:
                    help="parent directory (default: current directory)")
     p.add_argument("--install", action="store_true",
                    help="install the new skill immediately")
+    p.add_argument("-y", "--yes", action="store_true",
+                   help="with --install, replace an installed skill of the "
+                        "same name without asking")
     args = p.parse_args(argv)
 
     name = util.resolve_slug(args.name, what="skill name")
@@ -561,11 +566,11 @@ def cmd_create(argv) -> int:
     out.ok("created %s" % _tilde(skill_md))
     if args.install:
         owner = store.existing_skill_owner(name)
-        if owner and not out.confirm(
-                "%s is already installed from %s — replace it?" % (name, owner)):
+        if owner and not (args.yes or out.confirm(
+                "%s is already installed from %s — replace it?" % (name, owner))):
             out.warn("not installed: %s is already installed from %s" % (name, owner))
             out.dim("  next: edit it, then `boost import %s`" % _tilde(target), wrap=True)
-            return 0
+            return 1    # declined: the --install half of the request did not happen
         res = store.install_from_path(target, name=name)
         out.ok("%s %s → %s" % ("replaced" if owner else "installed", name, _tilde(res.dest)))
         if res.linked:
@@ -674,54 +679,75 @@ def cmd_policy(argv) -> int:
     # check
     pol = policy.load()
     everything = lockfile.all_installed()
+    # The user lock's skills, plus the current project's: a skill installed
+    # `--local` is as installed as any other — `boost list` shows it — and a
+    # blocklisted one passing the check because it sat in the repo's lock
+    # was a hole in the one command whose job is to catch it.
+    skill_rows = integrity.installed_skills()
+    rows: list[tuple[str, str, dict, Path | None, bool]] = [
+        ("skill", r.name, r.entry, r.dir, r.is_project) for r in skill_rows]
+    rows += [(kind, name, entry, None, False)
+             for kind, section in everything.items() if kind != "skill"
+             for name, entry in sorted(section.items())]
     min_score = int(pol.get("min_quality_score") or 0)
     # name/kind are None for the one environment-level violation below;
     # every per-item row carries both.
     violations: list[tuple[str | None, str | None, str, str]] = []
     not_checked: set[str] = set()
     total = 0
+    # `max_skills` caps what `install` counts, which is the user lock.
     skill_count = len(everything.get("skill", {}))
-    for kind, section in everything.items():
-        for name, entry in sorted(section.items()):
-            total += 1
-            label = name if kind == "skill" else "%s (%s)" % (name, kind)
-            tap = entry.get("tap", "local")
-            if name in pol["blocked_skills"]:
-                violations.append((name, kind, label, "on the blocklist"))
-            if tap in pol["blocked_taps"]:
-                violations.append((name, kind, label, "tap %s is blocked" % tap))
-            if pol["allowed_taps"] and tap not in pol["allowed_taps"] and tap != "local":
-                violations.append((name, kind, label,
-                                   "tap %s is not on the allowlist" % tap))
-            violations.extend(
-                (name, kind, label, msg)
-                for msg in policy.check_installed_version(entry))
-            # require_description and denied_capabilities need the item's
-            # own content, which only a skill has on disk (see
-            # store.read_skill_meta) — a rule or workflow lands in a shared
-            # agent file with no per-item body to check.
-            if kind == "skill" and (pol["require_description"] or pol["denied_capabilities"]):
-                meta_body = store.read_skill_meta(name)
-                if meta_body is None:
-                    not_checked.add(
-                        "require_description/denied_capabilities "
-                        "(store copy unreadable)")
-                else:
-                    meta, body = meta_body
-                    violations.extend(
-                        (name, kind, label, msg)
-                        for msg in policy.check_installed_meta(meta, body))
-            elif kind != "skill" and (pol["require_description"] or pol["denied_capabilities"]):
+    for kind, name, entry, sdir, in_project in rows:
+        total += 1
+        label = name if kind == "skill" else "%s (%s)" % (name, kind)
+        if in_project:
+            label += " (project)"
+        tap = entry.get("tap", "local")
+        if policy.is_blocked(name, tap, pol["blocked_skills"]):
+            violations.append((name, kind, label, "on the blocklist"))
+        if tap in pol["blocked_taps"]:
+            violations.append((name, kind, label, "tap %s is blocked" % tap))
+        if pol["allowed_taps"] and tap not in pol["allowed_taps"] and tap != "local":
+            violations.append((name, kind, label,
+                               "tap %s is not on the allowlist" % tap))
+        violations.extend(
+            (name, kind, label, msg)
+            for msg in policy.check_installed_version(entry))
+        # require_description and denied_capabilities need the item's
+        # own content, which only a skill has on disk (see
+        # store.read_skill_meta) — a rule or workflow lands in a shared
+        # agent file with no per-item body to check.
+        if kind == "skill" and (pol["require_description"] or pol["denied_capabilities"]):
+            meta_body = (store.read_skill_meta(name, sdir)
+                         if sdir is not None else None)
+            if meta_body is None:
                 not_checked.add(
-                    "require_description/denied_capabilities for %s items "
-                    "(no on-disk body to check)" % kind)
-            # Quality scoring reads a store directory, which only skills have.
-            if min_score and kind == "skill":
-                score, _notes = util.score_skill(store.skill_store_dir(name))
-                if score < min_score:
-                    violations.append(
-                        (name, kind, label,
-                         "quality score %d < required %d" % (score, min_score)))
+                    "require_description/denied_capabilities "
+                    "(store copy unreadable)")
+            else:
+                meta, body = meta_body
+                violations.extend(
+                    (name, kind, label, msg)
+                    for msg in policy.check_installed_meta(meta, body))
+        elif kind != "skill" and (pol["require_description"] or pol["denied_capabilities"]):
+            not_checked.add(
+                "require_description/denied_capabilities for %s items "
+                "(no on-disk body to check)" % kind)
+        # Quality scoring reads a skill directory, which only skills have.
+        # A project row with no copy on disk has nothing to score; a user
+        # row keeps scoring its store path, as it always has.
+        if min_score and kind == "skill" and not (in_project and sdir is None):
+            score, _notes = util.score_skill(
+                sdir if sdir is not None else store.skill_store_dir(name))
+            if score < min_score:
+                violations.append(
+                    (name, kind, label,
+                     "quality score %d < required %d" % (score, min_score)))
+    # A policy.json that does not parse read as defaults above, so every row
+    # passed; that is a failed check, whatever policy_enforce says.
+    corrupt_msg = policy.corrupt_violation()
+    if corrupt_msg:
+        violations.append((None, None, "(policy)", corrupt_msg))
     max_skills_msg = policy.max_skills_violation(skill_count)
     if max_skills_msg:
         # Not an installed item — this one is about the environment as a
@@ -734,6 +760,7 @@ def cmd_policy(argv) -> int:
         for k, section in everything.items()
         for n, e in section.items() if not e.get("pinned"))
     counts = {kind: len(section) for kind, section in everything.items()}
+    counts["skill"] = len(skill_rows)
     # The breakdown appears exactly when it carries information (same
     # convention as `boost count`): a skills-only environment keeps the exact
     # summary line it always had.
@@ -933,6 +960,17 @@ def cmd_onboard(argv) -> int:
         if not shutil.which("gh"):
             raise BoostError("the `gh` CLI is required for --pr",
                             hint="brew install gh, or rerun without --pr")
+        # A branch left by an earlier run whose `gh pr create` failed: without
+        # this, the rerun wrote every file onto the current branch and then
+        # died on `checkout -b`, leaving them untracked with no hint.
+        if gitutil.run(["-C", str(repo), "rev-parse", "--verify", "--quiet",
+                        "refs/heads/" + _PR_BRANCH], check=False).returncode == 0:
+            raise BoostError("branch %s already exists in %s"
+                             % (_PR_BRANCH, _tilde(repo)),
+                             hint="open its PR with `git checkout %s && gh pr "
+                                  "create --fill`, or delete it with `git "
+                                  "branch -D %s` and rerun"
+                                  % (_PR_BRANCH, _PR_BRANCH))
 
     if args.dry_run:
         changes = 0
@@ -1130,24 +1168,41 @@ def _plist_path() -> Path:
     return paths.home() / "Library" / "LaunchAgents" / (_PLIST_LABEL + ".plist")
 
 
+def _schedule_env() -> dict[str, str]:
+    """The state the scheduled `boost update` must act on.
+
+    launchd and cron start the job with their own environment, so without
+    these the job updated ``~/.boost`` while its log went to the
+    ``$BOOST_HOME`` the user enabled it from.
+    """
+    return {"BOOST_HOME": str(paths.boost_home()), "HOME": str(paths.home())}
+
+
 def _plist_body(shim: Path, seconds: int) -> str:
-    log = paths.logs_dir() / "schedule.log"
-    return """<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>%s</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>%s</string>
-    <string>update</string>
-  </array>
-  <key>StartInterval</key><integer>%d</integer>
-  <key>StandardOutPath</key><string>%s</string>
-  <key>StandardErrorPath</key><string>%s</string>
-</dict>
-</plist>
-""" % (_PLIST_LABEL, shim, seconds, log, log)
+    # plistlib, not string interpolation: an '&' or '<' in a path made the
+    # file invalid XML that launchd will not load.
+    log = str(paths.logs_dir() / "schedule.log")
+    return plistlib.dumps({
+        "Label": _PLIST_LABEL,
+        "ProgramArguments": [str(shim), "update"],
+        "EnvironmentVariables": _schedule_env(),
+        "StartInterval": seconds,
+        "StandardOutPath": log,
+        "StandardErrorPath": log,
+    }).decode("utf-8")
+
+
+def _cron_word(text: str) -> str:
+    # cron turns an unescaped '%' in the command into a newline.
+    return shlex.quote(text).replace("%", "\\%")
+
+
+def _cron_entry(spec: str, shim: Path) -> str:
+    env = " ".join("%s=%s" % (k, _cron_word(v))
+                   for k, v in _schedule_env().items())
+    return "%s %s %s update >> %s 2>&1 %s" % (
+        spec, env, _cron_word(str(shim)),
+        _cron_word(str(paths.logs_dir() / "schedule.log")), _CRON_MARK)
 
 
 def _crontab_lines():
@@ -1196,18 +1251,27 @@ def _interval_label(seconds) -> str:
     return "%ss" % seconds
 
 
+def _read_plist(text: str) -> dict | None:
+    """The plist's top-level dict, or None when launchd could not load it."""
+    try:
+        data = plistlib.loads(text.encode("utf-8"))
+    except (plistlib.InvalidFileException, ExpatError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def _plist_interval_seconds(text: str) -> int | None:
     """Parse a usable ``StartInterval`` out of plist ``text``.
 
-    None for both "no ``StartInterval`` key" and "``StartInterval`` present
-    but not positive" — a zero or negative interval can never fire, and
-    treating it as usable is what let the next-run loop in ``cmd_schedule``
-    spin forever advancing ``nxt`` by zero seconds each pass.
+    None for "not a valid plist", "no ``StartInterval`` key" and
+    "``StartInterval`` present but not positive" — a zero or negative
+    interval can never fire, and treating it as usable is what let the
+    next-run loop in ``cmd_schedule`` spin forever advancing ``nxt`` by zero
+    seconds each pass.
     """
-    m = re.search(r"<key>StartInterval</key>\s*<integer>(-?\d+)</integer>", text)
-    if not m:
+    secs = (_read_plist(text) or {}).get("StartInterval")
+    if isinstance(secs, bool) or not isinstance(secs, int):
         return None
-    secs = int(m.group(1))
     return secs if secs > 0 else None
 
 
@@ -1232,11 +1296,18 @@ def cmd_schedule(argv) -> int:
 
     if args.action == "status":
         present, interval, next_run = False, None, None
+        invalid = None
         if darwin:
             plist = _plist_path()
-            if plist.exists():
+            text = (plist.read_text(encoding="utf-8", errors="replace")
+                    if plist.exists() else None)
+            if text is not None and _read_plist(text) is None:
+                # launchd refuses a file it cannot parse, so it is not a
+                # schedule — saying "scheduled yes" here was the lie.
+                invalid = "%s is not a valid property list" % _tilde(plist)
+            elif text is not None:
                 present = True
-                secs = _plist_interval_seconds(plist.read_text(encoding="utf-8"))
+                secs = _plist_interval_seconds(text)
                 if secs is not None:
                     interval = _interval_label(secs)
                     nxt = datetime.fromtimestamp(plist.stat().st_mtime + secs)
@@ -1253,16 +1324,23 @@ def cmd_schedule(argv) -> int:
                                 spec)
                 next_run = _cron_next_run(spec)
         if args.json:
-            print(json.dumps({
+            doc = {
                 "platform": sys.platform,
                 "backend": "launchd" if darwin else "cron",
                 "scheduled": present,
                 "interval": interval,
                 "next_run": next_run.strftime("%Y-%m-%d %H:%M") if next_run else None,
-            }, indent=2))
+            }
+            if invalid:
+                doc["error"] = invalid
+            print(json.dumps(doc, indent=2))
             return 0
         out.kv("platform", "%s (%s)" % (sys.platform, "launchd" if darwin else "cron"))
         out.kv("scheduled", "yes" if present else "no")
+        if invalid:
+            out.warn(invalid, wrap=True)
+            out.dim("  rewrite it with `boost schedule enable`", wrap=True)
+            return 0
         if present:
             out.kv("interval", "every %s" % interval if interval is not None
                    else "unknown (plist has no usable StartInterval)")
@@ -1297,9 +1375,7 @@ def cmd_schedule(argv) -> int:
                 out.warn("launchctl unavailable — the agent loads at next login")
         else:
             lines = _crontab_lines()
-            entry = "%s %s update >> %s 2>&1 %s" % (
-                _CRON_SPECS[args.interval], shim,
-                paths.logs_dir() / "schedule.log", _CRON_MARK)
+            entry = _cron_entry(_CRON_SPECS[args.interval], shim)
             if lines is None:
                 out.warn("crontab is not available — add this line yourself:")
                 out.info(entry)
@@ -1474,7 +1550,9 @@ def _tool_search(args: dict):
     # and re-parses the file on every call, so the obvious `find_any(name)`
     # inside this comprehension is ten reads of the same bytes. The union of
     # the three sections is that same predicate, once.
-    installed_names = set(chain.from_iterable(lockfile.all_installed().values()))
+    # A skill installed `--local` into this repo is installed too: leaving the
+    # project lock out told an agent its active project skill was missing.
+    installed_names = integrity.installed_names()
     marks = [e.get("name", "") in installed_names for e in entries]
     lines = [mcp.hit_line(e, installed=m)
              for e, m in zip(entries, marks, strict=True)]
@@ -1487,15 +1565,19 @@ def _tool_search(args: dict):
 
 def _tool_list(args: dict):
     # All three lock sections: "no skills installed" while `boost list` shows
-    # a rule is the exact disagreement this surface must not have.
+    # a rule is the exact disagreement this surface must not have. The same
+    # goes for the project lock `boost list` reads alongside the user's.
     everything = lockfile.all_installed()
+    pbase, project = integrity.project_skills()
     # The footer reads the lock file and the tap list and nothing else — no
     # catalog scan — so boost_list stays the instant, threshold-free tool that
     # INSTRUCTIONS and its own description both promise. It lands in the empty
     # state too: a machine with nothing installed is exactly where "what do I
-    # have" is least useful on its own.
-    footer = mcp.coverage_line(everything, tapped=builtin.configured_tap_count())
-    if not any(everything.values()):
+    # have" is least useful on its own. A name installed in both scopes is
+    # two installs, so the skill count takes both.
+    counted = everything | {"skill": [*everything["skill"], *project]}
+    footer = mcp.coverage_line(counted, tapped=builtin.configured_tap_count())
+    if not any(everything.values()) and not project:
         return "nothing installed\n" + footer, False
     lines = []
     for kind, section in everything.items():
@@ -1504,18 +1586,36 @@ def _tool_list(args: dict):
                          % (n, e.get("version", "?"), e.get("tap", "?"),
                             "" if kind == "skill" else " [%s]" % kind,
                             " [pinned]" if e.get("pinned") else ""))
+    if project:
+        lines.append("project skills (%s):" % _tilde(pbase))
+        lines.extend("%s v%s (%s) [project]%s"
+                     % (n, e.get("version", "?"), e.get("tap", "?"),
+                        " [pinned]" if e.get("pinned") else "")
+                     for n, e in sorted(project.items()))
     lines.append(footer)
     return "\n".join(lines), False
 
 
 def _tool_info(args: dict):
     name = str(args.get("name", ""))
-    found = lockfile.find_any(name)
-    kind, entry = found if found is not None else ("skill", None)
-    matches = catalog.find(name)
-    if not entry and not matches:
+    # The resolver `boost info` uses: split a `tap:name`, hold the qualifier
+    # against the installed record, and ask the project lock too. The unsplit
+    # name never matched the bare-keyed lock, so `fix2:x` read "installed: no"
+    # right after boost_install had installed it.
+    found = integrity.find_installed(name)
+    kind, entry, pbase = found if found is not None else ("skill", None, None)
+    if entry:
+        # The installed copy's own catalog row, never another tap's: version
+        # and tap came from the lock while the description came from
+        # whichever tap sorted first, one reply describing two items.
+        src = next((e for e in catalog.find(name)
+                    if e["tap"] == entry.get("tap")), {})
+    elif not catalog.find(name):
         return "no skill named %r (installed or in any tap)" % name, True
-    src = matches[0] if matches else {}
+    else:
+        # Raises the same "exists in multiple taps" error boost_read and
+        # boost_install give, rather than silently describing the first.
+        src = catalog.resolve_one(name)
     kind_label = kind if entry else src.get("kind", "skill")
     lines = ["name: " + name]
     if kind_label != "skill":
@@ -1531,6 +1631,8 @@ def _tool_info(args: dict):
             integrity.written_agent_names(kind, entry)) or "none"
         lines.extend(("installed: yes (%s)" % entry.get("installed_at", "?"),
                       "agents: %s" % agents_s))
+        if pbase is not None:
+            lines.append("scope: project (%s)" % _tilde(pbase))
         if entry.get("pinned"):
             lines.append("pinned: yes")
         if entry.get("quarantined"):
@@ -1689,7 +1791,7 @@ def _tool_doctor(args: dict):
     # adopting it as `local` is the wrong fix (lockfile.unrestored_corrupt).
     backup = (lockfile.unrestored_corrupt() if plan.get("adoptable_store")
               else None)
-    worded = {
+    worded: dict[str, Callable[[list], list[str]]] = {
         "adoptable_store": lambda names: (
             [lockfile.unrestored_line(len(names), ", ".join(names), backup)]
             if backup else
@@ -1702,6 +1804,8 @@ def _tool_doctor(args: dict):
         "older_copies": store.older_copy_lines,
         "not_skill_store": lambda names: [store.not_skill_line(names)],
         "misnamed_store": lambda names: [store.misnamed_line(names)],
+        "workflow_copies": store.workflow_copy_lines,
+        "rule_blocks": store.rule_block_lines,
         "blocked_links": lambda rows: [
             "%s not linked for %s: %s is in the way and is not boost's — ask "
             "the user to move or delete it, then run `boost sync`"
@@ -1748,12 +1852,20 @@ def _tool_doctor(args: dict):
                 else integrity.materialized_status(n, e, kind))
         in _MAT_ISSUE_LABEL]
     lines.extend(mat_issues)
+    # Skills too, by the test CLI `boost doctor` asks: without it a skill
+    # edited in place left this reply "healthy" while the CLI flagged it.
+    skill_drift = [
+        "skill %s: modified since install (run `boost verify`)" % n
+        for n, e in sorted(everything["skill"].items())
+        if integrity.skill_modified(n, e)]
+    lines.extend(skill_drift)
     agent_lines = ["agents.%s.dir: %s — ask the user to fix it with `boost "
                    "config set agents.%s.dir <dir>`; link and materialization "
                    "checks were skipped" % (n, e.message, n)
                    for n, e in agent_errs]
     lines.extend(agent_lines)
-    total = issues + len(mat_issues) + len(agent_lines) + lock_bad
+    total = (issues + len(mat_issues) + len(skill_drift) + len(agent_lines)
+             + lock_bad)
     # A machine with no taps has nothing to disagree about, so every check
     # above passes and the old reply called it "healthy" — directly under the
     # line saying `taps: 0 (0 items available)`. That is the one state where
@@ -1783,7 +1895,7 @@ def _tool_doctor(args: dict):
     if total == 0:
         if tapped:
             lines.append("healthy — no issues found")
-    elif mat_issues or cfg_err or agent_lines:
+    elif mat_issues or skill_drift or cfg_err or agent_lines:
         # Not `boost sync`: an unresolvable agent dir makes sync refuse too.
         lines.append("%d issue(s) — run `boost doctor` for details" % total)
     else:
@@ -1808,6 +1920,8 @@ def _doctor_verdict(plan: dict[str, list], total: int, lock_bad: bool,
     repos = sum(1 for r in plan.get("foreign_store", ()) if store.is_repo_copy(r))
     user = (lock_bad + len(plan.get("blocked_links", ()))
             + len(plan.get("unreadable_store", ())) + repos
+            + len(plan.get("workflow_copies", ()))
+            + len(plan.get("rule_blocks", ()))
             + (0 if lost else len(plan.get("unrecorded_store", ())))
             + (len(plan.get("adoptable_store", ())) if unrestored else 0))
     prune = (len(plan.get("foreign_store", ())) - repos

@@ -1,14 +1,24 @@
+import hmac
+from base64 import urlsafe_b64decode, urlsafe_b64encode
+from hashlib import sha256
 from unittest import mock
+from urllib.parse import parse_qs, urlencode, urlsplit
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AbstractBaseUser, AnonymousUser
-from django.test import TestCase, override_settings
-from django.urls import reverse
+from django.contrib.contenttypes.models import ContentType
+from django.http import HttpRequest, HttpResponse
+from django.middleware.csrf import get_token
+from django.test import Client, TestCase, override_settings
+from django.urls import include, path, reverse
 from social_core.backends.open_id_connect import OpenIdConnectAuth
+from social_core.utils import PARTIAL_TOKEN_PENDING_REQUEST_SESSION_NAME
 
-from social_django.models import Code, Partial, UserSocialAuth
+from social_django.models import Code, Nonce, Partial, UserSocialAuth
 from social_django.utils import LaunchBridge
 from social_django.views import get_session_timeout
+from tests.helpers import begin_facebook_login
 
 
 class MockOIDCBackend(OpenIdConnectAuth):
@@ -16,6 +26,17 @@ class MockOIDCBackend(OpenIdConnectAuth):
     AUTHORIZATION_URL = "https://idp.example.com/auth"
     ACCESS_TOKEN_URL = "https://idp.example.com/token"  # ruff: ignore[hardcoded-password-string]
     ID_TOKEN_ISSUER = "https://idp.example.com"  # ruff: ignore[hardcoded-password-string]
+
+
+def launch_redirect_destination(request: HttpRequest) -> HttpResponse:
+    return HttpResponse()
+
+
+class LaunchRedirectURLConf:
+    urlpatterns = (
+        path("welcome/", launch_redirect_destination, name="dashboard"),
+        path("", include("tests.urls")),
+    )
 
 
 def send_validation(strategy, backend, code, partial_token):
@@ -27,6 +48,7 @@ def send_validation(strategy, backend, code, partial_token):
     SOCIAL_AUTH_PIPELINE=(
         "social_core.pipeline.social_auth.social_details",
         "social_core.pipeline.social_auth.social_uid",
+        "social_core.pipeline.social_auth.social_user",
         "social_core.pipeline.user.get_username",
         "social_core.pipeline.mail.mail_validation",
         "social_core.pipeline.user.create_user",
@@ -39,6 +61,205 @@ def send_validation(strategy, backend, code, partial_token):
     SOCIAL_AUTH_LOGIN_ERROR_URL="/error/",
 )
 class TestEmailConfirmation(TestCase):
+    @staticmethod
+    def csrf_client() -> tuple[Client, str]:
+        request = HttpRequest()
+        token = get_token(request)
+        client = Client(enforce_csrf_checks=True)
+        client.cookies[settings.CSRF_COOKIE_NAME] = request.META["CSRF_COOKIE"]
+        return client, token
+
+    def test_login_parameters_survive_partial_resume(self):
+        target = get_user_model().objects.create_user(username="target")
+        ctype = ContentType.objects.get_for_model(target)
+        url = reverse("social:complete", kwargs={"backend": "email"})
+        for index, probe in enumerate((
+            {"pk": str(target.pk), "ctype": str(ctype.pk)},
+            {"pk": str(target.pk + 1), "ctype": str(ctype.pk)},
+            {"pk": "invalid", "ctype": "invalid"},
+            {"__social_django_session_value__": "1", "kind": "model", "value": "request"},
+        )):
+            with (
+                self.subTest(probe=probe),
+                self.settings(
+                    SOCIAL_AUTH_PIPELINE=(
+                        *settings.SOCIAL_AUTH_PIPELINE,
+                        "social_core.pipeline.social_auth.load_extra_data",
+                    )
+                ),
+                mock.patch("tests.test_views.send_validation") as send_email,
+            ):
+                email = f"confirm{index}@example.com"
+                client, csrf_token = self.csrf_client()
+                response = client.post(url, {"email": email, "csrfmiddlewaretoken": csrf_token, **probe})
+                self.assertRedirects(response, "/email-sent/", fetch_redirect_response=False)
+                response = client.get(url)
+                self.assertRedirects(response, "/email-sent/", fetch_redirect_response=False)
+                code = send_email.call_args.args[2]
+                partial_token = send_email.call_args.args[3]
+                response = client.get(url, {"verification_code": code.code, "partial_token": partial_token})
+                context = response.context
+                response = client.post(
+                    context["action_url"],
+                    {
+                        "csrfmiddlewaretoken": csrf_token,
+                        context["confirmation_parameter"]: context["confirmation_value"],
+                        context["confirmation_nonce_parameter"]: context["confirmation_nonce"],
+                    },
+                )
+                self.assertRedirects(response, "/done/", fetch_redirect_response=False)
+                association = UserSocialAuth.objects.get(provider="email", uid=email)
+                self.assertNotEqual(association.user_id, target.pk)
+                self.assertEqual(int(client.session["_auth_user_id"]), association.user_id)
+                self.assertTrue(Code.objects.get(pk=code.pk).verified)
+
+    def test_confirmation_parameters_survive_session_storage(self):
+        target = get_user_model().objects.create_user(username="target")
+        ctype = ContentType.objects.get_for_model(target)
+        url = reverse("social:complete", kwargs={"backend": "email"})
+        for legacy in (False, True):
+            for index, pk in enumerate((str(target.pk), "missing")):
+                with self.subTest(legacy=legacy, pk=pk), mock.patch("tests.test_views.send_validation") as send_email:
+                    email = f"confirm{legacy}{index}@example.com"
+                    client, csrf_token = self.csrf_client()
+                    client.post(url, {"email": email, "csrfmiddlewaretoken": csrf_token})
+                    code = send_email.call_args.args[2]
+                    partial_token = send_email.call_args.args[3]
+                    probe = {
+                        "verification_code": code.code,
+                        "partial_token": partial_token,
+                        "pk": pk,
+                        "ctype": str(ctype.pk),
+                    }
+                    response = client.get(url, probe)
+                    self.assertTemplateUsed(response, "social_django/partial_pipeline_external_resume.html")
+                    if legacy:
+                        session = client.session
+                        session[PARTIAL_TOKEN_PENDING_REQUEST_SESSION_NAME] = probe
+                        session.save()
+                    context = response.context
+                    response = client.post(
+                        context["action_url"],
+                        {
+                            "csrfmiddlewaretoken": csrf_token,
+                            context["confirmation_parameter"]: context["confirmation_value"],
+                            context["confirmation_nonce_parameter"]: context["confirmation_nonce"],
+                        },
+                    )
+                    self.assertRedirects(response, "/done/", fetch_redirect_response=False)
+                    association = UserSocialAuth.objects.get(provider="email", uid=email)
+                    self.assertNotEqual(association.user_id, target.pk)
+                    self.assertEqual(int(client.session["_auth_user_id"]), association.user_id)
+                    self.assertTrue(Code.objects.get(pk=code.pk).verified)
+
+    def test_login_form_requires_post(self):
+        user = get_user_model()._default_manager.create_user(username="victim")
+        self.client.force_login(user)
+        url = reverse("social:complete", kwargs={"backend": "email"})
+        with mock.patch("tests.test_views.send_validation") as send_email:
+            response = self.client.get(url, {"email": "attacker@example.com"})
+        self.assertEqual(response.status_code, 405)
+        send_email.assert_not_called()
+        self.assertFalse(Partial.objects.exists())
+        self.assertFalse(UserSocialAuth.objects.filter(user=user).exists())
+
+    def test_login_form_requires_csrf_token(self):
+        url = reverse("social:complete", kwargs={"backend": "email"})
+        client, token = self.csrf_client()
+        with mock.patch("tests.test_views.send_validation") as send_email:
+            response = client.post(url, {"email": "confirm@example.com"})
+            self.assertEqual(response.status_code, 403)
+            send_email.assert_not_called()
+
+            response = client.post(
+                url,
+                {"email": "confirm@example.com", "csrfmiddlewaretoken": token},
+            )
+            self.assertRedirects(response, "/email-sent/", fetch_redirect_response=False)
+            send_email.assert_called_once()
+
+            code = send_email.call_args.args[2]
+            partial_token = send_email.call_args.args[3]
+            response = client.get(url, {"verification_code": code.code, "partial_token": partial_token})
+            self.assertTemplateUsed(response, "social_django/partial_pipeline_external_resume.html")
+            context = response.context
+            response = client.post(
+                context["action_url"],
+                {
+                    context["confirmation_parameter"]: context["confirmation_value"],
+                    context["confirmation_nonce_parameter"]: context["confirmation_nonce"],
+                },
+            )
+            self.assertRedirects(response, "/done/", fetch_redirect_response=False)
+            self.assertTrue(Code.objects.get(pk=code.pk).verified)
+
+    def test_authenticated_user_can_link_email_with_csrf_token(self):
+        user = get_user_model()._default_manager.create_user(username="existing")
+        client, token = self.csrf_client()
+        client.force_login(user)
+        url = reverse("social:complete", kwargs={"backend": "email"})
+        with mock.patch("tests.test_views.send_validation") as send_email:
+            response = client.post(
+                url,
+                {"email": "linked@example.com", "csrfmiddlewaretoken": token},
+            )
+            self.assertRedirects(response, "/email-sent/", fetch_redirect_response=False)
+            code = send_email.call_args.args[2]
+            partial_token = send_email.call_args.args[3]
+            response = client.get(
+                url,
+                {"verification_code": code.code, "partial_token": partial_token},
+            )
+            context = response.context
+            response = client.post(
+                context["action_url"],
+                {
+                    context["confirmation_parameter"]: context["confirmation_value"],
+                    context["confirmation_nonce_parameter"]: context["confirmation_nonce"],
+                },
+            )
+        self.assertRedirects(response, "/done/", fetch_redirect_response=False)
+        self.assertTrue(
+            UserSocialAuth.objects.filter(
+                user=user,
+                provider="email",
+                uid="linked@example.com",
+            ).exists()
+        )
+
+    @override_settings(SOCIAL_AUTH_PASSWORDLESS=False)
+    def test_existing_user_can_log_in_with_csrf_token(self):
+        user = get_user_model()._default_manager.create_user(username="existing")
+        UserSocialAuth.objects.create(
+            user=user,
+            provider="email",
+            uid="existing@example.com",
+            id_key="email",
+        )
+        client, token = self.csrf_client()
+        url = reverse("social:complete", kwargs={"backend": "email"})
+        with mock.patch("tests.test_views.send_validation") as send_email:
+            response = client.post(
+                url,
+                {"email": "existing@example.com", "csrfmiddlewaretoken": token},
+            )
+        send_email.assert_not_called()
+        self.assertRedirects(response, "/done/", fetch_redirect_response=False)
+        self.assertEqual(int(client.session["_auth_user_id"]), user.pk)
+
+    @override_settings(AUTHENTICATION_BACKENDS=("social_core.backends.username.UsernameAuth",))
+    def test_username_login_form_requires_post_and_csrf_token(self):
+        user = get_user_model()._default_manager.create_user(username="victim")
+        self.client.force_login(user)
+        url = reverse("social:complete", kwargs={"backend": "username"})
+        self.assertEqual(self.client.get(url, {"username": "attacker"}).status_code, 405)
+
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(user)
+        self.assertEqual(client.post(url, {"username": "attacker"}).status_code, 403)
+        self.assertFalse(Partial.objects.exists())
+        self.assertFalse(UserSocialAuth.objects.filter(user=user).exists())
+
     def test_confirmation_replays_code_without_resending_email(self):
         url = reverse("social:complete", kwargs={"backend": "email"})
         with mock.patch("tests.test_views.send_validation") as send_email:
@@ -89,13 +310,41 @@ class TestEmailConfirmation(TestCase):
             send_email.assert_called_once()
 
 
+@override_settings(
+    DEBUG=False,
+    SESSION_ENGINE="django.contrib.sessions.backends.signed_cookies",
+    SOCIAL_AUTH_FACEBOOK_KEY="1",
+    SOCIAL_AUTH_FACEBOOK_SECRET="2",  # ruff: ignore[hardcoded-password-func-arg]
+    SOCIAL_AUTH_LOGIN_ERROR_URL="/login-error/",
+)
+class TestOAuth2NonceClaim(TestCase):
+    def test_same_session_snapshot_cannot_exchange_state_twice(self):
+        first = Client()
+        begin_url = reverse("social:begin", kwargs={"backend": "facebook"})
+        start = first.post(begin_url)
+        self.assertEqual(start.status_code, 302)
+        state = parse_qs(urlsplit(start["Location"]).query)["state"][0]
+        second = Client()
+        second.cookies = first.cookies.copy()
+        complete_url = reverse("social:complete", kwargs={"backend": "facebook"})
+
+        with mock.patch("social_core.backends.base.BaseAuth.request") as provider_request:
+            provider_request.return_value.json.side_effect = [
+                {"access_token": "token"},
+                {"id": "facebook-user-123"},
+            ]
+            accepted = first.get(complete_url, {"code": "code", "state": state})
+            rejected = second.get(complete_url, {"code": "code", "state": state})
+
+        self.assertRedirects(accepted, "/accounts/profile/", fetch_redirect_response=False)
+        self.assertRedirects(rejected, "/login-error/", fetch_redirect_response=False)
+        self.assertEqual(provider_request.call_count, 2)
+        self.assertFalse(rejected.wsgi_request.user.is_authenticated)
+        self.assertFalse(Nonce.objects.exists())
+
+
 @override_settings(SOCIAL_AUTH_FACEBOOK_KEY="1", SOCIAL_AUTH_FACEBOOK_SECRET="2")  # ruff: ignore[hardcoded-password-func-arg]
 class TestViews(TestCase):
-    def setUp(self):
-        session = self.client.session
-        session["facebook_state"] = "1"
-        session.save()
-
     def test_begin_view(self):
         response = self.client.post(reverse("social:begin", kwargs={"backend": "facebook"}))
         self.assertEqual(response.status_code, 302)
@@ -129,14 +378,19 @@ class TestViews(TestCase):
 
     @mock.patch("social_core.backends.base.BaseAuth.request")
     def test_complete(self, mock_request):
+        client = Client(enforce_csrf_checks=True)
+        state = begin_facebook_login(client)
         url = reverse("social:complete", kwargs={"backend": "facebook"})
-        url += "?code=2&state=1"
-        mock_request.return_value.json.return_value = {"access_token": "123"}
+        url += f"?code=2&state={state}"
+        mock_request.return_value.json.side_effect = [
+            {"access_token": "123"},
+            {"id": "facebook-user-123"},
+        ]
         with mock.patch(
             "django.contrib.sessions.backends.base.SessionBase.set_expiry",
             side_effect=[OverflowError, None],
         ):
-            response = self.client.get(url)
+            response = client.get(url)
             self.assertEqual(response.status_code, 302)
             self.assertEqual(response.url, "/accounts/profile/")
 
@@ -165,6 +419,134 @@ class TestViews(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.url, "http://testserver/accounts/profile/")
         AbstractBaseUser.has_usable_password = hup
+
+    def test_disconnect_rejects_unconfigured_remaining_association(self):
+        user = get_user_model()._default_manager.create_user(username="passwordless")
+        working = UserSocialAuth.objects.create(user=user, provider="facebook", uid="working-facebook")
+        UserSocialAuth.objects.create(user=user, provider="removed-provider", uid="stale-provider")
+        self.client.force_login(user)
+
+        response = self.client.post(reverse("social:disconnect", kwargs={"backend": "facebook"}))
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(UserSocialAuth.objects.filter(pk=working.pk).exists())
+
+    @override_settings(
+        AUTHENTICATION_BACKENDS=(
+            "social_core.backends.facebook.FacebookOAuth2",
+            "social_core.backends.drip.DripOAuth",
+            "django.contrib.auth.backends.ModelBackend",
+        )
+    )
+    @mock.patch("social_core.backends.utils.BACKENDSCACHE", {})
+    def test_disconnect_rejects_association_only_remaining_association(self):
+        user = get_user_model()._default_manager.create_user(username="passwordless")
+        working = UserSocialAuth.objects.create(user=user, provider="facebook", uid="working-facebook")
+        self.assertFalse(user.has_usable_password())
+        self.client.force_login(user)
+
+        for individual in (False, True):
+            with self.subTest(individual=individual):
+                association_only = UserSocialAuth.objects.create(user=user, provider="drip", uid="association-only")
+                url_name = "social:disconnect_individual" if individual else "social:disconnect"
+                kwargs = {"backend": "facebook"}
+                if individual:
+                    kwargs["association_id"] = working.pk
+
+                response = self.client.post(reverse(url_name, kwargs=kwargs))
+
+                self.assertEqual(response.status_code, 403)
+                self.assertQuerySetEqual(user.social_auth.order_by("pk"), [working, association_only])
+
+                kwargs = {"backend": "drip"}
+                if individual:
+                    kwargs["association_id"] = association_only.pk
+                response = self.client.post(reverse(url_name, kwargs=kwargs))
+
+                self.assertEqual(response.status_code, 302)
+                self.assertQuerySetEqual(user.social_auth.all(), [working])
+
+    def test_disconnect_individual_zero_id_keeps_last_association(self):
+        user = get_user_model()._default_manager.create_user(username="passwordless")
+        association = UserSocialAuth.objects.create(user=user, provider="facebook", uid="working-facebook")
+        self.assertFalse(user.has_usable_password())
+        self.client.force_login(user)
+
+        for association_id, status in ((None, 403), (association.pk, 403), (0, 302)):
+            with self.subTest(association_id=association_id):
+                kwargs = {"backend": "facebook"}
+                url_name = "social:disconnect"
+                if association_id is not None:
+                    kwargs["association_id"] = association_id
+                    url_name = "social:disconnect_individual"
+                response = self.client.post(reverse(url_name, kwargs=kwargs))
+
+                self.assertEqual(response.status_code, status)
+                self.assertQuerySetEqual(user.social_auth.all(), [association])
+
+
+@override_settings(
+    DEBUG=False,
+    SOCIAL_AUTH_FACEBOOK_KEY="1",
+    SOCIAL_AUTH_FACEBOOK_SECRET="2",  # ruff: ignore[hardcoded-password-func-arg]
+    SOCIAL_AUTH_FACEBOOK_EXTRA_DATA=["expires", "expires_on"],
+    SOCIAL_AUTH_SESSION_EXPIRATION=True,
+    SOCIAL_AUTH_MAX_SESSION_LENGTH=3600,
+    SOCIAL_AUTH_LOGIN_ERROR_URL="/login-error/",
+)
+class TestSessionExpiration(TestCase):
+    def complete_login(self, field: str, expiry: int | str) -> tuple[Client, HttpResponse]:
+        client = Client(enforce_csrf_checks=True)
+        state = begin_facebook_login(client)
+        session = client.session
+        session["existing_data"] = "preserved"
+        session.save()
+        with mock.patch("social_core.backends.base.BaseAuth.request") as provider_request:
+            provider_request.return_value.json.side_effect = [
+                {"access_token": "123", field: expiry},
+                {"id": "facebook-expiry-user", field: expiry},
+            ]
+            response = client.get(
+                reverse("social:complete", kwargs={"backend": "facebook"}),
+                {"code": "2", "state": state},
+            )
+        return client, response
+
+    def test_invalid_expiry_does_not_authenticate(self):
+        for error_url in ("/login-error/", None):
+            for field in ("expires_in", "expires", "expires_on"):
+                for expiry in ("unknown", "", "3600.0"):
+                    with (
+                        self.subTest(error_url=error_url, field=field, expiry=expiry),
+                        override_settings(SOCIAL_AUTH_LOGIN_ERROR_URL=error_url),
+                        self.assertLogs("social", level="ERROR") as logs,
+                    ):
+                        client, response = self.complete_login(field, expiry)
+                        if error_url:
+                            self.assertRedirects(response, error_url, fetch_redirect_response=False)
+                        else:
+                            self.assertEqual(response.status_code, 500)
+                        self.assertIn("code=invalid_expiry", logs.output[0])
+                        self.assertFalse(response.wsgi_request.user.is_authenticated)
+                        self.assertNotIn("_auth_user_id", client.session)
+                        self.assertNotIn("social_auth_last_login_backend", client.session)
+                        self.assertEqual(client.session["existing_data"], "preserved")
+
+    def test_valid_expiry_respects_maximum(self):
+        client, response = self.complete_login("expires_in", 7200)
+
+        self.assertRedirects(response, "/accounts/profile/", fetch_redirect_response=False)
+        self.assertIn("_auth_user_id", client.session)
+        self.assertEqual(client.session.get_expiry_age(), 3600)
+        self.assertEqual(response.cookies[settings.SESSION_COOKIE_NAME]["max-age"], 3600)
+
+    @override_settings(SOCIAL_AUTH_SESSION_EXPIRATION=False)
+    def test_disabled_expiration_ignores_invalid_provider_expiry(self):
+        client, response = self.complete_login("expires_in", "unknown")
+
+        self.assertRedirects(response, "/accounts/profile/", fetch_redirect_response=False)
+        self.assertIn("_auth_user_id", client.session)
+        self.assertEqual(client.session.get_expiry_age(), 3600)
 
 
 class TestGetSessionTimeout(TestCase):
@@ -237,6 +619,114 @@ class TestGetSessionTimeout(TestCase):
     SOCIAL_AUTH_ENABLE_LAUNCH_BRIDGES=[LaunchBridge.APP, LaunchBridge.IDP],
 )
 class TestLaunchViews(TestCase):
+    @override_settings(
+        LOGIN_REDIRECT_URL="/welcome/",
+        SOCIAL_AUTH_ALLOWED_REDIRECT_HOSTS=["frontend.example.com:8443"],
+        SOCIAL_AUTH_MOCK_OIDC_ALLOWED_REDIRECT_HOSTS=["backend.example.com:9443"],
+    )
+    def test_launch_targets_require_exact_authority(self):
+        user = get_user_model()._default_manager.create_user(username="launch_authority")
+        cases = [
+            ("testserver", "https://testserver/dashboard", True),
+            ("testserver", "https://testserver:8443/dashboard", False),
+            ("testserver", "https://testserver:443/dashboard", False),
+            ("testserver", "https://user@testserver/dashboard", False),
+            ("testserver", "https://TESTSERVER/dashboard", False),
+            ("testserver:8443", "https://testserver:8443/dashboard", True),
+            ("testserver:8443", "https://testserver/dashboard", False),
+            ("testserver:8443", "https://testserver:9443/dashboard", False),
+            ("testserver", "https://frontend.example.com:8443/dashboard", True),
+            ("testserver", "https://frontend.example.com:9443/dashboard", False),
+            ("testserver", "https://backend.example.com:9443/dashboard", True),
+            ("testserver", "https://backend.example.com:8443/dashboard", False),
+        ]
+        for authenticated in (False, True):
+            if authenticated:
+                self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+            for bridge, parameter in (("idp_launch", "target_link_uri"), ("app_launch", "next")):
+                url = reverse(f"social:{bridge}", kwargs={"backend": "mock-oidc"})
+                for host, target, accepted in cases:
+                    with self.subTest(authenticated=authenticated, bridge=bridge, host=host, target=target):
+                        headers = {"Host": host, "Sec-Fetch-Site": "same-origin"}
+                        if bridge == "idp_launch":
+                            headers["Sec-Fetch-Site"] = "cross-site"
+                        response = self.client.get(
+                            url,
+                            {"iss": "https://idp.example.com", parameter: target},
+                            secure=True,
+                            headers=headers,
+                        )
+                        if authenticated:
+                            self.assertEqual(response.status_code, 302)
+                            self.assertEqual(response["Location"], target if accepted else "/welcome/")
+                        else:
+                            self.assertEqual(response.status_code, 200)
+                            self.assertEqual(response.context["params"].get("next"), target if accepted else None)
+                            self.assertContains(response, 'name="next"', count=1 if accepted else 0)
+                            self.assertContains(response, f'value="{target}"', count=1 if accepted else 0)
+
+    @override_settings(ROOT_URLCONF=LaunchRedirectURLConf)
+    def test_authenticated_launch_targets_are_literal_urls(self):
+        user = get_user_model()._default_manager.create_user(username="literal_target")
+        self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+        self.assertEqual(reverse("dashboard"), "/welcome/")
+        for bridge, parameter in (("idp_launch", "target_link_uri"), ("app_launch", "next")):
+            url = reverse(f"social:{bridge}", kwargs={"backend": "mock-oidc"})
+            for target in ("unknown", "dashboard", "?tab=x", "#top", "/dashboard"):
+                with self.subTest(bridge=bridge, target=target):
+                    response = self.client.get(
+                        url,
+                        {"iss": "https://idp.example.com", parameter: target},
+                        headers={"sec-fetch-site": "same-origin"},
+                    )
+                    self.assertEqual(response.status_code, 302)
+                    self.assertEqual(response["Location"], target)
+
+    @override_settings(LOGIN_REDIRECT_URL="admin:index")
+    def test_authenticated_launch_fallback_resolves_url_name(self):
+        user = get_user_model()._default_manager.create_user(username="named_fallback")
+        self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+        for bridge, parameter in (("idp_launch", "target_link_uri"), ("app_launch", "next")):
+            url = reverse(f"social:{bridge}", kwargs={"backend": "mock-oidc"})
+            for target in (None, "", "https://evil.example/phishing"):
+                with self.subTest(bridge=bridge, target=target):
+                    params = {"iss": "https://idp.example.com"}
+                    if target is not None:
+                        params[parameter] = target
+                    response = self.client.get(url, params, headers={"sec-fetch-site": "same-origin"})
+                    self.assertEqual(response.status_code, 302)
+                    self.assertEqual(response["Location"], "/admin/")
+
+    @override_settings(
+        LOGIN_REDIRECT_URL="nonexistent-route",
+        SOCIAL_AUTH_ALLOWED_REDIRECT_HOSTS=["frontend.example.com"],
+    )
+    def test_authenticated_launch_explicit_target_skips_fallback_resolution(self):
+        user = get_user_model()._default_manager.create_user(username="explicit_target")
+        self.client.force_login(user, backend="django.contrib.auth.backends.ModelBackend")
+        for bridge, parameter in (("idp_launch", "target_link_uri"), ("app_launch", "next")):
+            url = reverse(f"social:{bridge}", kwargs={"backend": "mock-oidc"})
+            for target in ("dashboard", "https://frontend.example.com/portal"):
+                with self.subTest(bridge=bridge, target=target):
+                    response = self.client.get(
+                        url,
+                        {"iss": "https://idp.example.com", parameter: target},
+                        headers={"sec-fetch-site": "same-origin"},
+                    )
+                    self.assertEqual(response.status_code, 302)
+                    self.assertEqual(response["Location"], target)
+
+    def test_anonymous_launch_preserves_relative_target(self):
+        for bridge, parameter in (("idp_launch", "target_link_uri"), ("app_launch", "next")):
+            with self.subTest(bridge=bridge):
+                url = reverse(f"social:{bridge}", kwargs={"backend": "mock-oidc"})
+                response = self.client.get(
+                    url,
+                    {"iss": "https://idp.example.com", parameter: "dashboard"},
+                    headers={"sec-fetch-site": "same-origin"},
+                )
+                self.assertContains(response, 'name="next" value="dashboard"')
+
     def test_idp_launch_renders_form(self):
         url = reverse("social:idp_launch", kwargs={"backend": "mock-oidc"})
         response = self.client.get(url, {"iss": "https://idp.example.com"})
@@ -546,3 +1036,65 @@ class TestLaunchViews(TestCase):
         app_url = reverse("social:app_launch", kwargs={"backend": "mock-oidc"})
         self.assertEqual(self.client.get(idp_url, {"iss": "https://idp.example.com"}).status_code, 200)
         self.assertEqual(self.client.get(app_url, headers={"sec-fetch-site": "same-origin"}).status_code, 404)
+
+
+@override_settings(
+    DEBUG=False,
+    AUTHENTICATION_BACKENDS=("social_core.backends.discourse.DiscourseAuth",),
+    SOCIAL_AUTH_DISCOURSE_SERVER_URL="https://forum.example.com",
+    SOCIAL_AUTH_DISCOURSE_SECRET="discourse-test-secret",  # ruff: ignore[hardcoded-password-func-arg]
+    LOGIN_REDIRECT_URL="/done/",
+)
+class TestDiscourseCallback(TestCase):
+    def signed_callback(self, **data: str) -> str:
+        payload = urlsafe_b64encode(urlencode(data).encode()).decode()
+        signature = hmac.new(b"discourse-test-secret", payload.encode(), sha256).hexdigest()
+        url = reverse("social:complete", kwargs={"backend": "discourse"})
+        return url + "?" + urlencode({"sso": payload, "sig": signature})
+
+    def complete_login(self) -> str:
+        response = self.client.post(reverse("social:begin", kwargs={"backend": "discourse"}))
+        self.assertEqual(response.status_code, 302)
+        query = parse_qs(urlsplit(response.url).query)
+        request = parse_qs(urlsafe_b64decode(query["sso"][0]).decode())
+        callback = self.signed_callback(
+            nonce=request["nonce"][0], external_id="42", username="member42", email="member42@example.com"
+        )
+        response = self.client.get(callback)
+        self.assertRedirects(response, "/done/", fetch_redirect_response=False)
+        self.assertIn("_auth_user_id", self.client.session)
+        self.assertEqual(UserSocialAuth.objects.get().uid, "42")
+        self.assertFalse(Nonce.objects.exists())
+        return callback
+
+    def test_reused_callback_returns_authentication_error(self) -> None:
+        callback = self.complete_login()
+        client = Client()
+        response = client.get(callback)
+        self.assertEqual(response.status_code, 403)
+        self.assertTemplateUsed(response, "social_django/error.html")
+        self.assertEqual(response.context["error_stage"], "callback")
+        self.assertNotIn("_auth_user_id", client.session)
+        self.assertEqual(get_user_model().objects.count(), 1)
+        self.assertEqual(UserSocialAuth.objects.count(), 1)
+
+    def test_callback_from_other_session_cannot_link_account(self) -> None:
+        attacker = Client()
+        response = attacker.post(reverse("social:begin", kwargs={"backend": "discourse"}))
+        self.assertEqual(response.status_code, 302)
+        query = parse_qs(urlsplit(response.url).query)
+        nonce = parse_qs(urlsafe_b64decode(query["sso"][0]).decode())["nonce"][0]
+        callback = self.signed_callback(nonce=nonce, external_id="42", username="attacker")
+
+        victim = get_user_model().objects.create_user(username="victim")
+        victim_client = Client()
+        victim_client.force_login(victim)
+        response = victim_client.get(callback)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.context["error_code"], "session_context_missing")
+        self.assertFalse(UserSocialAuth.objects.exists())
+
+        response = attacker.get(callback)
+        self.assertRedirects(response, "/done/", fetch_redirect_response=False)
+        self.assertEqual(UserSocialAuth.objects.get().uid, "42")
+        self.assertNotEqual(UserSocialAuth.objects.get().user_id, victim.pk)

@@ -77,7 +77,7 @@ def sync(
     json_body: OligosBulkCreateRequest,
 ) -> Optional[Union[AsyncTaskLink, BadRequestError]]:
     """Bulk Create DNA Oligos
-    Please migrate to [Bulk Create DNA Oligos](#/DNA%20Oligos/bulkCreateDNAOligos) so that we can support RNA Oligos.
+    Please migrate to [Bulk Create DNA Oligos](https://docs.benchling.com/docs/api/v2/benchling-api/dna-oligos/bulk-create-dna-oligos) so that we can support RNA Oligos.
     """
 
     return sync_detailed(
@@ -108,7 +108,7 @@ async def asyncio(
     json_body: OligosBulkCreateRequest,
 ) -> Optional[Union[AsyncTaskLink, BadRequestError]]:
     """Bulk Create DNA Oligos
-    Please migrate to [Bulk Create DNA Oligos](#/DNA%20Oligos/bulkCreateDNAOligos) so that we can support RNA Oligos.
+    Please migrate to [Bulk Create DNA Oligos](https://docs.benchling.com/docs/api/v2/benchling-api/dna-oligos/bulk-create-dna-oligos) so that we can support RNA Oligos.
     """
 
     return (

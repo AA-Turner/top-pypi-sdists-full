@@ -228,6 +228,75 @@ def test_shared_token_anchor_preserves_model_vocabulary(payload):
     assert redaction.default_scrub(payload) == payload
 
 
+@pytest.mark.parametrize('text', [
+    '{"glossary": [{"term": "Token"}, {"term": "Amazon US"}]}',
+    '{"glossary": [{"term": "NPM TOKEN"}, {"term": "Seibert"}]}',
+    '[{"term": "API key"}, {"term": "aB3dE5fG7hJ9kL1mN2pQ"}]',
+    '{"input": "Forgot password should","output": "Forgot password should be easy to find."}',
+    "{'input': 'set the current password as', 'output': 'Because I remember setting it'}",
+    '{"tags": ["token"], "output": "Click Reset2 to set a new one"}',
+    '{"input": "I forgot the password for the db", "output": "Reset it at Reset2"}',
+    '{"term": "Token for login", "notes": "Anmelde aB3dE5fG7hJ9kL1mN2pQ"}',
+    'env: [{name: "Password for DB", valueFrom: {secretKeyRef: {name: aB3dE5fG7hJ9kL1mN2pQ}}}]',
+    '{"label": "Reset password"\n, "id": "aB3dE5fG7hJ9kL1mN2pQ"}',
+    'description = "rotate the token"\n\n,  next_field = "aB3dE5fG7hJ9kL1mN2pQ"',
+])
+def test_anchor_word_inside_a_value_never_anchors_the_next_key(text):
+    """A dictation glossary holds "Token" as a value, a transcript says
+    "password"; the `:` after the NEXT key, or on the next line, is not
+    their separator."""
+    from probe.tap_core.secrets import redact, scan, scan_quick
+    assert scan(text) == [] and scan_quick(text) == []
+    assert redact(text)[0] == text
+
+
+SECRET = 'Xq7vR2mK9pL4sT8wZ3nB6yC1'
+
+
+@pytest.mark.parametrize('text', [
+    '{"term": "Token"}, {"api_token": "%s"}' % SECRET,
+    '{"name": "deploy", "api_token": "%s"}' % SECRET,
+    '{"name": "api_token", "value": "%s"}' % SECRET,
+    '{"environment": [{"name": "DB_PASSWORD_PROD", "value": "%s"}]}' % SECRET,
+    '{"name": "SECRET_KEY_BASE", "value": "%s"}' % SECRET,
+    '{"name":"STRIPE_API_KEY_LIVE","value":"%s"}' % SECRET,
+    '{"key": "API_TOKEN-dev", "value": "%s"}' % SECRET,
+    '{"Name": "/prod/db/password-v2", "Value": "%s"}' % SECRET,
+    "{'name': 'db_password_main', 'value': '%s'}" % SECRET,
+    '{"name": "password ", "value": "%s"}' % SECRET,
+    '{"${DB_PASSWORD}": "%s"}' % SECRET,
+    'os.environ["API_KEY"] = "%s"' % SECRET,
+    '{"name": "Password for DB", "value": "%s"}' % SECRET,
+    '{"Key": "Password for root", "Value": "%s"}' % SECRET,
+    '{"name": "Password - prod", "value": "%s"}' % SECRET,
+    '{"label": "Stripe secret key (live)", "value": "%s"}' % SECRET,
+    '{"fields": [{"name": "Secret 2", "value": "%s"}]}' % SECRET,
+    '{"name": "API Key (prod)", "value": "%s"}' % SECRET,
+    '{"name": "<api_key>", "value": "%s"}' % SECRET,
+    '{"name": "API_TOKEN staging", "secret": "%s"}' % SECRET,
+    '{"name": "Password for DB", "data": "%s"}' % SECRET,
+    '{"label": "Client Secret (prod)", "val": "%s"}' % SECRET,
+    '{"name": "API Key (prod)", "defaultValue": "%s"}' % SECRET,
+    '{"Name": "Auth Token v2", "StringValue": "%s"}' % SECRET,
+    '{"tags": ["API key (prod)"], "value": "%s"}' % SECRET,
+    'const env = [{ name: "API Key (prod)", value: "%s" }];' % SECRET,
+    "{ name: 'Password for DB', value: '%s' }" % SECRET,
+    '- {name: "API Token (prod)", value: %s}' % SECRET,
+    'env = [{ name = "API Token for prod", value = "%s" }]' % SECRET,
+    'client.create_secret("Password for DB", value="%s")' % SECRET,
+    '{"name": "Password for DB", value: "%s"}' % SECRET,
+])
+def test_a_named_credential_is_still_redacted(text):
+    """The name may run on past the anchor (`_PROD`, `-dev`, `}`) before its
+    string closes; that `",` belongs to the credential's own pair. A label
+    with words or brackets after the anchor (a password manager's custom
+    field, an AWS tag) closes into a value slot, in JSON, JS, YAML flow,
+    HCL or a call's keyword arguments."""
+    from probe.tap_core.secrets import redact, scan, scan_quick
+    assert scan(text) and scan_quick(text)
+    assert SECRET not in redact(text)[0]
+
+
 @pytest.mark.parametrize('text', ['password=hunter2', 'password=hunter', 'password="abc"'])
 def test_shared_explicit_password_catches_short_values(text):
     from probe.tap_core.secrets import redact

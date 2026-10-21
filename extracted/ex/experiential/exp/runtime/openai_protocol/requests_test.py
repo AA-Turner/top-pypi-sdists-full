@@ -3485,6 +3485,53 @@ def test_non_default_values_of_accepted_no_op_fields_stay_named_rejections(
     assert fragment in captured.value.detail.message
 
 
+def test_responses_prompt_cache_ttl_decodes_twelve_hours_and_accepts_the_default() -> None:
+    """``"12h"`` lands on the carrier; ``"30m"`` and an omitted mode are already satisfied.
+
+    OpenAI (https://developers.openai.com/api/docs/guides/prompt-caching): "In
+    the Responses API, set prompt_cache_options.ttl to choose the minimum cache
+    lifetime", "30m" (default) or "12h"; "Unsupported values return 400".
+    """
+    twelve = decode_responses(
+        {"model": "coding", "input": "x", "prompt_cache_options": {"ttl": "12h"}}
+    )
+    assert twelve.request.prompt_cache_ttl == "12h"
+    assert twelve.request.ignored_parameters == ()
+    # A cost hint, never identity or serialized request state.
+    assert "prompt_cache_ttl" not in twelve.request.model_dump(mode="json")
+    plain = decode_responses({"model": "coding", "input": "x"})
+    assert canonical_request_sha256(twelve.request) == canonical_request_sha256(plain.request)
+    for options in ({"ttl": "30m"}, {"mode": "implicit", "ttl": "30m"}, {}):
+        default = decode_responses(
+            {"model": "coding", "input": "x", "prompt_cache_options": options}
+        )
+        assert default.request.prompt_cache_ttl is None
+    both = decode_responses(
+        {
+            "model": "coding",
+            "input": "x",
+            "prompt_cache_options": {"mode": "implicit", "ttl": "12h"},
+        }
+    )
+    assert both.request.prompt_cache_ttl == "12h"
+    with pytest.raises(OpenAIProtocolError) as captured:
+        decode_responses({"model": "coding", "input": "x", "prompt_cache_options": {"ttl": "1h"}})
+    assert captured.value.detail.param == "prompt_cache_options.ttl"
+
+
+def test_chat_prompt_cache_options_stay_refused() -> None:
+    """OpenAI's Chat Completions answers 400 for ``ttl: "12h"`` (probed 2026-10-20)."""
+    with pytest.raises(OpenAIProtocolError) as captured:
+        decode_chat(
+            {
+                "model": "coding",
+                "messages": [{"role": "user", "content": "x"}],
+                "prompt_cache_options": {"ttl": "12h"},
+            }
+        )
+    assert captured.value.detail.param == "prompt_cache_options"
+
+
 def test_service_tier_decodes_on_both_openai_surfaces_and_rejects_unknown_values() -> None:
     """Valid tiers land on the carrier; Fast normalizes before provider forwarding."""
     chat = decode_chat(
@@ -5346,18 +5393,74 @@ def test_chat_accepts_max_output_tokens_without_losing_the_ceiling(limit: int) -
     assert request.maximum_output_tokens_parameter == "max_output_tokens"
 
 
-@pytest.mark.parametrize("other", ("max_tokens", "max_completion_tokens"))
-def test_chat_output_limit_spellings_cannot_override_each_other(other: str) -> None:
-    """Reject ambiguous ceilings rather than increasing a caller's bound."""
-    with pytest.raises(OpenAIProtocolError):
-        decode_chat(
-            {
-                "model": "coding",
-                "messages": [{"role": "user", "content": "hi"}],
-                "max_output_tokens": 128,
-                other: 256,
-            }
-        )
+def _decode_chat_limits(**limits: JsonValue) -> GatewayRequest:
+    """Decode a minimal Chat request carrying the given output-limit fields."""
+    body: JsonObject = {"model": "coding", "messages": [{"role": "user", "content": "hi"}]}
+    return decode_chat({**body, **limits}).request
+
+
+def test_chat_equal_max_tokens_and_max_completion_tokens_serve_with_disclosure() -> None:
+    """UnityWebRequest, node, AsyncOpenAI and opencode send both spellings, usually equal.
+
+    A 400 failed ~110 such requests a day (2026-10); OpenAI and OpenRouter
+    define neither field as exclusive of the other.
+    """
+    request = _decode_chat_limits(max_tokens=4096, max_completion_tokens=4096)
+    assert request.maximum_output_tokens == 4096
+    assert request.maximum_output_tokens_parameter == "max_completion_tokens"
+    assert request.ignored_parameters == (
+        "max_tokens->ignored(superseded_by_max_completion_tokens)",
+    )
+
+
+@pytest.mark.parametrize(
+    ("limits", "cap", "winner"),
+    (
+        ({"max_tokens": 256, "max_completion_tokens": 1024}, 256, "max_tokens"),
+        ({"max_tokens": 1024, "max_completion_tokens": 256}, 256, "max_completion_tokens"),
+        ({"max_output_tokens": 128, "max_tokens": 256}, 128, "max_output_tokens"),
+        ({"max_output_tokens": 512, "max_completion_tokens": 64}, 64, "max_completion_tokens"),
+    ),
+)
+def test_chat_different_output_limits_serve_at_the_smallest(
+    limits: dict[str, int], cap: int, winner: str
+) -> None:
+    """No spelling can raise the bound another one set: the smallest value is the cap."""
+    request = _decode_chat_limits(**limits)
+    assert request.maximum_output_tokens == cap
+    assert request.maximum_output_tokens_parameter == winner
+    (loser,) = (field for field in limits if field != winner)
+    assert request.ignored_parameters == (f"{loser}->ignored(superseded_by_{winner})",)
+
+
+def test_chat_all_three_output_limits_serve_at_the_smallest() -> None:
+    """All three spellings together keep the smallest and disclose the other two."""
+    request = _decode_chat_limits(max_tokens=300, max_completion_tokens=200, max_output_tokens=200)
+    assert request.maximum_output_tokens == 200
+    assert request.maximum_output_tokens_parameter == "max_completion_tokens"
+    assert request.ignored_parameters == (
+        "max_tokens->ignored(superseded_by_max_completion_tokens)",
+        "max_output_tokens->ignored(superseded_by_max_completion_tokens)",
+    )
+
+
+@pytest.mark.parametrize(
+    ("limits", "param"),
+    (
+        ({"max_tokens": 0, "max_completion_tokens": 256}, "max_tokens"),
+        ({"max_tokens": 256, "max_completion_tokens": -1}, "max_completion_tokens"),
+        ({"max_tokens": 256, "max_output_tokens": "256"}, "max_output_tokens"),
+        ({"max_completion_tokens": 256, "max_output_tokens": 1.5}, "max_output_tokens"),
+    ),
+)
+def test_chat_invalid_output_limit_beside_another_is_still_refused(
+    limits: dict[str, JsonValue], param: str
+) -> None:
+    """Leniency covers only valid duplicates: a non-positive or mistyped value is named."""
+    with pytest.raises(OpenAIProtocolError) as error:
+        _decode_chat_limits(**limits)
+    assert error.value.detail.param == param
+    assert "mutually exclusive" not in error.value.detail.message
 
 
 def test_responses_web_search_sources_selector_is_honored() -> None:

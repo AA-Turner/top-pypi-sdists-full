@@ -148,7 +148,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launches a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launches a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains a [finalized bulk assembly](#components/schemas/Assembly).
@@ -178,7 +178,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AsyncTaskLink'
-          description: 'This endpoint launched a [long-running task](#/Tasks/getTask)
+          description: 'This endpoint launched a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
             and returns the Task ID of the launched task.
 
             The task response contains a set of [validation results](#components/schemas/AssemblyValidationResult).
@@ -1722,7 +1722,7 @@ paths:
     get:
       deprecated: true
       description: 'Returns information about collaborations on the specified project.
-        Collaboration endpoints are moving to beta. Visit the [beta v2 docs](https://benchling.com/api/v2-beta/reference?showLA=true#/Projects).
+        Collaboration endpoints are moving to beta. Visit the [beta v2 docs](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/projects/list-project-collaborations).
 
         '
       operationId: listProjectCollaborations
@@ -3667,7 +3667,7 @@ components:
           description: 'Registry ID into which entity should be registered. this is
             the ID of the registry which was configured for a particular organization
 
-            To get available registryIds, use the [/registries endpoint](#/Registry/listRegistries)
+            To get available registryIds, use the [/registries endpoint](https://docs.benchling.com/docs/api/v2/benchling-api/registry/list-registries)
 
 
             Required in order for entities to be created directly in the registry.

@@ -1838,6 +1838,25 @@ contains
         call check(g%num_points() == 0_int64, 'an empty grid has no points')
         call g%free()
 
+        ! The parametric generators: a quadratic tetrahedral box, a sphere with a
+        ! quad body and triangle caps, and an unknown cell type refused by name.
+        g = mio_box(dims=[2, 2, 2], cell_type='tetra', order=2, stat=ierr)
+        call check(ierr == 0, 'box built')
+        call check(g%num_cell_blocks() == 1_int64, 'box has one block')
+        call g%free()
+        g = mio_uv_sphere(nu=8, nv=4, cell_type='quad', stat=ierr)
+        call check(ierr == 0, 'uv sphere built')
+        call check(g%num_cell_blocks() == 2_int64, 'quad sphere has a body and caps')
+        call g%free()
+        g = mio_icosa_sphere(subdivisions=1, stat=ierr)
+        call check(ierr == 0 .and. g%num_points() == 42_int64, 'icosa sphere has 42 points')
+        call g%free()
+        g = mio_reference_cells(types='tetra,wedge', stat=ierr)
+        call check(ierr == 0 .and. g%num_cell_blocks() == 2_int64, 'two reference cells')
+        call g%free()
+        g = mio_box(cell_type='blob', stat=ierr)
+        call check(ierr /= 0, 'an unknown cell type is an error')
+
         ! The unit cube as a closed, outward-wound triangle surface.
         pts = reshape([0d0, 0d0, 0d0, 1d0, 0d0, 0d0, 1d0, 1d0, 0d0, 0d0, 1d0, 0d0, &
                        0d0, 0d0, 1d0, 1d0, 0d0, 1d0, 1d0, 1d0, 1d0, 0d0, 1d0, 1d0], [3, 8])
@@ -1874,6 +1893,25 @@ contains
         call check(ierr == 0, 'voxelize inside ran')
         call check(occupied == 27_int64, 'voxelize inside kept the 27 interior cells')
         call vox%free()
+
+        ! An octree around the cube: fine only where the cube's skin is.
+        vox = cube%octree(max_level=3_int64, &
+                          bounds=[-0.5d0, -0.5d0, -0.5d0, 1.5d0, 1.5d0, 1.5d0], &
+                          fill='inside', watertight_check='off', &
+                          num_leaves=occupied, finest_level=depth, stat=ierr)
+        call check(ierr == 0, 'octree ran')
+        call check(occupied > 0_int64, 'octree inside kept leaves')
+        call check(depth == 3_int64, 'octree reached its finest level')
+        call vox%free()
+        vox = cube%octree(balance='diagonal', stat=ierr)
+        call check(ierr /= 0, 'an unknown balance is refused')
+        vox = cube%octree(max_level=3_int64, transition='templates', &
+                          bounds=[-0.5d0, -0.5d0, -0.5d0, 1.5d0, 1.5d0, 1.5d0], &
+                          num_leaves=occupied, stat=ierr)
+        call check(ierr == 0, 'octree with the templates transition ran')
+        call vox%free()
+        vox = cube%octree(transition='wedges', stat=ierr)
+        call check(ierr /= 0, 'an unknown transition is refused')
 
         ! An unknown fill fails by name rather than silently defaulting.
         vox = cube%voxelize(resolution=[2, 2, 2], fill='solid', stat=ierr)
@@ -2103,7 +2141,7 @@ contains
         integer(int64) :: nfeat, nbound, nfixed, npatch, nplane, nfaces
         integer(int64) :: nsplit, nfillet, nhelical, nvarfillet, nblend, nrounded
         integer(int64) :: nvertex, nchamfer, nconic, ntapered, nvarpitch
-        logical :: cad_valid
+        logical :: cad_valid, used_native
         character(:), allocatable :: msg
         integer(int64), allocatable :: s_ids(:), m_ids(:)
         integer :: ierr
@@ -2151,12 +2189,15 @@ contains
         call fitted%free()
         call seg%free()
 
-        ! fit_cad: six exact planes with OpenCASCADE, the flag named without.
-        solid = sq%fit_cad(valid=cad_valid, num_faces=nfaces, stat=ierr, errmsg=msg)
+        ! fit_cad: six exact planes with OpenCASCADE. Without it the automatic
+        ! backend is the native one, and backend='occt' names the flag.
+        solid = sq%fit_cad(valid=cad_valid, num_faces=nfaces, used_native=used_native, &
+                           stat=ierr, errmsg=msg)
         if (mio_has_occt()) then
             call check(ierr == 0, 'fit_cad succeeded')
             call check(cad_valid, 'the cube solid is valid')
             call check(nfaces == 6_int64, 'the cube solid has 6 faces')
+            call check(.not. used_native, 'the automatic backend is OCCT')
             call solid%free()
             solid = sq%fit_cad(freeform_split=.false., fillets=.false., threads=.false., &
                                num_faces=nfaces, num_split_patches=nsplit, &
@@ -2177,8 +2218,13 @@ contains
                        'a cube has no vertex blend, chamfer, conic blend or tapered thread')
             call solid%free()
         else
-            call check(ierr /= 0, 'fit_cad fails without OpenCASCADE')
-            call check(index(msg, 'MESHIOPLUSPLUS_WITH_OCCT') > 0, 'fit_cad names the flag')
+            call check(ierr == 0, 'fit_cad falls back to the native backend')
+            call check(used_native, 'the fallback is reported as native')
+            call check(nfaces == 6_int64, 'the native backend still finds six faces')
+            call solid%free()
+            solid = sq%fit_cad(backend='occt', stat=ierr, errmsg=msg)
+            call check(ierr /= 0, 'backend occt fails without OpenCASCADE')
+            call check(index(msg, 'MESHIOPLUSPLUS_WITH_OCCT') > 0, 'backend occt names the flag')
         end if
         bad = sq%segment(feature_angle=200.0_real64, stat=ierr)
         call check(ierr /= 0, 'segment rejects an angle above 180')

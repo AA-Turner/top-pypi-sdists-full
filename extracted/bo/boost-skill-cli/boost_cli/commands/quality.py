@@ -38,7 +38,9 @@ from ..core import (
     lockfile,
     logs,
     paths,
+    policy,
     prereq,
+    projectlock,
     provenance,
     registry,
     report,
@@ -50,7 +52,14 @@ from ..core import (
 from ..core import output as out
 from ..core import rules as rule_blocks
 from ..errors import BoostError
-from ._common import _iter_installed, _iter_installed_all, _require_lock_integrity, _s
+from ._common import (
+    _iter_installed,
+    _iter_installed_all,
+    _iter_installed_rows,
+    _require_lock_integrity,
+    _s,
+    row_dir,
+)
 
 # How many rows the unwritten-materializations note spells out before it
 # summarises. The note exists to be read in one glance; a lock with one
@@ -212,7 +221,9 @@ def _broken_links() -> tuple[list[Path], list[Path]]:
     """
     ours: list[Path] = []
     theirs: list[Path] = []
-    for adir in agents.unlinking_agents().values():
+    # Former dirs too (`agents.sweep_dirs`): repointing an agent's dir left
+    # every link made under the old one unreachable by any other check.
+    for adir in agents.sweep_dirs():
         # ``os.path``: ``Path.is_dir`` raises under a dotdir with no search
         # bit on Python 3.12 and 3.13, and doctor and heal exited 70 there.
         if not os.path.isdir(adir):  # noqa: FURB146
@@ -242,10 +253,19 @@ def _drift_status(name: str, entry: dict) -> str:
         # Kept in the store itself: an edit there is the skill, not drift.
         return staleness.NA
     store_sha = util.sha256_dir(sdir) if sdir.is_dir() else None
+    return _drift_from_copy(name, entry, store_sha)
+
+
+def _drift_from_copy(name: str, entry: dict, copy_sha: str | None) -> str:
+    """:func:`staleness.drift_state` for an installed copy hashing to ``copy_sha``.
+
+    The tap source is only read once the copy matches the lock, so a missing
+    or edited copy never costs a materialization.
+    """
     is_local = entry.get("tap") == "local"
     lock_sha = entry.get("sha256", "")
     source_sha = None
-    if store_sha is not None and store_sha == lock_sha and not is_local:
+    if copy_sha is not None and copy_sha == lock_sha and not is_local:
         try:
             src = store.source_dir_for(
                 {"name": name, "tap": entry.get("tap", ""),
@@ -254,7 +274,26 @@ def _drift_status(name: str, entry: dict) -> str:
             source_sha = None
         else:
             source_sha = util.sha256_dir(src)
-    return staleness.drift_state(store_sha, lock_sha, is_local, source_sha)
+    return staleness.drift_state(copy_sha, lock_sha, is_local, source_sha)
+
+
+def _drift_status_project(name: str, entry: dict, base: Path) -> str:
+    """:func:`_drift_status` for a skill installed ``--local`` into ``base``.
+
+    Its copies are judged the way ``verify`` judges them
+    (:func:`integrity.project_status`, every copy hashed), so an edit to any
+    one is local edits and a deleted row is a missing copy; only then is the
+    tap compared, over the same vocabulary as a user-scope row.
+    """
+    st = integrity.project_status(entry, base)
+    if st == integrity.STATUS_MISSING:
+        return staleness.STORE_MISSING
+    if st == integrity.STATUS_MODIFIED:
+        return staleness.LOCAL_EDITS
+    d = integrity.project_skill_dir(entry, base)
+    copy_sha = (entry.get("sha256", "") if st == integrity.STATUS_OK
+                else util.sha256_dir(d) if d is not None else None)
+    return _drift_from_copy(name, entry, copy_sha)
 
 
 def _drift_status_materialized(kind: str, name: str, entry: dict) -> str:
@@ -280,6 +319,10 @@ def _drift_status_materialized(kind: str, name: str, entry: dict) -> str:
         return "store-missing"
     if st == integrity.STATUS_MODIFIED:
         return "local-edits"
+    if st == integrity.STATUS_OUTDATED:
+        # Before the tap comparison, which matches the lock's new digest and
+        # would call an agent still holding the old copy in sync.
+        return "outdated"
     if st == integrity.STATUS_UNREACHABLE:
         # Before the tap comparison below, which would otherwise launder an
         # item that reaches no agent into "in-sync" on the strength of a
@@ -306,10 +349,11 @@ _DRIFT_ROLE = {"in-sync": "success", "local-edits": "warn",
                "upstream-moved": "accent", "source-missing": "danger",
                "store-missing": "danger", "n/a": "muted",
                "quarantined": "muted", "unreachable": "warn",
-               "stranded": "danger"}
+               "stranded": "danger", "outdated": "warn"}
 
 
-def _drift_hint(name: str, status: str, tap: str = "") -> str:
+def _drift_hint(name: str, status: str, tap: str = "",
+                tap_url: str = "") -> str:
     if status == "quarantined":
         return "boost quarantine --release %s to restore" % name
     if status == "upstream-moved":
@@ -320,9 +364,13 @@ def _drift_hint(name: str, status: str, tap: str = "") -> str:
         # `boost update` only refreshes configured taps. When the entry's
         # tap has been untapped, that command is a guaranteed no-op — the
         # only remedy that can actually restore the source is re-tapping it.
-        return "boost update" if registry.is_tapped(tap) else "boost tap %s" % tap
+        # The name is not a spec, so the hint re-taps the recorded source.
+        return ("boost update" if registry.is_tapped(tap)
+                else registry.retap_hint(tap, tap_url))
     if status == "store-missing":
         return "boost heal"
+    if status == "outdated":
+        return "boost sync"
     if status == "stranded":
         # The record is the fault: uninstall drives off its rows and creates
         # nothing, where heal/sync/reinstall would recreate the deleted repo.
@@ -536,6 +584,14 @@ def cmd_doctor(argv):
                     "is" if len(clones) == 1 else "are"))
                 if clones else "no taps or settings are read"), wrap=True)
 
+    # Same for policy.json: unreadable, it reads as defaults, and the
+    # verdict was "healthy" while every rule in it went unenforced.
+    pol_err = policy.check()
+    if pol_err:
+        bad("policy", "%s — every install is refused until it is repaired; "
+            "the next `boost policy set` moves it aside to policy.json.corrupt"
+            % pol_err, wrap=True)
+
     # One agent whose `dir` names an unset `${VAR}` makes `known_agents` raise,
     # and a dozen checks below reach it — the link loop, the materialization
     # checks, the broken-link sweep, duplicate discovery, the agent-dir checks.
@@ -584,6 +640,8 @@ def cmd_doctor(argv):
     for tap in taps:
         if not tap.is_cloned:
             bad("tap", "tap %s not cloned — run `boost update`" % tap.name)
+        elif tap.is_broken_clone:
+            bad("tap", registry.broken_clone_line(tap.name), wrap=True)
         elif not tap.cache_file.exists():
             bad("tap", "tap %s has no catalog cache — run `boost update %s`%s"
                 % (tap.name, tap.name, " once %s is %s"
@@ -722,9 +780,8 @@ def cmd_doctor(argv):
             continue
         # tamper detection: the lock file records a sha256 at install time, but
         # only `boost verify` ever re-checked it — surface content drift here too.
-        locked = entry.get("sha256")
-        if (locked and not integrity.self_sourced(name, entry)
-                and util.sha256_dir(sdir) != locked):
+        # `integrity.skill_modified` is the test `boost_doctor` asks too.
+        if integrity.skill_modified(name, entry):
             bad("skill", "skill %s modified since install — run `boost verify`" % name)
             skill_issues += 1
         # A deliberate sideline (`focus`, `profile use`, `context apply`)
@@ -803,11 +860,27 @@ def cmd_doctor(argv):
     # digest is exactly what a health check should surface.
     pbase, pskills = integrity.project_skills()
     proj_issues = 0
+    plock_err = projectlock.check(pbase) if pbase is not None else None
+    if plock_err:
+        # It reads as no project skills, so the loop below finds nothing
+        # wrong with copies nothing records any more.
+        bad("project-lock", "%s — boost sees no project skills here and "
+            "refuses to install or uninstall any until it is repaired; %s"
+            % (plock_err, projectlock.RECOVER_HINT % projectlock.LOCK_REL),
+            wrap=True)
+        proj_issues += 1
     for name, entry in sorted(pskills.items()):
         st = integrity.project_status(entry, pbase)
         if st == integrity.STATUS_MISSING:
-            bad("project-skill", "project skill %s is in .boost but its files are gone — "
-                "run `boost sync`" % name)
+            gone = integrity.project_missing_rows(entry, pbase)
+            if integrity.project_skill_dirs(entry, pbase):
+                # Some copies stand: name the agents' copies that do not, or
+                # "its files are gone" reads false over an intact .claude/.
+                bad("project-skill", "project skill %s is missing %s — run "
+                    "`boost heal`" % (name, ", ".join(gone)), wrap=True)
+            else:
+                bad("project-skill", "project skill %s is in .boost but its "
+                    "files are gone — run `boost sync`" % name)
             proj_issues += 1
         elif st == integrity.STATUS_MODIFIED:
             bad("project-skill", "project skill %s modified since install — "
@@ -888,6 +961,18 @@ def cmd_doctor(argv):
                     bad(kind, "%s %s was not written for %s: %s"
                         % (kind, name, m.get("agent", "?"), why), wrap=True)
                     mat_issues += 1
+                elif m.get("stale"):
+                    bad(kind, "%s %s for %s is older than the installed v%s — "
+                        "run `boost sync`" % (kind, name, m.get("agent", "?"),
+                                              entry.get("version", "?")),
+                        wrap=True)
+                    mat_issues += 1
+            # An agent enabled after the install has no row at all, so the
+            # loop above never meets it; `boost sync` writes it.
+            for agent in store.unmaterialized_agents(kind, entry):
+                bad(kind, "%s %s was never written for %s — run `boost sync`"
+                    % (kind, name, agent), wrap=True)
+                mat_issues += 1
     for name, entry in sorted(rules.items()):
         before = mat_issues
         for m in entry.get("materializations") or []:
@@ -937,6 +1022,17 @@ def cmd_doctor(argv):
                     bad("workflow", "workflow %s missing its %s file — run "
                         "`boost reinstall %s`"
                         % (name, m.get("agent", "?"), name))
+                mat_issues += 1
+        # The user's own file held this path at install. While it is there
+        # that is their choice, not a fault; once it is gone the command is
+        # missing, and `boost sync` writes it (`store.sync_plan` agrees).
+        for r in store.foreign_rows(entry):
+            if (store.materialization_is_written("workflow", entry, r)
+                    and not os.path.lexists(r["path"])):
+                bad("workflow", "workflow %s was not written for %s: a file "
+                    "boost did not write held %s, and it is gone now — run "
+                    "`boost sync`" % (name, r["agent"], _tilde(r["path"])),
+                    wrap=True)
                 mat_issues += 1
         if mat_issues == before:
             mat_issues += _drifted("workflow", name, entry, bad)
@@ -1064,6 +1160,14 @@ def cmd_doctor(argv):
         if unrec["misnamed_store"]:
             rep.note("misnamed", store.misnamed_line(unrec["misnamed_store"]),
                      wrap=True)
+        # An issue, not a note: the workflow it belongs to has no record, so
+        # no command updates or uninstalls it until `boost install` re-records.
+        for line in store.workflow_copy_lines(unrec["workflow_copies"]):
+            bad("workflow-copies", line, wrap=True)
+        # The same for a rule's block in a context file: the agent reads it
+        # every session and `boost uninstall` answers "not installed".
+        for line in store.rule_block_lines(unrec["rule_blocks"]):
+            bad("rule-blocks", line, wrap=True)
     dups = store.plugin_duplicates(skills, coverage) if agents_ok else []
     same = [r[0] for r in dups if r[3] == foreign.IDENTICAL]
     if same:
@@ -1289,7 +1393,17 @@ def _report_search_engine(rep) -> None:
     """
     # Local import: the dense/embedding engines are opt-in and stay out of
     # startup for every other command (scripts/import_budget.py enforces it).
-    from ..core import dense
+    from ..core import dense, rag
+    # Before the dense tiers: whatever they say, BM25 is the floor every
+    # search lands on, and a docs index over an unreadable postings store
+    # answers "no matches" for an exact skill name while every other line
+    # here reads healthy.
+    fault = rag.postings_fault()
+    if fault:
+        fix = "`boost reindex --force` rebuilds it"
+        rep.issue("search-index",
+                  "%s, so keyword search matches nothing — %s" % (fault, fix),
+                  hint=fix, wrap=True)
     # count=True: doctor prints the chunk total, and a health check is the one
     # caller that can afford the scan when a legacy store never recorded it.
     # `boost search`'s hint deliberately does not (see `dense._chunk_total`).
@@ -1418,8 +1532,8 @@ def cmd_lint(argv):
             p = catalog.resolve_path_target(n)
             targets.append((p.name, p))
         if not names or other_names:
-            targets += [(n, store.skill_store_dir(n))
-                       for n, _e in _iter_installed(other_names or None)]
+            targets += [(r.name, row_dir(r))
+                        for r in _iter_installed_rows(other_names or None)]
     if not targets:
         if args.json:
             print(json.dumps({"min": args.min_score, "skills": [],
@@ -1473,6 +1587,16 @@ def cmd_lint(argv):
     return 0
 
 
+def _drift_label(row: dict) -> str:
+    """A drift row's NAME cell: the kind for a rule/workflow, the scope for a
+    project-lock skill (which can share its name with a user-scope one)."""
+    if row["kind"] != "skill":
+        return "%s (%s)" % (row["name"], row["kind"])
+    if row["scope"] == scopes.SCOPE_PROJECT:
+        return "%s (project)" % row["name"]
+    return row["name"]
+
+
 def cmd_drift(argv):
     ap = cliparse.parser(
         prog="boost drift",
@@ -1488,11 +1612,38 @@ def cmd_drift(argv):
 
     rows = []
     names = [store.installed_name(n) for n in args.names]
-    for kind, name, entry in _iter_installed_all(names or None):
+    # Skills installed `--local` live in the repo's own lock, the rows
+    # `verify` and `doctor` already grade; a name only that lock holds is
+    # resolved there instead of answered "not installed".
+    pbase, pskills = integrity.project_skills()
+    user_names = [n for n in names if lockfile.find_any(n) is not None]
+    unknown = [n for n in names if n not in user_names and n not in pskills]
+    if unknown:
+        _iter_installed_all(unknown)   # raises the usual "not installed"
+    for kind, name, entry in _iter_installed_all(
+            user_names if names else None):
         status = (_drift_status(name, entry) if kind == "skill"
                   else _drift_status_materialized(kind, name, entry))
-        rows.append({"name": name, "kind": kind, "status": status,
-                     "hint": _drift_hint(name, status, entry.get("tap", ""))})
+        # A rule or workflow installed `--local` is recorded in the user lock
+        # with its own `scope`, which is the one to report (as verify does).
+        scope = (entry.get("scope") or scopes.SCOPE_USER) if kind != "skill" \
+            else scopes.SCOPE_USER
+        rows.append({"name": name, "kind": kind, "scope": scope,
+                     "status": status,
+                     "hint": _drift_hint(name, status, entry.get("tap", ""),
+                                         str(entry.get("tap_url") or ""))})
+    for name, entry in sorted(pskills.items()):
+        if pbase is None or (names and name not in names):
+            continue
+        status = _drift_status_project(name, entry, pbase)
+        # A missing project copy is re-materialized by `boost sync`
+        # (`store.project_sync_plan`), not by heal's user-store repair.
+        hint = ("boost sync" if status == staleness.STORE_MISSING
+                else _drift_hint(name, status, entry.get("tap", ""),
+                                 str(entry.get("tap_url") or "")))
+        rows.append({"name": name, "kind": "skill",
+                     "scope": scopes.SCOPE_PROJECT, "status": status,
+                     "hint": hint})
     if args.json:
         print(json.dumps({"skills": rows}))
         return 0
@@ -1500,11 +1651,13 @@ def cmd_drift(argv):
         print(out.empty_state("no skills installed",
                               hint="boost install <skill> to start"))
         return 0
-    out.table([(r["name"] if r["kind"] == "skill"
-                else "%s (%s)" % (r["name"], r["kind"]),
+    out.table([(_drift_label(r),
                 out.role(r["status"], _DRIFT_ROLE[r["status"]]),
                 out.role(r["hint"], "muted")) for r in rows],
-              headers=("NAME", "STATUS", "HINT"), whole=("NAME",))
+              # HINT is a command to paste, and an untapped source's carries
+              # a whole path or URL: clipped, it is a command that fails.
+              headers=("NAME", "STATUS", "HINT"), whole=("NAME",),
+              keep=("HINT",))
     counts: dict = {}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
@@ -1528,8 +1681,8 @@ def cmd_test(argv):
     # those would be parsing our palette.
     results: list[dict] = []
     names = [store.installed_name(n) for n in args.names]
-    for name, entry in _iter_installed(names or None):
-        sdir = store.skill_store_dir(name)
+    for row in _iter_installed_rows(names or None):
+        name, entry, sdir = row.name, row.entry, row_dir(row)
         md = sdir / "SKILL.md"
         meta, body = _read_skill(sdir)
         failed = []
@@ -1743,6 +1896,20 @@ def cmd_heal(argv):
             (out.warn if store.is_unrepaired(msg) else out.ok)(
                 msg.replace(str(paths.home()), "~"))
             actions.append(msg)
+    # A project skill's agent copy deleted from the repo: doctor and verify
+    # report it, so heal repairs it the way `boost sync` does -- only the
+    # missing agents, never re-copying over a teammate's edit in the others.
+    pplan = store.project_sync_plan()
+    if dry:
+        # Worded by the same source check the run uses, so a copy whose tap
+        # is gone is warned about here rather than promised.
+        for msg in store.project_sync_preview(pplan):
+            (out.warn if store.is_unrepaired(msg) else out.info)(msg)
+            actions.append(msg)
+    else:
+        for msg in store.project_sync_apply({"missing": pplan["missing"]}):
+            (out.warn if store.is_unrepaired(msg) else out.ok)(msg)
+            actions.append(msg)
     # A repair heal will not make (a pin over a moved source, a URL import it
     # cannot re-clone) fails the run like any other thing it left: exiting 0
     # over a skill still missing is what kept doctor and heal in a loop.
@@ -1833,9 +2000,17 @@ def cmd_heal(argv):
     # run it previews exits 0.
     cache_dir = paths.cache_dir()
     cache_stuck = paths.refuses_writes(cache_dir) is not None
+    broken_taps = []
     for tap in registry.list_taps():
         if not tap.is_cloned:
             out.warn("tap %s not cloned — skipped (run `boost update`)" % tap.name)
+            continue
+        if tap.is_broken_clone:
+            # Not rebuilt: a catalog of a tree git no longer tracks would
+            # certify it. Re-cloning is `update`'s job (network), so heal
+            # names it and does not answer "nothing to heal" beneath it.
+            broken_taps.append(tap.path)
+            out.warn(registry.broken_clone_line(tap.name), wrap=True)
             continue
         had_cache = tap.cache_file.exists()
         if dry:
@@ -1879,6 +2054,7 @@ def cmd_heal(argv):
         out.warn("agent dir %s — heal does not change permissions; run %s, "
                  "then `boost sync`" % store.unwritable_refusal(str(adir)),
                  wrap=True)
+    stuck.extend(broken_taps)
     # The same rule for the cache dir doctor flags, and for any directory a
     # refused mkdir left missing: heal cannot make the parent writable, so it
     # must not answer "nothing to heal" beneath the problem. The preview and
@@ -1917,6 +2093,18 @@ def cmd_heal(argv):
     if plan["unreadable_store"]:
         stuck.extend(Path(where) for _name, where in plan["unreadable_store"])
         out.warn(store.unreadable_line(plan["unreadable_store"]), wrap=True)
+    # A workflow's skill copy the lock lost. Not heal's to re-record — which
+    # tap the workflow came from is in the lock that is gone — and never
+    # adopted as a skill; named, and heal does not exit 0 over it.
+    if plan["workflow_copies"]:
+        stuck.extend(store.skill_store_dir(n) for n, _wf in plan["workflow_copies"])
+        for line in store.workflow_copy_lines(plan["workflow_copies"]):
+            out.warn(line, wrap=True)
+    # A rule's block the lock lost: the same, in the file it sits in.
+    if plan["rule_blocks"]:
+        stuck.extend(Path(p) for _n, p in plan["rule_blocks"])
+        for line in store.rule_block_lines(plan["rule_blocks"]):
+            out.warn(line, wrap=True)
     # A lock that cannot be read is `boost replay`'s to restore. heal answered
     # "nothing to heal" over it, with every store dir it could not record.
     if not integ.ok and integ.problem != "missing":
@@ -1955,12 +2143,16 @@ def cmd_conflict(argv):
     # nothing live to be contradicted by, so it is excluded from both sides
     # of conflict detection rather than surfacing a conflict finding no
     # `boost quarantine` can ever clear.
-    installed = [(n, e) for n, e in _iter_installed() if not e.get("quarantined")]
+    # Both scopes: a skill installed `--local` is loaded beside the user's
+    # own, so it can contradict one — read from the repo's copy.
+    installed = [r for r in _iter_installed_rows()
+                 if not r.entry.get("quarantined")]
     rules: list[tuple[str, str, str, set]] = []   # skill, line, polarity, stems
     declared: list[tuple[str, str]] = []           # skill, conflicting skill
-    installed_names = {n for n, _e in installed}
-    for name, _entry in installed:
-        meta, body = _read_skill(store.skill_store_dir(name))
+    installed_names = {r.name for r in installed}
+    for row in installed:
+        name = row.name
+        meta, body = _read_skill(row_dir(row))
         conflicts = meta.get("conflicts") or []
         declared.extend(
             (name, str(other))
@@ -2128,6 +2320,10 @@ def cmd_health(argv):
     for kind, name, entry in all_installed:
         by_kind.setdefault(kind, []).append((name, entry))
     installed = by_kind.get("skill", [])
+    # The skills line counts what `boost list` shows, the current project's
+    # `--local` installs included; the rows below stay user-scope.
+    skill_items = installed.copy() + [
+        (n, e) for n, e in integrity.project_skills()[1].items()]
     taps = registry.list_taps()
     cloned = [t for t in taps if t.is_cloned]
 
@@ -2135,7 +2331,7 @@ def cmd_health(argv):
         out.heading("boost health")
     for kind, label in (("skill", "skills"), ("rule", "rules"),
                         ("workflow", "workflows")):
-        items = by_kind.get(kind, [])
+        items = skill_items if kind == "skill" else by_kind.get(kind, [])
         q = sum(1 for _n, e in items if e.get("quarantined"))
         p = sum(1 for _n, e in items if e.get("pinned"))
         kv(label, "%d installed · %d quarantined · %d pinned"
@@ -2287,10 +2483,15 @@ def cmd_trust(argv) -> int:
         key_path = paths.expand(args.key)
         if key_path.is_file():
             key_text = key_path.read_text(encoding="utf-8")
-        elif os.sep in args.key or args.key.endswith(".pub"):
+        elif (("/" in args.key or os.sep in args.key or args.key.endswith(".pub"))
+              and not provenance.parses_as_public_key(args.key)):
             # Looks like a path but isn't one — say so, rather than falling
             # through to text parsing and blaming base64 for a typo'd path.
-            raise BoostError("no such key file: %s" % args.key)
+            # '/' is in the base64 alphabet (most 56-char minisign keys hold
+            # one), so a string that parses as a key is a key, not a path.
+            raise BoostError("no such key file: %s" % args.key,
+                             hint="it does not parse as a minisign public key "
+                                  "either; pass an existing .pub file")
         else:
             key_text = args.key
         rec = provenance.add_trusted_key(args.name, key_text)

@@ -8,14 +8,14 @@ use pyo3::types::{PyBool, PyDict, PyDictMethods, PyList, PyString, PyTuple};
 use pyo3::{IntoPyObject, pyfunction};
 use sqlbuild_core::dagster_invocation::main::normalize_check_name::normalize_check_name;
 use sqlbuild_core::dagster_invocation::main::topological_order::topological_order;
+use sqlbuild_host::entries::models::ThirdPartyHost;
 
-use crate::bindings::_helpers::compile_driver::python_calls::{KeywordArguments, imported};
+use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, imported};
 use crate::bindings::_helpers::dagster_invocation::access::{
     AssetPath, CheckKey, asset_enabled, asset_path, check_enabled, check_key_set, constant,
     constant_contains, get, items, merged, node_with_id, nodes_by_id, path_set, string_list,
     text_of, value_or,
 };
-use crate::bindings::_helpers::native_host::third_party::ThirdPartyHost;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::fields::mapping_get;
 use crate::bindings::_helpers::records::fields::mapping_items;
@@ -27,6 +27,7 @@ const CHECK_ASSET_KINDS: [&str; 5] = ["model", "source", "seed", "udf", "table_f
 const MATERIALIZE: &str = "materialize";
 const MATERIALIZATION: &str = "materialization";
 const CHECK: &str = "check";
+const AUDIT_CHECK_KIND: &str = "audit";
 
 /// DAG nodes upstream first, or in artifact order when edges form a cycle.
 pub(crate) fn sorted_nodes<'py>(dag: &Bound<'py, PyAny>) -> PyResult<Vec<Bound<'py, PyAny>>> {
@@ -238,6 +239,23 @@ fn dag_check_for<'py>(
     }
     for dag_check in items(dag, "checks")? {
         if get(&dag_check, "id")?.eq(&wanted)? {
+            return Ok(Some(dag_check));
+        }
+    }
+    singular_audit_check(dag, check)
+}
+
+/// The DAG check `audit:<name>` of a singular audit whose result names where it ran.
+fn singular_audit_check<'py>(
+    dag: &Bound<'py, PyAny>,
+    check: &Bound<'py, PyAny>,
+) -> PyResult<Option<Bound<'py, PyAny>>> {
+    if text_of(check, "kind")? != AUDIT_CHECK_KIND {
+        return Ok(None);
+    }
+    let wanted: String = format!("{AUDIT_CHECK_KIND}:{}", text_of(check, "name")?);
+    for dag_check in items(dag, "checks")? {
+        if text_of(&dag_check, "id")? == wanted && get(&dag_check, "attachment_kind")?.is_none() {
             return Ok(Some(dag_check));
         }
     }

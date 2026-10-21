@@ -158,6 +158,8 @@
 #include "meshioplusplus/operations/isosurface.hpp"
 #include "meshioplusplus/operations/sdf.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
+#include "meshioplusplus/operations/primitives.hpp"
+#include "meshioplusplus/operations/octree.hpp"
 #include "meshioplusplus/operations/error.hpp"
 #include "meshioplusplus/operations/gradient.hpp"
 #include "meshioplusplus/operations/hessian.hpp"
@@ -3570,6 +3572,15 @@ bool has_occt_js() {
     return meshioplusplus::cad_read_has_occt();
 }
 
+/**
+ * @brief Whether the KaHIP kaffpa partitioner is linked in: `partition` with
+ * `method: 'kahip'`. True only in the full artifact
+ * (`meshioplusplus_wasm_full[_mt]`).
+ */
+bool has_kahip_js() {
+    return meshioplusplus::partition_has_kahip();
+}
+
 /// Whether the VTK XML zstd block codec is linked in (the full artifact).
 bool has_zstd_js() {
     return meshioplusplus::detail::vtk_codec_available(meshioplusplus::detail::VtkCodec::ZSTD);
@@ -3938,6 +3949,110 @@ val grid_js(const val& rDims, const val& rOrigin, const val& rSpacing, double ma
     });
 }
 
+// The parametric generators (operations/primitives.hpp): `grid`'s siblings, and
+// like it bindings that take no input mesh. An absent (undefined / null) array
+// takes the C++ default.
+std::array<double, 3> prim_js_vec3(const val& rV, const std::array<double, 3>& rDefault,
+                                   bool PadZero) {
+    if (rV.isUndefined() || rV.isNull())
+        return rDefault;
+    const unsigned n = rV["length"].as<unsigned>();
+    if (n == 2 && PadZero)
+        return {{rV[0].as<double>(), rV[1].as<double>(), 0.0}};
+    if (n != 3)
+        throw std::invalid_argument("meshio++: expected an array of three numbers");
+    return {{rV[0].as<double>(), rV[1].as<double>(), rV[2].as<double>()}};
+}
+
+std::vector<std::int64_t> prim_js_counts(const val& rV, std::size_t N, std::int64_t Default) {
+    std::vector<std::int64_t> out(N, Default);
+    if (rV.isUndefined() || rV.isNull())
+        return out;
+    if (rV["length"].as<unsigned>() != N)
+        throw std::invalid_argument("meshio++: expected an array of " + std::to_string(N) +
+                                    " counts");
+    for (unsigned i = 0; i < N; ++i)
+        out[i] = static_cast<std::int64_t>(rV[i].as<double>());
+    return out;
+}
+
+val rectangle_js(const val& rDims, const val& rSize, const val& rOrigin,
+                 const std::string& rCellType, const std::string& rSplit, int order,
+                 double maxCells) {
+    return with_js_errors([&]() -> val {
+        const auto d = prim_js_counts(rDims, 2, 1);
+        std::array<double, 2> size{{1.0, 1.0}};
+        if (!rSize.isUndefined() && !rSize.isNull()) {
+            if (rSize["length"].as<unsigned>() != 2)
+                throw std::invalid_argument("meshio++: size expects two numbers");
+            size = {{rSize[0].as<double>(), rSize[1].as<double>()}};
+        }
+        return mesh_to_val(meshioplusplus::rectangle(
+            {{d[0], d[1]}}, size, prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, true), rCellType,
+            rSplit, order, static_cast<std::int64_t>(maxCells)));
+    });
+}
+
+val box_js(const val& rDims, const val& rSize, const val& rOrigin, const std::string& rCellType,
+           int order, double maxCells) {
+    return with_js_errors([&]() -> val {
+        const auto d = prim_js_counts(rDims, 3, 1);
+        return mesh_to_val(meshioplusplus::box(
+            {{d[0], d[1], d[2]}}, prim_js_vec3(rSize, {{1.0, 1.0, 1.0}}, false),
+            prim_js_vec3(rOrigin, {{0.0, 0.0, 0.0}}, false), rCellType, order,
+            static_cast<std::int64_t>(maxCells)));
+    });
+}
+
+val disk_js(double radius, double n, const val& rCenter, const std::string& rCellType, int order,
+            double maxCells) {
+    return with_js_errors([&]() -> val {
+        return mesh_to_val(meshioplusplus::disk(
+            radius, static_cast<std::int64_t>(n), prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false),
+            rCellType, order, static_cast<std::int64_t>(maxCells)));
+    });
+}
+
+val uv_sphere_js(double radius, double nu, double nv, const val& rCenter,
+                 const std::string& rCellType, int order, double maxCells) {
+    return with_js_errors([&]() -> val {
+        return mesh_to_val(meshioplusplus::uv_sphere(
+            radius, static_cast<std::int64_t>(nu), static_cast<std::int64_t>(nv),
+            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), rCellType, order,
+            static_cast<std::int64_t>(maxCells)));
+    });
+}
+
+val icosa_sphere_js(double radius, double subdivisions, const val& rCenter, int order,
+                    double maxCells) {
+    return with_js_errors([&]() -> val {
+        return mesh_to_val(meshioplusplus::icosa_sphere(
+            radius, static_cast<std::int64_t>(subdivisions),
+            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), order,
+            static_cast<std::int64_t>(maxCells)));
+    });
+}
+
+val cylinder_js(double radius, double height, double nxy, double nz, const val& rCenter,
+                const std::string& rCellType, int order, double maxCells) {
+    return with_js_errors([&]() -> val {
+        return mesh_to_val(meshioplusplus::cylinder(
+            radius, height, static_cast<std::int64_t>(nxy), static_cast<std::int64_t>(nz),
+            prim_js_vec3(rCenter, {{0.0, 0.0, 0.0}}, false), rCellType, order,
+            static_cast<std::int64_t>(maxCells)));
+    });
+}
+
+val reference_cells_js(const val& rTypes, bool pairs) {
+    return with_js_errors([&]() -> val {
+        std::vector<std::string> types;
+        if (!rTypes.isUndefined() && !rTypes.isNull())
+            for (unsigned i = 0, n = rTypes["length"].as<unsigned>(); i < n; ++i)
+                types.push_back(rTypes[i].as<std::string>());
+        return mesh_to_val(meshioplusplus::reference_cells(types, pairs));
+    });
+}
+
 /**
  * @brief Build a regular grid around a mesh. Returns
  * `{mesh, dims, origin, spacing, numOccupied}`. Exactly one of `resolution` and
@@ -3991,6 +4106,72 @@ val voxelize_js(const val& rMeshObj, const val& rResolution, double cellSize, co
         out.set("origin", vec3d(r.mOrigin));
         out.set("spacing", vec3d(r.mSpacing));
         out.set("numOccupied", static_cast<double>(r.mNumOccupied));
+        return out;
+    });
+}
+
+/**
+ * @brief Build an octree (quadtree for a planar `line` skin) around a mesh.
+ * Returns `{mesh, dimension, numLeaves, numHanging, finestLevel, origin, rootSize}`.
+ * Pass an empty array for `rootCells`/`bounds` to take the defaults.
+ */
+val octree_js(const val& rMeshObj, const val& rRootCells, double minLevel, double maxLevel,
+              const val& rBounds, double padding, double paddingRelative, double dimension,
+              double sampleDistance, const std::string& rBalance, const std::string& rFill,
+              const std::string& rSign, bool attachDistance, bool evenOdd, double maxCells,
+              const std::string& rWatertightCheck, const std::string& rTransition, bool snap,
+              double surfaceLevel, double curvatureThreshold, double featureAngle,
+              const std::string& rSizeArray, const std::string& rPlane) {
+    return with_js_errors([&]() -> val {
+        meshioplusplus::OctreeOptions options;
+        options.mTransition = meshioplusplus::octree_transition_from_name(rTransition);
+        options.mSnap = snap;
+        options.mSurfaceLevel = static_cast<std::int64_t>(surfaceLevel);
+        options.mCurvatureThreshold = curvatureThreshold;
+        options.mFeatureAngle = featureAngle;
+        options.mSizeArray = rSizeArray;
+        options.mPlane = meshioplusplus::detail::planar_plane_from_name(rPlane);
+        if (!rRootCells.isUndefined() && !rRootCells.isNull() &&
+            rRootCells["length"].as<unsigned>() == 3)
+            options.mRootCells = std::array<std::int64_t, 3>{
+                {static_cast<std::int64_t>(rRootCells[0].as<double>()),
+                 static_cast<std::int64_t>(rRootCells[1].as<double>()),
+                 static_cast<std::int64_t>(rRootCells[2].as<double>())}};
+        options.mMinLevel = static_cast<std::int64_t>(minLevel);
+        options.mMaxLevel = static_cast<std::int64_t>(maxLevel);
+        if (!rBounds.isUndefined() && !rBounds.isNull() && rBounds["length"].as<unsigned>() == 6) {
+            std::array<double, 6> b{};
+            for (unsigned i = 0; i < 6; ++i)
+                b[i] = rBounds[i].as<double>();
+            options.mBounds = b;
+        }
+        options.mPadding = padding;
+        options.mPaddingRelative = paddingRelative;
+        options.mDimension = static_cast<std::int64_t>(dimension);
+        options.mSampleDistance = sampleDistance;
+        options.mBalance = meshioplusplus::octree_balance_from_name(rBalance);
+        options.mFill = meshioplusplus::voxel_fill_from_name(rFill);
+        options.mDistance.mSign = meshioplusplus::sdf_sign_from_name(rSign);
+        options.mAttachDistance = attachDistance;
+        options.mEvenOdd = evenOdd;
+        options.mMaxCells = static_cast<std::int64_t>(maxCells);
+        options.mDistance.mWatertightCheck =
+            meshioplusplus::sdf_watertight_check_from_name(rWatertightCheck);
+
+        meshioplusplus::OctreeResult r = meshioplusplus::octree(val_to_mesh(rMeshObj), options);
+        val origin = val::array();
+        for (int i = 0; i < 3; ++i)
+            origin.call<void>("push", r.mOrigin[static_cast<std::size_t>(i)]);
+        val out = val::object();
+        out.set("mesh", mesh_to_val(r.mMesh));
+        out.set("dimension", static_cast<double>(r.mDimension));
+        out.set("numLeaves", static_cast<double>(r.mNumLeaves));
+        out.set("numHanging", static_cast<double>(r.mNumHanging));
+        out.set("finestLevel", static_cast<double>(r.mFinestLevel));
+        out.set("origin", origin);
+        out.set("rootSize", r.mRootSize);
+        out.set("numSnapped", static_cast<double>(r.mNumSnapped));
+        out.set("numRefused", static_cast<double>(r.mNumRefused));
         return out;
     });
 }
@@ -4517,9 +4698,15 @@ val feature_edges_js(const val& rMeshObj, double featureAngle, bool feature, boo
  */
 val segment_js(const val& rMeshObj, double featureAngle, double normalTolerance,
                double curvatureTolerance, double minPatchCells, const std::string& rRegion,
-               const std::string& rPrefix) {
+               const std::string& rPrefix, const std::string& rMethod, double tolerance) {
     return with_js_errors([&]() -> val {
         meshioplusplus::SegmentOptions options;
+        if (rMethod == "primitive")
+            options.mMethod = meshioplusplus::SegmentMethod::Primitive;
+        else if (rMethod != "angle")
+            throw std::invalid_argument(
+                "meshio++: segment: the method must be 'angle' or 'primitive'");
+        options.mTolerance = tolerance;
         options.mFeatureAngleDeg = featureAngle;
         options.mNormalToleranceDeg = normalTolerance;
         options.mCurvatureTolerance = curvatureTolerance;
@@ -4584,30 +4771,29 @@ val fit_primitives_js(const val& rMeshObj, const std::string& rPatchData, double
 
 /**
  * @brief A CAD solid from the fitted patches of a closed skin: `fit_cad`. See
- * operations/fit_cad.hpp and doc/fit_cad.md. Needs OpenCASCADE, so only the
- * full artifact runs it; the lean one throws by name.
+ * operations/fit_cad.hpp and doc/fit_cad.md. The full artifact links
+ * OpenCASCADE; the lean one runs the kernel-free native backend (v17.9.0),
+ * and `backend: 'occt'` throws there by name.
  *
  * @param rOptions `{stepPath, tolerance, exactEdges, types, meshDeflection,
  *   maxDemotionRounds, freeform, freeformDegree, freeformMaxControl,
- *   freeformSplit, fillets, threads}`, every key optional; `types` is an
- *   array of `'plane'`, `'sphere'`, `'cylinder'`, `'cone'`, `'torus'`.
+ *   freeformSplit, fillets, threads, mergeFaces, backend}`, every key
+ *   optional; `types` is an array of `'plane'`, `'sphere'`, `'cylinder'`,
+ *   `'cone'`, `'torus'`, `backend` one of `'auto'`, `'occt'`, `'native'`.
  * @return every `FitCadResult` counter in camelCase, `mesh` (the solid
  *   re-meshed, with the `fit_cad:*` cell data) and `info` (its B-rep, in CAD
  *   JSON's shape, for `writeMesh(path, mesh, 'cad_json', {info})`).
  */
 val fit_cad_js(const val& rMeshObj, const val& rOptions) {
     return with_js_errors([&]() -> val {
-        if (!meshioplusplus::fit_cad_has_occt())
-            throw meshioplusplus::Unsupported(
-                "meshio++: fitCad needs OpenCASCADE, which only the full artifact links: "
-                "loadMeshioPlusPlus({}, {full: true})");
         meshioplusplus::FitCadOptions options;
         std::string step_path;
         if (!rOptions.isUndefined() && !rOptions.isNull()) {
             check_settings_keys(rOptions, "the fitCad options",
                                 {"stepPath", "tolerance", "exactEdges", "types", "meshDeflection",
                                  "maxDemotionRounds", "freeform", "freeformDegree",
-                                 "freeformMaxControl", "freeformSplit", "fillets", "threads"});
+                                 "freeformMaxControl", "freeformSplit", "fillets", "threads",
+                                 "mergeFaces", "backend"});
             const auto has = [&](const char* pKey) {
                 return rOptions.hasOwnProperty(pKey) && !rOptions[pKey].isUndefined();
             };
@@ -4636,6 +4822,20 @@ val fit_cad_js(const val& rMeshObj, const val& rOptions) {
                 options.mFillets = rOptions["fillets"].as<bool>();
             if (has("threads"))
                 options.mThreads = rOptions["threads"].as<bool>();
+            if (has("mergeFaces"))
+                options.mMergeFaces = rOptions["mergeFaces"].as<bool>();
+            if (has("backend")) {
+                const std::string backend = rOptions["backend"].as<std::string>();
+                if (backend == "auto")
+                    options.mBackend = meshioplusplus::FitCadBackend::Auto;
+                else if (backend == "occt")
+                    options.mBackend = meshioplusplus::FitCadBackend::Occt;
+                else if (backend == "native")
+                    options.mBackend = meshioplusplus::FitCadBackend::Native;
+                else
+                    throw std::invalid_argument(
+                        "meshio++: fit_cad: backend must be 'auto', 'occt' or 'native'");
+            }
             if (has("types")) {
                 static const char* const kNames[] = {"plane", "sphere", "cylinder", "cone",
                                                      "torus"};
@@ -4656,6 +4856,11 @@ val fit_cad_js(const val& rMeshObj, const val& rOptions) {
                 }
             }
         }
+        if (options.mBackend == meshioplusplus::FitCadBackend::Occt &&
+            !meshioplusplus::fit_cad_has_occt())
+            throw meshioplusplus::Unsupported(
+                "meshio++: fitCad's OpenCASCADE backend needs the full artifact: "
+                "loadMeshioPlusPlus({}, {full: true})");
         const meshioplusplus::FitCadResult r =
             meshioplusplus::fit_cad(val_to_mesh(rMeshObj), step_path, options);
         val out = val::object();
@@ -4695,6 +4900,9 @@ val fit_cad_js(const val& rMeshObj, const val& rOptions) {
         for (const auto& [name, value] : counters)
             out.set(name, static_cast<double>(value));
         out.set("info", brep_info_to_val(r.mBrep));
+        out.set("backend",
+                std::string(r.mBackend == meshioplusplus::FitCadBackend::Native ? "native"
+                                                                                : "occt"));
         return out;
     });
 }
@@ -6843,6 +7051,7 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("parallelBackend", &parallel_backend_js);
     emscripten::function("hasCgnslib", &has_cgnslib_js);
     emscripten::function("hasOcct", &has_occt_js);
+    emscripten::function("hasKahip", &has_kahip_js);
     emscripten::function("hasZstd", &has_zstd_js);
     emscripten::function("hasLz4", &has_lz4_js);
     emscripten::function("hasBzip2", &has_bzip2_js);
@@ -6866,7 +7075,15 @@ EMSCRIPTEN_BINDINGS(meshioplusplus_wasm) {
     emscripten::function("slice", &slice_js);
     emscripten::function("isosurface", &isosurface_js);
     emscripten::function("grid", &grid_js);
+    emscripten::function("rectangle", &rectangle_js);
+    emscripten::function("box", &box_js);
+    emscripten::function("disk", &disk_js);
+    emscripten::function("uvSphere", &uv_sphere_js);
+    emscripten::function("icosaSphere", &icosa_sphere_js);
+    emscripten::function("cylinder", &cylinder_js);
+    emscripten::function("referenceCells", &reference_cells_js);
     emscripten::function("voxelize", &voxelize_js);
+    emscripten::function("octree", &octree_js);
     emscripten::function("surfaceWatertightCheck", &surface_watertight_check_js);
     emscripten::function("sampleDistance", &sample_distance_js);
     emscripten::function("distanceToSurface", &distance_to_surface_js);

@@ -1738,11 +1738,11 @@ class ResponseWrapper:
             if (
                 not usage
                 and hasattr(result, "type")
-                and result.type == "response.completed"
+                and result.type in ("response.completed", "response.incomplete", "response.failed")
                 and hasattr(result, "response")
             ):
                 metadata.update(_extract_moderation_metadata(result.response))
-                # Handle summaries from completed response if present
+                # Handle summaries from the terminal response if present
                 if hasattr(result.response, "output") and result.response.output:
                     output_by_id = {item.get("id"): item for item in output if item.get("id")}
                     for output_item in result.response.output:
@@ -1767,7 +1767,7 @@ class ResponseWrapper:
                 output.append(item_data)
                 continue
 
-            if result.type == "response.completed":
+            if result.type in ("response.completed", "response.incomplete", "response.failed"):
                 if hasattr(result, "response") and hasattr(result.response, "output"):
                     metadata.update(_extract_moderation_metadata(result.response))
                     return {
@@ -2083,11 +2083,15 @@ def _decision_choice_keys(question: dict[str, Any]) -> dict[tuple[type, Any], st
     return keys
 
 
-def _decisions_input(state: Any, questions: Any) -> dict[str, Any]:
+def _decisions_input(
+    state: Any, questions: Any, *, media_transform: Callable[[Any], Any] | None = None
+) -> dict[str, Any]:
     try:
-        state = _process_attachments_in_input(state)
+        # A provider transform handles media within the shared fallback boundary.
+        if media_transform is None:
+            state = _process_attachments_in_input(state)
         if isinstance(questions, Mapping):
-            return _question_span_input(state, questions)
+            return _question_span_input(state, questions, media_transform=media_transform)
         questions = [_try_to_dict(question) for question in questions]
         normalized = []
         for identifier, question in zip(_decision_question_ids(questions), questions):
@@ -2109,7 +2113,7 @@ def _decisions_input(state: Any, questions: Any) -> dict[str, Any]:
                     for level in question.get("levels", [])
                 ]
             normalized.append(payload)
-        return _question_span_input(state, normalized)
+        return _question_span_input(state, normalized, media_transform=media_transform)
     except Exception:
         _log.debug("Failed to normalize Decisions questions", exc_info=True)
         return {"state": state, "questions": []}

@@ -39,6 +39,55 @@ else:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_personalize.CampaignReference",
+    jsii_struct_bases=[],
+    name_mapping={"campaign_arn": "campaignArn"},
+)
+class CampaignReference:
+    def __init__(self, *, campaign_arn: builtins.str) -> None:
+        '''A reference to a Campaign resource.
+
+        :param campaign_arn: The CampaignArn of the Campaign resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_personalize as interfaces_personalize
+            
+            campaign_reference = interfaces_personalize.CampaignReference(
+                campaign_arn="campaignArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6cdeea7a4b1984db25e5771e72a487fbcfa28a1f529c59c5a7232968cdd44520)
+            check_type(argname="argument campaign_arn", value=campaign_arn, expected_type=type_hints["campaign_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "campaign_arn": campaign_arn,
+        }
+
+    @builtins.property
+    def campaign_arn(self) -> builtins.str:
+        '''The CampaignArn of the Campaign resource.'''
+        result = self._values.get("campaign_arn")
+        assert result is not None, "Required property 'campaign_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CampaignReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_personalize.DatasetGroupReference",
     jsii_struct_bases=[],
     name_mapping={"dataset_group_arn": "datasetGroupArn"},
@@ -232,6 +281,51 @@ class FilterReference:
         return "FilterReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.ICampaignRef")
+class ICampaignRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Campaign.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="campaignRef")
+    def campaign_ref(self) -> "CampaignReference":
+        '''(experimental) A reference to a Campaign resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICampaignRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Campaign.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_personalize.ICampaignRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="campaignRef")
+    def campaign_ref(self) -> "CampaignReference":
+        '''(experimental) A reference to a Campaign resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("CampaignReference", jsii.get(self, "campaignRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICampaignRef).__jsii_proxy_class__ = lambda : _ICampaignRefProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_personalize.IDatasetGroupRef")
@@ -699,10 +793,12 @@ class SolutionReference:
 
 
 __all__ = [
+    "CampaignReference",
     "DatasetGroupReference",
     "DatasetReference",
     "EventTrackerReference",
     "FilterReference",
+    "ICampaignRef",
     "IDatasetGroupRef",
     "IDatasetRef",
     "IEventTrackerRef",
@@ -716,6 +812,13 @@ __all__ = [
 ]
 
 publication.publish()
+
+def _typecheckingstub__6cdeea7a4b1984db25e5771e72a487fbcfa28a1f529c59c5a7232968cdd44520(
+    *,
+    campaign_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__9bd607e866ffb5f894ee4515b429500888071106bbb3684630b35c3f634570cb(
     *,
@@ -766,5 +869,5 @@ def _typecheckingstub__4eb7000ac778c9296a1bcf604536bc2f9b85654eafa6d8acf1a30e8d4
     """Type checking stubs"""
     pass
 
-for cls in [IDatasetGroupRef, IDatasetRef, IEventTrackerRef, IFilterRef, IMetricAttributionRef, ISchemaRef, ISolutionRef]:
+for cls in [ICampaignRef, IDatasetGroupRef, IDatasetRef, IEventTrackerRef, IFilterRef, IMetricAttributionRef, ISchemaRef, ISolutionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

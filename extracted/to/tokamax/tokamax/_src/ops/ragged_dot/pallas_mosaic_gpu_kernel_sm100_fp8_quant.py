@@ -262,8 +262,15 @@ def ragged_dot_gpu_fp8_quant_blackwell_kernel(
     out_dtype,
     config: common.Config,
     activation: base.ActivationFunction | None = None,
+    *,
+    int4_to_fp8_offline_permute: bool = False,
 ) -> Float[Array, "M N"] | qwix.QArray:
   """Returns the Pallas kernel for fp8xint4 ragged dot.
+
+  If `int4_to_fp8_offline_permute` is True, `rhs.qvalue` must have been
+  permuted offline with
+  `mosaic_gpu.apply_int4_to_fp8_offline_permute(qvalue, axis=1)`, which lets
+  the dequant skip the nibble-reordering PRMTs.
 
   The kernel is using the trick of biased fp8 encoding to avoid explicit
   dequantization from int4 to float8_e4m3fn.
@@ -418,30 +425,10 @@ def ragged_dot_gpu_fp8_quant_blackwell_kernel(
     )
 
   x_dtype = lhs.qtype
-  try:
-    swizzle = plgpu.find_swizzle(block_k * jnp.dtype(x_dtype).itemsize * 8)
-  except ValueError as e:
-    raise NotImplementedError("No possible swizzle.") from e
-
-  swizzle_elems = swizzle // jnp.dtype(x_dtype).itemsize
-
-  try:
-    transforms = (
-        plgpu.TilingTransform((8, swizzle_elems)),
-        plgpu.SwizzleTransform(swizzle),
-    )
-  except ValueError as e:
-    raise NotImplementedError(
-        f"{swizzle=} {swizzle_elems=} unsupported."
-    ) from e
-
-  w_elem_bits = 4
-  try:
-    w_swizzle = plgpu.find_swizzle(block_k * w_elem_bits)  # n,k
-  except ValueError as e:
-    raise NotImplementedError("No possible swizzle.") from e
-
-  w_swizzle_elems = (w_swizzle * 8) // w_elem_bits
+  x_smem_shape = (data_stages, block_m, block_k)
+  w_smem_shape = (data_stages, block_n, block_k)
+  x_smem = common.tiled_swizzled_smem(x_smem_shape, x_dtype, "x")
+  w_smem = common.tiled_swizzled_smem(w_smem_shape, w.dtype, "w")
 
   x, scales = lhs.qvalue, lhs.scale
   expected_d = k_x // tile_k
@@ -713,7 +700,9 @@ def ragged_dot_gpu_fp8_quant_blackwell_kernel(
               plgpu.barrier_arrive(w_consumed_barrier.at[data_slot])
 
             with jax.named_scope("dequant"):
-              w = mgpu_lib.int4_as_biased_f8e4m3fn(w, _TMEM(8))
+              w = mgpu_lib.int4_as_biased_f8e4m3fn(
+                  w, _TMEM(8), offline_permuted=int4_to_fp8_offline_permute
+              )
             w = plgpu.layout_cast(w, _TMEM(4))
             if di == 0:
 
@@ -842,43 +831,17 @@ def ragged_dot_gpu_fp8_quant_blackwell_kernel(
                 block_start,
                 cluster_block_m,
             )
-          # Write out the largest power of two rows first,
-          # then the next largest, etc.
-          # This allows us to coalesce writes as much as possible.
-          offset = start_within_block
-          size = 1 << (min(cluster_block_m, m).bit_length() - 1)
-          while size > 0:
-
-            @pl.when(actual_size & size != 0)
-            def _():
-              out_smem_slice = out_smem.at[pl.ds(offset, size)]
-              o_gref_slice = out_gmem.at[
-                  pl.ds(block_start + offset, size),
-                  slice_n,
-              ]
-              plgpu.copy_smem_to_gmem(
-                  out_smem_slice, o_gref_slice, commit_group=False
-              )
-
-            offset += actual_size & size
-            size //= 2
-          plgpu.commit_smem_to_gmem_group()
-          plgpu.wait_smem_to_gmem(0, wait_read_only=True)
+          common.copy_ragged_smem_to_gmem(
+              out_smem,
+              out_gmem,
+              block_start=block_start,
+              start_within_block=start_within_block,
+              actual_size=actual_size,
+              ns=slice_n,
+              max_rows=min(cluster_block_m, m),
+          )
 
   def kernel_entry(*refs):
-    x_smem = plgpu.SMEM(
-        (data_stages, block_m, block_k),
-        dtype=x_dtype,
-        transforms=transforms,
-    )
-    w_smem = plgpu.SMEM(
-        (data_stages, block_n, block_k),
-        dtype=w.dtype,
-        transforms=(
-            plgpu.TilingTransform((8, w_swizzle_elems)),
-            plgpu.SwizzleTransform(w_swizzle),
-        ),
-    )
     w_tmem = plgpu.TMEM(
         (block_n, deq_stages * block_k),
         dtype=x_dtype,
@@ -897,19 +860,10 @@ def ragged_dot_gpu_fp8_quant_blackwell_kernel(
         (scale_stages, max(cluster_block_m, 64)),
         dtype=x_sum.dtype,
     )
+    out_smem_shape = (cluster_block_m, block_n)
     out_smem_dtype = epilogue_quant_dtype or out_dtype
-    out_smem = plgpu.SMEM(
-        (cluster_block_m, block_n),
-        dtype=out_smem_dtype,
-        # workaround for ValueError: Dynamic slice base index (which is a
-        # dynamic value) cannot be statically proven to be divisible by
-        # the tiling (8)
-        transforms=(
-            plgpu.TilingTransform(
-                (1, 128 // jnp.dtype(out_smem_dtype).itemsize)
-            ),
-            plgpu.SwizzleTransform(128),
-        ),
+    out_smem = common.tiled_swizzled_smem(
+        out_smem_shape, out_smem_dtype, "out", swizzle=128, tiling_prefix=(1,)
     )
     acc_tmem = plgpu.TMEM(
         (block_n, acc_stages * cluster_block_m),
@@ -1014,9 +968,12 @@ def ragged_dot_gpu_fp8_quant_blackwell_kernel(
       cluster=(1 + collective,),
       cluster_names=("x",),
       kernel_name=(
-          "ragged_dot_fp8_quant_fused_output_sm100"
-          if epilogue_quant_enabled
-          else "ragged_dot_fp8_quant_sm100"
+          (
+              "ragged_dot_fp8_quant_fused_output_sm100"
+              if epilogue_quant_enabled
+              else "ragged_dot_fp8_quant_sm100"
+          )
+          + ("_offline_permute" if int4_to_fp8_offline_permute else "")
       ),
       compiler_params=plgpu.CompilerParams(
           approx_math=True,

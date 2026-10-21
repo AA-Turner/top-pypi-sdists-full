@@ -550,6 +550,1231 @@ class CfnGroupingConfigurationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_applicationsignals_54ce25b5.IInstrumentationConfigRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnInstrumentationConfig(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_applicationsignals.CfnInstrumentationConfig",
+):
+    '''Creates a dynamic instrumentation configuration for a specific code or endpoint location within a service and environment.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html
+    :cloudformationResource: AWS::ApplicationSignals::InstrumentationConfig
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_applicationsignals as applicationsignals
+        
+        cfn_instrumentation_config = applicationsignals.CfnInstrumentationConfig(self, "MyCfnInstrumentationConfig",
+            capture_configuration=applicationsignals.CfnInstrumentationConfig.CaptureConfigurationProperty(
+                code_capture=applicationsignals.CfnInstrumentationConfig.CodeCaptureConfigurationProperty(
+                    capture_limits=applicationsignals.CfnInstrumentationConfig.CaptureLimitsConfigProperty(
+                        max_collection_depth=123,
+                        max_collection_width=123,
+                        max_fields_per_object=123,
+                        max_hits=123,
+                        max_object_depth=123,
+                        max_stack_frames=123,
+                        max_stack_trace_size=123,
+                        max_string_length=123
+                    ),
+        
+                    # the properties below are optional
+                    capture_arguments=["captureArguments"],
+                    capture_locals=["captureLocals"],
+                    capture_return=False,
+                    capture_stack_trace=False
+                )
+            ),
+            environment="environment",
+            instrumentation_type="instrumentationType",
+            location=applicationsignals.CfnInstrumentationConfig.LocationProperty(
+                code_location=applicationsignals.CfnInstrumentationConfig.CodeLocationProperty(
+                    file_path="filePath",
+                    language="language",
+        
+                    # the properties below are optional
+                    class_name="className",
+                    code_unit="codeUnit",
+                    line_number=123,
+                    method_name="methodName"
+                )
+            ),
+            service="service",
+            signal_type="signalType",
+        
+            # the properties below are optional
+            attribute_filters=[{
+                "attribute_filters_key": "attributeFilters"
+            }],
+            description="description",
+            expires_at="expiresAt",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        capture_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstrumentationConfig.CaptureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        environment: builtins.str,
+        instrumentation_type: builtins.str,
+        location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstrumentationConfig.LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        service: builtins.str,
+        signal_type: builtins.str,
+        attribute_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        expires_at: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::ApplicationSignals::InstrumentationConfig``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param capture_configuration: Specifies what to capture when the instrumentation point is hit.
+        :param environment: The environment that the service is running in.
+        :param instrumentation_type: Type of instrumentation: BREAKPOINT (temporary, expires after 24 hours) or PROBE (permanent, persists until deleted).
+        :param location: The location where instrumentation should be applied.
+        :param service: The name of the service to instrument. This should match the service.name resource attribute reported by the application.
+        :param signal_type: The telemetry signal type to emit for this instrumentation. The supported value is SNAPSHOT.
+        :param attribute_filters: Client-side filters that target specific instances. Each object is AND-matched on keys, multiple objects are OR-matched.
+        :param description: An optional short description that explains the purpose of this instrumentation.
+        :param expires_at: The timestamp after which this configuration is no longer served. For BREAKPOINT only; defaults to 24 hours.
+        :param tags: An optional list of key-value pairs to associate with the instrumentation configuration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bbb1d5eff2470005b15534f8b463b67da4d84bc67c4a996ed9bccd553dca69f5)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnInstrumentationConfigProps(
+            capture_configuration=capture_configuration,
+            environment=environment,
+            instrumentation_type=instrumentation_type,
+            location=location,
+            service=service,
+            signal_type=signal_type,
+            attribute_filters=attribute_filters,
+            description=description,
+            expires_at=expires_at,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForInstrumentationConfig")
+    @builtins.classmethod
+    def arn_for_instrumentation_config(
+        cls,
+        resource: "_aws_applicationsignals_54ce25b5.IInstrumentationConfigRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ce1efa9dd018ffdab218ce4369a973c31fa9c5e4454ea8bc8c27e9d9aa550133)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInstrumentationConfig", [resource]))
+
+    @jsii.member(jsii_name="isCfnInstrumentationConfig")
+    @builtins.classmethod
+    def is_cfn_instrumentation_config(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInstrumentationConfig.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bd6964b17f5efd10ea8b67fe4b17e5e4f5e86537b4aa03cb5a56784bbf0ca22f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstrumentationConfig", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4d486b8578871300889b2494e7cb77afc533f20bdb6b4c8e225f5a6332232167)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6d46d6a26f5b9e09586b8a18b3a143b6e0779cc2c9eb2d07689b482a1639416b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the instrumentation configuration.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The server-generated creation timestamp for this instrumentation configuration.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLocationHash")
+    def attr_location_hash(self) -> builtins.str:
+        '''A stable hash computed from the location that uniquely identifies this instrumentation point.
+
+        :cloudformationAttribute: LocationHash
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLocationHash"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instrumentationConfigRef")
+    def instrumentation_config_ref(
+        self,
+    ) -> "_aws_applicationsignals_54ce25b5.InstrumentationConfigReference":
+        '''A reference to a InstrumentationConfig resource.'''
+        return typing.cast("_aws_applicationsignals_54ce25b5.InstrumentationConfigReference", jsii.get(self, "instrumentationConfigRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="captureConfiguration")
+    def capture_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CaptureConfigurationProperty"]:
+        '''Specifies what to capture when the instrumentation point is hit.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CaptureConfigurationProperty"], jsii.get(self, "captureConfiguration"))
+
+    @capture_configuration.setter
+    def capture_configuration(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CaptureConfigurationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__285d815a2d0e571b3b24f15b6238c16ec883bd26ad67776783ec337d0db7f2e0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "captureConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="environment")
+    def environment(self) -> builtins.str:
+        '''The environment that the service is running in.'''
+        return typing.cast(builtins.str, jsii.get(self, "environment"))
+
+    @environment.setter
+    def environment(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ca5faacb19015aafda82f3223dd7311179e0165c435c8a011d005b0cd5647189)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environment", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instrumentationType")
+    def instrumentation_type(self) -> builtins.str:
+        '''Type of instrumentation: BREAKPOINT (temporary, expires after 24 hours) or PROBE (permanent, persists until deleted).'''
+        return typing.cast(builtins.str, jsii.get(self, "instrumentationType"))
+
+    @instrumentation_type.setter
+    def instrumentation_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7f1211eee2f9a4da8d3c90474e62248afbf9a11398cc362da8f55b674c7b69fd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instrumentationType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="location")
+    def location(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.LocationProperty"]:
+        '''The location where instrumentation should be applied.'''
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.LocationProperty"], jsii.get(self, "location"))
+
+    @location.setter
+    def location(
+        self,
+        value: typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.LocationProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4585d5f2b95c9f1443ea00bede66f471c1f4cdb834bb0c9828f016efc71192d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="service")
+    def service(self) -> builtins.str:
+        '''The name of the service to instrument.'''
+        return typing.cast(builtins.str, jsii.get(self, "service"))
+
+    @service.setter
+    def service(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__280bfe6bdd5e616e39ba093bfaf441dc8d190d889ead2e8b138e1a205789d579)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "service", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="signalType")
+    def signal_type(self) -> builtins.str:
+        '''The telemetry signal type to emit for this instrumentation.'''
+        return typing.cast(builtins.str, jsii.get(self, "signalType"))
+
+    @signal_type.setter
+    def signal_type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__dbdb80e67e006de08bd507bc29634b9001b5a3312f6f19286e8a678b02edd5bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "signalType", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeFilters")
+    def attribute_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]]:
+        '''Client-side filters that target specific instances.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]], jsii.get(self, "attributeFilters"))
+
+    @attribute_filters.setter
+    def attribute_filters(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__759296c6dc08955cbd419169f5e0b61c444822ceaa18e8793ed517582c1a9c26)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributeFilters", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional short description that explains the purpose of this instrumentation.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c069afedeb2d4d9e1dde6f8a49991629f5c111ccf0581fc5e20063fd7b82a61d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="expiresAt")
+    def expires_at(self) -> typing.Optional[builtins.str]:
+        '''The timestamp after which this configuration is no longer served.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "expiresAt"))
+
+    @expires_at.setter
+    def expires_at(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a746ee65f16cf5a3ad97a29617c36ec808bad7a0025bfac8be2d899ff6e4e957)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "expiresAt", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An optional list of key-value pairs to associate with the instrumentation configuration.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b09ba1fe52b676ecdb6020765cb388f57a3c54085a8e07244ffc1ceec2540f4d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnInstrumentationConfig.CaptureConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code_capture": "codeCapture"},
+    )
+    class CaptureConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            code_capture: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstrumentationConfig.CodeCaptureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''Specifies what to capture when the instrumentation point is hit.
+
+            :param code_capture: Defines what data to capture for code-level instrumentation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-captureconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                capture_configuration_property = applicationsignals.CfnInstrumentationConfig.CaptureConfigurationProperty(
+                    code_capture=applicationsignals.CfnInstrumentationConfig.CodeCaptureConfigurationProperty(
+                        capture_limits=applicationsignals.CfnInstrumentationConfig.CaptureLimitsConfigProperty(
+                            max_collection_depth=123,
+                            max_collection_width=123,
+                            max_fields_per_object=123,
+                            max_hits=123,
+                            max_object_depth=123,
+                            max_stack_frames=123,
+                            max_stack_trace_size=123,
+                            max_string_length=123
+                        ),
+                
+                        # the properties below are optional
+                        capture_arguments=["captureArguments"],
+                        capture_locals=["captureLocals"],
+                        capture_return=False,
+                        capture_stack_trace=False
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2c1a760564fef17b1a01f33568381d3cab8e7608390af89f0ba4734c7b1a5ba5)
+                check_type(argname="argument code_capture", value=code_capture, expected_type=type_hints["code_capture"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code_capture": code_capture,
+            }
+
+        @builtins.property
+        def code_capture(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CodeCaptureConfigurationProperty"]:
+            '''Defines what data to capture for code-level instrumentation.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-captureconfiguration.html#cfn-applicationsignals-instrumentationconfig-captureconfiguration-codecapture
+            '''
+            result = self._values.get("code_capture")
+            assert result is not None, "Required property 'code_capture' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CodeCaptureConfigurationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CaptureConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnInstrumentationConfig.CaptureLimitsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "max_collection_depth": "maxCollectionDepth",
+            "max_collection_width": "maxCollectionWidth",
+            "max_fields_per_object": "maxFieldsPerObject",
+            "max_hits": "maxHits",
+            "max_object_depth": "maxObjectDepth",
+            "max_stack_frames": "maxStackFrames",
+            "max_stack_trace_size": "maxStackTraceSize",
+            "max_string_length": "maxStringLength",
+        },
+    )
+    class CaptureLimitsConfigProperty:
+        def __init__(
+            self,
+            *,
+            max_collection_depth: typing.Optional[jsii.Number] = None,
+            max_collection_width: typing.Optional[jsii.Number] = None,
+            max_fields_per_object: typing.Optional[jsii.Number] = None,
+            max_hits: typing.Optional[jsii.Number] = None,
+            max_object_depth: typing.Optional[jsii.Number] = None,
+            max_stack_frames: typing.Optional[jsii.Number] = None,
+            max_stack_trace_size: typing.Optional[jsii.Number] = None,
+            max_string_length: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Safety limits that bound what is captured.
+
+            :param max_collection_depth: Maximum nesting depth to traverse inside collections.
+            :param max_collection_width: Maximum number of items to capture from any collection.
+            :param max_fields_per_object: Maximum number of fields to capture for any object.
+            :param max_hits: Maximum number of times the instrumentation point can be hit before disabled.
+            :param max_object_depth: Maximum depth for nested object traversal.
+            :param max_stack_frames: Maximum number of stack frames to capture.
+            :param max_stack_trace_size: Maximum total size in bytes of a captured stack trace.
+            :param max_string_length: Maximum length of captured string values in characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                capture_limits_config_property = applicationsignals.CfnInstrumentationConfig.CaptureLimitsConfigProperty(
+                    max_collection_depth=123,
+                    max_collection_width=123,
+                    max_fields_per_object=123,
+                    max_hits=123,
+                    max_object_depth=123,
+                    max_stack_frames=123,
+                    max_stack_trace_size=123,
+                    max_string_length=123
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e4ba23304dcb2091add304f96a2975950645b636fd8563e86cddb64a1b68f989)
+                check_type(argname="argument max_collection_depth", value=max_collection_depth, expected_type=type_hints["max_collection_depth"])
+                check_type(argname="argument max_collection_width", value=max_collection_width, expected_type=type_hints["max_collection_width"])
+                check_type(argname="argument max_fields_per_object", value=max_fields_per_object, expected_type=type_hints["max_fields_per_object"])
+                check_type(argname="argument max_hits", value=max_hits, expected_type=type_hints["max_hits"])
+                check_type(argname="argument max_object_depth", value=max_object_depth, expected_type=type_hints["max_object_depth"])
+                check_type(argname="argument max_stack_frames", value=max_stack_frames, expected_type=type_hints["max_stack_frames"])
+                check_type(argname="argument max_stack_trace_size", value=max_stack_trace_size, expected_type=type_hints["max_stack_trace_size"])
+                check_type(argname="argument max_string_length", value=max_string_length, expected_type=type_hints["max_string_length"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if max_collection_depth is not None:
+                self._values["max_collection_depth"] = max_collection_depth
+            if max_collection_width is not None:
+                self._values["max_collection_width"] = max_collection_width
+            if max_fields_per_object is not None:
+                self._values["max_fields_per_object"] = max_fields_per_object
+            if max_hits is not None:
+                self._values["max_hits"] = max_hits
+            if max_object_depth is not None:
+                self._values["max_object_depth"] = max_object_depth
+            if max_stack_frames is not None:
+                self._values["max_stack_frames"] = max_stack_frames
+            if max_stack_trace_size is not None:
+                self._values["max_stack_trace_size"] = max_stack_trace_size
+            if max_string_length is not None:
+                self._values["max_string_length"] = max_string_length
+
+        @builtins.property
+        def max_collection_depth(self) -> typing.Optional[jsii.Number]:
+            '''Maximum nesting depth to traverse inside collections.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxcollectiondepth
+            '''
+            result = self._values.get("max_collection_depth")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_collection_width(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of items to capture from any collection.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxcollectionwidth
+            '''
+            result = self._values.get("max_collection_width")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_fields_per_object(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of fields to capture for any object.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxfieldsperobject
+            '''
+            result = self._values.get("max_fields_per_object")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_hits(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of times the instrumentation point can be hit before disabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxhits
+            '''
+            result = self._values.get("max_hits")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_object_depth(self) -> typing.Optional[jsii.Number]:
+            '''Maximum depth for nested object traversal.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxobjectdepth
+            '''
+            result = self._values.get("max_object_depth")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_stack_frames(self) -> typing.Optional[jsii.Number]:
+            '''Maximum number of stack frames to capture.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxstackframes
+            '''
+            result = self._values.get("max_stack_frames")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_stack_trace_size(self) -> typing.Optional[jsii.Number]:
+            '''Maximum total size in bytes of a captured stack trace.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxstacktracesize
+            '''
+            result = self._values.get("max_stack_trace_size")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def max_string_length(self) -> typing.Optional[jsii.Number]:
+            '''Maximum length of captured string values in characters.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-capturelimitsconfig.html#cfn-applicationsignals-instrumentationconfig-capturelimitsconfig-maxstringlength
+            '''
+            result = self._values.get("max_string_length")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CaptureLimitsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnInstrumentationConfig.CodeCaptureConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "capture_limits": "captureLimits",
+            "capture_arguments": "captureArguments",
+            "capture_locals": "captureLocals",
+            "capture_return": "captureReturn",
+            "capture_stack_trace": "captureStackTrace",
+        },
+    )
+    class CodeCaptureConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            capture_limits: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstrumentationConfig.CaptureLimitsConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            capture_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+            capture_locals: typing.Optional[typing.Sequence[builtins.str]] = None,
+            capture_return: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            capture_stack_trace: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Defines what data to capture for code-level instrumentation.
+
+            :param capture_limits: Safety limits that bound what is captured.
+            :param capture_arguments: The function arguments to capture.
+            :param capture_locals: The local variables to capture by name.
+            :param capture_return: Whether to capture the return value. Defaults to false.
+            :param capture_stack_trace: Whether to capture a stack trace. Defaults to true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codecaptureconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                code_capture_configuration_property = applicationsignals.CfnInstrumentationConfig.CodeCaptureConfigurationProperty(
+                    capture_limits=applicationsignals.CfnInstrumentationConfig.CaptureLimitsConfigProperty(
+                        max_collection_depth=123,
+                        max_collection_width=123,
+                        max_fields_per_object=123,
+                        max_hits=123,
+                        max_object_depth=123,
+                        max_stack_frames=123,
+                        max_stack_trace_size=123,
+                        max_string_length=123
+                    ),
+                
+                    # the properties below are optional
+                    capture_arguments=["captureArguments"],
+                    capture_locals=["captureLocals"],
+                    capture_return=False,
+                    capture_stack_trace=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3ab5c893001cfcdb151747659454e6eef8f2586cedd4aa9e6ed5f9f833f484e4)
+                check_type(argname="argument capture_limits", value=capture_limits, expected_type=type_hints["capture_limits"])
+                check_type(argname="argument capture_arguments", value=capture_arguments, expected_type=type_hints["capture_arguments"])
+                check_type(argname="argument capture_locals", value=capture_locals, expected_type=type_hints["capture_locals"])
+                check_type(argname="argument capture_return", value=capture_return, expected_type=type_hints["capture_return"])
+                check_type(argname="argument capture_stack_trace", value=capture_stack_trace, expected_type=type_hints["capture_stack_trace"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "capture_limits": capture_limits,
+            }
+            if capture_arguments is not None:
+                self._values["capture_arguments"] = capture_arguments
+            if capture_locals is not None:
+                self._values["capture_locals"] = capture_locals
+            if capture_return is not None:
+                self._values["capture_return"] = capture_return
+            if capture_stack_trace is not None:
+                self._values["capture_stack_trace"] = capture_stack_trace
+
+        @builtins.property
+        def capture_limits(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CaptureLimitsConfigProperty"]:
+            '''Safety limits that bound what is captured.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codecaptureconfiguration.html#cfn-applicationsignals-instrumentationconfig-codecaptureconfiguration-capturelimits
+            '''
+            result = self._values.get("capture_limits")
+            assert result is not None, "Required property 'capture_limits' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CaptureLimitsConfigProperty"], result)
+
+        @builtins.property
+        def capture_arguments(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The function arguments to capture.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codecaptureconfiguration.html#cfn-applicationsignals-instrumentationconfig-codecaptureconfiguration-capturearguments
+            '''
+            result = self._values.get("capture_arguments")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def capture_locals(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The local variables to capture by name.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codecaptureconfiguration.html#cfn-applicationsignals-instrumentationconfig-codecaptureconfiguration-capturelocals
+            '''
+            result = self._values.get("capture_locals")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def capture_return(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether to capture the return value.
+
+            Defaults to false.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codecaptureconfiguration.html#cfn-applicationsignals-instrumentationconfig-codecaptureconfiguration-capturereturn
+            '''
+            result = self._values.get("capture_return")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        @builtins.property
+        def capture_stack_trace(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether to capture a stack trace.
+
+            Defaults to true.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codecaptureconfiguration.html#cfn-applicationsignals-instrumentationconfig-codecaptureconfiguration-capturestacktrace
+            '''
+            result = self._values.get("capture_stack_trace")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeCaptureConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnInstrumentationConfig.CodeLocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "file_path": "filePath",
+            "language": "language",
+            "class_name": "className",
+            "code_unit": "codeUnit",
+            "line_number": "lineNumber",
+            "method_name": "methodName",
+        },
+    )
+    class CodeLocationProperty:
+        def __init__(
+            self,
+            *,
+            file_path: builtins.str,
+            language: builtins.str,
+            class_name: typing.Optional[builtins.str] = None,
+            code_unit: typing.Optional[builtins.str] = None,
+            line_number: typing.Optional[jsii.Number] = None,
+            method_name: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Identifies a code location to instrument.
+
+            :param file_path: The source file path relative to the project or source root.
+            :param language: The programming language for this instrumentation point.
+            :param class_name: The class or type name that contains the method.
+            :param code_unit: The package, module, or namespace that contains the target code.
+            :param line_number: The line number to instrument.
+            :param method_name: The method or function name to instrument.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codelocation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                code_location_property = applicationsignals.CfnInstrumentationConfig.CodeLocationProperty(
+                    file_path="filePath",
+                    language="language",
+                
+                    # the properties below are optional
+                    class_name="className",
+                    code_unit="codeUnit",
+                    line_number=123,
+                    method_name="methodName"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a5c757b57ca6fb731bdc98eef47ceb4d729d61a038039099da8ede0272df81bf)
+                check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
+                check_type(argname="argument language", value=language, expected_type=type_hints["language"])
+                check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
+                check_type(argname="argument code_unit", value=code_unit, expected_type=type_hints["code_unit"])
+                check_type(argname="argument line_number", value=line_number, expected_type=type_hints["line_number"])
+                check_type(argname="argument method_name", value=method_name, expected_type=type_hints["method_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "file_path": file_path,
+                "language": language,
+            }
+            if class_name is not None:
+                self._values["class_name"] = class_name
+            if code_unit is not None:
+                self._values["code_unit"] = code_unit
+            if line_number is not None:
+                self._values["line_number"] = line_number
+            if method_name is not None:
+                self._values["method_name"] = method_name
+
+        @builtins.property
+        def file_path(self) -> builtins.str:
+            '''The source file path relative to the project or source root.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codelocation.html#cfn-applicationsignals-instrumentationconfig-codelocation-filepath
+            '''
+            result = self._values.get("file_path")
+            assert result is not None, "Required property 'file_path' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def language(self) -> builtins.str:
+            '''The programming language for this instrumentation point.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codelocation.html#cfn-applicationsignals-instrumentationconfig-codelocation-language
+            '''
+            result = self._values.get("language")
+            assert result is not None, "Required property 'language' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def class_name(self) -> typing.Optional[builtins.str]:
+            '''The class or type name that contains the method.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codelocation.html#cfn-applicationsignals-instrumentationconfig-codelocation-classname
+            '''
+            result = self._values.get("class_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def code_unit(self) -> typing.Optional[builtins.str]:
+            '''The package, module, or namespace that contains the target code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codelocation.html#cfn-applicationsignals-instrumentationconfig-codelocation-codeunit
+            '''
+            result = self._values.get("code_unit")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def line_number(self) -> typing.Optional[jsii.Number]:
+            '''The line number to instrument.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codelocation.html#cfn-applicationsignals-instrumentationconfig-codelocation-linenumber
+            '''
+            result = self._values.get("line_number")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def method_name(self) -> typing.Optional[builtins.str]:
+            '''The method or function name to instrument.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-codelocation.html#cfn-applicationsignals-instrumentationconfig-codelocation-methodname
+            '''
+            result = self._values.get("method_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeLocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_applicationsignals.CfnInstrumentationConfig.LocationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"code_location": "codeLocation"},
+    )
+    class LocationProperty:
+        def __init__(
+            self,
+            *,
+            code_location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstrumentationConfig.CodeLocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''The location where instrumentation should be applied.
+
+            :param code_location: Identifies a code location to instrument.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-location.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_applicationsignals as applicationsignals
+                
+                location_property = applicationsignals.CfnInstrumentationConfig.LocationProperty(
+                    code_location=applicationsignals.CfnInstrumentationConfig.CodeLocationProperty(
+                        file_path="filePath",
+                        language="language",
+                
+                        # the properties below are optional
+                        class_name="className",
+                        code_unit="codeUnit",
+                        line_number=123,
+                        method_name="methodName"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a238aab31b6616073cd3b6e5b36cd09e8c803cdbe40008d67b9dfef8a0bbad25)
+                check_type(argname="argument code_location", value=code_location, expected_type=type_hints["code_location"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code_location": code_location,
+            }
+
+        @builtins.property
+        def code_location(
+            self,
+        ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CodeLocationProperty"]:
+            '''Identifies a code location to instrument.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-applicationsignals-instrumentationconfig-location.html#cfn-applicationsignals-instrumentationconfig-location-codelocation
+            '''
+            result = self._values.get("code_location")
+            assert result is not None, "Required property 'code_location' is missing"
+            return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CodeLocationProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LocationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_applicationsignals.CfnInstrumentationConfigProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "capture_configuration": "captureConfiguration",
+        "environment": "environment",
+        "instrumentation_type": "instrumentationType",
+        "location": "location",
+        "service": "service",
+        "signal_type": "signalType",
+        "attribute_filters": "attributeFilters",
+        "description": "description",
+        "expires_at": "expiresAt",
+        "tags": "tags",
+    },
+)
+class CfnInstrumentationConfigProps:
+    def __init__(
+        self,
+        *,
+        capture_configuration: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstrumentationConfig.CaptureConfigurationProperty", typing.Dict[builtins.str, typing.Any]]],
+        environment: builtins.str,
+        instrumentation_type: builtins.str,
+        location: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnInstrumentationConfig.LocationProperty", typing.Dict[builtins.str, typing.Any]]],
+        service: builtins.str,
+        signal_type: builtins.str,
+        attribute_filters: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        expires_at: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstrumentationConfig``.
+
+        :param capture_configuration: Specifies what to capture when the instrumentation point is hit.
+        :param environment: The environment that the service is running in.
+        :param instrumentation_type: Type of instrumentation: BREAKPOINT (temporary, expires after 24 hours) or PROBE (permanent, persists until deleted).
+        :param location: The location where instrumentation should be applied.
+        :param service: The name of the service to instrument. This should match the service.name resource attribute reported by the application.
+        :param signal_type: The telemetry signal type to emit for this instrumentation. The supported value is SNAPSHOT.
+        :param attribute_filters: Client-side filters that target specific instances. Each object is AND-matched on keys, multiple objects are OR-matched.
+        :param description: An optional short description that explains the purpose of this instrumentation.
+        :param expires_at: The timestamp after which this configuration is no longer served. For BREAKPOINT only; defaults to 24 hours.
+        :param tags: An optional list of key-value pairs to associate with the instrumentation configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_applicationsignals as applicationsignals
+            
+            cfn_instrumentation_config_props = applicationsignals.CfnInstrumentationConfigProps(
+                capture_configuration=applicationsignals.CfnInstrumentationConfig.CaptureConfigurationProperty(
+                    code_capture=applicationsignals.CfnInstrumentationConfig.CodeCaptureConfigurationProperty(
+                        capture_limits=applicationsignals.CfnInstrumentationConfig.CaptureLimitsConfigProperty(
+                            max_collection_depth=123,
+                            max_collection_width=123,
+                            max_fields_per_object=123,
+                            max_hits=123,
+                            max_object_depth=123,
+                            max_stack_frames=123,
+                            max_stack_trace_size=123,
+                            max_string_length=123
+                        ),
+            
+                        # the properties below are optional
+                        capture_arguments=["captureArguments"],
+                        capture_locals=["captureLocals"],
+                        capture_return=False,
+                        capture_stack_trace=False
+                    )
+                ),
+                environment="environment",
+                instrumentation_type="instrumentationType",
+                location=applicationsignals.CfnInstrumentationConfig.LocationProperty(
+                    code_location=applicationsignals.CfnInstrumentationConfig.CodeLocationProperty(
+                        file_path="filePath",
+                        language="language",
+            
+                        # the properties below are optional
+                        class_name="className",
+                        code_unit="codeUnit",
+                        line_number=123,
+                        method_name="methodName"
+                    )
+                ),
+                service="service",
+                signal_type="signalType",
+            
+                # the properties below are optional
+                attribute_filters=[{
+                    "attribute_filters_key": "attributeFilters"
+                }],
+                description="description",
+                expires_at="expiresAt",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eefb6ed49c3cb75932649bc6fc7782fb2f34a39446d5e32192f626d4914c7df1)
+            check_type(argname="argument capture_configuration", value=capture_configuration, expected_type=type_hints["capture_configuration"])
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument instrumentation_type", value=instrumentation_type, expected_type=type_hints["instrumentation_type"])
+            check_type(argname="argument location", value=location, expected_type=type_hints["location"])
+            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+            check_type(argname="argument signal_type", value=signal_type, expected_type=type_hints["signal_type"])
+            check_type(argname="argument attribute_filters", value=attribute_filters, expected_type=type_hints["attribute_filters"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument expires_at", value=expires_at, expected_type=type_hints["expires_at"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "capture_configuration": capture_configuration,
+            "environment": environment,
+            "instrumentation_type": instrumentation_type,
+            "location": location,
+            "service": service,
+            "signal_type": signal_type,
+        }
+        if attribute_filters is not None:
+            self._values["attribute_filters"] = attribute_filters
+        if description is not None:
+            self._values["description"] = description
+        if expires_at is not None:
+            self._values["expires_at"] = expires_at
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def capture_configuration(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CaptureConfigurationProperty"]:
+        '''Specifies what to capture when the instrumentation point is hit.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-captureconfiguration
+        '''
+        result = self._values.get("capture_configuration")
+        assert result is not None, "Required property 'capture_configuration' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.CaptureConfigurationProperty"], result)
+
+    @builtins.property
+    def environment(self) -> builtins.str:
+        '''The environment that the service is running in.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-environment
+        '''
+        result = self._values.get("environment")
+        assert result is not None, "Required property 'environment' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instrumentation_type(self) -> builtins.str:
+        '''Type of instrumentation: BREAKPOINT (temporary, expires after 24 hours) or PROBE (permanent, persists until deleted).
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-instrumentationtype
+        '''
+        result = self._values.get("instrumentation_type")
+        assert result is not None, "Required property 'instrumentation_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location(
+        self,
+    ) -> typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.LocationProperty"]:
+        '''The location where instrumentation should be applied.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-location
+        '''
+        result = self._values.get("location")
+        assert result is not None, "Required property 'location' is missing"
+        return typing.cast(typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnInstrumentationConfig.LocationProperty"], result)
+
+    @builtins.property
+    def service(self) -> builtins.str:
+        '''The name of the service to instrument.
+
+        This should match the service.name resource attribute reported by the application.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-service
+        '''
+        result = self._values.get("service")
+        assert result is not None, "Required property 'service' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signal_type(self) -> builtins.str:
+        '''The telemetry signal type to emit for this instrumentation.
+
+        The supported value is SNAPSHOT.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-signaltype
+        '''
+        result = self._values.get("signal_type")
+        assert result is not None, "Required property 'signal_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def attribute_filters(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]]:
+        '''Client-side filters that target specific instances.
+
+        Each object is AND-matched on keys, multiple objects are OR-matched.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-attributefilters
+        '''
+        result = self._values.get("attribute_filters")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Mapping[builtins.str, builtins.str]]]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''An optional short description that explains the purpose of this instrumentation.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expires_at(self) -> typing.Optional[builtins.str]:
+        '''The timestamp after which this configuration is no longer served.
+
+        For BREAKPOINT only; defaults to 24 hours.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-expiresat
+        '''
+        result = self._values.get("expires_at")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An optional list of key-value pairs to associate with the instrumentation configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-applicationsignals-instrumentationconfig.html#cfn-applicationsignals-instrumentationconfig-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstrumentationConfigProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_applicationsignals_54ce25b5.IServiceLevelObjectiveRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnServiceLevelObjective(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4095,6 +5320,8 @@ __all__ = [
     "CfnDiscoveryProps",
     "CfnGroupingConfiguration",
     "CfnGroupingConfigurationProps",
+    "CfnInstrumentationConfig",
+    "CfnInstrumentationConfigProps",
     "CfnServiceLevelObjective",
     "CfnServiceLevelObjectiveProps",
 ]
@@ -4171,6 +5398,175 @@ def _typecheckingstub__4809aa4639bc02468e9643d2a4f1a9e5305f3985a02486a04a21025dc
 def _typecheckingstub__f1092a665e6fb60575de2d22516416485dc448d30b228f509e488593e009ff91(
     *,
     grouping_attribute_definitions: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnGroupingConfiguration.GroupingAttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbb1d5eff2470005b15534f8b463b67da4d84bc67c4a996ed9bccd553dca69f5(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    capture_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstrumentationConfig.CaptureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    environment: builtins.str,
+    instrumentation_type: builtins.str,
+    location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstrumentationConfig.LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    service: builtins.str,
+    signal_type: builtins.str,
+    attribute_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    expires_at: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce1efa9dd018ffdab218ce4369a973c31fa9c5e4454ea8bc8c27e9d9aa550133(
+    resource: _aws_applicationsignals_54ce25b5.IInstrumentationConfigRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd6964b17f5efd10ea8b67fe4b17e5e4f5e86537b4aa03cb5a56784bbf0ca22f(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4d486b8578871300889b2494e7cb77afc533f20bdb6b4c8e225f5a6332232167(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d46d6a26f5b9e09586b8a18b3a143b6e0779cc2c9eb2d07689b482a1639416b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__285d815a2d0e571b3b24f15b6238c16ec883bd26ad67776783ec337d0db7f2e0(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstrumentationConfig.CaptureConfigurationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ca5faacb19015aafda82f3223dd7311179e0165c435c8a011d005b0cd5647189(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f1211eee2f9a4da8d3c90474e62248afbf9a11398cc362da8f55b674c7b69fd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4585d5f2b95c9f1443ea00bede66f471c1f4cdb834bb0c9828f016efc71192d6(
+    value: typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnInstrumentationConfig.LocationProperty],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__280bfe6bdd5e616e39ba093bfaf441dc8d190d889ead2e8b138e1a205789d579(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dbdb80e67e006de08bd507bc29634b9001b5a3312f6f19286e8a678b02edd5bd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__759296c6dc08955cbd419169f5e0b61c444822ceaa18e8793ed517582c1a9c26(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c069afedeb2d4d9e1dde6f8a49991629f5c111ccf0581fc5e20063fd7b82a61d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a746ee65f16cf5a3ad97a29617c36ec808bad7a0025bfac8be2d899ff6e4e957(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b09ba1fe52b676ecdb6020765cb388f57a3c54085a8e07244ffc1ceec2540f4d(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c1a760564fef17b1a01f33568381d3cab8e7608390af89f0ba4734c7b1a5ba5(
+    *,
+    code_capture: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstrumentationConfig.CodeCaptureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4ba23304dcb2091add304f96a2975950645b636fd8563e86cddb64a1b68f989(
+    *,
+    max_collection_depth: typing.Optional[jsii.Number] = None,
+    max_collection_width: typing.Optional[jsii.Number] = None,
+    max_fields_per_object: typing.Optional[jsii.Number] = None,
+    max_hits: typing.Optional[jsii.Number] = None,
+    max_object_depth: typing.Optional[jsii.Number] = None,
+    max_stack_frames: typing.Optional[jsii.Number] = None,
+    max_stack_trace_size: typing.Optional[jsii.Number] = None,
+    max_string_length: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ab5c893001cfcdb151747659454e6eef8f2586cedd4aa9e6ed5f9f833f484e4(
+    *,
+    capture_limits: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstrumentationConfig.CaptureLimitsConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    capture_arguments: typing.Optional[typing.Sequence[builtins.str]] = None,
+    capture_locals: typing.Optional[typing.Sequence[builtins.str]] = None,
+    capture_return: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    capture_stack_trace: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5c757b57ca6fb731bdc98eef47ceb4d729d61a038039099da8ede0272df81bf(
+    *,
+    file_path: builtins.str,
+    language: builtins.str,
+    class_name: typing.Optional[builtins.str] = None,
+    code_unit: typing.Optional[builtins.str] = None,
+    line_number: typing.Optional[jsii.Number] = None,
+    method_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a238aab31b6616073cd3b6e5b36cd09e8c803cdbe40008d67b9dfef8a0bbad25(
+    *,
+    code_location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstrumentationConfig.CodeLocationProperty, typing.Dict[builtins.str, typing.Any]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eefb6ed49c3cb75932649bc6fc7782fb2f34a39446d5e32192f626d4914c7df1(
+    *,
+    capture_configuration: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstrumentationConfig.CaptureConfigurationProperty, typing.Dict[builtins.str, typing.Any]]],
+    environment: builtins.str,
+    instrumentation_type: builtins.str,
+    location: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnInstrumentationConfig.LocationProperty, typing.Dict[builtins.str, typing.Any]]],
+    service: builtins.str,
+    signal_type: builtins.str,
+    attribute_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Mapping[builtins.str, builtins.str]]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    expires_at: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

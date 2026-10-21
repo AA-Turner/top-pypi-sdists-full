@@ -16,6 +16,9 @@ Usage::
         ListAttributesPaginator,
         ListClustersPaginator,
         ListContainerInstancesPaginator,
+        ListGatewayClusterAssociationsPaginator,
+        ListGatewayRoutesPaginator,
+        ListGatewaysPaginator,
         ListServicesByNamespacePaginator,
         ListServicesPaginator,
         ListTaskDefinitionFamiliesPaginator,
@@ -30,6 +33,9 @@ Usage::
     list_attributes_paginator: ListAttributesPaginator = client.get_paginator("list_attributes")
     list_clusters_paginator: ListClustersPaginator = client.get_paginator("list_clusters")
     list_container_instances_paginator: ListContainerInstancesPaginator = client.get_paginator("list_container_instances")
+    list_gateway_cluster_associations_paginator: ListGatewayClusterAssociationsPaginator = client.get_paginator("list_gateway_cluster_associations")
+    list_gateway_routes_paginator: ListGatewayRoutesPaginator = client.get_paginator("list_gateway_routes")
+    list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
     list_services_by_namespace_paginator: ListServicesByNamespacePaginator = client.get_paginator("list_services_by_namespace")
     list_services_paginator: ListServicesPaginator = client.get_paginator("list_services")
     list_task_definition_families_paginator: ListTaskDefinitionFamiliesPaginator = client.get_paginator("list_task_definition_families")
@@ -54,6 +60,12 @@ from .type_defs import (
     ListClustersResponseTypeDef,
     ListContainerInstancesRequestPaginateTypeDef,
     ListContainerInstancesResponseTypeDef,
+    ListGatewayClusterAssociationsRequestPaginateTypeDef,
+    ListGatewayClusterAssociationsResponseTypeDef,
+    ListGatewayRoutesRequestPaginateTypeDef,
+    ListGatewayRoutesResponseTypeDef,
+    ListGatewaysRequestPaginateTypeDef,
+    ListGatewaysResponseTypeDef,
     ListServicesByNamespaceRequestPaginateTypeDef,
     ListServicesByNamespaceResponseTypeDef,
     ListServicesRequestPaginateTypeDef,
@@ -77,6 +89,9 @@ __all__ = (
     "ListAttributesPaginator",
     "ListClustersPaginator",
     "ListContainerInstancesPaginator",
+    "ListGatewayClusterAssociationsPaginator",
+    "ListGatewayRoutesPaginator",
+    "ListGatewaysPaginator",
     "ListServicesByNamespacePaginator",
     "ListServicesPaginator",
     "ListTaskDefinitionFamiliesPaginator",
@@ -166,6 +181,71 @@ class ListContainerInstancesPaginator(_ListContainerInstancesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/paginator/ListContainerInstances.html#ECS.Paginator.ListContainerInstances.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/paginators/#listcontainerinstancespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListGatewayClusterAssociationsPaginatorBase = Paginator[
+        ListGatewayClusterAssociationsResponseTypeDef
+    ]
+else:
+    _ListGatewayClusterAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListGatewayClusterAssociationsPaginator(_ListGatewayClusterAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/paginator/ListGatewayClusterAssociations.html#ECS.Paginator.ListGatewayClusterAssociations)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/paginators/#listgatewayclusterassociationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGatewayClusterAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListGatewayClusterAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/paginator/ListGatewayClusterAssociations.html#ECS.Paginator.ListGatewayClusterAssociations.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/paginators/#listgatewayclusterassociationspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListGatewayRoutesPaginatorBase = Paginator[ListGatewayRoutesResponseTypeDef]
+else:
+    _ListGatewayRoutesPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListGatewayRoutesPaginator(_ListGatewayRoutesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/paginator/ListGatewayRoutes.html#ECS.Paginator.ListGatewayRoutes)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/paginators/#listgatewayroutespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGatewayRoutesRequestPaginateTypeDef]
+    ) -> PageIterator[ListGatewayRoutesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/paginator/ListGatewayRoutes.html#ECS.Paginator.ListGatewayRoutes.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/paginators/#listgatewayroutespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListGatewaysPaginatorBase = Paginator[ListGatewaysResponseTypeDef]
+else:
+    _ListGatewaysPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListGatewaysPaginator(_ListGatewaysPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/paginator/ListGateways.html#ECS.Paginator.ListGateways)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/paginators/#listgatewayspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListGatewaysRequestPaginateTypeDef]
+    ) -> PageIterator[ListGatewaysResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/paginator/ListGateways.html#ECS.Paginator.ListGateways.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/paginators/#listgatewayspaginator)
         """
 
 

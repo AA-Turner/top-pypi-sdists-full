@@ -11,7 +11,7 @@ from pinecone._internal.backups_helpers import (
     backup_list_params,
     require_index_scope_for_include_deleted,
 )
-from pinecone._internal.validation import require_non_empty
+from pinecone._internal.validation import require_non_empty, require_str
 from pinecone.models.backups.list import BackupList
 from pinecone.models.backups.model import BackupModel
 
@@ -49,7 +49,8 @@ class AsyncBackups:
     .. seealso::
        - :meth:`~pinecone.async_client.indexes.AsyncIndexes.list_backups` —
          the index-scoped listing, which walks every page for you.
-       - :doc:`/guides/error-handling` — the exceptions any of these methods
+       - `Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__
+         — the exceptions any of these methods
          can raise, and which ones are worth retrying.
     """
 
@@ -161,7 +162,24 @@ class AsyncBackups:
         Otherwise lists every backup in the project. One call returns one
         page: iterating the result walks that page and stops rather than
         following ``pagination`` on your behalf. Drive the token yourself to
-        walk the rest — see :doc:`/guides/pagination`.
+        walk the rest — see `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__.
+
+        ``list`` returns a page rather than a
+        :class:`~pinecone.models.pagination.Paginator` because that is how
+        the backup endpoints are shaped throughout: so do
+        :meth:`~pinecone.async_client.restore_jobs.AsyncRestoreJobs.list`,
+        :meth:`~pinecone.async_client.backup_schedules.AsyncBackupSchedules.list`
+        and
+        :meth:`~pinecone.async_client.backup_schedules.AsyncBackupSchedules.history`.
+        Where a page-walking companion exists it is a separate method —
+        :meth:`~pinecone.async_client.backup_schedules.AsyncBackupSchedules.iter_schedules`
+        and
+        :meth:`~pinecone.async_client.backup_schedules.AsyncBackupSchedules.iter_history`.
+        Neither this listing nor
+        :meth:`~pinecone.async_client.restore_jobs.AsyncRestoreJobs.list` has
+        one, so walking those is the caller's job;
+        :meth:`~pinecone.async_client.indexes.AsyncIndexes.list_backups` is
+        the page-walking shape for one index at a time.
 
         Args:
             index_name (str | None): Index name to scope the listing to, or
@@ -187,6 +205,7 @@ class AsyncBackups:
             de-duplicate by ``backup_id`` rather than relying on page order.
 
         Raises:
+            :exc:`PineconeTypeError`: If *index_name* is given and is not a ``str``.
             :exc:`PineconeValueError`: If *include_deleted* is given without
                 *index_name*.
             :exc:`NotFoundError`: If *index_name* does not resolve to an
@@ -256,7 +275,8 @@ class AsyncBackups:
         )
 
         if index_name is not None:
-            path = f"/indexes/{quote(str(index_name), safe='')}/backups"
+            require_str("index_name", index_name)
+            path = f"/indexes/{quote(index_name, safe='')}/backups"
         else:
             path = "/backups"
 

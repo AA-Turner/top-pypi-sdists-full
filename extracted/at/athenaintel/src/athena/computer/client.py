@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.computer_initialization_response import ComputerInitializationResponse
 from ..types.computer_lifecycle_response_out import ComputerLifecycleResponseOut
+from ..types.computer_status_response_out import ComputerStatusResponseOut
 from ..types.deploy_computer_response_out import DeployComputerResponseOut
 from ..types.revoke_ssh_access_response_out import RevokeSshAccessResponseOut
 from ..types.ssh_access_info_out import SshAccessInfoOut
@@ -147,7 +148,7 @@ class ComputerClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SshAccessResponseOut:
         """
-        Generate a time-limited SSH access token for a computer asset. Returns a full SSH command and token that can be used to connect to the computer's underlying VM and run commands. The computer must support SSH access and be in a running state.
+        Generate a time-limited SSH access token for a computer asset. Returns a full SSH command and token that can be used to connect to the computer's underlying VM and run commands. The computer must support SSH access. If it is stopped, this call starts it first and can take as long as `start_computer`; after an explicit Stop it returns 409 until you call `start_computer`. Use `get_status` to see whether the computer is ready.
 
         Parameters
         ----------
@@ -292,7 +293,7 @@ class ComputerClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ComputerLifecycleResponseOut:
         """
-        Start a stopped computer's runtime and wait for it to come up — the same operation as the Start button in Athena. Idempotent for a running computer. Returns 409 when the computer's provider does not support lifecycle operations.
+        Start a stopped computer's runtime and wait for it to come up — the same operation as the Start button in Athena. Idempotent for a running computer, and it clears an explicit stop. `state` is `started` once the runtime is up; the guest can need a few more seconds, so poll `get_status` until `ready` is true before you rely on commands or SSH. A proxy in front of the API can end this request after about 60 seconds while the start continues on the server; then poll `get_status`. Returns 409 when the computer's provider does not support lifecycle operations.
 
         Parameters
         ----------
@@ -319,6 +320,47 @@ class ComputerClient:
         )
         """
         _response = self._raw_client.start_computer(asset_id, request_options=request_options)
+        return _response.data
+
+    def get_status(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ComputerStatusResponseOut:
+        """
+        Read an existing computer's live runtime state and whether it is ready, without starting, waking, or repairing it. Works for every computer, including those created before durable initialization (`get_initialization` reports creation-time progress only). Requires membership in the computer's workspace and VIEW access. This read does not count as activity, so polling it does not keep the computer awake.
+
+        **Waiting for a computer.** Call `start_computer`, then poll this endpoint every few seconds until `ready` is true; stop polling when `not_ready_reason` is `launcher_outdated`. `start_computer` waits for the computer, but a proxy in front of the API can end a long request (about 60 seconds on Athena's ingress) while the start continues on the server. The server waits up to 210 seconds by default for the computer's runtime to boot before it reports a failure, and Athena alerts its operators when the 90th percentile of starts goes above 3 minutes.
+
+        **Auto-stop.** A computer stops after its `auto_stop_minutes` of inactivity (60 minutes unless the computer or the deployment sets another value; 0 means it never stops on its own). Activity is work inside the computer — commands, terminal and SSH sessions, file operations — and requests to its deployed URLs. Status reads are not activity.
+
+        **The asset record's `status`.** The computer's `status` in `GET /assets/{asset_id}` records the last lifecycle change Athena recorded (create, Start, Stop); it is not a live read. It can read `running` while the computer is stopped, for example after an idle auto-stop, or `stopped` after something woke it. Use this endpoint for the live state.
+
+        Returns 403 when the caller is not a member of the computer's workspace, 409 while the computer is still being created or when its creation failed, 404 when the asset does not exist or its runtime is gone for good (stop polling), and 502 when the runtime could not be read (retry).
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ComputerStatusResponseOut
+            Successful Response
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+        client.computer.get_status(
+            asset_id="asset_id",
+        )
+        """
+        _response = self._raw_client.get_status(asset_id, request_options=request_options)
         return _response.data
 
     def stop_computer(
@@ -509,7 +551,7 @@ class AsyncComputerClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SshAccessResponseOut:
         """
-        Generate a time-limited SSH access token for a computer asset. Returns a full SSH command and token that can be used to connect to the computer's underlying VM and run commands. The computer must support SSH access and be in a running state.
+        Generate a time-limited SSH access token for a computer asset. Returns a full SSH command and token that can be used to connect to the computer's underlying VM and run commands. The computer must support SSH access. If it is stopped, this call starts it first and can take as long as `start_computer`; after an explicit Stop it returns 409 until you call `start_computer`. Use `get_status` to see whether the computer is ready.
 
         Parameters
         ----------
@@ -686,7 +728,7 @@ class AsyncComputerClient:
         self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ComputerLifecycleResponseOut:
         """
-        Start a stopped computer's runtime and wait for it to come up — the same operation as the Start button in Athena. Idempotent for a running computer. Returns 409 when the computer's provider does not support lifecycle operations.
+        Start a stopped computer's runtime and wait for it to come up — the same operation as the Start button in Athena. Idempotent for a running computer, and it clears an explicit stop. `state` is `started` once the runtime is up; the guest can need a few more seconds, so poll `get_status` until `ready` is true before you rely on commands or SSH. A proxy in front of the API can end this request after about 60 seconds while the start continues on the server; then poll `get_status`. Returns 409 when the computer's provider does not support lifecycle operations.
 
         Parameters
         ----------
@@ -721,6 +763,55 @@ class AsyncComputerClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.start_computer(asset_id, request_options=request_options)
+        return _response.data
+
+    async def get_status(
+        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> ComputerStatusResponseOut:
+        """
+        Read an existing computer's live runtime state and whether it is ready, without starting, waking, or repairing it. Works for every computer, including those created before durable initialization (`get_initialization` reports creation-time progress only). Requires membership in the computer's workspace and VIEW access. This read does not count as activity, so polling it does not keep the computer awake.
+
+        **Waiting for a computer.** Call `start_computer`, then poll this endpoint every few seconds until `ready` is true; stop polling when `not_ready_reason` is `launcher_outdated`. `start_computer` waits for the computer, but a proxy in front of the API can end a long request (about 60 seconds on Athena's ingress) while the start continues on the server. The server waits up to 210 seconds by default for the computer's runtime to boot before it reports a failure, and Athena alerts its operators when the 90th percentile of starts goes above 3 minutes.
+
+        **Auto-stop.** A computer stops after its `auto_stop_minutes` of inactivity (60 minutes unless the computer or the deployment sets another value; 0 means it never stops on its own). Activity is work inside the computer — commands, terminal and SSH sessions, file operations — and requests to its deployed URLs. Status reads are not activity.
+
+        **The asset record's `status`.** The computer's `status` in `GET /assets/{asset_id}` records the last lifecycle change Athena recorded (create, Start, Stop); it is not a live read. It can read `running` while the computer is stopped, for example after an idle auto-stop, or `stopped` after something woke it. Use this endpoint for the live state.
+
+        Returns 403 when the caller is not a member of the computer's workspace, 409 while the computer is still being created or when its creation failed, 404 when the asset does not exist or its runtime is gone for good (stop polling), and 502 when the runtime could not be read (retry).
+
+        Parameters
+        ----------
+        asset_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        ComputerStatusResponseOut
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            session_credential="YOUR_SESSION_CREDENTIAL",
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.computer.get_status(
+                asset_id="asset_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.get_status(asset_id, request_options=request_options)
         return _response.data
 
     async def stop_computer(

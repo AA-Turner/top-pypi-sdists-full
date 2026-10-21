@@ -55,6 +55,14 @@ class DeploymentBuildStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_STATUS_EXPIRED: _ClassVar[DeploymentBuildStatus]
     DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: _ClassVar[DeploymentBuildStatus]
 
+class EnvoyGatewayMachineSize(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    ENVOY_GATEWAY_MACHINE_SIZE_UNSPECIFIED: _ClassVar[EnvoyGatewayMachineSize]
+    ENVOY_GATEWAY_MACHINE_SIZE_MICRO: _ClassVar[EnvoyGatewayMachineSize]
+    ENVOY_GATEWAY_MACHINE_SIZE_SMALL: _ClassVar[EnvoyGatewayMachineSize]
+    ENVOY_GATEWAY_MACHINE_SIZE_MEDIUM: _ClassVar[EnvoyGatewayMachineSize]
+    ENVOY_GATEWAY_MACHINE_SIZE_LARGE: _ClassVar[EnvoyGatewayMachineSize]
+
 class BackgroundPersistenceWriterClickHouseWriteMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_UNSPECIFIED: _ClassVar[
@@ -186,6 +194,13 @@ class TrafficZonalAffinity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     TRAFFIC_ZONAL_AFFINITY_CROSS_ZONE: _ClassVar[TrafficZonalAffinity]
     TRAFFIC_ZONAL_AFFINITY_LOCAL: _ClassVar[TrafficZonalAffinity]
 
+class TelemetryDeploymentAvailabilityStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_UNSPECIFIED: _ClassVar[TelemetryDeploymentAvailabilityStatus]
+    TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_AVAILABLE: _ClassVar[TelemetryDeploymentAvailabilityStatus]
+    TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_NOT_CONFIGURED: _ClassVar[TelemetryDeploymentAvailabilityStatus]
+    TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_SUSPENDED: _ClassVar[TelemetryDeploymentAvailabilityStatus]
+
 SOURCE_MODE_UNSPECIFIED: SourceMode
 SOURCE_MODE_ARCHIVE: SourceMode
 SOURCE_MODE_SOURCELESS: SourceMode
@@ -201,6 +216,11 @@ DEPLOYMENT_BUILD_STATUS_TIMEOUT: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_CANCELLED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_EXPIRED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: DeploymentBuildStatus
+ENVOY_GATEWAY_MACHINE_SIZE_UNSPECIFIED: EnvoyGatewayMachineSize
+ENVOY_GATEWAY_MACHINE_SIZE_MICRO: EnvoyGatewayMachineSize
+ENVOY_GATEWAY_MACHINE_SIZE_SMALL: EnvoyGatewayMachineSize
+ENVOY_GATEWAY_MACHINE_SIZE_MEDIUM: EnvoyGatewayMachineSize
+ENVOY_GATEWAY_MACHINE_SIZE_LARGE: EnvoyGatewayMachineSize
 BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_UNSPECIFIED: BackgroundPersistenceWriterClickHouseWriteMode
 BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_TIMESCALE_ONLY: BackgroundPersistenceWriterClickHouseWriteMode
 BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_DUAL: BackgroundPersistenceWriterClickHouseWriteMode
@@ -266,6 +286,10 @@ VECTOR_COLLECTOR_REQUEST_CONCURRENCY_MODE_ADAPTIVE: VectorCollectorRequestConcur
 TRAFFIC_ZONAL_AFFINITY_UNSPECIFIED: TrafficZonalAffinity
 TRAFFIC_ZONAL_AFFINITY_CROSS_ZONE: TrafficZonalAffinity
 TRAFFIC_ZONAL_AFFINITY_LOCAL: TrafficZonalAffinity
+TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_UNSPECIFIED: TelemetryDeploymentAvailabilityStatus
+TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_AVAILABLE: TelemetryDeploymentAvailabilityStatus
+TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_NOT_CONFIGURED: TelemetryDeploymentAvailabilityStatus
+TELEMETRY_DEPLOYMENT_AVAILABILITY_STATUS_SUSPENDED: TelemetryDeploymentAvailabilityStatus
 
 class ActivateDeploymentTarget(_message.Message):
     __slots__ = ("service_kind", "resource_group_name")
@@ -1867,6 +1891,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         "idle_timeout_sec",
         "certificate_issuer_ref",
         "traffic_zonal_affinity",
+        "machine_size",
     )
     class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1891,6 +1916,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     IDLE_TIMEOUT_SEC_FIELD_NUMBER: _ClassVar[int]
     CERTIFICATE_ISSUER_REF_FIELD_NUMBER: _ClassVar[int]
     TRAFFIC_ZONAL_AFFINITY_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_SIZE_FIELD_NUMBER: _ClassVar[int]
     timeout_duration: str
     dns_hostname: str
     replicas: int
@@ -1906,6 +1932,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     idle_timeout_sec: int
     certificate_issuer_ref: CertManagerIssuerRef
     traffic_zonal_affinity: TrafficZonalAffinity
+    machine_size: EnvoyGatewayMachineSize
     def __init__(
         self,
         timeout_duration: _Optional[str] = ...,
@@ -1923,6 +1950,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         idle_timeout_sec: _Optional[int] = ...,
         certificate_issuer_ref: _Optional[_Union[CertManagerIssuerRef, _Mapping]] = ...,
         traffic_zonal_affinity: _Optional[_Union[TrafficZonalAffinity, str]] = ...,
+        machine_size: _Optional[_Union[EnvoyGatewayMachineSize, str]] = ...,
     ) -> None: ...
 
 class GCPGatewayProviderConfig(_message.Message):
@@ -2783,6 +2811,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
         "request",
         "max_replicas",
         "otlp_metrics_export",
+        "prometheus_export",
     )
     DATADOG_EXPORT_FIELD_NUMBER: _ClassVar[int]
     REPLICAS_FIELD_NUMBER: _ClassVar[int]
@@ -2793,6 +2822,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     MAX_REPLICAS_FIELD_NUMBER: _ClassVar[int]
     OTLP_METRICS_EXPORT_FIELD_NUMBER: _ClassVar[int]
+    PROMETHEUS_EXPORT_FIELD_NUMBER: _ClassVar[int]
     datadog_export: CustomerVectorAggregatorDatadogExportConfig
     replicas: int
     statsd_export: CustomerVectorAggregatorStatsdExportConfig
@@ -2802,6 +2832,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
     request: KubeResourceConfig
     max_replicas: int
     otlp_metrics_export: CustomerVectorAggregatorOtlpMetricsExportConfig
+    prometheus_export: CustomerVectorAggregatorPrometheusExportConfig
     def __init__(
         self,
         datadog_export: _Optional[_Union[CustomerVectorAggregatorDatadogExportConfig, _Mapping]] = ...,
@@ -2813,6 +2844,7 @@ class CustomerVectorAggregatorConfig(_message.Message):
         request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         max_replicas: _Optional[int] = ...,
         otlp_metrics_export: _Optional[_Union[CustomerVectorAggregatorOtlpMetricsExportConfig, _Mapping]] = ...,
+        prometheus_export: _Optional[_Union[CustomerVectorAggregatorPrometheusExportConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class AggregatorSpec(_message.Message):
@@ -3081,6 +3113,40 @@ class MetricExportSpec(_message.Message):
     additional_destinations: _containers.RepeatedCompositeFieldContainer[MetricExportDestination]
     def __init__(
         self, additional_destinations: _Optional[_Iterable[_Union[MetricExportDestination, _Mapping]]] = ...
+    ) -> None: ...
+
+class TraceExportDestination(_message.Message):
+    __slots__ = ("name", "endpoint", "headers", "sample_rate")
+    class HeadersEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    HEADERS_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    endpoint: str
+    headers: _containers.ScalarMap[str, str]
+    sample_rate: float
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        endpoint: _Optional[str] = ...,
+        headers: _Optional[_Mapping[str, str]] = ...,
+        sample_rate: _Optional[float] = ...,
+    ) -> None: ...
+
+class TraceExportSpec(_message.Message):
+    __slots__ = ("additional_trace_destinations",)
+    ADDITIONAL_TRACE_DESTINATIONS_FIELD_NUMBER: _ClassVar[int]
+    additional_trace_destinations: _containers.RepeatedCompositeFieldContainer[TraceExportDestination]
+    def __init__(
+        self, additional_trace_destinations: _Optional[_Iterable[_Union[TraceExportDestination, _Mapping]]] = ...
     ) -> None: ...
 
 class VectorClusterMetricsShadowSpec(_message.Message):
@@ -3714,6 +3780,7 @@ class TelemetryDeploymentSpec(_message.Message):
         "customer_vector_aggregator",
         "prometheus_collection_runtime",
         "vector_pipeline_metrics",
+        "trace_exports",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -3734,6 +3801,7 @@ class TelemetryDeploymentSpec(_message.Message):
     CUSTOMER_VECTOR_AGGREGATOR_FIELD_NUMBER: _ClassVar[int]
     PROMETHEUS_COLLECTION_RUNTIME_FIELD_NUMBER: _ClassVar[int]
     VECTOR_PIPELINE_METRICS_FIELD_NUMBER: _ClassVar[int]
+    TRACE_EXPORTS_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -3753,6 +3821,7 @@ class TelemetryDeploymentSpec(_message.Message):
     customer_vector_aggregator: CustomerVectorAggregatorConfig
     prometheus_collection_runtime: TelemetryPrometheusCollectionRuntime
     vector_pipeline_metrics: VectorTelemetryPipelineMetricsSpec
+    trace_exports: TraceExportSpec
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -3774,6 +3843,7 @@ class TelemetryDeploymentSpec(_message.Message):
         customer_vector_aggregator: _Optional[_Union[CustomerVectorAggregatorConfig, _Mapping]] = ...,
         prometheus_collection_runtime: _Optional[_Union[TelemetryPrometheusCollectionRuntime, str]] = ...,
         vector_pipeline_metrics: _Optional[_Union[VectorTelemetryPipelineMetricsSpec, _Mapping]] = ...,
+        trace_exports: _Optional[_Union[TraceExportSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):
@@ -3809,17 +3879,26 @@ class ClusterIdentifier(_message.Message):
     def __init__(self, cluster_id: _Optional[str] = ..., namespace: _Optional[str] = ...) -> None: ...
 
 class GetTelemetryDeploymentRequest(_message.Message):
-    __slots__ = ("cluster_id", "namespace", "cluster_identifier", "telemetry_id", "by_environment")
+    __slots__ = (
+        "cluster_id",
+        "namespace",
+        "cluster_identifier",
+        "telemetry_id",
+        "by_environment",
+        "resource_cluster_id",
+    )
     CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_IDENTIFIER_FIELD_NUMBER: _ClassVar[int]
     TELEMETRY_ID_FIELD_NUMBER: _ClassVar[int]
     BY_ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     cluster_id: str
     namespace: str
     cluster_identifier: ClusterIdentifier
     telemetry_id: str
     by_environment: bool
+    resource_cluster_id: str
     def __init__(
         self,
         cluster_id: _Optional[str] = ...,
@@ -3827,6 +3906,7 @@ class GetTelemetryDeploymentRequest(_message.Message):
         cluster_identifier: _Optional[_Union[ClusterIdentifier, _Mapping]] = ...,
         telemetry_id: _Optional[str] = ...,
         by_environment: bool = ...,
+        resource_cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class GetTelemetryDeploymentResponse(_message.Message):
@@ -3881,21 +3961,24 @@ class DeleteTelemetryDeploymentResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class UpdateTelemetryDeploymentRequest(_message.Message):
-    __slots__ = ("telemetry_deployment_id", "spec", "suspended", "update_mask")
+    __slots__ = ("telemetry_deployment_id", "spec", "suspended", "update_mask", "cluster_id")
     TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     telemetry_deployment_id: str
     spec: TelemetryDeploymentSpec
     suspended: bool
     update_mask: _field_mask_pb2.FieldMask
+    cluster_id: str
     def __init__(
         self,
         telemetry_deployment_id: _Optional[str] = ...,
         spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...,
         suspended: bool = ...,
         update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class UpdateTelemetryDeploymentResponse(_message.Message):
@@ -3905,13 +3988,18 @@ class UpdateTelemetryDeploymentResponse(_message.Message):
     def __init__(self, deployment: _Optional[_Union[TelemetryDeployment, _Mapping]] = ...) -> None: ...
 
 class MigrateTelemetryDeploymentRequest(_message.Message):
-    __slots__ = ("telemetry_deployment_id", "migration_image")
+    __slots__ = ("telemetry_deployment_id", "migration_image", "cluster_id")
     TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     MIGRATION_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     telemetry_deployment_id: str
     migration_image: str
+    cluster_id: str
     def __init__(
-        self, telemetry_deployment_id: _Optional[str] = ..., migration_image: _Optional[str] = ...
+        self,
+        telemetry_deployment_id: _Optional[str] = ...,
+        migration_image: _Optional[str] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class MigrateTelemetryDeploymentResponse(_message.Message):
@@ -4072,6 +4160,24 @@ class GetNodepoolsResponse(_message.Message):
         gke_nodepools: _Optional[_Iterable[_Union[_gke_pb2.GKENodePool, _Mapping]]] = ...,
     ) -> None: ...
 
+class GetClusterNodepoolsRequest(_message.Message):
+    __slots__ = ("kube_cluster_id",)
+    KUBE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    kube_cluster_id: str
+    def __init__(self, kube_cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetClusterNodepoolsResponse(_message.Message):
+    __slots__ = ("karpenter_nodepools", "gke_nodepools")
+    KARPENTER_NODEPOOLS_FIELD_NUMBER: _ClassVar[int]
+    GKE_NODEPOOLS_FIELD_NUMBER: _ClassVar[int]
+    karpenter_nodepools: _containers.RepeatedCompositeFieldContainer[_karpenter_pb2.KarpenterNodepool]
+    gke_nodepools: _containers.RepeatedCompositeFieldContainer[_gke_pb2.GKENodePool]
+    def __init__(
+        self,
+        karpenter_nodepools: _Optional[_Iterable[_Union[_karpenter_pb2.KarpenterNodepool, _Mapping]]] = ...,
+        gke_nodepools: _Optional[_Iterable[_Union[_gke_pb2.GKENodePool, _Mapping]]] = ...,
+    ) -> None: ...
+
 class ChalkMachineTypeFallback(_message.Message):
     __slots__ = ("instance_type", "cpus", "memory_gb")
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -4085,19 +4191,29 @@ class ChalkMachineTypeFallback(_message.Message):
     ) -> None: ...
 
 class ChalkMachineTypeInstanceOption(_message.Message):
-    __slots__ = ("instance_type", "cpus", "memory_gb", "gpus", "local_ssd_count", "local_ssd_size_gb")
+    __slots__ = (
+        "instance_type",
+        "cpus",
+        "memory_gb",
+        "gpus",
+        "local_ssd_count",
+        "local_ssd_size_gb",
+        "older_generation",
+    )
     INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     CPUS_FIELD_NUMBER: _ClassVar[int]
     MEMORY_GB_FIELD_NUMBER: _ClassVar[int]
     GPUS_FIELD_NUMBER: _ClassVar[int]
     LOCAL_SSD_COUNT_FIELD_NUMBER: _ClassVar[int]
     LOCAL_SSD_SIZE_GB_FIELD_NUMBER: _ClassVar[int]
+    OLDER_GENERATION_FIELD_NUMBER: _ClassVar[int]
     instance_type: str
     cpus: float
     memory_gb: float
     gpus: float
     local_ssd_count: int
     local_ssd_size_gb: int
+    older_generation: bool
     def __init__(
         self,
         instance_type: _Optional[str] = ...,
@@ -4106,6 +4222,7 @@ class ChalkMachineTypeInstanceOption(_message.Message):
         gpus: _Optional[float] = ...,
         local_ssd_count: _Optional[int] = ...,
         local_ssd_size_gb: _Optional[int] = ...,
+        older_generation: bool = ...,
     ) -> None: ...
 
 class ChalkMachineTypeMapping(_message.Message):
@@ -4918,6 +5035,24 @@ class CustomerVectorAggregatorOtlpMetricsExportConfig(_message.Message):
         remap_vrl: _Optional[str] = ...,
     ) -> None: ...
 
+class CustomerVectorAggregatorPrometheusExportConfig(_message.Message):
+    __slots__ = ("enabled", "endpoint", "headers_secret_arn", "remap_vrl")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    HEADERS_SECRET_ARN_FIELD_NUMBER: _ClassVar[int]
+    REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    endpoint: str
+    headers_secret_arn: str
+    remap_vrl: str
+    def __init__(
+        self,
+        enabled: bool = ...,
+        endpoint: _Optional[str] = ...,
+        headers_secret_arn: _Optional[str] = ...,
+        remap_vrl: _Optional[str] = ...,
+    ) -> None: ...
+
 class PopulateNamedQueryPlansRequest(_message.Message):
     __slots__ = ("existing_deployment_id", "shadow_run_id", "expected_platform_version")
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -4980,3 +5115,15 @@ class CustomerCollectorReceivedSignalsSpec(_message.Message):
     traces: bool
     metrics: bool
     def __init__(self, logs: bool = ..., traces: bool = ..., metrics: bool = ...) -> None: ...
+
+class GetTelemetryDeploymentAvailabilityRequest(_message.Message):
+    __slots__ = ("resource_cluster_id",)
+    RESOURCE_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    resource_cluster_id: str
+    def __init__(self, resource_cluster_id: _Optional[str] = ...) -> None: ...
+
+class GetTelemetryDeploymentAvailabilityResponse(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: TelemetryDeploymentAvailabilityStatus
+    def __init__(self, status: _Optional[_Union[TelemetryDeploymentAvailabilityStatus, str]] = ...) -> None: ...

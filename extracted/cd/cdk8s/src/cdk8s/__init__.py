@@ -2687,7 +2687,7 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__46fc386c510b2c1129687fab66a5d8b73e229013d9438613e42b2b93bab2701f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replaced", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replaced", value)
 
     @builtins.property
     @jsii.member(jsii_name="replacedValue")
@@ -2700,7 +2700,7 @@ class ResolutionContext(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.ResolutionCont
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9f2dafc483ec1b162f3ac5314f24a646833af290785fa69fee4e9a54bd10e1af)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "replacedValue", value) # pyright: ignore[reportArgumentType]
+        jsii.set(self, "replacedValue", value)
 
 
 class Size(metaclass=jsii.JSIIMeta, jsii_type="cdk8s.Size"):

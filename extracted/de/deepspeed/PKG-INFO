@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepspeed
-Version: 0.19.7
+Version: 0.19.8
 Summary: DeepSpeed library
 Home-page: http://deepspeed.ai
 Author: DeepSpeed Team
@@ -26,9 +26,6 @@ Requires-Dist: py-cpuinfo
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: torch>=2.0.0
 Requires-Dist: tqdm
-Provides-Extra: 1bit
-Provides-Extra: 1bit-mpi
-Requires-Dist: mpi4py; extra == "1bit-mpi"
 Provides-Extra: readthedocs
 Requires-Dist: autodoc_pydantic>=2.0.0; extra == "readthedocs"
 Requires-Dist: docutils<0.18; extra == "readthedocs"
@@ -49,6 +46,7 @@ Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "dev"
 Requires-Dist: docutils<0.18; extra == "dev"
 Requires-Dist: future; extra == "dev"
 Requires-Dist: importlib-metadata>=4; extra == "dev"
+Requires-Dist: liger-kernel>=0.8.1; extra == "dev"
 Requires-Dist: mup; extra == "dev"
 Requires-Dist: pre-commit>=3.2.0; extra == "dev"
 Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "dev"
@@ -69,8 +67,6 @@ Provides-Extra: autotuning-ml
 Requires-Dist: hjson; extra == "autotuning-ml"
 Requires-Dist: tabulate; extra == "autotuning-ml"
 Requires-Dist: xgboost; extra == "autotuning-ml"
-Provides-Extra: sparse
-Requires-Dist: neural-compressor==2.1.0; extra == "sparse"
 Provides-Extra: inf
 Requires-Dist: google; extra == "inf"
 Requires-Dist: lm-eval==0.3.0; extra == "inf"
@@ -88,51 +84,50 @@ Requires-Dist: scipy; extra == "deepcompile"
 Provides-Extra: torchembed
 Requires-Dist: torchembed>=0.3.1; extra == "torchembed"
 Provides-Extra: all
-Requires-Dist: py-cpuinfo; extra == "all"
-Requires-Dist: torchembed>=0.3.1; extra == "all"
-Requires-Dist: importlib-metadata>=4; extra == "all"
-Requires-Dist: mpi4py; extra == "all"
-Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
-Requires-Dist: neural-compressor==2.1.0; extra == "all"
-Requires-Dist: clang-format==18.1.3; extra == "all"
+Requires-Dist: xgboost; extra == "all"
+Requires-Dist: pydantic>=2.0.0; extra == "all"
+Requires-Dist: torch>=2.0.0; extra == "all"
+Requires-Dist: future; extra == "all"
+Requires-Dist: sphinx; extra == "all"
+Requires-Dist: triton>=2.1.0; extra == "all"
+Requires-Dist: lm-eval==0.3.0; extra == "all"
+Requires-Dist: pytest-forked; extra == "all"
+Requires-Dist: pre-commit>=3.2.0; extra == "all"
+Requires-Dist: mup; extra == "all"
+Requires-Dist: packaging; extra == "all"
+Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
+Requires-Dist: wandb; extra == "all"
+Requires-Dist: sphinx_rtd_theme; extra == "all"
+Requires-Dist: tqdm; extra == "all"
+Requires-Dist: pytest-xdist; extra == "all"
+Requires-Dist: tensorboard; extra == "all"
+Requires-Dist: comet_ml>=3.41.0; extra == "all"
+Requires-Dist: torchvision; extra == "all"
+Requires-Dist: sentencepiece; extra == "all"
+Requires-Dist: accelerate; extra == "all"
+Requires-Dist: diffusers>=0.25.0; extra == "all"
 Requires-Dist: tabulate; extra == "all"
 Requires-Dist: qtorch; extra == "all"
-Requires-Dist: packaging; extra == "all"
-Requires-Dist: mup; extra == "all"
+Requires-Dist: protobuf; extra == "all"
+Requires-Dist: google; extra == "all"
+Requires-Dist: qtorch==0.3.0; extra == "all"
+Requires-Dist: safetensors; extra == "all"
+Requires-Dist: clang-format==18.1.3; extra == "all"
+Requires-Dist: recommonmark; extra == "all"
+Requires-Dist: autodoc_pydantic>=2.0.0; extra == "all"
+Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
+Requires-Dist: importlib-metadata>=4; extra == "all"
+Requires-Dist: torchembed>=0.3.1; extra == "all"
+Requires-Dist: scipy; extra == "all"
+Requires-Dist: docutils<0.18; extra == "all"
+Requires-Dist: py-cpuinfo; extra == "all"
+Requires-Dist: pytest-randomly; extra == "all"
+Requires-Dist: hjson; extra == "all"
 Requires-Dist: sphinx-rtd-theme; extra == "all"
-Requires-Dist: xgboost; extra == "all"
+Requires-Dist: psutil; extra == "all"
+Requires-Dist: liger-kernel>=0.8.1; extra == "all"
 Requires-Dist: transformers>=4.32.1; extra == "all"
 Requires-Dist: transformers>=4.51.3; extra == "all"
-Requires-Dist: scipy; extra == "all"
-Requires-Dist: triton>=2.1.0; extra == "all"
-Requires-Dist: sentencepiece; extra == "all"
-Requires-Dist: torch>=2.0.0; extra == "all"
-Requires-Dist: docutils<0.18; extra == "all"
-Requires-Dist: tensorboard; extra == "all"
-Requires-Dist: pytest<8.4.0,>=7.2.0; extra == "all"
-Requires-Dist: hjson; extra == "all"
-Requires-Dist: diffusers>=0.25.0; extra == "all"
-Requires-Dist: sphinx; extra == "all"
-Requires-Dist: pytest-forked; extra == "all"
-Requires-Dist: deepspeed-kernels; sys_platform == "linux" and extra == "all"
-Requires-Dist: pytest-randomly; extra == "all"
-Requires-Dist: tqdm; extra == "all"
-Requires-Dist: future; extra == "all"
-Requires-Dist: safetensors; extra == "all"
-Requires-Dist: psutil; extra == "all"
-Requires-Dist: pydantic>=2.0.0; extra == "all"
-Requires-Dist: pre-commit>=3.2.0; extra == "all"
-Requires-Dist: comet_ml>=3.41.0; extra == "all"
-Requires-Dist: protobuf; extra == "all"
-Requires-Dist: qtorch==0.3.0; extra == "all"
-Requires-Dist: recommonmark; extra == "all"
-Requires-Dist: torchvision; extra == "all"
-Requires-Dist: sphinx_rtd_theme; extra == "all"
-Requires-Dist: wandb; extra == "all"
-Requires-Dist: google; extra == "all"
-Requires-Dist: accelerate; extra == "all"
-Requires-Dist: pytest-xdist; extra == "all"
-Requires-Dist: lm-eval==0.3.0; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -161,6 +156,10 @@ Dynamic: summary
  <img src="docs/assets/images/DeepSpeed_light.svg#gh-light-mode-only" width="400px">
  <img src="docs/assets/images/DeepSpeed_dark_transparent.svg#gh-dark-mode-only" width="400px">
 </div>
+
+<p align="center">
+  <b>English</b> · <a href="README.zh.md">简体中文</a>
+</p>
 
 
 ## Office Hours
@@ -292,6 +291,7 @@ dynamically link them at runtime.
 | Intel       | Intel(R) Xeon(R) Processors         | cpu              | Yes | Yes                |
 | Intel       | Intel(R) Data Center GPU Max series | xpu              | Yes | Yes                |
 | Tecorigin   | Scalable Data Analytics Accelerator | sdaa             | Yes | No                 |
+| KUNLUNXIN   | KUNLUNXIN XPU                      | klxpu            | Yes | No                 |
 
 ## PyPI
 We regularly push releases to [PyPI](https://pypi.org/project/deepspeed/) and encourage users to install from there in most cases.

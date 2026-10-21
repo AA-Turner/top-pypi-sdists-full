@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kiwipiepy
-Version: 0.24.0
+Version: 0.24.1
 Summary: Kiwi, the Korean Tokenizer for Python
 Author-email: bab2min <bab2min@gmail.com>
 License-Expression: Apache-2.0

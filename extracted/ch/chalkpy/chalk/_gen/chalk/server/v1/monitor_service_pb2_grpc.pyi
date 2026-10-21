@@ -22,6 +22,8 @@ from chalk._gen.chalk.server.v1.monitor_service_pb2 import (
     ListMonitorsResponse,
     MuteMonitorRequest,
     MuteMonitorResponse,
+    PreviewFeatureDriftMonitorRequest,
+    PreviewFeatureDriftMonitorResponse,
     UpdateMonitorRequest,
     UpdateMonitorResponse,
 )
@@ -66,6 +68,11 @@ class MonitorServiceStub:
         ListMonitorsRequest,
         ListMonitorsResponse,
     ]
+    PreviewFeatureDriftMonitor: UnaryUnaryMultiCallable[
+        PreviewFeatureDriftMonitorRequest,
+        PreviewFeatureDriftMonitorResponse,
+    ]
+    """Evaluates an unsaved feature drift monitor over a time range."""
 
 class MonitorServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -116,5 +123,12 @@ class MonitorServiceServicer(metaclass=ABCMeta):
         request: ListMonitorsRequest,
         context: ServicerContext,
     ) -> ListMonitorsResponse: ...
+    @abstractmethod
+    def PreviewFeatureDriftMonitor(
+        self,
+        request: PreviewFeatureDriftMonitorRequest,
+        context: ServicerContext,
+    ) -> PreviewFeatureDriftMonitorResponse:
+        """Evaluates an unsaved feature drift monitor over a time range."""
 
 def add_MonitorServiceServicer_to_server(servicer: MonitorServiceServicer, server: Server) -> None: ...

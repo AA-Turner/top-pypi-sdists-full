@@ -30,6 +30,10 @@ class PluginValidationDataExtension(PluginData):
 
     # Taxonomy entry point URIs (553-E rules)
     validTcEntryPoints: frozenset[str]
+    validFsEntryPoints: frozenset[str]
+    validFsPeEntryPoints: frozenset[str]
+    latestVersionDate: str
+    releasedVersionDates: frozenset[str]
 
     assessmentYear: int
 
@@ -105,6 +109,26 @@ class PluginValidationDataExtension(PluginData):
     epMachineryDetailsQn: QName
     epMachineryTaxAdjQn: QName
 
+    # Special flags (nvad_special_flags)
+    advanceRulingDetailsQn: QName
+    advanceRulingQn: QName
+    hongKongPracticeUnitQn: QName
+    permanentEstablishmentQn: QName
+    practisingCertificateNumberQn: QName
+    transactionsWithOtherPartsQn: QName
+
+    # Business lifecycle (nvad_lifecycle)
+    businessCessationDateQn: QName
+    businessCessationDeathOfProprietorQn: QName
+    businessCessationProprietorDeathDateQn: QName
+    businessCessationQn: QName
+    businessCessationTransfereeBusinessNatureQn: QName
+    businessCessationTransfereeQn: QName
+    businessCessationTransferredAssetsAssociatedQn: QName
+    businessCessationTransferredQn: QName
+    businessCommencementDateQn: QName
+    businessCommencementQn: QName
+
     # BIR51 corporate flags (nvad_bir51_corporate)
     privateCompanyQn: QName
     shareholderChangeQn: QName
@@ -129,6 +153,20 @@ class PluginValidationDataExtension(PluginData):
     bir52PartnerHkidOrBrnQn: QName
     bir52PartnerDateEnteredQn: QName
     bir52PartnerDateLeftQn: QName
+
+    # Combined FS (nvad_combined_fs)
+    accountsPreparedAtConsolidatedLevelQn: QName
+    fsAssetsQn: QName
+    fsEquityAndLiabilitiesQn: QName
+    fsEquityQn: QName
+    fsPeAssetsQn: QName
+    fsPeEquityAndLiabilitiesQn: QName
+    fsPeEquityQn: QName
+    fsPeProfitLossBeforeTaxQn: QName
+    fsPeRevenueQn: QName
+    fsProfitLossBeforeTaxQn: QName
+    fsRevenueQn: QName
+    tcProfitLossBeforeTaxQn: QName
 
     # HKSIC code (nvad_structural, NVAD-E-0170/0180/0190)
     hksicCodeQn: QName

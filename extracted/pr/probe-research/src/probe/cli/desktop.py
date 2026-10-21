@@ -25,6 +25,7 @@ PREVIEW_TTL = 30 * 60
 HISTORY_PAGE_SIZE = 50
 REPORT_LINES = 200
 REPORT_LINE_CHARS = 2000
+SOURCE_IDS = 32
 
 
 def _closed_object(pairs):
@@ -112,21 +113,87 @@ def _job_matches(job, identity):
             and payload.get("context") == identity["context"])
 
 
+def _job_sources(job):
+    """Display the approved transcript producers, never a label or folder worker."""
+    if job.get("kind") != "transcripts":
+        return []
+    files = (job.get("payload") or {}).get("files")
+    if not isinstance(files, list):
+        return []
+    sources = []
+    for row in files:
+        source = row.get("agent") if isinstance(row, dict) else None
+        if (not isinstance(source, str) or not source or len(source) > 64
+                or not all(c in "abcdefghijklmnopqrstuvwxyz0123456789_" for c in source)):
+            continue
+        source = "claude_code" if source == "claude" else source
+        if source not in sources:
+            sources.append(source)
+        if len(sources) == SOURCE_IDS:
+            break
+    return sources
+
+
+def _job_activity(job):
+    """A bounded safe progress stream, including an older worker's current snapshot."""
+    from ..sdk.redaction import scrub_string
+    from . import import_jobs
+    def display(value, limit):
+        # Inspect credential/URL context before the display clip. Keep even a
+        # malformed saved record bounded; encoded nesting fails closed.
+        try:
+            return import_jobs._clean(scrub_string(value[:8192]), limit)
+        except (ValueError, RecursionError):
+            return "Activity text omitted."
+    raw = job.get("activity")
+    raw = raw if isinstance(raw, list) else []
+    events = []
+    truncated = bool(job.get("activity_truncated")) or len(raw) > REPORT_LINES
+    states = {state.value for state in import_jobs.State}
+    for row in raw[-REPORT_LINES:]:
+        if (not isinstance(row, dict) or not isinstance(row.get("state"), str)
+                or row["state"] not in states):
+            continue
+        message, stamp = row.get("message"), row.get("at")
+        if not isinstance(message, str) or not isinstance(stamp, str):
+            continue
+        if len(message) > REPORT_LINE_CHARS or len(stamp) > 100:
+            truncated = True
+        clean = display(message, REPORT_LINE_CHARS)
+        events.append({"at": display(stamp, 100), "state": row["state"], "message": clean})
+    current = (job.get("progress") or {}).get("message")
+    if isinstance(current, str) and current:
+        if len(current) > REPORT_LINE_CHARS:
+            truncated = True
+        message = display(current, REPORT_LINE_CHARS)
+        latest = events[-1] if events else {}
+        if latest.get("message") != message or latest.get("state") != job["state"]:
+            events.append({"at": display(str(job["updated_at"]), 100), "state": job["state"], "message": message})
+    if len(events) > REPORT_LINES:
+        truncated = True
+    lines = [f"{row['at']} {row['state']}: {row['message']}" for row in events[-REPORT_LINES:]]
+    truncated = truncated or any(len(line) > REPORT_LINE_CHARS for line in lines)
+    return ([line[:REPORT_LINE_CHARS] for line in lines], truncated)
+
+
 def _public_job(job, *, identity=None, summary=False):
     from . import import_progress
     done, total = import_progress.counts(job)
     report = job.get("report", [])
+    activity, activity_truncated = ([], False) if summary else _job_activity(job)
     return {"id": job["id"], "kind": job.get("kind"), "label": str(job["label"])[:512],
             "state": job["state"], "createdAt": str(job["created_at"])[:100],
             "updatedAt": str(job["updated_at"])[:100],
             "completed": done if import_progress.completion_known(job) else None,
             "total": total, "unit": "sessions" if job.get("kind") == "transcripts" else "files",
             "partial": import_progress.is_partial(job),
+            "sources": _job_sources(job),
             "message": str((job.get("progress") or {}).get("message") or "")[:2000],
             "error": str(job["error"])[:2000] if job.get("error") else None,
             "report": [] if summary else [str(x)[:REPORT_LINE_CHARS] for x in report[-REPORT_LINES:]],
             "reportTruncated": not summary and (len(report) > REPORT_LINES or any(
                 len(str(x)) > REPORT_LINE_CHARS for x in report[-REPORT_LINES:])),
+            "activity": activity, "activityTruncated": activity_truncated,
             **({"scope": _scope(identity)} if identity is not None else {})}
 
 
@@ -266,7 +333,7 @@ def start_backfill(key):
 
 def snapshot_delivery(identity=None):
     from probe import __version__
-    from probe.harness import FAMILY_CLOUD, get_registry
+    from probe.harness import get_registry
     from probe.service import client
     from probe.service.protocol import Method
     rows = get_registry().captured()
@@ -280,7 +347,7 @@ def snapshot_delivery(identity=None):
     agents = [{"source": row.id,
                "activeAgents": (sum(1 for session in sessions
                    if session.get("harness") == row.id and session.get("alive") is True)
-                   if sessions is not None and row.family != FAMILY_CLOUD else None),
+                   if sessions is not None else None),
                "lastReceived": None, "pending": None} for row in rows]
     return {"available": sessions is not None, "agents": agents,
             **({"scope": _scope(identity)} if identity is not None else {}),

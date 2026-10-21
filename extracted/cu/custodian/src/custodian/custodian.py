@@ -233,8 +233,19 @@ class Custodian:
                         member_path = os.path.join(path, member.name)
                         if not is_within_directory(path, member_path):
                             raise Exception("Attempted Path Traversal in Tar File")
+                        # Links must also stay inside, or later members can be written through them.
+                        if member.issym():
+                            link_target = os.path.join(path, os.path.dirname(member.name), member.linkname)
+                        elif member.islnk():
+                            link_target = os.path.join(path, member.linkname)
+                        else:
+                            continue
+                        if not is_within_directory(path, link_target):
+                            raise Exception("Attempted Path Traversal in Tar File")
 
-                    tar.extractall(path, members, numeric_owner=numeric_owner)
+                    # The "data" filter (Python >= 3.11.4) adds tarfile's own checks on top.
+                    kwargs = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
+                    tar.extractall(path, members, numeric_owner=numeric_owner, **kwargs)
 
                 safe_extract(file, directory)
             # Log the corrections to a json file.
@@ -470,9 +481,15 @@ class Custodian:
             zero_return_code = True
 
             # Choose the terminate function to run. If a terminate_func exists, this
-            # should take priority, followed by Job.terminate if implemented, and finally
-            # subprocess.Popen.terminate if neither of the former exist.
-            terminate = self.terminate_func or job.terminate or p.terminate
+            # should take priority, followed by Job.terminate if the job overrides it, and
+            # finally subprocess.Popen.terminate. The base Job.terminate is a no-op, so it
+            # must not shadow the Popen fallback.
+            terminate = self.terminate_func
+            if terminate is None:
+                if type(job).terminate is not Job.terminate:
+                    terminate = job.terminate
+                elif isinstance(p, subprocess.Popen):
+                    terminate = _popen_terminator(p)
 
             # While the job is running, we use the handlers that are
             # monitors to monitor the job.
@@ -531,12 +548,12 @@ class Custodian:
 
             # Check that all errors could be handled
             for corr in self.run_log[-1]["corrections"]:
-                if not corr["actions"] and corr["handler"].raises_runtime_error:
+                if not corr["actions"] and not corr.get("skipped") and corr["handler"].raises_runtime_error:
                     self.run_log[-1]["handler"] = corr["handler"]
                     msg = f"Unrecoverable error for handler: {corr['handler']}"
                     raise NonRecoverableError(msg, raises=True, handler=corr["handler"])
             for corr in self.run_log[-1]["corrections"]:
-                if not corr["actions"]:
+                if not corr["actions"] and not corr.get("skipped"):
                     self.run_log[-1]["handler"] = corr["handler"]
                     msg = f"Unrecoverable error for handler: {corr['handler']}"
                     raise NonRecoverableError(msg, raises=False, handler=corr["handler"])
@@ -591,6 +608,10 @@ class Custodian:
             job_n = self.run_log[-1]["job_n"]
             job = self.jobs[job_n]
 
+            # Each call may be a fresh process, so recount errors from the run log.
+            self.total_errors = sum(not corr.get("skipped") for entry in self.run_log for corr in entry["corrections"])
+            self.errors_current_job = sum(not corr.get("skipped") for corr in self.run_log[-1]["corrections"])
+
             # If we had to fix errors from a previous run, insert clean log
             # dict
             if len(self.run_log[-1]["corrections"]) > 0:
@@ -602,10 +623,22 @@ class Custodian:
                 logger.info("Failed validation based on error handlers")
                 # raise an error for an unrecoverable error
                 for corr in self.run_log[-1]["corrections"]:
-                    if not corr["actions"] and corr["handler"].raises_runtime_error:
+                    if not corr["actions"] and not corr.get("skipped") and corr["handler"].raises_runtime_error:
                         self.run_log[-1]["handler"] = corr["handler"]
                         s = f"Unrecoverable error for handler: {corr['handler']}. Raising RuntimeError"
                         raise NonRecoverableError(s, raises=True, handler=corr["handler"])
+                if self.errors_current_job >= self.max_errors_per_job:
+                    self.run_log[-1]["max_errors_per_job"] = True
+                    msg = f"Max errors per job reached: {self.max_errors_per_job}."
+                    logger.info(msg)
+                    raise MaxCorrectionsPerJobError(
+                        msg, raises=True, max_errors_per_job=self.max_errors_per_job, job=job
+                    )
+                if self.total_errors >= self.max_errors:
+                    self.run_log[-1]["max_errors"] = True
+                    msg = f"Max errors reached: {self.max_errors}."
+                    logger.info(msg)
+                    raise MaxCorrectionsError(msg, raises=True, max_errors=self.max_errors)
                 logger.info("Corrected input based on error handlers")
                 # Return with more jobs to run if recoverable error caught
                 # and corrected for
@@ -654,7 +687,12 @@ class Custodian:
         return None
 
     def _do_check(self, handlers, terminate_func=None):
-        """Checks the specified handlers. Returns True iff errors caught."""
+        """Checks the specified handlers. Returns True iff errors caught.
+
+        With skip_over_errors, a handler that raises is logged as a correction
+        flagged "skipped" but is not counted as an error and does not trigger
+        a rerun.
+        """
         corrections = []
         for handler in handlers:
             try:
@@ -689,15 +727,25 @@ class Custodian:
 
                 logger.error(f"Bad {handler=}")
                 logger.error(traceback.format_exc())
-                corrections.append({"errors": [f"Bad {handler=}"], "actions": []})
-        self.total_errors += len(corrections)
-        self.errors_current_job += len(corrections)
+                corrections.append({"errors": [f"Bad {handler=}"], "actions": [], "handler": handler, "skipped": True})
+        n_errors = sum(not corr.get("skipped") for corr in corrections)
+        self.total_errors += n_errors
+        self.errors_current_job += n_errors
         self.run_log[-1]["corrections"] += corrections
         # We do a dump of the run log after each check.
         dumpfn(self.run_log, os.path.join(self.directory, Custodian.LOG_FILE), cls=MontyEncoder, indent=4)
         # Clear all the cached values to avoid reusing them in a subsequent check
         tracked_lru_cache.tracked_cache_clear()
-        return len(corrections) > 0
+        return n_errors > 0
+
+
+def _popen_terminator(process: subprocess.Popen):
+    """Wrap Popen.terminate to accept the `directory` kwarg passed to terminate functions."""
+
+    def terminate(directory="./") -> None:
+        process.terminate()
+
+    return terminate
 
 
 class Job(MSONable):

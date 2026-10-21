@@ -18,8 +18,7 @@ from pathlib import Path
 
 import pytest
 
-_AGENT = Path(__file__).resolve().parent.parent
-_TOOL = _AGENT / "tools" / "mirror_render.py"
+_TOOL = Path(__file__).resolve().parent.parent / "tools" / "mirror_render.py"
 
 spec = importlib.util.spec_from_file_location("mirror_render", _TOOL)
 mirror_render = importlib.util.module_from_spec(spec)
@@ -48,10 +47,6 @@ def make_source(root: Path, *, cli="0.72.0", plugin="0.17.0", tap="0.2.1") -> Pa
     _write_json(
         agent / "plugins" / "probe-research" / ".claude-plugin" / "plugin.json",
         {"name": "probe-research", "version": plugin},
-    )
-    _write_json(
-        agent / "plugins" / "probe-research" / ".mcp.json",
-        {"mcpServers": {"probe-research": {"type": "http", "url": "https://mcp.example/mcp"}}},
     )
     # The daemon profile's lean plugin: released with probe-research.
     _write_json(
@@ -132,12 +127,6 @@ def make_source(root: Path, *, cli="0.72.0", plugin="0.17.0", tap="0.2.1") -> Pa
     (agent / "CHANGELOG.md").write_text("# Changelog\n")
     (agent / "docs").mkdir(parents=True, exist_ok=True)
     (agent / "docs" / "mirror-README.md").write_text("# Distribution mirror\n")
-    for source, _dest in mirror_render.CLOUD_ITEMS:
-        if source.endswith(".md"):
-            (agent / source).write_text("# Probe in a cloud agent\n")
-        else:
-            (agent / source).mkdir(parents=True, exist_ok=True)
-            (agent / source / "SKILL.md").write_text(f"---\nname: {Path(source).name}\n---\n")
     (agent / "LICENSE").write_text("Apache License 2.0\n")
     return agent
 
@@ -531,90 +520,6 @@ def test_render_produces_exactly_the_item_list_and_stomps_strays(tmp_path):
         "pre-existing mirror content must be stomped — the mirror is a build artifact"
     )
     assert not any(p.startswith((".github", "src", "tests")) for p in tree)
-    # The Capy bundle: plain Agent Skills, its setup guide and the generated
-    # plugin manifests, nothing else.
-    assert "capy/README.md" in tree
-    assert sorted(p.split("/")[2] for p in tree if p.startswith("capy/skills/")) == sorted(
-        mirror_render.CLOUD_BUNDLES["capy"]
-    )
-    assert {p for p in tree if p.startswith("capy/") and not p.startswith("capy/skills/")} == {
-        "capy/README.md",
-        "capy/.mcp.json",
-        *(f"capy/{rel}" for rel in mirror_render.CLOUD_PLUGIN_MANIFESTS),
-    }
-
-
-def test_the_capy_folder_is_one_plugin_with_probes_mcp_server_and_version(tmp_path):
-    """Capy adds a plugin from a GitHub folder. Its manifest format is
-    unpublished, so every conventional spot carries the same manifest; the
-    version and MCP URL come from probe-research, so they cannot drift."""
-    agent = make_source(tmp_path, plugin="1.2.3")
-    mirror = make_mirror(tmp_path)
-    mirror_render.render(agent, mirror)
-    manifests = [
-        json.loads((mirror / "capy" / rel).read_text())
-        for rel in mirror_render.CLOUD_PLUGIN_MANIFESTS
-    ]
-    assert all(m == manifests[0] for m in manifests)
-    manifest = manifests[0]
-    assert manifest["version"] == "1.2.3"
-    assert manifest["skills"] == "./skills/"
-    # probe-capy tells the agent to call `probe__search`.
-    server = {"probe": {"type": "http", "url": "https://mcp.example/mcp", "auth": "oauth"}}
-    assert manifest["mcpServers"] == server
-    assert json.loads((mirror / "capy" / ".mcp.json").read_text()) == {"mcpServers": server}
-
-
-@pytest.mark.parametrize(
-    "servers",
-    [
-        {},
-        {"probe-research": {"type": "http", "url": "http://insecure.example/mcp"}},
-        {"a": {"url": "https://a.example/mcp"}, "b": {"url": "https://b.example/mcp"}},
-    ],
-)
-def test_no_single_https_mcp_url_blocks_the_render(tmp_path, servers):
-    agent = make_source(tmp_path)
-    _write_json(agent / "plugins" / "probe-research" / ".mcp.json", {"mcpServers": servers})
-    with pytest.raises(mirror_render.GuardError, match="expected one https MCP server"):
-        mirror_render.check_source(agent)
-
-
-def test_renaming_the_main_plugins_server_key_does_not_block_the_render(tmp_path):
-    agent = make_source(tmp_path)
-    _write_json(
-        agent / "plugins" / "probe-research" / ".mcp.json",
-        {"mcpServers": {"renamed": {"type": "http", "url": "https://mcp.example/mcp"}}},
-    )
-    mirror_render.check_source(agent)
-
-
-def test_the_capy_plugin_server_is_the_one_the_manual_steps_name():
-    """A user who connected the server by hand and then adds the plugin must
-    end up with one server, not two under different names."""
-    guide = (_AGENT / "docs" / "capy.md").read_text()
-    assert f"named `{mirror_render.CLOUD_MCP_SERVER_KEY}`" in guide
-    skill = (_AGENT / "skills" / "probe-capy" / "SKILL.md").read_text()
-    assert f"`{mirror_render.CLOUD_MCP_SERVER_KEY}__search`" in skill
-
-
-def test_the_capy_bundle_is_the_capy_profile_and_names_no_plugin_skill_twice():
-    """`npx skills add <repo> --skill probe` would be ambiguous if the Capy
-    bundle carried a second, different `probe`: its own entry skill has its own
-    name, and the rest are the main agent's copies of the skills the plugins ship."""
-    capy = mirror_render.CLOUD_BUNDLES["capy"]
-    assert "probe" not in capy
-    assert "probe-capy" in capy
-
-
-def test_a_cloud_agent_gets_the_main_agents_rendered_skills():
-    """Capy's agent IS the main agent: a skill with per-agent versions ships the
-    main agent's render (never the raw versions/ tree); a Capy-only skill ships
-    as written."""
-    sources = dict((dest, src) for src, dest in mirror_render.CLOUD_ITEMS)
-    assert sources["capy/skills/track-work"] == "plugins/probe-research/agent-skills/track-work"
-    assert sources["capy/skills/probe-capy"] == "skills/probe-capy"
-    assert sources["capy/README.md"] == "docs/capy.md"
 
 
 def test_render_is_deterministic(tmp_path):

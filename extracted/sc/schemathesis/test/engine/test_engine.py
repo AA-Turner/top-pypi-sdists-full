@@ -18,7 +18,7 @@ from fastapi import FastAPI, Header
 
 import schemathesis
 from schemathesis.checks import not_a_server_error
-from schemathesis.config import SchemathesisWarning
+from schemathesis.config import SchemathesisConfig, SchemathesisWarning
 from schemathesis.core import SCHEMATHESIS_TEST_CASE_HEADER
 from schemathesis.core.errors import HookExecutionError
 from schemathesis.core.transport import USER_AGENT
@@ -33,6 +33,8 @@ from schemathesis.specs.openapi.checks import (
     response_schema_conformance,
     status_code_conformance,
 )
+from test.apps.fragments import handlers
+from test.apps.fragments.schemas import linked_users
 from test.utils import EventStream
 
 IS_PYPY = platform.python_implementation() == "PyPy"
@@ -1136,69 +1138,6 @@ def test_non_serializable_example(ctx, phases, expected):
     assert expected in str(errors[0].info)
 
 
-def test_unsupported_regex_removed_with_warning(ctx):
-    # When a schema contains an unsupported regex pattern
-    schema = ctx.openapi.load_schema(
-        {
-            "/success": {
-                "post": {
-                    "parameters": [
-                        {"name": "key", "in": "query", "required": True, "schema": {"type": "integer"}, "example": 42}
-                    ],
-                    "requestBody": {
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "region": {
-                                            "nullable": True,
-                                            "pattern": "^[\\w\\s\\-\\/\\p{Tibetan},.#;:()']+$",
-                                            "type": "string",
-                                        },
-                                    },
-                                    "required": ["region"],
-                                    "type": "object",
-                                }
-                            }
-                        },
-                        "required": True,
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )
-    # Then the pattern is removed and a warning is emitted
-    warnings = list(schema.analysis.iter_warnings())
-    assert len(warnings) > 0
-    assert any("^[\\w\\s\\-\\/\\p{Tibetan},.#;:()']+$" in w.message for w in warnings)
-
-
-def test_unsupported_regex_in_parameter_removed_with_warning(ctx):
-    # When a parameter schema contains an unsupported regex pattern
-    schema = ctx.openapi.load_schema(
-        {
-            "/users/{id}": {
-                "get": {
-                    "parameters": [
-                        {
-                            "name": "id",
-                            "in": "path",
-                            "required": True,
-                            "schema": {"type": "string", "pattern": "\\p{Tibetan}+"},
-                        }
-                    ],
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        }
-    )
-    # Then the pattern is removed and a warning is emitted
-    warnings = list(schema.analysis.iter_warnings())
-    assert len(warnings) > 0
-    assert any("\\p{Tibetan}+" in w.message for w in warnings)
-
-
 def test_invalid_header_in_example(ctx):
     api = ctx.openapi.apps.success()
     schema = ctx.openapi.load_schema(
@@ -2118,7 +2057,12 @@ def test_max_time_reserves_for_stateful_when_links_are_only_inferred(ctx, app_ru
     assert [event for event in stream.find_all(events.ScenarioFinished) if event.phase == PhaseName.STATEFUL_TESTING]
 
 
-def test_links_inferred_from_location_headers(ctx, app_runner):
+@pytest.mark.parametrize(
+    ("algorithms", "expected"),
+    [(["location-headers", "dependency-analysis"], 1), (["location-headers"], 1), (["dependency-analysis"], 0)],
+    ids=["default", "location-headers", "dependency-analysis"],
+)
+def test_links_inferred_from_location_headers(ctx, app_runner, algorithms, expected):
     # The `Location` header of a created resource is the only hint that these two operations chain.
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -2140,7 +2084,8 @@ def test_links_inferred_from_location_headers(ctx, app_runner):
     def get_user(user_id):
         return flask.jsonify({"id": user_id})
 
-    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app))
+    config = SchemathesisConfig.from_dict({"phases": {"stateful": {"inference": {"algorithms": algorithms}}}})
+    schema = schemathesis.openapi.from_url(app_runner.openapi_url(app), config=config)
     stream = execute(
         schema,
         max_examples=5,
@@ -2149,7 +2094,7 @@ def test_links_inferred_from_location_headers(ctx, app_runner):
     )
     started = stream.find(events.PhaseStarted, phase=lambda phase: phase.name == PhaseName.STATEFUL_TESTING)
 
-    assert started.payload.inferred_transitions > 0
+    assert started.payload.inferred_transitions == expected
 
 
 TEAM_ID = 982451653
@@ -2342,37 +2287,10 @@ def test_max_time_stops_reserving_once_stateful_proves_idle(ctx, app_runner):
     assert len(fuzzing) <= 3, len(fuzzing)
 
 
-LINKED_USERS_PATHS = {
-    "/users": {
-        "post": {
-            "responses": {
-                "201": {
-                    "description": "OK",
-                    "content": {
-                        "application/json": {"schema": {"type": "object", "properties": {"id": {"type": "integer"}}}}
-                    },
-                    "links": {"GetUser": {"operationId": "getUser", "parameters": {"userId": "$response.body#/id"}}},
-                }
-            }
-        }
-    },
-    "/users/{userId}": {
-        "get": {
-            "operationId": "getUser",
-            "parameters": [{"name": "userId", "in": "path", "required": True, "schema": {"type": "integer"}}],
-            "responses": {"200": {"description": "OK"}},
-        }
-    },
-}
-
-
 def test_max_time_stateful_suite_with_no_time_left_is_not_a_pass(ctx, app_runner):
     # A retry that starts with the budget already gone issues no request, so it vouches for nothing.
-    app, _ = ctx.openapi.make_flask_app(LINKED_USERS_PATHS)
-
-    @app.route("/users", methods=["POST"])
-    def create_user():
-        return flask.jsonify({"id": 1}), 201
+    app, _ = ctx.openapi.make_flask_app(linked_users())
+    handlers.register_linked_users_create(app)
 
     @app.route("/users/<int:user_id>")
     def get_user(user_id):

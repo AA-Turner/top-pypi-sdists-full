@@ -19,15 +19,20 @@ import numpy.typing as npt
 
 from numpy_groupies.aggregate_common import (
     DEFAULT_FILL_VALUE,
-    build_dispatch,
+    Registry,
+    Resolved,
+    can_name_a_function,
+    custom_callable,
     funcs_no_separate_nan,
     is_scalar_input,
     resolve_fill_value,
 )
-from numpy_groupies.aggregate_numba import argreductions, averaging, cumulative, reductions, specials
+from numpy_groupies.aggregate_numba import argreductions, averaging, collect, cumulative, reductions, specials
 from numpy_groupies.aggregate_numba.compose import KernelHandle
-from numpy_groupies.aggregate_numba.steps import step_indices
+from numpy_groupies.aggregate_numba.steps import group_count, group_place, group_starts
 from numpy_groupies.utils import (
+    AValue,
+    RavelOrder,
     aliasing,
     check_dtype,
     check_fill_value,
@@ -83,6 +88,26 @@ def _aux_dtype(handle: KernelHandle, a_dtype: np.dtype, out_dtype: np.dtype) -> 
     return out_dtype
 
 
+def _needs_fallback(handle: KernelHandle, a: typing.Any) -> bool:
+    """Whether the input is one the compiled driver cannot handle.
+
+    The default is the complex input, which the median cannot partition; an
+    operation that knows more says so with the ``placeable`` of its handle.
+    """
+    if handle.placeable is not None:
+        return not handle.placeable(getattr(a, "dtype", None))
+    return getattr(getattr(a, "dtype", None), "kind", "") == "c"
+
+
+def _driver_fill(handle: KernelHandle, fill_value: typing.Any) -> typing.Any:
+    """The fill value the driver takes.
+
+    An assembling driver takes none - the fill value is the business of the
+    post hook - and gets a placeholder in its place.
+    """
+    return 0.0 if handle.assembles else fill_value
+
+
 def build_aggregate_op(func: str, handle: KernelHandle) -> typing.Callable[..., typing.Any]:
     """Create the python-level wrapper around one compiled kernel.
 
@@ -94,18 +119,21 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> typing.Callable[..., 
     """
 
     def aggregate(
-        group_idx: npt.ArrayLike,
-        a: npt.ArrayLike,
-        size: int | tuple[int, ...] | None = None,
+        group_idx: npt.NDArray[np.integer],
+        a: AValue,
+        size: int | tuple[int, ...] | npt.NDArray[np.integer] | None = None,
         fill_value: typing.Any = DEFAULT_FILL_VALUE,
-        order: str = "C",
-        dtype: npt.DTypeLike = None,
+        order: RavelOrder = "C",
+        dtype: npt.DTypeLike | None = None,
         axis: int | None = None,
         ddof: float = 0,
-    ) -> npt.NDArray[np.generic]:
+    ) -> npt.NDArray[np.number]:
         # dtypes the compiled driver cannot handle, handed to the numpy twin
-        if handle.fallback is not None and getattr(getattr(a, "dtype", None), "kind", "") == "c":
-            return handle.fallback(group_idx, a, func, size, fill_value, order, dtype, axis)
+        if handle.fallback is not None and _needs_fallback(handle, a):
+            return typing.cast(
+                "npt.NDArray[np.number]",
+                handle.fallback(group_idx, a, func, size, fill_value, order, dtype, axis),
+            )
         # fast path: plain 1d-in/1d-out - the jitted driver does the bounds
         # check, size detection, allocation and the kernel in one compiled
         # call, everything else falls through to the full validation machinery
@@ -127,20 +155,26 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> typing.Callable[..., 
             a_key = a.dtype
             n_key = len(group_idx) if (func == "sum" and a_key in _N_DEPENDENT_ADTYPES) else 0
             try:
-                plan_dtype, plan_fill = _dtype_fill_plan(func, a_key, dtype, fill_value, n_key, False)
+                # a dtype that is no key of the cache raises there, which is caught
+                plan_dtype, plan_fill = _dtype_fill_plan(
+                    func, a_key, typing.cast("typing.Any", dtype), fill_value, n_key, False
+                )
             except TypeError:
                 # unhashable dtype/fill_value - resolve on the slow path
                 plan_dtype = None
             if plan_dtype is not None:
-                return handle.driver(
+                ret = handle.driver(
                     group_idx,
                     a,
                     -1 if size is None else size,
                     plan_dtype,
                     _aux_dtype(handle, a_key, plan_dtype),
-                    plan_fill,
+                    _driver_fill(handle, plan_fill),
                     ddof,
                 )
+                if handle.post is not None:
+                    ret = typing.cast("npt.NDArray[np.number]", handle.post(ret, group_idx, plan_fill))
+                return typing.cast("npt.NDArray[np.number]", ret)
 
         iv = input_validation(group_idx, a, size=size, order=order, axis=axis, check_bounds=False, func=func)
         group_idx, a, flat_size, ndim_idx, size, unravel_shape = iv
@@ -150,10 +184,13 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> typing.Callable[..., 
         # a scalar reaches the compiled driver as a full column of that one
         # value, so its dtype is all that is left to resolve the plan from -
         # for a python number the type stands in, see scalar_dtype
-        a_key = scalar_dtype(a) if scalar else a.dtype
+        a_key = scalar_dtype(a) if scalar else typing.cast("npt.NDArray[np.number]", a).dtype
         n_key = len(group_idx) if (func == "sum" and a_key in _N_DEPENDENT_ADTYPES) else 0
         try:
-            dtype, fill_value = _dtype_fill_plan(func, a_key, dtype, fill_value, n_key, scalar)
+            # a dtype that is no key of the cache raises there, which is caught
+            dtype, fill_value = _dtype_fill_plan(
+                func, a_key, typing.cast("typing.Any", dtype), fill_value, n_key, scalar
+            )
         except TypeError:
             # unhashable dtype/fill_value - resolve without the cache
             dtype = check_dtype(dtype, func, a, len(group_idx))
@@ -166,7 +203,22 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> typing.Callable[..., 
         group_idx = np.ascontiguousarray(group_idx)
         a = np.ascontiguousarray(a)
 
-        ret = handle.driver(group_idx, a, flat_size, dtype, _aux_dtype(handle, a_key, dtype), fill_value, ddof)
+        ret = typing.cast(
+            "npt.NDArray[np.number]",
+            handle.driver(
+                group_idx,
+                a,
+                flat_size,
+                dtype,
+                _aux_dtype(handle, a_key, dtype),
+                _driver_fill(handle, fill_value),
+                ddof,
+            ),
+        )
+        if handle.post is not None:
+            # the driver assembled something else - the post hook makes it the
+            # result of the caller
+            ret = typing.cast("npt.NDArray[np.number]", handle.post(ret, group_idx, fill_value))
 
         # Deal with ndimensional indexing
         if ndim_idx > 1:
@@ -174,10 +226,18 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> typing.Callable[..., 
                 # argreductions only
                 mask = ret == fill_value
                 ret[mask] = 0
-                ret = np.unravel_index(ret, unravel_shape)[axis]
+                ret = typing.cast(
+                    "npt.NDArray[np.number]",
+                    np.unravel_index(typing.cast("npt.NDArray[np.integer]", ret), unravel_shape)[
+                        typing.cast("int", axis)
+                    ],
+                )
                 ret[mask] = fill_value
             check_nton_shape(ret, size, func)
-            ret = ret.reshape(size, order=order)
+            ret = typing.cast(
+                "npt.NDArray[np.number]",
+                ret.reshape(typing.cast("typing.Any", size), order=typing.cast("typing.Any", order)),
+            )
         return ret
 
     return aggregate
@@ -186,22 +246,28 @@ def build_aggregate_op(func: str, handle: KernelHandle) -> typing.Callable[..., 
 def _compiled_group_loop(func: typing.Callable[..., typing.Any]) -> typing.Callable[..., typing.Any]:
     """Compile a user callable and wrap the per-group loop around it."""
     nb_func = nb.njit(func)
+    # the counting sort of the steps module, compiled for this loop alone:
+    # the compiled specialization of a helper must not reach into the
+    # dispatchers of another operation (see compose.build_kernel)
+    count = nb.njit(group_count)
+    starts_of = nb.njit(group_starts)
+    place = nb.njit(group_place)
 
     @nb.njit
-    def loop(sortidx, group_idx, a, ret):
+    def loop(group_idx: npt.NDArray[np.integer], a: npt.NDArray[np.number], ret: typing.Any) -> None:
         size = len(ret)
-        group_idx_srt = group_idx[sortidx]
-        a_srt = a[sortidx]
-
-        indices = step_indices(group_idx_srt)
-        for i in range(len(indices) - 1):
-            start_idx, stop_idx = indices[i], indices[i + 1]
-            ri = group_idx_srt[start_idx]
-            if ri < 0:
-                raise ValueError("negative indices not supported")
-            if ri >= size:
-                raise ValueError("one or more indices in group_idx are too large")
-            ret[ri] = nb_func(a_srt[start_idx:stop_idx])
+        # the counting sort groups the values: it places the values of every
+        # group in a contiguous block, in the order they appear in the input
+        # (the same order a stable argsort would give them, at a fraction of
+        # the cost - 1.3ms against 33ms per 500k values)
+        counts = count(group_idx, size)
+        starts = starts_of(counts)
+        a_sorted = np.empty(a.size, a.dtype)
+        place(group_idx, a, starts.copy(), a_sorted)
+        for g in range(size):
+            n = counts[g]
+            if n > 0:
+                ret[g] = nb_func(a_sorted[starts[g] : starts[g] + n])
 
     return loop
 
@@ -218,27 +284,28 @@ def build_generic_aggregate(func: typing.Callable[..., typing.Any]) -> typing.Ca
     jitfunc = _compiled_group_loop(func)
 
     def aggregate(
-        group_idx: npt.ArrayLike,
-        a: npt.ArrayLike,
-        size: int | tuple[int, ...] | None = None,
+        group_idx: npt.NDArray[np.integer],
+        a: AValue,
+        size: int | tuple[int, ...] | npt.NDArray[np.integer] | None = None,
         fill_value: typing.Any = DEFAULT_FILL_VALUE,
-        order: str = "C",
-        dtype: npt.DTypeLike = None,
+        order: RavelOrder = "C",
+        dtype: npt.DTypeLike | None = None,
         axis: int | None = None,
         ddof: float = 0,
-    ) -> npt.NDArray[np.generic]:
-        iv = input_validation(group_idx, a, size=size, order=order, axis=axis, check_bounds=False)
+    ) -> npt.NDArray[np.number]:
+        # a func reaching this loop is no key of the dispatch table, so it names
+        # no function and cannot be an arg reduction or a one-to-one answer
+        iv = input_validation(group_idx, a, size=size, order=order, axis=axis, check_bounds=False, func=None)
         group_idx, a, flat_size, ndim_idx, size, _ = iv
 
         # TODO: The typecheck should be done by the wrapper itself, not by check_dtype
-        dtype = check_dtype(dtype, func, a, len(group_idx))
+        dtype = check_dtype(dtype, typing.cast("typing.Any", func), a, len(group_idx))
         fill_value = resolve_fill_value(func, fill_value, dtype)
-        check_fill_value(fill_value, dtype, func=func)
+        check_fill_value(fill_value, dtype, func=typing.cast("typing.Any", func))
         ret = np.full(flat_size, fill_value, dtype=dtype)
         group_idx = np.ascontiguousarray(group_idx)
 
-        sortidx = np.argsort(group_idx, kind="stable")
-        jitfunc(sortidx, group_idx, a, ret)
+        jitfunc(group_idx, a, ret)
 
         # Deal with ndimensional indexing
         if ndim_idx > 1:
@@ -247,6 +314,62 @@ def build_generic_aggregate(func: typing.Callable[..., typing.Any]) -> typing.Ca
         return ret
 
     return aggregate
+
+
+@functools.lru_cache(maxsize=128)
+def _get_cached_generic(func: typing.Callable[..., typing.Any]) -> typing.Callable[..., typing.Any]:
+    """LRU-cache generic aggregate loops per user callable (bounded)."""
+    return build_generic_aggregate(func)
+
+
+def _compiled_loop(func: typing.Callable[..., typing.Any], cache: typing.Any) -> typing.Callable[..., typing.Any]:
+    """The compiled loop of a callable, memoized where the cache policy says.
+
+    The policy is a parameter of the call, so that one operation serves every
+    policy: the bounded LRU of this backend, the caller's own dictionary, or
+    nowhere at all.
+    """
+    if cache in (None, False):
+        # Keep None and False in order to accept empty dictionaries
+        return build_generic_aggregate(func)
+    if cache is True:
+        return _get_cached_generic(func)
+    cache_map = typing.cast("typing.MutableMapping[typing.Any, typing.Any]", cache)
+    op = cache_map.get(func)
+    if op is None:
+        op = build_generic_aggregate(func)
+        cache_map[func] = op
+    return op
+
+
+def _custom_operation(func: typing.Any) -> Resolved:
+    """The operation of a callable of the caller's own.
+
+    The callable is compiled into a loop over the groups.  The compilation is
+    the expensive part, and where its result is memoized is the caller's
+    choice - the operation takes the policy as a parameter of the call.
+    """
+    callable_ = custom_callable(func)
+    if not can_name_a_function(callable_):
+        raise TypeError(
+            "numba can only compile a function as func, a callable object is not one of those (the numpy implementation runs any callable)"
+        ) from None
+
+    def op(
+        group_idx: npt.NDArray[np.integer],
+        a: AValue,
+        size: int | tuple[int, ...] | npt.NDArray[np.integer] | None = None,
+        fill_value: typing.Any = DEFAULT_FILL_VALUE,
+        order: RavelOrder = "C",
+        dtype: npt.DTypeLike | None = None,
+        axis: int | None = None,
+        cache: typing.Any = True,
+        **kwargs: typing.Any,
+    ) -> npt.NDArray[np.number]:
+        loop = _compiled_loop(callable_, cache)
+        return typing.cast("npt.NDArray[np.number]", loop(group_idx, a, size, fill_value, order, dtype, axis, **kwargs))
+
+    return Resolved(callable_, op)
 
 
 # --------------------------------------------------------------- registry
@@ -279,6 +402,9 @@ _TABLE = (
     ("cummax", cumulative.cummax),
     ("cummin", cumulative.cummin),
     ("sort", specials.sort),
+    # the collecting function: its result is a sequence per group, which the
+    # driver assembles into the object array the caller expects
+    ("array", collect.array),
 )
 
 
@@ -289,16 +415,16 @@ def _dx_argument(op: typing.Callable[..., typing.Any]) -> typing.Callable[..., t
     """
 
     def trapezoid_op(
-        group_idx: npt.ArrayLike,
-        a: npt.ArrayLike,
+        group_idx: npt.NDArray[np.integer],
+        a: AValue,
         size: int | tuple[int, ...] | None = None,
         fill_value: typing.Any = DEFAULT_FILL_VALUE,
-        order: str = "C",
-        dtype: npt.DTypeLike = None,
+        order: RavelOrder = "C",
+        dtype: npt.DTypeLike | None = None,
         axis: int | None = None,
         dx: float = 1.0,
-    ) -> npt.NDArray[np.generic]:
-        return op(group_idx, a, size, fill_value, order, dtype, axis, dx)
+    ) -> npt.NDArray[np.number]:
+        return typing.cast("npt.NDArray[np.number]", op(group_idx, a, size, fill_value, order, dtype, axis, dx))
 
     return trapezoid_op
 
@@ -314,18 +440,20 @@ def _sort_arguments(op: typing.Callable[..., typing.Any]) -> typing.Callable[...
     """
 
     def sort_op(
-        group_idx: npt.ArrayLike,
-        a: npt.ArrayLike,
+        group_idx: npt.NDArray[np.integer],
+        a: AValue,
         size: int | tuple[int, ...] | None = None,
         fill_value: typing.Any = DEFAULT_FILL_VALUE,
-        order: str = "C",
-        dtype: npt.DTypeLike = None,
+        order: RavelOrder = "C",
+        dtype: npt.DTypeLike | None = None,
         axis: int | None = None,
         reverse: bool = False,
-    ) -> npt.NDArray[np.generic]:
+    ) -> npt.NDArray[np.number]:
         if fill_value is DEFAULT_FILL_VALUE:
             fill_value = 0
-        return op(group_idx, a, size, fill_value, order, dtype, axis, 1.0 if reverse else 0.0)
+        return typing.cast(
+            "npt.NDArray[np.number]", op(group_idx, a, size, fill_value, order, dtype, axis, 1.0 if reverse else 0.0)
+        )
 
     return sort_op
 
@@ -334,7 +462,7 @@ def _sort_arguments(op: typing.Callable[..., typing.Any]) -> typing.Callable[...
 _ARGUMENT_WRAPPERS = {"trapezoid": _dx_argument, "sort": _sort_arguments}
 
 
-def get_funcs() -> dict[str, typing.Callable[..., typing.Any]]:
+def get_ops() -> dict[str, typing.Callable[..., typing.Any]]:
     """Create the wrapper function of every registered operation variant."""
     funcs: dict[str, typing.Callable[..., typing.Any]] = {}
     for funcname, pair in _TABLE:
@@ -342,14 +470,15 @@ def get_funcs() -> dict[str, typing.Callable[..., typing.Any]]:
         op = build_aggregate_op(funcname, pair.plain)
         funcs[funcname] = op if wrap is None else wrap(op)
         if funcname not in funcs_no_separate_nan:
-            op = build_aggregate_op("nan" + funcname, pair.nan)
+            op = build_aggregate_op("nan" + funcname, pair.nan)  # type: ignore[arg-type]
             funcs["nan" + funcname] = op if wrap is None else wrap(op)
     return funcs
 
 
-_impl_dict = get_funcs()
+_op_dict = get_ops()
 
-# alias (string or callable) -> wrapper function, so that the common call
-# path resolves with a single dict lookup instead of the two-step aliasing +
-# implementation resolution in get_func
-_dispatch = build_dispatch(_impl_dict, aliasing)
+# alias (string or callable) -> (canonical name, wrapper function), every alias
+# of every known function and so one dict lookup on the call path - names this
+# backend has no wrapper for come along holding None, so the lookup answers that
+# question too instead of a second table having to be asked
+_dispatch = Registry(_op_dict, aliasing, _custom_operation)

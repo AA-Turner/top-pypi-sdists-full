@@ -342,6 +342,11 @@ class EventPageRelatedLink(TranslatableMixin, Orderable, RelatedLink):
         "tests.EventPage", related_name="related_links", on_delete=models.CASCADE
     )
 
+    api_fields = (
+        APIField("title", writable=True),
+        APIField("link_external", writable=True),
+    )
+
     class Meta(TranslatableMixin.Meta, Orderable.Meta):
         pass
 
@@ -394,6 +399,11 @@ class EventPageSpeaker(TranslatableMixin, Orderable, LinkFields, ClusterableMode
         MultiFieldPanel(LinkFields.panels, "Link"),
         InlinePanel("awards", label="award"),
     ]
+
+    api_fields = (
+        APIField("first_name", writable=True),
+        APIField("last_name", writable=True),
+    )
 
     class Meta(TranslatableMixin.Meta, Orderable.Meta):
         pass
@@ -489,6 +499,19 @@ class EventPage(Page):
         FieldPanel("feed_image"),
     ]
 
+    api_fields = (
+        APIField("date_from", writable=True),
+        APIField("audience", writable=True),
+        APIField("location", writable=True),
+        APIField("cost", writable=True),
+        APIField("related_links", writable=True),
+        # A child relation whose model uses a custom primary key name.
+        APIField("head_counts", writable=True),
+        # A reverse relation with a related_query_name that differs from
+        # its accessor (related_name).
+        APIField("speakers", writable=True),
+    )
+
     class Meta:
         permissions = [
             ("custom_see_panel_setting", "Can see the panel."),
@@ -511,6 +534,8 @@ class HeadCountRelatedModelUsingPK(models.Model):
     )
     head_count = models.IntegerField()
     panels = [FieldPanel("head_count")]
+
+    api_fields = (APIField("head_count", writable=True),)
 
 
 # Override the standard WagtailAdminPageForm to add field that is not in model

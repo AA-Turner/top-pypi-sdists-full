@@ -82,9 +82,9 @@ def sync(
     ## Multipart Upload
 
     If a blob is larger than 10MB, it should be uploaded in multiple parts using the following endpoints:
-    - [Start a multi-part blob upload](#/Blobs/createMultipartBlob)
-    - [Upload a blob part](#/Blobs/createBlobPart)
-    - [Complete a blob upload](#/Blobs/completeMultipartBlob)
+    - [Start a multi-part blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob)
+    - [Upload a blob part](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-blob-part)
+    - [Complete a blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/complete-multipart-blob)
 
     Each part must be at least 5MB in size, except for the last part. We recommend keeping each part to under 10MB when uploading.
 
@@ -124,9 +124,9 @@ async def asyncio(
     ## Multipart Upload
 
     If a blob is larger than 10MB, it should be uploaded in multiple parts using the following endpoints:
-    - [Start a multi-part blob upload](#/Blobs/createMultipartBlob)
-    - [Upload a blob part](#/Blobs/createBlobPart)
-    - [Complete a blob upload](#/Blobs/completeMultipartBlob)
+    - [Start a multi-part blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob)
+    - [Upload a blob part](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-blob-part)
+    - [Complete a blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/complete-multipart-blob)
 
     Each part must be at least 5MB in size, except for the last part. We recommend keeping each part to under 10MB when uploading.
 

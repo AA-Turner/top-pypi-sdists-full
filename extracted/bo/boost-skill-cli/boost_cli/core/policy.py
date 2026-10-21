@@ -8,8 +8,13 @@ Consulted by store.install() (when config policy_enforce is true) and by
 from __future__ import annotations
 
 import json
+import sys
 
-from . import config, jsonstate, paths, typedvalue
+from . import config, jsonstate, output, paths, typedvalue
+
+# Once per process: install consults the policy several times, and the fault
+# is the same each time.
+_WARNED_CORRUPT = False
 
 DEFAULTS = {
     "blocked_skills": [],      # names never allowed
@@ -37,6 +42,16 @@ VALUE_TYPES: dict[str, str] = {k: typedvalue.spec_for(v) for k, v in DEFAULTS.it
 VALUE_TYPES["max_skills"] = typedvalue.INT_OR_NONE
 
 
+# Inclusive (low, high) bounds for the numeric keys; ``high`` None is unbounded.
+# The type alone let `policy set min_quality_score 500` and `max_skills -1`
+# through with a check mark, and the next audit or install then failed against
+# a limit no skill could meet. Scores run 0-100, as `boost lint --min` says.
+RANGES: dict[str, tuple[int, int | None]] = {
+    "min_quality_score": (0, 100),
+    "max_skills": (0, None),
+}
+
+
 def spec_for(key: str) -> str:
     """The value type of a policy key; :data:`typedvalue.ANY` if unknown."""
     return VALUE_TYPES.get(key, typedvalue.ANY)
@@ -49,22 +64,89 @@ def parse_value(key: str, raw: str):
     the key's type — at the setter, where the user can still fix it, rather
     than as a traceback out of the middle of the next install.
     """
-    return typedvalue.coerce(key, raw, spec_for(key))
+    return _in_range(key, typedvalue.coerce(key, raw, spec_for(key)), raw)
+
+
+def _range_phrase(key: str, low: int, high: int | None) -> str:
+    phrase = ("a whole number from %d to %d" % (low, high) if high is not None
+              else "a whole number of %d or more" % low)
+    if spec_for(key) == typedvalue.INT_OR_NONE:
+        phrase += ", or null for no limit"
+    return phrase
+
+
+def _in_range(key: str, value, raw):
+    """``value`` if it is inside the key's :data:`RANGES`, else raise.
+
+    Raises :class:`typedvalue.ValueTypeError` naming the range, so the
+    setter's usage error and :func:`invalid_values` word it the same way.
+    ``None`` (no limit) is never out of range.
+    """
+    bounds = RANGES.get(key)
+    if bounds is None or value is None:
+        return value
+    low, high = bounds
+    if value < low or (high is not None and value > high):
+        raise typedvalue.ValueTypeError(key, raw, spec_for(key),
+                                        expected=_range_phrase(key, low, high))
+    return value
+
+
+def _read_stored(key: str, value):
+    """A stored value at its declared type and range, or raise."""
+    return _in_range(key, typedvalue.adapt(key, value, spec_for(key)), value)
+
+
+def check() -> str | None:
+    """Why policy.json cannot be read, or None when it reads or is absent.
+
+    Never prints: `boost doctor` reports it as an issue, and the enforcement
+    checks turn it into a violation (:func:`corrupt_violation`).
+    """
+    return jsonstate.read_object(paths.policy_path())[1]
+
+
+def corrupt_violation(action: str = "install") -> str | None:
+    """The violation a policy.json that exists but does not parse amounts to.
+
+    A policy that cannot be read is not "no policy": a truncated write of a
+    blocklist used to read as an empty one, so the blocked skill installed
+    and `boost policy check` passed. Enforcement fails closed instead.
+    """
+    err = check()
+    if err is None:
+        return None
+    return ("%s — boost cannot read the policy, so it will not %s until "
+            "the file is repaired" % (err, action))
 
 
 def _read_file() -> dict:
-    """The raw contents of policy.json; ``{}`` when missing or unusable."""
-    return jsonstate.read_object(paths.policy_path())[0] or {}
+    """The raw contents of policy.json; ``{}`` when missing or unusable.
+
+    Unusable is warned about once per process on stderr, never silently
+    folded into "missing".
+    """
+    global _WARNED_CORRUPT
+    data, err = jsonstate.read_object(paths.policy_path())
+    if err is not None and not _WARNED_CORRUPT:
+        _WARNED_CORRUPT = True
+        output.warn("%s — reading the policy as defaults; installs are "
+                    "refused until it is repaired, and the next `boost policy "
+                    "set` moves it aside to policy.json.corrupt" % err,
+                    stream=sys.stderr, wrap=True)
+    return data or {}
 
 
 def load() -> dict:
     """Return the effective policy: DEFAULTS overlaid with policy.json.
 
-    A missing or unparseable file silently yields the defaults. Every stored
+    A missing file yields the defaults; an unparseable one does too, with a
+    warning, and :func:`check_install` refuses while it stays so. Every stored
     value is read at its declared type, so a hand-edited (or older-boost)
     ``"pin_only": "no"`` is the boolean the user meant and not a truthy string
     that freezes the machine. A value that cannot be read at its type falls
-    back to the default and is reported by :func:`invalid_values` — never
+    back to the default — as does one outside its :data:`RANGES` — and is
+    reported by :func:`invalid_values` — never
     raised into the middle of an install, and never silently obeyed either.
     """
     base = DEFAULTS.copy()
@@ -73,14 +155,14 @@ def load() -> dict:
             base[key] = value
             continue
         try:
-            base[key] = typedvalue.adapt(key, value, spec_for(key))
+            base[key] = _read_stored(key, value)
         except typedvalue.ValueTypeError:
             base[key] = DEFAULTS[key]
     return base
 
 
 def invalid_values() -> list[tuple[str, object, str]]:
-    """Stored policy values that could not be read at their declared type.
+    """Stored policy values that could not be read at their declared type or range.
 
     Each row is ``(key, stored value, expected phrase)``. :func:`load` has
     already substituted the default for these, so this is what lets `boost
@@ -91,7 +173,7 @@ def invalid_values() -> list[tuple[str, object, str]]:
         if key not in DEFAULTS:
             continue
         try:
-            typedvalue.adapt(key, value, spec_for(key))
+            _read_stored(key, value)
         except typedvalue.ValueTypeError as e:
             bad.append((key, value, e.expected))
     return bad
@@ -100,23 +182,46 @@ def invalid_values() -> list[tuple[str, object, str]]:
 def save(pol: dict) -> None:
     """Write `pol` to policy.json, restricted to the known DEFAULTS keys.
 
-    Missing keys are filled from DEFAULTS; unknown keys are dropped.
+    Missing keys are filled from DEFAULTS; unknown keys are dropped. A
+    policy.json that does not parse is moved aside with
+    :func:`jsonstate.quarantine` first, so the rules it still held are kept
+    rather than overwritten by a file built from the defaults.
     """
     paths.ensure_dirs()
+    p = paths.policy_path()
+    if jsonstate.is_corrupt(p):
+        dest = jsonstate.quarantine(p)
+        output.warn("%s was corrupt and has been moved to %s before writing "
+                    "the new policy" % (p, dest), stream=sys.stderr, wrap=True)
     known = {k: pol.get(k, DEFAULTS[k]) for k in DEFAULTS}
-    paths.policy_path().write_text(json.dumps(known, indent=2) + "\n", encoding="utf-8")
+    p.write_text(json.dumps(known, indent=2) + "\n", encoding="utf-8")
+
+
+def is_blocked(name: str, tap: str | None, blocked) -> bool:
+    """Whether ``blocked_skills`` names this item, bare or tap-qualified.
+
+    ``boost install`` takes ``tap:name``, so a blocklist entry written the same
+    way has to match too: comparing only the bare name stored
+    ``fx:cowboy-coding`` with a check mark and then never enforced it.
+    A bare entry still blocks the name from every tap.
+    """
+    blocked = blocked or []
+    return name in blocked or (bool(tap) and "%s:%s" % (tap, name) in blocked)
 
 
 def check_install(entry: dict, installed_count: int) -> list[str]:
     """Return a list of violation strings (empty = allowed)."""
     if not config.get("policy_enforce", True):
         return []
+    corrupt = corrupt_violation()
+    if corrupt is not None:
+        return [corrupt]
     pol = load()
     v: list[str] = []
     name, tap = entry.get("name", ""), entry.get("tap", "")
     if pol["pin_only"]:
         v.append("environment is pin-only (frozen)")
-    if name in pol["blocked_skills"]:
+    if is_blocked(name, tap, pol["blocked_skills"]):
         v.append("skill %r is on the blocklist" % name)
     if tap in pol["blocked_taps"]:
         v.append("tap %r is blocked" % tap)
@@ -211,6 +316,11 @@ def check_tap_signing(clone_dir) -> list[str]:
     """
     if not config.get("policy_enforce", True):
         return []
+    # Fail closed like check_install: a truncated policy.json reads
+    # require_signed_taps as its default, False, and would admit any tap.
+    corrupt = corrupt_violation("tap")
+    if corrupt is not None:
+        return [corrupt]
     pol = load()
     if not pol["require_signed_taps"]:
         return []

@@ -23,6 +23,11 @@ if typing.TYPE_CHECKING:
     from .aop_execute_response_out import AopExecuteResponseOut
     from .approval_mode import ApprovalMode
     from .archive_asset_response_out import ArchiveAssetResponseOut
+    from .asset_access_out import AssetAccessOut
+    from .asset_access_out_level import AssetAccessOutLevel
+    from .asset_access_source_out import AssetAccessSourceOut
+    from .asset_access_source_out_kind import AssetAccessSourceOutKind
+    from .asset_access_source_out_level import AssetAccessSourceOutLevel
     from .asset_activity_delta_response_out import AssetActivityDeltaResponseOut
     from .asset_activity_response_out import AssetActivityResponseOut
     from .asset_capabilities_response_out import AssetCapabilitiesResponseOut
@@ -56,6 +61,9 @@ if typing.TYPE_CHECKING:
     from .computer_initialization_response import ComputerInitializationResponse
     from .computer_initialization_response_reason import ComputerInitializationResponseReason
     from .computer_lifecycle_response_out import ComputerLifecycleResponseOut
+    from .computer_status_response_out import ComputerStatusResponseOut
+    from .computer_status_response_out_explicit_stop import ComputerStatusResponseOutExplicitStop
+    from .computer_status_response_out_not_ready_reason import ComputerStatusResponseOutNotReadyReason
     from .conversation_asset_info import ConversationAssetInfo
     from .conversation_message import ConversationMessage
     from .conversation_message_content import ConversationMessageContent
@@ -72,6 +80,7 @@ if typing.TYPE_CHECKING:
     from .data_frame_request_out_index_item import DataFrameRequestOutIndexItem
     from .data_frame_unknown_format_error import DataFrameUnknownFormatError
     from .database_column_info import DatabaseColumnInfo
+    from .database_compute_settings_response_out import DatabaseComputeSettingsResponseOut
     from .database_data_response import DatabaseDataResponse
     from .database_mutation_response import DatabaseMutationResponse
     from .database_sql_response import DatabaseSqlResponse
@@ -80,6 +89,8 @@ if typing.TYPE_CHECKING:
     from .database_table_info import DatabaseTableInfo
     from .database_table_schema_response import DatabaseTableSchemaResponse
     from .database_tables_response import DatabaseTablesResponse
+    from .database_wake_response_out import DatabaseWakeResponseOut
+    from .database_wake_response_out_status import DatabaseWakeResponseOutStatus
     from .default_visibility import DefaultVisibility
     from .delete_data_request import DeleteDataRequest
     from .delete_ssh_key_response_out import DeleteSshKeyResponseOut
@@ -220,6 +231,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AopExecuteResponseOut": ".aop_execute_response_out",
     "ApprovalMode": ".approval_mode",
     "ArchiveAssetResponseOut": ".archive_asset_response_out",
+    "AssetAccessOut": ".asset_access_out",
+    "AssetAccessOutLevel": ".asset_access_out_level",
+    "AssetAccessSourceOut": ".asset_access_source_out",
+    "AssetAccessSourceOutKind": ".asset_access_source_out_kind",
+    "AssetAccessSourceOutLevel": ".asset_access_source_out_level",
     "AssetActivityDeltaResponseOut": ".asset_activity_delta_response_out",
     "AssetActivityResponseOut": ".asset_activity_response_out",
     "AssetCapabilitiesResponseOut": ".asset_capabilities_response_out",
@@ -255,6 +271,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ComputerInitializationResponse": ".computer_initialization_response",
     "ComputerInitializationResponseReason": ".computer_initialization_response_reason",
     "ComputerLifecycleResponseOut": ".computer_lifecycle_response_out",
+    "ComputerStatusResponseOut": ".computer_status_response_out",
+    "ComputerStatusResponseOutExplicitStop": ".computer_status_response_out_explicit_stop",
+    "ComputerStatusResponseOutNotReadyReason": ".computer_status_response_out_not_ready_reason",
     "ConversationAssetInfo": ".conversation_asset_info",
     "ConversationMessage": ".conversation_message",
     "ConversationMessageContent": ".conversation_message_content",
@@ -271,6 +290,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DataFrameRequestOutIndexItem": ".data_frame_request_out_index_item",
     "DataFrameUnknownFormatError": ".data_frame_unknown_format_error",
     "DatabaseColumnInfo": ".database_column_info",
+    "DatabaseComputeSettingsResponseOut": ".database_compute_settings_response_out",
     "DatabaseDataResponse": ".database_data_response",
     "DatabaseMutationResponse": ".database_mutation_response",
     "DatabaseSqlResponse": ".database_sql_response",
@@ -279,6 +299,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DatabaseTableInfo": ".database_table_info",
     "DatabaseTableSchemaResponse": ".database_table_schema_response",
     "DatabaseTablesResponse": ".database_tables_response",
+    "DatabaseWakeResponseOut": ".database_wake_response_out",
+    "DatabaseWakeResponseOutStatus": ".database_wake_response_out_status",
     "DefaultVisibility": ".default_visibility",
     "DeleteDataRequest": ".delete_data_request",
     "DeleteSshKeyResponseOut": ".delete_ssh_key_response_out",
@@ -441,6 +463,11 @@ __all__ = [
     "AopExecuteResponseOut",
     "ApprovalMode",
     "ArchiveAssetResponseOut",
+    "AssetAccessOut",
+    "AssetAccessOutLevel",
+    "AssetAccessSourceOut",
+    "AssetAccessSourceOutKind",
+    "AssetAccessSourceOutLevel",
     "AssetActivityDeltaResponseOut",
     "AssetActivityResponseOut",
     "AssetCapabilitiesResponseOut",
@@ -476,6 +503,9 @@ __all__ = [
     "ComputerInitializationResponse",
     "ComputerInitializationResponseReason",
     "ComputerLifecycleResponseOut",
+    "ComputerStatusResponseOut",
+    "ComputerStatusResponseOutExplicitStop",
+    "ComputerStatusResponseOutNotReadyReason",
     "ConversationAssetInfo",
     "ConversationMessage",
     "ConversationMessageContent",
@@ -492,6 +522,7 @@ __all__ = [
     "DataFrameRequestOutIndexItem",
     "DataFrameUnknownFormatError",
     "DatabaseColumnInfo",
+    "DatabaseComputeSettingsResponseOut",
     "DatabaseDataResponse",
     "DatabaseMutationResponse",
     "DatabaseSqlResponse",
@@ -500,6 +531,8 @@ __all__ = [
     "DatabaseTableInfo",
     "DatabaseTableSchemaResponse",
     "DatabaseTablesResponse",
+    "DatabaseWakeResponseOut",
+    "DatabaseWakeResponseOutStatus",
     "DefaultVisibility",
     "DeleteDataRequest",
     "DeleteSshKeyResponseOut",

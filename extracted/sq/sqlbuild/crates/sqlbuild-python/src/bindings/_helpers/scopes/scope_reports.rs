@@ -7,8 +7,13 @@ use pyo3::prelude::{
 use pyo3::types::PyDict;
 use pyo3::{pyfunction, wrap_pyfunction};
 use sqlbuild_core::json::models::JsonValue;
+use sqlbuild_scopes::scope_index::main::identity_failure_message::identity_failure_message;
+use sqlbuild_scopes::scope_index::main::rejected_path_message::rejected_path_message;
 use sqlbuild_scopes::scope_report::main::browse_scope_folders::browse_scope_folders;
 use sqlbuild_scopes::scope_report::main::build_scope_report::build_scope_report;
+use sqlbuild_scopes::scope_report::main::cached_completeness::cached_completeness;
+use sqlbuild_scopes::scope_report::main::cached_declaration_values::cached_declaration_values;
+use sqlbuild_scopes::scope_report::main::cached_projection_index::cached_projection_index;
 use sqlbuild_scopes::scope_report::main::explain_scope_declaration::explain_scope_declaration;
 use sqlbuild_scopes::scope_report::main::list_scope_declarations::list_scope_declarations;
 use sqlbuild_scopes::scope_report::main::preview_scope_move::preview_scope_move;
@@ -20,16 +25,13 @@ use sqlbuild_scopes::scope_report::models::{
     ScopeResult,
 };
 
-use crate::bindings::_helpers::compile_driver::python_calls::KeywordArguments;
+use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::records::construct::error_class;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
-use crate::bindings::_helpers::scopes::scope_lookup::{
-    NativeScopeLookup, identity_message, path_message,
-};
+use crate::bindings::_helpers::scopes::scope_lookup::NativeScopeLookup;
 use crate::bindings::_helpers::scopes::scope_objects::{
-    ScopeClasses, completeness, declaration_values, projection_index, read_completeness,
-    read_declaration, read_index,
+    ScopeClasses, read_completeness, read_declaration, read_index,
 };
 use crate::bindings::_helpers::scopes::scope_report_objects::{
     browse_object, diagnostics_object, explanation_object, json_to_plain, json_to_python,
@@ -40,26 +42,26 @@ use crate::bindings::_helpers::scopes::scope_report_objects::{
 type PyObject = Py<PyAny>;
 
 /// Target, location, whether it is a directory, and the filters.
-pub(crate) type ReportArguments<'py> = (
-    Option<Bound<'py, PyAny>>,
-    Option<Bound<'py, PyAny>>,
-    bool,
-    Option<Bound<'py, PyAny>>,
-);
+pub(crate) struct ReportArguments<'py> {
+    pub(crate) target: Option<Bound<'py, PyAny>>,
+    pub(crate) at: Option<Bound<'py, PyAny>>,
+    pub(crate) directory: bool,
+    pub(crate) filters: Option<Bound<'py, PyAny>>,
+}
 /// Declaration, target, location and whether it is a directory.
-pub(crate) type ExplainArguments<'py> = (
-    Bound<'py, PyAny>,
-    Option<Bound<'py, PyAny>>,
-    Option<Bound<'py, PyAny>>,
-    bool,
-);
+pub(crate) struct ExplainArguments<'py> {
+    pub(crate) declaration: Bound<'py, PyAny>,
+    pub(crate) target: Option<Bound<'py, PyAny>>,
+    pub(crate) at: Option<Bound<'py, PyAny>>,
+    pub(crate) directory: bool,
+}
 /// Folder, filters, target and whether the target is prospective.
-pub(crate) type ListArguments<'py> = (
-    String,
-    Option<Bound<'py, PyAny>>,
-    Option<Bound<'py, PyAny>>,
-    bool,
-);
+pub(crate) struct ListArguments<'py> {
+    pub(crate) folder: String,
+    pub(crate) filters: Option<Bound<'py, PyAny>>,
+    pub(crate) target: Option<Bound<'py, PyAny>>,
+    pub(crate) target_is_prospective: bool,
+}
 
 const CURRENT_FOLDER: &str = ".";
 
@@ -85,7 +87,7 @@ fn lookup_reports(lookup: &Bound<'_, PyAny>) -> PyResult<LookupReports> {
     let native: Py<NativeScopeLookup> = native_field(lookup, "native")?.extract()?;
     let rows: Vec<DeclarationValues> = native_field(&index, "declarations")?
         .try_iter()?
-        .map(|record| Ok(declaration_values(&read_declaration(&record?)?)))
+        .map(|record| Ok(cached_declaration_values(&read_declaration(&record?)?)))
         .collect::<PyResult<_>>()?;
     let canonical: &[usize] = &native.get().lookup.declarations;
     if rows.len() != canonical.len() {
@@ -101,7 +103,7 @@ fn lookup_reports(lookup: &Bound<'_, PyAny>) -> PyResult<LookupReports> {
         lookup: native,
         values: ReportValues {
             declarations,
-            completeness: completeness(read_completeness(&index)?),
+            completeness: cached_completeness(read_completeness(&index)?),
         },
     })
 }
@@ -115,13 +117,15 @@ fn scope_error(py: Python<'_>, class: ErrorId, message: String) -> PyResult<PyEr
 /// The error Python raises for a failed query.
 fn failure_error(py: Python<'_>, failure: &ReportFailure) -> PyResult<PyErr> {
     match failure {
-        ReportFailure::Path(rejected) => {
-            scope_error(py, ErrorId::InvalidScopePath, path_message(rejected))
-        }
+        ReportFailure::Path(rejected) => scope_error(
+            py,
+            ErrorId::InvalidScopePath,
+            rejected_path_message(rejected),
+        ),
         ReportFailure::Identity(failure, text) => scope_error(
             py,
             ErrorId::InvalidQualifiedIdentity,
-            identity_message(failure, text),
+            identity_failure_message(failure, text),
         ),
         ReportFailure::Serialization(message) => Ok(PyValueError::new_err(message.clone())),
         ReportFailure::IndexOutOfRange => Ok(PyIndexError::new_err("tuple index out of range")),
@@ -148,7 +152,12 @@ pub(crate) fn scope_report(
     lookup: &Bound<'_, PyAny>,
     request: ReportArguments<'_>,
 ) -> PyResult<PyObject> {
-    let (target, at, directory, filters) = request;
+    let ReportArguments {
+        target,
+        at,
+        directory,
+        filters,
+    } = request;
     let classes: ScopeClasses<'_> = ScopeClasses::new(py)?;
     let selected: Bound<'_, PyAny> = match filters.filter(|filters| !filters.is_none()) {
         Some(filters) => filters,
@@ -178,7 +187,12 @@ pub(crate) fn scope_explain(
     lookup: &Bound<'_, PyAny>,
     request: ExplainArguments<'_>,
 ) -> PyResult<(PyObject, PyObject)> {
-    let (declaration, target, at, directory) = request;
+    let ExplainArguments {
+        declaration,
+        target,
+        at,
+        directory,
+    } = request;
     let classes: ScopeClasses<'_> = ScopeClasses::new(py)?;
     let reports: LookupReports = lookup_reports(lookup)?;
     let request: ExplainRequest = ExplainRequest {
@@ -240,7 +254,12 @@ pub(crate) fn scope_list(
     lookup: &Bound<'_, PyAny>,
     request: ListArguments<'_>,
 ) -> PyResult<PyObject> {
-    let (folder, filters, target, target_is_prospective) = request;
+    let ListArguments {
+        folder,
+        filters,
+        target,
+        target_is_prospective,
+    } = request;
     let classes: ScopeClasses<'_> = ScopeClasses::new(py)?;
     let reports: LookupReports = lookup_reports(lookup)?;
     let request: FolderRequest =
@@ -327,7 +346,7 @@ pub(crate) fn metadata_projection_value(index: &Bound<'_, PyAny>) -> PyResult<se
 }
 
 fn projection_json(index: &Bound<'_, PyAny>) -> PyResult<JsonValue> {
-    let index: ProjectionIndex = projection_index(read_index(index)?);
+    let index: ProjectionIndex = cached_projection_index(read_index(index)?);
     Ok(scope_metadata_projection(&index))
 }
 
@@ -354,12 +373,12 @@ fn query_scope_report_binding<'py>(
     scope_report(
         py,
         &arguments.value("lookup")?,
-        (
-            optional(&arguments, "target")?,
-            optional(&arguments, "at")?,
-            arguments.flag("directory")?,
-            optional(&arguments, "filters")?,
-        ),
+        ReportArguments {
+            target: optional(&arguments, "target")?,
+            at: optional(&arguments, "at")?,
+            directory: arguments.flag("directory")?,
+            filters: optional(&arguments, "filters")?,
+        },
     )
 }
 
@@ -379,12 +398,12 @@ fn explain_scope_declaration_binding<'py>(
     scope_explain(
         py,
         &arguments.value("lookup")?,
-        (
-            arguments.value("declaration")?,
-            optional(&arguments, "target")?,
-            optional(&arguments, "at")?,
-            arguments.flag("directory")?,
-        ),
+        ExplainArguments {
+            declaration: arguments.value("declaration")?,
+            target: optional(&arguments, "target")?,
+            at: optional(&arguments, "at")?,
+            directory: arguments.flag("directory")?,
+        },
     )
 }
 
@@ -435,12 +454,12 @@ fn list_scope_declarations_binding<'py>(
     scope_list(
         py,
         &arguments.value("lookup")?,
-        (
-            arguments.value("folder")?.extract()?,
-            optional(&arguments, "filters")?,
-            optional(&arguments, "target")?,
-            arguments.flag("target_is_prospective")?,
-        ),
+        ListArguments {
+            folder: arguments.value("folder")?.extract()?,
+            filters: optional(&arguments, "filters")?,
+            target: optional(&arguments, "target")?,
+            target_is_prospective: arguments.flag("target_is_prospective")?,
+        },
     )
 }
 

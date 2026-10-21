@@ -667,6 +667,323 @@ class CfnLaunchConfigurationTemplateProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_drs_f93ad3cc.IRecoveryPlanRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRecoveryPlan(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_drs.CfnRecoveryPlan",
+):
+    '''A Recovery Plan orchestrates multi-server disaster recovery in AWS Elastic Disaster Recovery.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-drs-recoveryplan.html
+    :cloudformationResource: AWS::DRS::RecoveryPlan
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_drs as drs
+        
+        cfn_recovery_plan = drs.CfnRecoveryPlan(self, "MyCfnRecoveryPlan",
+            name="name",
+        
+            # the properties below are optional
+            description="description",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::DRS::RecoveryPlan``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: The name of the Recovery Plan.
+        :param description: The description of the Recovery Plan.
+        :param tags: The tags associated with the Recovery Plan.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__25a1a16de77916f2d09950c422d3de50807f91d809dcc135629eef904fdf66d6)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRecoveryPlanProps(name=name, description=description, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRecoveryPlan")
+    @builtins.classmethod
+    def arn_for_recovery_plan(
+        cls,
+        resource: "_aws_drs_f93ad3cc.IRecoveryPlanRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7ed30e312f296d5ad48de7b987ac5ba22e540513d530483caac45be5c6af3689)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRecoveryPlan", [resource]))
+
+    @jsii.member(jsii_name="isCfnRecoveryPlan")
+    @builtins.classmethod
+    def is_cfn_recovery_plan(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRecoveryPlan.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__984b116326e832a7aa1ecd45fd13221d10fcb85967f7b94f281645ce01b817ff)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRecoveryPlan", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5bbe463668624a4e1a6fd89e5b83d97adf3d2fd6a70ec0c9310bf88cbf29b090)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d754532dabe951f9f16585648c922cc4775d47d6539f7a1cc8f42c7f37518379)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the Recovery Plan.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The timestamp when the Recovery Plan was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRecoveryPlanId")
+    def attr_recovery_plan_id(self) -> builtins.str:
+        '''The ID of the Recovery Plan.
+
+        :cloudformationAttribute: RecoveryPlanID
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRecoveryPlanId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The status of the Recovery Plan.
+
+        ACTIVE means executable. INVALID means the plan has no SERVER type steps and cannot be executed.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The timestamp when the Recovery Plan was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="recoveryPlanRef")
+    def recovery_plan_ref(self) -> "_aws_drs_f93ad3cc.RecoveryPlanReference":
+        '''A reference to a RecoveryPlan resource.'''
+        return typing.cast("_aws_drs_f93ad3cc.RecoveryPlanReference", jsii.get(self, "recoveryPlanRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name of the Recovery Plan.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__44503f9177225e4d23bb82a39db61499cae0a637a243fbc74cd9509fe5f434b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the Recovery Plan.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec48e5cb4e17e118fa80c36092940600cc7d6e35012ea8511472ff1dc51a97b8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the Recovery Plan.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f4d924f25985cbfd37c9431d6b5af56ffa9c2e6d3d5cb61bb07d5b60fed9834f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_drs.CfnRecoveryPlanProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "description": "description", "tags": "tags"},
+)
+class CfnRecoveryPlanProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRecoveryPlan``.
+
+        :param name: The name of the Recovery Plan.
+        :param description: The description of the Recovery Plan.
+        :param tags: The tags associated with the Recovery Plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-drs-recoveryplan.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_drs as drs
+            
+            cfn_recovery_plan_props = drs.CfnRecoveryPlanProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7be5c846cf8adb13cf8dc03b67b64cf0967a269a5f0ba86ad1c5137ce17c80a0)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the Recovery Plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-drs-recoveryplan.html#cfn-drs-recoveryplan-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the Recovery Plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-drs-recoveryplan.html#cfn-drs-recoveryplan-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags associated with the Recovery Plan.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-drs-recoveryplan.html#cfn-drs-recoveryplan-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRecoveryPlanProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_drs_f93ad3cc.IReplicationConfigurationTemplateRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnReplicationConfigurationTemplate(
     _aws_cdk_0cae9daa.CfnResource,
@@ -1922,6 +2239,8 @@ class CfnSourceNetworkProps:
 __all__ = [
     "CfnLaunchConfigurationTemplate",
     "CfnLaunchConfigurationTemplateProps",
+    "CfnRecoveryPlan",
+    "CfnRecoveryPlanProps",
     "CfnReplicationConfigurationTemplate",
     "CfnReplicationConfigurationTemplateProps",
     "CfnSourceNetwork",
@@ -2043,6 +2362,68 @@ def _typecheckingstub__dc6299d4436191a20483f05c03c88fc1c894497d78685edf856ee5c4d
     post_launch_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_instance_type_right_sizing_method: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25a1a16de77916f2d09950c422d3de50807f91d809dcc135629eef904fdf66d6(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ed30e312f296d5ad48de7b987ac5ba22e540513d530483caac45be5c6af3689(
+    resource: _aws_drs_f93ad3cc.IRecoveryPlanRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__984b116326e832a7aa1ecd45fd13221d10fcb85967f7b94f281645ce01b817ff(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5bbe463668624a4e1a6fd89e5b83d97adf3d2fd6a70ec0c9310bf88cbf29b090(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d754532dabe951f9f16585648c922cc4775d47d6539f7a1cc8f42c7f37518379(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44503f9177225e4d23bb82a39db61499cae0a637a243fbc74cd9509fe5f434b9(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec48e5cb4e17e118fa80c36092940600cc7d6e35012ea8511472ff1dc51a97b8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f4d924f25985cbfd37c9431d6b5af56ffa9c2e6d3d5cb61bb07d5b60fed9834f(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7be5c846cf8adb13cf8dc03b67b64cf0967a269a5f0ba86ad1c5137ce17c80a0(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

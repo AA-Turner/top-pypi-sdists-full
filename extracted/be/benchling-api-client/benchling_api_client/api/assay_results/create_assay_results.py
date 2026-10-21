@@ -81,7 +81,7 @@ def sync(
     json_body: AssayResultsBulkCreateRequest,
 ) -> Optional[Union[AssayResultsCreateResponse, BadRequestError]]:
     """Create 1 or more results.
-    If you are looking to add results to a specific table in a notebook entry, please use the  [assay-results bulk-create](#/Assay%20Results/bulkCreateAssayResults) endpoint instead.
+    If you are looking to add results to a specific table in a notebook entry, please use the  [assay-results bulk-create](https://docs.benchling.com/docs/api/v2/benchling-api/assay-results/bulk-create-assay-results) endpoint instead.
     """
 
     return sync_detailed(
@@ -112,7 +112,7 @@ async def asyncio(
     json_body: AssayResultsBulkCreateRequest,
 ) -> Optional[Union[AssayResultsCreateResponse, BadRequestError]]:
     """Create 1 or more results.
-    If you are looking to add results to a specific table in a notebook entry, please use the  [assay-results bulk-create](#/Assay%20Results/bulkCreateAssayResults) endpoint instead.
+    If you are looking to add results to a specific table in a notebook entry, please use the  [assay-results bulk-create](https://docs.benchling.com/docs/api/v2/benchling-api/assay-results/bulk-create-assay-results) endpoint instead.
     """
 
     return (

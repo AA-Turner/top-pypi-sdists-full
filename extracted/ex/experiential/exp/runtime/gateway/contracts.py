@@ -16,14 +16,10 @@ from exp.common.models.content import (
     VideoContentPart,
     require_attachment_ceilings,
 )
-from exp.common.models.dispatch_policy import GatewayThrottleRedialPolicy
 from exp.common.models.gateway_catalog import (
-    DeploymentId,
     ExactModelId,
     ExactModelPoolId,
-    FailoverMode,
 )
-from exp.common.models.gateway_chains import ModelExecutionStage, ModelTraversalEvent
 from exp.common.models.model import MAXIMUM_TOOL_CALL_ID_CHARACTERS, ReasoningEffort, ToolCall
 from exp.runtime.gateway.client_apps import ClientAttribution
 from exp.runtime.gateway.model_chain_authority import ModelChainAuthority
@@ -380,10 +376,14 @@ class GatewayMessage(ContractModel):
                 )
             if all(part.kind == "text" for part in self.content_parts):
                 raise ValueError("content parts are retained only for multimodal messages")
-            if self.role in ("tool", "assistant") and any(
+            if self.role == "tool" and any(
+                part.kind not in ("text", "image", "document") for part in self.content_parts
+            ):
+                raise ValueError("tool messages carry only text, image, and document parts")
+            if self.role == "assistant" and any(
                 part.kind not in ("text", "image") for part in self.content_parts
             ):
-                raise ValueError(f"{self.role} messages carry only text and image parts")
+                raise ValueError("assistant messages carry only text and image parts")
             texts = [part.text for part in self.content_parts if part.kind == "text"]
             if (self.content or "") != "".join(texts):
                 raise ValueError("content parts must flatten to the message content")
@@ -497,13 +497,10 @@ class GatewayRequest(ContractModel):
     diagnostics: JsonObject | None = Field(default=None, exclude=True)
     """Verbatim caller ``diagnostics`` from the Messages surface.
 
-    Anthropic's diagnostics-correlation object (Claude Code sends
-    ``{"previous_message_id": ...}`` conditionally). Validated only as an
-    object and forwarded byte-for-byte with the required beta header on
-    Anthropic rungs, dropped with disclosure elsewhere; the shape is an
-    evolving provider beta, so validation stays shallow. Excluded from
-    serialization; a present value joins replay identity through
-    :func:`canonical_request_sha256`.
+    Anthropic's diagnostics-correlation object (Claude Code sends ``{"previous_message_id":
+    ...}`` conditionally), validated only as an object (an evolving provider beta) and
+    forwarded byte-for-byte with its beta header on Anthropic rungs, dropped with disclosure
+    elsewhere. Excluded from serialization; a present value joins replay identity.
     """
     safeguards: tuple[JsonObject, ...] | None = Field(default=None, exclude=True)
     """Verbatim Claude Code auto-mode ``safeguards`` (Messages only): sent on
@@ -511,13 +508,10 @@ class GatewayRequest(ContractModel):
     speed: str | None = Field(default=None, max_length=64, exclude=True)
     """Verbatim caller ``speed`` selector from the Messages surface.
 
-    Anthropic's fast-mode selector (Claude Code sends ``"fast"``; accepted
-    live behind its beta header, 2026-08-30). Bounded but deliberately not
-    enumerated: the value set is an evolving provider surface. Forwarded
-    with the required beta header on Anthropic rungs and dropped with
-    disclosure elsewhere. Fast-mode output is provider-priced at a premium,
-    so a present value joins replay identity through
-    :func:`canonical_request_sha256`.
+    Anthropic's fast-mode selector (Claude Code sends ``"fast"``; accepted live behind its
+    beta header, 2026-08-30), bounded but not enumerated (an evolving provider surface).
+    Forwarded with its beta header on Anthropic rungs, dropped with disclosure elsewhere.
+    Fast-mode output is priced at a premium, so a present value joins replay identity.
     """
     provider_cache_control: JsonObject | None = Field(default=None, exclude=True)
     """Verbatim caller top-level ``cache_control`` from the Messages surface.
@@ -532,12 +526,10 @@ class GatewayRequest(ContractModel):
     inference_geo: str | None = Field(default=None, max_length=64, exclude=True)
     """Verbatim caller ``inference_geo`` selector from the Messages surface.
 
-    Anthropic's inference-region selector (accepted bare, verified live
-    2026-08-30). Bounded but deliberately not enumerated: the region set is
-    an evolving provider surface. Forwarded verbatim on Anthropic rungs and
-    dropped with disclosure elsewhere. Where inference runs is a
-    caller-visible processing commitment, so a present value joins replay
-    identity through :func:`canonical_request_sha256`.
+    Anthropic's inference-region selector (accepted bare, verified live 2026-08-30), bounded
+    but not enumerated (an evolving provider surface). Forwarded verbatim on Anthropic rungs,
+    dropped with disclosure elsewhere. Where inference runs is a caller-visible processing
+    commitment, so a present value joins replay identity (:func:`canonical_request_sha256`).
     """
     provider_beta_tokens: tuple[str, ...] = Field(default=(), exclude=True)
     """Allowlisted caller ``anthropic-beta`` tokens from the Messages surface.
@@ -645,6 +637,19 @@ class GatewayRequest(ContractModel):
     provider cache node that holds it while the caller's raw key never leaves
     the gateway. Excluded from serialization: it is routing state, never request identity.
     """
+    provider_session_id: str | None = Field(default=None, max_length=128, exclude=True)
+    """Tenant-namespaced per-conversation id for providers that pin by session.
+
+    Derived at admission (``prompt_cache_affinity.provider_session_id``) from
+    the caller's ``prompt_cache_key`` or the conversation's opening, and sent
+    only as Novita's ``x-session-id``. Routing state, never request identity.
+    """
+    prompt_cache_ttl: Literal["12h"] | None = Field(default=None, exclude=True)
+    """OpenAI's 12-hour minimum prompt-cache lifetime (Responses ``prompt_cache_options.ttl``).
+
+    Routed only to rungs declaring ``supports_prompt_cache_ttl_12h`` and refused when none
+    does. Like ``provider_cache_control`` it changes cache-write cost, never semantics, so
+    it joins neither serialization nor replay identity."""
     service_tier: str | None = Field(default=None, max_length=64, exclude=True)
     """Caller provider processing tier, forwarded only on BYOK OpenAI-family
     rungs (routing and billing rules live at streaming_requests and
@@ -889,6 +894,7 @@ class AuthorizationSnapshot(ClientAttribution):
         output_tokens_per_second: Class stream pace on self-hosted rungs; None never paces.
         output_pace_saturation: Pace only at or above this rung load fraction; None = always.
         self_hosted_class_concurrency: Per-worker in-flight cap for the class on a self-hosted rung.
+        fast: The ``:fast`` spelling: priority tier, above every class (class_throttles.py).
         descendant_start_authorized: False unless the host proves root funding
             and policy gates before allowing a request to start at a child.
         zdr_requested: Caller demand for stricter ZDR filtering, default False.
@@ -930,65 +936,7 @@ class AuthorizationSnapshot(ClientAttribution):
     output_tokens_per_second: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     output_pace_saturation: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     self_hosted_class_concurrency: int | None = Field(default=None, ge=1)
+    fast: bool = False
     descendant_start_authorized: bool = False
     zdr_requested: bool = False
     prompt_caching_disabled: bool = False
-
-
-class ExecutionSnapshot(ContractModel):
-    """Route-bound request plan created only after exact-model selection.
-
-    Attributes:
-        model_stages: Frozen ordered stage segments; empty for an unstaged exact-model route.
-        traversal_events: Immutable expansion provenance, not mutable runtime visitation state.
-    """
-
-    authorization: AuthorizationSnapshot
-    exact_model_id: ExactModelId
-    pool_id: ExactModelPoolId
-    deployment_ids: tuple[DeploymentId, ...] = Field(min_length=1)
-    # The pool's per-model failover policy, carried onto the route so the
-    # per-attempt retry/failover decision can honor it.
-    failover_mode: FailoverMode = "maximize_availability"
-    # Optional cache-stakes threshold; otherwise the failover mode decides.
-    throttle_cache_threshold: float | None = Field(default=None, ge=0, le=1, allow_inf_nan=False)
-    # The pool's backoff-and-redial schedule for throttled rungs, carried so
-    # the admission can hand the data plane its frozen retry facts and the
-    # per-attempt decision can honor a post-backoff redial.
-    throttle_redial: GatewayThrottleRedialPolicy | None = None
-    # Rungs the host flagged for OpenRouter's per-request ZDR constraint; the
-    # dispatch builder tightens each and fails closed on a wire that cannot.
-    zdr_constrained_deployment_ids: tuple[DeploymentId, ...] = ()
-    model_stages: tuple[ModelExecutionStage, ...] = ()
-    traversal_events: tuple[ModelTraversalEvent, ...] = ()
-
-    @model_validator(mode="after")
-    def _require_stage_projection(self) -> ExecutionSnapshot:
-        """Require the ordered stage leaves to exactly cover the dispatch cursor."""
-        if (
-            self.model_stages
-            and tuple(d for s in self.model_stages for d in s.deployment_ids) != self.deployment_ids
-        ):
-            raise ValueError("execution stages must exactly cover ordered deployment_ids")
-        return self
-
-    def stage_for_depth(self, depth: int) -> ModelExecutionStage:
-        """Return the exact destination authority, never substitute the root model."""
-        if not 0 <= depth < len(self.deployment_ids):
-            raise ValueError("execution route depth is outside the authorized plan")
-        if not self.model_stages:
-            return ModelExecutionStage(
-                stage_index=0,
-                exact_model_id=self.exact_model_id,
-                pool_id=self.pool_id,
-                deployment_ids=self.deployment_ids,
-                failover_mode=self.failover_mode,
-                throttle_cache_threshold=self.throttle_cache_threshold,
-                throttle_redial=self.throttle_redial,
-            )
-        cursor = 0
-        for stage in self.model_stages:
-            cursor += len(stage.deployment_ids)
-            if depth < cursor:
-                return stage
-        raise ValueError("execution stage projection is incomplete")

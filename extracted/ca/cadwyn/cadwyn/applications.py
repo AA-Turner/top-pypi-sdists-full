@@ -1,10 +1,10 @@
-import dataclasses
+import inspect
 import warnings
 from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from datetime import date
 from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Optional, Union, cast
+from typing import TYPE_CHECKING, Annotated, Any, Optional, Union, cast, overload
 from urllib.parse import quote
 
 import fastapi
@@ -25,10 +25,9 @@ from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import BaseRoute, Route
-from starlette.types import Lifespan
+from starlette.types import Lifespan, Receive, Scope, Send
 from typing_extensions import Self, assert_never, deprecated, override
 
-from cadwyn._utils import DATACLASS_SLOTS, same_method_definition_as_in
 from cadwyn.changelogs import _CHANGELOG_DEPRECATION_MESSAGE, CadwynChangelogResource, _generate_changelog
 from cadwyn.exceptions import CadwynStructureError
 from cadwyn.middleware import (
@@ -50,6 +49,11 @@ if TYPE_CHECKING:
 
 CURR_DIR = Path(__file__).resolve()
 logger = getLogger(__name__)
+_OPENAPI_PREFIX_REMOVAL_MESSAGE = (
+    "`openapi_prefix` is deprecated, and FastAPI 0.145.0 removed it, so Cadwyn can only pass it to older versions "
+    "of FastAPI. Configure the root path of your server instead, or use `root_path`."
+)
+_FASTAPI_ACCEPTS_OPENAPI_PREFIX = "openapi_prefix" in inspect.signature(FastAPI.__init__).parameters
 
 
 def _get_effective_include_in_schema(route: BaseRoute, effective_route_context: _EffectiveRouteContext | None) -> bool:
@@ -68,13 +72,40 @@ def _materialize_routes(routes: Sequence[BaseRoute]) -> list[BaseRoute]:
     ]
 
 
-@dataclasses.dataclass(**DATACLASS_SLOTS)
-class FakeDependencyOverridesProvider:
-    dependency_overrides: dict[Callable[..., Any], Callable[..., Any]]
+class _RootRouterAttribute:
+    """`Cadwyn.router`: reads return Cadwyn's root router, writes accept any `APIRouter` like `FastAPI.router` does.
+
+    `FastAPI.__init__` assigns a plain `APIRouter` to `router`, and Cadwyn replaces it with its root router right after.
+    So the attribute must keep accepting the writes that FastAPI allows, while reads stay narrowed for Cadwyn and users.
+    A property with a setter would type the same way, but ty 0.0.86 rejects `@override` on its setter and ty 0.0.89
+    requires it.
+    """
+
+    @overload
+    def __get__(self, instance: None, owner: type[Any]) -> Self: ...
+    @overload
+    def __get__(self, instance: "Cadwyn", owner: type[Any]) -> _RootCadwynAPIRouter: ...
+    def __get__(self, instance: "Cadwyn | None", owner: type[Any]) -> "Self | _RootCadwynAPIRouter":
+        if instance is None:
+            return self
+        try:
+            return instance.__dict__["router"]
+        except KeyError:
+            raise AttributeError("router") from None
+
+    def __set__(self, instance: "Cadwyn", value: APIRouter) -> None:
+        instance.__dict__["router"] = value
+
+    def __delete__(self, instance: "Cadwyn") -> None:
+        try:
+            del instance.__dict__["router"]
+        except KeyError:
+            raise AttributeError("router") from None
 
 
 class Cadwyn(FastAPI):
     _templates = Jinja2Templates(directory=CURR_DIR.parent / "static")
+    router: _RootRouterAttribute = _RootRouterAttribute()
 
     def __init__(
         self,
@@ -128,7 +159,7 @@ class Cadwyn(FastAPI):
         terms_of_service: Union[str, None] = None,
         contact: Union[dict[str, Union[str, Any]], None] = None,
         license_info: Union[dict[str, Union[str, Any]], None] = None,
-        openapi_prefix: str = "",
+        openapi_prefix: Annotated[str, deprecated(_OPENAPI_PREFIX_REMOVAL_MESSAGE)] = "",
         root_path: str = "",
         root_path_in_servers: bool = True,
         responses: Union[dict[Union[int, str], dict[str, Any]], None] = None,
@@ -146,10 +177,10 @@ class Cadwyn(FastAPI):
             generate_unique_id
         ),
         separate_input_output_schemas: bool = True,
+        strict_content_type: bool = True,
         **extra: Any,
     ) -> None:
         self.versions = versions
-        self._dependency_overrides_provider = FakeDependencyOverridesProvider({})
         self._cadwyn_initialized = False
 
         if api_version_header_name is not None:
@@ -172,6 +203,12 @@ class Cadwyn(FastAPI):
                 "This is not currently supported by Cadwyn. "
                 "Please, open an issue on our github if you'd like to have it."
             )
+        # FastAPI 0.145.0 removed openapi_prefix, so we only forward it when it is set
+        if openapi_prefix:
+            if not _FASTAPI_ACCEPTS_OPENAPI_PREFIX:  # pragma: no cover # FastAPI >= 0.145
+                raise TypeError(_OPENAPI_PREFIX_REMOVAL_MESSAGE)
+            warnings.warn(_OPENAPI_PREFIX_REMOVAL_MESSAGE, DeprecationWarning, stacklevel=2)
+            extra["openapi_prefix"] = openapi_prefix
 
         super().__init__(
             debug=debug,
@@ -197,7 +234,6 @@ class Cadwyn(FastAPI):
             terms_of_service=terms_of_service,
             contact=contact,
             license_info=license_info,
-            openapi_prefix=openapi_prefix,
             root_path=root_path,
             root_path_in_servers=root_path_in_servers,
             responses=responses,
@@ -208,11 +244,12 @@ class Cadwyn(FastAPI):
             swagger_ui_parameters=swagger_ui_parameters,
             generate_unique_id_function=generate_unique_id_function,
             separate_input_output_schemas=separate_input_output_schemas,
+            strict_content_type=strict_content_type,
             **extra,
         )
 
         self._versioned_webhook_routers: dict[VersionType, APIRouter] = {}
-        self._latest_version_router = APIRouter(dependency_overrides_provider=self._dependency_overrides_provider)
+        self._latest_version_router = APIRouter(dependency_overrides_provider=self)
 
         self.changelog_url = changelog_url
         self.include_changelog_url_in_schema = include_changelog_url_in_schema
@@ -243,9 +280,11 @@ class Cadwyn(FastAPI):
             "include_in_schema": include_in_schema,
             "responses": responses,
             "generate_unique_id_function": generate_unique_id_function,
+            "strict_content_type": strict_content_type,
         }
         self.api_version_format = api_version_format
         self._api_version_location: APIVersionLocation = api_version_location
+        self._api_version_has_default_value = api_version_default_value is not None
         self.api_version_parameter_name = api_version_parameter_name
         self.api_version_pythonic_parameter_name = api_version_parameter_name.replace("-", "_")
         self.api_version_title = api_version_title
@@ -266,7 +305,7 @@ class Cadwyn(FastAPI):
             self.api_version_validation_data_type = str
         else:
             assert_never(default_version_example)
-        self.router: _RootCadwynAPIRouter = _RootCadwynAPIRouter(
+        self.router = _RootCadwynAPIRouter(
             **self._kwargs_to_router,
             on_startup=on_startup,
             on_shutdown=on_shutdown,
@@ -299,12 +338,12 @@ class Cadwyn(FastAPI):
                 "Versions are not sorted correctly. Please sort them in descending order.",
             )
 
-    @same_method_definition_as_in(FastAPI.__call__)
+    # The parameters must be explicit: uvicorn treats any app that can be called without arguments as an app factory
     @override
-    async def __call__(self, *args: Any, **kwargs: Any) -> None:
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if not self._cadwyn_initialized:
             self._cadwyn_initialize()
-        await super().__call__(*args, **kwargs)
+        await super().__call__(scope, receive, send)
 
     def _cadwyn_initialize(self) -> None:
         try:
@@ -329,21 +368,6 @@ class Cadwyn(FastAPI):
     def _add_default_versioned_routers(self) -> None:
         for version in self.versions:
             self.router.versioned_routers[version.value] = APIRouter(**self._kwargs_to_router)
-
-    @property
-    def dependency_overrides(self) -> dict[Callable[..., Any], Callable[..., Any]]:
-        # TODO: Remove this approach as it is no longer necessary
-        # This is only necessary because we cannot send self to versioned router generator
-        # because it takes a deepcopy of the router and self.versions.head_schemas_package was a module
-        # which couldn't be copied.
-        return self._dependency_overrides_provider.dependency_overrides
-
-    @dependency_overrides.setter
-    def dependency_overrides(
-        self,
-        value: dict[Callable[..., Any], Callable[..., Any]],
-    ) -> None:
-        self._dependency_overrides_provider.dependency_overrides = value
 
     @deprecated(_CHANGELOG_DEPRECATION_MESSAGE)
     def generate_changelog(self) -> CadwynChangelogResource:
@@ -397,7 +421,8 @@ class Cadwyn(FastAPI):
     async def openapi_jsons(self, req: Request) -> JSONResponse:
         version = req.query_params.get("version") or req.headers.get(self.router.api_version_parameter_name)
 
-        if version is not None and version in self.router.versioned_routers:
+        is_versioned = version is not None and version in self.router.versioned_routers
+        if is_versioned:
             routes = self.router.versioned_routers[version].routes
             formatted_version = version
         elif version == "unversioned" and self._there_are_public_unversioned_routes():
@@ -406,7 +431,7 @@ class Cadwyn(FastAPI):
         else:
             raise HTTPException(
                 status_code=404,
-                detail=f"OpenApi file of with version `{version}` not found",
+                detail=f"OpenApi file with version `{version}` not found",
             )
 
         # Add root path to servers when mounted as sub-app or proxy is used
@@ -422,23 +447,40 @@ class Cadwyn(FastAPI):
 
         tags = self._filter_openapi_tags(routes)
 
-        return JSONResponse(
-            get_openapi(
-                title=self.title,
-                version=formatted_version,
-                openapi_version=self.openapi_version,
-                description=self.description,
-                summary=self.summary,
-                terms_of_service=self.terms_of_service,
-                contact=self.contact,
-                license_info=self.license_info,
-                routes=routes,
-                webhooks=webhook_routes,
-                tags=tags,
-                servers=self.servers,
-                separate_input_output_schemas=self.separate_input_output_schemas,
-            )
+        openapi = get_openapi(
+            title=self.title,
+            version=formatted_version,
+            openapi_version=self.openapi_version,
+            description=self.description,
+            summary=self.summary,
+            terms_of_service=self.terms_of_service,
+            contact=self.contact,
+            license_info=self.license_info,
+            routes=routes,
+            webhooks=webhook_routes,
+            tags=tags,
+            servers=self.servers,
+            separate_input_output_schemas=self.separate_input_output_schemas,
         )
+        # The API version header dependency of versioned routes defaults to their version so that requests
+        # without the header still reach them when api_version_default_value or a custom versioning middleware
+        # picks their version. FastAPI therefore documents the header as optional, but without
+        # api_version_default_value the server returns a 404 for requests without it. We keep the default so that
+        # clients generated from OpenAPI keep sending the version of the document.
+        if is_versioned and self._api_version_location == "custom_header" and not self._api_version_has_default_value:
+            self._mark_api_version_header_as_required_in_openapi(openapi)
+        return JSONResponse(openapi)
+
+    def _mark_api_version_header_as_required_in_openapi(self, openapi: dict[str, Any]) -> None:
+        # Every route of a versioned document is only reachable with this header, so we also mark it as required
+        # when a route declares a header with the same name itself.
+        header_name = self.api_version_pythonic_parameter_name.replace("_", "-")
+        for path_item in openapi.get("paths", {}).values():
+            for operation in path_item.values():
+                for parameter in operation.get("parameters", ()):
+                    # Parameters from openapi_extra can be references such as {"$ref": "..."} without "in"
+                    if parameter.get("in") == "header" and parameter.get("name") == header_name:
+                        parameter["required"] = True
 
     def _there_are_public_unversioned_routes(self):
         return any(

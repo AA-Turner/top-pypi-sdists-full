@@ -56,6 +56,7 @@ __all__ = (
     "GuardrailContentFiltersTierNameType",
     "GuardrailContextualGroundingActionType",
     "GuardrailContextualGroundingFilterTypeType",
+    "GuardrailContextualGroundingTierNameType",
     "GuardrailFilterStrengthType",
     "GuardrailManagedWordsTypeType",
     "GuardrailModalityType",
@@ -202,6 +203,7 @@ GuardrailContentFilterTypeType = Literal[
 GuardrailContentFiltersTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailContextualGroundingActionType = Literal["BLOCK", "NONE"]
 GuardrailContextualGroundingFilterTypeType = Literal["GROUNDING", "RELEVANCE"]
+GuardrailContextualGroundingTierNameType = Literal["CLASSIC", "STANDARD"]
 GuardrailFilterStrengthType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 GuardrailManagedWordsTypeType = Literal["PROFANITY"]
 GuardrailModalityType = Literal["IMAGE", "TEXT"]

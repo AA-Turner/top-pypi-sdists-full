@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 import httpx
@@ -20,6 +21,14 @@ def _build_request_args(
     atif_only: bool | None = False,
     checkpoint_only: bool | None = False,
     plato_type: str | None = None,
+    include_debug: bool | None = False,
+    include_ancestors: bool | None = True,
+    name: list[str] | None = None,
+    kind: list[str] | None = None,
+    status: str | None = None,
+    started_after: datetime | None = None,
+    started_before: datetime | None = None,
+    attr: list[str] | None = None,
     x_api_key: str | None = None,
 ) -> dict[str, Any]:
     """Build request arguments."""
@@ -42,6 +51,22 @@ def _build_request_args(
         params["checkpoint_only"] = checkpoint_only
     if plato_type is not None:
         params["plato_type"] = plato_type
+    if include_debug is not None:
+        params["include_debug"] = include_debug
+    if include_ancestors is not None:
+        params["include_ancestors"] = include_ancestors
+    if name is not None:
+        params["name"] = name
+    if kind is not None:
+        params["kind"] = kind
+    if status is not None:
+        params["status"] = status
+    if started_after is not None:
+        params["started_after"] = started_after
+    if started_before is not None:
+        params["started_before"] = started_before
+    if attr is not None:
+        params["attr"] = attr
 
     headers: dict[str, str] = {}
     if x_api_key is not None:
@@ -66,12 +91,25 @@ def sync(
     atif_only: bool | None = False,
     checkpoint_only: bool | None = False,
     plato_type: str | None = None,
+    include_debug: bool | None = False,
+    include_ancestors: bool | None = True,
+    name: list[str] | None = None,
+    kind: list[str] | None = None,
+    status: str | None = None,
+    started_after: datetime | None = None,
+    started_before: datetime | None = None,
+    attr: list[str] | None = None,
     x_api_key: str | None = None,
 ) -> SessionLogsResponse:
     """Get logs/events for a session with cursor-based pagination.
 
     Pass the cursor from the previous response to load the next page.
-    On the first call, omit cursor to load from the beginning."""
+    On the first call, omit cursor to load from the beginning. A page holds at
+    most ``SPAN_PAGE_LIMIT`` spans and ``SPAN_PAGE_BYTES`` of attributes
+    whatever ``limit`` asks for; ``has_more``/``cursor`` say when to continue.
+
+    ``total_count``/``filtered_count`` are populated only on the first page
+    (when no cursor is given) and are ``null`` on subsequent pages."""
 
     request_args = _build_request_args(
         public_id=public_id,
@@ -83,6 +121,14 @@ def sync(
         atif_only=atif_only,
         checkpoint_only=checkpoint_only,
         plato_type=plato_type,
+        include_debug=include_debug,
+        include_ancestors=include_ancestors,
+        name=name,
+        kind=kind,
+        status=status,
+        started_after=started_after,
+        started_before=started_before,
+        attr=attr,
         x_api_key=x_api_key,
     )
 
@@ -102,12 +148,25 @@ async def asyncio(
     atif_only: bool | None = False,
     checkpoint_only: bool | None = False,
     plato_type: str | None = None,
+    include_debug: bool | None = False,
+    include_ancestors: bool | None = True,
+    name: list[str] | None = None,
+    kind: list[str] | None = None,
+    status: str | None = None,
+    started_after: datetime | None = None,
+    started_before: datetime | None = None,
+    attr: list[str] | None = None,
     x_api_key: str | None = None,
 ) -> SessionLogsResponse:
     """Get logs/events for a session with cursor-based pagination.
 
     Pass the cursor from the previous response to load the next page.
-    On the first call, omit cursor to load from the beginning."""
+    On the first call, omit cursor to load from the beginning. A page holds at
+    most ``SPAN_PAGE_LIMIT`` spans and ``SPAN_PAGE_BYTES`` of attributes
+    whatever ``limit`` asks for; ``has_more``/``cursor`` say when to continue.
+
+    ``total_count``/``filtered_count`` are populated only on the first page
+    (when no cursor is given) and are ``null`` on subsequent pages."""
 
     request_args = _build_request_args(
         public_id=public_id,
@@ -119,6 +178,14 @@ async def asyncio(
         atif_only=atif_only,
         checkpoint_only=checkpoint_only,
         plato_type=plato_type,
+        include_debug=include_debug,
+        include_ancestors=include_ancestors,
+        name=name,
+        kind=kind,
+        status=status,
+        started_after=started_after,
+        started_before=started_before,
+        attr=attr,
         x_api_key=x_api_key,
     )
 

@@ -15,6 +15,11 @@ class HostPoolServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.BatchUpdateHostPoolStatus = channel.unary_unary(
+            "/chalk.server.v1.HostPoolService/BatchUpdateHostPoolStatus",
+            request_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.BatchUpdateHostPoolStatusRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.BatchUpdateHostPoolStatusResponse.FromString,
+        )
         self.CreateEnvironmentHostPool = channel.unary_unary(
             "/chalk.server.v1.HostPoolService/CreateEnvironmentHostPool",
             request_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.CreateEnvironmentHostPoolRequest.SerializeToString,
@@ -45,6 +50,11 @@ class HostPoolServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.DeleteClusterHostPoolRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.DeleteClusterHostPoolResponse.FromString,
         )
+        self.ValidateHostPoolConfiguration = channel.unary_unary(
+            "/chalk.server.v1.HostPoolService/ValidateHostPoolConfiguration",
+            request_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ValidateHostPoolConfigurationRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ValidateHostPoolConfigurationResponse.FromString,
+        )
         self.GetHostPool = channel.unary_unary(
             "/chalk.server.v1.HostPoolService/GetHostPool",
             request_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolRequest.SerializeToString,
@@ -64,6 +74,12 @@ class HostPoolServiceStub(object):
 
 class HostPoolServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def BatchUpdateHostPoolStatus(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def CreateEnvironmentHostPool(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -101,6 +117,14 @@ class HostPoolServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ValidateHostPoolConfiguration(self, request, context):
+        """Validates catalog and regional compatibility without creating resources or probing live
+        capacity. UI option discovery and create/update admission use the same configuration rules.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetHostPool(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -114,9 +138,8 @@ class HostPoolServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetHostPoolCapacity(self, request, context):
-        """Reports live host capacity for the environment: what is free now, what a full scale-out would
-        add, and the scaling configuration that bounds both. Host pools back sandboxes and other
-        host-compute-class containers, which serverless environments do not use.
+        """Reports the latest controller capacity for an environment, cluster, or all clusters,
+        with metrics history where available. Cluster and global views require Chalk employee access.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -125,6 +148,11 @@ class HostPoolServiceServicer(object):
 
 def add_HostPoolServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "BatchUpdateHostPoolStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.BatchUpdateHostPoolStatus,
+            request_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.BatchUpdateHostPoolStatusRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.BatchUpdateHostPoolStatusResponse.SerializeToString,
+        ),
         "CreateEnvironmentHostPool": grpc.unary_unary_rpc_method_handler(
             servicer.CreateEnvironmentHostPool,
             request_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.CreateEnvironmentHostPoolRequest.FromString,
@@ -155,6 +183,11 @@ def add_HostPoolServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.DeleteClusterHostPoolRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.DeleteClusterHostPoolResponse.SerializeToString,
         ),
+        "ValidateHostPoolConfiguration": grpc.unary_unary_rpc_method_handler(
+            servicer.ValidateHostPoolConfiguration,
+            request_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ValidateHostPoolConfigurationRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.ValidateHostPoolConfigurationResponse.SerializeToString,
+        ),
         "GetHostPool": grpc.unary_unary_rpc_method_handler(
             servicer.GetHostPool,
             request_deserializer=chalk_dot_server_dot_v1_dot_host__pool__pb2.GetHostPoolRequest.FromString,
@@ -178,6 +211,35 @@ def add_HostPoolServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class HostPoolService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def BatchUpdateHostPoolStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.HostPoolService/BatchUpdateHostPoolStatus",
+            chalk_dot_server_dot_v1_dot_host__pool__pb2.BatchUpdateHostPoolStatusRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_host__pool__pb2.BatchUpdateHostPoolStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def CreateEnvironmentHostPool(
@@ -343,6 +405,35 @@ class HostPoolService(object):
             "/chalk.server.v1.HostPoolService/DeleteClusterHostPool",
             chalk_dot_server_dot_v1_dot_host__pool__pb2.DeleteClusterHostPoolRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_host__pool__pb2.DeleteClusterHostPoolResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ValidateHostPoolConfiguration(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.HostPoolService/ValidateHostPoolConfiguration",
+            chalk_dot_server_dot_v1_dot_host__pool__pb2.ValidateHostPoolConfigurationRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_host__pool__pb2.ValidateHostPoolConfigurationResponse.FromString,
             options,
             channel_credentials,
             insecure,

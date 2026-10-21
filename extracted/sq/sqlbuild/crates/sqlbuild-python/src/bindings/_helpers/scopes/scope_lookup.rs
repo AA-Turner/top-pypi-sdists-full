@@ -5,16 +5,18 @@ use pyo3::prelude::{
 };
 use pyo3::types::{PyDict, PyDictMethods, PyTuple, PyTupleMethods};
 use pyo3::{pyclass, pyfunction, wrap_pyfunction};
-use sqlbuild_core::text::main::python_str_repr::python_str_repr;
+use sqlbuild_scopes::scope_index::main::identity_failure_message::identity_failure_message;
 use sqlbuild_scopes::scope_index::main::normalize_scope_path::normalize_scope_path;
+use sqlbuild_scopes::scope_index::main::rejected_path_message::rejected_path_message;
 use sqlbuild_scopes::scope_index::main::report_lookup::report_lookup;
 use sqlbuild_scopes::scope_index::main::report_target::report_target;
 use sqlbuild_scopes::scope_index::main::resolve_report_visibility::resolve_report_visibility;
 use sqlbuild_scopes::scope_index::models::{
-    GrantKind, IdentityFailure, KeyedGroups, RejectedPath, ReportLookup, ReportRecords,
-    ReportTarget, ResolvedVisibility, ResolvedVisible, ResourceRecord, ScopePathFailure,
-    TargetFailure, TargetMatch, VisibilityGroups,
+    GrantKind, KeyedGroups, RejectedPath, ReportLookup, ReportRecords, ReportTarget,
+    ResolvedVisibility, ResolvedVisible, ResourceRecord, TargetFailure, TargetMatch,
+    VisibilityGroups,
 };
+use sqlbuild_scopes::scope_report::main::cached_report_records::cached_report_records;
 
 use crate::bindings::_helpers::boundary::panics::compiler_error;
 use crate::bindings::_helpers::records::construct::error_class;
@@ -22,14 +24,19 @@ use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
 use crate::bindings::_helpers::scopes::placement::{QualifiedRow, qualified_identity};
 use crate::bindings::_helpers::scopes::scope_objects::{
-    ScopeClasses, read_index, report_records, resource_identity_object, tuple_attribute,
+    ScopeClasses, read_index, resource_identity_object, tuple_attribute,
 };
 use crate::bindings::types::CompilerDetach;
 
 const TYPES_MODULE: &str = "types";
 
 /// `(declarations, canonical positions)` matched, else identity and path error messages.
-pub(crate) type TargetRows = (bool, Vec<usize>, Option<String>, Option<String>);
+pub(crate) struct TargetRows {
+    pub(crate) declarations: bool,
+    pub(crate) positions: Vec<usize>,
+    pub(crate) identity_error: Option<String>,
+    pub(crate) path_error: Option<String>,
+}
 /// Visible `(position, reason, grant)`, inaccessible `(position, reason)`, else the path error.
 pub(crate) type ResolvedRows = (
     Vec<(usize, &'static str, Option<usize>)>,
@@ -71,34 +78,6 @@ pub(crate) fn grant_kind(value: &str) -> PyResult<GrantKind> {
     }
 }
 
-/// Python's `InvalidScopePathError` message for a rejected path.
-pub(crate) fn path_message(rejected: &RejectedPath) -> String {
-    match rejected.failure {
-        ScopePathFailure::NotProjectRelative => {
-            format!("Scope path must be project-relative: {}", rejected.path)
-        }
-        ScopePathFailure::EscapesProject => {
-            format!("Scope path escapes the project: {}", rejected.path)
-        }
-    }
-}
-
-/// Python's `InvalidQualifiedIdentityError` message for a rejected identity.
-pub(crate) fn identity_message(failure: &IdentityFailure, value: &str) -> String {
-    let shown = |text: &str| -> String { python_str_repr(text) };
-    match failure {
-        IdentityFailure::NoName => format!("Qualified identity has no name: {}", shown(value)),
-        IdentityFailure::UnknownKind(kind) => {
-            format!("Unknown qualified identity kind: {}", shown(kind))
-        }
-        IdentityFailure::InvalidPrivate => format!("Invalid private identity: {}", shown(value)),
-        IdentityFailure::Unqualified => format!(
-            "Expected a kind-qualified identity such as 'model:name': {}",
-            shown(value)
-        ),
-    }
-}
-
 /// Input positions as canonical positions.
 fn canonical(order: &[usize], positions: Vec<usize>) -> Vec<usize> {
     positions
@@ -119,27 +98,30 @@ impl NativeScopeLookup {
             None => ReportTarget::Text(text.to_owned()),
         };
         Ok(match report_target(&self.records, &self.lookup, &target) {
-            Ok(TargetMatch::Resources(positions)) => (
-                false,
-                canonical(&self.canonical.resources, positions),
-                None,
-                None,
-            ),
-            Ok(TargetMatch::Declarations(positions)) => (
-                true,
-                canonical(&self.canonical.declarations, positions),
-                None,
-                None,
-            ),
-            Err(TargetFailure::Identity(failure)) => (
-                false,
-                Vec::new(),
-                Some(identity_message(&failure, text)),
-                None,
-            ),
-            Err(TargetFailure::Path(rejected)) => {
-                (false, Vec::new(), None, Some(path_message(&rejected)))
-            }
+            Ok(TargetMatch::Resources(positions)) => TargetRows {
+                declarations: false,
+                positions: canonical(&self.canonical.resources, positions),
+                identity_error: None,
+                path_error: None,
+            },
+            Ok(TargetMatch::Declarations(positions)) => TargetRows {
+                declarations: true,
+                positions: canonical(&self.canonical.declarations, positions),
+                identity_error: None,
+                path_error: None,
+            },
+            Err(TargetFailure::Identity(failure)) => TargetRows {
+                declarations: false,
+                positions: Vec::new(),
+                identity_error: Some(identity_failure_message(&failure, text)),
+                path_error: None,
+            },
+            Err(TargetFailure::Path(rejected)) => TargetRows {
+                declarations: false,
+                positions: Vec::new(),
+                identity_error: None,
+                path_error: Some(rejected_path_message(&rejected)),
+            },
         })
     }
 
@@ -155,7 +137,11 @@ impl NativeScopeLookup {
             .map_err(compiler_error)?;
         Ok(match resolved {
             Ok(resolved) => resolved_rows(resolved, &self.canonical.grants),
-            Err(rejected) => (Vec::new(), Vec::new(), Some(path_message(&rejected))),
+            Err(rejected) => (
+                Vec::new(),
+                Vec::new(),
+                Some(rejected_path_message(&rejected)),
+            ),
         })
     }
 }
@@ -271,13 +257,13 @@ pub(crate) fn scope_path_error(py: Python<'_>, message: String) -> PyResult<PyEr
 #[pyfunction]
 #[pyo3(signature = (*, index))]
 pub(crate) fn build_scope_lookup(py: Python<'_>, index: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-    let records: ReportRecords = report_records(&read_index(index)?);
+    let records: ReportRecords = cached_report_records(&read_index(index)?);
     let built = py
         .compiler_detach(|| Ok(report_lookup(&records)))
         .map_err(compiler_error)?;
     let lookup: ReportLookup = match built {
         Ok(lookup) => lookup,
-        Err(rejected) => return Err(scope_path_error(py, path_message(&rejected))?),
+        Err(rejected) => return Err(scope_path_error(py, rejected_path_message(&rejected))?),
     };
     let classes: ScopeClasses<'_> = ScopeClasses::new(py)?;
     let resources: Bound<'_, PyTuple> = tuple_attribute(index, "resources")?;
@@ -357,7 +343,7 @@ fn scope_normalize_path(py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult<Str
         Ok(normalized) => Ok(normalized),
         Err(failure) => Err(scope_path_error(
             py,
-            path_message(&RejectedPath { failure, path }),
+            rejected_path_message(&RejectedPath { failure, path }),
         )?),
     }
 }

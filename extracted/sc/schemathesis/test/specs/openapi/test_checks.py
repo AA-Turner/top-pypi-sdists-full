@@ -1028,7 +1028,34 @@ def test_negative_data_rejection_ignores_type_mutations_wire_identical_in_every_
     assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
 
 
-def test_negative_data_rejection_reports_type_mutation_of_parameter_missing_from_query(ctx, response_factory):
+@pytest.mark.parametrize(
+    "path_schema",
+    [{"enum": ["5"]}, {"type": ["integer", "string"], "minimum": 10}, {"anyOf": [{"type": "string"}]}],
+    ids=["enum-string", "type-list-minimum", "any-of-string"],
+)
+def test_negative_data_rejection_ignores_path_type_mutation_with_valid_wire_text(ctx, response_factory, path_schema):
+    # Integer `5` reaches the server as the text `5`, which these schemas accept as a string.
+    schema = ctx.openapi.load_schema(
+        {
+            "/items/{id}": {
+                "get": {
+                    "parameters": [{"in": "path", "name": "id", "required": True, "schema": path_schema}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+    case = _path_and_query_case(schema, {"id": 5}, None, None, (_PATH_TYPE_MUTATION,))
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
+@pytest.mark.parametrize(
+    ("parameter", "query"),
+    [("id", {"other": "5"}), ("ghost", {"ghost": "5"})],
+    ids=["missing-from-query", "undeclared"],
+)
+def test_negative_data_rejection_reports_type_mutation_of_query_parameter(ctx, response_factory, parameter, query):
     operation = ctx.openapi.load_operation(
         "GET /items",
         {
@@ -1041,12 +1068,12 @@ def test_negative_data_rejection_reports_type_mutation_of_parameter_missing_from
             query=GenerationMode.NEGATIVE,
             generation_modes=[GenerationMode.NEGATIVE],
             description="Invalid type string (expected integer)",
-            parameter="id",
+            parameter=parameter,
             parameter_location=ParameterLocation.QUERY,
         ),
-        query={"other": "5"},
+        query=query,
     )
-    with pytest.raises(AcceptedNegativeData, match="parameter `id` in query - invalid type string"):
+    with pytest.raises(AcceptedNegativeData, match=f"parameter `{parameter}` in query - invalid type string"):
         negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
 
 
@@ -1064,28 +1091,6 @@ def test_negative_data_rejection_reports_when_one_location_stays_invalid_on_the_
     case = _path_and_query_case(path_and_query_schema, {"id": "7"}, query, headers, mutations)
     with pytest.raises(AcceptedNegativeData):
         negative_data_rejection(check_context(), response_factory.requests(), case)
-
-
-def test_negative_data_rejection_reports_type_mutation_of_undeclared_query_parameter(ctx, response_factory):
-    operation = ctx.openapi.load_operation(
-        "GET /items",
-        {
-            "parameters": [{"in": "query", "name": "id", "required": True, "schema": {"type": "integer"}}],
-            "responses": {"200": {"description": "OK"}},
-        },
-    )
-    case = operation.Case(
-        _meta=build_metadata(
-            query=GenerationMode.NEGATIVE,
-            generation_modes=[GenerationMode.NEGATIVE],
-            description="Invalid type string (expected integer)",
-            parameter="ghost",
-            parameter_location=ParameterLocation.QUERY,
-        ),
-        query={"ghost": "5"},
-    )
-    with pytest.raises(AcceptedNegativeData, match="parameter `ghost` in query - invalid type string"):
-        negative_data_rejection(check_context(), response_factory.requests(status_code=200), case)
 
 
 @pytest.mark.parametrize(("value", "is_accepted"), [("-1", True), ("5", False)], ids=["below-minimum", "valid"])
@@ -2677,6 +2682,32 @@ def test_negative_data_rejection_single_element_array_element_validity(
         assert negative_data_rejection(check_context(), response, case) is None
 
 
+@pytest.mark.parametrize(
+    ("version", "schema"),
+    [
+        ("3.0.2", {"anyOf": [{"type": "integer"}]}),
+        ("3.0.2", {"oneOf": [{"type": "integer", "minimum": 1}]}),
+        ("3.1.0", {"enum": [12345678901234567890]}),
+    ],
+    ids=["any-of-integer", "one-of-integer", "enum-large-integer"],
+)
+def test_negative_data_rejection_single_element_array_with_untyped_schema(ctx, response_factory, version, schema):
+    operation = ctx.openapi.load_operation(
+        "GET /items",
+        {
+            "parameters": [{"name": "id", "in": "query", "required": True, "schema": schema}],
+            "responses": {"200": {"description": "OK"}},
+        },
+        version=version,
+    )
+    value = str(schema["enum"][0]) if "enum" in schema else "5"
+    case = operation.Case(
+        _meta=build_metadata(query=GenerationMode.NEGATIVE, generation_modes=[GenerationMode.NEGATIVE]),
+        query={"id": [value]},
+    )
+    assert negative_data_rejection(check_context(), response_factory.requests(), case) is None
+
+
 def _type_mutation(name, location, new_value):
     return Mutation(
         path=(name,),
@@ -3935,9 +3966,10 @@ def test_use_after_free_fires_when_delete_succeeded(ctx, response_factory):
         ({"Age": "75430"}, "\n\nThe response came from a cache (`Age: 75430`) and may be stale"),
         ({"X-Cache": "MISS, HIT"}, "\n\nThe response came from a cache (`X-Cache: MISS, HIT`) and may be stale"),
         ({"Age": "0", "X-Cache": "MISS"}, ""),
+        ({"Age": "\u00b2"}, ""),
         (None, ""),
     ],
-    ids=["age", "x-cache-hit", "fresh", "no-cache-headers"],
+    ids=["age", "x-cache-hit", "fresh", "non-ascii-digit-age", "no-cache-headers"],
 )
 def test_use_after_free_hints_at_cached_response(ctx, response_factory, headers, hint):
     context, get_case, get_response = _build_user_profile_chain(

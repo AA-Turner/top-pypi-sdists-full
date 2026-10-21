@@ -16,7 +16,7 @@ from schemathesis.cli.events import LoadingFinished, LoadingStarted
 from schemathesis.cli.output import (
     Indent,
     LoadingProgressManager,
-    _style,
+    SpinnerProgressManager,
     display_api_operations,
     display_baseline_summary,
     display_errors_summary,
@@ -25,6 +25,7 @@ from schemathesis.cli.output import (
     display_filtered_summary,
     display_final_line,
     display_header,
+    display_reports,
     display_section_name,
     display_seed,
     display_test_cases,
@@ -32,6 +33,7 @@ from schemathesis.cli.output import (
     make_console,
     make_progress_bar,
     print_lines,
+    style,
 )
 from schemathesis.config import ProjectConfig
 from schemathesis.core import SpecificationFeature
@@ -42,9 +44,10 @@ from schemathesis.core.timing import Instant
 from schemathesis.core.version import SCHEMATHESIS_VERSION
 from schemathesis.engine import Status, StopReason, events
 from schemathesis.engine.errors import never_reached_server
-from schemathesis.engine.run import ELASTIC_PHASES, PhaseName
+from schemathesis.engine.run import ELASTIC_PHASES, INTERNAL_PHASES, UNIT_PHASES, PhaseName
 from schemathesis.engine.run.auth_bootstrap import AuthBootstrapPayload
 from schemathesis.engine.run.probes import ProbeOutcome, ProbeRun
+from schemathesis.engine.summary import WarningBlock, WarningGroup, WarningItem
 
 if TYPE_CHECKING:
     from rich.console import Console, RenderableType
@@ -53,7 +56,6 @@ if TYPE_CHECKING:
     from rich.text import Text
 
     from schemathesis.cli.commands.run.context import ExecutionContext
-    from schemathesis.cli.context import BaseExecutionContext
     from schemathesis.core.spec import AuthFlowSteps
     from schemathesis.engine.run.cache import CacheReport
     from schemathesis.generation.stateful.state_machine import ExtractionFailure
@@ -232,40 +234,6 @@ def _missing_test_data_advice(
     )
 
 
-@dataclass(slots=True)
-class WarningItem:
-    text: str
-    # Lines shown under the item, e.g. the patterns an operation could not use.
-    details: list[str] = field(default_factory=list)
-    # Label of the operation the item is about, if any.
-    operation: str | None = None
-
-
-@dataclass(slots=True)
-class WarningGroup:
-    items: list[WarningItem]
-    heading: str | None = None
-    # `None` when the tips that apply follow a later group.
-    tips: list[str] | None = None
-
-
-@dataclass(slots=True)
-class WarningBlock:
-    title: str
-    count: int
-    entity: str
-    # Completes the sentence that starts with the count, e.g. " returned only 401/403 responses".
-    suffix: str
-    groups: list[WarningGroup]
-    # Whether the results may not mean what the verdict says, e.g. every response was 401.
-    affects_verdict: bool = False
-
-    @property
-    def summary(self) -> str:
-        plural = "" if self.count == 1 else "s"
-        return f"{self.count} {self.entity}{plural}{self.suffix}"
-
-
 def _items(values: set[str], *, operations: bool = True) -> list[WarningItem]:
     return [WarningItem(text=value, operation=value if operations else None) for value in sorted(values)]
 
@@ -303,7 +271,7 @@ def _detailed_block(title: str, warnings: dict[str, set[str]], suffix: str, tip:
     )
 
 
-def _plural(count: int, word: str) -> str:
+def pluralize(count: int, word: str) -> str:
     return f"{count} {word}{'' if count == 1 else 's'}"
 
 
@@ -312,7 +280,7 @@ def _missing_auth_block(ctx: ExecutionContext) -> WarningBlock:
     groups = [
         WarningGroup(
             heading=f"{status_code} {'Unauthorized' if status_code == 401 else 'Forbidden'} "
-            f"({_plural(len(labels), 'operation')})",
+            f"({pluralize(len(labels), 'operation')})",
             items=_items(labels),
         )
         for status_code, labels in missing_auth.items()
@@ -334,7 +302,7 @@ def _missing_deserializer_block(ctx: ExecutionContext) -> WarningBlock:
     warnings = ctx.warnings.missing_deserializer
     groups = [
         WarningGroup(
-            heading=f"{media_type} ({_plural(len(operations), 'operation')})",
+            heading=f"{media_type} ({pluralize(len(operations), 'operation')})",
             items=[
                 WarningItem(text=f"{label} ({', '.join(sorted(details))})", operation=label)
                 for label, details in sorted(operations.items())
@@ -555,34 +523,25 @@ def warning_blocks(ctx: ExecutionContext) -> list[WarningBlock]:
     return blocks
 
 
-def display_reports(ctx: BaseExecutionContext) -> None:
-    reports = ctx.all_reports()
-    if reports:
-        click.echo(_style("Reports:", bold=True))
-        for name, path in reports:
-            click.echo(_style(f"  - {name}: {path}"))
-        click.echo()
-
-
 def display_warning_blocks(blocks: list[WarningBlock]) -> None:
     display_section_name("WARNINGS")
     click.echo()
     for block in blocks:
-        click.echo(_style(f"{block.title}: {block.summary}\n", fg="yellow"))
+        click.echo(style(f"{block.title}: {block.summary}\n", fg="yellow"))
         for group in block.groups:
             if group.heading is not None:
-                click.echo(_style(f"{group.heading}:", fg="yellow"))
+                click.echo(style(f"{group.heading}:", fg="yellow"))
             for index, item in enumerate(group.items):
-                click.echo(_style(f"  - {item.text}", fg="yellow"))
+                click.echo(style(f"  - {item.text}", fg="yellow"))
                 for detail in item.details:
-                    click.echo(_style(f"    {detail}", fg="yellow"))
+                    click.echo(style(f"    {detail}", fg="yellow"))
                 # Items with details read as separate paragraphs.
                 if item.details and index < len(group.items) - 1:
                     click.echo()
             if group.tips is not None:
                 click.echo()
                 for tip in group.tips:
-                    click.echo(_style(f"💡 {tip}", fg="yellow"))
+                    click.echo(style(f"💡 {tip}", fg="yellow"))
                 if group.tips:
                     click.echo()
 
@@ -612,46 +571,11 @@ def extraction_failure_steps(failure: ExtractionFailure) -> list[tuple[int, str]
 
 
 @dataclass(slots=True)
-class ProbingProgressManager:
-    console: Console
-    started_at: Instant
-    progress: Progress
-    progress_task_id: TaskID | None
-    is_interrupted: bool
-
+class ProbingProgressManager(SpinnerProgressManager):
     def __init__(self, console: Console) -> None:
-        from rich.progress import Progress, RenderableColumn, SpinnerColumn, TextColumn
         from rich.text import Text
 
-        self.console = console
-        self.started_at = Instant()
-        self.progress = Progress(
-            TextColumn(""),
-            SpinnerColumn("clock"),
-            RenderableColumn(Text("Probing API capabilities", style="bright_white")),
-            transient=True,
-            console=console,
-            # A spinner has nothing to show outside a terminal, and stopping it there prints a blank line.
-            disable=not console.is_interactive,
-        )
-        self.progress_task_id = None
-        self.is_interrupted = False
-
-    def start(self) -> None:
-        """Start probing progress display."""
-        self.progress_task_id = self.progress.add_task("Probing", total=None)
-        self.progress.start()
-
-    def stop(self) -> None:
-        """Stop probing progress display."""
-        assert self.progress_task_id is not None
-        self.progress.stop_task(self.progress_task_id)
-        self.progress.stop()
-
-    def interrupt(self) -> None:
-        """Handle interruption during probing."""
-        self.is_interrupted = True
-        self.stop()
+        SpinnerProgressManager.__init__(self, console, Text("Probing API capabilities", style="bright_white"))
 
     def get_completion_message(self) -> Text:
         """Generate completion message including duration."""
@@ -903,8 +827,8 @@ class UnitTestProgressManager:
         if self.live:
             self.live.stop()
 
-    def _get_status_icon(self, default_icon: str = "🕛") -> str:
-        return get_status_icon(self.stats, is_interrupted=self.is_interrupted, default=default_icon)
+    def _get_status_icon(self) -> str:
+        return get_status_icon(self.stats, is_interrupted=self.is_interrupted, default="🕛")
 
     def get_completion_message(self, icon: str | None = None, *, without_checks: bool = False) -> str:
         """Complete the phase and return status message."""
@@ -1075,8 +999,8 @@ class StatefulProgressManager:
         """Update the statistics display."""
         self.stats_progress.update(self.stats_task_id, description=self._get_stats_message())
 
-    def _get_status_icon(self, default_icon: str = "🕛") -> str:
-        return get_status_icon(self.stats, is_interrupted=self.is_interrupted, default=default_icon)
+    def _get_status_icon(self) -> str:
+        return get_status_icon(self.stats, is_interrupted=self.is_interrupted, default="🕛")
 
     def interrupt(self) -> None:
         """Handle interruption."""
@@ -1211,8 +1135,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         table.add_column("Field", style=Style(color="bright_white", bold=True))
         table.add_column("Value", style="cyan", overflow="fold")
 
-        sanitization = ctx.config.output.sanitization
-        table.add_row("Base URL:", sanitized(event.base_url, sanitization if sanitization.enabled else None))
+        table.add_row("Base URL:", sanitized(event.base_url, ctx.config.output.sanitization))
         table.add_row("Specification:", event.specification.name)
         statistic = event.statistic.operations
         table.add_row("Operations:", f"{statistic.selected} selected / {statistic.total} total")
@@ -1244,7 +1167,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         phase = event.phase
         if phase.name == PhaseName.PROBING and phase.is_enabled:
             self._start_probing()
-        elif phase.name in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING] and phase.is_enabled:
+        elif phase.name in UNIT_PHASES and phase.is_enabled:
             self._start_unit_tests(ctx, event)
         elif phase.name == PhaseName.STATEFUL_TESTING and phase.is_enabled and phase.skip_reason is None:
             self._start_stateful_tests(event)
@@ -1466,11 +1389,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             manager.stop()
             manager.end_pass()
             self._print_stateful_completion(manager, event.status)
-        elif (
-            phase.name in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING]
-            and phase.is_enabled
-            and self.unit_tests_manager is not None
-        ):
+        elif phase.name in UNIT_PHASES and phase.is_enabled and self.unit_tests_manager is not None:
             unit_manager = self.unit_tests_manager
             self.unit_tests_manager = None
             if self._retain(phase.name, event.status):
@@ -1539,7 +1458,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         self.console.print()
 
     def _on_scenario_started(self, event: events.ScenarioStarted) -> None:
-        if event.phase in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING]:
+        if event.phase in UNIT_PHASES:
             # We should display execution result + percentage in the end. For example:
             assert event.label is not None
             assert self.unit_tests_manager is not None
@@ -1563,7 +1482,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
 
     def _on_scenario_finished(self, ctx: ExecutionContext, event: events.ScenarioFinished) -> None:
         self._note_new_failures(ctx)
-        if event.phase in [PhaseName.EXAMPLES, PhaseName.COVERAGE, PhaseName.FUZZING]:
+        if event.phase in UNIT_PHASES:
             assert self.unit_tests_manager is not None
             self.unit_tests_manager.set_suffix(self._progress_suffix(ctx))
             if event.phase == PhaseName.FUZZING:
@@ -1603,13 +1522,6 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             ),
         )
         self.console.print(Indent(message))
-
-    def _on_fatal_error(self, ctx: ExecutionContext, event: events.FatalError) -> None:
-        try:
-            super()._on_fatal_error(ctx, event)
-        finally:
-            # Reports are written even when the run stops before testing
-            display_reports(ctx)
 
     def _on_interrupted(self, event: events.Interrupted) -> None:
 
@@ -1659,32 +1571,32 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
         click.echo()
 
     def display_phases(self, ctx: ExecutionContext) -> None:
-        click.echo(_style("Test Phases:", bold=True))
+        click.echo(style("Test Phases:", bold=True))
 
         for phase in PhaseName:
-            if phase in (PhaseName.PROBING, PhaseName.SCHEMA_ANALYSIS, PhaseName.AUTH_BOOTSTRAP):
+            if phase in INTERNAL_PHASES:
                 # Internal phases are not part of the test phase summary
                 continue
             status, skip_reason = ctx.phases[phase]
 
             if status == Status.SKIP:
-                click.echo(_style(f"  ⏭  {phase.display}", fg="yellow"), nl=False)
+                click.echo(style(f"  ⏭  {phase.display}", fg="yellow"), nl=False)
                 if skip_reason:
-                    click.echo(_style(f" ({skip_reason.display})", fg="yellow"))
+                    click.echo(style(f" ({skip_reason.display})", fg="yellow"))
                 else:
                     click.echo()
             elif status == Status.SUCCESS:
-                click.echo(_style(f"  ✅ {phase.display}", fg="green"))
+                click.echo(style(f"  ✅ {phase.display}", fg="green"))
             elif status == Status.FAILURE:
-                click.echo(_style(f"  ❌ {phase.display}", fg="red"))
+                click.echo(style(f"  ❌ {phase.display}", fg="red"))
             elif status == Status.ERROR:
-                click.echo(_style(f"  🚫 {phase.display}", fg="red"))
+                click.echo(style(f"  🚫 {phase.display}", fg="red"))
             elif status == Status.INTERRUPTED:
-                click.echo(_style(f"  ⚡ {phase.display}", fg="yellow"))
+                click.echo(style(f"  ⚡ {phase.display}", fg="yellow"))
         click.echo()
 
     def display_warnings_summary(self, ctx: ExecutionContext) -> None:
-        click.echo(_style("Warnings:", bold=True))
+        click.echo(style("Warnings:", bold=True))
         missing_deserializer = {
             label for operations in ctx.warnings.missing_deserializer.values() for label in operations
         }
@@ -1778,7 +1690,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
             if not count:
                 continue
             plural = "" if count == 1 else "s"
-            click.echo(_style(f"  ⚠️ {title}: {bold(str(count))} {entity_name}{plural} {suffix_text}", fg="yellow"))
+            click.echo(style(f"  ⚠️ {title}: {bold(str(count))} {entity_name}{plural} {suffix_text}", fg="yellow"))
         click.echo()
 
     def display_final_line(self, ctx: ExecutionContext, event: events.EngineFinished) -> None:
@@ -1826,7 +1738,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                     if idx < len(_errors):
                         click.echo()
             click.echo(
-                _style(
+                style(
                     f"\nNeed more help?\n    Join our Discord server: {DISCORD_LINK}",
                     fg="red",
                 )
@@ -1868,7 +1780,7 @@ class OutputHandler(BaseOutputHandler["ExecutionContext"]):
                 ctx.add_summary_line(f"  Re-authenticated {event.payload.reauth_count} time{suffix}")
             if event.payload.reauth_broke:
                 ctx.add_summary_line(
-                    _style(
+                    style(
                         "  ⚠️ Authentication stopped working mid-run - credentials likely invalidated",
                         fg="yellow",
                     )

@@ -1,1 +1,0 @@
-import"./rolldown-runtime-CM1DJQSe.js";import{t as e}from"./devFeatureFlagOverride-Yrts6Uc_.js";import{s as t}from"./remoteConfig-De9t75S5.js";var n=`enable_telemetry`;function isHostTelemetryEnabled(){let r=e(n);return r===void 0?t.value.enable_telemetry===!0:r}export{isHostTelemetryEnabled as t};

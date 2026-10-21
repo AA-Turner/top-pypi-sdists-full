@@ -1341,7 +1341,7 @@ class Session:
         Environments and databases are cleaned up in parallel for efficiency.
 
         Requires the 'db-cleanup' optional dependencies:
-            pip install plato-sdk-v2[db-cleanup]
+            pip install 'plato-sdk-v2[db-cleanup]' --index-url "https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"
 
         Args:
             aliases: Optional iterable of env aliases to limit cleanup to. When
@@ -1362,7 +1362,9 @@ class Session:
             from plato.v2.utils.db_cleanup import DatabaseCleaner
         except ImportError as e:
             raise ImportError(
-                "Database cleanup requires optional dependencies. Install them with: pip install plato-sdk-v2[db-cleanup]"
+                "Database cleanup requires optional dependencies. Install them with: "
+                "pip install 'plato-sdk-v2[db-cleanup]' --index-url "
+                '"https://__token__:$PLATO_API_KEY@plato.so/api/v2/pypi/pypi-store/simple/"'
             ) from e
 
         alias_filter = set(aliases) if aliases is not None else None

@@ -180,7 +180,7 @@ def test_history_is_paginated_without_reports_and_partial_details_are_bounded(re
     first = d.dispatch({"op": "jobs"})
     assert first["total"] == 123 and len(first["jobs"]) == 50 and first["hasMore"]
     assert first["activeTotal"] == 1 and first["activeJobs"][0]["id"] == jobs[0]["id"]
-    assert all(job["report"] == [] for job in first["jobs"] + first["activeJobs"])
+    assert all(job["report"] == job["activity"] == [] for job in first["jobs"] + first["activeJobs"])
     assert len(json.dumps(first).encode()) < 100_000
     assert all(job["partial"] for job in first["jobs"])
     seen = [job["id"] for job in first["jobs"]]
@@ -199,6 +199,101 @@ def test_history_is_paginated_without_reports_and_partial_details_are_bounded(re
     assert detail["reportTruncated"] and len(detail["report"]) == 200
     assert all(len(line) <= 2000 for line in detail["report"])
     assert len(json.dumps(detail).encode()) < 1_000_000
+
+
+def test_job_sources_are_approved_producers_without_payload_or_worker_inference():
+    job = _history_job(1, {})
+    job["label"] = "Codex and pi"  # Presentation never determines the producers.
+    job["payload"]["files"] = [
+        {"agent": "claude_code", "path": "/private/research.jsonl"},
+        {"agent": "codex"}, {"agent": "claude"}, {"agent": "codex"},
+        {"agent": "pi"}, {"agent": "kimi_code"}, {"agent": "new_agent"},
+        {"agent": "not an agent"}, {"agent": "x" * 65}, {"agent": True}, None,
+    ]
+    result = d._public_job(job)
+    assert result["sources"] == ["claude_code", "codex", "pi", "kimi_code", "new_agent"]
+    assert "payload" not in result and "/private/research.jsonl" not in json.dumps(result)
+    assert d._public_job(job, summary=True)["sources"] == result["sources"]
+    job["kind"] = "folder"
+    job["payload"]["agent"] = "codex"
+    assert d._public_job(job)["sources"] == []
+    job["kind"] = "transcripts"
+    del job["payload"]["files"]
+    assert d._public_job(job)["sources"] == []
+
+
+def test_source_and_activity_metadata_never_cross_account_filter(reviewed, monkeypatch):
+    h, _, _ = reviewed
+    identity = d._identity(h.client)
+    mine = _history_job(1, identity)
+    mine["payload"]["files"] = [{"agent": "codex"}]
+    other = _history_job(2, {**identity, "user_id": "another-user"})
+    other["payload"]["files"] = [{"agent": "private_agent"}]
+    other["activity"] = [{"at": "now", "state": "running", "message": "Private progress"}]
+    monkeypatch.setattr(import_jobs, "list_jobs", lambda: [mine, other])
+    monkeypatch.setattr(import_jobs, "get_job", lambda key: other)
+    result = d.dispatch({"op": "jobs"})
+    assert result["jobs"][0]["sources"] == ["codex"]
+    assert "private_agent" not in json.dumps(result)
+    with pytest.raises(ValueError, match="another account"):
+        d.dispatch({"op": "job", "id": other["id"]})
+
+
+def test_old_worker_activity_is_only_its_current_public_progress_not_raw_log(tmp_path):
+    job = _history_job(1, {}, state="running")
+    raw = tmp_path / "output.log"
+    raw.write_text("Never return raw coding-agent output or transcript bytes")
+    job["log_path"] = str(raw)
+    job["progress"]["message"] = "Uploading approved sessions"
+    result = d._public_job(job)
+    assert result["activity"] == [
+        "2026-10-19T01:00:00+00:00 running: Uploading approved sessions"
+    ]
+    assert not result["activityTruncated"]
+    assert "Never return" not in json.dumps(result)
+    assert result["report"]  # The existing final-result contract stays separate.
+
+
+def test_public_activity_is_bounded_redacted_and_does_not_duplicate_progress():
+    job = _history_job(1, {}, state="running")
+    secret = "ghp_" + "A1b2C3d4E5" * 3 + "A1b2C3"
+    job["activity"] = [
+        {"at": "2026-10-19T01:00:00+00:00", "state": "running", "message": f"Uploading {index}"}
+        for index in range(205)
+    ]
+    job["activity"][-1]["message"] = "Latest " + secret
+    job["progress"]["message"] = job["activity"][-1]["message"]
+    result = d._public_job(job)
+    assert result["activityTruncated"] and len(result["activity"]) == 200
+    assert "Uploading 5" in result["activity"][0]
+    assert "Latest" in result["activity"][-1] and secret not in json.dumps(result["activity"])
+    job["progress"]["message"] = "x" * 5000
+    job["activity"].append({"at": "now", "state": {}, "message": "malformed"})
+    result = d._public_job(job)
+    assert len(result["activity"]) <= 200 and result["activityTruncated"]
+    assert all(len(line) <= 2000 for line in result["activity"])
+
+
+def test_activity_scrubs_preclipped_vendor_tokens_and_credential_url_context():
+    job = _history_job(1, {}, state="running")
+    full_token = "ghp_" + "A1b2C3d4E5" * 3 + "A1b2C3"
+    # The existing worker progress path clips at 1500 before persisting. Its
+    # retained token fragment no longer matches the full vendor signature.
+    clipped = import_jobs._clean("Uploading " + "x" * 1466 + " " + full_token)
+    fragment = clipped[clipped.index("ghp_"):]
+    assert 16 <= len(fragment) < len(full_token)
+    job["progress"]["message"] = clipped
+    result = d._public_job(job)
+    assert fragment not in json.dumps(result["activity"])
+    assert "<redacted>" in result["activity"][-1]
+    job["progress"]["message"] = (
+        "Retry https://user:password@example.test/receive?token=private-token#api_key=fragment-secret"
+    )
+    result = d._public_job(job)
+    assert all(secret not in json.dumps(result["activity"]) for secret in (
+        "user:password", "private-token", "fragment-secret",
+    ))
+    assert "example.test/receive" in result["activity"][-1]
 
 
 def test_scope_is_captured_once_and_old_cursor_cannot_cross_accounts(reviewed, monkeypatch):

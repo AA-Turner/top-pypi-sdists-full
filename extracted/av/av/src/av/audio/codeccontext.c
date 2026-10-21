@@ -1868,6 +1868,26 @@ struct __pyx_opt_args_2av_6filter_5graph_5Graph_configure {
   int auto_buffer;
   int force;
 };
+struct __pyx_opt_args_2av_5error_stash_exception;
+struct __pyx_opt_args_2av_5error_err_check;
+
+/* "av/error.pxd":1
+ * cdef int stash_exception(exc_info=*)             # <<<<<<<<<<<<<<
+ * cpdef int err_check(int res, filename=*) except -1
+*/
+struct __pyx_opt_args_2av_5error_stash_exception {
+  int __pyx_n;
+  PyObject *exc_info;
+};
+
+/* "av/error.pxd":2
+ * cdef int stash_exception(exc_info=*)
+ * cpdef int err_check(int res, filename=*) except -1             # <<<<<<<<<<<<<<
+*/
+struct __pyx_opt_args_2av_5error_err_check {
+  int __pyx_n;
+  PyObject *filename;
+};
 
 /* "av/audio/format.pxd":4
  * 
@@ -2276,6 +2296,7 @@ struct __pyx_obj_2av_5audio_9resampler_AudioResampler {
   PyObject *options;
   int rate;
   unsigned int frame_size;
+  int threads;
   int is_passthrough;
 };
 
@@ -2551,7 +2572,7 @@ struct __pyx_vtabstruct_2av_5audio_9resampler_AudioResampler {
 static struct __pyx_vtabstruct_2av_5audio_9resampler_AudioResampler *__pyx_vtabptr_2av_5audio_9resampler_AudioResampler;
 
 
-/* "av/audio/codeccontext.py":12
+/* "av/audio/codeccontext.py":13
  * @cython.final
  * @cython.cclass
  * class AudioCodecContext(CodecContext):             # <<<<<<<<<<<<<<
@@ -3173,6 +3194,9 @@ static struct __pyx_obj_2av_5audio_5frame_AudioFrame *(*__pyx_f_2av_5audio_5fram
 
 /* Module declarations from "cython" */
 
+/* Module declarations from "av.error" */
+static int (*__pyx_f_2av_5error_err_check)(int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args); /*proto*/
+
 /* Module declarations from "av.audio.codeccontext" */
 /* #### Code section: typeinfo ### */
 /* #### Code section: before_global_var ### */
@@ -3250,7 +3274,7 @@ namespace {
     PyObject *__pyx_type_2av_5audio_12codeccontext_AudioCodecContext;
     PyTypeObject *__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext;
     PyObject *__pyx_tuple[1];
-    PyObject *__pyx_string_tab[22];
+    PyObject *__pyx_string_tab[24];
 /* #### Code section: module_state_contents ### */
 /* CodeObjectCache.module_state_decls */
 struct __Pyx_CodeObjectCache __pyx_code_cache;
@@ -3301,10 +3325,12 @@ static __pyx_mstatetype * const __pyx_mstate_global = &__pyx_mstate_global_stati
 #define __pyx_n_u_rate __pyx_string_tab[15]
 #define __pyx_n_u_sample_rate __pyx_string_tab[16]
 #define __pyx_n_u_setdefault __pyx_string_tab[17]
-#define __pyx_kp_b_int_PyObject_kwds_PyObject_const __pyx_string_tab[18]
-#define __pyx_kp_b_struct___pyx_obj_2av_5audio_5fra __pyx_string_tab[19]
-#define __pyx_kp_b_struct___pyx_obj_2av_5audio_6for __pyx_string_tab[20]
-#define __pyx_kp_b_struct___pyx_obj_2av_5audio_6lay __pyx_string_tab[21]
+#define __pyx_n_u_threads __pyx_string_tab[18]
+#define __pyx_kp_b_int_int_int___pyx_skip_dispatch __pyx_string_tab[19]
+#define __pyx_kp_b_int_PyObject_kwds_PyObject_const __pyx_string_tab[20]
+#define __pyx_kp_b_struct___pyx_obj_2av_5audio_5fra __pyx_string_tab[21]
+#define __pyx_kp_b_struct___pyx_obj_2av_5audio_6for __pyx_string_tab[22]
+#define __pyx_kp_b_struct___pyx_obj_2av_5audio_6lay __pyx_string_tab[23]
 /* #### Code section: module_state_clear ### */
 #if CYTHON_USE_MODULE_STATE
 static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
@@ -3347,7 +3373,7 @@ static CYTHON_SMALL_CODE int __pyx_m_clear(PyObject *m) {
   Py_CLEAR(clear_module_state->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext);
   Py_CLEAR(clear_module_state->__pyx_type_2av_5audio_12codeccontext_AudioCodecContext);
   for (int i=0; i<1; ++i) { Py_CLEAR(clear_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<22; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<24; ++i) { Py_CLEAR(clear_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_clear_contents ### */
 /* #### Code section: module_state_clear_end ### */
 return 0;
@@ -3392,7 +3418,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
   Py_VISIT(traverse_module_state->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext);
   Py_VISIT(traverse_module_state->__pyx_type_2av_5audio_12codeccontext_AudioCodecContext);
   for (int i=0; i<1; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_tuple[i]); }
-  for (int i=0; i<22; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
+  for (int i=0; i<24; ++i) { __Pyx_VISIT_CONST(traverse_module_state->__pyx_string_tab[i]); }
 /* #### Code section: module_state_traverse_contents ### */
 /* #### Code section: module_state_traverse_end ### */
 return 0;
@@ -3400,7 +3426,7 @@ return 0;
 #endif
 /* #### Code section: module_code ### */
 
-/* "av/audio/codeccontext.py":13
+/* "av/audio/codeccontext.py":14
  * @cython.cclass
  * class AudioCodecContext(CodecContext):
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3424,13 +3450,14 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
   PyObject *__pyx_t_8 = NULL;
   PyObject *__pyx_t_9 = NULL;
   size_t __pyx_t_10;
-  int __pyx_t_11;
+  PyObject *__pyx_t_11 = NULL;
+  int __pyx_t_12;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_prepare_frames_for_encode", 0);
 
-  /* "av/audio/codeccontext.py":17
+  /* "av/audio/codeccontext.py":18
  *         self, input_frame: Frame | None
  *     ) -> list[Frame | None]:
  *         frame: AudioFrame | None = input_frame             # <<<<<<<<<<<<<<
@@ -3439,11 +3466,11 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
 */
   __pyx_t_1 = ((PyObject *)__pyx_v_input_frame);
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame))))) __PYX_ERR(0, 17, __pyx_L1_error)
+  if (!(likely(((__pyx_t_1) == Py_None) || likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame))))) __PYX_ERR(0, 18, __pyx_L1_error)
   __pyx_v_frame = ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/codeccontext.py":19
+  /* "av/audio/codeccontext.py":20
  *         frame: AudioFrame | None = input_frame
  *         allow_var_frame_size: cython.bint = (
  *             self.ptr.codec.capabilities & lib.AV_CODEC_CAP_VARIABLE_FRAME_SIZE             # <<<<<<<<<<<<<<
@@ -3452,21 +3479,21 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
 */
   __pyx_v_allow_var_frame_size = (__pyx_v_self->__pyx_base.ptr->codec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE);
 
-  /* "av/audio/codeccontext.py":24
+  /* "av/audio/codeccontext.py":25
  *         # Note that the resampler will simply return an input frame if there is
  *         # no resampling to be done. The control flow was just a little easier this way.
  *         if not self.resampler:             # <<<<<<<<<<<<<<
  *             self.resampler = AudioResampler(
  *                 format=self.format,
 */
-  __pyx_t_2 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->resampler)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 24, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_IsTrue(((PyObject *)__pyx_v_self->resampler)); if (unlikely((__pyx_t_2 < 0))) __PYX_ERR(0, 25, __pyx_L1_error)
   __pyx_t_3 = (!__pyx_t_2);
 
 
   if (__pyx_t_3) {
 
 
-    /* "av/audio/codeccontext.py":25
+    /* "av/audio/codeccontext.py":26
  *         # no resampling to be done. The control flow was just a little easier this way.
  *         if not self.resampler:
  *             self.resampler = AudioResampler(             # <<<<<<<<<<<<<<
@@ -3475,79 +3502,90 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
 */
     __pyx_t_4 = NULL;
 
-    /* "av/audio/codeccontext.py":26
+    /* "av/audio/codeccontext.py":27
  *         if not self.resampler:
  *             self.resampler = AudioResampler(
  *                 format=self.format,             # <<<<<<<<<<<<<<
  *                 layout=self.layout,
  *                 rate=self.ptr.sample_rate,
 */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 26, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 27, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
 
-    /* "av/audio/codeccontext.py":27
+    /* "av/audio/codeccontext.py":28
  *             self.resampler = AudioResampler(
  *                 format=self.format,
  *                 layout=self.layout,             # <<<<<<<<<<<<<<
  *                 rate=self.ptr.sample_rate,
  *                 frame_size=None if allow_var_frame_size else self.ptr.frame_size,
 */
-    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 27, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 28, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
 
-    /* "av/audio/codeccontext.py":28
+    /* "av/audio/codeccontext.py":29
  *                 format=self.format,
  *                 layout=self.layout,
  *                 rate=self.ptr.sample_rate,             # <<<<<<<<<<<<<<
  *                 frame_size=None if allow_var_frame_size else self.ptr.frame_size,
- *             )
+ *                 threads=self.ptr.thread_count,
 */
-    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 28, __pyx_L1_error)
+    __pyx_t_7 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 29, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
 
-    /* "av/audio/codeccontext.py":29
+    /* "av/audio/codeccontext.py":30
  *                 layout=self.layout,
  *                 rate=self.ptr.sample_rate,
  *                 frame_size=None if allow_var_frame_size else self.ptr.frame_size,             # <<<<<<<<<<<<<<
+ *                 threads=self.ptr.thread_count,
  *             )
- *         frames = self.resampler.resample(frame)
 */
     if (__pyx_v_allow_var_frame_size) {
       __Pyx_INCREF(Py_None);
       __pyx_t_8 = Py_None;
     } else {
-      __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->frame_size); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 29, __pyx_L1_error)
+      __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->frame_size); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 30, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_9);
       __pyx_t_8 = __pyx_t_9;
       __pyx_t_9 = 0;
     }
+
+    /* "av/audio/codeccontext.py":31
+ *                 rate=self.ptr.sample_rate,
+ *                 frame_size=None if allow_var_frame_size else self.ptr.frame_size,
+ *                 threads=self.ptr.thread_count,             # <<<<<<<<<<<<<<
+ *             )
+ *         frames = self.resampler.resample(frame)
+*/
+    __pyx_t_9 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->thread_count); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 31, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_9);
     __pyx_t_10 = 1;
     {
-      PyObject *__pyx_callargs[5] = {__pyx_t_4, __pyx_t_5, __pyx_t_6, __pyx_t_7, __pyx_t_8};
+      PyObject *__pyx_callargs[6] = {__pyx_t_4, __pyx_t_5, __pyx_t_6, __pyx_t_7, __pyx_t_8, __pyx_t_9};
       #if CYTHON_VECTORCALL
-      __pyx_t_9 = __pyx_mstate_global->__pyx_tuple[0];
-      if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 25, __pyx_L1_error)
-      __Pyx_INCREF(__pyx_t_9);
+      __pyx_t_11 = __pyx_mstate_global->__pyx_tuple[0];
+      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 26, __pyx_L1_error)
+      __Pyx_INCREF(__pyx_t_11);
       #else
       {
-        PyObject *__pyx_temp[4] = {__pyx_mstate_global->__pyx_n_u_format, __pyx_mstate_global->__pyx_n_u_layout, __pyx_mstate_global->__pyx_n_u_rate, __pyx_mstate_global->__pyx_n_u_frame_size};
-        __pyx_t_9 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+1, 4);
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 25, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_9);
+        PyObject *__pyx_temp[5] = {__pyx_mstate_global->__pyx_n_u_format, __pyx_mstate_global->__pyx_n_u_layout, __pyx_mstate_global->__pyx_n_u_rate, __pyx_mstate_global->__pyx_n_u_frame_size, __pyx_mstate_global->__pyx_n_u_threads};
+        __pyx_t_11 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+1, 5);
+        if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 26, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_11);
       }
       #endif
-      __pyx_t_1 = __Pyx_Object_VectorcallKwds((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_9resampler_AudioResampler, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_9);
+      __pyx_t_1 = __Pyx_Object_VectorcallKwds((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_9resampler_AudioResampler, __pyx_callargs+__pyx_t_10, (1-__pyx_t_10) | (__pyx_t_10*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_11);
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 25, __pyx_L1_error)
+      __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
+      if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 26, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_1);
     }
 
-    /* "av/audio/codeccontext.py":25
+    /* "av/audio/codeccontext.py":26
  *         # no resampling to be done. The control flow was just a little easier this way.
  *         if not self.resampler:
  *             self.resampler = AudioResampler(             # <<<<<<<<<<<<<<
@@ -3560,7 +3598,7 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
     __pyx_v_self->resampler = ((struct __pyx_obj_2av_5audio_9resampler_AudioResampler *)__pyx_t_1);
     __pyx_t_1 = 0;
 
-    /* "av/audio/codeccontext.py":24
+    /* "av/audio/codeccontext.py":25
  *         # Note that the resampler will simply return an input frame if there is
  *         # no resampling to be done. The control flow was just a little easier this way.
  *         if not self.resampler:             # <<<<<<<<<<<<<<
@@ -3569,19 +3607,19 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
 */
   }
 
-  /* "av/audio/codeccontext.py":31
- *                 frame_size=None if allow_var_frame_size else self.ptr.frame_size,
+  /* "av/audio/codeccontext.py":33
+ *                 threads=self.ptr.thread_count,
  *             )
  *         frames = self.resampler.resample(frame)             # <<<<<<<<<<<<<<
  *         if input_frame is None:
  *             frames.append(None)  # flush if input frame is None
 */
-  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_9resampler_AudioResampler *)__pyx_v_self->resampler->__pyx_vtab)->resample(__pyx_v_self->resampler, __pyx_v_frame, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 31, __pyx_L1_error)
+  __pyx_t_1 = ((struct __pyx_vtabstruct_2av_5audio_9resampler_AudioResampler *)__pyx_v_self->resampler->__pyx_vtab)->resample(__pyx_v_self->resampler, __pyx_v_frame, 0); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 33, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_frames = ((PyObject*)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/codeccontext.py":32
+  /* "av/audio/codeccontext.py":34
  *             )
  *         frames = self.resampler.resample(frame)
  *         if input_frame is None:             # <<<<<<<<<<<<<<
@@ -3592,7 +3630,7 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
   if (__pyx_t_3) {
 
 
-    /* "av/audio/codeccontext.py":33
+    /* "av/audio/codeccontext.py":35
  *         frames = self.resampler.resample(frame)
  *         if input_frame is None:
  *             frames.append(None)  # flush if input frame is None             # <<<<<<<<<<<<<<
@@ -3601,12 +3639,12 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
 */
     if (unlikely(__pyx_v_frames == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "\047NoneType\047 object has no attribute \047%.30s\047", "append");
-      __PYX_ERR(0, 33, __pyx_L1_error)
+      __PYX_ERR(0, 35, __pyx_L1_error)
     }
-    __pyx_t_11 = __Pyx_PyList_Append(((PyObject*)__pyx_v_frames), Py_None); if (unlikely(__pyx_t_11 == ((int)-1))) __PYX_ERR(0, 33, __pyx_L1_error)
+    __pyx_t_12 = __Pyx_PyList_Append(((PyObject*)__pyx_v_frames), Py_None); if (unlikely(__pyx_t_12 == ((int)-1))) __PYX_ERR(0, 35, __pyx_L1_error)
 
 
-    /* "av/audio/codeccontext.py":32
+    /* "av/audio/codeccontext.py":34
  *             )
  *         frames = self.resampler.resample(frame)
  *         if input_frame is None:             # <<<<<<<<<<<<<<
@@ -3615,7 +3653,7 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
 */
   }
 
-  /* "av/audio/codeccontext.py":35
+  /* "av/audio/codeccontext.py":37
  *             frames.append(None)  # flush if input frame is None
  * 
  *         return frames             # <<<<<<<<<<<<<<
@@ -3633,7 +3671,7 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
   }
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":13
+  /* "av/audio/codeccontext.py":14
  * @cython.cclass
  * class AudioCodecContext(CodecContext):
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3650,6 +3688,7 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_11);
   __Pyx_AddTraceback("av.audio.codeccontext.AudioCodecContext._prepare_frames_for_encode", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = 0;
   __pyx_L0:;
@@ -3661,7 +3700,7 @@ static PyObject *__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__prepare_
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":37
+/* "av/audio/codeccontext.py":39
  *         return frames
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3678,14 +3717,14 @@ static struct __pyx_obj_2av_5frame_Frame *__pyx_f_2av_5audio_12codeccontext_17Au
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_alloc_next_frame", 0);
 
-  /* "av/audio/codeccontext.py":39
+  /* "av/audio/codeccontext.py":41
  *     @cython.cfunc
  *     def _alloc_next_frame(self) -> Frame:
  *         return alloc_audio_frame()             # <<<<<<<<<<<<<<
  * 
  *     @cython.cfunc
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 39, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_5frame_alloc_audio_frame()); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 41, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     struct __pyx_obj_2av_5frame_Frame *__pyx_temp;
@@ -3698,7 +3737,7 @@ static struct __pyx_obj_2av_5frame_Frame *__pyx_f_2av_5audio_12codeccontext_17Au
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":37
+  /* "av/audio/codeccontext.py":39
  *         return frames
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3717,7 +3756,7 @@ static struct __pyx_obj_2av_5frame_Frame *__pyx_f_2av_5audio_12codeccontext_17Au
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":41
+/* "av/audio/codeccontext.py":43
  *         return alloc_audio_frame()
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3734,16 +3773,16 @@ static void __pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__setup_decoded
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_setup_decoded_frame", 0);
 
-  /* "av/audio/codeccontext.py":43
+  /* "av/audio/codeccontext.py":45
  *     @cython.cfunc
  *     def _setup_decoded_frame(self, frame: Frame, packet: Packet) -> cython.void:
  *         CodecContext._setup_decoded_frame(self, frame, packet)             # <<<<<<<<<<<<<<
  *         aframe: AudioFrame = frame
  *         aframe._init_user_attributes()
 */
-  __pyx_vtabptr_2av_5codec_7context_CodecContext->_setup_decoded_frame(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_v_frame, __pyx_v_packet); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 43, __pyx_L1_error)
+  __pyx_vtabptr_2av_5codec_7context_CodecContext->_setup_decoded_frame(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_v_frame, __pyx_v_packet); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 45, __pyx_L1_error)
 
-  /* "av/audio/codeccontext.py":44
+  /* "av/audio/codeccontext.py":46
  *     def _setup_decoded_frame(self, frame: Frame, packet: Packet) -> cython.void:
  *         CodecContext._setup_decoded_frame(self, frame, packet)
  *         aframe: AudioFrame = frame             # <<<<<<<<<<<<<<
@@ -3752,20 +3791,20 @@ static void __pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__setup_decoded
 */
   __pyx_t_1 = ((PyObject *)__pyx_v_frame);
   __Pyx_INCREF(__pyx_t_1);
-  if (!(likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame)))) __PYX_ERR(0, 44, __pyx_L1_error)
+  if (!(likely(__Pyx_TypeTest(__pyx_t_1, __pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame)))) __PYX_ERR(0, 46, __pyx_L1_error)
   __pyx_v_aframe = ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/codeccontext.py":45
+  /* "av/audio/codeccontext.py":47
  *         CodecContext._setup_decoded_frame(self, frame, packet)
  *         aframe: AudioFrame = frame
  *         aframe._init_user_attributes()             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_aframe->__pyx_base.__pyx_vtab)->__pyx_base._init_user_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_aframe)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 45, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_5audio_5frame_AudioFrame *)__pyx_v_aframe->__pyx_base.__pyx_vtab)->__pyx_base._init_user_attributes(((struct __pyx_obj_2av_5frame_Frame *)__pyx_v_aframe)); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 47, __pyx_L1_error)
 
-  /* "av/audio/codeccontext.py":41
+  /* "av/audio/codeccontext.py":43
  *         return alloc_audio_frame()
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -3784,7 +3823,7 @@ static void __pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__setup_decoded
   __Pyx_RefNannyFinishContext();
 }
 
-/* "av/audio/codeccontext.py":47
+/* "av/audio/codeccontext.py":49
  *         aframe._init_user_attributes()
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3816,14 +3855,14 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_10frame_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/codeccontext.py":54
+  /* "av/audio/codeccontext.py":56
  *         :type: int
  *         """
  *         return self.ptr.frame_size             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->frame_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 54, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->frame_size); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 56, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -3836,7 +3875,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_10frame_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":47
+  /* "av/audio/codeccontext.py":49
  *         aframe._init_user_attributes()
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3855,7 +3894,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_10frame_
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":56
+/* "av/audio/codeccontext.py":58
  *         return self.ptr.frame_size
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3887,14 +3926,14 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11sample
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/codeccontext.py":63
+  /* "av/audio/codeccontext.py":65
  *         :type: int
  *         """
  *         return self.ptr.sample_rate             # <<<<<<<<<<<<<<
  * 
  *     @sample_rate.setter
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 65, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -3907,7 +3946,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11sample
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":56
+  /* "av/audio/codeccontext.py":58
  *         return self.ptr.frame_size
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -3926,7 +3965,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11sample
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":65
+/* "av/audio/codeccontext.py":67
  *         return self.ptr.sample_rate
  * 
  *     @sample_rate.setter             # <<<<<<<<<<<<<<
@@ -3947,7 +3986,7 @@ static int __pyx_pw_2av_5audio_12codeccontext_17AudioCodecContext_11sample_rate_
   __Pyx_RefNannySetupContext("__set__ (wrapper)", 0);
   __pyx_kwvalues = __Pyx_KwValues_VARARGS(__pyx_args, __pyx_nargs);
   assert(__pyx_arg_value); {
-    __pyx_v_value = __Pyx_PyLong_As_int(__pyx_arg_value); if (unlikely((__pyx_v_value == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 66, __pyx_L3_error)
+    __pyx_v_value = __Pyx_PyLong_As_int(__pyx_arg_value); if (unlikely((__pyx_v_value == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 68, __pyx_L3_error)
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -3969,16 +4008,16 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11sample_rate_
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/audio/codeccontext.py":67
+  /* "av/audio/codeccontext.py":69
  *     @sample_rate.setter
  *     def sample_rate(self, value: cython.int):
  *         self._assert_not_open("sample_rate")             # <<<<<<<<<<<<<<
  *         self.ptr.sample_rate = value
  * 
 */
-  ((struct __pyx_vtabstruct_2av_5audio_12codeccontext_AudioCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._assert_not_open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 67, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_5audio_12codeccontext_AudioCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._assert_not_open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 69, __pyx_L1_error)
 
-  /* "av/audio/codeccontext.py":68
+  /* "av/audio/codeccontext.py":70
  *     def sample_rate(self, value: cython.int):
  *         self._assert_not_open("sample_rate")
  *         self.ptr.sample_rate = value             # <<<<<<<<<<<<<<
@@ -3987,7 +4026,7 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11sample_rate_
 */
   __pyx_v_self->__pyx_base.ptr->sample_rate = __pyx_v_value;
 
-  /* "av/audio/codeccontext.py":65
+  /* "av/audio/codeccontext.py":67
  *         return self.ptr.sample_rate
  * 
  *     @sample_rate.setter             # <<<<<<<<<<<<<<
@@ -4007,7 +4046,7 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11sample_rate_
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":70
+/* "av/audio/codeccontext.py":72
  *         self.ptr.sample_rate = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4039,14 +4078,14 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_4rate___
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/codeccontext.py":73
+  /* "av/audio/codeccontext.py":75
  *     def rate(self):
  *         """Another name for :attr:`sample_rate`."""
  *         return self.sample_rate             # <<<<<<<<<<<<<<
  * 
  *     @rate.setter
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 73, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 75, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -4059,7 +4098,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_4rate___
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":70
+  /* "av/audio/codeccontext.py":72
  *         self.ptr.sample_rate = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4078,7 +4117,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_4rate___
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":75
+/* "av/audio/codeccontext.py":77
  *         return self.sample_rate
  * 
  *     @rate.setter             # <<<<<<<<<<<<<<
@@ -4107,16 +4146,16 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_4rate_2__set__
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/audio/codeccontext.py":77
+  /* "av/audio/codeccontext.py":79
  *     @rate.setter
  *     def rate(self, value):
  *         self.sample_rate = value             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate, __pyx_v_value) < (0)) __PYX_ERR(0, 77, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_sample_rate, __pyx_v_value) < (0)) __PYX_ERR(0, 79, __pyx_L1_error)
 
-  /* "av/audio/codeccontext.py":75
+  /* "av/audio/codeccontext.py":77
  *         return self.sample_rate
  * 
  *     @rate.setter             # <<<<<<<<<<<<<<
@@ -4135,7 +4174,7 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_4rate_2__set__
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":79
+/* "av/audio/codeccontext.py":81
  *         self.sample_rate = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4168,16 +4207,16 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_8channel
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/codeccontext.py":81
+  /* "av/audio/codeccontext.py":83
  *     @property
  *     def channels(self):
  *         return self.layout.nb_channels             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 81, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 83, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   {
@@ -4191,7 +4230,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_8channel
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":79
+  /* "av/audio/codeccontext.py":81
  *         self.sample_rate = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4211,7 +4250,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_8channel
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":83
+/* "av/audio/codeccontext.py":85
  *         return self.layout.nb_channels
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4243,14 +4282,14 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6layout_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/codeccontext.py":90
+  /* "av/audio/codeccontext.py":92
  *         :type: AudioLayout
  *         """
  *         return get_audio_layout(self.ptr.ch_layout)             # <<<<<<<<<<<<<<
  * 
  *     @layout.setter
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6layout_get_audio_layout(__pyx_v_self->__pyx_base.ptr->ch_layout)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 90, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6layout_get_audio_layout(__pyx_v_self->__pyx_base.ptr->ch_layout)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -4263,7 +4302,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6layout_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":83
+  /* "av/audio/codeccontext.py":85
  *         return self.layout.nb_channels
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4282,7 +4321,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6layout_
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":92
+/* "av/audio/codeccontext.py":94
  *         return get_audio_layout(self.ptr.ch_layout)
  * 
  *     @layout.setter             # <<<<<<<<<<<<<<
@@ -4312,27 +4351,27 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6layout_2__set
   PyObject *__pyx_t_1 = NULL;
   PyObject *__pyx_t_2 = NULL;
   size_t __pyx_t_3;
-  AVChannelLayout __pyx_t_4;
+  int __pyx_t_4;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "av/audio/codeccontext.py":94
+  /* "av/audio/codeccontext.py":96
  *     @layout.setter
  *     def layout(self, value):
  *         self._assert_not_open("layout")             # <<<<<<<<<<<<<<
  *         layout: AudioLayout = AudioLayout(value)
- *         self.ptr.ch_layout = layout.layout
+ *         err_check(
 */
-  ((struct __pyx_vtabstruct_2av_5audio_12codeccontext_AudioCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._assert_not_open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 94, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_5audio_12codeccontext_AudioCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._assert_not_open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_layout); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 96, __pyx_L1_error)
 
-  /* "av/audio/codeccontext.py":95
+  /* "av/audio/codeccontext.py":97
  *     def layout(self, value):
  *         self._assert_not_open("layout")
  *         layout: AudioLayout = AudioLayout(value)             # <<<<<<<<<<<<<<
- *         self.ptr.ch_layout = layout.layout
- * 
+ *         err_check(
+ *             lib.av_channel_layout_copy(
 */
   __pyx_t_2 = NULL;
   __pyx_t_3 = 1;
@@ -4340,24 +4379,23 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6layout_2__set
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 97, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __pyx_v_layout = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/codeccontext.py":96
+  /* "av/audio/codeccontext.py":98
  *         self._assert_not_open("layout")
  *         layout: AudioLayout = AudioLayout(value)
- *         self.ptr.ch_layout = layout.layout             # <<<<<<<<<<<<<<
- * 
- *     @property
+ *         err_check(             # <<<<<<<<<<<<<<
+ *             lib.av_channel_layout_copy(
+ *                 cython.address(self.ptr.ch_layout), cython.address(layout.layout)
 */
-  __pyx_t_4 = __pyx_v_layout->layout;
+  __pyx_t_4 = __pyx_f_2av_5error_err_check(av_channel_layout_copy((&__pyx_v_self->__pyx_base.ptr->ch_layout), (&__pyx_v_layout->layout)), 0, NULL); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 98, __pyx_L1_error)
 
-  __pyx_v_self->__pyx_base.ptr->ch_layout = __pyx_t_4;
 
-  /* "av/audio/codeccontext.py":92
+  /* "av/audio/codeccontext.py":94
  *         return get_audio_layout(self.ptr.ch_layout)
  * 
  *     @layout.setter             # <<<<<<<<<<<<<<
@@ -4380,8 +4418,8 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6layout_2__set
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":98
- *         self.ptr.ch_layout = layout.layout
+/* "av/audio/codeccontext.py":104
+ *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def format(self):
@@ -4412,14 +4450,14 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6format_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/codeccontext.py":105
+  /* "av/audio/codeccontext.py":111
  *         :type: AudioFormat
  *         """
  *         return get_audio_format(self.ptr.sample_fmt)             # <<<<<<<<<<<<<<
  * 
  *     @format.setter
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6format_get_audio_format(__pyx_v_self->__pyx_base.ptr->sample_fmt)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6format_get_audio_format(__pyx_v_self->__pyx_base.ptr->sample_fmt)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 111, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -4432,8 +4470,8 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6format_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":98
- *         self.ptr.ch_layout = layout.layout
+  /* "av/audio/codeccontext.py":104
+ *         )
  * 
  *     @property             # <<<<<<<<<<<<<<
  *     def format(self):
@@ -4451,7 +4489,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6format_
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":107
+/* "av/audio/codeccontext.py":113
  *         return get_audio_format(self.ptr.sample_fmt)
  * 
  *     @format.setter             # <<<<<<<<<<<<<<
@@ -4487,16 +4525,16 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6format_2__set
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__set__", 0);
 
-  /* "av/audio/codeccontext.py":109
+  /* "av/audio/codeccontext.py":115
  *     @format.setter
  *     def format(self, value):
  *         self._assert_not_open("format")             # <<<<<<<<<<<<<<
  *         format: AudioFormat = AudioFormat(value)
  *         self.ptr.sample_fmt = format.sample_fmt
 */
-  ((struct __pyx_vtabstruct_2av_5audio_12codeccontext_AudioCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._assert_not_open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 109, __pyx_L1_error)
+  ((struct __pyx_vtabstruct_2av_5audio_12codeccontext_AudioCodecContext *)__pyx_v_self->__pyx_base.__pyx_vtab)->__pyx_base._assert_not_open(((struct __pyx_obj_2av_5codec_7context_CodecContext *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_format); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 115, __pyx_L1_error)
 
-  /* "av/audio/codeccontext.py":110
+  /* "av/audio/codeccontext.py":116
  *     def format(self, value):
  *         self._assert_not_open("format")
  *         format: AudioFormat = AudioFormat(value)             # <<<<<<<<<<<<<<
@@ -4509,13 +4547,13 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6format_2__set
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_v_value};
     __pyx_t_1 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat, __pyx_callargs+__pyx_t_3, (2-__pyx_t_3) | (__pyx_t_3*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 110, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 116, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_1);
   }
   __pyx_v_format = ((struct __pyx_obj_2av_5audio_6format_AudioFormat *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/codeccontext.py":111
+  /* "av/audio/codeccontext.py":117
  *         self._assert_not_open("format")
  *         format: AudioFormat = AudioFormat(value)
  *         self.ptr.sample_fmt = format.sample_fmt             # <<<<<<<<<<<<<<
@@ -4526,7 +4564,7 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6format_2__set
 
   __pyx_v_self->__pyx_base.ptr->sample_fmt = __pyx_t_4;
 
-  /* "av/audio/codeccontext.py":107
+  /* "av/audio/codeccontext.py":113
  *         return get_audio_format(self.ptr.sample_fmt)
  * 
  *     @format.setter             # <<<<<<<<<<<<<<
@@ -4549,7 +4587,7 @@ static int __pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_6format_2__set
   return __pyx_r;
 }
 
-/* "av/audio/codeccontext.py":113
+/* "av/audio/codeccontext.py":119
  *         self.ptr.sample_fmt = format.sample_fmt
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -4581,12 +4619,12 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11block_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/codeccontext.py":122
+  /* "av/audio/codeccontext.py":128
  *         :type: int
  *         """
  *         return self.ptr.block_align             # <<<<<<<<<<<<<<
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->block_align); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->block_align); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 128, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -4599,7 +4637,7 @@ static PyObject *__pyx_pf_2av_5audio_12codeccontext_17AudioCodecContext_11block_
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/codeccontext.py":113
+  /* "av/audio/codeccontext.py":119
  *         self.ptr.sample_fmt = format.sample_fmt
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5196,11 +5234,11 @@ static int __Pyx_modinit_Exttype___pyx_obj_2av_5audio_12codeccontext_AudioCodecC
   __pyx_vtable_2av_5audio_12codeccontext_AudioCodecContext.__pyx_base._setup_decoded_frame = (void (*)(struct __pyx_obj_2av_5codec_7context_CodecContext *, struct __pyx_obj_2av_5frame_Frame *, struct __pyx_obj_2av_6packet_Packet *))__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__setup_decoded_frame;
   __pyx_vtable_2av_5audio_12codeccontext_AudioCodecContext.__pyx_base._alloc_next_frame = (struct __pyx_obj_2av_5frame_Frame *(*)(struct __pyx_obj_2av_5codec_7context_CodecContext *))__pyx_f_2av_5audio_12codeccontext_17AudioCodecContext__alloc_next_frame;
   #if CYTHON_USE_TYPE_SPECS
-  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 12, __pyx_L1_error)
+  __pyx_t_1 = PyTuple_Pack(1, (PyObject *)__pyx_mstate_global->__pyx_ptype_2av_5codec_7context_CodecContext); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext = (PyTypeObject *) __Pyx_PyType_FromModuleAndSpec(__pyx_m, &__pyx_type_2av_5audio_12codeccontext_AudioCodecContext_spec, __pyx_t_1);
   __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext)) __PYX_ERR(0, 12, __pyx_L1_error)
+  if (unlikely(!__pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext)) __PYX_ERR(0, 13, __pyx_L1_error)
   #else
   __pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext = &__pyx_type_2av_5audio_12codeccontext_AudioCodecContext;
   #endif
@@ -5208,7 +5246,7 @@ static int __Pyx_modinit_Exttype___pyx_obj_2av_5audio_12codeccontext_AudioCodecC
   __pyx_mstate_global->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext->tp_base = __pyx_mstate_global->__pyx_ptype_2av_5codec_7context_CodecContext;
   #endif
   #if !CYTHON_USE_TYPE_SPECS
-  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
+  if (__Pyx_PyType_Ready(__pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX >= 0x030E0000
   PyUnstable_Object_EnableDeferredRefcount((PyObject*)__pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext);
@@ -5218,9 +5256,9 @@ static int __Pyx_modinit_Exttype___pyx_obj_2av_5audio_12codeccontext_AudioCodecC
     __pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext->tp_getattro = PyObject_GenericGetAttr;
   }
   #endif
-  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext, __pyx_vtabptr_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
-  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AudioCodecContext, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 12, __pyx_L1_error)
+  if (__Pyx_SetVtable(__pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext, __pyx_vtabptr_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_mstate_global->__pyx_n_u_AudioCodecContext, (PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject *) __pyx_mstate->__pyx_ptype_2av_5audio_12codeccontext_AudioCodecContext) < (0)) __PYX_ERR(0, 13, __pyx_L1_error)
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -5609,6 +5647,26 @@ static int __Pyx_modinit_Function_import_code(__pyx_mstatetype *__pyx_mstate) {
     }
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
+  {
+    __pyx_t_1 = PyImport_ImportModule("av.error"); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_1);
+    const char * __pyx_import_signature = __Pyx_PyBytes_AsString(__pyx_mstate_global->__pyx_kp_b_int_int_int___pyx_skip_dispatch);
+    #if !CYTHON_ASSUME_SAFE_MACROS
+    if (unlikely(!__pyx_import_signature)) __PYX_ERR(0, 1, __pyx_L1_error)
+    #endif
+    const char * __pyx_import_name = __pyx_import_signature + 100;
+    void (**const __pyx_import_pointers[])(void) = {(void (**)(void))&__pyx_f_2av_5error_err_check, (void (**)(void)) NULL};
+    void (**const *__pyx_import_pointer)(void) = __pyx_import_pointers;
+    const char *__pyx_import_current_signature = __pyx_import_signature;
+    while (*__pyx_import_pointer) {
+      if (__Pyx_ImportFunction_3_3_0(__pyx_t_1, __pyx_import_name, *__pyx_import_pointer, __pyx_import_current_signature) < (0)) __PYX_ERR(0, 1, __pyx_L1_error)
+      ++__pyx_import_pointer;
+      __pyx_import_name = strchr(__pyx_import_name, '\0') + 1;
+      __pyx_import_signature = strchr(__pyx_import_signature, '\0') + 1;
+      if (*__pyx_import_signature != '\0') __pyx_import_current_signature = __pyx_import_signature;
+    }
+    __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  }
   __Pyx_RefNannyFinishContext();
   return 0;
   __pyx_L1_error:;
@@ -5962,7 +6020,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "av/audio/codeccontext.py":25
+  /* "av/audio/codeccontext.py":26
  *         # no resampling to be done. The control flow was just a little easier this way.
  *         if not self.resampler:
  *             self.resampler = AudioResampler(             # <<<<<<<<<<<<<<
@@ -5970,8 +6028,8 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
  *                 layout=self.layout,
 */
   {
-    PyObject* __pyx_temp[4] = {__pyx_mstate_global->__pyx_n_u_format, __pyx_mstate_global->__pyx_n_u_layout, __pyx_mstate_global->__pyx_n_u_rate, __pyx_mstate_global->__pyx_n_u_frame_size};
-    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 4); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 25, __pyx_L1_error)
+    PyObject* __pyx_temp[5] = {__pyx_mstate_global->__pyx_n_u_format, __pyx_mstate_global->__pyx_n_u_layout, __pyx_mstate_global->__pyx_n_u_rate, __pyx_mstate_global->__pyx_n_u_frame_size, __pyx_mstate_global->__pyx_n_u_threads};
+    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 5); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 26, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
@@ -6012,38 +6070,38 @@ static int __Pyx_InitConstants(__pyx_mstatetype *__pyx_mstate) {
   int __pyx_clineno = 0;
   CYTHON_UNUSED_VAR(__pyx_mstate);
   {
-    const struct { const unsigned int length: 7; } str_length_index[] = {{1},{72},{17},{8},{10},{8},{11},{14},{12},{8},{18},{6},{10},{6},{11},{4},{11},{10}};
-    const struct { const unsigned int length: 10; } bytes_length_index[] = {{1023},{71},{87},{83}};
+    const struct { const unsigned int length: 7; } str_length_index[] = {{1},{72},{17},{8},{10},{8},{11},{14},{12},{8},{18},{6},{10},{6},{11},{4},{11},{10},{7}};
+    const struct { const unsigned int length: 10; } bytes_length_index[] = {{109},{1023},{71},{87},{83}};
     #ifndef CYTHON_COMPRESS_STRINGS
       #define CYTHON_COMPRESS_STRINGS 90
     #endif
-    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (527 bytes) */
-static const char cstring[] = "x\332\305T\301\216\3230\020\355\247\370\270\255*\016+-WT-BB Q\355V\275 dM\354I\3274\261\203=n\033\276\236\261\335@Jh/ \221C2~3y~\363\022\317\233\200M\375\252\003\037\320/KL^(\260\326\221\250P(g\017\350\t\265 \047@\254{zqV\270\352+*\022\265\363\2423j\337\030\273[Em\334\243\323\250\036\235%<\221\224-\030+\371j\235\216\r\246\310B\233\237]\177\222\201\200\260\204\007\202\252\024|\213\320\014E\204\201I\024\223\243d\"\362\240\260\002\265\347][\240\332\247\262`\276c\003\275\213d+\251^X66\3013q\200\266c\312\034\"i\254!6d,\335\255\373OE\374b\177\324a)~\255S\257!\343\007h\"^\344\206$\370]\222\027>\177\031g\023\323\375\030(\004\245H\206$R\222\260\261\225\235\013\2229\302$\261?\026\270l\303\235\370\205\250\243Ud\234\315\266-\005\253\027fg\235G\031\355\336\272\243=\2775\237\335n\354\337\213\277\252\362\357\244\374O\333\026\202\372\016%\377\331\003\276\341\365\240\214\246`y!\235\226\24588\243\027\242\374\306\363YZ\215<He\223.\307\000U\343\225\202\030\006\222\337\333\032\265\204\047P4\361\2435v\212\301i\202\325.Z}e\223\221w\227\037r>\223r\315\307u\235\246\305\007\354\217\316\353\260\211|\316\376\220xk\024m\\\272_I\236a>\235\261\223\036uT?i\262\313\362\tA\367g\350\031i\233\335=\257\237\300\204\213x\345w\224\224\274\267l\257\321C\n\223\372Aj \037\271\2272s\370C\313{8\310\007H\203K>\224y\222\247\330\273\024\212\305]rg>\203\246qJ\226\252\\t\213\346u\031Ng\236\0343\021\262\345b\265}\3163\251\240\363\331\016i`\315\310M\3322\343\n\355\307\0343\355j\373X&^A\306\224\245\376\007k\017+\306";
-    PyObject *data = __Pyx_DecompressString(cstring, 527, 1);
+    #if (CYTHON_COMPRESS_STRINGS) == 1 /* compression: zlib (576 bytes) */
+static const char cstring[] = "x\332\305TM\217\3230\020\355O\361q\033U\034VZ\256\250*BB Q\355V\275 dM\354i\353Mb\007{\3346\374z\374\221\224\224\320^@\"\007g\374f\362<~\321\274w\016\353\335\233\026\254C\273\3101Y&@kC\254D&\214>\242%\224\214\014\003\266\356\350`43\345+\nb;cY\253DU+\275_z\251\314\312H\024+\243\t\317\304y\003J\363\3604F\372\032c\244\241I\357\266;sG@\230\303#A\231\013\276{\250\207\"B\027HD G\036\210\310\202\300\022D\025Nm\200v6\2269\365\003k\350\214\047]rq\010mc\355l v\320\264\2012\205H\022w\340k\242\203E\220Nib\017aY\260\030\365\335T\252\345R\271\026H\034\026\314\221\365b\310\231\2268\330\275\343\217p\344Oh\255\261<\254\341<\024\025+.E\312h\250S\345|v\311\207#\036\326\335\227,XQ\235\244[\260_\373\250\257K\370\021j\217W\271!\031\010\243$\356\353\267q62=\216\201L\220\213\270\213\302pb\3327\2745.55IT\247\014\347c\202z\266`;\257E\274H\372UY \265\327\306\"\367\272\322\346\244\373\257\346\263\373\027\373\367\315\337\354\362\357Z\371\237\262\025\214\272\026y\230\246\001\337\204\375\320\031M\301\374A\234\320\005;\032%\013\226Gg>\213\273\221\006\261lr\3131@\345x\047\300\273\201\344\367k\215\256\204g\0204\321\243Qz\212\301y\202\355\214\327\362\306!#\355\256\177\344|\306\371:\214\327::\324\047\354N\306J\267\361a\266\377\220x\257\004mL\\o${88\202o\271E\351\305\205&\251\314\237\203?t=\364\202\264M\352\366\373gP\356*^\332=\305N>\352 \257\222C\nc\367C\253\327FR\276f\017\201h\226\374){Xr\316\0171d\305CTg>\203\2726\202\347\252Tt\217\346m6\304\236\047\305\201\010\203\344l\271}I>\230\321\371l\2174\260&\344.m\366\325L\3739\305\201v\271]e\227\315\310\2302\327\377\004\372\203XL";
+    PyObject *data = __Pyx_DecompressString(cstring, 576, 1);
     #define __Pyx_DecompressString_LZSS_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (718 bytes) */
-static const char cstring[] = "\377?self.pa\337rser,\006\003tr\377 cannot \377be conve\377rted to \377a Python\377 object \377for pick\377lingAudi\377oCodecCo\377ntext__m\337ain__\005\000odwule\006\001nam\003\002\377pyx_stat\274\022\000\007\001vtab\033\003qwual\035\005tesB\000\355cZ\000e_F\000tra\277cebacks\000m\357atfrH\001siz\377elayoutn\357b_ch\264\000els=rV\000sampq\000\006\002\377etdefaul\377tint(PyO\376\267\003*kwds, \334\006\007\350\001st \025\000va\327lue\017\n*\026\004ar\235g\300\001s[].\tF\0012\330?\t;\003\037\003_s\241\001_t\377 num_pos1_A\000s\002\014\nkw\021\003\355 \374\201\000\307\000r* fun\277ction_\263!,\375 \273\000 ignor\377e_unknow\033n_0\003)\000\273\033kO\215\026\374M;\273\200y* type/_obj\307%T\r\000\244e\371t\003\017+\003ptr ,\177 void* \301\204\003\203)\000\n\001\335hT\001\214n\355it}b\373icause>\004|\376M\377Hexact\273\204\001n\323jmin\002\017ax\027\016\037foundN\024\350h\237\205\013\377)\000__Pyx_\375P\252\207\001Keywor\177dsTuple\006\020?DictTo\002\001\006\024\376F\004setup_r\257educ>\006y\367!_\337Readyl\004Se\363tV\240\207\002|\004Rais\335e\000\tArgE\000le\177Invalid\037\005\371e\244\210\001\243\005struc\357t __\373\207\001obj\177_2av_5a\265\210\001\323_5\312\207\003\301\210\002F\327\207\001 *\375(\322A)\000allo\243c_ \003\360\207\002+\0316\227\210\003_\276B\003ormatF\000e\177num AVS\217\210\002}F\021\002)\000getN\005\220#\002:\032\336\210\003Q\003L\353\210\002\235\000A\003VC\354\210\003\014\003G\t\216\211\003";
-    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 718, 1501);
+    #elif (CYTHON_COMPRESS_STRINGS) > 0 && (CYTHON_COMPRESS_STRINGS) <= 90 /* compression: lzss (792 bytes) */
+static const char cstring[] = "\377?self.pa\337rser,\006\003tr\377 cannot \377be conve\377rted to \377a Python\377 object \377for pick\377lingAudi\377oCodecCo\377ntext__m\337ain__\005\000odwule\006\001nam\003\002\377pyx_stat\274\022\000\007\001vtab\033\003qwual\035\005tesB\000\355cZ\000e_F\000tra\277cebacks\000m\357atfrH\001siz\377elayoutn\357b_ch\264\000els=rV\000sampq\000\006\002\377etdefaul\377tthreads\337int (\002\000, \366\006\001__\211\002kip_\377dispatch?, stru\336\000\026\003\377opt_args\377_2av_5er\317ror_\003\000m\000ec\367k *\034\006iona\315l%\002)\000\027\006j\000(P\373yO\253#*kwdss, \006\007\334!st \025\000_value\017\n*\026\004\234x\000\264!s[].\tF\0012\330?\t;\003\037\003_s\225!_t\377 num_posX\272\002t\001\014\nkw\322\001,}\004\376\273 r* func\345t\306\000_\247A\233#ign\377ore_unknoown_0\003)\000\273\033\016kOcon\247 \223\020M;\273\200y\377* type_oKbj\307%T\r\000\244et\003\017\376+\003ptr , v\337oid* \265\205\003)\000`\n\001\335hT\001\214n\355itb\373i\037cause>\004\330-\377H\337exact\266nmi\355n\002\017ax\336nfou\343ndN\024\350h\237\205\013)\000_\277_Pyx_P\236\210\001K\377eywordsT\357uple\006\020Dic\307tTo\002\001\006\024F\004se\377tup_redu\365c>\006y\367!_Rea{dyl\004SetV\224\210\002\276|\004Raise\000\tA\373rgE\000leInv/alid\037\005e\230\211\001\243\005\326\273\207\013bj\276\207\003a\251\211\001_5t\276\210\003\265\211\002F\313\210\001 *(\322A\377)\000alloc_\250 \003\344\210\002+\0316\213\211\003_B\003o\357rmatF\000enu_m AVS\203\211\002F\021\002\037)\000getN\005#\002:\032\344\322\211\003Q\003L\337\211\002\235\000AVC\000\340\211\003\014\003G\t\202\212\003";
+    PyObject *data = __Pyx_DecompressString_LZSS(cstring, 792, 1617);
     #define __Pyx_DecompressString_UNUSED
     if (unlikely(!data)) __PYX_ERR(0, 1, __pyx_L1_error)
     const char* const bytes = __Pyx_PyBytes_AsString(data);
     #if !CYTHON_ASSUME_SAFE_MACROS
     if (likely(bytes)); else { Py_DECREF(data); __PYX_ERR(0, 1, __pyx_L1_error) }
     #endif
-    #else /* compression: none (1501 bytes) */
-static const char bytes[] = "?self.parser,self.ptr cannot be converted to a Python object for picklingAudioCodecContext__main____module____name____pyx_state__pyx_vtable____qualname____test__cline_in_tracebackformatframe_sizelayoutnb_channelsratesample_ratesetdefaultint(PyObject *kwds, PyObject * const *kwvalues, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, const char* function_name)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject* type_obj)\000int(PyTypeObject *t)\000int(PyTypeObject* typeptr , void* vtable)\000void(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause)\000void(const char* func_name, int exact, Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found)\000void(const char* function_name, PyObject *kwds)\000__Pyx_ParseKeywordsTuple\000__Pyx_ParseKeywordDictToDict\000__Pyx_ParseKeywordDict\000__Pyx_setup_reduce\000__Pyx_PyType_Ready\000__Pyx_SetVtable\000__Pyx_Raise\000__Pyx_RaiseArgtupleInvalid\000__Pyx_RejectKeywordsstruct __pyx_obj_2av_5audio_5frame_AudioFrame *(void)\000alloc_audio_framestruct __pyx_obj_2av_5audio_6format_AudioFormat *(enum AVSampleFormat)\000get_audio_formatstruct __pyx_obj_2av_5audio_6layout_AudioLayout *(AVChannelLayout)\000get_audio_layout";
+    #else /* compression: none (1617 bytes) */
+static const char bytes[] = "?self.parser,self.ptr cannot be converted to a Python object for picklingAudioCodecContext__main____module____name____pyx_state__pyx_vtable____qualname____test__cline_in_tracebackformatframe_sizelayoutnb_channelsratesample_ratesetdefaultthreadsint (int, int __pyx_skip_dispatch, struct __pyx_opt_args_2av_5error_err_check *__pyx_optional_args)\000err_checkint(PyObject *kwds, PyObject * const *kwvalues, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args, const char* function_name)\000int(PyObject *kwds, PyObject ** const argnames[], PyObject *values[], Py_ssize_t num_pos_args, Py_ssize_t num_kwargs, const char* function_name, int ignore_unknown_kwargs)\000int(PyObject* type_obj)\000int(PyTypeObject *t)\000int(PyTypeObject* typeptr , void* vtable)\000void(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause)\000void(const char* func_name, int exact, Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found)\000void(const char* function_name, PyObject *kwds)\000__Pyx_ParseKeywordsTuple\000__Pyx_ParseKeywordDictToDict\000__Pyx_ParseKeywordDict\000__Pyx_setup_reduce\000__Pyx_PyType_Ready\000__Pyx_SetVtable\000__Pyx_Raise\000__Pyx_RaiseArgtupleInvalid\000__Pyx_RejectKeywordsstruct __pyx_obj_2av_5audio_5frame_AudioFrame *(void)\000alloc_audio_framestruct __pyx_obj_2av_5audio_6format_AudioFormat *(enum AVSampleFormat)\000get_audio_formatstruct __pyx_obj_2av_5audio_6layout_AudioLayout *(AVChannelLayout)\000get_audio_layout";
     PyObject *data = NULL;
     #define __Pyx_DecompressString_UNUSED
     #define __Pyx_DecompressString_LZSS_UNUSED
     #endif
     PyObject **stringtab = __pyx_mstate->__pyx_string_tab;
     Py_ssize_t pos = 0;
-    for (int i = 0; i < 18; i++) {
+    for (int i = 0; i < 19; i++) {
       Py_ssize_t bytes_length = str_length_index[i].length;
       PyObject *string = PyUnicode_DecodeUTF8(bytes + pos, bytes_length, NULL);
       if (likely(string) && i >= 2) PyUnicode_InternInPlace(&string);
@@ -6054,8 +6112,8 @@ static const char bytes[] = "?self.parser,self.ptr cannot be converted to a Pyth
       stringtab[i] = string;
       pos += bytes_length;
     }
-    for (int i = 18; i < 22; i++) {
-      Py_ssize_t bytes_length = bytes_length_index[i-18].length;
+    for (int i = 19; i < 24; i++) {
+      Py_ssize_t bytes_length = bytes_length_index[i-19].length;
       PyObject *string = PyBytes_FromStringAndSize(bytes + pos, bytes_length);
       stringtab[i] = string;
       pos += bytes_length;
@@ -6065,15 +6123,15 @@ static const char bytes[] = "?self.parser,self.ptr cannot be converted to a Pyth
       }
     }
     Py_XDECREF(data);
-    for (Py_ssize_t i = 0; i < 22; i++) {
+    for (Py_ssize_t i = 0; i < 24; i++) {
       if (unlikely(PyObject_Hash(stringtab[i]) == -1)) {
         __PYX_ERR(0, 1, __pyx_L1_error)
       }
     }
     #if CYTHON_IMMORTAL_CONSTANTS
     {
-      PyObject **table = stringtab + 18;
-      for (Py_ssize_t i=0; i<4; ++i) {
+      PyObject **table = stringtab + 19;
+      for (Py_ssize_t i=0; i<5; ++i) {
         #if PY_VERSION_HEX >= 0x030F0000
         PyUnstable_SetImmortal(table[i]);
         #elif CYTHON_COMPILING_IN_CPYTHON_FREETHREADING

@@ -320,11 +320,32 @@ requirements:
     acceptance:
       - id: "AC61"
         statement: "AC61: with the 2026-10-17T1730Z run's shape (9 free slots on h101:1, h202:4, h201:4, 2 eligible candidates, 41 implementation-merged) selection plus the dispatch plan dispatch at least 9 lanes where the base dispatches 2; an open or blocked-in-cooldown verify lane, a second row of the same ticket and an out-of-scope origin are not taken -- falsifier: uv run pytest tests/nodes/node_lab_fill_selection_compute/test_lab_fill_dod_verify_fallback.py -q fails at the merge base"
+  - id: "req-review-finding-evidence"
+    statement: "The hostile reviewer blocks only on an Important finding the pull request introduced, with a file and line inside its diff, that is not of a style or cleanup class; after three review rounds on one pull request it re-reviews only the new diff and does not repeat a finding it has posted."
+    acceptance:
+      - id: "AC72"
+        statement: "AC72: a blocking finding on a line the pull request did not add or change is classed Pre-existing and dropped, and a finding whose file the pull request does not change, or whose line is past the end of the file at the head, is refused for want of evidence; a finding on a changed line keeps blocking -- falsifier: uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_policy.py -q -k 'pre_existing or refused or changed or past_the_end' fails at the merge base"
+      - id: "AC73"
+        statement: "AC73: a finding of a style or cleanup class is dropped as a Nit, while a security, logic, integration or contract category, a title that names a defect and a finding bound to a standing rule keep blocking -- falsifier: uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_policy.py -q -k 'style_and_cleanup or real_defect or standing_rule' fails at the merge base"
+      - id: "AC74"
+        statement: "AC74: from the fourth review round of one pull request a finding already posted is not repeated and a finding on a line outside the diff since the previous round does not block, while rounds one to three and a rerun of one head repeat nothing; the gate comment carries the round state only from the Actions bot -- falsifier: uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_policy.py tests/ci/test_hostile_reviewer_finding_policy_omn17427.py -q fails at the merge base"
   - id: "req-hook-push-rehearsal-caller"
     statement: "A pull request that changes the pre-push set runs omnibase_core's hook push rehearsal before it merges."
     acceptance:
       - id: "AC62"
         statement: "AC62: .github/workflows/hook-push-rehearsal.yml runs on pull_request and merge_group, calls omnibase_core's hook-push-rehearsal.yml at a full 40-hex SHA, its path-regex matches the pre-commit config, the hook scripts and the caller and no ordinary source path, and its sample-file is a Python source file under src/omnimarket -- falsifier: uv run pytest tests/ci/test_omn17427_hook_push_rehearsal_caller.py -q fails at the merge base"
+  - id: "req-review-finding-parse-veto"
+    statement: "A blocking hostile-review finding that claims a Python, YAML or JSON file is syntactically invalid is checked by parsing that file at the pull request head, and dropped with a logged reason when it parses; findings of every other class are left as the reviewers raised them."
+    acceptance:
+      - id: "AC70"
+        statement: "AC70: node_review_finding_veto_effect drops a blocking finding whose title claims a Python, YAML or JSON file is invalid when ast.parse, yaml.safe_load_all or json.loads accepts that file at the head, turns a verdict that rested only on such findings into passed, and logs the reason -- falsifier: uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_veto.py -q -k 'pr4063 or yaml_and_json' fails at the merge base"
+      - id: "AC71"
+        statement: "AC71: a syntax claim stays blocking when the file does not parse or cannot be read at the head, names another file or language, or is about text parsed at run time, and findings of other classes and warnings are never examined; the hostile-reviewer workflow runs the veto from the base commit before it reads the verdict -- falsifier: uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_veto.py tests/ci/test_hostile_reviewer_parse_veto_omn17427.py -q fails at the merge base"
+  - id: "req-remove-coderabbit"
+    statement: "CodeRabbit is removed from the review-gate code: the coderabbit-triage node, skills and registrations are gone, and no arm gate, merge-state, fix-routing, comment-resolution or inventory path counts, waits on or parses CodeRabbit threads."
+    acceptance:
+      - id: "AC81"
+        statement: "AC81: node_coderabbit_triage and its skills are deleted, ModelArmCandidate and the lifecycle inventory carry no coderabbit_unresolved, EnumPrBlockReason has no CODERABBIT and the fix handler no dispatch_coderabbit_reply, and the arm gate withholds on six criteria -- falsifier: uv run pytest tests/unit/nodes/node_pr_arm_gate_compute/test_handler_arm_gate.py tests/unit/nodes/node_pr_arm_gate_compute/test_arm_gate_head_check_verdict_composition.py tests/test_golden_chain_pr_lifecycle_fix_effect.py tests/test_omn_13987_pr_lifecycle_arm_activation.py -q fails at the merge base"
   - id: "req-core-pin-compatibility"
     statement: "The omnibase-core dependency and override floors must fit the newest recorded omnibase_infra pin, and the recorded incompatible incident pair must be refused."
     acceptance:
@@ -335,7 +356,285 @@ requirements:
     acceptance:
       - id: "AC63"
         statement: "AC63: node_session_capability_digest_effect prints the cached digest inside a registry root, prints nothing outside every root, prints a STALE line with its launchd fix for a missing or over-45-minute digest, prints one pointer line on a compact restart, opens no socket and exits 0 on every input -- falsifier: uv run pytest tests/test_session_capability_digest.py -q -p no:randomly"
+  - id: "req-ci-red-watcher-facts-only"
+    statement: "The CI-red triage reader uses watcher facts without launching gh, and incomplete observations record facts-unavailable without starting an effect."
+    acceptance:
+      - id: "AC65"
+        statement: "AC65: the default handler given an armed event with missing head or base facts and an armed peer invokes no subprocess, records facts-unavailable with action_applied=false, and complete watcher observations retain runner and dev-head classification -- falsifier: uv run pytest tests/unit/nodes/node_pr_lifecycle_orchestrator/test_ci_red_event_facts.py -q -n 0 -p no:randomly --no-cov"
+  - id: "req-repository-prose-removed"
+    statement: "Repository prose lives in the public knowledge base; the contribution, security and changelog guides and the unused README, table and evidence text files are removed and the root README is a short signpost."
+    acceptance:
+      - id: "AC66"
+        statement: "AC66: the sixteen removed prose files are absent and README.md has three to five lines including the public knowledge_base link -- falsifier: uv run pytest tests/ci/test_repository_prose_removed_omn17427.py -q"
+  - id: "req-docs-assets-evidence-removed"
+    statement: "The unreferenced logo set, closed-ticket evidence records and ADR inventory under docs/ live in the knowledge base archive and are removed here; the files a test, script or workflow reads stay."
+    acceptance:
+      - id: "AC76"
+        statement: "AC76: the thirty-three unreferenced docs files are absent, the three files a test or workflow reads are present and docs holds no empty directory -- falsifier: uv run pytest tests/ci/test_docs_assets_evidence_removed_omn17427.py -q"
+  - id: "req-linear-triage-local-github"
+    statement: "node_linear_triage runs on a host that holds no GitHub token by reading PR state from the PR watcher state and the canonical clones, reports an unreadable state instead of an empty answer, and keeps its implementing-PR gate."
+    acceptance:
+      - id: "AC67"
+        statement: "AC67: with github_source local the triage handler completes without a GITHUB_TOKEN, a merged squash commit in the clone and a merged or closed watcher record answer the merged and closed-unmerged searches, an id never matches a longer id, a merged record with no merge time is dropped, a missing watcher state returns status error, and the default github_source stays api -- falsifier: uv run pytest tests/nodes/node_linear_triage/test_local_github_pr_reads.py -q fails when the local client is removed"
+  - id: "req-lab-first-routing-rubric"
+    statement: "The task-class contract carries a scoring rubric per class, and a check refuses a contract change that routes a class to a cloud model first unless the class has a recorded measurement below the bar."
+    acceptance:
+      - id: "AC68"
+        statement: "AC68: node_lab_first_routing_check_compute passes the shipped task-class and routing-tier contracts, and refuses a tier_order that does not open on the lab tier, an entry_share off the lab tier, a cloud model pin, a missing rubric, a verdict its measurement does not earn and a ladder that does not open on the lab tier -- falsifier: uv run pytest tests/unit/delegation/test_lab_first_routing_omn17427.py -q fails on any of those mutations of the real contract"
+  - id: "req-reviewer-eval-gate"
+    statement: "The hostile reviewer is scored on every change to it against an eval set from recorded history (true catches a later fix confirmed, blocks later overturned, merged heads with no revert), as recall on true catches and the false-block rate on clean heads, and the change fails when either score is worse than the set's baseline or the set shrinks, relabels a case or lowers its baseline; the score is published as an event."
+    acceptance:
+      - id: "AC80"
+        statement: "AC80: node_reviewer_eval_effect scores the recorded set at recall 1.0 and false-block rate 0.25 and regresses on a missed true catch, a new block on a clean head, a case with no verdict, a dropped case, a flipped label or a lowered baseline, and publishes the score on onex.evt.omnimarket.reviewer-eval-scored.v1 -- falsifier: uv run pytest tests/unit/nodes/node_reviewer_eval_effect/test_reviewer_eval.py -q fails at the merge base"
+  - id: "req-review-finding-dispositions"
+    statement: "A fix worker's result carries a typed disposition (fixed, wrong, intentional, not_applicable) with the finding's id and class for each hostile-reviewer finding it answered, published as events; a pure compute folds them with the review pass signal into per-repo noise share, one-round pass share and rounds-to-pass, and names each finding class that appears on three distinct PRs inside seven days with one stable dedupe key."
+    acceptance:
+      - id: "AC69"
+        statement: "AC69: the fold counts wrong and not_applicable as noise, computes one-round pass share, five-or-more-round share and mean rounds to pass per repo, returns exactly one class-fix request for a class on three distinct PRs inside the window and none for two PRs, many findings on one PR or answers older than the window, and a worker result accepts finding_dispositions -- falsifier: uv run pytest tests/test_golden_chain_node_review_finding_disposition_compute.py -q fails at the merge base"
+  - id: "req-claude-account-token-pool"
+    statement: "Each host keeps a local secret-store entry per Claude account, resolves the first usable token in account order, marks a usage limit on that account and reports token-free pool status."
+    acceptance:
+      - id: "AC71"
+        statement: "AC71: the token-pool CLI and contract handler add accounts from stdin, rotate to the next account after a usage limit, resolve nothing and report ALARM when all accounts are limited, reuse an account after reset and keep token values out of status, metadata and refusal output -- falsifier: the focused token-pool unit or golden-chain test file fails"
+  - id: "req-claude-pool-revoked-token"
+    statement: "A Claude pool token whose OAuth login was revoked is marked revoked on its own label, resolve skips it while another token is usable, one alert names the revoked label, and only a pool with no usable token reports ALARM."
+    acceptance:
+      - id: "AC101"
+        statement: "AC101: in a pool holding one revoked and one good token, one mark-revoked of the revoked label makes resolve return the good token, the first mark carries one ALERT naming the label and a repeat mark carries none, a forced re-add clears the revocation, and a pool whose every token is limited or revoked resolves nothing and exits 4 with an ALARM status line -- falsifier: uv run pytest tests/nodes/node_claude_token_pool_effect/test_claude_token_pool.py -q -k 'revoked or revocation' fails at the merge base"
+  - id: "req-publisher-fixture-one-copy"
+    statement: "omnimarket resolves a golden chain's publisher through the one publisher contract fixture in omnibase_infra and holds no parser or index of its own."
+    acceptance:
+      - id: "AC70"
+        statement: "AC70: omnimarket's publisher fixture builds the omnibase_infra PublisherContractCorpus over omnimarket's contracts, every topic omnimarket's contract topic graph parser reads as published is resolved by it, a topic nothing publishes is still refused, and the omnimarket module imports no contract parser -- falsifier: uv run pytest tests/validators/test_publisher_fixture_one_copy_omn17427.py -q fails when the module carries its own index"
+  - id: "req-hostile-reviewer-delegation-route"
+    statement: "The hostile reviewer can send its model calls through the delegation node's review task class and its completed event carries the merged findings and a verdict."
+    acceptance:
+      - id: "AC71"
+        statement: "AC71: a start command with route delegation makes each model call a HandlerDelegateSkill call of task type review pinned to the route key, a delegation that does not complete fails that route, and the completed event carries the verdict and the merged findings (none and no verdict on a failed run) -- falsifier: uv run pytest tests/unit/nodes/node_hostile_reviewer_orchestrator/test_delegation_review_route.py tests/test_golden_chain_hostile_reviewer_orchestrator.py -q -p no:randomly"
+  - id: "req-cli-run-node-on-expected-missing-list"
+    statement: "A node that is run as a CLI and has no onex.nodes entry point is named on the dogfood inventory's expected-missing list, so the inventory check reports no unexplained directory."
+    acceptance:
+      - id: "AC72"
+        statement: "AC72: the market node runtime dogfood inventory classifies node_claude_token_pool_effect as an expected-missing entry point and reports no node directory without an onex.nodes entry point that is not on the list -- falsifier: uv run pytest tests/test_market_node_runtime_dogfood.py -q reports a node directory with no onex.nodes entry point that is not on the list"
+  - id: "req-patch-apply-dispatch"
+    statement: "The patch apply dispatch workflow lives in the portable node package, with typed bus ingress and host-configured registry, runner and ledger writer."
+    acceptance:
+      - id: "AC74"
+        statement: "AC74: the node dispatches unapplied patches, closes applied or expired patches, holds live claims and recent dispatches, and returns a typed terminal through its declared bus contract using host-configured adapters -- falsifier: uv run pytest tests/test_golden_chain_patch_apply_dispatch_effect.py -q fails when the node is absent"
+  - id: "req-gateway-pr-text-cross-repository"
+    statement: "The GitHub gateway's pr_text read reports the head repository and whether the head is cross-repository, so a caller that refuses fork heads reads it from the gateway and needs no gh CLI."
+    acceptance:
+      - id: "AC73"
+        statement: "AC73: the gateway pr_text result carries head_repo and is_cross_repository: True for a fork head and for a head repository that is gone, False for a same-repository head compared without regard to letter case."
+  - id: "req-repo-evidence-caller-verifier-floor"
+    statement: "The repo-evidence caller workflow refuses a verifier below the receipt gate's floor, and the commit-stage hook and the CI lint step that run that refusal stay wired."
+    acceptance:
+      - id: "AC74"
+        statement: "AC74: the call-repo-evidence-gate-verifier-floor pre-commit hook and its paired ci.yml lint step run the caller verifier-floor test, and the caller's verifier-version is at or above 0.4.303 -- falsifier: uv run pytest tests/ci/test_repo_evidence_caller_floor_wiring_omn17427.py tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -p no:randomly --no-cov fails when the hook or the lint step is removed or the caller's verifier-version is below 0.4.303"
+  - id: "req-ci-summary-external-default-deny"
+    statement: |-
+      CI Summary judges every head check-run that earlier layers do not account for with a success-only external sweep, known non-PR event exemptions and validated expiring exclusions.
+    acceptance:
+      - id: "AC74"
+        statement: |-
+          AC74: an unregistered pull_request-event failure reaches a non-zero main() verdict, success passes, running and replacement rows hold PENDING, unknown provenance is swept, known non-PR events are exempt, and malformed or expired exclusions cannot hide a red -- falsifier: the focused external sweep, exclusion and production poller tests fail at the merge base
+  - id: "req-landing-decision-ledger-mirror"
+    statement: "The landing controller's decisions reach the work ledger from the typed landing decision event, hosted by the ledger serve process."
+    acceptance:
+      - id: "AC75"
+        statement: "AC75: a landing decision event maps to one STATUS row per action, recorded outcome, DEGRADED reason and violation, an idle tick and a withheld observe-only action map to no row, a redelivered event appends once, and the ledger host subscribes to the landing decision completed topic -- falsifier: uv run pytest tests/unit/nodes/node_work_ledger_landing_mirror/test_landing_decision.py tests/unit/work_ledger_bus/test_landing_decision.py -q -p no:randomly"
+  - id: "req-dev-cause-lane-receiver"
+    statement: "A dev cause-lane request that node_pr_lifecycle_orchestrator publishes for a red landing-branch head reaches a node that starts one cause lane per dispatch key, so ruling 2026-10-14T03:57:46Z item 5 (a component alarm starts a fix lane) has a receiver."
+    acceptance:
+      - id: "AC76"
+        statement: "AC76: the receiver starts one lane for a request, answers duplicate for a redelivery and for a restart, keeps a failed start's key taken and says so, answers dry_run and takes no key while act is false, and fails at load when acting without its host environment -- falsifier: uv run pytest tests/nodes/node_dev_cause_lane_receiver_effect/test_dev_cause_lane_receiver_omn17427.py -q -p no:randomly --no-cov fails, or passes with a ledger that forgets (the negative control starts two lanes)"
+      - id: "AC77"
+        statement: "AC77: the red-CI chain gate refuses a receiver contract that no longer takes the dev cause-lane request topic as its command topic or routes it to a deleted handler module, and the required lint job and the dev-cause-lane-receiver pre-commit hook run the receiver suite -- falsifier: uv run pytest tests/ci/test_red_ci_bus_chain_omn20730.py -q -p no:randomly --no-cov -k 'receiver'"
+  - id: "req-lab-sli-alerts-board"
+    statement: "The lab's own operations have service-level indicators, each with a target, a window, its own severity and its action held as contract data; a collector reads them from existing sources, an alert node acts per severity deduplicated per indicator, and a board renders each indicator with its trend from the kept history."
+    acceptance:
+      - id: "AC105"
+        statement: "AC105: node_lab_sli_compute returns one verdict per row of its contract sli_table (ok, breach, unknown or not_applicable) with the row's own severity, an indicator with no reading is unknown and never ok, and a reading for an unknown or repeated indicator is rejected; node_lab_sli_alert_effect pushes the operator and requests a fix lane for SEV1, requests a fix lane for SEV2, batches SEV3 and dark indicators into one fix lane, never acts on SEV4, suppresses a still-firing indicator inside its severity's renotify window and records each delivery; node_lab_sli_collect_effect reads the PR watcher state, host probes and the scheduler and lists any unreadable source; node_lab_sli_board_compute keeps the per-indicator history and renders every indicator with its severity and trend -- falsifier: uv run pytest tests/nodes/node_lab_sli_compute/test_golden_chain_lab_sli.py tests/nodes/node_lab_sli_compute/test_error_chain_lab_sli.py tests/nodes/node_lab_sli_compute/test_golden_chain_lab_sli_collect.py -q fails at the merge base"
+      - id: "AC107"
+        statement: "AC107: with no lab_sli_pack overlay, or one whose status is disabled, each of node_lab_sli_collect_effect, node_lab_sli_compute, node_lab_sli_alert_effect and node_lab_sli_board_compute constructs and then refuses handle() with LabSliPackDisabledError before any probe or push; status enabled runs the node; any other status is refused as a broken overlay -- falsifier: uv run pytest tests/nodes/node_lab_sli_compute/test_lab_sli_pack_gate.py -q fails at the merge base"
+  - id: "req-review-lab-rubric-measured"
+    statement: "The review task class records the lab model's measured adequacy against the lab-first bar."
+    acceptance:
+      - id: "AC78"
+        statement: "AC78: the review class declares lab_rubric verdict fail with its 25 of 60 measurement for Qwen3.8-27B, the recorded verdict is the one that measurement earns against the policy bar, and the shipped contracts still pass the lab-first routing check -- falsifier: uv run pytest tests/unit/delegation/test_lab_first_routing_omn17427.py -q -p no:randomly --no-cov -k review_measurement fails while the class reads unmeasured"
+  - id: "req-rehome-leaf-nodes-s2"
+    statement: "The friction synthesis and host thermal observe nodes live in omnimarket with their contracts, handlers, models and tests."
+    acceptance:
+      - id: "AC92"
+        statement: "AC92: node_friction_synthesis_effect and node_host_thermal_observe_effect resolve from omnimarket, each contract names an omnimarket terminal event, and their handlers produce the accounting and thermal reading the nodes had before the move -- falsifier: uv run pytest tests/nodes/node_friction_synthesis_effect/test_friction_synthesis.py tests/nodes/node_friction_synthesis_effect/test_golden_chain_friction_synthesis_effect.py tests/nodes/node_host_thermal_observe_effect/test_host_thermal_observe.py tests/nodes/node_host_thermal_observe_effect/test_golden_chain_host_thermal_observe_effect.py -q -p no:randomly"
+  - id: "req-lab-fill-repeat-limit"
+    statement: "Lab-fill stops re-dispatching a ticket whose last repeat_limit lanes all ended blocked, partial or no-op: the cooldown no longer releases it, and only a change to the ticket or its pull requests does, for ordinary tickets and for DoD-verify lanes alike."
+    acceptance:
+      - id: "AC76"
+        statement: "AC76: a ticket two of whose consecutive lab-fill lanes ended blocked or partial stays held under unchanged-input with the repeated count in its caller reason long after the six-hour cooldown, is released by a ticket update read against the baseline, and is taken as a DoD-verify lane only after the ticket is updated; one unchanged lane is still retried after the cooldown and a done lane between two resets the count -- falsifier: uv run pytest tests/nodes/node_lab_fill_selection_compute/test_lab_fill_selection_compute.py tests/nodes/node_lab_fill_selection_compute/test_lab_fill_dod_verify_fallback.py -k 'repeat or unchanged' -q fails at the merge base"
+  - id: "req-summarization-word-limit"
+    statement: "A summarization answer longer than the word limit its prompt states is refused by the delegation quality gate."
+    acceptance:
+      - id: "AC79"
+        statement: "AC79: the summarization definition of done carries within_word_limit when the prompt states an at-most-N-words limit, an answer over that limit is refused, an answer at the limit and a prompt with no limit pass, and no other task class carries the check -- falsifier: uv run pytest tests/unit/delegation/test_omn17427_summarization_word_limit.py -q fails"
+  - id: "req-hostile-reviewer-overflow-deadline-pin"
+    statement: "The Hostile Reviewer clones omniintelligence at the revision whose overflow endpoint is bounded by the vote deadline, not by its chunk share, and skips an endpoint that already failed over in the same vote."
+    acceptance:
+      - id: "AC80"
+        statement: "AC80: the hostile-reviewer workflow clones omniintelligence at 921b322b8e43f695961a06a04759dc88bb3e88ff and at no other sha -- falsifier: uv run pytest tests/ci/test_hostile_reviewer_pin_overflow_deadline_omn17427.py -q fails at the merge base, which pins aeba95945f22b3027d4010b53cb01b3f1217923c"
+  - id: "req-rehome-automation-liveness-overlay-check"
+    statement: "The automation-liveness overlay completeness check lives in the portable node package; the private overlay data stays in the private repository and is passed in by path."
+    acceptance:
+      - id: "AC91"
+        statement: "AC91: the node scans installers, reports a finding for each unit, installer, missing source and contradicted lifecycle state the overlay does not cover, and its console script reads a private checkout's overlay by path -- falsifier: uv run pytest tests/nodes/node_automation_liveness_overlay_check_compute/test_automation_liveness_installer_scan_omn20804.py tests/nodes/node_automation_liveness_overlay_check_compute/test_automation_liveness_overlay_refuses_gaps_omn20804.py -q fails when the node is absent"
+  - id: "req-ci-summary-sweep-provenance-and-unreadable-runs"
+    statement: "CI Summary's external sweep reads a check-run's Actions run id from its check suite when its URLs carry none, and an unreadable or malformed workflow-runs file exempts nothing instead of crashing the gate."
+    acceptance:
+      - id: "AC81"
+        statement: "AC81: a check-run whose run id comes only from check_suite.workflow_run.id or check_suite.workflow_run_id is exempt when that run's event is a known non-pull-request event and swept otherwise, and an empty, invalid-JSON or non-list workflow-runs file still sweeps an unregistered red to a failing main() verdict -- falsifier: the focused check-suite provenance and unreadable-index tests fail against the dev gate"
+  - id: "req-rehome-lab-secret-store-and-worktree-audit"
+    statement: "The lab secret-store override and the legacy worktree audit run as omnimarket nodes with their behaviour, refusals and console scripts unchanged."
+    acceptance:
+      - id: "AC107"
+        statement: "AC107: the lab secret-store override reproduces its frozen legacy transform, refuses blank arguments and a non-list patches value without writing, and declares no event bus block; the legacy worktree audit classifies worktrees as before through the onex-legacy-worktree-audit console script -- falsifier: uv run pytest tests/nodes/node_lab_secret_store_override_effect/test_lab_secret_store_override_node.py tests/nodes/node_legacy_worktree_audit_effect/test_legacy_worktree_audit.py tests/nodes/node_legacy_worktree_audit_effect/test_legacy_worktree_audit_characterization.py -q"
+  - id: "req-rehome-lab-nodes-slice-3"
+    statement: "The hourly tick effect, the lab disk growth effect and the lab fill receipt table compute live in the portable node package with their handlers, contracts and bus topics."
+    acceptance:
+      - id: "AC94"
+        statement: "AC94: each of the three nodes resolves its onex.nodes entry point to the omnimarket package, runs its handler through the declared contract, and keeps the topics it declared in the source repository under the omnimarket namespace -- falsifier: uv run pytest tests/nodes/node_hourly_tick_effect/test_golden_chain_hourly_tick_effect.py tests/nodes/node_hourly_tick_effect/test_hourly_tick.py tests/nodes/node_lab_disk_growth_effect/test_golden_chain_lab_disk_growth_effect.py tests/nodes/node_lab_disk_growth_effect/test_lab_disk_growth_cli.py tests/nodes/node_lab_disk_growth_effect/test_lab_disk_growth_effect.py tests/nodes/node_lab_fill_receipt_table_compute/test_golden_chain_lab_fill_receipt_table_compute.py tests/nodes/node_lab_fill_receipt_table_compute/test_lab_fill_receipt_table.py -q fails when a node is absent"
+  - id: "req-ruling-guard-paths-spelled"
+    statement: "The park ladder handler and the operator capture handlers are spelled by path in a required lint step and a pre-commit hook, so the ruling audit reads the rulings they carry as wired."
+    acceptance:
+      - id: "AC82"
+        statement: "AC82: the lint step and the pre-commit hook of the landing decision park ladder name handler_pr_landing_decision.py, and the operator-capture-nodes step and hook run the two capture test directories and name handler_capture_process.py and handler_utterance_classify.py -- falsifier: uv run pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_causes.py -q -k park_ladder_wiring fails at the merge base"
+  - id: "req-hostile-reviewer-codex-fallback"
+    statement: "When a hostile-reviewer run's requested review routes produce no review output, the review runs on the Codex route the node contract declares, the completed event records which engine reviewed and which routes it replaced, and a run where no engine reviewed returns FAILED instead of a clean pass."
+    acceptance:
+      - id: "AC83"
+        statement: "AC83: node_hostile_reviewer_orchestrator falls back to the contract-declared codex route when no requested route produced review output, records fallback_engine and fallback_for on the completed event, treats a route that returns empty text or no findings array as failed, and returns FAILED when the fallback also produces nothing -- falsifier: uv run pytest tests/test_hostile_reviewer_codex_fallback.py -q fails at the merge base"
+  - id: "req-dead-occ-observers-deleted"
+    statement: "The two report-only OCC observer nodes that no workflow, bus producer or node calls are deleted from omnimarket, so their change-control repository slugs and clone paths leave the code."
+    acceptance:
+      - id: "AC76"
+        statement: "AC76: node_occ_attestation_observe and node_occ_observation_effect, their tests and their pyproject entry points are absent while node_occ_companion_effect stays -- falsifier: uv run pytest tests/unit/workflows/test_ci_off_change_control_omn20074.py -q -k observer fails at the merge base"
+  - id: "req-served-model-cache-reconciliation"
+    statement: "Both inference boundaries refresh a cached served-model mismatch before refusing a call after a provider replaces its model, and retain the refusal when the refresh is unreadable or still mismatches."
+    acceptance:
+      - id: "AC83"
+        statement: "AC83: a model replacement at the same endpoint completes without waiting for cache expiry, while an unreadable or mismatching refresh sends no completion request -- falsifier: the cached_model_list and cached_mismatch regression tests fail before the reconciliation change"
+  - id: "req-delegate-skill-trace-id-stored"
+    statement: "delegation_events.trace_id is written from the delegate-skill terminal's own trace_id by both projection writers, and a later terminal that carries none keeps the stored value."
+    acceptance:
+      - id: "AC93"
+        statement: "AC93: the sync and async delegate-skill row builders store the terminal's trace_id as text, leave the column NULL when the terminal carries none, and keep a stored trace_id across a later sparse terminal -- falsifier: uv run pytest tests/unit/delegation/test_delegate_skill_trace_id_omn19448.py -q fails at the merge base"
+  - id: "req-release-staleness-dev-merge-tags"
+    statement: "Release staleness counts commits reached by immutable dev merge tags as published while preserving the age limit for untagged packaged commits."
+    acceptance:
+      - id: "AC95"
+        statement: "AC95: a dev merge tag covers packaged commits after the last version release and supplies a measurable base when no version release exists."
+      - id: "AC96"
+        statement: "AC96: an untagged packaged commit after a dev merge tag still ages against the 24-hour limit, and malformed dev tag names do not cover stale debt."
+      - id: "AC97"
+        statement: "AC97: changing the dev tag matcher to ignore valid dev merge tags makes the workflow's devtag positive control refuse the measurement."
+  - id: "req-brief-drafting-class"
+    statement: "Lane brief drafting is a task class on the lab Qwen rung alone, accepted only by the brief checker, with the shell parts of a brief filled by code and a refusal in a shell part regenerated by code instead of sent back to the model."
+    acceptance:
+      - id: "AC105"
+        statement: "AC105: task_class_contracts.v1.yaml declares brief_drafting as an internal class that no prompt selects, with tier_order local alone and max_escalations 0, resolving the Qwen model on the local tier and none on any other tier, and declares the brief checker as its external acceptance with title, premises and task as the only free-text slots -- falsifier: uv run pytest tests/unit/delegation/test_brief_drafting_class_omn17427.py -q fails at the merge base"
+      - id: "AC106"
+        statement: "AC106: node_lane_brief_draft_compute assembles a brief with every shell part pasted byte for byte and refuses a draft that wrote a shell part or an identifier its fact table lacks, and its gate accepts only checker exit 0, regenerates a refused shell part once in code, redrafts a free-text refusal while attempts remain and otherwise hands the brief to Claude -- falsifier: uv run pytest tests/nodes/node_lane_brief_draft_compute -q fails at the merge base"
+  - id: "req-context-pack-model-roles-declared"
+    statement: "The context-pack model roles that omnibase-core 0.47.48 admits on the delegation wire are declared task classes, so the shipped lane_brief, lane_brief_section, session_start and per_prompt profiles resolve with the packaged routing contract and no test fixture."
+    acceptance:
+      - id: "AC107"
+        statement: "AC107: with omnibase-core locked at 0.47.48, task_class_contracts.v1.yaml declares extraction_proposer, tail_summary and context_selection as internal classes that no prompt selects, with tier_order local alone and max_escalations 0, the contract equals the core wire task_type Literal, and the shipped profiles whose roles are all declared resolve with TASK_CLASS_CONTRACT_PATH unset -- falsifier: uv run pytest tests/nodes/node_context_profile_resolver_effect/test_model_role_routing.py tests/test_omn17940_refusal_over_every_task_class.py -q fails at the merge base"
+  - id: "req-anthropic-protocol-variant-registration"
+    statement: "An explicitly selected protocol variant does not trigger billing-plan detection during ordinary Anthropic credential registration."
+    acceptance:
+      - id: "AC98"
+        statement: "AC98: models add anthropic validates the key through the provider model list, refuses an invalid key without storing it, and stores the discovered model when no plan is named."
+      - id: "AC99"
+        statement: "AC99: register-tenant-key anthropic preserves the discovered model and expiry through its catalog event when no plan is named."
+      - id: "AC100"
+        statement: "AC100: api_native can still be named explicitly, automatic Anthropic plan detection makes no provider request, and GLM detection still refuses a Coding Plan-only key."
+  - id: "req-rehome-runtime-deploy-effect"
+    statement: "The runtime deploy effect node lives in the portable node package with its contract, handlers and focused tests, so the internal copy can be repointed and deleted after a release."
+    acceptance:
+      - id: "AC77"
+        statement: "AC77: node_runtime_deploy_effect is a registered onex.nodes entry point of omnimarket, and its command reaches its terminal over the in-memory bus with the driver's streams and exit code -- falsifier: uv run pytest tests/nodes/node_runtime_deploy_effect/test_runtime_deploy_effect.py tests/nodes/node_runtime_deploy_effect/test_golden_chain_runtime_deploy_effect.py -q finds a failing test, or the entry point is absent from pyproject.toml"
+  - id: "req-metering-shared-lane-refresh"
+    statement: "On a shared lane every tenant with delegation_events gets metering_summary rows: a delegation terminal and a contract-declared runtime-tick schedule publish a refresh command naming tenants and days, and the metering projection reads each tenant's runs under its own row-level-security context and folds them, because a fold request carrying a large tenant's runs exceeds the bus's 1 MiB message limit."
+    acceptance:
+      - id: "AC92"
+        statement: "AC92: node_metering_summary_refresh_compute turns a delegation terminal into a refresh of its tenant's UTC day and turns one runtime tick per interval into a whole refresh of every tenant, on the command node_projection_metering_summary subscribes, and that node folds every tenant with runs into day and all-time rows and refolds only the named day once the all-time row exists -- falsifier: uv run pytest tests/nodes/node_metering_summary_refresh_compute/test_metering_summary_refresh_producer.py tests/nodes/node_metering_summary_refresh_compute/test_golden_chain_metering_summary_refresh.py tests/nodes/node_projection_metering_summary/test_omn17427_store_refresh.py -q fails at the merge base"
+  - id: "req-dev-push-reuse-queue-off"
+    statement: "A dev push is admitted by the queue tree pass whenever a merge_queue rule is active on dev, and while none is active the verdict passes with a warning instead of failing every dev push."
+    acceptance:
+      - id: "AC101"
+        statement: "AC101: with no merge_queue rule active on dev and no tree pass, the Dev Push Full Suite Reuse step exits 0 with a warning; with the rule active it still exits 1 without a verified queue pass, and an unreadable rules endpoint exits 1."
+      - id: "AC102"
+        statement: "AC102: the verdict's rules filter counts merge_queue rules from the branch-rules API shape."
+  - id: "req-shard-record-names-the-tree"
+    statement: "The committed shard duration record names at least 95% of the discovered test files again, so the shard plan test and its pre-commit hook pass on dev."
+    acceptance:
+      - id: "AC103"
+        statement: "AC103: config/test_file_durations.json records every collected non-kafka test file that dev 9978f18ad left unrecorded, and test_committed_record_names_nearly_every_test_file passes -- falsifier: the test fails at 9978f18ad with 161 of 3189 files (5.0%) unrecorded"
+  - id: "req-occ-autobind-clone-timeout-retry"
+    statement: "The occ-autobind producer's shallow clone of onex_change_control is attempted a second time after a git timeout, with the partial clone removed first, inside the node's declared descriptor timeout; any other clone failure is not retried."
+    acceptance:
+      - id: "AC104"
+        statement: "AC104: OccCompanionEmitter._clone_and_branch retries a clone that raised TimeoutExpired once after removing the partial clone directory, raises the final TimeoutExpired after 2 attempts, raises a CalledProcessError after 1 attempt, and 2 attempts at the per-op git timeout stay under the node's contract descriptor timeout_ms -- falsifier: uv run pytest tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_clone_timeout_retry_omn_15447.py -q fails at the merge base"
+  - id: "req-step-by-step-causal-connectives"
+    statement: "The step_by_step_explanation check accepts a correct causal explanation walked through with a connective outside the six OMN-19401 shipped, matched only at the start of a word, and still vetoes an answer that asserts without explaining."
+    acceptance:
+      - id: "AC105"
+        statement: "AC105: the thirteen correct causal answers in tests/unit/delegation/test_step_by_step_causal_fixture_omn17427.py, one of them the verbatim Qwen3.8-27B answer from lab delegation run 16de1829-24b4-4563-919f-2a19d28b2d88, pass step_by_step_explanation, and the six non-explanations, including \"enthusiasm\" and \", sometimes\" which hold a connective's letters inside a word, are still vetoed -- falsifier: uv run pytest tests/unit/delegation/test_step_by_step_causal_fixture_omn17427.py -q fails at the merge base"
+  - id: "req-closer-gateway-loop-and-box-ticks"
+    statement: "The gateway read client answers from under a running event loop, and the closer's decide_ticket names the description with exactly the acceptance boxes dod_verify verified ticked, holding open a ticket whose box no verified check covers."
+    acceptance:
+      - id: "AC111"
+        statement: "AC111: read_over_bus called from inside a running event loop returns the gateway's typed result instead of raising that asyncio.run cannot be called from a running event loop."
+      - id: "AC112"
+        statement: "AC112: decide_ticket given a description ticks only the boxes whose criterion has a verified accepted check, renders the evidence comment, and stays open with nothing ticked when any unchecked box names no criterion or has no verified check."
+  - id: "req-private-hosted-minutes-watch"
+    statement: "Once a day, one read of the organization's billing usage for the month sums GitHub-hosted Actions minutes per repository and per UTC day, appends one ledger STATUS row for the day, and raises one alert through the alert channel when any repository used any billed hosted minute that day."
+    acceptance:
+      - id: "AC107"
+        statement: "AC107: from fixture billing JSON, node_private_hosted_minutes_watch_effect counts only Actions minutes with a positive gross amount on a GitHub-hosted sku, per repository and per UTC day, and carries workflow names when the usage items name them -- falsifier: uv run pytest tests/unit/nodes/node_private_hosted_minutes_watch_effect/test_hosted_minutes_tally.py -q fails on a free public item, a self-hosted item or a non-Actions item that is counted"
+      - id: "AC108"
+        statement: "AC108: one watch run makes one billing read, sends the alert before it appends the STATUS row that records the alert outcome, never sends or appends twice for one day, appends a STATUS row on a quiet day, refuses before the billing read when ONEX_LEDGER_PATH is unset, and exits nonzero when the alert channel is dead or unconfigured -- falsifier: uv run pytest tests/unit/nodes/node_private_hosted_minutes_watch_effect/test_handler_private_hosted_minutes_watch.py tests/unit/nodes/node_private_hosted_minutes_watch_effect/test_main.py -q fails on a second send, a second append or a healthy exit with a dead alert"
+  - id: "req-sibling-dev-tag-provenance"
+    statement: "A registered internal sibling can use its own dev merge tag without a suppression, and foreign sources, branches, raw revisions and malformed tags do not qualify."
+    acceptance:
+      - id: "AC109"
+        statement: "AC109: the dependency provenance tests accept canonical sibling dev tags without annotations and refuse foreign git sources, branches, bare revisions, malformed tags and conflicting selectors."
+  - id: "req-mint-acceptance-evidence"
+    statement: "The existing retry/park implementation has reproducible handler/git-boundary and behavioral baseline controls plus a dated deployed sanitizer capture."
+    acceptance:
+      - id: "AC110"
+        statement: "AC110: the real handler git timeout parks after the declared attempt budget, the identical assertion is behaviorally red with the pre-policy handle method, and the dated deployed sanitizer capture preserves the typed reason and redacts the raw control -- falsifier: uv run pytest tests/unit/nodes/node_occ_companion_effect/test_mint_acceptance_evidence_omn15447.py -q --no-cov fails. No real bus-to-DLQ readback or accepted Done receipt is claimed."
+  - id: "req-landing-stall-liveness"
+    statement: "A stall the landing controller holds (a red cause, a red base branch, an open plugin version bump) is a typed transition that the automation-liveness watchdog judges against a bus-event overlay deadline, so a hold past its bound opens one episode, raises one alarm carrying the cause, the repository, the minutes and the last decision text, and clears when it moves."
+    acceptance:
+      - id: "AC141"
+        statement: "AC141: replaying the 2026-10-19 held cause through node_landing_stall_expectation_compute, the watchdog compute and the delivery effect opens one TRIGGER_UNANSWERED episode past 60 minutes, sends one alarm naming the cause key, the repository, the minutes and the last decision text, and clears it after the merge; the fold opens at the first hold, answers on a move, and moves a version bump only on merge or release -- falsifier: uv run pytest tests/nodes/node_landing_stall_expectation_compute -q fails"
+  - id: "req-compaction-adapter-invocation-and-verdict"
+    statement: "The Claude Code hook adapter mints a fresh invocation_id for every invocation and carries it on the command through the @invocation_id argument source, and the context_compaction_verdict compute installs a compaction reply only when the echoed invocation_id is the adapter's own and its messages hash to the echoed installed_messages_hash; any other reply is native."
+    acceptance:
+      - id: "AC140"
+        statement: "AC140: two adapter invocations carry two different uuid4 invocation_ids on their commands and results, the payload holds no field not drawn from the hook input besides that id, a matching compaction reply installs its messages, and a reply for another invocation, a tampered message, a malformed reply, a native reply or no reply returns native -- falsifier: uv run pytest tests/nodes/node_claude_code_hook_adapter_effect/test_compaction_verdict.py -q fails at the merge base, where the module handler_compaction_verdict does not exist"
+  - id: "req-compaction-pack-build-over-pack-orchestrator"
+    statement: "The compaction orchestrator's package build has a live port over the context-pack orchestrator: it requests the compaction_orchestrator profile at the command's session barrier for the envelope tenant, installs the built package with the pack's identities, and falls back pack_build_failed on any failed or incomplete build."
+    acceptance:
+      - id: "AC113"
+        statement: "AC113: HandlerCompactionPackBuild over HandlerContextPackOrchestrator with fixture sources installs a package whose prepared receipt carries the pack's candidate_id and assembly_hash, two invocations on the same inputs share candidate_id and assembly_hash with different activation_ids, every source is read at the barrier revision for the access tenant, and a missing required tier, a failed build or an OK build missing an identity or messages replies native with pack_build_failed -- falsifier: uv run pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build.py -q fails at the merge base, where the module does not exist"
 evidence_requirements:
+  - kind: "tests"
+    description: "AC72: the market node runtime dogfood inventory test passes with the CLI-run token pool node on the expected-missing list."
+    command: "uv run pytest tests/test_market_node_runtime_dogfood.py::test_market_node_runtime_dogfood_inventory_classifies_all_entry_points -q"
+  - kind: "tests"
+    description: "AC71: token-pool unit and contract-handler golden-chain tests use temporary stores and fake tokens."
+    command: "uv run pytest tests/nodes/node_claude_token_pool_effect/test_claude_token_pool.py tests/nodes/node_claude_token_pool_effect/test_golden_chain_claude_token_pool_effect.py -q"
   - kind: "tests"
     description: "AC64: the core pin compatibility tests cover both dependency floors and the recorded incident's positive and negative controls."
     command: "uv run pytest tests/ci/test_core_pin_compat_omn17427.py -q"
@@ -454,16 +753,209 @@ evidence_requirements:
     description: "AC57: the default repository lists name no change-control repository and a change-control checkout binds as a product repository."
     command: "uv run pytest tests/test_omn17427_default_repo_lists_off_change_control.py tests/test_omn20696_dod_verdict_contract_subject.py -q"
   - kind: "tests"
+    description: "AC72 to AC74: only an introduced, evidenced, non-style Important finding blocks, and past round three only the new diff is re-reviewed without repeating a posted finding."
+    command: "uv run pytest tests/unit/nodes/node_review_finding_veto_effect tests/ci/test_hostile_reviewer_finding_policy_omn17427.py -q"
+  - kind: "tests"
     description: "AC62: the hook push rehearsal caller runs on pull requests and merge-queue entries at a full-SHA pin and its path-regex selects the hook paths."
     command: "uv run pytest tests/ci/test_omn17427_hook_push_rehearsal_caller.py -q -p no:randomly"
   - kind: "tests"
     description: "AC63: the session-start capability digest node prints inside a registry root, stays silent outside, names a stale digest with its fix and exits 0 on every input."
     command: "uv run pytest tests/test_session_capability_digest.py -q -p no:randomly"
+  - kind: "tests"
+    description: "AC67: the local GitHub PR reads answers the triage PR reads from the watcher state and clones, and the handler runs on it without a GitHub token."
+    command: "uv run pytest tests/nodes/node_linear_triage/test_local_github_pr_reads.py -q"
+  - kind: "tests"
+    description: "AC68: the lab-first routing check passes the shipped contracts and refuses each cloud-first mutation."
+    command: "uv run pytest tests/unit/delegation/test_lab_first_routing_omn17427.py -q"
+  - kind: "tests"
+    description: "AC70: omnimarket's publisher fixture is the omnibase_infra corpus over omnimarket's contracts and agrees with the contract topic graph parser."
+    command: "uv run pytest tests/validators/test_publisher_fixture_one_copy_omn17427.py -q"
+  - kind: "tests"
+    description: "AC71: the delegation review route and the completed event's verdict and findings."
+    command: "uv run pytest tests/unit/nodes/node_hostile_reviewer_orchestrator/test_delegation_review_route.py tests/test_golden_chain_hostile_reviewer_orchestrator.py -q -p no:randomly"
+  - kind: "tests"
+    description: "AC73: the gateway pr_text read reports head_repo and is_cross_repository for same-repository, fork and gone-repository heads."
+    command: "uv run pytest tests/nodes/node_github_repo_gateway_effect/test_github_repo_gateway_scm_reads.py -q -k pr_text"
+  - kind: "tests"
+    description: "AC74: the caller verifier-floor hook and lint step are wired, and the caller's verifier-version is at or above 0.4.303."
+    command: "uv run pytest tests/ci/test_repo_evidence_caller_floor_wiring_omn17427.py tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -p no:randomly --no-cov"
+  - kind: "tests"
+    description: "AC74: default-deny external sweep, bounded exclusions and the production poller refuse unregistered reds with passing controls."
+    command: >-
+      uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -p no:cacheprovider -k "TestExternalDefaultDenySweep or TestExternalSweepExclusions or TestSweepIsWiredIntoProductionPoller"
+  - kind: "tests"
+    description: "AC75: the landing decision mapping writes one row per action, outcome, degraded reason and violation, none for an idle tick, and the host appends a redelivered event once."
+    command: "uv run pytest tests/unit/nodes/node_work_ledger_landing_mirror/test_landing_decision.py tests/unit/work_ledger_bus/test_landing_decision.py -q -p no:randomly"
+  - kind: "tests"
+    description: "AC76 and AC77: the dev cause-lane receiver's suite and the chain gate's receiver leg."
+    command: "uv run pytest tests/nodes/node_dev_cause_lane_receiver_effect/test_dev_cause_lane_receiver_omn17427.py tests/ci/test_red_ci_bus_chain_omn20730.py -q -p no:randomly --no-cov"
+  - kind: "tests"
+    description: "AC78: the review class records its measured lab verdict, earned against the policy bar, and the shipped contracts still pass the lab-first check."
+    command: "uv run pytest tests/unit/delegation/test_lab_first_routing_omn17427.py -q -p no:randomly --no-cov"
+  - kind: "tests"
+    description: "AC79: the summarization gate refuses an answer over a stated word limit and waives the rule for a prompt with no limit."
+    command: "uv run pytest tests/unit/delegation/test_omn17427_summarization_word_limit.py tests/test_omn19320_check_register.py -q"
+  - kind: "tests"
+    description: "AC92: the friction synthesis and host thermal observe node tests pass in omnimarket."
+    command: "uv run pytest tests/nodes/node_friction_synthesis_effect/test_friction_synthesis.py tests/nodes/node_friction_synthesis_effect/test_golden_chain_friction_synthesis_effect.py tests/nodes/node_host_thermal_observe_effect/test_host_thermal_observe.py tests/nodes/node_host_thermal_observe_effect/test_golden_chain_host_thermal_observe_effect.py -q -p no:randomly"
+  - kind: "tests"
+    description: "AC81: check-suite run provenance and unreadable workflow-runs files in the external sweep."
+    command: >-
+      uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -p no:cacheprovider -k "test_check_suite_run_id_establishes_provenance or test_unreadable_index_still_sweeps"
+  - kind: "tests"
+    description: "AC107: the lab secret-store override and legacy worktree audit nodes pass their frozen-behaviour and contract tests."
+    command: "uv run pytest tests/nodes/node_lab_secret_store_override_effect/test_lab_secret_store_override_node.py tests/nodes/node_legacy_worktree_audit_effect/test_legacy_worktree_audit.py tests/nodes/node_legacy_worktree_audit_effect/test_legacy_worktree_audit_characterization.py -q -p no:randomly --no-cov"
+  - kind: "tests"
+    description: "AC82: the park ladder wiring names its handler and the operator capture nodes pass their tests."
+    command: "uv run pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_causes.py tests/unit/nodes/node_operator_capture_effect tests/unit/nodes/node_operator_capture_compute -q -n 0 -p no:randomly"
+  - kind: "tests"
+    description: "AC77: the runtime deploy effect node tests pass in omnimarket."
+    command: "uv run pytest tests/nodes/node_runtime_deploy_effect/test_runtime_deploy_effect.py tests/nodes/node_runtime_deploy_effect/test_golden_chain_runtime_deploy_effect.py -q"
+  - kind: "tests"
+    description: "AC105: the lab SLI golden and error chains pass: one verdict per table row with its own severity, dark sources unknown, severity-driven actions with per-indicator dedup, collector readings, and the board with history and trend."
+    command: "uv run pytest tests/nodes/node_lab_sli_compute/test_golden_chain_lab_sli.py tests/nodes/node_lab_sli_compute/test_error_chain_lab_sli.py tests/nodes/node_lab_sli_compute/test_golden_chain_lab_sli_collect.py -q"
+  - kind: "tests"
+    description: "AC107: the lab SLI pack constructs but refuses handle before any probe or push unless a deployment explicitly enables its overlay, and rejects a broken status."
+    command: "uv run pytest tests/nodes/node_lab_sli_compute/test_lab_sli_pack_gate.py -q"
+  - kind: "tests"
+    description: "AC104: the occ-autobind producer retries a timed-out OCC clone once and no other clone failure."
+    command: "uv run pytest tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_clone_timeout_retry_omn_15447.py -q"
+  - kind: "tests"
+    description: "AC105: correct causal answers pass step_by_step_explanation and non-explanations are still vetoed."
+    command: "uv run pytest tests/unit/delegation/test_step_by_step_causal_fixture_omn17427.py -q"
+  - kind: "tests"
+    description: "AC140: the adapter mints an invocation_id per invocation and the compaction verdict installs only a matching, hash-verified reply for that invocation."
+    command: "uv run pytest tests/nodes/node_claude_code_hook_adapter_effect/test_compaction_verdict.py -q"
 emergency_bypass:
   enabled: false
   justification: ""
   follow_up_ticket_id: ""
 dod_evidence:
+  - id: "dod-omn17427-dogfood-inventory-lists-token-pool"
+    description: "The market node runtime dogfood inventory test passes with node_claude_token_pool_effect on the expected-missing entry point list. The list is in the test file, which this pull request changes, so the merge base with the test side laid over it passes the same test. The check names the one inventory test rather than the whole file, which takes longer than the per-check budget."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/test_market_node_runtime_dogfood.py::test_market_node_runtime_dogfood_inventory_classifies_all_entry_points -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC72"]
+  - id: "dod-omn17427-claude-token-pool-unit"
+    description: "Account rotation, reset, all-limited alarm, secret-free metadata and CLI refusal paths run against a temporary local secret store. The test file and node are absent at the merge base."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_claude_token_pool_effect/test_claude_token_pool.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC71"]
+  - id: "dod-omn17427-claude-token-pool-golden-chain"
+    description: "The CLI walks add, resolve, mark-limited, all-limited and reset through the contract-declared handler with fake tokens. The test file and node are absent at the merge base."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_claude_token_pool_effect/test_golden_chain_claude_token_pool_effect.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC71"]
+  - id: "dod-omn17427-claude-token-pool-deploy-probe"
+    description: "Deploy probe. The hosted runner reads the subject commit's token-pool contract, handler and CLI using git and Python's standard library. The merge base has no node. This checks the artifact and does not attest a live deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import ast
+          import subprocess
+
+          root = "src/omnimarket/nodes/node_claude_token_pool_effect/"
+          def committed(path):
+              return subprocess.check_output(["git", "show", "HEAD:" + root + path], text=True)
+
+          contract = committed("contract.yaml")
+          assert "class: HandlerClaudeTokenPool" in contract
+          assert "input_model: omnimarket.nodes.node_claude_token_pool_effect.models.model_claude_token_pool.ModelClaudeTokenPoolRequest" in contract
+          handler = ast.parse(committed("handlers/handler_claude_token_pool.py"))
+          pool = next(node for node in handler.body if isinstance(node, ast.ClassDef) and node.name == "HandlerClaudeTokenPool")
+          assert {"handle", "_add", "_resolve", "_mark"} <= {node.name for node in pool.body if isinstance(node, ast.FunctionDef)}
+          cli = ast.parse(committed("__main__.py"))
+          assert {"main", "_pasted"} <= {node.name for node in cli.body if isinstance(node, ast.FunctionDef)}
+          print("Claude token pool artifact probe: PASS")
+          PY
+  - id: "dod-omn17427-claude-pool-revoked-unit"
+    description: "A revoked token is skipped, the good token resolves after one mark, the alert is raised once, a forced re-add clears it, and a pool with no usable token raises the ALARM, against a temporary local secret store. The revoked tests fail at the merge base."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_claude_token_pool_effect/test_claude_token_pool.py -q -k 'revoked or revocation'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC101"]
+  - id: "dod-omn17427-claude-pool-revoked-deploy-probe"
+    description: "Deploy probe. The hosted runner reads the subject commit's token-pool handler and CLI using git and Python's standard library and checks the mark_revoked operation and the mark-revoked verb. The merge base has neither. This checks the artifact and does not attest a live deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import ast
+          import subprocess
+
+          root = "src/omnimarket/nodes/node_claude_token_pool_effect/"
+          def committed(path):
+              return subprocess.check_output(["git", "show", "HEAD:" + root + path], text=True)
+
+          handler = ast.parse(committed("handlers/handler_claude_token_pool.py"))
+          pool = next(node for node in handler.body if isinstance(node, ast.ClassDef) and node.name == "HandlerClaudeTokenPool")
+          assert "_revoke" in {node.name for node in pool.body if isinstance(node, ast.FunctionDef)}
+          assert '"mark_revoked"' in committed("models/model_claude_token_pool.py")
+          assert '"mark-revoked"' in committed("__main__.py")
+          print("Claude token pool revoked-token artifact probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac74-patch-apply-dispatch"
+    description: "The portable patch dispatch behavior and host adapter boundaries pass the focused suite."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/test_golden_chain_patch_apply_dispatch_effect.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC74"]
+  - id: "dod-omn17427-patch-apply-dispatch-deploy-probe"
+    description: "Deploy probe. The checked-out package runs its host ingress through the declared event bus with fixture runner and ledger adapters and returns a typed terminal. It fails when the node is absent and requires no network service or credentials."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/test_golden_chain_patch_apply_dispatch_effect.py -q -k test_bus_tick_dispatches_with_configured_host_adapters --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac65-ci-red-watcher-facts-only"
+    description: "The default runtime handler and compatibility reader retain watcher facts and withhold incomplete observations without raw GitHub subprocesses."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_pr_lifecycle_orchestrator/test_ci_red_event_facts.py -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC65"]
+  - id: "dod-omn17427-ci-red-watcher-facts-deploy-probe"
+    description: "Deploy probe. The hosted runner checks the subject commit has no process or network imports in the CI-red handler and carries the facts-unavailable decision marker; the prior commit contains subprocess imports. This does not attest a live deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import ast
+          import subprocess
+
+          path = "src/omnimarket/nodes/node_pr_lifecycle_orchestrator/handlers/handler_ci_red_triage.py"
+          source = subprocess.check_output(["git", "show", "HEAD:" + path], text=True)
+          tree = ast.parse(source)
+          forbidden = {"subprocess", "os", "httpx", "requests", "urllib", "socket"}
+          imports = set()
+          for node in ast.walk(tree):
+              if isinstance(node, ast.Import):
+                  imports.update(alias.name.split(".")[0] for alias in node.names)
+              elif isinstance(node, ast.ImportFrom):
+                  imports.add((node.module or "").split(".")[0])
+          assert not (imports & forbidden), imports & forbidden
+          assert "start=withheld:facts-unavailable" in source
+          print("CI-red watcher facts artifact probe: PASS")
+          PY
   - id: "dod-omn17427-ac64-core-pin-compatibility"
     description: "The five core pin compatibility tests exercise the recorded incident, compatible floors, the pin list and both current dependency floors. This PR adds coverage; its test module and recorded fixtures are absent at the merge base."
     source: "manual"
@@ -496,7 +988,7 @@ dod_evidence:
               "test_override_floor_fits_the_newest_infra_pin",
           } <= names
           pins = next(node for node in tree.body if isinstance(node, ast.AnnAssign) and getattr(node.target, "id", "") == "INFRA_CORE_PINS")
-          assert ast.literal_eval(pins.value) == (("44542e2a0", "0.47.44"), ("291f2f747", "0.47.46"))
+          assert ast.literal_eval(pins.value) == (("44542e2a0", "0.47.44"), ("291f2f747", "0.47.46"), ("d20586c7d", "0.47.48"))
           root = "tests/ci/fixtures/pin_compat/"
           requirement = tomllib.loads(committed(root + "omnimarket_v0.4.316_core_requirement.toml"))
           infra = tomllib.loads(committed(root + "omnibase_infra_44542e2a0_core_pin.toml"))
@@ -1096,6 +1588,37 @@ dod_evidence:
       - check_type: "command"
         check_value: >-
           gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_lab_fill_plan_compute/handlers/handler_lab_fill_dispatch_plan.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("DOD_VERIFY", "dod_verify_item", "origin_kind")); print("lab-fill dod-verify deploy probe: PASS")'
+  - id: "dod-omn17427-ac72-review-finding-evidence"
+    description: "A blocking finding on a line the pull request left unchanged is dropped as Pre-existing, one with no file inside the diff or a line past the end of the file is refused, and the recorded real defect on a changed line keeps blocking."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_policy.py -q -k 'pre_existing or refused or changed or past_the_end'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC72"]
+  - id: "dod-omn17427-ac73-review-finding-nits-never-block"
+    description: "Style and cleanup findings are dropped as Nits; a defect category, a defect-naming title and a standing-rule finding keep blocking."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_policy.py -q -k 'style_and_cleanup or real_defect or standing_rule'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC73"]
+  - id: "dod-omn17427-ac74-review-rounds-re-review-new-diff"
+    description: "Past round three a posted finding is not repeated and only the diff since the previous round is re-reviewed; rounds one to three and a rerun of one head repeat nothing, and only the Actions bot can set the round."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_policy.py tests/ci/test_hostile_reviewer_finding_policy_omn17427.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC74"]
+  - id: "dod-omn17427-review-finding-policy-deploy-probe"
+    description: "Deploy probe. GitHub serves the finding policy handler at the checked-out HEAD with its diff-based classes. It fails at the merge base, which has no such handler, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_review_finding_veto_effect/handlers/handler_review_finding_policy.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("HandlerReviewFindingPolicy", "PRE_EXISTING", "NO_EVIDENCE", "ROUND_LIMIT")); print("review finding policy deploy probe: PASS")'
   - id: "dod-omn17427-ac62-hook-push-rehearsal-caller"
     description: "The hook push rehearsal caller runs on pull requests and merge-queue entries at a full-SHA pin, and its path-regex selects the hook paths and no source path."
     source: "manual"
@@ -1111,6 +1634,29 @@ dod_evidence:
       - check_type: "command"
         check_value: >-
           gh api "repos/OmniNode-ai/omnimarket/contents/.github/workflows/hook-push-rehearsal.yml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import re, sys, yaml; job = yaml.safe_load(sys.stdin.read())["jobs"]["hook-push-rehearsal"]; path, _, ref = job["uses"].partition("@"); assert path == "OmniNode-ai/omnibase_core/.github/workflows/hook-push-rehearsal.yml"; assert re.fullmatch("[0-9a-f]{40}", ref); assert re.search(job["with"]["path-regex"], ".pre-commit-config.yaml"); print("hook push rehearsal caller deploy probe: PASS")'
+  - id: "dod-omn17427-ac70-review-finding-parse-veto"
+    description: "A blocking 'invalid Python' finding on the omnimarket#4063 test file, which parses at its blocked head, is dropped with a reason and the verdict becomes passed; a Python, YAML or JSON file that does not parse keeps its finding."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_veto.py -q -k 'pr4063 or yaml_and_json or does_not_parse'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC70"]
+  - id: "dod-omn17427-ac71-veto-keeps-other-findings"
+    description: "Other finding classes, warnings, claims about another file, run-time parse claims and unreadable files are untouched, and the workflow runs the veto from the base commit before the verdict."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_review_finding_veto_effect/test_review_finding_veto.py tests/ci/test_hostile_reviewer_parse_veto_omn17427.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC71"]
+  - id: "dod-omn17427-review-finding-veto-deploy-probe"
+    description: "Deploy probe. GitHub serves the veto handler at the checked-out HEAD with its parse checks. It fails at the merge base, which has no such node, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_review_finding_veto_effect/handlers/handler_review_finding_veto.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("HandlerReviewFindingVeto", "ast.parse", "yaml.safe_load_all", "json.loads")); print("review finding veto deploy probe: PASS")'
   - id: "dod-omn17427-ac63-session-capability-digest"
     description: "node_session_capability_digest_effect prints the cached digest inside a registry root, nothing outside, a STALE line with its fix when the digest is missing or old, and exits 0 on every input."
     source: "manual"
@@ -1126,3 +1672,843 @@ dod_evidence:
       - check_type: "command"
         check_value: >-
           gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_session_capability_digest_effect/handlers/handler_session_capability_digest.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("STALE_AFTER_MINUTES = 45", "CAPABILITY DIGEST STALE")); print("session capability digest deploy probe: PASS")'
+  - id: "dod-omn17427-ac66-repository-prose-removed"
+    description: "The removed prose files are absent and the root README links the public knowledge base. It fails at the merge base, where the files exist and the README is long."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repository_prose_removed_omn17427.py -q -p no:randomly"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC66"]
+  - id: "dod-omn17427-ac76-docs-assets-evidence-removed"
+    description: "The unreferenced docs files are absent and the read ones stay. It fails at the merge base, where the thirty-three files exist."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_docs_assets_evidence_removed_omn17427.py -q -p no:randomly"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC76"]
+  - id: "dod-omn17427-docs-assets-evidence-deploy-probe"
+    description: "Deploy probe. The hosted runner checks the removed and retained docs paths at this head using Python and this checkout."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import ast
+          from pathlib import Path
+          root = Path.cwd()
+          tree = ast.parse((root / "tests/ci/test_docs_assets_evidence_removed_omn17427.py").read_text())
+          paths = {node.targets[0].id: ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name) and node.targets[0].id in {"REMOVED_DOCS_FILES", "KEPT_BECAUSE_READ"}}
+          assert len(paths["REMOVED_DOCS_FILES"]) == 33
+          assert all(not (root / path).exists() for path in paths["REMOVED_DOCS_FILES"])
+          assert len(paths["KEPT_BECAUSE_READ"]) == 3
+          assert all((root / path).is_file() for path in paths["KEPT_BECAUSE_READ"])
+          assert not [path for path in (root / "docs").rglob("*") if path.is_dir() and not any(path.iterdir())]
+          print("docs assets and evidence deploy probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac61-linear-triage-local-github"
+    description: "The local GitHub PR reads and the handler's local source pass their focused tests."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_linear_triage/test_local_github_pr_reads.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC67"]
+  - id: "dod-omn17427-linear-triage-local-deploy-probe"
+    description: "Deploy probe. GitHub serves the triage handler at the checked-out HEAD with the local GitHub source. It fails at the merge base, which has no such source, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_linear_triage/handlers/handler_linear_triage.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("LocalGitHubPrReads", "github_source")); print("linear-triage local github deploy probe: PASS")'
+  - id: "dod-omn17427-ac67-lab-first-routing"
+    description: "The lab-first routing check passes the shipped contracts and refuses each cloud-first mutation of them."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/delegation/test_lab_first_routing_omn17427.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC68"]
+  - id: "dod-omn17427-lab-first-routing-deploy-probe"
+    description: "Deploy probe. GitHub serves the task-class authority at the checked-out HEAD declaring lab_first_policy and lab_rubric. The probe fails when either declaration is absent and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/configs/task_class_contracts.v1.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "lab_first_policy:" in source; assert "lab_rubric:" in source; print("lab-first routing deploy probe: PASS")'
+  - id: "dod-omn17427-ac61-remove-coderabbit"
+    description: "The arm gate, fix-routing, auto-merge and golden-chain tests pass with every CodeRabbit path removed."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_pr_arm_gate_compute/test_handler_arm_gate.py tests/unit/nodes/node_pr_arm_gate_compute/test_arm_gate_head_check_verdict_composition.py tests/test_golden_chain_pr_lifecycle_fix_effect.py tests/test_omn_13987_pr_lifecycle_arm_activation.py tests/nodes/node_auto_merge_effect/test_handler_auto_merge_effect.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC81"]
+  - id: "dod-omn17427-remove-coderabbit-deploy-probe"
+    description: "Deploy probe. GitHub serves the arm-gate event model at the checked-out HEAD without the CodeRabbit thread count. It fails at the merge base, which carries the field, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/events/pr_arm_gate.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "coderabbit" not in source.lower() and "ModelArmCandidate" in source; print("remove-coderabbit deploy probe: PASS")'
+  - id: "dod-omn17427-ac80-reviewer-eval"
+    description: "The reviewer eval scores the recorded set and refuses every kind of drop."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_reviewer_eval_effect/test_reviewer_eval.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC80"]
+  - id: "dod-omn17427-reviewer-eval-deploy-probe"
+    description: "Deploy probe. GitHub serves the reviewer eval handler and its case set at the checked-out HEAD with the overturned omnimarket#4063 block in the set. It fails at the merge base, which has neither, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_reviewer_eval_effect/eval_cases.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("reviewer_eval_cases.v1", "d25be197856ff515cd1fd1d5e13396f03a54a91f", "true_catch", "known_clean")); print("reviewer eval deploy probe: PASS")'
+  - id: "dod-omn17427-ac63-review-finding-dispositions"
+    description: "The review finding disposition golden chain passes: noise share, convergence shares, recurring-class detection and the worker result field."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/test_golden_chain_node_review_finding_disposition_compute.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC69"]
+  - id: "dod-omn17427-review-dispositions-deploy-probe"
+    description: "Deploy probe. GitHub serves the review finding disposition handler at the checked-out HEAD with the noise and recurrence names. It fails at the merge base, which has no such handler, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_review_finding_disposition_compute/handlers/handler_review_finding_disposition.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("NOISE_DISPOSITIONS", "class_fix_key_for", "_recurring")); print("review finding disposition deploy probe: PASS")'
+  - id: "dod-omn17427-ac70-publisher-fixture-one-copy"
+    description: "The publisher fixture is the omnibase_infra corpus over omnimarket's contracts and agrees with the contract topic graph parser; the fence fails on the previous second copy."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/validators/test_publisher_fixture_one_copy_omn17427.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC70"]
+  - id: "dod-omn17427-ac70-one-copy-deploy-probe"
+    description: "Deploy probe. GitHub serves the omnimarket publisher fixture at the checked-out HEAD importing the omnibase_infra corpus. It fails at the merge base, where the fixture carries its own index, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/testing/publisher_contract_fixture.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "from omnibase_infra.testing.publisher_contract_fixture import" in source and "parse_contract" not in source; print("publisher fixture one-copy deploy probe: PASS")'
+  - id: "dod-omn17427-ac69-hostile-review-delegation"
+    description: "The hostile reviewer's delegation route sends each model call through the review task class pinned to the route key, a delegation that does not complete fails its route, and the completed event carries the verdict and the merged findings."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_hostile_reviewer_orchestrator/test_delegation_review_route.py tests/test_golden_chain_hostile_reviewer_orchestrator.py -q -p no:randomly"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC71"]
+  - id: "dod-omn17427-hostile-review-delegation-probe"
+    description: "Deploy probe. GitHub serves the delegation review adapter at the checked-out HEAD, calling the delegate skill with the review task type. It fails at the merge base, where the adapter does not exist, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_hostile_reviewer_orchestrator/handlers/handler_delegation_review_inference.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("REVIEW_TASK_TYPE", "backend_id=model_key", "HandlerDelegateSkill")); print("hostile reviewer delegation route deploy probe: PASS")'
+  - id: "dod-omn17427-ac70-gateway-pr-text-cross-repository"
+    description: "The gateway pr_text read reports head_repo and is_cross_repository for same-repository, fork and gone-repository heads."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_github_repo_gateway_effect/test_github_repo_gateway_scm_reads.py -q -k pr_text"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC73"]
+  - id: "dod-omn17427-gateway-fork-deploy-probe"
+    description: "Deploy probe. GitHub serves the gateway read operations at the checked-out HEAD reporting is_cross_repository. The probe fails at the merge base, which has no such field, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_github_repo_gateway_effect/read_operations.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "is_cross_repository" in source; assert "head_repo" in source; print("gateway pr_text cross-repository deploy probe: PASS")'
+  - id: "dod-repo-evidence-caller-verifier-floor"
+    description: "The call-repo-evidence-gate-verifier-floor pre-commit hook and its paired ci.yml lint step run the caller verifier-floor test, and the caller's verifier-version is at or above 0.4.303. The wiring test fails when the hook or the lint step is removed."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_repo_evidence_caller_floor_wiring_omn17427.py tests/ci/test_repo_evidence_caller_verifier_floor_omn20032.py -q -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC74"]
+  - id: "dod-omn17427-ac63-external-default-deny"
+    description: "The external sweep, exclusion validation and main() fixture tests pass with refusal and success controls."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: >-
+          uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -p no:cacheprovider -k "TestExternalDefaultDenySweep or TestExternalSweepExclusions or TestSweepIsWiredIntoProductionPoller"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC74"]
+  - id: "dod-omn17427-external-default-deny-deploy-probe"
+    description: "Deploy probe. The checked-out CI Summary sweep refuses an unregistered failed pull-request check and accepts its success control. The hosted runner needs only Python and this checkout."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import runpy
+          gate = runpy.run_path("scripts/ci/ci_summary_gate.py")
+          row = {"name": "Unregistered deploy probe", "status": "completed", "conclusion": "failure"}
+          sweep = gate["evaluate_external_sweep"]
+          code, report = sweep([row], expected=(), sweep_exclusions={}, event="pull_request")
+          assert code == gate["EXIT_FAILURE"], report
+          assert row["name"] in report, report
+          row["conclusion"] = "success"
+          code, report = sweep([row], expected=(), sweep_exclusions={}, event="pull_request")
+          assert code == gate["EXIT_SUCCESS"], report
+          print("external default-deny deploy probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac75-landing-decision-ledger-mirror"
+    description: "The landing decision mapping writes one STATUS row per action, recorded outcome, DEGRADED reason and violation, none for an idle tick or a withheld observe-only action, and the ledger host appends a redelivered event once."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_work_ledger_landing_mirror/test_landing_decision.py tests/unit/work_ledger_bus/test_landing_decision.py -q -p no:randomly"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC75"]
+  - id: "dod-omn17427-landing-ledger-mirror-deploy-probe"
+    description: "Deploy probe. GitHub serves the landing decision ledger mirror contract at the checked-out HEAD, subscribed to the landing decision completed topic. It fails at the merge base, where the node does not exist, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_work_ledger_landing_mirror/contract.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys, yaml; c = yaml.safe_load(sys.stdin.read()); topics = c["runtime_dispatch"]["subscribe_topics"]; assert len(topics) == 1 and topics[0].endswith("pr-landing-decision-completed.v1"); print("landing decision ledger mirror deploy probe: PASS")'
+  - id: "dod-omn17427-ac76-dev-cause-lane-receiver"
+    description: "The receiver starts one lane per dispatch key, answers duplicate for a redelivery and a restart, keeps a failed start's key, and answers dry_run while act is false."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_dev_cause_lane_receiver_effect/test_dev_cause_lane_receiver_omn17427.py -q -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC76"]
+  - id: "dod-omn17427-ac77-receiver-chain-leg"
+    description: "The chain gate refuses a receiver contract that drops the request topic or names a deleted handler module."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_red_ci_bus_chain_omn20730.py -q -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC77"]
+  - id: "dod-omn17427-dev-cause-lane-receiver-probe"
+    description: "Deploy probe. GitHub serves the receiver handler at the checked-out HEAD, defining HandlerDevCauseLaneStart and taking the dispatch key before it calls the runner. It fails at the merge base, where the handler does not exist, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_dev_cause_lane_receiver_effect/handlers/handler_dev_cause_lane_start.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "class HandlerDevCauseLaneStart" in source and source.index("self._ledger.claim(") < source.index("self._runner.start("); print("dev cause-lane receiver deploy probe: PASS")'
+  - id: "dod-omn17427-review-lab-rubric-measured"
+    description: "The review class records verdict fail with its 25 of 60 measurement, and the verdict is the one that measurement earns against the policy bar. The recorded-measurement test fails at the merge base, where the class reads unmeasured."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/delegation/test_lab_first_routing_omn17427.py -q -p no:randomly --no-cov -k review_measurement"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC78"]
+  - id: "dod-omn17427-review-lab-rubric-deploy-probe"
+    description: "Deploy probe. The checked-out routing contract records the review class as a measured fail. The merge base reads unmeasured and fails the assertion. The hosted runner needs only Python and this checkout."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          text = open("src/omnimarket/configs/task_class_contracts.v1.yaml", encoding="utf-8").read()
+          block = text.split("\n  review:\n", 1)[1].split("\n  code_review:", 1)[0]
+          assert "verdict: fail" in block, "review class is not a recorded fail"
+          assert "adequate: 25" in block and "of: 60" in block, "review measurement missing"
+          print("review lab rubric deploy probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac92-rehome-leaf-nodes-s2"
+    description: "The friction synthesis and host thermal observe node tests pass against the omnimarket copies."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_friction_synthesis_effect/test_friction_synthesis.py tests/nodes/node_friction_synthesis_effect/test_golden_chain_friction_synthesis_effect.py tests/nodes/node_host_thermal_observe_effect/test_host_thermal_observe.py tests/nodes/node_host_thermal_observe_effect/test_golden_chain_host_thermal_observe_effect.py -q -p no:randomly"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC92"]
+  - id: "dod-omn17427-ac76-lab-fill-repeat-limit"
+    description: "The lab-fill repeat-limit hold passes for ordinary tickets and DoD-verify lanes."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_lab_fill_selection_compute/test_lab_fill_selection_compute.py tests/nodes/node_lab_fill_selection_compute/test_lab_fill_dod_verify_fallback.py -k 'repeat or unchanged' -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC76"]
+  - id: "dod-omn17427-lab-fill-repeat-limit-deploy-probe"
+    description: "Deploy probe. GitHub serves the lab-fill selection handler at the checked-out HEAD with the repeat count. It fails at the merge base, which has no repeat count, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_lab_fill_selection_compute/handlers/handler_lab_fill_selection.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("_repeat_count", "repeat_limit", "_updated_after")); print("lab-fill repeat-limit deploy probe: PASS")'
+  - id: "dod-omn17427-ac74-summarization-word-limit"
+    description: "The summarization gate refuses an answer over a stated word limit, passes one at the limit, and waives the rule for a prompt with no limit."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/delegation/test_omn17427_summarization_word_limit.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC79"]
+  - id: "dod-omn17427-summarization-word-limit-probe"
+    description: "Deploy probe. GitHub serves the summarization definition of done at the checked-out HEAD declaring within_word_limit. The probe fails at the merge base, which has no such check, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/configs/task_class_contracts.v1.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | grep -F -- "- within_word_limit"
+  - id: "dod-omn17427-ac80-hr-overflow-pin"
+    description: "The hostile-reviewer workflow pins omniintelligence at the overflow-deadline revision, and a workflow at the previous pin is caught."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_hostile_reviewer_pin_overflow_deadline_omn17427.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC80"]
+  - id: "dod-omn17427-hr-overflow-pin-probe"
+    description: "Deploy probe. GitHub serves the hostile-reviewer workflow at the checked-out HEAD cloning omniintelligence at the overflow-deadline revision. The probe fails at the merge base, which pins aeba95945f22, and needs only GitHub access on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/.github/workflows/hostile-reviewer.yml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | grep -F -- "OMNIINTELLIGENCE_SHA 921b322b8e43f695961a06a04759dc88bb3e88ff"
+  - id: "dod-omn17427-ac91-liveness-overlay-check"
+    description: "The overlay completeness check node and its console script pass the focused suite."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_automation_liveness_overlay_check_compute/test_automation_liveness_installer_scan_omn20804.py tests/nodes/node_automation_liveness_overlay_check_compute/test_automation_liveness_overlay_refuses_gaps_omn20804.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC91"]
+  - id: "dod-omn17427-liveness-overlay-check-deploy-probe"
+    description: "Deploy probe. GitHub serves the overlay check node contract at the checked-out HEAD with its console script declared. It fails at the merge base, where the node does not exist, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_automation_liveness_overlay_check_compute/contract.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys, yaml; c = yaml.safe_load(sys.stdin.read()); assert "onex-automation-liveness-check" in c["entry_points"]["console_scripts"]; print("automation liveness overlay check deploy probe: PASS")'
+  - id: "dod-omn17427-ac79-sweep-provenance-unreadable-runs"
+    description: "The external sweep reads run provenance from the check suite and an unreadable or malformed workflow-runs file still sweeps an unregistered red. The tests fail against the dev gate, which reads only URLs and raises on a malformed payload."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: >-
+          uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -p no:cacheprovider -k "test_check_suite_run_id_establishes_provenance or test_unreadable_index_still_sweeps"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC81"]
+  - id: "dod-omn17427-ac79-sweep-provenance-deploy-probe"
+    description: "Deploy probe. The checked-out CI Summary gate resolves a run id from the check suite alone and loads a malformed workflow-runs file as unavailable. The hosted runner needs only Python and this checkout."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import runpy, tempfile
+          gate = runpy.run_path("scripts/ci/ci_summary_gate.py")
+          assert gate["check_run_workflow_run_id"]({"check_suite": {"workflow_run": {"id": 42}}}) == 42
+          assert gate["check_run_workflow_run_id"]({"check_suite": {"workflow_run_id": "bad"}}) is None
+          with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+              handle.write('{"workflow_runs": "bad"}')
+          assert gate["_load_workflow_runs"](handle.name) is None
+          print("external sweep provenance deploy probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac93-rehome-nodes"
+    description: "The lab secret-store override reproduces its frozen legacy transform and refusals, declares no event bus block, and the legacy worktree audit classifies worktrees through its console script. The generated relation inventory includes their source-derived readers."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_lab_secret_store_override_effect/test_lab_secret_store_override_node.py tests/nodes/node_legacy_worktree_audit_effect/test_legacy_worktree_audit.py tests/nodes/node_legacy_worktree_audit_effect/test_legacy_worktree_audit_characterization.py -q -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/scripts/test_application_relation_inventory.py -k test_checked_in_inventory_is_source_derived_and_current -q -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC107"]
+  - id: "dod-omn17427-ac94-rehome-lab-nodes-slice-3"
+    description: "The hourly tick, lab disk growth and lab fill receipt table nodes pass their focused suites in the portable package."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_hourly_tick_effect/test_golden_chain_hourly_tick_effect.py tests/nodes/node_hourly_tick_effect/test_hourly_tick.py tests/nodes/node_lab_disk_growth_effect/test_golden_chain_lab_disk_growth_effect.py tests/nodes/node_lab_disk_growth_effect/test_lab_disk_growth_cli.py tests/nodes/node_lab_disk_growth_effect/test_lab_disk_growth_effect.py tests/nodes/node_lab_fill_receipt_table_compute/test_golden_chain_lab_fill_receipt_table_compute.py tests/nodes/node_lab_fill_receipt_table_compute/test_lab_fill_receipt_table.py -q -p no:cacheprovider"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC94"]
+  - id: "dod-omn17427-rehome-lab-nodes-slice-3-deploy-probe"
+    description: "Deploy probe. The checked-out package lists the three nodes as onex.nodes entry points and their contracts parse. It fails at the merge base, where the nodes are absent, and needs only Python and this checkout."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import pathlib, yaml
+          for name in ("node_hourly_tick_effect", "node_lab_disk_growth_effect", "node_lab_fill_receipt_table_compute"):
+              contract = yaml.safe_load(pathlib.Path(f"src/omnimarket/nodes/{name}/contract.yaml").read_text())
+              assert contract["name"] == name, name
+              assert f"{name} = " in pathlib.Path("pyproject.toml").read_text(), name
+          print("rehome lab nodes slice 3 deploy probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac80-ruling-guard-paths"
+    description: "The park ladder wiring tests require the handler path in the lint step and hook names, and the operator capture nodes pass their tests."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_pr_landing_decision_compute/test_landing_decision_causes.py tests/unit/nodes/node_operator_capture_effect tests/unit/nodes/node_operator_capture_compute -q -n 0 -p no:randomly"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC82"]
+  - id: "dod-omn17427-ac80-ruling-paths-probe"
+    description: "Deploy probe. GitHub serves the pre-commit config at the checked-out HEAD with the operator-capture-nodes hook naming handler_capture_process.py. It fails at the merge base, where the hook does not exist, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/.pre-commit-config.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "id: operator-capture-nodes" in source and "handler_capture_process.py" in source; print("ruling guard paths deploy probe: PASS")'
+  - id: "dod-omn17427-ac72-hostile-reviewer-codex-fallback"
+    description: "The hostile-reviewer Codex fallback chain passes: an offline primary is reviewed by Codex and the engine is recorded, a healthy primary never touches the fallback, both engines offline is FAILED, and a silent primary counts as offline."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/test_hostile_reviewer_codex_fallback.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC83"]
+  - id: "dod-omn17427-codex-fallback-deploy-probe"
+    description: "Deploy probe. GitHub serves the hostile-reviewer orchestrator handler at the checked-out HEAD with the fallback route and the fallback fields. It fails at the merge base, which has neither, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_hostile_reviewer_orchestrator/handlers/handler_hostile_reviewer_orchestrator.py?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("_fallback_route", "fallback_engine", "fallback_for")); print("hostile-reviewer codex fallback deploy probe: PASS")'
+  - id: "dod-omn17427-rehome-nodes-deploy-probe"
+    description: "Deploy probe. The checked-out package declares both rehomed console scripts and carries their target modules. The hosted runner needs only Python and this checkout; the probe fails when either node is absent."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          python3 - <<'PY'
+          import ast, pathlib, tomllib
+          root = pathlib.Path(".")
+          project = tomllib.loads((root / "pyproject.toml").read_text())["project"]
+          scripts = project["scripts"]
+          expected = {
+              "onex-secret-store-override": "omnimarket.nodes.node_lab_secret_store_override_effect.handlers.handler_lab_secret_store_override_cli:main",
+              "onex-legacy-worktree-audit": "omnimarket.nodes.node_legacy_worktree_audit_effect.handlers.handler_legacy_worktree_audit:main",
+          }
+          for name, target in expected.items():
+              assert scripts[name] == target, (name, scripts.get(name))
+              module, symbol = target.split(":")
+              tree = ast.parse((root / "src" / (module.replace(".", "/") + ".py")).read_text())
+              assert any(isinstance(node, ast.FunctionDef) and node.name == symbol for node in tree.body), target
+          print("rehomed console scripts deploy probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac61-lab-sli-alerts-board"
+    description: "The lab SLI golden and error chains pass: one verdict per table row with its own severity, dark sources unknown, severity-driven actions with per-indicator dedup and delivery, collector readings from the watcher state, host and scheduler, and the board with history and trend."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_lab_sli_compute/test_golden_chain_lab_sli.py tests/nodes/node_lab_sli_compute/test_error_chain_lab_sli.py tests/nodes/node_lab_sli_compute/test_golden_chain_lab_sli_collect.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC105"]
+  - id: "dod-omn17427-ac107-lab-sli-pack-opt-in"
+    description: "The lab SLI pack constructs but refuses handle before any probe or push when absent or disabled, runs when explicitly enabled, and refuses every other status as a broken overlay."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_lab_sli_compute/test_lab_sli_pack_gate.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC107"]
+  - id: "dod-omn17427-lab-sli-deploy-probe"
+    description: "Deploy probe. GitHub serves node_lab_sli_compute's contract at the checked-out HEAD with an sli_table using all four severities. It fails at the merge base, which has no such node, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_lab_sli_compute/contract.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys, yaml; table = yaml.safe_load(sys.stdin.read())["sli_table"]; assert {row["severity"] for row in table} == {"SEV1", "SEV2", "SEV3", "SEV4"}; assert len({row["sli_id"] for row in table}) == len(table) >= 15; print("lab sli deploy probe: PASS")'
+  - id: "dod-omn17427-ac76-dead-occ-observers"
+    description: "The two OCC observer node packages, their tests and their entry points are absent and the companion effect node remains."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/workflows/test_ci_off_change_control_omn20074.py -q -k observer"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC76"]
+  - id: "dod-omn17427-dead-occ-observers-deploy-probe"
+    description: "Deploy probe. GitHub serves pyproject.toml at the checked-out HEAD with no entry point for the two observer nodes and one for node_occ_companion_effect. It fails at the merge base, which registers both, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/pyproject.toml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "node_occ_attestation_observe = " not in source; assert "node_occ_observation_effect = " not in source; assert "node_occ_companion_effect = " in source; print("dead occ observers deploy probe: PASS")'
+  - id: "dod-omn17427-ac83-served-model-cache"
+    description: "Both inference boundaries reconcile a cached model mismatch and retain a refusal without fresh matching evidence."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/delegation/test_omn17098_inference_intent_served_model_guard.py tests/unit/nodes/node_llm_delegation_call_effect/test_handler_llm_delegation_call.py -q --no-cov -k 'cached_model_list or cached_mismatch'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC83"]
+  - id: "dod-omn17427-served-model-cache-deploy-probe"
+    description: "Deploy probe. A real loopback provider replaces its served model at the same endpoint, and the inference handler completes with the new model before cache expiry. An unreadable or mismatching model listing still refuses the call. The hosted runner needs uv and this checkout, with no external provider or credentials."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/delegation/test_omn17098_inference_intent_served_model_guard.py -q --no-cov -k 'cached_model_list or cached_mismatch'"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac93-delegate-skill-trace-id"
+    description: "Both projection writers store a delegate-skill terminal's trace_id. Before the change 5 of the 7 tests fail (the trace is dropped); after it all pass. A lab replay of a real delegate-skill-failed terminal through the sync writer stores its trace_id at the head and NULL at the merge base."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/delegation/test_delegate_skill_trace_id_omn19448.py -q -p no:cacheprovider"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC93"]
+  - id: "dod-omn17427-delegate-skill-trace-id-deploy-probe"
+    description: "Deploy probe. The checked-out source of both delegate-skill row builders names the terminal's trace_id column. It fails at the merge base, where neither builder writes it, and needs only a shell and this checkout on the hosted runner; the behavioural proof stays in the test_passes check bound to AC93."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          sh -c 'set -eu; for f in src/omnimarket/nodes/node_projection_delegation/handlers/handler_projection_delegation.py src/omnimarket/nodes/node_projection_delegation/handlers/handler_delegation.py; do grep -Fq "row[\"trace_id\"] = str(event.trace_id)" "$f"; done; echo "delegate-skill trace_id deploy probe: PASS"'
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-release-staleness-dev-tags-published"
+    description: "Immutable dev merge tags cover packaged release debt and work without a version release. These tests fail against the merge-base workflow, which only counts version tags."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_release_staleness_gate_omn18010.py -q -p no:randomly --no-cov -k 'test_dev_merge_tag_covers_packaged_commit_past_the_release or test_dev_tag_alone_is_a_measurable_base'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC95"]
+  - id: "dod-omn17427-release-staleness-untagged-debt"
+    description: "Untagged packaged commits still age and malformed dev tags do not publish them. The tests read the real measurement after the workflow's four controls."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_release_staleness_gate_omn18010.py -q -p no:randomly --no-cov -k 'test_untagged_packaged_commit_after_dev_tag_still_ages or test_malformed_dev_tag_cannot_cover_stale_debt'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC96"]
+  - id: "dod-omn17427-release-staleness-devtag-control"
+    description: "Ignoring valid dev merge tags trips the devtag positive control before the real measurement. The merge-base workflow has no dev tag matcher or devtag control."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_release_staleness_gate_omn18010.py::test_ignored_dev_tags_are_refused_by_positive_control -q -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC97"]
+  - id: "dod-omn17427-release-staleness-devtag-deploy-probe"
+    description: "Deploy probe. Execute the checked-out workflow's measurement on temporary git histories: tagged old packaged commits are fresh, a dev tag works without a release, and an untagged old packaged commit stays stale. The hosted runner needs Python, the locked test dependencies, bash, git and GNU date; no service or credentials are needed. This is a workflow runtime readback, not a running application deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: |-
+          uv run python - <<'PY'
+          import runpy
+          import tempfile
+          from pathlib import Path
+          probe = runpy.run_path("tests/ci/test_release_staleness_gate_omn18010.py")
+          for name in (
+              "test_dev_merge_tag_covers_packaged_commit_past_the_release",
+              "test_dev_tag_alone_is_a_measurable_base",
+              "test_untagged_packaged_commit_after_dev_tag_still_ages",
+          ):
+              with tempfile.TemporaryDirectory() as directory:
+                  probe[name](Path(directory))
+              print(name + ": PASS")
+          print("release staleness deploy probe: PASS")
+          PY
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac82-brief-drafting-class"
+    description: "The brief_drafting class is internal, local-only, resolves Qwen and declares the brief checker as its acceptance."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/delegation/test_brief_drafting_class_omn17427.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC105"]
+  - id: "dod-omn17427-ac83-lane-brief-draft-node"
+    description: "The lane brief draft node assembles around code-filled shell parts, refuses a draft that wrote one, and gates on the checker's exit code."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_lane_brief_draft_compute/test_assemble_lane_brief.py tests/nodes/node_lane_brief_draft_compute/test_gate_lane_brief_draft.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC106"]
+  - id: "dod-omn17427-brief-drafting-deploy-probe"
+    description: "Deploy probe. GitHub serves the task-class contract at the checked-out HEAD declaring brief_drafting with the brief checker as its external acceptance. It fails at the merge base, which declares neither, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/configs/task_class_contracts.v1.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert all(name in source for name in ("brief_drafting:", "external_acceptance:", "lane_brief.py check")); print("brief drafting deploy probe: PASS")'
+  - id: "dod-omn17427-ac107-context-pack-model-roles"
+    description: "The context-pack model roles are declared task classes equal to the core 0.47.48 wire Literal, and the shipped context-pack profiles resolve with the packaged routing contract."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_profile_resolver_effect/test_model_role_routing.py tests/test_omn17940_refusal_over_every_task_class.py tests/unit/inference/test_task_class_authority_omn15651.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC107"]
+  - id: "dod-omn17427-context-pack-model-roles-deploy-probe"
+    description: "Deploy probe. GitHub serves the task-class contract at the checked-out HEAD declaring extraction_proposer, tail_summary and context_selection. It fails at the merge base, which declares none of them, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/configs/task_class_contracts.v1.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys, yaml; classes = yaml.safe_load(sys.stdin.read())["task_classes"]; assert all(classes[name]["gateway_exposure"] == "internal" and classes[name]["escalation_policy"]["tier_order"] == ["local"] for name in ("extraction_proposer", "tail_summary", "context_selection")); print("context-pack model roles deploy probe: PASS")'
+  - id: "dod-omn17427-anthropic-models-add"
+    description: "The existing shard-17 regressions validate Anthropic keys and preserve model discovery when the catalogue also offers the native protocol. Four of these tests fail before this fix."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/cli/test_omn20990_models_add_anthropic.py -q -n 0 --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC98"]
+  - id: "dod-omn17427-anthropic-tenant-registration"
+    description: "The two shard-6 expiry cases reach the credential catalog with their discovered model; both fail before this fix."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/cli/test_omn17099_register_tenant_key.py -q -n 0 --no-cov -k anthropic_expires"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC99"]
+  - id: "dod-omn17427-explicit-native-and-plan-refusals"
+    description: "Native selection remains available and does not become an automatic key probe; genuine billing-product detection retains its refusal controls."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/test_byok_plan_detection.py tests/unit/cli/test_omn20990_models_add_anthropic.py -q -n 0 --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC100"]
+  - id: "dod-omn17427-anthropic-registration-deploy-probe"
+    description: "Deploy probe. Execute both credential CLI entry points against temporary credential stores and simulated provider model lists, including refused keys and tenant expiry. The hosted runner needs the locked dependencies and this checkout, with no provider credentials or external service. This checks the packaged CLI path, not a running application deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/cli/test_omn20990_models_add_anthropic.py tests/unit/cli/test_omn17099_register_tenant_key.py -q -n 0 --no-cov --refuse-skips"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac77-rehome-runtime-deploy-effect"
+    description: "The runtime deploy effect node runs its moved tests in omnimarket and is a registered onex.nodes entry point. The node directory and tests are absent at the merge base."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_runtime_deploy_effect/test_runtime_deploy_effect.py tests/nodes/node_runtime_deploy_effect/test_golden_chain_runtime_deploy_effect.py -q -p no:randomly"
+        cwd: "${OMNI_HOME}/omnimarket"
+      - check_type: "command"
+        check_value: "grep -c -E '^node_runtime_deploy_effect = ' pyproject.toml"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC77"]
+  - id: "dod-omn17427-runtime-deploy-deploy-probe"
+    description: "Deploy probe. GitHub serves the runtime deploy effect contract at the checked-out HEAD, routing the runtime.deploy operation. It fails at the merge base, where the node does not exist, and needs only GitHub access from the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_runtime_deploy_effect/contract.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys, yaml; c = yaml.safe_load(sys.stdin.read()); ops = [h["operation"] for h in c["handler_routing"]["handlers"]]; assert ops == ["runtime.deploy"], ops; print("runtime deploy effect deploy probe: PASS")'
+  - id: "dod-omn17427-ac92-metering-shared-lane-refresh"
+    description: "The metering refresh producer and the projection's store refresh pass: a terminal requests its tenant's day, the schedule requests every tenant whole once per interval, and the projection folds each tenant's runs into day and all-time rows."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_metering_summary_refresh_compute/test_metering_summary_refresh_producer.py tests/nodes/node_metering_summary_refresh_compute/test_golden_chain_metering_summary_refresh.py tests/nodes/node_projection_metering_summary/test_omn17427_store_refresh.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC92"]
+  - id: "dod-omn17427-metering-refresh-deploy-probe"
+    description: "Deploy probe. GitHub serves the metering projection contract at the checked-out HEAD subscribing the store refresh command and naming node_metering_summary_refresh_compute as its producer. It fails at the merge base, which has neither, and needs only GitHub access and Python on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: >-
+          gh api "repos/OmniNode-ai/omnimarket/contents/src/omnimarket/nodes/node_projection_metering_summary/contract.yaml?ref=$(git rev-parse HEAD)" --jq .content | base64 -d | python3 -c 'import sys; source = sys.stdin.read(); assert "store_refresh_command_topic" in source and "node_metering_summary_refresh_compute" in source; print("metering shared-lane refresh deploy probe: PASS")'
+  - id: "dod-omn17427-dev-push-reuse-queue-off"
+    description: "The dev verdict warns and passes with no active queue rule, stays strict with an active rule, and fails closed when the rules endpoint is unreadable."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_queue_run_once_omn19998.py -q -n 0 -p no:randomly --no-cov -k 'test_dev_reuses_queue_tree_across_squash_commit_identity or test_dev_verdict_is_strict_while_a_queue_rule_is_active'"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC101"]
+  - id: "dod-omn17427-dev-push-reuse-rules-filter"
+    description: "The branch-rules filter counts active merge_queue rules from the API response."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/ci/test_queue_run_once_omn19998.py::test_queue_provenance_jq_filters_match_api_shapes -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC102"]
+  - id: "dod-omn17427-dev-push-reuse-deploy-probe"
+    description: "Deploy probe. Run the whole run-once admission suite against the checked-out ci.yml and ci_summary_gate.py with a fake gh; the hosted runner needs the locked dependencies, bash and jq, and no credentials. This reads the workflow text, not a running deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/ci/test_queue_run_once_omn19998.py -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-shard-record-names-the-tree"
+    description: "The committed record names all but the kafka-marked test files, and the shard plan stays balanced. At 9978f18ad 161 of 3189 test files were unrecorded and the record test failed."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/test_ci_shard_plan_omn19684.py -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC103"]
+  - id: "dod-omn17427-ac104-occ-clone-timeout-retry"
+    description: "The occ-autobind producer's OCC clone is retried once after a git timeout with the partial clone removed, the final timeout and any non-timeout failure propagate, and the attempts fit the node's descriptor timeout. Against the merge base 3 of the 4 tests fail; after the change all 4 pass."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_clone_timeout_retry_omn_15447.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC104"]
+  - id: "dod-omn17427-occ-clone-retry-deploy-probe"
+    description: "Deploy probe. The checked-out emitter declares two clone attempts and the clone budget test passes against the node's own contract.yaml. It fails at the merge base, where the constant is absent, and needs only uv and this checkout on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/nodes/node_pr_lifecycle_fix_effect/test_occ_clone_timeout_retry_omn_15447.py -q --no-cov -k test_clone_attempts_fit_contract_timeout"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-causal-connectives"
+    description: "The causal connective fixture proves correct causal answers pass step_by_step_explanation and non-explanations are still vetoed."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/delegation/test_step_by_step_causal_fixture_omn17427.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC105"]
+  - id: "dod-omn17427-causal-connectives-deploy-probe"
+    description: "Deploy probe. The quality gate handler's step_by_step_explanation check is run over the causal connective fixture and the OMN-19401 causal prose tests: every correct causal answer passes and every non-explanation is vetoed. The hosted runner needs uv and this checkout, with no external provider or credentials."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/delegation/test_step_by_step_causal_fixture_omn17427.py tests/unit/delegation/test_step_by_step_causal_prose_omn19401.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-gateway-read-running-loop"
+    description: "The gateway read client returns the bus answer when called under a running event loop. The new case fails at the merge base with asyncio.run cannot be called from a running event loop."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/handlers/scm/test_handler_gateway_read_client.py -q -n 0 --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC111"]
+  - id: "dod-omn17427-closer-box-ticks"
+    description: "decide_ticket ticks only verified criteria's boxes and holds a ticket with an unlabelled or unverified box. All five cases fail at the merge base, where decide_ticket takes no description."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_dod_closeout_sweep_compute/test_closer_ac_ticks_dod_closeout_sweep_compute.py -q -n 0 --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC112"]
+  - id: "dod-omn17427-closer-unblock-deploy-probe"
+    description: "Deploy probe. Run the gateway client and closer tick cases from this checkout with skips refused. The hosted runner needs the locked dependencies and this checkout, with no bus, credential or Linear access; this checks the packaged handlers, not a running deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/handlers/scm/test_handler_gateway_read_client.py tests/nodes/node_dod_closeout_sweep_compute/test_closer_ac_ticks_dod_closeout_sweep_compute.py -q -n 0 --no-cov --refuse-skips"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-private-hosted-minutes-tally"
+    description: "The pure tally over fixture billing JSON counts billed GitHub-hosted Actions minutes per repository and per day and excludes free, self-hosted and non-Actions items. The node and its tests are absent at the merge base."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_private_hosted_minutes_watch_effect/test_hosted_minutes_tally.py -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC107"]
+  - id: "dod-omn17427-private-hosted-minutes-watch"
+    description: "One billing read per run, the alert before the STATUS row, one send and one append per day, a STATUS row on a quiet day, fail-fast on an unset ledger path, and a nonzero exit on a dead or unconfigured alert channel, with fakes for gh, the ledger command and the alert channel."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_private_hosted_minutes_watch_effect/test_handler_private_hosted_minutes_watch.py tests/unit/nodes/node_private_hosted_minutes_watch_effect/test_main.py -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC108"]
+  - id: "dod-omn17427-private-hosted-minutes-deploy-probe"
+    description: "Deploy probe. Run the node's whole focused suite on the hosted runner with fakes for gh, the ledger command and the alert channel; it needs the locked dependencies and no credentials or network. This exercises the checked-out node, not an installed host timer."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/nodes/node_private_hosted_minutes_watch_effect -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-sibling-dev-tag-provenance"
+    description: "The local provenance gate accepts the sanctioned dev-tag shape and retains negative controls."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/scripts/test_check_dep_provenance.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC109"]
+  - id: "dod-omn17427-core-ref-lock-fixtures"
+    description: "Supporting evidence, bound to no criterion: the sibling-pin workflow tests derive core_ref from the fixture lock for both registry releases and dev merge tags. The change is test-side only and the workflow pin step already resolves both, so these tests pass at the merge base and cannot be a must-fail control."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/ci/test_sibling_pins_omn20001.py -q --no-cov -k 'resolves_a_new_lock_release or pins_match_lock'"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-provenance-deploy-probe"
+    description: "Deploy probe: exercise the shipped offline provenance entrypoint and its positive and negative source fixtures; no service deployment or credentials are required."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/scripts/test_check_dep_provenance.py -q"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-mint-acceptance-evidence"
+    description: "Reproduce the real handler/git timeout, the exact pre-policy handle negative control and the dated deployed sanitizer capture replay. All checks run offline on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/unit/nodes/node_occ_companion_effect/test_mint_acceptance_evidence_omn15447.py -q --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC110"]
+  - id: "dod-omn17427-mint-acceptance-deploy-probe"
+    description: "Deploy probe. Replay the dated dev-effects sanitizer capture against the locked dependency's identical sanitizer source: the raw exception must redact and the typed parked reason must remain readable. Hosted execution needs only dependencies and the committed fixture, no Docker, credentials, broker or live runtime. This is a capture replay, not fresh deployment verification."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/unit/nodes/node_occ_companion_effect/test_mint_acceptance_evidence_omn15447.py::test_deployed_sanitizer_capture_replays_both_controls -q --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-landing-stall-replay"
+    description: "Replay of the 2026-10-19 held cause through the landing stall fold, the watchdog compute and the delivery effect with a fake channel, plus the fold's transition rules and the node contract. The node and the tests are absent at the merge base."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_landing_stall_expectation_compute/test_landing_stall_replay_2026_10_19.py tests/nodes/node_landing_stall_expectation_compute/test_landing_stall_fold.py tests/nodes/node_landing_stall_expectation_compute/test_landing_stall_contract.py -q --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC141"]
+  - id: "dod-omn17427-landing-stall-deploy-probe"
+    description: "Deploy probe. The hosted runner loads the subject commit's shared liveness model and the replay overlay fixture and checks that bus-event is an event-triggered kind whose correlation deadline the overlay accepts. No broker, credential or live runtime; this checks the artifact and does not attest a live deployment."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run python -c \"from pathlib import Path; from omnimarket.models.liveness.model_automation_liveness import EVENT_TRIGGER_KINDS, EnumAutomationTriggerKind as K, load_automation_liveness_overlay as L; assert K.BUS_EVENT in EVENT_TRIGGER_KINDS; o = L(Path('tests/fixtures/automation_liveness/replay_2026_10_19/overlay.yaml')); assert {e.correlation.answer_deadline_seconds for e in o.processes} == {3600, 5400}\""
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac140-compaction-adapter-verdict"
+    description: "The hook adapter mints a uuid4 invocation_id per invocation, carries it on the command through the @invocation_id source, and the context_compaction_verdict compute installs only a reply echoing that id whose messages hash to the echoed installed_messages_hash. At the merge base the test module fails to collect."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_claude_code_hook_adapter_effect/test_compaction_verdict.py -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC140"]
+  - id: "dod-omn17427-compaction-verdict-deploy-probe"
+    description: "Deploy probe. In the checked-out package, the hook adapter driven with a compaction binding and a client echoing the command's invocation_id returns install with the reply's messages. It fails at the merge base, which has no compaction verdict module, and needs only uv and this checkout on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/nodes/node_claude_code_hook_adapter_effect/test_compaction_verdict.py -q -n 0 -p no:randomly --no-cov -k test_an_echoed_matching_package_installs_its_messages"
+        cwd: "${OMNI_HOME}/omnimarket"
+  - id: "dod-omn17427-ac109-compaction-pack-build"
+    description: "The compaction orchestrator builds through HandlerCompactionPackBuild over the context-pack orchestrator with fixture sources: install with the pack identities, one candidate for two invocations, reads at the barrier for the access tenant, and pack_build_failed on a failed or incomplete build. At the merge base the test module fails to collect."
+    source: "manual"
+    checks:
+      - check_type: "test_passes"
+        check_value: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build.py -q -n 0 -p no:randomly --no-cov"
+        cwd: "${OMNI_HOME}/omnimarket"
+    binds_ac: ["AC113"]
+  - id: "dod-omn17427-compaction-pack-build-deploy-probe"
+    description: "Deploy probe. In the checked-out package, the compaction orchestrator wired with HandlerCompactionPackBuild over HandlerContextPackOrchestrator and fixture sources replies install for a compaction command. It fails at the merge base, which has no such module, and needs only uv and this checkout on the hosted runner."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/nodes/node_context_compaction_orchestrator/test_compaction_pack_build.py -q -n 0 -p no:randomly --no-cov -k test_compaction_installs_the_pack_built_through_the_adapter"
+        cwd: "${OMNI_HOME}/omnimarket"

@@ -1,12 +1,16 @@
 //! Prepare build execution, run the build pipeline and the post-build Python checks.
 
+use pyo3::IntoPyObject;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
 use pyo3::types::{PyDict, PyDictMethods};
+use sqlbuild_config::effective::models::EffectiveConcurrency;
 use sqlbuild_core::build_command::main::render_run_context::render_run_context;
 use sqlbuild_core::build_command::models::{RunContextFacts, SelectorFileFact};
 use sqlbuild_core::cli_text::models::CliStyle;
+use sqlbuild_host::entries::models::ExecutorHost;
 
+use crate::bindings::_helpers::boundary::python_calls::{call_with, keywords, within};
 use crate::bindings::_helpers::build_command::invocation::BuildContext;
 use crate::bindings::_helpers::build_command::lifecycle::{
     DirectPythonLifecycle, LifecycleInputs, prepare_direct_python_lifecycle,
@@ -15,21 +19,19 @@ use crate::bindings::_helpers::build_command::support::{
     boolean, display_text, emit, frozenset, joined, keyword_relay, line_writer, none, text, tuple,
 };
 use crate::bindings::_helpers::build_progress::build_callbacks::BuildProgressCallbacks;
+use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
+use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
 use crate::bindings::_helpers::check::check_core::{
     build_check_relation_targets, load_results_by_loader_name, record_python_run_state_results,
     relevant_check_functions,
 };
 use crate::bindings::_helpers::check::check_results::write_check_results;
-use crate::bindings::_helpers::cli::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::cli::progress_text::write_execution_header;
 use crate::bindings::_helpers::command_runtime::warehouses::describe_connection_warehouse;
-use crate::bindings::_helpers::compile_driver::python_calls::{call_with, keywords, within};
 use crate::bindings::_helpers::compile_driver::relation_targets::build_project_relation_targets;
 use crate::bindings::_helpers::cost_telemetry::context::CostContext;
 use crate::bindings::_helpers::cursor::overrides::{cursor_integer, cursor_timestamp};
 use crate::bindings::_helpers::freshness::publication::append_freshness_records;
 use crate::bindings::_helpers::graph::python_node_graph::python_node_graph;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_resolution::cursor_overrides::type_cursor_overrides;
 use crate::bindings::_helpers::records::construct::new_record;
@@ -81,7 +83,7 @@ fn validated_date(py: Python<'_>, value: Option<Bound<'_, PyAny>>) -> PyResult<O
 fn run_context_facts(
     context: &BuildContext<'_>,
     pipeline: &Bound<'_, PyAny>,
-    concurrency: &Bound<'_, PyAny>,
+    concurrency: &EffectiveConcurrency,
 ) -> PyResult<RunContextFacts> {
     let py: Python<'_> = context.py();
     let project: Bound<'_, PyAny> = native_field(pipeline, "project")?;
@@ -142,7 +144,8 @@ fn run_context_facts(
         database: display_text(&native_field(&project, "effective_target_database")?)?,
         schema: display_text(&native_field(&project, "effective_target_schema")?)?,
         warehouse,
-        concurrency: concurrency.extract()?,
+        concurrency: concurrency.limit,
+        concurrency_source: concurrency.source.to_string(),
         full_refresh: context.request_flag("full_refresh")?,
         selected_count,
         total_count,
@@ -159,7 +162,7 @@ pub(crate) fn write_run_context(
     context: &BuildContext<'_>,
     pipeline: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
-    let concurrency: Bound<'_, PyAny> = context.concurrency(&native_field(pipeline, "project")?)?;
+    let concurrency: EffectiveConcurrency = context.concurrency()?;
     let facts: RunContextFacts = run_context_facts(context, pipeline, &concurrency)?;
     emit(
         &context.stream,
@@ -220,8 +223,7 @@ pub(crate) fn prepare_build_execution<'py>(
     )
     .and_then(|value| pyo3::Bound::new(py, value))
     .map(pyo3::Bound::into_any)?;
-    let concurrency: Bound<'py, PyAny> =
-        context.concurrency(&native_field(pipeline, "project")?)?;
+    let concurrency: Bound<'py, PyAny> = context.concurrency()?.limit.into_pyobject(py)?.into_any();
     if context.verbose {
         write_run_context(context, pipeline)?;
     } else {

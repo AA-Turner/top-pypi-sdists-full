@@ -20,7 +20,7 @@ import regex as re
 
 from arelle import UrlUtil, ViewUtil
 from arelle.ValidateDuplicateFactsConst import DuplicateTypeArg
-from arelle.ValidateFileSource import ValidateFileSource
+from arelle.ValidateFileSource import ValidateFileSource, isPackage
 from arelle.logging.formatters.LogFormatter import LogFormatter, logRefsFileLines
 from arelle.typing import TypeGetText
 from arelle.utils.EntryPointDetection import parseEntrypointFileInput
@@ -237,6 +237,11 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.validateTableConstraintsSkipLoading.trace_add("write", self.setValidateTableConstraintsSkipLoading)
         validateMenu.add_checkbutton(label=_("xBRL-CSV: Table Constraints only (no load)"), underline=0, variable=self.validateTableConstraintsSkipLoading, onvalue=True, offvalue=False)
 
+        self.modelManager.skipPackageContentLoading = self.config.setdefault("skipPackageContentLoading", False)
+        self.skipPackageContentLoading = BooleanVar(value=self.modelManager.skipPackageContentLoading)
+        self.skipPackageContentLoading.trace_add("write", self.setSkipPackageContentLoading)
+        validateMenu.add_checkbutton(label=_("Packages: skip loading reports and taxonomies"), underline=0, variable=self.skipPackageContentLoading, onvalue=True, offvalue=False)
+
         self.modelManager.validateAllFilesAsReportPackages = self.config.setdefault("validateAllFilesAsReportPackages", False)
         self.validateAllFilesAsReportPackages = BooleanVar(value=self.modelManager.validateAllFilesAsReportPackages)
         self.validateAllFilesAsReportPackages.trace_add("write", self.setValidateAllFilesAsReportPackages)
@@ -246,6 +251,11 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.validateAllFilesAsTaxonomyPackages = BooleanVar(value=self.modelManager.validateAllFilesAsTaxonomyPackages)
         self.validateAllFilesAsTaxonomyPackages.trace_add("write", self.setValidateAllFilesAsTaxonomyPackages)
         validateMenu.add_checkbutton(label=_("Validate all files as Taxonomy Packages"), underline=0, variable=self.validateAllFilesAsTaxonomyPackages, onvalue=True, offvalue=False)
+
+        self.requireInlineXbrl = BooleanVar(value=self.config.setdefault("requireInlineXbrl", False))
+        self.modelManager.requiredDocumentTypes = ModelDocument.Type.INLINEXBRLTYPES if self.requireInlineXbrl.get() else ()
+        self.requireInlineXbrl.trace_add("write", self.setRequireInlineXbrl)
+        validateMenu.add_checkbutton(label=_("Require Inline XBRL input"), underline=0, variable=self.requireInlineXbrl, onvalue=True, offvalue=False)
 
         self.validateDuplicateFacts: StringVar | None = None
         self.buildValidateDuplicateFactsMenu(validateMenu)
@@ -735,7 +745,7 @@ class CntlrWinMain(Cntlr.Cntlr):
                     if isinstance(view, ViewWinRoleTypes.ViewRoleTypes):
                         ViewFileRoleTypes.viewRoleTypes(modelXbrl, filename, view.tabTitle, view.isArcrole, lang=view.lang)
                     elif isinstance(view, ViewWinConcepts.ViewConcepts):
-                        ViewFileConcepts.viewConcepts(modelXbrl, filename, labelrole=view.labelrole, lang=view.lang)
+                        ViewFileConcepts.viewConcepts(modelXbrl, filename, labelrole=view.labelrole, lang=view.lang)  # type: ignore[arg-type]
                     elif isinstance(view, ViewWinFactList.ViewFactList):
                         ViewFileFactList.viewFacts(modelXbrl, filename, labelrole=view.labelrole, lang=view.lang)  # type: ignore[arg-type]
                     elif isinstance(view, ViewWinFactTable.ViewFactTable):
@@ -878,11 +888,22 @@ class CntlrWinMain(Cntlr.Cntlr):
         if filename:
             for xbrlLoadedMethod in self.plugins.hooks("CntlrWinMain.Xbrl.Open"):
                 filename = xbrlLoadedMethod(self, filename) # runs in GUI thread, allows mapping filename, mult return filename
-            entrypointParseResult = parseEntrypointFileInput(self, filename, fallbackSelect=False)
+            skipPackageContentLoading = self.modelManager.skipPackageContentLoading and not importToDTS
+            entrypointParseResult = parseEntrypointFileInput(
+                self,
+                filename,
+                fallbackSelect=False,
+                skipPackageEntries=skipPackageContentLoading,
+            )
             if not entrypointParseResult.success or entrypointParseResult.filesource is None:
                 return
             filesource = entrypointParseResult.filesource
             entrypointFiles = entrypointParseResult.entrypointFiles
+            if skipPackageContentLoading and isPackage(filesource):
+                self.updateFileHistory(filename, importToDTS)
+                self.addToLog(_("skipped loading package contents: {0}").format(filesource.url))
+                filesource.close()
+                return
             # check for archive files
             if filesource.isArchive:
                 if (
@@ -917,11 +938,20 @@ class CntlrWinMain(Cntlr.Cntlr):
             self.updateFileHistory(url, False)
             for xbrlLoadedMethod in self.plugins.hooks("CntlrWinMain.Xbrl.Open"):
                 url = xbrlLoadedMethod(self, url) # runs in GUI thread, allows mapping url, mult return url
-            entrypointParseResult = parseEntrypointFileInput(self, url, fallbackSelect=False)
+            entrypointParseResult = parseEntrypointFileInput(
+                self,
+                url,
+                fallbackSelect=False,
+                skipPackageEntries=self.modelManager.skipPackageContentLoading,
+            )
             if not entrypointParseResult.success or entrypointParseResult.filesource is None:
                 return
             filesource = entrypointParseResult.filesource
             entrypointFiles = entrypointParseResult.entrypointFiles
+            if self.modelManager.skipPackageContentLoading and isPackage(filesource):
+                self.addToLog(_("skipped loading package contents: {0}").format(filesource.url))
+                filesource.close()
+                return
             if filesource.isArchive:
                 if (
                         len(entrypointFiles) == 0 and
@@ -980,6 +1010,7 @@ class CntlrWinMain(Cntlr.Cntlr):
                         # check modified time if GUI-loading from web
                         checkModifiedTime=isHttpUrl(filesource.url),
                         entrypoint=entrypoint,
+                        requiredDocumentTypes=self.modelManager.requiredDocumentTypes,
                     )
                     if modelXbrl:
                         loadedModels.append(modelXbrl)
@@ -1171,7 +1202,7 @@ class CntlrWinMain(Cntlr.Cntlr):
                 priorOutputInstance.close()
             currentAction = "showing resulting formula output instance"
             if currentOutputInstance:
-                ViewWinXml.viewXml(currentOutputInstance, self.tabWinBtm, "Formula Output Instance", currentOutputInstance.modelDocument.xmlDocument)  # type: ignore[union-attr]
+                ViewWinXml.viewXml(currentOutputInstance, self.tabWinBtm, "Formula Output Instance", currentOutputInstance.modelDocument.xmlDocument)  # type: ignore[union-attr,arg-type]
         except Exception as err:
             msg = _("Exception {0}: {1}, at {2}").format(
                      currentAction,
@@ -1588,6 +1619,11 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.config["validateTableConstraintsSkipLoading"] = self.modelManager.validateTableConstraintsSkipLoading
         self.saveConfig()
 
+    def setSkipPackageContentLoading(self, *args: Any) -> None:
+        self.modelManager.skipPackageContentLoading = self.skipPackageContentLoading.get()
+        self.config["skipPackageContentLoading"] = self.modelManager.skipPackageContentLoading
+        self.saveConfig()
+
     def setValidateAllFilesAsReportPackages(self, *args: Any) -> None:
         self.modelManager.validateAllFilesAsReportPackages = self.validateAllFilesAsReportPackages.get()
         self.config["validateAllFilesAsReportPackages"] = self.modelManager.validateAllFilesAsReportPackages
@@ -1599,6 +1635,11 @@ class CntlrWinMain(Cntlr.Cntlr):
         self.config["validateAllFilesAsTaxonomyPackages"] = self.modelManager.validateAllFilesAsTaxonomyPackages
         self.saveConfig()
         self.setValidateTooltipText()
+
+    def setRequireInlineXbrl(self, *args: Any) -> None:
+        self.config["requireInlineXbrl"] = self.requireInlineXbrl.get()
+        self.modelManager.requiredDocumentTypes = ModelDocument.Type.INLINEXBRLTYPES if self.config["requireInlineXbrl"] else ()
+        self.saveConfig()
 
     def setCollectProfileStats(self, *args: Any) -> None:
         self.modelManager.collectProfileStats = self.collectProfileStats.get()
@@ -1655,11 +1696,7 @@ class CntlrWinMain(Cntlr.Cntlr):
     # worker threads addToLog
     def addToLog(self, message: str, messageCode: str = "", messageArgs: dict[str, Any] | None = None, file: str = "", refs: list[dict[str, Any]] | None = None, level: int | str = logging.INFO) -> None:
         if isinstance(level, str):
-            levelStr = level
-            try:
-                level = logging.getLevelNamesMapping().get(levelStr, logging.INFO) # novermin
-            except AttributeError:
-                level = logging._nameToLevel.get(levelStr, logging.INFO)  # private but 3.10-safe
+            level = logging.getLevelNamesMapping().get(level, logging.INFO)
         if level < logging.INFO and not self.showDebugMessages.get():
             return # skip DEBUG and INFO-RESULT messages
         if messageCode and messageCode not in message: # prepend message code

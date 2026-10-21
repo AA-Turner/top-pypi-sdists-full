@@ -3962,8 +3962,8 @@ static int __pyx_pf_2av_5audio_5frame_10AudioFrame___cinit__(struct __pyx_obj_2a
 static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5audio_5frame_AudioFrame *__pyx_v_self, enum AVSampleFormat __pyx_v_format, AVChannelLayout __pyx_v_layout, unsigned int __pyx_v_nb_samples, unsigned int __pyx_v_align) {
   __Pyx_RefNannyDeclarations
   int __pyx_t_1;
-  PyObject *__pyx_t_2 = NULL;
-  int __pyx_t_3;
+  int __pyx_t_2;
+  PyObject *__pyx_t_3 = NULL;
   int __pyx_t_4;
   int __pyx_t_5;
   PyObject *__pyx_t_6 = NULL;
@@ -3978,7 +3978,7 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
  *     ) -> cython.void:
  *         self.ptr.nb_samples = nb_samples             # <<<<<<<<<<<<<<
  *         self.ptr.format = format
- *         self.ptr.ch_layout = layout
+ *         err_check(
 */
   __pyx_v_self->__pyx_base.ptr->nb_samples = __pyx_v_nb_samples;
 
@@ -3986,58 +3986,59 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
  *     ) -> cython.void:
  *         self.ptr.nb_samples = nb_samples
  *         self.ptr.format = format             # <<<<<<<<<<<<<<
- *         self.ptr.ch_layout = layout
- * 
+ *         err_check(
+ *             lib.av_channel_layout_copy(
 */
   __pyx_v_self->__pyx_base.ptr->format = __pyx_v_format;
 
   /* "av/audio/frame.py":53
  *         self.ptr.nb_samples = nb_samples
  *         self.ptr.format = format
- *         self.ptr.ch_layout = layout             # <<<<<<<<<<<<<<
- * 
- *         # Sometimes this is called twice. Oh well.
+ *         err_check(             # <<<<<<<<<<<<<<
+ *             lib.av_channel_layout_copy(
+ *                 cython.address(self.ptr.ch_layout), cython.address(layout)
 */
-  __pyx_v_self->__pyx_base.ptr->ch_layout = __pyx_v_layout;
+  __pyx_t_1 = __pyx_f_2av_5error_err_check(av_channel_layout_copy((&__pyx_v_self->__pyx_base.ptr->ch_layout), (&__pyx_v_layout)), 0, NULL); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 53, __pyx_L1_error)
 
-  /* "av/audio/frame.py":56
+
+  /* "av/audio/frame.py":60
  * 
  *         # Sometimes this is called twice. Oh well.
  *         self._init_user_attributes()             # <<<<<<<<<<<<<<
  * 
  *         if self.layout.nb_channels != 0 and nb_samples:
 */
-  __pyx_f_2av_5audio_5frame_10AudioFrame__init_user_attributes(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 56, __pyx_L1_error)
+  __pyx_f_2av_5audio_5frame_10AudioFrame__init_user_attributes(__pyx_v_self); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 60, __pyx_L1_error)
 
-  /* "av/audio/frame.py":58
+  /* "av/audio/frame.py":62
  *         self._init_user_attributes()
  * 
  *         if self.layout.nb_channels != 0 and nb_samples:             # <<<<<<<<<<<<<<
  *             # Cleanup the old buffer.
  *             lib.av_freep(cython.address(self._buffer))
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_2, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 58, __pyx_L1_error)
-  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  if (__pyx_t_3) {
+  __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 62, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_3);
+  __pyx_t_4 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_3, __pyx_mstate_global->__pyx_int_0, 0, 0)); if (unlikely((__pyx_t_4 < 0))) __PYX_ERR(0, 62, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+  if (__pyx_t_4) {
 
   } else {
 
-    __pyx_t_1 = __pyx_t_3;
+    __pyx_t_2 = __pyx_t_4;
 
     goto __pyx_L4_bool_binop_done;
   }
-  __pyx_t_3 = (__pyx_v_nb_samples != 0);
+  __pyx_t_4 = (__pyx_v_nb_samples != 0);
 
 
-  __pyx_t_1 = __pyx_t_3;
+  __pyx_t_2 = __pyx_t_4;
 
   __pyx_L4_bool_binop_done:;
-  if (__pyx_t_1) {
+  if (__pyx_t_2) {
 
 
-    /* "av/audio/frame.py":60
+    /* "av/audio/frame.py":64
  *         if self.layout.nb_channels != 0 and nb_samples:
  *             # Cleanup the old buffer.
  *             lib.av_freep(cython.address(self._buffer))             # <<<<<<<<<<<<<<
@@ -4046,30 +4047,30 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
 */
     av_freep((&__pyx_v_self->_buffer));
 
-    /* "av/audio/frame.py":65
+    /* "av/audio/frame.py":69
  *             self._buffer_size = err_check(
  *                 lib.av_samples_get_buffer_size(
  *                     cython.NULL, self.layout.nb_channels, nb_samples, format, align             # <<<<<<<<<<<<<<
  *                 )
  *             )
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 65, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_4 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_4 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 65, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 69, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 69, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "av/audio/frame.py":63
+    /* "av/audio/frame.py":67
  * 
  *             # Get a new one.
  *             self._buffer_size = err_check(             # <<<<<<<<<<<<<<
  *                 lib.av_samples_get_buffer_size(
  *                     cython.NULL, self.layout.nb_channels, nb_samples, format, align
 */
-    __pyx_t_5 = __pyx_f_2av_5error_err_check(av_samples_get_buffer_size(NULL, __pyx_t_4, __pyx_v_nb_samples, __pyx_v_format, __pyx_v_align), 0, NULL); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 63, __pyx_L1_error)
+    __pyx_t_5 = __pyx_f_2av_5error_err_check(av_samples_get_buffer_size(NULL, __pyx_t_1, __pyx_v_nb_samples, __pyx_v_format, __pyx_v_align), 0, NULL); if (unlikely(__pyx_t_5 == ((int)-1))) __PYX_ERR(0, 67, __pyx_L1_error)
 
     __pyx_v_self->_buffer_size = __pyx_t_5;
 
-    /* "av/audio/frame.py":68
+    /* "av/audio/frame.py":72
  *                 )
  *             )
  *             self._buffer = cython.cast(             # <<<<<<<<<<<<<<
@@ -4078,19 +4079,19 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
 */
     __pyx_v_self->_buffer = ((uint8_t *)av_malloc(__pyx_v_self->_buffer_size));
 
-    /* "av/audio/frame.py":71
+    /* "av/audio/frame.py":75
  *                 cython.pointer[uint8_t], lib.av_malloc(self._buffer_size)
  *             )
  *             if not self._buffer:             # <<<<<<<<<<<<<<
  *                 raise MemoryError("cannot allocate AudioFrame buffer")
  * 
 */
-    __pyx_t_1 = (!(__pyx_v_self->_buffer != 0));
+    __pyx_t_2 = (!(__pyx_v_self->_buffer != 0));
 
-    if (unlikely(__pyx_t_1)) {
+    if (unlikely(__pyx_t_2)) {
 
 
-      /* "av/audio/frame.py":72
+      /* "av/audio/frame.py":76
  *             )
  *             if not self._buffer:
  *                 raise MemoryError("cannot allocate AudioFrame buffer")             # <<<<<<<<<<<<<<
@@ -4101,16 +4102,16 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
       __pyx_t_7 = 1;
       {
         PyObject *__pyx_callargs[2] = {__pyx_t_6, __pyx_mstate_global->__pyx_kp_u_cannot_allocate_AudioFrame_buffe};
-        __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
+        __pyx_t_3 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_MemoryError)), __pyx_callargs+__pyx_t_7, (2-__pyx_t_7) | (__pyx_t_7*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
-        if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 72, __pyx_L1_error)
-        __Pyx_GOTREF(__pyx_t_2);
+        if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 76, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_3);
       }
-      __Pyx_Raise(__pyx_t_2, 0, 0, 0);
-      __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-      __PYX_ERR(0, 72, __pyx_L1_error)
+      __Pyx_Raise(__pyx_t_3, 0, 0, 0);
+      __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
+      __PYX_ERR(0, 76, __pyx_L1_error)
 
-      /* "av/audio/frame.py":71
+      /* "av/audio/frame.py":75
  *                 cython.pointer[uint8_t], lib.av_malloc(self._buffer_size)
  *             )
  *             if not self._buffer:             # <<<<<<<<<<<<<<
@@ -4119,30 +4120,30 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
 */
     }
 
-    /* "av/audio/frame.py":78
+    /* "av/audio/frame.py":82
  *                 lib.avcodec_fill_audio_frame(
  *                     self.ptr,
  *                     self.layout.nb_channels,             # <<<<<<<<<<<<<<
  *                     cython.cast(lib.AVSampleFormat, self.ptr.format),
  *                     self._buffer,
 */
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 78, __pyx_L1_error)
-    __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_5 = __Pyx_PyLong_As_int(__pyx_t_2); if (unlikely((__pyx_t_5 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 78, __pyx_L1_error)
-    __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+    __pyx_t_3 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 82, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_3);
+    __pyx_t_5 = __Pyx_PyLong_As_int(__pyx_t_3); if (unlikely((__pyx_t_5 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 82, __pyx_L1_error)
+    __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
 
-    /* "av/audio/frame.py":75
+    /* "av/audio/frame.py":79
  * 
  *             # Connect the data pointers to the buffer.
  *             err_check(             # <<<<<<<<<<<<<<
  *                 lib.avcodec_fill_audio_frame(
  *                     self.ptr,
 */
-    __pyx_t_4 = __pyx_f_2av_5error_err_check(avcodec_fill_audio_frame(__pyx_v_self->__pyx_base.ptr, __pyx_t_5, ((enum AVSampleFormat)__pyx_v_self->__pyx_base.ptr->format), __pyx_v_self->_buffer, ((int)__pyx_v_self->_buffer_size), __pyx_v_align), 0, NULL); if (unlikely(__pyx_t_4 == ((int)-1))) __PYX_ERR(0, 75, __pyx_L1_error)
+    __pyx_t_1 = __pyx_f_2av_5error_err_check(avcodec_fill_audio_frame(__pyx_v_self->__pyx_base.ptr, __pyx_t_5, ((enum AVSampleFormat)__pyx_v_self->__pyx_base.ptr->format), __pyx_v_self->_buffer, ((int)__pyx_v_self->_buffer_size), __pyx_v_align), 0, NULL); if (unlikely(__pyx_t_1 == ((int)-1))) __PYX_ERR(0, 79, __pyx_L1_error)
 
 
 
-    /* "av/audio/frame.py":58
+    /* "av/audio/frame.py":62
  *         self._init_user_attributes()
  * 
  *         if self.layout.nb_channels != 0 and nb_samples:             # <<<<<<<<<<<<<<
@@ -4162,7 +4163,7 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
   /* function exit code */
   goto __pyx_L0;
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_XDECREF(__pyx_t_3);
   __Pyx_XDECREF(__pyx_t_6);
   __Pyx_AddTraceback("av.audio.frame.AudioFrame._init", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_L0:;
@@ -4170,7 +4171,7 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init(struct __pyx_obj_2av_5a
   __Pyx_RefNannyFinishContext();
 }
 
-/* "av/audio/frame.py":86
+/* "av/audio/frame.py":90
  *             )
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -4193,7 +4194,7 @@ static void __pyx_pw_2av_5audio_5frame_10AudioFrame_3__dealloc__(PyObject *__pyx
 
 static void __pyx_pf_2av_5audio_5frame_10AudioFrame_2__dealloc__(struct __pyx_obj_2av_5audio_5frame_AudioFrame *__pyx_v_self) {
 
-  /* "av/audio/frame.py":87
+  /* "av/audio/frame.py":91
  * 
  *     def __dealloc__(self):
  *         lib.av_freep(cython.address(self._buffer))             # <<<<<<<<<<<<<<
@@ -4202,7 +4203,7 @@ static void __pyx_pf_2av_5audio_5frame_10AudioFrame_2__dealloc__(struct __pyx_ob
 */
   av_freep((&__pyx_v_self->_buffer));
 
-  /* "av/audio/frame.py":86
+  /* "av/audio/frame.py":90
  *             )
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -4214,7 +4215,7 @@ static void __pyx_pf_2av_5audio_5frame_10AudioFrame_2__dealloc__(struct __pyx_ob
 
 }
 
-/* "av/audio/frame.py":89
+/* "av/audio/frame.py":93
  *         lib.av_freep(cython.address(self._buffer))
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -4230,14 +4231,14 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init_user_attributes(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("_init_user_attributes", 0);
 
-  /* "av/audio/frame.py":91
+  /* "av/audio/frame.py":95
  *     @cython.cfunc
  *     def _init_user_attributes(self) -> cython.void:
  *         self.layout = get_audio_layout(self.ptr.ch_layout)             # <<<<<<<<<<<<<<
  *         self.format = get_audio_format(cython.cast(lib.AVSampleFormat, self.ptr.format))
  * 
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6layout_get_audio_layout(__pyx_v_self->__pyx_base.ptr->ch_layout)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 91, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6layout_get_audio_layout(__pyx_v_self->__pyx_base.ptr->ch_layout)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->layout);
@@ -4245,14 +4246,14 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init_user_attributes(struct 
   __pyx_v_self->layout = ((struct __pyx_obj_2av_5audio_6layout_AudioLayout *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/frame.py":92
+  /* "av/audio/frame.py":96
  *     def _init_user_attributes(self) -> cython.void:
  *         self.layout = get_audio_layout(self.ptr.ch_layout)
  *         self.format = get_audio_format(cython.cast(lib.AVSampleFormat, self.ptr.format))             # <<<<<<<<<<<<<<
  * 
  *     def __repr__(self):
 */
-  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6format_get_audio_format(((enum AVSampleFormat)__pyx_v_self->__pyx_base.ptr->format))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 92, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_2av_5audio_6format_get_audio_format(((enum AVSampleFormat)__pyx_v_self->__pyx_base.ptr->format))); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_GIVEREF(__pyx_t_1);
   __Pyx_GOTREF((PyObject *)__pyx_v_self->format);
@@ -4260,7 +4261,7 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init_user_attributes(struct 
   __pyx_v_self->format = ((struct __pyx_obj_2av_5audio_6format_AudioFormat *)__pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/frame.py":89
+  /* "av/audio/frame.py":93
  *         lib.av_freep(cython.address(self._buffer))
  * 
  *     @cython.cfunc             # <<<<<<<<<<<<<<
@@ -4278,7 +4279,7 @@ static void __pyx_f_2av_5audio_5frame_10AudioFrame__init_user_attributes(struct 
   __Pyx_RefNannyFinishContext();
 }
 
-/* "av/audio/frame.py":94
+/* "av/audio/frame.py":98
  *         self.format = get_audio_format(cython.cast(lib.AVSampleFormat, self.ptr.format))
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -4320,57 +4321,57 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4__repr__(struct __pyx_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__repr__", 0);
 
-  /* "av/audio/frame.py":96
+  /* "av/audio/frame.py":100
  *     def __repr__(self):
  *         return (
  *             f"<av.{self.__class__.__name__} pts={self.pts}, {self.samples} "             # <<<<<<<<<<<<<<
  *             f"samples at {self.rate}Hz, {self.layout.name}, {self.format.name} at 0x{id(self):x}>"
  *         )
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_class); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pts_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_pts_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 96, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/audio/frame.py":97
+  /* "av/audio/frame.py":101
  *         return (
  *             f"<av.{self.__class__.__name__} pts={self.pts}, {self.samples} "
  *             f"samples at {self.rate}Hz, {self.layout.name}, {self.format.name} at 0x{id(self):x}>"             # <<<<<<<<<<<<<<
  *         )
  * 
 */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_rate); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_2, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_id, ((PyObject *)__pyx_v_self)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_8 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 97, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_PyObject_Format(__pyx_t_2, __pyx_mstate_global->__pyx_n_u_x); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 101, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_av;
@@ -4389,7 +4390,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4__repr__(struct __pyx_
   __pyx_t_9[13] = __pyx_t_8;
   __pyx_t_9[14] = __pyx_mstate_global->__pyx_kp_u__2;
 
-  /* "av/audio/frame.py":96
+  /* "av/audio/frame.py":100
  *     def __repr__(self):
  *         return (
  *             f"<av.{self.__class__.__name__} pts={self.pts}, {self.samples} "             # <<<<<<<<<<<<<<
@@ -4411,7 +4412,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4__repr__(struct __pyx_
   }
   #endif
   __pyx_t_2 = __Pyx_PyUnicode_Join(__pyx_t_9, 15, __pyx_t_10, __pyx_t_11);
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 96, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -4431,7 +4432,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4__repr__(struct __pyx_
   __pyx_t_2 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/frame.py":94
+  /* "av/audio/frame.py":98
  *         self.format = get_audio_format(cython.cast(lib.AVSampleFormat, self.ptr.format))
  * 
  *     def __repr__(self):             # <<<<<<<<<<<<<<
@@ -4457,7 +4458,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4__repr__(struct __pyx_
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":100
+/* "av/audio/frame.py":104
  *         )
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -4507,44 +4508,44 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   {
     PyObject ** const __pyx_pyargnames[] = {&__pyx_mstate_global->__pyx_n_u_array,&__pyx_mstate_global->__pyx_n_u_format,&__pyx_mstate_global->__pyx_n_u_layout,0};
     const Py_ssize_t __pyx_kwds_len = (__pyx_kwds) ? __Pyx_NumKwargs_FASTCALL(__pyx_kwds) : 0;
-    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 100, __pyx_L3_error)
+    if (unlikely(__pyx_kwds_len < 0)) __PYX_ERR(0, 104, __pyx_L3_error)
     if (__pyx_kwds_len > 0) {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 104, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 104, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  0: break;
         default: goto __pyx_L5_argtuple_error;
       }
       const Py_ssize_t kwd_pos_args = __pyx_nargs;
-      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "from_ndarray", 0) < (0)) __PYX_ERR(0, 100, __pyx_L3_error)
+      if (__Pyx_ParseKeywords(__pyx_kwds, __pyx_kwvalues, __pyx_pyargnames, 0, values, kwd_pos_args, __pyx_kwds_len, "from_ndarray", 0) < (0)) __PYX_ERR(0, 104, __pyx_L3_error)
       if (!values[1]) values[1] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_s16));
       if (!values[2]) values[2] = __Pyx_NewRef(((PyObject *)__pyx_mstate_global->__pyx_n_u_stereo));
       for (Py_ssize_t i = __pyx_nargs; i < 1; i++) {
-        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("from_ndarray", 0, 1, 3, i); __PYX_ERR(0, 100, __pyx_L3_error) }
+        if (unlikely(!values[i])) { __Pyx_RaiseArgtupleInvalid("from_ndarray", 0, 1, 3, i); __PYX_ERR(0, 104, __pyx_L3_error) }
       }
     } else {
       switch (__pyx_nargs) {
         case  3:
         values[2] = __Pyx_ArgRef_FASTCALL(__pyx_args, 2);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[2])) __PYX_ERR(0, 104, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  2:
         values[1] = __Pyx_ArgRef_FASTCALL(__pyx_args, 1);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[1])) __PYX_ERR(0, 104, __pyx_L3_error)
         CYTHON_FALLTHROUGH;
         case  1:
         values[0] = __Pyx_ArgRef_FASTCALL(__pyx_args, 0);
-        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 100, __pyx_L3_error)
+        if (!CYTHON_ASSUME_SAFE_MACROS && unlikely(!values[0])) __PYX_ERR(0, 104, __pyx_L3_error)
         break;
         default: goto __pyx_L5_argtuple_error;
       }
@@ -4557,7 +4558,7 @@ PyObject *__pyx_args, PyObject *__pyx_kwds
   }
   goto __pyx_L6_skip;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("from_ndarray", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 100, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("from_ndarray", 0, 1, 3, __pyx_nargs); __PYX_ERR(0, 104, __pyx_L3_error)
   __pyx_L6_skip:;
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L3_error:;
@@ -4613,20 +4614,20 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
   __Pyx_RefNannySetupContext("from_ndarray", 0);
   __Pyx_INCREF(__pyx_v_format);
 
-  /* "av/audio/frame.py":105
+  /* "av/audio/frame.py":109
  *         Construct a frame from a numpy array.
  *         """
  *         import numpy as np             # <<<<<<<<<<<<<<
  * 
  *         py_format = format if isinstance(format, AudioFormat) else AudioFormat(format)
 */
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 105, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 109, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_2;
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_np = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/audio/frame.py":107
+  /* "av/audio/frame.py":111
  *         import numpy as np
  * 
  *         py_format = format if isinstance(format, AudioFormat) else AudioFormat(format)             # <<<<<<<<<<<<<<
@@ -4644,7 +4645,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_format};
       __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6format_AudioFormat, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 107, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 111, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_4);
     }
     __pyx_t_1 = ((PyObject *)__pyx_t_4);
@@ -4654,7 +4655,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
   __pyx_v_py_format = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/audio/frame.py":108
+  /* "av/audio/frame.py":112
  * 
  *         py_format = format if isinstance(format, AudioFormat) else AudioFormat(format)
  *         py_layout = layout if isinstance(layout, AudioLayout) else AudioLayout(layout)             # <<<<<<<<<<<<<<
@@ -4672,7 +4673,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
       PyObject *__pyx_callargs[2] = {__pyx_t_5, __pyx_v_layout};
       __pyx_t_4 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_6layout_AudioLayout, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 108, __pyx_L1_error)
+      if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 112, __pyx_L1_error)
       __Pyx_GOTREF((PyObject *)__pyx_t_4);
     }
     __pyx_t_1 = ((PyObject *)__pyx_t_4);
@@ -4682,19 +4683,19 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
   __pyx_v_py_layout = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/audio/frame.py":109
+  /* "av/audio/frame.py":113
  *         py_format = format if isinstance(format, AudioFormat) else AudioFormat(format)
  *         py_layout = layout if isinstance(layout, AudioLayout) else AudioLayout(layout)
  *         format = py_format.name             # <<<<<<<<<<<<<<
  * 
  *         # map avcodec type to numpy type
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_format, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 109, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_format, __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF_SET(__pyx_v_format, __pyx_t_1);
   __pyx_t_1 = 0;
 
-  /* "av/audio/frame.py":112
+  /* "av/audio/frame.py":116
  * 
  *         # map avcodec type to numpy type
  *         try:             # <<<<<<<<<<<<<<
@@ -4710,7 +4711,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
     __Pyx_XGOTREF(__pyx_t_8);
     /*try:*/ {
 
-      /* "av/audio/frame.py":113
+      /* "av/audio/frame.py":117
  *         # map avcodec type to numpy type
  *         try:
  *             dtype = np.dtype(format_dtypes[format])             # <<<<<<<<<<<<<<
@@ -4719,9 +4720,9 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
       __pyx_t_4 = __pyx_v_np;
       __Pyx_INCREF(__pyx_t_4);
-      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_format_dtypes); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 113, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_5, __pyx_mstate_global->__pyx_n_u_format_dtypes); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 117, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_v_format); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 113, __pyx_L3_error)
+      __pyx_t_9 = __Pyx_PyObject_GetItem(__pyx_t_5, __pyx_v_format); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 117, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_9);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_6 = 0;
@@ -4730,13 +4731,13 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_dtype, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 113, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 117, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_dtype = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "av/audio/frame.py":112
+      /* "av/audio/frame.py":116
  * 
  *         # map avcodec type to numpy type
  *         try:             # <<<<<<<<<<<<<<
@@ -4754,7 +4755,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "av/audio/frame.py":114
+    /* "av/audio/frame.py":118
  *         try:
  *             dtype = np.dtype(format_dtypes[format])
  *         except KeyError:             # <<<<<<<<<<<<<<
@@ -4764,12 +4765,12 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
     __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_KeyError))));
     if (__pyx_t_10) {
       __Pyx_AddTraceback("av.audio.frame.AudioFrame.from_ndarray", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_9, &__pyx_t_4) < 0) __PYX_ERR(0, 114, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_9, &__pyx_t_4) < 0) __PYX_ERR(0, 118, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_9);
       __Pyx_XGOTREF(__pyx_t_4);
 
-      /* "av/audio/frame.py":115
+      /* "av/audio/frame.py":119
  *             dtype = np.dtype(format_dtypes[format])
  *         except KeyError:
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -4778,14 +4779,14 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
       __pyx_t_11 = NULL;
 
-      /* "av/audio/frame.py":116
+      /* "av/audio/frame.py":120
  *         except KeyError:
  *             raise ValueError(
  *                 f"Conversion from numpy array with format `{format}` is not yet supported"             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-      __pyx_t_12 = __Pyx_PyObject_FormatSimple(__pyx_v_format, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 116, __pyx_L5_except_error)
+      __pyx_t_12 = __Pyx_PyObject_FormatSimple(__pyx_v_format, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 120, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_12);
       __pyx_t_13[0] = __pyx_mstate_global->__pyx_kp_u_Conversion_from_numpy_array_with;
       __pyx_t_13[1] = __pyx_t_12;
@@ -4799,7 +4800,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
       __pyx_t_10 |= __Pyx_PyUnicode_KIND_04(__pyx_t_13[1]);
       #endif
       __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_13, 3, __pyx_t_14, __pyx_t_10);
-      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 116, __pyx_L5_except_error)
+      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 120, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_15);
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __pyx_t_6 = 1;
@@ -4808,16 +4809,16 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
         __pyx_t_5 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_11); __pyx_t_11 = 0;
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 115, __pyx_L5_except_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 119, __pyx_L5_except_error)
         __Pyx_GOTREF(__pyx_t_5);
       }
       __Pyx_Raise(__pyx_t_5, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __PYX_ERR(0, 115, __pyx_L5_except_error)
+      __PYX_ERR(0, 119, __pyx_L5_except_error)
     }
     goto __pyx_L5_except_error;
 
-    /* "av/audio/frame.py":112
+    /* "av/audio/frame.py":116
  * 
  *         # map avcodec type to numpy type
  *         try:             # <<<<<<<<<<<<<<
@@ -4833,59 +4834,59 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
     __pyx_L8_try_end:;
   }
 
-  /* "av/audio/frame.py":120
+  /* "av/audio/frame.py":124
  * 
  *         # check input format
  *         nb_channels = py_layout.nb_channels             # <<<<<<<<<<<<<<
  *         check_ndarray(array, dtype, 2)
  *         if py_format.is_planar:
 */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_layout, __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 120, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_layout, __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 124, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __pyx_v_nb_channels = __pyx_t_4;
   __pyx_t_4 = 0;
 
-  /* "av/audio/frame.py":121
+  /* "av/audio/frame.py":125
  *         # check input format
  *         nb_channels = py_layout.nb_channels
  *         check_ndarray(array, dtype, 2)             # <<<<<<<<<<<<<<
  *         if py_format.is_planar:
  *             if array.shape[0] != nb_channels:
 */
-  __pyx_f_2av_5utils_check_ndarray(__pyx_v_array, __pyx_v_dtype, 2); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 121, __pyx_L1_error)
+  __pyx_f_2av_5utils_check_ndarray(__pyx_v_array, __pyx_v_dtype, 2); if (unlikely(PyErr_Occurred())) __PYX_ERR(0, 125, __pyx_L1_error)
 
-  /* "av/audio/frame.py":122
+  /* "av/audio/frame.py":126
  *         nb_channels = py_layout.nb_channels
  *         check_ndarray(array, dtype, 2)
  *         if py_format.is_planar:             # <<<<<<<<<<<<<<
  *             if array.shape[0] != nb_channels:
  *                 raise ValueError(
 */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_format, __pyx_mstate_global->__pyx_n_u_is_planar); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_format, __pyx_mstate_global->__pyx_n_u_is_planar); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 122, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyObject_IsTrue(__pyx_t_4); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 126, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   if (__pyx_t_3) {
 
 
-    /* "av/audio/frame.py":123
+    /* "av/audio/frame.py":127
  *         check_ndarray(array, dtype, 2)
  *         if py_format.is_planar:
  *             if array.shape[0] != nb_channels:             # <<<<<<<<<<<<<<
  *                 raise ValueError(
  *                     f"Expected planar `array.shape[0]` to equal `{nb_channels}` but got `{array.shape[0]}`"
 */
-    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 127, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
-    __pyx_t_9 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-    __pyx_t_3 = __Pyx_PyObject_CompareBoolNe_object_object(__pyx_t_9, __pyx_v_nb_channels, Py_NE); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 123, __pyx_L1_error)
+    __pyx_t_3 = __Pyx_PyObject_CompareBoolNe_object_object(__pyx_t_9, __pyx_v_nb_channels, Py_NE); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 127, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (unlikely(__pyx_t_3)) {
 
 
-      /* "av/audio/frame.py":124
+      /* "av/audio/frame.py":128
  *         if py_format.is_planar:
  *             if array.shape[0] != nb_channels:
  *                 raise ValueError(             # <<<<<<<<<<<<<<
@@ -4894,21 +4895,21 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
       __pyx_t_4 = NULL;
 
-      /* "av/audio/frame.py":125
+      /* "av/audio/frame.py":129
  *             if array.shape[0] != nb_channels:
  *                 raise ValueError(
  *                     f"Expected planar `array.shape[0]` to equal `{nb_channels}` but got `{array.shape[0]}`"             # <<<<<<<<<<<<<<
  *                 )
  *             samples = array.shape[1]
 */
-      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_nb_channels, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __pyx_t_1 = __Pyx_PyObject_FormatSimple(__pyx_v_nb_channels, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 129, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_1);
-      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
-      __pyx_t_15 = __Pyx_GetItemInt(__pyx_t_5, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __pyx_t_15 = __Pyx_GetItemInt(__pyx_t_5, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 129, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_15);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_15, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 125, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_PyObject_FormatSimple(__pyx_t_15, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
       __pyx_t_16[0] = __pyx_mstate_global->__pyx_kp_u_Expected_planar_array_shape_0_to;
@@ -4925,7 +4926,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
       __pyx_t_10 |= __Pyx_PyUnicode_KIND_04(__pyx_t_16[1]) | __Pyx_PyUnicode_KIND_04(__pyx_t_16[3]);
       #endif
       __pyx_t_15 = __Pyx_PyUnicode_Join(__pyx_t_16, 5, __pyx_t_14, __pyx_t_10);
-      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 125, __pyx_L1_error)
+      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 129, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_15);
       __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
@@ -4935,14 +4936,14 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
         __pyx_t_9 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
         __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 124, __pyx_L1_error)
+        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 128, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
       }
       __Pyx_Raise(__pyx_t_9, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __PYX_ERR(0, 124, __pyx_L1_error)
+      __PYX_ERR(0, 128, __pyx_L1_error)
 
-      /* "av/audio/frame.py":123
+      /* "av/audio/frame.py":127
  *         check_ndarray(array, dtype, 2)
  *         if py_format.is_planar:
  *             if array.shape[0] != nb_channels:             # <<<<<<<<<<<<<<
@@ -4951,22 +4952,22 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
     }
 
-    /* "av/audio/frame.py":127
+    /* "av/audio/frame.py":131
  *                     f"Expected planar `array.shape[0]` to equal `{nb_channels}` but got `{array.shape[0]}`"
  *                 )
  *             samples = array.shape[1]             # <<<<<<<<<<<<<<
  *         else:
  *             if array.shape[0] != 1:
 */
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_15 = __Pyx_GetItemInt(__pyx_t_9, 1, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 127, __pyx_L1_error)
+    __pyx_t_15 = __Pyx_GetItemInt(__pyx_t_9, 1, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 131, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_15);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     __pyx_v_samples = __pyx_t_15;
     __pyx_t_15 = 0;
 
-    /* "av/audio/frame.py":122
+    /* "av/audio/frame.py":126
  *         nb_channels = py_layout.nb_channels
  *         check_ndarray(array, dtype, 2)
  *         if py_format.is_planar:             # <<<<<<<<<<<<<<
@@ -4976,7 +4977,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
     goto __pyx_L11;
   }
 
-  /* "av/audio/frame.py":129
+  /* "av/audio/frame.py":133
  *             samples = array.shape[1]
  *         else:
  *             if array.shape[0] != 1:             # <<<<<<<<<<<<<<
@@ -4984,17 +4985,17 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
  *                     f"Expected packed `array.shape[0]` to equal `1` but got `{array.shape[0]}`"
 */
   /*else*/ {
-    __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 129, __pyx_L1_error)
+    __pyx_t_15 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_15);
-    __pyx_t_9 = __Pyx_GetItemInt(__pyx_t_15, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 129, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_GetItemInt(__pyx_t_15, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-    __pyx_t_3 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_1, 1, 0)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 129, __pyx_L1_error)
+    __pyx_t_3 = (__Pyx_PyLong_BoolNeObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_1, 1, 0)); if (unlikely((__pyx_t_3 < 0))) __PYX_ERR(0, 133, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
     if (unlikely(__pyx_t_3)) {
 
 
-      /* "av/audio/frame.py":130
+      /* "av/audio/frame.py":134
  *         else:
  *             if array.shape[0] != 1:
  *                 raise ValueError(             # <<<<<<<<<<<<<<
@@ -5003,19 +5004,19 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
       __pyx_t_15 = NULL;
 
-      /* "av/audio/frame.py":131
+      /* "av/audio/frame.py":135
  *             if array.shape[0] != 1:
  *                 raise ValueError(
  *                     f"Expected packed `array.shape[0]` to equal `1` but got `{array.shape[0]}`"             # <<<<<<<<<<<<<<
  *                 )
  *             samples = array.shape[1] // nb_channels
 */
-      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 135, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
-      __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 131, __pyx_L1_error)
+      __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
+      __pyx_t_4 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 135, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_4);
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
       __pyx_t_13[0] = __pyx_mstate_global->__pyx_kp_u_Expected_packed_array_shape_0_to;
@@ -5030,7 +5031,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
       __pyx_t_10 |= __Pyx_PyUnicode_KIND_04(__pyx_t_13[1]);
       #endif
       __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_13, 3, __pyx_t_14, __pyx_t_10);
-      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 131, __pyx_L1_error)
+      if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 135, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_5);
       __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
       __pyx_t_6 = 1;
@@ -5039,14 +5040,14 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
         __pyx_t_9 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_15); __pyx_t_15 = 0;
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 130, __pyx_L1_error)
+        if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 134, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
       }
       __Pyx_Raise(__pyx_t_9, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-      __PYX_ERR(0, 130, __pyx_L1_error)
+      __PYX_ERR(0, 134, __pyx_L1_error)
 
-      /* "av/audio/frame.py":129
+      /* "av/audio/frame.py":133
  *             samples = array.shape[1]
  *         else:
  *             if array.shape[0] != 1:             # <<<<<<<<<<<<<<
@@ -5055,19 +5056,19 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
     }
 
-    /* "av/audio/frame.py":133
+    /* "av/audio/frame.py":137
  *                     f"Expected packed `array.shape[0]` to equal `1` but got `{array.shape[0]}`"
  *                 )
  *             samples = array.shape[1] // nb_channels             # <<<<<<<<<<<<<<
  * 
  *         frame = AudioFrame(format=py_format, layout=py_layout, samples=samples)
 */
-    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_9 = __Pyx_PyObject_GetAttrStr(__pyx_v_array, __pyx_mstate_global->__pyx_n_u_shape); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
-    __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_9, 1, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_9, 1, long, 1, __Pyx_PyLong_From_long, 0, 1, 1, __Pyx_ReferenceSharing_OwnStrongReference); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-    __pyx_t_9 = PyNumber_FloorDivide(__pyx_t_5, __pyx_v_nb_channels); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 133, __pyx_L1_error)
+    __pyx_t_9 = PyNumber_FloorDivide(__pyx_t_5, __pyx_v_nb_channels); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 137, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_9);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __pyx_v_samples = __pyx_t_9;
@@ -5075,7 +5076,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
   }
   __pyx_L11:;
 
-  /* "av/audio/frame.py":135
+  /* "av/audio/frame.py":139
  *             samples = array.shape[1] // nb_channels
  * 
  *         frame = AudioFrame(format=py_format, layout=py_layout, samples=samples)             # <<<<<<<<<<<<<<
@@ -5088,26 +5089,26 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
     PyObject *__pyx_callargs[4] = {__pyx_t_5, __pyx_v_py_format, __pyx_v_py_layout, __pyx_v_samples};
     #if CYTHON_VECTORCALL
     __pyx_t_15 = __pyx_mstate_global->__pyx_tuple[0];
-    if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 135, __pyx_L1_error)
+    if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_INCREF(__pyx_t_15);
     #else
     {
       PyObject *__pyx_temp[3] = {__pyx_mstate_global->__pyx_n_u_format, __pyx_mstate_global->__pyx_n_u_layout, __pyx_mstate_global->__pyx_n_u_samples};
       __pyx_t_15 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+1, 3);
-      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 135, __pyx_L1_error)
+      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 139, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_15);
     }
     #endif
     __pyx_t_9 = __Pyx_Object_VectorcallKwds((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, __pyx_callargs+__pyx_t_6, (1-__pyx_t_6) | (__pyx_t_6*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_15);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
-    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 135, __pyx_L1_error)
+    if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_GOTREF((PyObject *)__pyx_t_9);
   }
   __pyx_v_frame = ((struct __pyx_obj_2av_5audio_5frame_AudioFrame *)__pyx_t_9);
   __pyx_t_9 = 0;
 
-  /* "av/audio/frame.py":136
+  /* "av/audio/frame.py":140
  * 
  *         frame = AudioFrame(format=py_format, layout=py_layout, samples=samples)
  *         for i, plane in enumerate(frame.planes):             # <<<<<<<<<<<<<<
@@ -5116,16 +5117,16 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
   __Pyx_INCREF(__pyx_mstate_global->__pyx_int_0);
   __pyx_t_9 = __pyx_mstate_global->__pyx_int_0;
-  __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_planes); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_15 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_frame), __pyx_mstate_global->__pyx_n_u_planes); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 140, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_15);
   if (likely(PyList_CheckExact(__pyx_t_15)) || PyTuple_CheckExact(__pyx_t_15)) {
     __pyx_t_5 = __pyx_t_15; __Pyx_INCREF(__pyx_t_5);
     __pyx_t_14 = 0;
     __pyx_t_17 = NULL;
   } else {
-    __pyx_t_14 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_t_15); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_14 = -1; __pyx_t_5 = PyObject_GetIter(__pyx_t_15); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_17 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_17 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_5); if (unlikely(!__pyx_t_17)) __PYX_ERR(0, 140, __pyx_L1_error)
   }
   __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
   for (;;) {
@@ -5134,7 +5135,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
         {
           Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_5);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 140, __pyx_L1_error)
           #endif
           if (__pyx_t_14 >= __pyx_temp) break;
         }
@@ -5144,7 +5145,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
         {
           Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_5);
           #if !CYTHON_ASSUME_SAFE_SIZE
-          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 140, __pyx_L1_error)
           #endif
           if (__pyx_t_14 >= __pyx_temp) break;
         }
@@ -5155,13 +5156,13 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
         #endif
         ++__pyx_t_14;
       }
-      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 136, __pyx_L1_error)
+      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 140, __pyx_L1_error)
     } else {
       __pyx_t_15 = __pyx_t_17(__pyx_t_5);
       if (unlikely(!__pyx_t_15)) {
         PyObject* exc_type = PyErr_Occurred();
         if (exc_type) {
-          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 136, __pyx_L1_error)
+          if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 140, __pyx_L1_error)
           PyErr_Clear();
         }
         break;
@@ -5172,13 +5173,13 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
     __pyx_t_15 = 0;
     __Pyx_INCREF(__pyx_t_9);
     __Pyx_XDECREF_SET(__pyx_v_i, __pyx_t_9);
-    __pyx_t_15 = __Pyx_PyLong_AddObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 136, __pyx_L1_error)
+    __pyx_t_15 = __Pyx_PyLong_AddObjC(__pyx_t_9, __pyx_mstate_global->__pyx_int_1, 1, 0, 0); if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 140, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_15);
     __Pyx_DECREF(__pyx_t_9);
     __pyx_t_9 = __pyx_t_15;
     __pyx_t_15 = 0;
 
-    /* "av/audio/frame.py":137
+    /* "av/audio/frame.py":141
  *         frame = AudioFrame(format=py_format, layout=py_layout, samples=samples)
  *         for i, plane in enumerate(frame.planes):
  *             plane.update(array[i, :])             # <<<<<<<<<<<<<<
@@ -5187,15 +5188,15 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
 */
     __pyx_t_4 = __pyx_v_plane;
     __Pyx_INCREF(__pyx_t_4);
-    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 137, __pyx_L1_error)
+    __pyx_t_1 = PyTuple_New(2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_INCREF(__pyx_v_i);
     __Pyx_GIVEREF(__pyx_v_i);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_i) != (0)) __PYX_ERR(0, 137, __pyx_L1_error);
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 0, __pyx_v_i) != (0)) __PYX_ERR(0, 141, __pyx_L1_error);
     __Pyx_INCREF(__pyx_mstate_global->__pyx_slice[0]);
     __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[0]);
-    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_mstate_global->__pyx_slice[0]) != (0)) __PYX_ERR(0, 137, __pyx_L1_error);
-    __pyx_t_11 = __Pyx_PyObject_GetItem(__pyx_v_array, __pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 137, __pyx_L1_error)
+    if (__Pyx_PyTuple_SET_ITEM(__pyx_t_1, 1, __pyx_mstate_global->__pyx_slice[0]) != (0)) __PYX_ERR(0, 141, __pyx_L1_error);
+    __pyx_t_11 = __Pyx_PyObject_GetItem(__pyx_v_array, __pyx_t_1); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 141, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_11);
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
     __pyx_t_6 = 0;
@@ -5204,12 +5205,12 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
       __pyx_t_15 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_update, __pyx_callargs+__pyx_t_6, (2-__pyx_t_6) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 137, __pyx_L1_error)
+      if (unlikely(!__pyx_t_15)) __PYX_ERR(0, 141, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_15);
     }
     __Pyx_DECREF(__pyx_t_15); __pyx_t_15 = 0;
 
-    /* "av/audio/frame.py":136
+    /* "av/audio/frame.py":140
  * 
  *         frame = AudioFrame(format=py_format, layout=py_layout, samples=samples)
  *         for i, plane in enumerate(frame.planes):             # <<<<<<<<<<<<<<
@@ -5220,7 +5221,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-  /* "av/audio/frame.py":138
+  /* "av/audio/frame.py":142
  *         for i, plane in enumerate(frame.planes):
  *             plane.update(array[i, :])
  *         return frame             # <<<<<<<<<<<<<<
@@ -5238,7 +5239,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
   }
   goto __pyx_L0;
 
-  /* "av/audio/frame.py":100
+  /* "av/audio/frame.py":104
  *         )
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
@@ -5273,7 +5274,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6from_ndarray(PyObject 
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":140
+/* "av/audio/frame.py":144
  *         return frame
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5315,7 +5316,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/frame.py":147
+  /* "av/audio/frame.py":151
  *         :type: tuple
  *         """
  *         plane_count: cython.int = 0             # <<<<<<<<<<<<<<
@@ -5324,7 +5325,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
 */
   __pyx_v_plane_count = 0;
 
-  /* "av/audio/frame.py":148
+  /* "av/audio/frame.py":152
  *         """
  *         plane_count: cython.int = 0
  *         while self.ptr.extended_data[plane_count]:             # <<<<<<<<<<<<<<
@@ -5337,7 +5338,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
 
     if (!__pyx_t_1) break;
 
-    /* "av/audio/frame.py":149
+    /* "av/audio/frame.py":153
  *         plane_count: cython.int = 0
  *         while self.ptr.extended_data[plane_count]:
  *             plane_count += 1             # <<<<<<<<<<<<<<
@@ -5347,7 +5348,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
     __pyx_v_plane_count = (__pyx_v_plane_count + 1);
   }
 
-  /* "av/audio/frame.py":151
+  /* "av/audio/frame.py":155
  *             plane_count += 1
  * 
  *         return tuple([AudioPlane(self, i) for i in range(plane_count)])             # <<<<<<<<<<<<<<
@@ -5355,7 +5356,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
  *     @property
 */
   { /* enter inner scope */
-    __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 151, __pyx_L1_error)
+    __pyx_t_2 = PyList_New(0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 155, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
 
     __pyx_t_3 = __pyx_v_plane_count;
@@ -5364,7 +5365,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
     for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
       __pyx_7genexpr__pyx_v_i = __pyx_t_5;
       __pyx_t_7 = NULL;
-      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_7genexpr__pyx_v_i); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 151, __pyx_L1_error)
+      __pyx_t_8 = __Pyx_PyLong_From_int(__pyx_7genexpr__pyx_v_i); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 155, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_8);
       __pyx_t_9 = 1;
       {
@@ -5372,16 +5373,16 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
         __pyx_t_6 = __Pyx_PyObject_FastCall((PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_5plane_AudioPlane, __pyx_callargs+__pyx_t_9, (3-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 155, __pyx_L1_error)
         __Pyx_GOTREF((PyObject *)__pyx_t_6);
       }
       __Pyx_GIVEREF((PyObject *)__pyx_t_6);
-      if (unlikely(__Pyx_ListComp_AppendAndDecref(__pyx_t_2, ((PyObject *)__pyx_t_6)))) __PYX_ERR(0, 151, __pyx_L1_error)
+      if (unlikely(__Pyx_ListComp_AppendAndDecref(__pyx_t_2, ((PyObject *)__pyx_t_6)))) __PYX_ERR(0, 155, __pyx_L1_error)
       __pyx_t_6 = 0;
     }
 
   } /* exit inner scope */
-  __pyx_t_6 = PyList_AsTuple(((PyObject*)__pyx_t_2)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 151, __pyx_L1_error)
+  __pyx_t_6 = PyList_AsTuple(((PyObject*)__pyx_t_2)); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 155, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_6);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   {
@@ -5395,7 +5396,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
   __pyx_t_6 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/frame.py":140
+  /* "av/audio/frame.py":144
  *         return frame
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5419,7 +5420,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_6planes___get__(struct 
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":153
+/* "av/audio/frame.py":157
  *         return tuple([AudioPlane(self, i) for i in range(plane_count)])
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5451,14 +5452,14 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_7samples___get__(struct
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/frame.py":160
+  /* "av/audio/frame.py":164
  *         :type: int
  *         """
  *         return self.ptr.nb_samples             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->nb_samples); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 160, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->nb_samples); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 164, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5471,7 +5472,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_7samples___get__(struct
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/frame.py":153
+  /* "av/audio/frame.py":157
  *         return tuple([AudioPlane(self, i) for i in range(plane_count)])
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5490,7 +5491,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_7samples___get__(struct
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":162
+/* "av/audio/frame.py":166
  *         return self.ptr.nb_samples
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5522,14 +5523,14 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_11sample_rate___get__(s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/frame.py":169
+  /* "av/audio/frame.py":173
  *         :type: int
  *         """
  *         return self.ptr.sample_rate             # <<<<<<<<<<<<<<
  * 
  *     @sample_rate.setter
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 169, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 173, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5542,7 +5543,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_11sample_rate___get__(s
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/frame.py":162
+  /* "av/audio/frame.py":166
  *         return self.ptr.nb_samples
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5561,7 +5562,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_11sample_rate___get__(s
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":171
+/* "av/audio/frame.py":175
  *         return self.ptr.sample_rate
  * 
  *     @sample_rate.setter             # <<<<<<<<<<<<<<
@@ -5591,17 +5592,17 @@ static int __pyx_pf_2av_5audio_5frame_10AudioFrame_11sample_rate_2__set__(struct
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/audio/frame.py":173
+  /* "av/audio/frame.py":177
  *     @sample_rate.setter
  *     def sample_rate(self, value):
  *         self.ptr.sample_rate = value             # <<<<<<<<<<<<<<
  * 
  *     @property
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 173, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 177, __pyx_L1_error)
   __pyx_v_self->__pyx_base.ptr->sample_rate = __pyx_t_1;
 
-  /* "av/audio/frame.py":171
+  /* "av/audio/frame.py":175
  *         return self.ptr.sample_rate
  * 
  *     @sample_rate.setter             # <<<<<<<<<<<<<<
@@ -5620,7 +5621,7 @@ static int __pyx_pf_2av_5audio_5frame_10AudioFrame_11sample_rate_2__set__(struct
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":175
+/* "av/audio/frame.py":179
  *         self.ptr.sample_rate = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5652,14 +5653,14 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4rate___get__(struct __
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 0);
 
-  /* "av/audio/frame.py":178
+  /* "av/audio/frame.py":182
  *     def rate(self):
  *         """Another name for :attr:`sample_rate`."""
  *         return self.ptr.sample_rate             # <<<<<<<<<<<<<<
  * 
  *     @rate.setter
 */
-  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 178, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_From_int(__pyx_v_self->__pyx_base.ptr->sample_rate); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 182, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   {
     PyObject *__pyx_temp;
@@ -5672,7 +5673,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4rate___get__(struct __
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/frame.py":175
+  /* "av/audio/frame.py":179
  *         self.ptr.sample_rate = value
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -5691,7 +5692,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_4rate___get__(struct __
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":180
+/* "av/audio/frame.py":184
  *         return self.ptr.sample_rate
  * 
  *     @rate.setter             # <<<<<<<<<<<<<<
@@ -5721,17 +5722,17 @@ static int __pyx_pf_2av_5audio_5frame_10AudioFrame_4rate_2__set__(struct __pyx_o
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
 
-  /* "av/audio/frame.py":182
+  /* "av/audio/frame.py":186
  *     @rate.setter
  *     def rate(self, value):
  *         self.ptr.sample_rate = value             # <<<<<<<<<<<<<<
  * 
  *     def to_ndarray(self):
 */
-  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 182, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyLong_As_int(__pyx_v_value); if (unlikely((__pyx_t_1 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 186, __pyx_L1_error)
   __pyx_v_self->__pyx_base.ptr->sample_rate = __pyx_t_1;
 
-  /* "av/audio/frame.py":180
+  /* "av/audio/frame.py":184
  *         return self.ptr.sample_rate
  * 
  *     @rate.setter             # <<<<<<<<<<<<<<
@@ -5750,7 +5751,7 @@ static int __pyx_pf_2av_5audio_5frame_10AudioFrame_4rate_2__set__(struct __pyx_o
   return __pyx_r;
 }
 
-/* "av/audio/frame.py":184
+/* "av/audio/frame.py":188
  *         self.ptr.sample_rate = value
  * 
  *     def to_ndarray(self):             # <<<<<<<<<<<<<<
@@ -5828,20 +5829,20 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("to_ndarray", 0);
 
-  /* "av/audio/frame.py":190
+  /* "av/audio/frame.py":194
  * 
  *         """
  *         import numpy as np             # <<<<<<<<<<<<<<
  * 
  *         try:
 */
-  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 190, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_Import(__pyx_mstate_global->__pyx_n_u_numpy, 0, 0, NULL, 0); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 194, __pyx_L1_error)
   __pyx_t_1 = __pyx_t_2;
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_v_np = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "av/audio/frame.py":192
+  /* "av/audio/frame.py":196
  *         import numpy as np
  * 
  *         try:             # <<<<<<<<<<<<<<
@@ -5857,7 +5858,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
     __Pyx_XGOTREF(__pyx_t_4);
     /*try:*/ {
 
-      /* "av/audio/frame.py":193
+      /* "av/audio/frame.py":197
  * 
  *         try:
  *             dtype = np.dtype(format_dtypes[self.format.name])             # <<<<<<<<<<<<<<
@@ -5866,11 +5867,11 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
 */
       __pyx_t_5 = __pyx_v_np;
       __Pyx_INCREF(__pyx_t_5);
-      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_format_dtypes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 193, __pyx_L3_error)
+      __Pyx_GetModuleGlobalName(__pyx_t_6, __pyx_mstate_global->__pyx_n_u_format_dtypes); if (unlikely(!__pyx_t_6)) __PYX_ERR(0, 197, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_6);
-      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 193, __pyx_L3_error)
+      __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 197, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_7);
-      __pyx_t_8 = __Pyx_PyObject_GetItem(__pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 193, __pyx_L3_error)
+      __pyx_t_8 = __Pyx_PyObject_GetItem(__pyx_t_6, __pyx_t_7); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 197, __pyx_L3_error)
       __Pyx_GOTREF(__pyx_t_8);
       __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -5880,13 +5881,13 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
         __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_dtype, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 193, __pyx_L3_error)
+        if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 197, __pyx_L3_error)
         __Pyx_GOTREF(__pyx_t_1);
       }
       __pyx_v_dtype = __pyx_t_1;
       __pyx_t_1 = 0;
 
-      /* "av/audio/frame.py":192
+      /* "av/audio/frame.py":196
  *         import numpy as np
  * 
  *         try:             # <<<<<<<<<<<<<<
@@ -5905,7 +5906,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
     __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
 
-    /* "av/audio/frame.py":194
+    /* "av/audio/frame.py":198
  *         try:
  *             dtype = np.dtype(format_dtypes[self.format.name])
  *         except KeyError:             # <<<<<<<<<<<<<<
@@ -5915,12 +5916,12 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
     __pyx_t_10 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_KeyError))));
     if (__pyx_t_10) {
       __Pyx_AddTraceback("av.audio.frame.AudioFrame.to_ndarray", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 194, __pyx_L5_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_8, &__pyx_t_5) < 0) __PYX_ERR(0, 198, __pyx_L5_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_8);
       __Pyx_XGOTREF(__pyx_t_5);
 
-      /* "av/audio/frame.py":195
+      /* "av/audio/frame.py":199
  *             dtype = np.dtype(format_dtypes[self.format.name])
  *         except KeyError:
  *             raise ValueError(             # <<<<<<<<<<<<<<
@@ -5929,16 +5930,16 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
 */
       __pyx_t_6 = NULL;
 
-      /* "av/audio/frame.py":196
+      /* "av/audio/frame.py":200
  *         except KeyError:
  *             raise ValueError(
  *                 f"Conversion from {self.format.name!r} format to numpy array is not supported."             # <<<<<<<<<<<<<<
  *             )
  * 
 */
-      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 196, __pyx_L5_except_error)
+      __pyx_t_11 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_name_2); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 200, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_11);
-      __pyx_t_12 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_11), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 196, __pyx_L5_except_error)
+      __pyx_t_12 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Repr(__pyx_t_11), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 200, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_12);
       __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
       __pyx_t_13[0] = __pyx_mstate_global->__pyx_kp_u_Conversion_from;
@@ -5953,7 +5954,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
       __pyx_t_10 |= __Pyx_PyUnicode_KIND_04(__pyx_t_13[1]);
       #endif
       __pyx_t_11 = __Pyx_PyUnicode_Join(__pyx_t_13, 3, __pyx_t_14, __pyx_t_10);
-      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 196, __pyx_L5_except_error)
+      if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 200, __pyx_L5_except_error)
       __Pyx_GOTREF(__pyx_t_11);
       __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
       __pyx_t_9 = 1;
@@ -5962,16 +5963,16 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
         __pyx_t_7 = __Pyx_PyObject_FastCall((PyObject*)(((PyTypeObject*)PyExc_ValueError)), __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 195, __pyx_L5_except_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 199, __pyx_L5_except_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_Raise(__pyx_t_7, 0, 0, 0);
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-      __PYX_ERR(0, 195, __pyx_L5_except_error)
+      __PYX_ERR(0, 199, __pyx_L5_except_error)
     }
     goto __pyx_L5_except_error;
 
-    /* "av/audio/frame.py":192
+    /* "av/audio/frame.py":196
  *         import numpy as np
  * 
  *         try:             # <<<<<<<<<<<<<<
@@ -5987,33 +5988,33 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
     __pyx_L8_try_end:;
   }
 
-  /* "av/audio/frame.py":199
+  /* "av/audio/frame.py":203
  *             )
  * 
  *         if self.format.is_planar:             # <<<<<<<<<<<<<<
  *             count = self.samples
  *         else:
 */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_is_planar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->format), __pyx_mstate_global->__pyx_n_u_is_planar); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 203, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_15 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_15 < 0))) __PYX_ERR(0, 199, __pyx_L1_error)
+  __pyx_t_15 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_15 < 0))) __PYX_ERR(0, 203, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   if (__pyx_t_15) {
 
 
-    /* "av/audio/frame.py":200
+    /* "av/audio/frame.py":204
  * 
  *         if self.format.is_planar:
  *             count = self.samples             # <<<<<<<<<<<<<<
  *         else:
  *             count = self.samples * self.layout.nb_channels
 */
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 200, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 204, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
     __pyx_v_count = __pyx_t_5;
     __pyx_t_5 = 0;
 
-    /* "av/audio/frame.py":199
+    /* "av/audio/frame.py":203
  *             )
  * 
  *         if self.format.is_planar:             # <<<<<<<<<<<<<<
@@ -6023,7 +6024,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
     goto __pyx_L11;
   }
 
-  /* "av/audio/frame.py":202
+  /* "av/audio/frame.py":206
  *             count = self.samples
  *         else:
  *             count = self.samples * self.layout.nb_channels             # <<<<<<<<<<<<<<
@@ -6031,11 +6032,11 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
  *         return np.vstack(
 */
   /*else*/ {
-    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 202, __pyx_L1_error)
+    __pyx_t_5 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_samples); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 206, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 202, __pyx_L1_error)
+    __pyx_t_8 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self->layout), __pyx_mstate_global->__pyx_n_u_nb_channels); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 206, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_8);
-    __pyx_t_1 = __Pyx_PyNumber_Multiply_object_object(__pyx_t_5, __pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 202, __pyx_L1_error)
+    __pyx_t_1 = __Pyx_PyNumber_Multiply_object_object(__pyx_t_5, __pyx_t_8); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 206, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -6044,7 +6045,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
   }
   __pyx_L11:;
 
-  /* "av/audio/frame.py":204
+  /* "av/audio/frame.py":208
  *             count = self.samples * self.layout.nb_channels
  * 
  *         return np.vstack(             # <<<<<<<<<<<<<<
@@ -6055,24 +6056,24 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
   __Pyx_INCREF(__pyx_t_8);
   { /* enter inner scope */
 
-    /* "av/audio/frame.py":205
+    /* "av/audio/frame.py":209
  * 
  *         return np.vstack(
  *             [np.frombuffer(x, dtype=dtype, count=count) for x in self.planes]             # <<<<<<<<<<<<<<
  *         )
 */
-    __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 205, __pyx_L14_error)
+    __pyx_t_5 = PyList_New(0); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 209, __pyx_L14_error)
     __Pyx_GOTREF(__pyx_t_5);
-    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_planes); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 205, __pyx_L14_error)
+    __pyx_t_7 = __Pyx_PyObject_GetAttrStr(((PyObject *)__pyx_v_self), __pyx_mstate_global->__pyx_n_u_planes); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 209, __pyx_L14_error)
     __Pyx_GOTREF(__pyx_t_7);
     if (likely(PyList_CheckExact(__pyx_t_7)) || PyTuple_CheckExact(__pyx_t_7)) {
       __pyx_t_11 = __pyx_t_7; __Pyx_INCREF(__pyx_t_11);
       __pyx_t_14 = 0;
       __pyx_t_16 = NULL;
     } else {
-      __pyx_t_14 = -1; __pyx_t_11 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 205, __pyx_L14_error)
+      __pyx_t_14 = -1; __pyx_t_11 = PyObject_GetIter(__pyx_t_7); if (unlikely(!__pyx_t_11)) __PYX_ERR(0, 209, __pyx_L14_error)
       __Pyx_GOTREF(__pyx_t_11);
-      __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_11); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 205, __pyx_L14_error)
+      __pyx_t_16 = (CYTHON_COMPILING_IN_LIMITED_API) ? PyIter_Next : __Pyx_PyObject_GetIterNextFunc(__pyx_t_11); if (unlikely(!__pyx_t_16)) __PYX_ERR(0, 209, __pyx_L14_error)
     }
     __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
     for (;;) {
@@ -6081,7 +6082,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
           {
             Py_ssize_t __pyx_temp = __Pyx_PyList_GET_SIZE(__pyx_t_11);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 205, __pyx_L14_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 209, __pyx_L14_error)
             #endif
             if (__pyx_t_14 >= __pyx_temp) break;
           }
@@ -6091,7 +6092,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
           {
             Py_ssize_t __pyx_temp = __Pyx_PyTuple_GET_SIZE(__pyx_t_11);
             #if !CYTHON_ASSUME_SAFE_SIZE
-            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 205, __pyx_L14_error)
+            if (unlikely((__pyx_temp < 0))) __PYX_ERR(0, 209, __pyx_L14_error)
             #endif
             if (__pyx_t_14 >= __pyx_temp) break;
           }
@@ -6102,13 +6103,13 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
           #endif
           ++__pyx_t_14;
         }
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 205, __pyx_L14_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 209, __pyx_L14_error)
       } else {
         __pyx_t_7 = __pyx_t_16(__pyx_t_11);
         if (unlikely(!__pyx_t_7)) {
           PyObject* exc_type = PyErr_Occurred();
           if (exc_type) {
-            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 205, __pyx_L14_error)
+            if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration))) __PYX_ERR(0, 209, __pyx_L14_error)
             PyErr_Clear();
           }
           break;
@@ -6124,24 +6125,24 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
         PyObject *__pyx_callargs[4] = {__pyx_t_6, __pyx_8genexpr1__pyx_v_x, __pyx_v_dtype, __pyx_v_count};
         #if CYTHON_VECTORCALL
         __pyx_t_12 = __pyx_mstate_global->__pyx_tuple[1];
-        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 205, __pyx_L14_error)
+        if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 209, __pyx_L14_error)
         __Pyx_INCREF(__pyx_t_12);
         #else
         {
           PyObject *__pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_dtype, __pyx_mstate_global->__pyx_n_u_count};
           __pyx_t_12 = __Pyx_MakeKwargDict(__pyx_temp, __pyx_callargs+2, 2);
-          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 205, __pyx_L14_error)
+          if (unlikely(!__pyx_t_12)) __PYX_ERR(0, 209, __pyx_L14_error)
           __Pyx_GOTREF(__pyx_t_12);
         }
         #endif
         __pyx_t_7 = __Pyx_Object_VectorcallMethodKwds((PyObject*)__pyx_mstate_global->__pyx_n_u_frombuffer, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET), __pyx_t_12);
         __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
         __Pyx_DECREF(__pyx_t_12); __pyx_t_12 = 0;
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 205, __pyx_L14_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 209, __pyx_L14_error)
         __Pyx_GOTREF(__pyx_t_7);
       }
       __Pyx_GIVEREF(__pyx_t_7);
-      if (unlikely(__Pyx_ListComp_AppendAndDecref(__pyx_t_5, __pyx_t_7))) __PYX_ERR(0, 205, __pyx_L14_error)
+      if (unlikely(__Pyx_ListComp_AppendAndDecref(__pyx_t_5, __pyx_t_7))) __PYX_ERR(0, 209, __pyx_L14_error)
       __pyx_t_7 = 0;
     }
     __Pyx_DECREF(__pyx_t_11); __pyx_t_11 = 0;
@@ -6158,7 +6159,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
     __pyx_t_1 = __Pyx_PyObject_FastCallMethod((PyObject*)__pyx_mstate_global->__pyx_n_u_vstack, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (1*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 204, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 208, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
   }
   {
@@ -6172,7 +6173,7 @@ static PyObject *__pyx_pf_2av_5audio_5frame_10AudioFrame_8to_ndarray(struct __py
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "av/audio/frame.py":184
+  /* "av/audio/frame.py":188
  *         self.ptr.sample_rate = value
  * 
  *     def to_ndarray(self):             # <<<<<<<<<<<<<<
@@ -7672,19 +7673,19 @@ __Pyx_RefNannySetupContext("PyInit_frame", 0);
   if (PyDict_SetItem(__pyx_mstate_global->__pyx_d, __pyx_mstate_global->__pyx_n_u_format_dtypes, __pyx_t_2) < (0)) __PYX_ERR(0, 16, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
-  /* "av/audio/frame.py":100
+  /* "av/audio/frame.py":104
  *         )
  * 
  *     @staticmethod             # <<<<<<<<<<<<<<
  *     def from_ndarray(array, format="s16", layout="stereo"):
  *         """
 */
-  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_2av_5audio_5frame_10AudioFrame_7from_ndarray, NULL, __pyx_mstate_global->__pyx_n_u_av_audio_frame); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __pyx_t_2 = PyCFunction_NewEx(&__pyx_mdef_2av_5audio_5frame_10AudioFrame_7from_ndarray, NULL, __pyx_mstate_global->__pyx_n_u_av_audio_frame); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, __pyx_mstate_global->__pyx_n_u_from_ndarray, __pyx_t_2) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, __pyx_mstate_global->__pyx_n_u_from_ndarray, __pyx_t_2) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_3 = NULL;
-  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, __pyx_mstate_global->__pyx_n_u_from_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 100, __pyx_L1_error)
+  __Pyx_GetNameInClass(__pyx_t_5, (PyObject*)__pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, __pyx_mstate_global->__pyx_n_u_from_ndarray); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __pyx_t_4 = 1;
   {
@@ -7692,10 +7693,10 @@ __Pyx_RefNannySetupContext("PyInit_frame", 0);
     __pyx_t_2 = __Pyx_PyObject_FastCall((PyObject*)__pyx_builtin_staticmethod, __pyx_callargs+__pyx_t_4, (2-__pyx_t_4) | (__pyx_t_4*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
     __Pyx_XDECREF(__pyx_t_3); __pyx_t_3 = 0;
     __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 100, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 104, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
   }
-  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, __pyx_mstate_global->__pyx_n_u_from_ndarray, __pyx_t_2) < (0)) __PYX_ERR(0, 100, __pyx_L1_error)
+  if (__Pyx_SetItemOnTypeDict(__pyx_mstate_global->__pyx_ptype_2av_5audio_5frame_AudioFrame, __pyx_mstate_global->__pyx_n_u_from_ndarray, __pyx_t_2) < (0)) __PYX_ERR(0, 104, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
 
   /* "av/audio/frame.py":1
@@ -7750,9 +7751,9 @@ static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   int __pyx_clineno = 0;
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __pyx_builtin_object = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_object); if (!__pyx_builtin_object) __PYX_ERR(0, 8, __pyx_L1_error)
-  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 100, __pyx_L1_error)
-  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 97, __pyx_L1_error)
-  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_builtin_staticmethod = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_staticmethod); if (!__pyx_builtin_staticmethod) __PYX_ERR(0, 104, __pyx_L1_error)
+  __pyx_builtin_id = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_id); if (!__pyx_builtin_id) __PYX_ERR(0, 101, __pyx_L1_error)
+  __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 140, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;
@@ -7767,7 +7768,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "av/audio/frame.py":135
+  /* "av/audio/frame.py":139
  *             samples = array.shape[1] // nb_channels
  * 
  *         frame = AudioFrame(format=py_format, layout=py_layout, samples=samples)             # <<<<<<<<<<<<<<
@@ -7776,23 +7777,23 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[3] = {__pyx_mstate_global->__pyx_n_u_format, __pyx_mstate_global->__pyx_n_u_layout, __pyx_mstate_global->__pyx_n_u_samples};
-    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 135, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[0] = __Pyx_PyTuple_FromArray(__pyx_temp, 3); if (unlikely(!__pyx_mstate_global->__pyx_tuple[0])) __PYX_ERR(0, 139, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[0]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[0]);
 
-  /* "av/audio/frame.py":137
+  /* "av/audio/frame.py":141
  *         frame = AudioFrame(format=py_format, layout=py_layout, samples=samples)
  *         for i, plane in enumerate(frame.planes):
  *             plane.update(array[i, :])             # <<<<<<<<<<<<<<
  *         return frame
  * 
 */
-  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 137, __pyx_L1_error)
+  __pyx_mstate_global->__pyx_slice[0] = PySlice_New(Py_None, Py_None, Py_None); if (unlikely(!__pyx_mstate_global->__pyx_slice[0])) __PYX_ERR(0, 141, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_mstate_global->__pyx_slice[0]);
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_slice[0]);
 
-  /* "av/audio/frame.py":205
+  /* "av/audio/frame.py":209
  * 
  *         return np.vstack(
  *             [np.frombuffer(x, dtype=dtype, count=count) for x in self.planes]             # <<<<<<<<<<<<<<
@@ -7800,7 +7801,7 @@ static int __Pyx_InitCachedConstants(__pyx_mstatetype *__pyx_mstate) {
 */
   {
     PyObject* __pyx_temp[2] = {__pyx_mstate_global->__pyx_n_u_dtype, __pyx_mstate_global->__pyx_n_u_count};
-    __pyx_mstate_global->__pyx_tuple[1] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 205, __pyx_L1_error)
+    __pyx_mstate_global->__pyx_tuple[1] = __Pyx_PyTuple_FromArray(__pyx_temp, 2); if (unlikely(!__pyx_mstate_global->__pyx_tuple[1])) __PYX_ERR(0, 209, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_mstate_global->__pyx_tuple[1]);
   }
   __Pyx_GIVEREF(__pyx_mstate_global->__pyx_tuple[1]);

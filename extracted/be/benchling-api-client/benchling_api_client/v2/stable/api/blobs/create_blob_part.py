@@ -88,9 +88,9 @@ def sync(
     ## Multipart Upload
 
     If a blob is larger than 10MB, it should be uploaded in multiple parts using the following endpoints:
-    - [Start a multi-part blob upload](#/Blobs/createMultipartBlob)
-    - [Upload a blob part](#/Blobs/createBlobPart)
-    - [Complete a blob upload](#/Blobs/completeMultipartBlob)
+    - [Start a multi-part blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob)
+    - [Upload a blob part](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-blob-part)
+    - [Complete a blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/complete-multipart-blob)
 
     Each part has a *partNumber* and an *eTag*. The part number can be any number between 1 to 10,000, inclusive - this number should be unique and identifies the order of the part in the final blob. The eTag of a part is returned in the API response - this eTag must be specified when completing the upload in order to ensure the server has received all the expected parts.
     """
@@ -134,9 +134,9 @@ async def asyncio(
     ## Multipart Upload
 
     If a blob is larger than 10MB, it should be uploaded in multiple parts using the following endpoints:
-    - [Start a multi-part blob upload](#/Blobs/createMultipartBlob)
-    - [Upload a blob part](#/Blobs/createBlobPart)
-    - [Complete a blob upload](#/Blobs/completeMultipartBlob)
+    - [Start a multi-part blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-multipart-blob)
+    - [Upload a blob part](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/create-blob-part)
+    - [Complete a blob upload](https://docs.benchling.com/docs/api/v2/benchling-api/blobs/complete-multipart-blob)
 
     Each part has a *partNumber* and an *eTag*. The part number can be any number between 1 to 10,000, inclusive - this number should be unique and identifies the order of the part in the final blob. The eTag of a part is returned in the API response - this eTag must be specified when completing the upload in order to ensure the server has received all the expected parts.
     """

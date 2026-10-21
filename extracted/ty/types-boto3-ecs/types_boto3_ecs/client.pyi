@@ -31,6 +31,9 @@ from .paginator import (
     ListAttributesPaginator,
     ListClustersPaginator,
     ListContainerInstancesPaginator,
+    ListGatewayClusterAssociationsPaginator,
+    ListGatewayRoutesPaginator,
+    ListGatewaysPaginator,
     ListServicesByNamespacePaginator,
     ListServicesPaginator,
     ListTaskDefinitionFamiliesPaginator,
@@ -38,6 +41,8 @@ from .paginator import (
     ListTasksPaginator,
 )
 from .type_defs import (
+    AssociateGatewayWithClusterRequestTypeDef,
+    AssociateGatewayWithClusterResponseTypeDef,
     ContinueServiceDeploymentRequestTypeDef,
     ContinueServiceDeploymentResponseTypeDef,
     CreateCapacityProviderRequestTypeDef,
@@ -48,6 +53,8 @@ from .type_defs import (
     CreateDaemonResponseTypeDef,
     CreateExpressGatewayServiceRequestTypeDef,
     CreateExpressGatewayServiceResponseTypeDef,
+    CreateGatewayRequestTypeDef,
+    CreateGatewayResponseTypeDef,
     CreateServiceRequestTypeDef,
     CreateServiceResponseTypeDef,
     CreateTaskSetRequestTypeDef,
@@ -66,6 +73,8 @@ from .type_defs import (
     DeleteDaemonTaskDefinitionResponseTypeDef,
     DeleteExpressGatewayServiceRequestTypeDef,
     DeleteExpressGatewayServiceResponseTypeDef,
+    DeleteGatewayRequestTypeDef,
+    DeleteGatewayResponseTypeDef,
     DeleteServiceRequestTypeDef,
     DeleteServiceResponseTypeDef,
     DeleteTaskDefinitionsRequestTypeDef,
@@ -92,6 +101,12 @@ from .type_defs import (
     DescribeDaemonTaskDefinitionResponseTypeDef,
     DescribeExpressGatewayServiceRequestTypeDef,
     DescribeExpressGatewayServiceResponseTypeDef,
+    DescribeGatewayRequestTypeDef,
+    DescribeGatewayResourcesRequestTypeDef,
+    DescribeGatewayResourcesResponseTypeDef,
+    DescribeGatewayResponseTypeDef,
+    DescribeGatewayRouteRequestTypeDef,
+    DescribeGatewayRouteResponseTypeDef,
     DescribeServiceDeploymentsRequestTypeDef,
     DescribeServiceDeploymentsResponseTypeDef,
     DescribeServiceRevisionsRequestTypeDef,
@@ -104,6 +119,8 @@ from .type_defs import (
     DescribeTaskSetsResponseTypeDef,
     DescribeTasksRequestTypeDef,
     DescribeTasksResponseTypeDef,
+    DisassociateGatewayFromClusterRequestTypeDef,
+    DisassociateGatewayFromClusterResponseTypeDef,
     DiscoverPollEndpointRequestTypeDef,
     DiscoverPollEndpointResponseTypeDef,
     ExecuteCommandRequestTypeDef,
@@ -124,6 +141,12 @@ from .type_defs import (
     ListDaemonsResponseTypeDef,
     ListDaemonTaskDefinitionsRequestTypeDef,
     ListDaemonTaskDefinitionsResponseTypeDef,
+    ListGatewayClusterAssociationsRequestTypeDef,
+    ListGatewayClusterAssociationsResponseTypeDef,
+    ListGatewayRoutesRequestTypeDef,
+    ListGatewayRoutesResponseTypeDef,
+    ListGatewaysRequestTypeDef,
+    ListGatewaysResponseTypeDef,
     ListServiceDeploymentsRequestTypeDef,
     ListServiceDeploymentsResponseTypeDef,
     ListServicesByNamespaceRequestTypeDef,
@@ -182,6 +205,8 @@ from .type_defs import (
     UpdateDaemonResponseTypeDef,
     UpdateExpressGatewayServiceRequestTypeDef,
     UpdateExpressGatewayServiceResponseTypeDef,
+    UpdateGatewayRequestTypeDef,
+    UpdateGatewayResponseTypeDef,
     UpdateServicePrimaryTaskSetRequestTypeDef,
     UpdateServicePrimaryTaskSetResponseTypeDef,
     UpdateServiceRequestTypeDef,
@@ -224,6 +249,7 @@ class Exceptions(BaseClientExceptions):
     ConflictException: type[BotocoreClientError]
     DaemonNotActiveException: type[BotocoreClientError]
     DaemonNotFoundException: type[BotocoreClientError]
+    GatewayNotFoundException: type[BotocoreClientError]
     InvalidParameterException: type[BotocoreClientError]
     LimitExceededException: type[BotocoreClientError]
     MissingVersionException: type[BotocoreClientError]
@@ -278,6 +304,16 @@ class ECSClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#generate_presigned_url)
         """
 
+    def associate_gateway_with_cluster(
+        self, **kwargs: Unpack[AssociateGatewayWithClusterRequestTypeDef]
+    ) -> AssociateGatewayWithClusterResponseTypeDef:
+        """
+        Associates a gateway with an Amazon ECS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/associate_gateway_with_cluster.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#associate_gateway_with_cluster)
+        """
+
     def continue_service_deployment(
         self, **kwargs: Unpack[ContinueServiceDeploymentRequestTypeDef]
     ) -> ContinueServiceDeploymentResponseTypeDef:
@@ -328,6 +364,16 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/create_express_gateway_service.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#create_express_gateway_service)
+        """
+
+    def create_gateway(
+        self, **kwargs: Unpack[CreateGatewayRequestTypeDef]
+    ) -> CreateGatewayResponseTypeDef:
+        """
+        Creates a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/create_gateway.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#create_gateway)
         """
 
     def create_service(
@@ -421,6 +467,16 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/delete_express_gateway_service.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#delete_express_gateway_service)
+        """
+
+    def delete_gateway(
+        self, **kwargs: Unpack[DeleteGatewayRequestTypeDef]
+    ) -> DeleteGatewayResponseTypeDef:
+        """
+        Deletes a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/delete_gateway.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#delete_gateway)
         """
 
     def delete_service(
@@ -554,6 +610,41 @@ class ECSClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#describe_express_gateway_service)
         """
 
+    def describe_gateway(
+        self, **kwargs: Unpack[DescribeGatewayRequestTypeDef]
+    ) -> DescribeGatewayResponseTypeDef:
+        """
+        Describes a gateway, including its configuration, status, and the type-specific
+        infrastructure settings that it uses.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_gateway.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#describe_gateway)
+        """
+
+    def describe_gateway_resources(
+        self, **kwargs: Unpack[DescribeGatewayResourcesRequestTypeDef]
+    ) -> DescribeGatewayResourcesResponseTypeDef:
+        """
+        Returns the infrastructure that a gateway has created and manages, so that you
+        can follow the traffic path from top-level shared resources, such as load
+        balancers, to the service-specific resources represented as gateway routes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_gateway_resources.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#describe_gateway_resources)
+        """
+
+    def describe_gateway_route(
+        self, **kwargs: Unpack[DescribeGatewayRouteRequestTypeDef]
+    ) -> DescribeGatewayRouteResponseTypeDef:
+        """
+        Describes a gateway route, including its status, the service it routes traffic
+        to, and the service-specific infrastructure, such as target groups and listener
+        rules, that the gateway manages for it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_gateway_route.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#describe_gateway_route)
+        """
+
     def describe_service_deployments(
         self, **kwargs: Unpack[DescribeServiceDeploymentsRequestTypeDef]
     ) -> DescribeServiceDeploymentsResponseTypeDef:
@@ -612,6 +703,16 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/describe_tasks.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#describe_tasks)
+        """
+
+    def disassociate_gateway_from_cluster(
+        self, **kwargs: Unpack[DisassociateGatewayFromClusterRequestTypeDef]
+    ) -> DisassociateGatewayFromClusterResponseTypeDef:
+        """
+        Removes the association between a gateway and an Amazon ECS cluster.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/disassociate_gateway_from_cluster.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#disassociate_gateway_from_cluster)
         """
 
     def discover_poll_endpoint(
@@ -714,6 +815,36 @@ class ECSClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/list_daemons.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#list_daemons)
+        """
+
+    def list_gateway_cluster_associations(
+        self, **kwargs: Unpack[ListGatewayClusterAssociationsRequestTypeDef]
+    ) -> ListGatewayClusterAssociationsResponseTypeDef:
+        """
+        Returns a list of the associations between gateways and clusters.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/list_gateway_cluster_associations.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#list_gateway_cluster_associations)
+        """
+
+    def list_gateway_routes(
+        self, **kwargs: Unpack[ListGatewayRoutesRequestTypeDef]
+    ) -> ListGatewayRoutesResponseTypeDef:
+        """
+        Returns a list of gateway routes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/list_gateway_routes.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#list_gateway_routes)
+        """
+
+    def list_gateways(
+        self, **kwargs: Unpack[ListGatewaysRequestTypeDef]
+    ) -> ListGatewaysResponseTypeDef:
+        """
+        Returns a list of gateways in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/list_gateways.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#list_gateways)
         """
 
     def list_service_deployments(
@@ -1016,6 +1147,16 @@ class ECSClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#update_express_gateway_service)
         """
 
+    def update_gateway(
+        self, **kwargs: Unpack[UpdateGatewayRequestTypeDef]
+    ) -> UpdateGatewayResponseTypeDef:
+        """
+        Modifies the configuration of a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/update_gateway.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#update_gateway)
+        """
+
     def update_service(
         self, **kwargs: Unpack[UpdateServiceRequestTypeDef]
     ) -> UpdateServiceResponseTypeDef:
@@ -1093,6 +1234,39 @@ class ECSClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_container_instances"]
     ) -> ListContainerInstancesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_gateway_cluster_associations"]
+    ) -> ListGatewayClusterAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_gateway_routes"]
+    ) -> ListGatewayRoutesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/get_paginator.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ecs/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_gateways"]
+    ) -> ListGatewaysPaginator:
         """
         Create a paginator for an operation.
 

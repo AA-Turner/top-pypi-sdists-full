@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: geetools
-Version: 1.18.2
+Version: 1.19.0
 Summary: A collection of tools to work with Google Earth Engine Python API
 Project-URL: Homepage, https://github.com/gee-community/geetools
 Author-email: "Rodrigo E. Principe" <fitoprincipe82@gmail.com>

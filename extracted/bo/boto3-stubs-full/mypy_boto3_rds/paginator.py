@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_rds.paginator import (
         DescribeBlueGreenDeploymentsPaginator,
         DescribeCertificatesPaginator,
+        DescribeDBCapacityReservationsPaginator,
         DescribeDBClusterAutomatedBackupsPaginator,
         DescribeDBClusterBacktracksPaginator,
         DescribeDBClusterEndpointsPaginator,
@@ -61,6 +62,7 @@ Usage::
 
     describe_blue_green_deployments_paginator: DescribeBlueGreenDeploymentsPaginator = client.get_paginator("describe_blue_green_deployments")
     describe_certificates_paginator: DescribeCertificatesPaginator = client.get_paginator("describe_certificates")
+    describe_db_capacity_reservations_paginator: DescribeDBCapacityReservationsPaginator = client.get_paginator("describe_db_capacity_reservations")
     describe_db_cluster_automated_backups_paginator: DescribeDBClusterAutomatedBackupsPaginator = client.get_paginator("describe_db_cluster_automated_backups")
     describe_db_cluster_backtracks_paginator: DescribeDBClusterBacktracksPaginator = client.get_paginator("describe_db_cluster_backtracks")
     describe_db_cluster_endpoints_paginator: DescribeDBClusterEndpointsPaginator = client.get_paginator("describe_db_cluster_endpoints")
@@ -133,6 +135,8 @@ from .type_defs import (
     DescribeBlueGreenDeploymentsRequestPaginateTypeDef,
     DescribeBlueGreenDeploymentsResponseTypeDef,
     DescribeCertificatesMessagePaginateTypeDef,
+    DescribeDBCapacityReservationsRequestPaginateTypeDef,
+    DescribeDBCapacityReservationsResponseTypeDef,
     DescribeDBClusterAutomatedBackupsMessagePaginateTypeDef,
     DescribeDBClusterBacktracksMessagePaginateTypeDef,
     DescribeDBClusterEndpointsMessagePaginateTypeDef,
@@ -207,6 +211,7 @@ else:
 __all__ = (
     "DescribeBlueGreenDeploymentsPaginator",
     "DescribeCertificatesPaginator",
+    "DescribeDBCapacityReservationsPaginator",
     "DescribeDBClusterAutomatedBackupsPaginator",
     "DescribeDBClusterBacktracksPaginator",
     "DescribeDBClusterEndpointsPaginator",
@@ -291,6 +296,29 @@ class DescribeCertificatesPaginator(_DescribeCertificatesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/paginator/DescribeCertificates.html#RDS.Paginator.DescribeCertificates.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rds/paginators/#describecertificatespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeDBCapacityReservationsPaginatorBase = Paginator[
+        DescribeDBCapacityReservationsResponseTypeDef
+    ]
+else:
+    _DescribeDBCapacityReservationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class DescribeDBCapacityReservationsPaginator(_DescribeDBCapacityReservationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/paginator/DescribeDBCapacityReservations.html#RDS.Paginator.DescribeDBCapacityReservations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rds/paginators/#describedbcapacityreservationspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDBCapacityReservationsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeDBCapacityReservationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/rds/paginator/DescribeDBCapacityReservations.html#RDS.Paginator.DescribeDBCapacityReservations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_rds/paginators/#describedbcapacityreservationspaginator)
         """
 
 

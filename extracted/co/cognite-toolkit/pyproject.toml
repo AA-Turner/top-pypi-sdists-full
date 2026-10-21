@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.9.8"
+version = "0.9.13"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -24,6 +24,7 @@ dependencies = [
     "httpx2>=2.12.0",
     "pyyaml >=6.0.1",
     "typer >=0.12.0, <1.0.0",
+    "click>=8.2.0",
     "rich >=13.9.4",
     "questionary >=2.0.1",
     "packaging >=25",
@@ -67,17 +68,14 @@ dev = [
     "pytest-regressions >=2.4.2",
     "pytest-xdist >=3.6.1",
     "pytest-rerunfailures >=14.0",
+    "pytest-cov >=6.0.0",
+    "pytest-json-report>=1.5.0",
     "types-PyYAML >=6",
     "types-toml >=0.10.8.20240310",
-    "twine >=6.0.0",
-    "pytest-cov >=6.0.0",
-    "types-requests >=2.32.0.20241016",
     "types-python-dateutil>=2.9.0.20250708",
+    "twine >=6.0.0",
     "marko >=2.1.2",
-    "numpy>=2.2",
-    "pandas>=2.2",
     "respx>=0.22.0",
-    "pytest-json-report>=1.5.0",
 ]
 
 [tool.uv]
@@ -113,10 +111,7 @@ testpaths = [
     "tests",
     "cognite_toolkit",
 ]
-addopts = [
-    "-p",
-    "tests.httpx2_alias_plugin",
-]
+addopts = ["-p tests.httpx2_alias_plugin"]
 markers = ["toolkit: big smoke tests"]
 
 [tool.ty.src]
@@ -130,14 +125,13 @@ exclude = [
     "tests/test_unit/test_cdf_tk/approval_client",
     "tests/test_unit/test_cdf_tk/test_client",
     "tests/test_unit/test_cdf_tk/test_commands",
-    "tests/test_unit/test_cdf_tk/test_cruds",
-    "tests/test_unit/test_cdf_tk/test_storageio",
     "tests/test_unit/test_cdf_tk/test_utils",
 ]
 
 [tool.ty.environment]
 python-version = "3.14"
 python = ".venv"
+extra-paths = ["typings"]
 
 [tool.ty.rules]
 invalid-mutable-override = "ignore"

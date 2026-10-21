@@ -906,6 +906,11 @@ class AiAgentType(pycarlo.lib.types.Enum):
       alert and incident investigation.
     * `TUNING`: Configures the monitor-tuning agent that adjusts
       thresholds and reduces noise on existing monitors.
+    * `USE_CASES`: The customer's business use cases in their own
+      words: owner team, consumers, impact when wrong or late,
+      urgency, named reports and tables, and how each compares to
+      Monte Carlo's generated use cases. Read by the use-case
+      criticality pipeline; no agent reads it.
     """
 
     __schema__ = schema
@@ -917,6 +922,7 @@ class AiAgentType(pycarlo.lib.types.Enum):
         "TRIAGE",
         "TROUBLESHOOTING",
         "TUNING",
+        "USE_CASES",
     )
 
 
@@ -1730,6 +1736,26 @@ class ClassifiedAssetType(pycarlo.lib.types.Enum):
     __choices__ = ("FIELD", "TABLE")
 
 
+class ClusterShareDenominator(pycarlo.lib.types.Enum):
+    """The conversations a cluster's sharePct is a percentage of.
+    ELIGIBLE_CONVERSATIONS counts every conversation in the window;
+    Issue cards use it. CLASSIFIED_CONVERSATIONS counts conversations
+    with a cluster assignment; Intent cards and Uncategorized use it.
+    RATED_CONVERSATIONS counts conversations an end user rated; the
+    Negative feedback card uses it, because it can never exceed
+    feedback coverage.
+
+    Enumeration Choices:
+
+    * `CLASSIFIED_CONVERSATIONS`None
+    * `ELIGIBLE_CONVERSATIONS`None
+    * `RATED_CONVERSATIONS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CLASSIFIED_CONVERSATIONS", "ELIGIBLE_CONVERSATIONS", "RATED_CONVERSATIONS")
+
+
 class ClusterSource(pycarlo.lib.types.Enum):
     """Where a cluster came from: LLM discovery (AUTO) or a user
     definition (USER).
@@ -2427,6 +2453,21 @@ class ConversationMetricField(pycarlo.lib.types.Enum):
     )
 
 
+class ConversationMetricGroup(pycarlo.lib.types.Enum):
+    """The metric set one dashboard tile requests.
+
+    Enumeration Choices:
+
+    * `COUNT`None
+    * `DURATION`None
+    * `ERRORS`None
+    * `TOKENS`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COUNT", "DURATION", "ERRORS", "TOKENS")
+
+
 class ConversationSortField(pycarlo.lib.types.Enum):
     """Fields that can be used for sorting conversations.
 
@@ -2472,6 +2513,30 @@ class ConversationStatus(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ERROR", "OK")
+
+
+class ConversationTimeSeriesMetric(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `CONVERSATION_COUNT`None
+    * `DURATION_AVG`None
+    * `DURATION_P50`None
+    * `DURATION_P95`None
+    * `ERRORED_CONVERSATIONS`None
+    * `ERROR_RATE`None
+    * `TOTAL_TOKENS`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CONVERSATION_COUNT",
+        "DURATION_AVG",
+        "DURATION_P50",
+        "DURATION_P95",
+        "ERRORED_CONVERSATIONS",
+        "ERROR_RATE",
+        "TOTAL_TOKENS",
+    )
 
 
 class ConversationToolCallContentField(pycarlo.lib.types.Enum):
@@ -5462,6 +5527,52 @@ class JSONString(sgqlc.types.Scalar):
     __schema__ = schema
 
 
+class JobAlertingMigrationOutcome(pycarlo.lib.types.Enum):
+    """What a job alerting migration run did. PROPOSED: a dry run stored
+    a proposal. APPLIED: the account was migrated. Every other value
+    is a refusal that migrated nothing.
+
+    Enumeration Choices:
+
+    * `ALREADY_APPLIED`None
+    * `ALREADY_MIGRATED`None
+    * `APPLIED`None
+    * `BLOCKED`None
+    * `KEPT_MONITORS_PRESENT`None
+    * `NOT_LATEST`None
+    * `NO_PROPOSAL`None
+    * `PROPOSED`None
+    * `STALE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "ALREADY_APPLIED",
+        "ALREADY_MIGRATED",
+        "APPLIED",
+        "BLOCKED",
+        "KEPT_MONITORS_PRESENT",
+        "NOT_LATEST",
+        "NO_PROPOSAL",
+        "PROPOSED",
+        "STALE",
+    )
+
+
+class JobAlertingRollbackOutcome(pycarlo.lib.types.Enum):
+    """What a job alerting migration rollback did. NOT_APPLIED: there was
+    nothing to roll back.
+
+    Enumeration Choices:
+
+    * `NOT_APPLIED`None
+    * `ROLLED_BACK`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("NOT_APPLIED", "ROLLED_BACK")
+
+
 class JobAssetFilterTagOperator(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -5616,6 +5727,25 @@ class JobsPerformanceSummarySort(pycarlo.lib.types.Enum):
         "MCON",
         "RUN_COUNT",
         "RUN_DURATION_TREND_7D",
+    )
+
+
+class LegacyJobAlertingSurface(pycarlo.lib.types.Enum):
+    """A legacy job alerting screen the account used, which migrated
+    accounts no longer show.
+
+    Enumeration Choices:
+
+    * `AUDIENCE_JOB_NOTIFICATIONS`None
+    * `DBT_PROJECT_ALERT_TYPES`None
+    * `INTEGRATION_JOB_ALERT_TOGGLES`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AUDIENCE_JOB_NOTIFICATIONS",
+        "DBT_PROJECT_ALERT_TYPES",
+        "INTEGRATION_JOB_ALERT_TOGGLES",
     )
 
 
@@ -5815,6 +5945,22 @@ class McpServersAccessMode(pycarlo.lib.types.Enum):
     __choices__ = ("ALL", "NONE", "SELECTED")
 
 
+class MetaSummarizerAgentIssuePriority(pycarlo.lib.types.Enum):
+    """The priority the reinforcement loop serves now. LOW also stands
+    for hidden or none.
+
+    Enumeration Choices:
+
+    * `CRITICAL`None
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
+
+
 class MetricDataType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -5903,6 +6049,25 @@ class MetricMonitoringModelType(pycarlo.lib.types.Enum):
         "JSON_SCHEMA",
         "METRIC_COMPARISON",
         "STATS",
+    )
+
+
+class MigrationNoticeKind(pycarlo.lib.types.Enum):
+    """Something the migration could not carry over, which changes what
+    the customer gets.
+
+    Enumeration Choices:
+
+    * `CUSTOM_MESSAGE_DROPPED`None
+    * `ENUMERATED_TABLE_EXCLUSION`None
+    * `ENUMERATED_TABLE_FILTER`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "CUSTOM_MESSAGE_DROPPED",
+        "ENUMERATED_TABLE_EXCLUSION",
+        "ENUMERATED_TABLE_FILTER",
     )
 
 
@@ -6182,8 +6347,10 @@ class MonitorTuningAutoApplyStatus(pycarlo.lib.types.Enum):
     state. ``DISPATCHED`` — apply execution in flight. ``APPLIED`` /
     ``FAILED`` — the apply run reached a terminal state, was
     reconciled after     stranding, or exhausted its pre-dispatch
-    attempts. ``SKIPPED`` — a terminal     gate failure, kept for the
-    audit trail and never re-evaluated.     ``REVERTED`` — an
+    attempts. A completed run that fails     the completion
+    verification also closes ``FAILED``, with the reason in
+    ``skip_reason``. ``SKIPPED`` — a terminal     gate failure, kept
+    for the audit trail and never re-evaluated.     ``REVERTED`` — an
     ``APPLIED`` *or* ``FAILED`` claim restored from its     snapshot:
     a post-dispatch ``FAILED`` may have partially landed, so it is
     revertible too. A revert that itself failed is not a status — it
@@ -6289,6 +6456,27 @@ class MonitoringPlanDecisionKind(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("MONITOR_CANDIDATE", "TABLE_EXCLUDED", "TABLE_NOT_DEEP_DIVED")
+
+
+class MonitoringPlanEntryState(pycarlo.lib.types.Enum):
+    """Where a domain's monitoring plan stands for the caller, to label a
+    CTA into its plan.
+
+    Enumeration Choices:
+
+    * `DRAFTING`: The caller's draft is being written.
+    * `DRAFT_READY`: The caller has a draft to review that no plan was
+      built from yet.
+    * `GENERATING`: A plan is being built, or its findings are still
+      landing.
+    * `NOT_STARTED`: No plan, and no draft of the caller's in
+      progress.
+    * `PLAN_READY`: The newest complete plan is the domain's current
+      state.
+    """
+
+    __schema__ = schema
+    __choices__ = ("DRAFTING", "DRAFT_READY", "GENERATING", "NOT_STARTED", "PLAN_READY")
 
 
 class MonitoringPlanMaterializationStatus(pycarlo.lib.types.Enum):
@@ -6770,6 +6958,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `SettingsAgentsEdit`None
     * `SettingsAiAgentsAccess`None
     * `SettingsAiAgentsEdit`None
+    * `SettingsAiAgentsManageUsage`None
     * `SettingsAlertActionsEdit`None
     * `SettingsApiAccess`None
     * `SettingsApiEdit`None
@@ -6908,6 +7097,7 @@ class Permission(pycarlo.lib.types.Enum):
         "SettingsAgentsEdit",
         "SettingsAiAgentsAccess",
         "SettingsAiAgentsEdit",
+        "SettingsAiAgentsManageUsage",
         "SettingsAlertActionsEdit",
         "SettingsApiAccess",
         "SettingsApiEdit",
@@ -7734,6 +7924,21 @@ class ReinforcementLoopClusterKind(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("BUILT_IN", "EVAL_DERIVED")
+
+
+class ReinforcementLoopConfigAccess(pycarlo.lib.types.Enum):
+    """What an RL V2 issue's text was written from. FULL read the agent's
+    configuration as well as its traces. TRACES_ONLY read the traces
+    alone, so the issue states the failure with no cause or fix.
+
+    Enumeration Choices:
+
+    * `FULL`None
+    * `TRACES_ONLY`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("FULL", "TRACES_ONLY")
 
 
 class ReinforcementLoopDispatchOutcome(pycarlo.lib.types.Enum):
@@ -12884,9 +13089,10 @@ class ClusteringConfigInput(sgqlc.types.Input):
     """
 
     eval_score_threshold = sgqlc.types.Field(Float, graphql_name="evalScoreThreshold")
-    """Conversations whose latest score for one of a monitor's evals
-    falls below this threshold join that eval's issue cluster. Issue
-    spaces only — rejected on intent spaces.
+    """Fallback bar for numeric evals whose monitor has no fixed alert
+    threshold. Conversations scoring on the failing side of it join
+    that eval's issue cluster. Issue spaces only — rejected on intent
+    spaces.
     """
 
 
@@ -15538,6 +15744,55 @@ class GetConversationMessageContentV2Input(sgqlc.types.Input):
     """Zero-based chunk index to fetch"""
 
 
+class GetConversationOverviewInput(sgqlc.types.Input):
+    """Conversation metrics over traces selected before grouping into
+    conversations.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "include_previous_period_comparison",
+        "filters",
+        "segment_filter",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent to query"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of the window, inclusive"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of the window, exclusive"""
+
+    include_previous_period_comparison = sgqlc.types.Field(
+        Boolean, graphql_name="includePreviousPeriodComparison"
+    )
+    """True, null, or omitted includes the preceding window of equal
+    length. prevPeriod is always present when comparison is on. False
+    disables comparison.
+    """
+
+    filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
+    """Select traces before grouping into conversations. Metrics use only
+    matching turns.
+    """
+
+    segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
+    """Restrict traces by MODEL, WORKFLOW, or TASK before grouping into
+    conversations. Metrics use only matching turns. Omitted or null
+    selects all traces.
+    """
+
+
 class GetConversationThreadInput(sgqlc.types.Input):
     """Input for getConversationThread query."""
 
@@ -15655,6 +15910,68 @@ class GetConversationThreadV2Input(sgqlc.types.Input):
     batch reads may raise it up to 170s (clamped server-side).
     Synchronous ClickHouse reads share a 20s request budget;
     idempotent requests return PROCESSING when another poll is needed.
+    """
+
+
+class GetConversationTimeSeriesInput(sgqlc.types.Input):
+    """Conversation series over traces selected before conversation
+    grouping.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "bucket_size",
+        "metric_group",
+        "filters",
+        "segment_filter",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table or platform agent to query"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of the window, inclusive"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of the window, exclusive"""
+
+    bucket_size = sgqlc.types.Field(
+        sgqlc.types.non_null(TraceBucketSize), graphql_name="bucketSize"
+    )
+    """Bucket size: MINUTE, HOUR, DAY, or WEEK. A conversation counts
+    once, in the bucket of its first matching turn.
+    """
+
+    metric_group = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationMetricGroup), graphql_name="metricGroup"
+    )
+    """COUNT returns conversation count; DURATION returns avg/p50/p95
+    wall-clock seconds, including idle time between matching turns in
+    the window; TOKENS returns summed turn tokens; ERRORS returns
+    errored conversations and error rate as a percentage from 0 to
+    100. Token values are null on platforms without token counts and
+    when no conversation has token data. Zero means zero tokens.
+    """
+
+    filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
+    """Select traces before grouping into conversations. Metrics use only
+    matching turns.
+    """
+
+    segment_filter = sgqlc.types.Field("TraceSegmentFilterInput", graphql_name="segmentFilter")
+    """Group by MODEL, WORKFLOW, or TASK, with one series per value.
+    Select traces for each value before grouping into conversations.
+    Metrics use only matching turns. A conversation appears under
+    every value its turns carry. Empty values returns every value.
+    Omitted or null returns unsegmented series.
     """
 
 
@@ -20344,6 +20661,8 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
         "token",
         "consumer_key",
         "consumer_secret",
+        "username",
+        "private_key",
         "connection_settings",
         "domain",
         "dataspaces",
@@ -20383,6 +20702,16 @@ class TransactionalDbConnectionDetails(sgqlc.types.Input):
 
     consumer_secret = sgqlc.types.Field(String, graphql_name="consumerSecret")
     """Consumer secret for connection"""
+
+    username = sgqlc.types.Field(String, graphql_name="username")
+    """Salesforce Data Cloud JWT Bearer auth: username of the run-as
+    user, used as the JWT subject. Omit for OAuth client credentials.
+    """
+
+    private_key = sgqlc.types.Field(String, graphql_name="privateKey")
+    """Salesforce Data Cloud JWT Bearer auth: PEM private key that signs
+    the JWT. Mutually exclusive with consumer_secret.
+    """
 
     connection_settings = sgqlc.types.Field(
         "TransactionalDbConnectionSettings", graphql_name="connectionSettings"
@@ -20469,6 +20798,8 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
         "token",
         "consumer_key",
         "consumer_secret",
+        "username",
+        "private_key",
         "domain",
         "dataspaces",
         "dataspace",
@@ -20509,6 +20840,19 @@ class TransactionalDbUpdateConnectionDetails(sgqlc.types.Input):
 
     consumer_secret = sgqlc.types.Field(String, graphql_name="consumerSecret")
     """OAuth client secret or consumer secret"""
+
+    username = sgqlc.types.Field(String, graphql_name="username")
+    """Salesforce Data Cloud JWT Bearer auth: username of the run-as
+    user, used as the JWT subject. Setting it switches the connection
+    to JWT Bearer.
+    """
+
+    private_key = sgqlc.types.Field(String, graphql_name="privateKey")
+    """Salesforce Data Cloud JWT Bearer auth: PEM private key that signs
+    the JWT. Setting it switches the connection to JWT Bearer and
+    removes the stored consumer_secret. Setting consumer_secret
+    instead removes the stored username and private_key.
+    """
 
     domain = sgqlc.types.Field(String, graphql_name="domain")
     """Domain to use for the connection"""
@@ -30988,9 +31332,10 @@ class ClusteringConfig(sgqlc.types.Type):
     eval_score_threshold = sgqlc.types.Field(
         sgqlc.types.non_null(Float), graphql_name="evalScoreThreshold"
     )
-    """Conversations whose latest score for one of a monitor's evals
-    falls below this threshold join that eval's issue cluster. Issue
-    spaces only — rejected on intent spaces.
+    """Fallback bar for numeric evals whose monitor has no fixed alert
+    threshold. Conversations scoring on the failing side of it join
+    that eval's issue cluster. Issue spaces only — rejected on intent
+    spaces.
     """
 
 
@@ -31972,9 +32317,7 @@ class ConversationClusterMetric(sgqlc.types.Type):
 
 
 class ConversationClusterStat(sgqlc.types.Type):
-    """A cluster's windowed share of classified conversations (panel
-    card).
-    """
+    """A cluster's windowed share of conversations (panel card)."""
 
     __schema__ = schema
     __field_names__ = (
@@ -31985,6 +32328,8 @@ class ConversationClusterStat(sgqlc.types.Type):
         "source",
         "conversation_count",
         "share_pct",
+        "share_denominator",
+        "share_denominator_count",
         "condition",
         "rule",
         "metrics",
@@ -32018,10 +32363,21 @@ class ConversationClusterStat(sgqlc.types.Type):
     """Conversations assigned to this cluster in the window."""
 
     share_pct = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="sharePct")
-    """Percent of classified conversations carrying this cluster's
-    assignment. A conversation can carry more than one assignment, so
-    cards can overlap and shares are not guaranteed to sum to 100.
+    """Percent of the shareDenominator conversations carrying this
+    cluster's assignment. A conversation can carry more than one
+    assignment, so cards can overlap and shares are not guaranteed to
+    sum to 100.
     """
+
+    share_denominator = sgqlc.types.Field(
+        sgqlc.types.non_null(ClusterShareDenominator), graphql_name="shareDenominator"
+    )
+    """Which conversations sharePct is a percentage of."""
+
+    share_denominator_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="shareDenominatorCount"
+    )
+    """The number of conversations sharePct divides by."""
 
     condition = sgqlc.types.Field("FilterGroup", graphql_name="condition")
     """The cluster's criteria as a filter tree — the payload the ops-
@@ -32754,6 +33110,120 @@ class ConversationMessageV2(sgqlc.types.Type):
     """Tool calls made in this message (assistant messages only)"""
 
 
+class ConversationOverviewMetrics(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "total_conversations",
+        "errored_conversations",
+        "error_rate",
+        "avg_duration_seconds",
+        "p95_duration_seconds",
+        "total_tokens",
+        "avg_tokens_per_conversation",
+    )
+    total_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalConversations"
+    )
+    """Conversations with messages or tool calls from traces matching the
+    filters and time range. The end time is excluded. Equals
+    getTraceOverview.totalConversations for the same input.
+    """
+
+    errored_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="erroredConversations"
+    )
+    """Conversations with an errored root span in at least one matching
+    turn in the window. Child-span errors alone do not count.
+    """
+
+    error_rate = sgqlc.types.Field(Float, graphql_name="errorRate")
+    """Errored conversations as a percentage (0-100) of all
+    conversations. Null when there are no conversations.
+    """
+
+    avg_duration_seconds = sgqlc.types.Field(Float, graphql_name="avgDurationSeconds")
+    """Mean wall-clock duration in seconds, from the first turn start to
+    the last turn end within the window. Idle time between turns
+    counts.
+    """
+
+    p95_duration_seconds = sgqlc.types.Field(Float, graphql_name="p95DurationSeconds")
+    """95th percentile of seconds from first turn start to last turn end
+    within the window, including idle time between turns.
+    """
+
+    total_tokens = sgqlc.types.Field(BigInt, graphql_name="totalTokens")
+    """Sum of turn token counts. Null on platforms without token counts
+    and when no conversation has token data. Zero means zero tokens.
+    """
+
+    avg_tokens_per_conversation = sgqlc.types.Field(Float, graphql_name="avgTokensPerConversation")
+    """Mean summed turn tokens per conversation with token data. Null on
+    platforms without token counts and when no conversation has token
+    data. Zero means zero tokens.
+    """
+
+
+class ConversationOverviewMetricsWithComparison(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "total_conversations",
+        "errored_conversations",
+        "error_rate",
+        "avg_duration_seconds",
+        "p95_duration_seconds",
+        "total_tokens",
+        "avg_tokens_per_conversation",
+        "prev_period",
+    )
+    total_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalConversations"
+    )
+    """Conversations with messages or tool calls from traces matching the
+    filters and time range. The end time is excluded. Equals
+    getTraceOverview.totalConversations for the same input.
+    """
+
+    errored_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="erroredConversations"
+    )
+    """Conversations with an errored root span in at least one matching
+    turn in the window. Child-span errors alone do not count.
+    """
+
+    error_rate = sgqlc.types.Field(Float, graphql_name="errorRate")
+    """Errored conversations as a percentage (0-100) of all
+    conversations. Null when there are no conversations.
+    """
+
+    avg_duration_seconds = sgqlc.types.Field(Float, graphql_name="avgDurationSeconds")
+    """Mean wall-clock duration in seconds, from the first turn start to
+    the last turn end within the window. Idle time between turns
+    counts.
+    """
+
+    p95_duration_seconds = sgqlc.types.Field(Float, graphql_name="p95DurationSeconds")
+    """95th percentile of seconds from first turn start to last turn end
+    within the window, including idle time between turns.
+    """
+
+    total_tokens = sgqlc.types.Field(BigInt, graphql_name="totalTokens")
+    """Sum of turn token counts. Null on platforms without token counts
+    and when no conversation has token data. Zero means zero tokens.
+    """
+
+    avg_tokens_per_conversation = sgqlc.types.Field(Float, graphql_name="avgTokensPerConversation")
+    """Mean summed turn tokens per conversation with token data. Null on
+    platforms without token counts and when no conversation has token
+    data. Zero means zero tokens.
+    """
+
+    prev_period = sgqlc.types.Field(ConversationOverviewMetrics, graphql_name="prevPeriod")
+    """The same metrics for the preceding period of equal length. Null
+    when comparison is disabled; never null when it is enabled.
+    """
+
+
 class ConversationSpan(sgqlc.types.Type):
     """A single span in a conversation thread (is_tool_call, has_prompts,
     or has_completions).
@@ -32903,6 +33373,42 @@ class ConversationThreadV2Result(sgqlc.types.Type):
 
     warehouse_query = sgqlc.types.Field(String, graphql_name="warehouseQuery")
     """SQL query sent to the warehouse (for debugging)"""
+
+
+class ConversationTimeSeriesType(sgqlc.types.Type):
+    """One metric and segment, with each conversation assigned to its
+    first matching turn.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("metric", "segment", "buckets")
+    metric = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationTimeSeriesMetric), graphql_name="metric"
+    )
+    """The conversation metric. Durations include idle time between
+    matching turns in the window, in seconds. ERROR_RATE is a
+    percentage from 0 to 100. TOTAL_TOKENS sums turn token counts;
+    null means no token data, including on platforms that do not
+    report tokens. Zero means zero tokens.
+    """
+
+    segment = sgqlc.types.Field(String, graphql_name="segment")
+    """The MODEL, WORKFLOW, or TASK value represented by this series.
+    Null for an unsegmented series. A conversation appears under every
+    value its turns carry.
+    """
+
+    buckets = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("TraceTimeSeriesBucketType"))
+        ),
+        graphql_name="buckets",
+    )
+    """Buckets in time order. A conversation counts once, in the bucket
+    of its first matching turn. Empty buckets have null values. An
+    errored conversation has an errored root span in a matching turn;
+    child-span errors alone do not count.
+    """
 
 
 class ConversationToolCallContentChunkV2(sgqlc.types.Type):
@@ -39169,6 +39675,25 @@ class DomainMonitorCounts(sgqlc.types.Type):
     """Number of monitors of this type"""
 
 
+class DomainMonitoringPlanEntry(sgqlc.types.Type):
+    """One domain's monitoring-plan entry state, for a CTA that opens its
+    plan.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("domain_uuid", "state", "plan_uuid")
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+    """UUID of the metadata domain."""
+
+    state = sgqlc.types.Field(sgqlc.types.non_null(MonitoringPlanEntryState), graphql_name="state")
+    """Where the domain's plan stands for the caller."""
+
+    plan_uuid = sgqlc.types.Field(UUID, graphql_name="planUuid")
+    """The domain's newest complete plan, whatever the state. Null when
+    none.
+    """
+
+
 class DomainMonitoringPlanState(sgqlc.types.Type):
     """A domain's monitoring-plan surface in one consistent read.  The
     latest run drives the tab's state (nothing / running / done /
@@ -39549,6 +40074,43 @@ class DownstreamReports(sgqlc.types.Type):
 
     has_next_page = sgqlc.types.Field(Boolean, graphql_name="hasNextPage")
     """Whether more pages of results exist. Used for pagination."""
+
+
+class DroppedDbtCondition(sgqlc.types.Type):
+    """A dbt alert condition that legacy rules named but the project had
+    turned off.  No job monitor covers it.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "integration",
+        "project_uuid",
+        "project_name",
+        "condition",
+        "condition_label",
+        "audiences",
+    )
+    integration = sgqlc.types.Field(
+        sgqlc.types.non_null("JobMonitorMigrationIntegration"), graphql_name="integration"
+    )
+
+    project_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="projectUuid")
+
+    project_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="projectName")
+    """Empty when the project was deleted since."""
+
+    condition = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="condition")
+    """The alert condition's key."""
+
+    condition_label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conditionLabel")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("JobMonitorMigrationAudience"))
+        ),
+        graphql_name="audiences",
+    )
+    """The audiences of the rules that named the condition."""
 
 
 class Dynamic(sgqlc.types.Type):
@@ -44991,6 +45553,7 @@ class InternalStepGroupV2(sgqlc.types.Type):
         "total_tokens",
         "cache_read_tokens",
         "status",
+        "model",
     )
     span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
     """Span ID (hex-encoded)"""
@@ -45052,6 +45615,11 @@ class InternalStepGroupV2(sgqlc.types.Type):
     """OTel status code of the step's underlying span (0=unset, 1=ok,
     2=error). Null for synthesized steps with no underlying span, and
     when the span carries no status.
+    """
+
+    model = sgqlc.types.Field(String, graphql_name="model")
+    """Model recorded on the step's underlying span. Null for synthesized
+    steps with no underlying span, and when the span records no model.
     """
 
 
@@ -45693,8 +46261,7 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
     """Number of distinct subjects (conversations) this agent evaluation
     run scored. 0 means the run completed without evaluating anything
     (e.g. no traces in the lookback window). Null for non-agent-
-    evaluation runs and for span/trace-aggregation evaluation runs,
-    whose scores have no per-run provenance.
+    evaluation runs and for span/trace-aggregation evaluation runs.
     """
 
     run_evaluated_row_count = sgqlc.types.Field(BigInt, graphql_name="runEvaluatedRowCount")
@@ -46022,6 +46589,140 @@ class JobMonitorIntegration(sgqlc.types.Type):
     warehouse_uuid = sgqlc.types.Field(UUID, graphql_name="warehouseUuid")
     """The warehouse a dbt connection's tables live in. Null for ETL
     integrations.
+    """
+
+
+class JobMonitorMigration(sgqlc.types.Type):
+    """The account's job alerting migration to job monitors, as the
+    caller can see it.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "migrated_at",
+        "created_monitor_count",
+        "monitors",
+        "residual_monitors",
+        "hidden_monitor_count",
+        "deleted_monitor_count",
+        "dropped_dbt_conditions",
+        "notices",
+        "removed_legacy_surfaces",
+    )
+    migrated_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="migratedAt")
+
+    created_monitor_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="createdMonitorCount"
+    )
+    """Every monitor the migration created, including hidden and deleted
+    ones.
+    """
+
+    monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MigratedJobMonitor"))),
+        graphql_name="monitors",
+    )
+    """Created monitors the caller can open, other than residual ones."""
+
+    residual_monitors = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ResidualJobMonitor"))),
+        graphql_name="residualMonitors",
+    )
+    """Created monitors of jobs that alerted nobody, which the caller can
+    open.
+    """
+
+    hidden_monitor_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="hiddenMonitorCount"
+    )
+    """Created monitors that still exist and are outside the caller's
+    domains.
+    """
+
+    deleted_monitor_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="deletedMonitorCount"
+    )
+    """Created monitors deleted since."""
+
+    dropped_dbt_conditions = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DroppedDbtCondition))),
+        graphql_name="droppedDbtConditions",
+    )
+
+    notices = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("JobMonitorMigrationNotice"))
+        ),
+        graphql_name="notices",
+    )
+
+    removed_legacy_surfaces = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(LegacyJobAlertingSurface))),
+        graphql_name="removedLegacySurfaces",
+    )
+    """The legacy job alerting screens the account used, which it no
+    longer has.
+    """
+
+
+class JobMonitorMigrationAudience(sgqlc.types.Type):
+    """An audience.  On a created monitor it has its label at migration.
+    Elsewhere it has its current label.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "label")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    label = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="label")
+
+
+class JobMonitorMigrationIntegration(sgqlc.types.Type):
+    """An integration the migration touched."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "integration_type", "label")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    integration_type = sgqlc.types.Field(JobMonitorIntegrationType, graphql_name="integrationType")
+    """Null when the integration was deleted since."""
+
+    label = sgqlc.types.Field(String, graphql_name="label")
+    """Null when the integration was deleted since."""
+
+
+class JobMonitorMigrationNotice(sgqlc.types.Type):
+    """Something the migration could not carry over."""
+
+    __schema__ = schema
+    __field_names__ = ("kind", "integration", "audiences")
+    kind = sgqlc.types.Field(sgqlc.types.non_null(MigrationNoticeKind), graphql_name="kind")
+
+    integration = sgqlc.types.Field(JobMonitorMigrationIntegration, graphql_name="integration")
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(JobMonitorMigrationAudience))
+        ),
+        graphql_name="audiences",
+    )
+
+
+class JobMonitorMigrationSourceRule(sgqlc.types.Type):
+    """A legacy job notification rule a monitor was created from."""
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "audience", "deleted")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    audience = sgqlc.types.Field(JobMonitorMigrationAudience, graphql_name="audience")
+    """The audience the rule belonged to. Null when the rule has no
+    audience or was deleted.
+    """
+
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """The rule was deleted after the migration. Its audience is then
+    unknown.
     """
 
 
@@ -47486,6 +48187,7 @@ class MainSpanMetricsV2(sgqlc.types.Type):
         "completion_tokens",
         "total_tokens",
         "status",
+        "model",
     )
     span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
     """Span ID (hex-encoded)"""
@@ -47529,6 +48231,11 @@ class MainSpanMetricsV2(sgqlc.types.Type):
     status = sgqlc.types.Field(Int, graphql_name="status")
     """OTel status code of the call's underlying span (0=unset, 1=ok,
     2=error); null when the span carries no status
+    """
+
+    model = sgqlc.types.Field(String, graphql_name="model")
+    """Model recorded on the call's underlying span. Null when the span
+    records no model.
     """
 
 
@@ -47995,6 +48702,539 @@ class MergeAlerts(sgqlc.types.Type):
     """The updated alert"""
 
 
+class MetaSummarizerActivity(sgqlc.types.Type):
+    """The alert's events and status."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "event_count",
+        "is_normalized",
+        "events_since_triage",
+        "last_event_at",
+        "feedback",
+    )
+    event_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="eventCount")
+    """Events on the alert."""
+
+    is_normalized = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isNormalized")
+    """True when none of the alert's events is still open."""
+
+    events_since_triage = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="eventsSinceTriage"
+    )
+    """Events created after the triage run that produced the latest
+    verdict started. Events that arrive while the run is in progress
+    are counted.
+    """
+
+    last_event_at = sgqlc.types.Field(DateTime, graphql_name="lastEventAt")
+    """When the newest event was created. Null when the alert has no
+    events.
+    """
+
+    feedback = sgqlc.types.Field(String, graphql_name="feedback")
+    """The alert's status as users set it, such as investigating or
+    fixed. Null when unset.
+    """
+
+
+class MetaSummarizerAsset(sgqlc.types.Type):
+    """An asset the alert is on."""
+
+    __schema__ = schema
+    __field_names__ = ("mcon", "display_name")
+    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
+    """The asset's MCON."""
+
+    display_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="displayName")
+    """The table's full id, or the last part of the MCON when Monte Carlo
+    has no table for it.
+    """
+
+
+class MetaSummarizerCadence(sgqlc.types.Type):
+    """How often the things behind the alert normally run or update. A
+    null field is unknown.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "monitor_next_run_at",
+        "monitor_interval_minutes",
+        "table_cycle_hours",
+        "table_periodic",
+        "table_cycle_reason",
+        "job_cycle_hours",
+    )
+    monitor_next_run_at = sgqlc.types.Field(DateTime, graphql_name="monitorNextRunAt")
+    """The monitor's next run as last scheduled. It can be in the past."""
+
+    monitor_interval_minutes = sgqlc.types.Field(Int, graphql_name="monitorIntervalMinutes")
+    """Minutes between the monitor's runs. Null for a cron schedule."""
+
+    table_cycle_hours = sgqlc.types.Field(Float, graphql_name="tableCycleHours")
+    """Usual hours between the table's updates."""
+
+    table_periodic = sgqlc.types.Field(Boolean, graphql_name="tablePeriodic")
+    """True when the table updates on a regular cycle."""
+
+    table_cycle_reason = sgqlc.types.Field(String, graphql_name="tableCycleReason")
+    """Why the table has no regular cycle, as the freshness detector
+    explains it.
+    """
+
+    job_cycle_hours = sgqlc.types.Field(Float, graphql_name="jobCycleHours")
+    """Usual hours between runs of the dbt or ETL job behind the alert."""
+
+
+class MetaSummarizerCandidateAgentIssue(sgqlc.types.Type):
+    """A reinforcement-loop issue the teammate may post about or follow
+    up on.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "issue_uuid",
+        "agent_name",
+        "agent_mcon",
+        "priority",
+        "first_detected_at",
+        "last_seen_at",
+        "lifecycle",
+        "conversation_count",
+        "content_restricted",
+        "title",
+        "description",
+        "recommendation",
+        "ledger",
+    )
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+    """The issue."""
+
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """The agent the issue is about."""
+
+    agent_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentMcon")
+    """The agent's trace table MCON."""
+
+    priority = sgqlc.types.Field(
+        sgqlc.types.non_null(MetaSummarizerAgentIssuePriority), graphql_name="priority"
+    )
+    """The served priority, recomputed over the issue's last 7 days."""
+
+    first_detected_at = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="firstDetectedAt"
+    )
+    """When the issue was first reported."""
+
+    last_seen_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="lastSeenAt")
+    """When the issue was last reported."""
+
+    lifecycle = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="lifecycle")
+    """Where the issue is: active, resolved, merged (also deleted),
+    ignored or hidden. The first that applies, in the order merged,
+    ignored, resolved, hidden.
+    """
+
+    conversation_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="conversationCount"
+    )
+    """Distinct conversations the issue was seen in, last 7 days."""
+
+    content_restricted = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="contentRestricted"
+    )
+    """True when the caller may not see the issue's text; the text fields
+    are null.
+    """
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """The newest report's title."""
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """The newest report's description."""
+
+    recommendation = sgqlc.types.Field(String, graphql_name="recommendation")
+    """The newest report's recommended fix."""
+
+    ledger = sgqlc.types.Field("MetaSummarizerLedgerEntry", graphql_name="ledger")
+    """The channel's latest decision on the issue. Null before the first
+    one.
+    """
+
+
+class MetaSummarizerCandidateAlert(sgqlc.types.Type):
+    """An alert the teammate may post about."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "alert_id",
+        "title",
+        "incident_type",
+        "created_at",
+        "sub_types",
+        "monitor_id",
+        "assets",
+        "activity",
+        "triage",
+        "cadence",
+        "recovery_history",
+        "tsa",
+        "remediation",
+        "ledger",
+    )
+    alert_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="alertId")
+    """The alert."""
+
+    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
+    """The alert's title."""
+
+    incident_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="incidentType")
+    """The alert's type."""
+
+    created_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdAt")
+    """When the alert was created."""
+
+    sub_types = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="subTypes",
+    )
+    """The alert's sub-types."""
+
+    monitor_id = sgqlc.types.Field(UUID, graphql_name="monitorId")
+    """The monitor that raised the alert. Null when no monitor did."""
+
+    assets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MetaSummarizerAsset))),
+        graphql_name="assets",
+    )
+    """The alert's assets."""
+
+    activity = sgqlc.types.Field(
+        sgqlc.types.non_null(MetaSummarizerActivity), graphql_name="activity"
+    )
+    """The alert's events and status."""
+
+    triage = sgqlc.types.Field("MetaSummarizerTriage", graphql_name="triage")
+    """The latest completed triage verdict. Null until both scores are
+    in.
+    """
+
+    cadence = sgqlc.types.Field(sgqlc.types.non_null(MetaSummarizerCadence), graphql_name="cadence")
+    """How often the monitor, table and job behind the alert run or
+    update.
+    """
+
+    recovery_history = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("MetaSummarizerRecoveryRecord"))
+        ),
+        graphql_name="recoveryHistory",
+    )
+    """Anomalies on the alert's tables in the last 90 days that
+    recovered, newest first, at most ten.
+    """
+
+    tsa = sgqlc.types.Field("MetaSummarizerTsaSummary", graphql_name="tsa")
+    """The troubleshooting summary. Null when there is none to show."""
+
+    remediation = sgqlc.types.Field("MetaSummarizerRemediationSummary", graphql_name="remediation")
+    """The remediation plan built from the troubleshooting summary. Null
+    when there is none to show, or when the stored plan came from an
+    earlier analysis.
+    """
+
+    ledger = sgqlc.types.Field("MetaSummarizerLedgerEntry", graphql_name="ledger")
+    """The channel's latest decision on the alert. Null before the first
+    one.
+    """
+
+
+class MetaSummarizerLedgerEntry(sgqlc.types.Type):
+    """The channel's latest decision on an item. Alerts and agent issues
+    share this type.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "decision",
+        "reason",
+        "observed",
+        "first_seen_at",
+        "decided_at",
+        "next_check_at",
+        "watch_started_at",
+        "post_uuid",
+    )
+    decision = sgqlc.types.Field(sgqlc.types.non_null(TeammateDecision), graphql_name="decision")
+    """What the teammate decided."""
+
+    reason = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reason")
+    """Why, in the teammate's words."""
+
+    observed = sgqlc.types.Field(
+        sgqlc.types.non_null("MetaSummarizerObservedSnapshot"), graphql_name="observed"
+    )
+    """The item's state when the teammate decided."""
+
+    first_seen_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="firstSeenAt")
+    """When the teammate first decided on the item."""
+
+    decided_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="decidedAt")
+    """Start of the hourly run that decided."""
+
+    next_check_at = sgqlc.types.Field(DateTime, graphql_name="nextCheckAt")
+    """When the teammate looks again. Set only while it is watching."""
+
+    watch_started_at = sgqlc.types.Field(DateTime, graphql_name="watchStartedAt")
+    """When the teammate started watching."""
+
+    post_uuid = sgqlc.types.Field(UUID, graphql_name="postUuid")
+    """The post that covered the item, if any."""
+
+
+class MetaSummarizerObservedSnapshot(sgqlc.types.Type):
+    """The item's state as the deciding run saw it. Alerts and agent
+    issues share this type.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "status",
+        "priority",
+        "triage_generation",
+        "event_count",
+        "last_event_at",
+        "tsa_completed_at",
+        "remediation_completed_at",
+    )
+    status = sgqlc.types.Field(String, graphql_name="status")
+    """The item's status."""
+
+    priority = sgqlc.types.Field(String, graphql_name="priority")
+    """The item's priority."""
+
+    triage_generation = sgqlc.types.Field(Int, graphql_name="triageGeneration")
+    """The triage generation the run saw."""
+
+    event_count = sgqlc.types.Field(Int, graphql_name="eventCount")
+    """Events on the item."""
+
+    last_event_at = sgqlc.types.Field(DateTime, graphql_name="lastEventAt")
+    """When the newest event was created."""
+
+    tsa_completed_at = sgqlc.types.Field(DateTime, graphql_name="tsaCompletedAt")
+    """When troubleshooting finished."""
+
+    remediation_completed_at = sgqlc.types.Field(DateTime, graphql_name="remediationCompletedAt")
+    """When remediation finished."""
+
+
+class MetaSummarizerPostItem(sgqlc.types.Type):
+    """An alert or agent issue a post covers."""
+
+    __schema__ = schema
+    __field_names__ = ("item_type", "item_id")
+    item_type = sgqlc.types.Field(sgqlc.types.non_null(TeammateItemType), graphql_name="itemType")
+    """What kind of item it is."""
+
+    item_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="itemId")
+    """The alert or agent issue."""
+
+
+class MetaSummarizerRecentPost(sgqlc.types.Type):
+    """A post the teammate made to the channel."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "post_uuid",
+        "posted_at",
+        "text",
+        "action",
+        "parent_post_uuid",
+        "also_send_to_channel",
+        "items",
+    )
+    post_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="postUuid")
+    """Post id."""
+
+    posted_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="postedAt")
+    """When the post was written."""
+
+    text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="text")
+    """The message text. Replaced by a notice when it covers an agent
+    issue whose content you may not see.
+    """
+
+    action = sgqlc.types.Field(String, graphql_name="action")
+    """The fix or check the post asks for. Null on a post without one."""
+
+    parent_post_uuid = sgqlc.types.Field(UUID, graphql_name="parentPostUuid")
+    """The post whose thread this one replies in. Null for a top-level
+    post.
+    """
+
+    also_send_to_channel = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="alsoSendToChannel"
+    )
+    """True when a thread reply was also sent to the channel."""
+
+    items = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MetaSummarizerPostItem))),
+        graphql_name="items",
+    )
+    """The alerts and agent issues the post covers."""
+
+
+class MetaSummarizerRecoveryRecord(sgqlc.types.Type):
+    """An earlier anomaly on the alert's table that recovered."""
+
+    __schema__ = schema
+    __field_names__ = ("alert_created_at", "recovered_after_hours")
+    alert_created_at = sgqlc.types.Field(
+        sgqlc.types.non_null(DateTime), graphql_name="alertCreatedAt"
+    )
+    """When the anomaly started."""
+
+    recovered_after_hours = sgqlc.types.Field(Float, graphql_name="recoveredAfterHours")
+    """Hours from the start to the recovery."""
+
+
+class MetaSummarizerRemediationSummary(sgqlc.types.Type):
+    """The remediation agent's stored plan for the alert."""
+
+    __schema__ = schema
+    __field_names__ = ("classification", "completed_at", "plan_summary")
+    classification = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="classification")
+    """The plan's main response type, such as rerun_pipeline or
+    tune_monitor.
+    """
+
+    completed_at = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="completedAt")
+    """When the plan was finished."""
+
+    plan_summary = sgqlc.types.Field(String, graphql_name="planSummary")
+    """The plan in brief. Null when there is none."""
+
+
+class MetaSummarizerState(sgqlc.types.Type):
+    """A teammate channel's alerts and recent posts, as the meta-
+    summarizer reads them.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("domain_id", "domain_name", "watch_notes", "alerts", "recently_posted")
+    domain_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainId")
+    """The channel's domain."""
+
+    domain_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="domainName")
+    """The domain's name."""
+
+    watch_notes = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="watchNotes")
+    """True when the channel wants a note when the teammate starts
+    watching an item.
+    """
+
+    alerts = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(MetaSummarizerCandidateAlert))
+        ),
+        graphql_name="alerts",
+    )
+    """The domain's alerts created in the window, plus older ones with a
+    post not yet noted resolved, newest first. Returns the newest 200
+    alerts in the window plus every alert with an open post. A new
+    alert, one without a ledger entry, is left out until its triage,
+    troubleshooting and remediation have finished, for at most 3 hours
+    after it was created.
+    """
+
+    recently_posted = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(MetaSummarizerRecentPost))),
+        graphql_name="recentlyPosted",
+    )
+    """The channel's posts from the last 7 days, newest first."""
+
+
+class MetaSummarizerTriage(sgqlc.types.Type):
+    """The alert's latest completed triage verdict."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "incident_likelihood",
+        "alert_impact",
+        "priority",
+        "triage_summary",
+        "triaged_at",
+        "retriage_generation",
+        "routed_to_tsa",
+        "classification",
+    )
+    incident_likelihood = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="incidentLikelihood"
+    )
+    """How likely the alert is a real incident: HIGH, MEDIUM or LOW."""
+
+    alert_impact = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alertImpact")
+    """How much the alert matters: HIGH, MEDIUM or LOW."""
+
+    priority = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="priority")
+    """Priority derived from the two scores: HIGH, MEDIUM or LOW.
+    NOT_TRIAGED when the scores are not recognized.
+    """
+
+    triage_summary = sgqlc.types.Field(String, graphql_name="triageSummary")
+    """The triage agent's summary."""
+
+    triaged_at = sgqlc.types.Field(DateTime, graphql_name="triagedAt")
+    """When the triage run that produced the verdict started."""
+
+    retriage_generation = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="retriageGeneration"
+    )
+    """0 for the first triage; each re-triage adds one."""
+
+    routed_to_tsa = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="routedToTsa")
+    """True when triage sent the alert to the troubleshooting agent. An
+    inherited verdict carries its origin's value.
+    """
+
+    classification = sgqlc.types.Field(
+        "MetaSummarizerTriageClassification", graphql_name="classification"
+    )
+    """The agent's classification. Null when it gave none."""
+
+
+class MetaSummarizerTriageClassification(sgqlc.types.Type):
+    """How the triage agent classified the alert."""
+
+    __schema__ = schema
+    __field_names__ = ("category", "confidence", "rationale")
+    category = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="category")
+    """The category, such as Verified Incident."""
+
+    confidence = sgqlc.types.Field(Float, graphql_name="confidence")
+    """The agent's confidence in the category."""
+
+    rationale = sgqlc.types.Field(String, graphql_name="rationale")
+    """The agent's one or two sentences on why it chose the category."""
+
+
+class MetaSummarizerTsaSummary(sgqlc.types.Type):
+    """The troubleshooting agent's stored summary of the alert."""
+
+    __schema__ = schema
+    __field_names__ = ("tldr", "root_cause_tldr", "completed_at")
+    tldr = sgqlc.types.Field(String, graphql_name="tldr")
+    """The analysis summary."""
+
+    root_cause_tldr = sgqlc.types.Field(String, graphql_name="rootCauseTldr")
+    """The likely root cause, in brief."""
+
+    completed_at = sgqlc.types.Field(DateTime, graphql_name="completedAt")
+    """When the analysis finished."""
+
+
 class MetricAggregationOutputType(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("metric", "aggregation")
@@ -48416,6 +49656,59 @@ class Metrics(sgqlc.types.Type):
     """List of metrics, in JSON representation"""
 
 
+class MigrateAccountJobAlerting(sgqlc.types.Type):
+    """Dry-run or migrate one account's job alerting to job monitors. A
+    dry run stores a proposal and changes nothing else. Returns a
+    reference to the proposal, not the proposal itself. Monte Carlo
+    staff only.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "outcome",
+        "proposal_uuid",
+        "is_blocked",
+        "monitor_count",
+        "block_reasons",
+        "created_monitor_uuids",
+        "kept_monitor_uuids",
+    )
+    outcome = sgqlc.types.Field(
+        sgqlc.types.non_null(JobAlertingMigrationOutcome), graphql_name="outcome"
+    )
+
+    proposal_uuid = sgqlc.types.Field(UUID, graphql_name="proposalUuid")
+    """The proposal stored or applied. Null when there was none."""
+
+    is_blocked = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isBlocked")
+    """Whether the proposal is blocked from applying."""
+
+    monitor_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="monitorCount")
+    """How many monitors the proposal creates."""
+
+    block_reasons = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="blockReasons",
+    )
+    """For a blocked proposal, each block reason and each failed
+    assertion.
+    """
+
+    created_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="createdMonitorUuids",
+    )
+    """For APPLIED, the job monitors created."""
+
+    kept_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="keptMonitorUuids",
+    )
+    """For PROPOSED and KEPT_MONITORS_PRESENT, the monitors an earlier
+    rollback kept. A real run refuses until they are resolved.
+    """
+
+
 class MigrateCollectorResources(sgqlc.types.Type):
     """Migrate resources (warehouses, BI) from one data collector to
     another
@@ -48439,6 +49732,42 @@ class MigrateConnectionToSnowflakeAgent(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """True if the connection was migrated successfully."""
+
+
+class MigratedJobMonitor(sgqlc.types.Type):
+    """A job monitor the migration created, with the audiences and rules
+    it came from.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("uuid", "name", "description", "integration", "audiences", "source_rules")
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """The monitor's current name."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """The monitor's current title."""
+
+    integration = sgqlc.types.Field(
+        sgqlc.types.non_null(JobMonitorMigrationIntegration), graphql_name="integration"
+    )
+
+    audiences = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(JobMonitorMigrationAudience))
+        ),
+        graphql_name="audiences",
+    )
+    """The audiences the monitor was created with."""
+
+    source_rules = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(JobMonitorMigrationSourceRule))
+        ),
+        graphql_name="sourceRules",
+    )
+    """The legacy rules whose alerts the monitor took over."""
 
 
 class MonitorAtRisk(sgqlc.types.Type):
@@ -49432,10 +50761,10 @@ class MonitorTuningAutoApply(sgqlc.types.Type):
     is_revertible = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRevertible")
     """Whether a revert can be offered: the monitor may be carrying
     applied configuration and a snapshot exists to restore. Does not
-    account for the caller's permissions — reverting additionally
-    requires tune or edit capability on the monitor's type — and a
-    revert can still be refused if the monitor has since been deleted
-    or edited since the apply.
+    account for the caller's permissions. Reverting additionally
+    requires tune-model or edit on the monitor's type, in the
+    monitor's domains. A revert can still be refused if the monitor
+    has been deleted or edited since the apply.
     """
 
 
@@ -50515,6 +51844,8 @@ class Mutation(sgqlc.types.Type):
         "create_datadog_incident_for_alert",
         "link_datadog_incident_for_alert",
         "unlink_datadog_incident_for_alert",
+        "migrate_account_job_alerting",
+        "rollback_account_job_alerting_migration",
         "create_or_update_job_monitor",
         "delete_job_monitor",
         "create_or_update_table_monitor",
@@ -51686,9 +53017,10 @@ class Mutation(sgqlc.types.Type):
       Secrets of the auth config, such as the GitHub App private_key.
       Replaces all stored secrets; omit to keep them. Stored in Vault,
       never exposed.
-    * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
-      headers to add or replace (API_KEY only). An entry without a
-      value keeps the stored value; omitted names are preserved.
+    * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): The complete
+      set of custom auth headers (API_KEY only). An entry without a
+      value keeps the stored value; a stored name left out is removed.
+      Omit to keep every stored header.
     * `auth_type` (`CustomerMcpAuthenticationMethod`): New
       authentication type
     * `data_collector_uuid` (`UUID`): Data collector whose remote
@@ -51716,7 +53048,8 @@ class Mutation(sgqlc.types.Type):
       (`CustomerMcpTokenEndpointAuthMethod`): New client
       authentication method for the token endpoint
     * `remove_auth_headers` (`[String!]`): Names of custom auth
-      headers to remove (API_KEY only)
+      headers to remove (API_KEY only). Leaving a name out of
+      auth_headers also removes it.
     * `user_id_field_type` (`CustomerMcpUserIdFieldType`): New field
       type for user identity
     * `user_id_header_name` (`String`): New header name for user
@@ -51856,9 +53189,10 @@ class Mutation(sgqlc.types.Type):
       Secrets of the auth config, such as the GitHub App private_key.
       Replaces all stored secrets; omit to keep them. Stored in Vault,
       never exposed.
-    * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): Custom auth
-      headers to test (API_KEY only). An entry without a value uses
-      the saved server's stored value for that name.
+    * `auth_headers` (`[CustomerMcpAuthHeaderInput!]`): The complete
+      set of custom auth headers to test (API_KEY only). An entry
+      without a value uses the saved server's stored value; a stored
+      name left out is not sent. Omit to send every stored header.
     * `auth_type` (`CustomerMcpAuthenticationMethod`): Authentication
       type (defaults to the saved server's when uuid is given)
     * `mcp_server_url` (`String`): URL to test; defaults to the saved
@@ -53947,6 +55281,62 @@ class Mutation(sgqlc.types.Type):
     * `alert_id` (`UUID!`): ID of the alert
     * `dd_incident_id` (`String!`): Datadog internal incident id
     * `integration_id` (`UUID!`): ID of the Datadog integration
+    """
+
+    migrate_account_job_alerting = sgqlc.types.Field(
+        MigrateAccountJobAlerting,
+        graphql_name="migrateAccountJobAlerting",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "account_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="accountUuid", default=None
+                    ),
+                ),
+                (
+                    "dry_run",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Boolean), graphql_name="dryRun", default=None
+                    ),
+                ),
+                ("proposal_uuid", sgqlc.types.Arg(UUID, graphql_name="proposalUuid", default=None)),
+            )
+        ),
+    )
+    """(experimental) Dry-run or migrate one account's job alerting.
+    Monte Carlo staff only.
+
+    Arguments:
+
+    * `account_uuid` (`UUID!`): Account to migrate.
+    * `dry_run` (`Boolean!`): Store a proposal without migrating the
+      account.
+    * `proposal_uuid` (`UUID`): The reviewed proposal to apply. It
+      must be the account's newest. Required on a real run. Ignored on
+      a dry run.
+    """
+
+    rollback_account_job_alerting_migration = sgqlc.types.Field(
+        "RollbackAccountJobAlertingMigration",
+        graphql_name="rollbackAccountJobAlertingMigration",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "account_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="accountUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Roll back one account's job alerting migration.
+    Monte Carlo staff only.
+
+    Arguments:
+
+    * `account_uuid` (`UUID!`): Account to roll back.
     """
 
     create_or_update_job_monitor = sgqlc.types.Field(
@@ -69456,9 +70846,11 @@ class Mutation(sgqlc.types.Type):
       its domains in domainOverrides instead.
     * `clear_max_automated_triage_runs_per_day` (`Boolean`): When
       true, remove the per-account daily limit (the fixed safety limit
-      on automated triage still applies).
+      on automated triage still applies). Requires permission to
+      manage AI agent usage.
     * `clear_max_automated_triage_runs_per_month` (`Boolean`): When
-      true, remove the per-account monthly limit.
+      true, remove the per-account monthly limit. Requires permission
+      to manage AI agent usage.
     * `domain_overrides` (`[TriageAutomationDomainOverrideInput!]`):
       Domain overrides to set or remove. An entry with both
       triageEnabled and tsaThreshold null removes the domain's
@@ -69469,14 +70861,17 @@ class Mutation(sgqlc.types.Type):
       per-account daily limit on triage runs (counts automated and
       manual triage). Must be between 1 and 2000 (2000 is a fixed
       safety limit on automated triage a per-account limit can only
-      tighten). Requires account-settings edit access.
+      tighten). Requires permission to manage AI agent usage, which
+      the Account Owner role grants.
     * `max_automated_triage_runs_per_month` (`Int`): Set the optional
       per-account monthly limit on triage runs (counts automated and
       manual triage; at least 1). The primary customer-facing volume
-      control. Requires account-settings edit access.
+      control. Requires permission to manage AI agent usage, which the
+      Account Owner role grants.
     * `tsa_automation_threshold` (`TsaAutomationThreshold`): New
       account-level threshold at or above which the troubleshooting
-      agent auto-runs on a triaged alert.
+      agent auto-runs on a triaged alert. Requires permission to
+      manage AI agent usage.
     """
 
     update_cost_agent_settings = sgqlc.types.Field(
@@ -81460,6 +82855,8 @@ class Query(sgqlc.types.Type):
         "get_traces_filters_data",
         "get_traces",
         "get_agent_graph",
+        "get_conversation_overview",
+        "get_conversation_time_series",
         "get_trace_time_series",
         "get_trace_overview",
         "get_tool_call_overview",
@@ -81767,6 +83164,7 @@ class Query(sgqlc.types.Type):
         "get_job_execution_history_logs",
         "get_job_executions",
         "get_bulk_monitor_job_executions",
+        "get_job_monitor_migration",
         "get_job_monitor",
         "get_job_alert_conditions",
         "get_job_monitor_integrations",
@@ -81866,6 +83264,7 @@ class Query(sgqlc.types.Type):
         "finding",
         "latest_monitoring_plan",
         "domain_monitoring_plan_state",
+        "domain_monitoring_plan_entries",
         "monitoring_plan",
         "monitoring_plans",
         "monitoring_plan_for_monitor",
@@ -82080,6 +83479,8 @@ class Query(sgqlc.types.Type):
         "get_job_dependencies",
         "get_teammate_updates",
         "get_teammate_decisions",
+        "get_meta_summarizer_state",
+        "get_meta_summarizer_agent_issues",
         "get_tsa_analysis_result",
         "get_remediation_result",
         "ops_agent_conversations",
@@ -83751,6 +85152,66 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetAgentGraphInput!`)None
+    """
+
+    get_conversation_overview = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationOverviewMetricsWithComparison),
+        graphql_name="getConversationOverview",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationOverviewInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Conversation counts, durations, root errors, and
+    turn tokens over matching traces in a window with an exclusive
+    end. Conversations need at least one trace with messages or tool
+    calls. totalConversations equals
+    getTraceOverview.totalConversations for the same input. Filters
+    select turns before conversation grouping. Comparison includes the
+    preceding window of equal length.
+
+    Arguments:
+
+    * `input` (`GetConversationOverviewInput!`): Conversation window
+      and filters
+    """
+
+    get_conversation_time_series = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ConversationTimeSeriesType))),
+        graphql_name="getConversationTimeSeries",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetConversationTimeSeriesInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Conversation metrics by the first matching turn's
+    bucket. Each conversation counts once per series. End time is
+    excluded. Filters and segment values select traces before
+    conversation grouping; metrics use only matching turns. Supports
+    MODEL, WORKFLOW, and TASK segments, with one series per observed
+    value. Empty segment values returns every value. Gaps have null
+    values.
+
+    Arguments:
+
+    * `input` (`GetConversationTimeSeriesInput!`): Conversation
+      window, bucket size, metrics, and trace filters
     """
 
     get_trace_time_series = sgqlc.types.Field(
@@ -92463,13 +93924,12 @@ class Query(sgqlc.types.Type):
       stored score as alertScore. (default: `false`)
     * `use_alert_sample` (`Boolean`): When true, return the sample
       stored when the alert fired — the exact spans and scores it
-      evaluated — instead of taking a fresh sample. Only alerts whose
-      Event.hasAlertSample is true have such a stored sample; for any
-      other monitor or connection, or if the stored sample is no
-      longer available, the request fails with
-      ALERT_SAMPLE_UNAVAILABLE rather than substituting a different
-      sample. When false (default), a new sample is taken. (default:
-      `false`)
+      evaluated — instead of taking a fresh sample. Alerts whose
+      Event.hasAlertSample is true have such a stored sample. If no
+      stored sample exists or it is no longer available, the request
+      fails with ALERT_SAMPLE_UNAVAILABLE rather than substituting a
+      different sample. When false (default), a new sample is taken.
+      (default: `false`)
     """
 
     get_field_health_sampling_conditions = sgqlc.types.Field(
@@ -93480,6 +94940,14 @@ class Query(sgqlc.types.Type):
       child
     * `history_days` (`Int`): Number of days back (default 90)
     * `limit` (`Int`): Max number of executions (default 500)
+    """
+
+    get_job_monitor_migration = sgqlc.types.Field(
+        JobMonitorMigration, graphql_name="getJobMonitorMigration"
+    )
+    """(experimental) Get what the account's migration to job monitors
+    created and changed. Null when the account is not migrated, or the
+    migration was rolled back.
     """
 
     get_job_monitor = sgqlc.types.Field(
@@ -98942,6 +100410,35 @@ class Query(sgqlc.types.Type):
 
     * `domain_uuid` (`UUID!`): UUID of the metadata domain whose
       monitoring-plan state to fetch.
+    """
+
+    domain_monitoring_plan_entries = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DomainMonitoringPlanEntry))),
+        graphql_name="domainMonitoringPlanEntries",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="domainUuids",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Each requested domain's monitoring-plan entry state
+    for the caller, in one read: whether a plan is ready, being built,
+    or has a draft of the caller's in progress or ready to review.
+    Drafts are the caller's own, as on the plan tab. Gated like
+    `domainMonitoringPlanState`; domains the caller can't read plans
+    on are omitted.
+
+    Arguments:
+
+    * `domain_uuids` (`[UUID!]!`): UUIDs of the metadata domains to
+      read, at most 100.
     """
 
     monitoring_plan = sgqlc.types.Field(
@@ -106839,6 +108336,70 @@ class Query(sgqlc.types.Type):
     * `until` (`DateTime`): End of the history window (exclusive).
     """
 
+    get_meta_summarizer_state = sgqlc.types.Field(
+        MetaSummarizerState,
+        graphql_name="getMetaSummarizerState",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "subscription_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="subscriptionUuid", default=None
+                    ),
+                ),
+                (
+                    "created_after",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="createdAfter", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Everything the meta-summarizer needs about a
+    teammate channel's alerts that getAlerts does not return: ledger
+    entries, the latest triage verdict, cadence, recovery history,
+    troubleshooting and remediation summaries, and the channel's
+    recent posts. Null when the channel is missing, inactive, or
+    outside the caller's domains. Requires alerts access.
+
+    Arguments:
+
+    * `subscription_uuid` (`UUID!`): The teammate channel.
+    * `created_after` (`DateTime!`): Alerts created at or after this
+      time are candidates; at most 14 days back.
+    """
+
+    get_meta_summarizer_agent_issues = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(MetaSummarizerCandidateAgentIssue))
+        ),
+        graphql_name="getMetaSummarizerAgentIssues",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "subscription_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="subscriptionUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) The reinforcement-loop issues the meta-summarizer
+    considers for a teammate channel: the domain's live issues served
+    MEDIUM or above, most urgent and newest first, at most 200, plus
+    every issue the channel has an open post for, at any priority or
+    state, each with the channel's ledger entry. Empty when the
+    channel is missing, inactive, or outside the caller's domains, and
+    for an account not on reinforcement loop V2. Requires alerts
+    access.
+
+    Arguments:
+
+    * `subscription_uuid` (`UUID!`): The teammate channel.
+    """
+
     get_tsa_analysis_result = sgqlc.types.Field(
         "TsaAnalysisResultType",
         graphql_name="getTsaAnalysisResult",
@@ -109341,8 +110902,8 @@ class ReinforcementLoopSelector(sgqlc.types.Type):
     eval_score_threshold = sgqlc.types.Field(
         sgqlc.types.non_null(Float), graphql_name="evalScoreThreshold"
     )
-    """Eval scores below this value put a conversation in the monitor's
-    EVAL_DERIVED cluster. Tuned on the clustering space, not here.
+    """Fallback bar for numeric evals whose monitor has no fixed alert
+    threshold. Tuned on the clustering space, not here.
     """
 
     available_clusters = sgqlc.types.Field(
@@ -109429,6 +110990,7 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
         "title",
         "description",
         "recommendation",
+        "config_access",
         "priority",
         "reported_priority",
         "grouping_metadata",
@@ -109478,8 +111040,15 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     """
 
     recommendation = sgqlc.types.Field(String, graphql_name="recommendation")
-    """Current recommendation: the newest report's. Null when content is
-    restricted.
+    """Current recommendation: the newest report's. May be empty on a
+    TRACES_ONLY issue. Null when content is restricted.
+    """
+
+    config_access = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopConfigAccess), graphql_name="configAccess"
+    )
+    """What the newest report's text was written from. FULL on an issue
+    with no report. Not subject to redaction.
     """
 
     priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
@@ -110080,6 +111649,43 @@ class RequiredTag(sgqlc.types.Type):
     """
 
 
+class ResidualJobMonitor(sgqlc.types.Type):
+    """A job monitor of the jobs that alerted nobody before the
+    migration. It has no audience.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "name",
+        "description",
+        "integration",
+        "job_count",
+        "failed_job_count90d",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+
+    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
+    """The monitor's current name."""
+
+    description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
+    """The monitor's current title."""
+
+    integration = sgqlc.types.Field(
+        sgqlc.types.non_null(JobMonitorMigrationIntegration), graphql_name="integration"
+    )
+
+    job_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="jobCount")
+    """Jobs the monitor was created with."""
+
+    failed_job_count90d = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="failedJobCount90d"
+    )
+    """Of those jobs, how many failed in the 90 days before the migration
+    was proposed.
+    """
+
+
 class ResourceConnection(sgqlc.types.relay.Connection):
     __schema__ = schema
     __field_names__ = ("page_info", "edges")
@@ -110397,6 +112003,46 @@ class RoleOutput(sgqlc.types.Type):
     """(experimental) Audit information for this role. Null for managed
     roles; present for custom roles.
     """
+
+
+class RollbackAccountJobAlertingMigration(sgqlc.types.Type):
+    """Roll back one account's job alerting migration. Legacy job
+    alerting resumes. Monitors the customer edited since the migration
+    are kept and reported. Monte Carlo staff only.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "outcome",
+        "proposal_uuid",
+        "deleted_monitor_uuids",
+        "kept_monitor_uuids",
+        "already_deleted_monitor_uuids",
+    )
+    outcome = sgqlc.types.Field(
+        sgqlc.types.non_null(JobAlertingRollbackOutcome), graphql_name="outcome"
+    )
+
+    proposal_uuid = sgqlc.types.Field(UUID, graphql_name="proposalUuid")
+    """The applied proposal rolled back. Null when there was none."""
+
+    deleted_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="deletedMonitorUuids",
+    )
+    """The job monitors deleted."""
+
+    kept_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="keptMonitorUuids",
+    )
+    """Monitors kept because the customer edited them."""
+
+    already_deleted_monitor_uuids = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+        graphql_name="alreadyDeletedMonitorUuids",
+    )
+    """Monitors someone deleted before the rollback."""
 
 
 class RowCountResponseType(sgqlc.types.Type):
@@ -119016,7 +120662,8 @@ class UpdateConversationClusteringSettings(sgqlc.types.Type):
 
 class UpdateCostAgentSettings(sgqlc.types.Type):
     """Update the Cost & Performance Agent scope settings for the
-    caller's account.
+    caller's account.  Requires permission to manage AI agent usage,
+    which the Account Owner role grants.
     """
 
     __schema__ = schema
@@ -119768,10 +121415,12 @@ class UpdateTransactionalDbCredentialsV2Mutation(sgqlc.types.Type):
 
 class UpdateTriageAutomationConfig(sgqlc.types.Type):
     """Update the automated-triage configuration for the caller's
-    account.  Unset inputs are left unchanged. Setting
-    ``tsaAutomationThreshold`` requires account-settings edit access;
-    changing domain overrides (including ``clearAllDomainOverrides``)
-    requires domain-settings edit access.
+    account.  Unset inputs are left unchanged. Changing the threshold
+    or the daily or monthly run limit requires permission to manage AI
+    agent usage, which the Account Owner role grants. Changing domain
+    overrides (including ``clearAllDomainOverrides``) requires
+    permission to edit AI agent settings and domain settings, which
+    the Domains Manager role grants.
     """
 
     __schema__ = schema
@@ -119785,7 +121434,8 @@ class UpdateTroubleshootingAgentConfig(sgqlc.types.Type):
     """Set or clear the account's Troubleshooting Agent monthly
     investigation cap.  Provide ``maxRunsPerMonth`` (at least 1) to
     set the cap, or ``clearMaxRunsPerMonth`` to remove it. Requires
-    account-settings edit access.
+    permission to manage AI agent usage, which the Account Owner role
+    grants.
     """
 
     __schema__ = schema
@@ -120174,7 +121824,7 @@ class UserAuthorizationOutput(sgqlc.types.Type):
     """AI agent capabilities available to the authenticated user,
     combining the account's agent availability with the user's
     resolved permissions (e.g. tsa, triage, monitoring, sql, chat,
-    use_run_llm, pr_agent).
+    pr_agent).
     """
 
 
@@ -127405,8 +129055,8 @@ class Event(sgqlc.types.Type, Node):
     useAlertSample=true. True for a ClickHouse agent LLM-eval alert
     (span grain or conversation aggregation) whose evaluation batch
     was recorded, and for a platform-agent (e.g. Cortex or Genie)
-    agent evaluation alert whose run persisted its scores; false for
-    every other monitor or connection, which always sample live.
+    agent evaluation alert whose monitor persists run scores; false
+    for every other monitor or connection.
     """
 
     has_alert_sample_explanation = sgqlc.types.Field(

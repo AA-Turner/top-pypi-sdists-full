@@ -80,7 +80,7 @@ class ServiceConfig(BaseHAJobConfig):
         "You can manually control the speed of the rollout using the canary_weight configuration.\n"
         "The IN_PLACE strategy will use Ray Serve in place upgrade to update your existing cluster in place. "
         "When using this rollout strategy, you may only change the ray_serve_config field. "
-        "You cannot partially shift traffic or rollback an in place upgrade. "
+        "You cannot partially shift traffic. On Ray 2.60 or later, failed in place upgrades of single-version services roll back automatically when a known-good configuration is available. "
         "In place upgrades are faster and riskier than rollouts, and we recommend only using them for relatively safe changes (for example, increasing the number of replicas on a Ray Serve deployment).\n"
         "Default strategy is ROLLOUT.",
     )

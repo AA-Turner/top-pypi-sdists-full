@@ -5,15 +5,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use sqlbuild_analysis::assembly::analysis_session::models::RelationTables;
 use sqlbuild_analysis::assembly::analysis_session::types::Shapes;
 use sqlbuild_cache::project_reuse::types::ImageSections;
-use sqlbuild_rules::engine::main::retained_request::retained_request;
-use sqlbuild_rules::models::{EvaluateRequest, RetainedRows};
+use sqlbuild_rules::models::RetainedRows;
 
-use crate::bindings::_helpers::compile_delta::context::{
+use crate::bindings::_helpers::compile_context::delta::ModelCoverage;
+use crate::bindings::_helpers::compile_context::delta::{BaseRules, PendingRules};
+use crate::bindings::_helpers::compile_context::delta::{
     CapturedDiagnostic, CapturedModel, CapturedTest, ImageCapture, ModelShape,
 };
-use crate::bindings::_helpers::compile_delta::coverage::ModelCoverage;
-use crate::bindings::_helpers::compile_delta::header_keys::HeaderKeys;
-use crate::bindings::_helpers::compile_delta::image_codec::{Decoder, Encoder};
+use crate::bindings::_helpers::compile_context::image_codec::{Decoder, Encoder};
+use sqlbuild_discovery::header_changes::types::HeaderKeys;
 
 /// Changes whenever the image's meaning changes, so an older image is never read.
 pub(crate) const IMAGE_FORMAT: &str = "sqlbuild-project-image-v8";
@@ -49,36 +49,11 @@ pub(crate) struct ProjectImage {
     pub(crate) rules: Option<ImageRules>,
 }
 
-/// A stored compile's built-in rules request, as decoded for a delta compile.
-#[derive(Clone, Debug)]
-pub(crate) struct BaseRules {
-    pub(crate) request: EvaluateRequest,
-    /// Each model's payload digest, which keys its cached findings, in model order.
-    pub(crate) digests: Vec<String>,
-}
-
-impl BaseRules {
-    /// The rows a compile retained, decoded.
-    pub(crate) fn decoded(retained: &RetainedRows) -> Option<Self> {
-        Some(Self {
-            request: retained_request(retained)?,
-            digests: retained.digests.clone(),
-        })
-    }
-}
-
 /// An image's rules request: decoding from a stored image, or as a compile just retained it.
 #[derive(Debug)]
 pub(crate) enum ImageRules {
     Decoding(PendingRules),
     Retained(RetainedRows),
-}
-
-/// A stored rules request, decoding on its own thread or decoded already.
-#[derive(Debug)]
-pub(crate) enum PendingRules {
-    Decoding(std::thread::JoinHandle<Option<BaseRules>>),
-    Ready(Box<BaseRules>),
 }
 
 impl ImageRules {
@@ -95,21 +70,6 @@ impl ImageRules {
         match self {
             Self::Retained(rules) => Some(rules),
             Self::Decoding(_) => None,
-        }
-    }
-}
-
-impl PendingRules {
-    /// The decoded request, or `None` when it could not be decoded.
-    pub(crate) fn resolved(self) -> Option<BaseRules> {
-        match self {
-            Self::Decoding(handle) => {
-                let Ok(rules) = handle.join() else {
-                    return None;
-                };
-                rules
-            }
-            Self::Ready(rules) => Some(*rules),
         }
     }
 }
@@ -252,13 +212,40 @@ fn section<'a>(sections: &'a ImageSections, name: &str) -> Option<&'a [u8]> {
         .map(|(_, bytes)| bytes.as_slice())
 }
 
-/// The diagnostics and report lines an image keeps as JSON, being small and varied.
-type StoredMisc = (
-    Vec<CapturedDiagnostic>,
-    Option<Vec<(String, bool, i64)>>,
-    Vec<String>,
-    Option<Vec<ModelCoverage>>,
-);
+/// The diagnostics and report lines an image keeps as one JSON array, being small and varied.
+struct StoredMisc {
+    diagnostics: Vec<CapturedDiagnostic>,
+    text_models: Option<Vec<(String, bool, i64)>>,
+    environment_names: Vec<String>,
+    coverage: Option<Vec<ModelCoverage>>,
+}
+
+impl<'de> serde::Deserialize<'de> for StoredMisc {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_tuple(4, StoredMiscVisitor)
+    }
+}
+
+/// Reads [`StoredMisc`] from its four-element array.
+struct StoredMiscVisitor;
+
+impl<'de> serde::de::Visitor<'de> for StoredMiscVisitor {
+    type Value = StoredMisc;
+
+    fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("a tuple of size 4")
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<StoredMisc, A::Error> {
+        let missing = |index: usize| serde::de::Error::invalid_length(index, &self);
+        Ok(StoredMisc {
+            diagnostics: seq.next_element()?.ok_or_else(|| missing(0))?,
+            text_models: seq.next_element()?.ok_or_else(|| missing(1))?,
+            environment_names: seq.next_element()?.ok_or_else(|| missing(2))?,
+            coverage: seq.next_element()?.ok_or_else(|| missing(3))?,
+        })
+    }
+}
 
 fn put_shapes<'a>(encoder: &mut Encoder<'a>, shapes: &'a Shapes) {
     encoder.count(shapes.len());
@@ -458,8 +445,12 @@ impl StoredFacts {
             .list(|decoder| Some((decoder.string()?, decoder.strings()?)))?
             .into_iter()
             .collect();
-        let (diagnostics, text_models, environment_names, coverage): StoredMisc =
-            from_json(decoder.bytes()?)?;
+        let StoredMisc {
+            diagnostics,
+            text_models,
+            environment_names,
+            coverage,
+        }: StoredMisc = from_json(decoder.bytes()?)?;
         decoder.finish()?;
         Some(Self {
             usages,

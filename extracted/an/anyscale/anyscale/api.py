@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import json
 import os
 import socket
 import sys
@@ -68,6 +69,18 @@ class _ApiClient:
     anyscale_client: Optional[AnyscaleApi] = None
 
 
+def _readable_body(body: Any) -> Any:
+    # The API writes <, > and & in JSON strings as unicode escapes; decode them for display.
+    # Anything that can't be decoded and printed (non-JSON, deep nesting, a lone surrogate
+    # escape) is shown as received.
+    try:
+        text = json.dumps(json.loads(body), ensure_ascii=False)
+        text.encode()
+        return text
+    except (TypeError, ValueError, RecursionError):
+        return body
+
+
 def format_api_exception(
     e,
     method: str,
@@ -85,7 +98,7 @@ def format_api_exception(
         raise from_http_status(
             e.status,
             f"API Exception ({e.status}) from {method} {resource_path} \n"
-            f"Reason: {e.reason}\nHTTP response body: {e.body}\n"
+            f"Reason: {e.reason}\nHTTP response body: {_readable_body(e.body)}\n"
             f"Trace ID: {trace_id}",
         )
 

@@ -382,39 +382,47 @@ class Client(pystac.Catalog, QueryablesMixin):
         return response
 
     @lru_cache
-    def get_collection(self, collection_id: str) -> Collection | CollectionClient:
+    def get_collection(
+        self, collection_id: str
+    ) -> Collection | CollectionClient | None:
         """Get a single collection from this Catalog/API
 
         Args:
             collection_id: The Collection ID to get
 
         Returns:
-            Union[Collection, CollectionClient]: A STAC Collection
+            Collection | CollectionClient | None: A STAC Collection or None if it does
+            not exist.
 
-        Raises:
-            NotFoundError if collection_id does not exist.
         """
         collection: Collection | CollectionClient | None = None
+
+        if not collection_id:
+            raise ValueError("A `collection_id` must be provided.")
 
         if self._supports_collections():
             assert self._stac_io is not None
 
             url = self._collections_href(collection_id)
-            collection = CollectionClient.from_dict(
-                self._stac_io.read_json(url),
-                root=self,
-                modifier=self.modifier,
-            )
-            call_modifier(self.modifier, collection)
+            try:
+                collection = CollectionClient.from_dict(
+                    self._stac_io.read_json(url),
+                    root=self,
+                    modifier=self.modifier,
+                )
+            except APIError as err:
+                if getattr(err, "status_code", None) and err.status_code == 404:
+                    return None
+                else:
+                    raise err
         else:
             self._warn_about_fallback("COLLECTIONS", "FEATURES")
             for collection in super().get_collections():
                 if collection.id == collection_id:
-                    call_modifier(self.modifier, collection)
                     break
 
-        if collection is None:
-            raise KeyError(f"Collection {collection_id} not found on catalog")
+        if collection:
+            call_modifier(self.modifier, collection)
 
         return collection
 
@@ -538,7 +546,8 @@ class Client(pystac.Catalog, QueryablesMixin):
                 reached. Setting this to ``None`` will allow iteration over a possibly
                 very large number of results.
             limit: A recommendation to the service as to the number of items to return
-                *per page* of results. Defaults to 100.
+                *per page* of results. If not provided, no ``limit`` is sent and the
+                service's own default page size applies.
             ids: List of one or more Item ids to filter on.
             collections: List of one or more Collection IDs or
                 :class:`pystac.Collection` instances. Only Items in one
@@ -613,6 +622,20 @@ class Client(pystac.Catalog, QueryablesMixin):
                 "ITEM_SEARCH", "There is no fallback option available for search."
             )
 
+        requested_method = method or "POST"
+        advertised_methods = {
+            link.extra_fields.get("method", "GET") or "GET"
+            for link in self._get_search_links()
+        }
+        if advertised_methods and requested_method not in advertised_methods:
+            warnings.warn(
+                f"The requested method '{requested_method}' is not advertised by "
+                "any root catalog search link. Available methods: "
+                f"{', '.join(sorted(advertised_methods))}",
+                PystacClientWarning,
+                stacklevel=2,
+            )
+
         return ItemSearch(
             url=self._search_href(),
             method=method,
@@ -679,7 +702,8 @@ class Client(pystac.Catalog, QueryablesMixin):
                 max collections is reached. Setting this to ``None`` will allow
                 iteration over a possibly very large number of results.
             limit: A recommendation to the service as to the number of items to return
-                *per page* of results. Defaults to 100.
+                *per page* of results. If not provided, no ``limit`` is sent and the
+                service's own default page size applies.
             bbox: A list, tuple, or iterator representing a bounding box of 2D
                 or 3D coordinates. Results will be filtered
                 to only those intersecting the bounding box.
@@ -768,6 +792,17 @@ class Client(pystac.Catalog, QueryablesMixin):
             modifier=self.modifier,
         )
 
+    def _get_search_links(self) -> Iterator[pystac.Link]:
+        return (
+            link
+            for link in self.links
+            if link.rel == "search"
+            and (
+                link.media_type == pystac.MediaType.GEOJSON
+                or link.media_type == pystac.MediaType.JSON
+            )
+        )
+
     def get_search_link(self) -> pystac.Link | None:
         """Returns this client's search link.
 
@@ -776,18 +811,7 @@ class Client(pystac.Catalog, QueryablesMixin):
         Returns:
             Optional[pystac.Link]: The search link, or None if there is not one found.
         """
-        return next(
-            (
-                link
-                for link in self.links
-                if link.rel == "search"
-                and (
-                    link.media_type == pystac.MediaType.GEOJSON
-                    or link.media_type == pystac.MediaType.JSON
-                )
-            ),
-            None,
-        )
+        return next(self._get_search_links(), None)
 
     def _search_href(self) -> str:
         search_link = self.get_search_link()

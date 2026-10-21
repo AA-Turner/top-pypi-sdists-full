@@ -224,6 +224,9 @@ def _patch_set_values():
     def _set_values_wrapper(self, values, data_type=None, force=False, copy=True):
         """Sets or resets the values of the variable.
 
+        New values are all stored: the variable loses its virtual records, with a warning,
+        see Variable.virtual_records.
+
         Parameters
         ----------
         values : numpy.ndarray or list or tuple or Variable
@@ -271,6 +274,13 @@ def _patch_set_values():
         """
         if isinstance(values, Variable):
             return self._set_values(values, force=force)
+        had_virtual_records = self._has_virtual_records
+        _set_array_values(self, values, data_type, force, copy)
+        if had_virtual_records:
+            warnings.warn(f"set_values stores every record of '{self.name}': it had virtual records",
+                          stacklevel=2)
+
+    def _set_array_values(self, values, data_type, force, copy):
         keeps_its_type = not force and self.type != DataType.CDF_NONE
         if data_type is not None and data_type == DataType.CDF_NONE:
             data_type = None
@@ -306,7 +316,7 @@ def _patch_add_variable():
                               attributes: Mapping[str, List[Any]] or None = None,
                               copy: bool = True, *, compression_level: int = 6,
                               sparse_records: SparseRecords = SparseRecords.no_sparse_records,
-                              pad_value=None) -> Variable:
+                              pad_value=None, virtual_records=None) -> Variable:
         ...
 
     @overload
@@ -314,15 +324,16 @@ def _patch_add_variable():
         ...
 
     @_strict_kwargs(['name', 'values', 'data_type', 'is_nrv', 'compression', 'attributes', 'copy'],
-                    keyword_only=['compression_level', 'sparse_records', 'pad_value'])
+                    keyword_only=['compression_level', 'sparse_records', 'pad_value', 'virtual_records'])
     def _add_variable_wrapper(self, name=None, values=None, data_type=None,
                               is_nrv=False, compression=CompressionType.no_compression,
                               attributes=None, copy=True, *, compression_level=6,
-                              sparse_records=SparseRecords.no_sparse_records, pad_value=None) -> Variable:
+                              sparse_records=SparseRecords.no_sparse_records, pad_value=None,
+                              virtual_records=None) -> Variable:
         """Adds a new variable to the CDF.
 
         This method can be called in two ways:
-        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records, pad_value=None)
+        1. With variable parameters: add_variable(name, values=None, data_type=None, is_nrv=False, compression=CompressionType.no_compression, attributes=None, copy=True, *, compression_level=6, sparse_records=SparseRecords.no_sparse_records, pad_value=None, virtual_records=None)
         2. With a Variable object: add_variable(variable)
 
         Parameters
@@ -351,6 +362,9 @@ def _patch_add_variable():
         pad_value : optional, keyword-only
             The value readers give the records the file doesn't store, see Variable.pad_value.
             (Default is None: the file declares no pad value)
+        virtual_records : numpy.ndarray of bool, optional, keyword-only
+            One boolean per record, True for the records the file won't store, see
+            Variable.virtual_records. (Default is None: every record is stored)
         variable : Variable
             An existing Variable object to add to the CDF (for the second calling method).
 
@@ -395,6 +409,8 @@ def _patch_add_variable():
         _set_first_values(var, values, data_type, copy)
         if pad_value is not None:
             var.pad_value = pad_value
+        if virtual_records is not None:
+            var.virtual_records = virtual_records
         for attr_name, attr_values in (attributes or {}).items():
             var.add_attribute(attr_name, attr_values)
         return var
@@ -450,6 +466,13 @@ def _attribute_values_view_and_type(values: np.ndarray or list or str, data_type
                 f"Can't set attribute of type {data_type} with values of type str")
         return (values, data_type)
     return _values_view_and_type(values, data_type)
+
+
+def _attribute_entries_values_and_types(entries_values, entries_types):
+    entries_types = entries_types or [None] * len(entries_values)
+    entries = [_attribute_values_view_and_type(values, data_type)
+               for values, data_type in zip(entries_values, entries_types)]
+    return [v for v, _ in entries], [t for _, t in entries]
 
 
 def _patch_add_variable_attribute():
@@ -576,11 +599,8 @@ def _patch_add_cdf_attribute():
         """
         if isinstance(name, Attribute):
             return self._add_attribute(attribute=name)
-        entries_types = entries_types or [None] * len(entries_values)
-        entries = [_attribute_values_view_and_type(values, data_type)
-                   for values, data_type in zip(entries_values, entries_types)]
-        return self._add_attribute(name=name, entries_values=[v for v, _ in entries],
-                                   entries_types=[t for _, t in entries])
+        v, t = _attribute_entries_values_and_types(entries_values, entries_types)
+        return self._add_attribute(name=name, entries_values=v, entries_types=t)
 
     CDF.add_attribute = _add_attribute_wrapper
 
@@ -615,10 +635,7 @@ def _patch_attribute_set_values():
         if isinstance(entries_values, Attribute):
             self._set_values(entries_values)
         else:
-            entries_types = entries_types or [None] * len(entries_values)
-            v, t = [list(l) for l in zip(*[_attribute_values_view_and_type(values, data_type)
-                                           for values, data_type in zip(entries_values, entries_types)])]
-            self._set_values(v, t)
+            self._set_values(*_attribute_entries_values_and_types(entries_values, entries_types))
 
     Attribute.set_values = _attribute_set_values
 

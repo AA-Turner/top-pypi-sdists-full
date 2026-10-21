@@ -14,7 +14,6 @@ from nominal_api import (
 
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin, rid_from_instance_or_string
-from nominal.core._utils.api_types import NominalProperties
 from nominal.core._utils.frontend_urls import workbook_template_url
 from nominal.core.asset import Asset
 from nominal.core.run import Run, _get_run
@@ -75,11 +74,13 @@ def _rebind_video_datasources(
 class WorkbookTemplate(
     HasRid, RefreshableConjureMixin[scout_template_api.Template | scout_template_api.TemplateSummary]
 ):
+    """A reusable workbook layout for creating workbooks with new data scopes."""
+
     rid: str
     title: str
     description: str
     labels: Sequence[str]
-    properties: NominalProperties
+    properties: Mapping[str, str]
     workbook_type: WorkbookType
     _clients: _Clients = field(repr=False)
     created_by_rid: str | None = field(default=None, repr=False)
@@ -106,23 +107,25 @@ class WorkbookTemplate(
         description: str | None = None,
         title: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: NominalProperties | None = None,
+        properties: Mapping[str, str] | None = None,
+        is_published: bool | None = None,
+        is_archived: bool | None = None,
     ) -> Self:
-        """Replace template metadata.
-        Updates the current instance, and returns it.
+        """Replace template metadata and refresh this instance from the response.
 
-        Only the metadata passed in will be replaced, the rest will remain untouched.
+        None leaves a field unchanged. Labels and properties replace existing collections;
+        merge with their current values before calling this method to append entries.
 
-        Note:
-            This replaces the metadata rather than appending it. To append to labels or properties, merge them before
-            calling this method. E.g.:
+        Args:
+            description: Replacement description. An empty string clears it.
+            title: Replacement title.
+            labels: Replacement labels. An empty sequence clears them.
+            properties: Replacement properties. An empty mapping clears them.
+            is_published: True publishes the template; False unpublishes it.
+            is_archived: True archives the template; False restores it.
 
-            ```python
-            new_labels = ["new-label-a", "new-label-b"]
-            for old_label in template.labels:
-                new_labels.append(old_label)
-            template = template.update(labels=new_labels)
-            ```
+        Returns:
+            This instance with refreshed metadata, without an additional fetch.
         """
         metadata = self._clients.template.update_metadata(
             self._clients.auth_header,
@@ -131,6 +134,8 @@ class WorkbookTemplate(
                 title=title,
                 labels=None if labels is None else [*labels],
                 properties=None if properties is None else {**properties},
+                is_published=is_published,
+                is_archived=is_archived,
             ),
             self.rid,
         )
@@ -160,7 +165,7 @@ class WorkbookTemplate(
         *,
         title_suffix: str | None = None,
         labels: Sequence[str] | None = None,
-        properties: NominalProperties | None = None,
+        properties: Mapping[str, str] | None = None,
         is_published: bool = True,
         workspace: Workspace | str | None = None,
     ) -> Self:
@@ -304,6 +309,14 @@ class WorkbookTemplate(
         raw_notebook = self._clients.notebook.create(self._clients.auth_header, request)
         return Workbook._from_conjure(self._clients, raw_notebook)
 
+    def publish(self) -> None:
+        """Publish this template and refresh its metadata from the update response."""
+        self.update(is_published=True)
+
+    def unpublish(self) -> None:
+        """Unpublish this template and refresh its metadata from the update response."""
+        self.update(is_published=False)
+
     def is_published(self) -> bool:
         """Return whether the template is published and refresh its metadata from the same response."""
         raw_template = self._clients.template.get(self._clients.auth_header, self.rid)
@@ -320,20 +333,14 @@ class WorkbookTemplate(
         """Unarchive this workbook template, making it visible in the UI again.
         Refreshes this instance from the returned metadata.
         """
-        metadata = self._clients.template.update_metadata(
-            self._clients.auth_header, scout_template_api.UpdateMetadataRequest(is_archived=False), self.rid
-        )
-        self._refresh_from_api(scout_template_api.TemplateSummary(metadata=metadata, rid=self.rid))
+        self.update(is_archived=False)
 
     def archive(self) -> None:
         """Archive this workbook template.
         Archived workbook templates are not deleted, but are hidden from the UI.
         Refreshes this instance from the returned metadata.
         """
-        metadata = self._clients.template.update_metadata(
-            self._clients.auth_header, scout_template_api.UpdateMetadataRequest(is_archived=True), self.rid
-        )
-        self._refresh_from_api(scout_template_api.TemplateSummary(metadata=metadata, rid=self.rid))
+        self.update(is_archived=True)
 
     @classmethod
     def _from_conjure(
@@ -361,7 +368,7 @@ def _create_workbook_template_with_content_and_layout(
     *,
     description: str | None = None,
     labels: Sequence[str] | None = None,
-    properties: NominalProperties | None = None,
+    properties: Mapping[str, str] | None = None,
     commit_message: str | None = None,
     is_published: bool = False,
 ) -> WorkbookTemplate:

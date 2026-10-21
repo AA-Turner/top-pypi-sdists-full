@@ -75,6 +75,7 @@ from .literals import (
     SelectedAnalysisMethodType,
     SupportedS3RegionType,
     SyntheticDataColumnTypeType,
+    TableReferenceTypeType,
     WorkerComputeTypeType,
 )
 
@@ -231,6 +232,9 @@ __all__ = (
     "CreatePrivacyBudgetTemplateInputTypeDef",
     "CreatePrivacyBudgetTemplateOutputTypeDef",
     "DataEncryptionMetadataTypeDef",
+    "DatabricksConnectionTypeTypeDef",
+    "DatabricksDeltaSharingConnectionTypeDef",
+    "DatabricksTableReferenceTypeDef",
     "DeleteAnalysisTemplateInputTypeDef",
     "DeleteCollaborationInputTypeDef",
     "DeleteConfiguredAudienceModelAssociationInputTypeDef",
@@ -986,6 +990,7 @@ ConfiguredTableSummaryTypeDef = TypedDict(
         "updateTime": datetime,
         "analysisRuleTypes": list[ConfiguredTableAnalysisRuleTypeType],
         "analysisMethod": AnalysisMethodType,
+        "tableType": NotRequired[TableReferenceTypeType],
         "selectedAnalysisMethods": NotRequired[list[SelectedAnalysisMethodType]],
     },
 )
@@ -1017,6 +1022,10 @@ class CreateConfiguredTableAssociationInputTypeDef(TypedDict):
 class IdMappingTableInputReferenceConfigTypeDef(TypedDict):
     inputReferenceArn: str
     manageResourcePolicies: bool
+
+class DatabricksDeltaSharingConnectionTypeDef(TypedDict):
+    deltaShareEndpoint: str
+    shareName: str
 
 class DeleteAnalysisTemplateInputTypeDef(TypedDict):
     membershipIdentifier: str
@@ -2035,6 +2044,9 @@ IdMappingTableSummaryTypeDef = TypedDict(
     },
 )
 
+class DatabricksConnectionTypeTypeDef(TypedDict):
+    deltaSharing: NotRequired[DatabricksDeltaSharingConnectionTypeDef]
+
 class DifferentialPrivacyConfigurationOutputTypeDef(TypedDict):
     columns: list[DifferentialPrivacyColumnTypeDef]
 
@@ -2402,6 +2414,12 @@ class ListIdMappingTablesOutputTypeDef(TypedDict):
     idMappingTableSummaries: list[IdMappingTableSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class DatabricksTableReferenceTypeDef(TypedDict):
+    schemaName: str
+    tableName: str
+    workspaceUrl: str
+    connectionType: DatabricksConnectionTypeTypeDef
 
 class AnalysisRuleCustomOutputTypeDef(TypedDict):
     allowedAnalyses: list[str]
@@ -2978,11 +2996,13 @@ class TableReferenceOutputTypeDef(TypedDict):
     glue: NotRequired[GlueTableReferenceTypeDef]
     snowflake: NotRequired[SnowflakeTableReferenceOutputTypeDef]
     athena: NotRequired[AthenaTableReferenceTypeDef]
+    databricks: NotRequired[DatabricksTableReferenceTypeDef]
 
 class TableReferenceTypeDef(TypedDict):
     glue: NotRequired[GlueTableReferenceTypeDef]
     snowflake: NotRequired[SnowflakeTableReferenceTypeDef]
     athena: NotRequired[AthenaTableReferenceTypeDef]
+    databricks: NotRequired[DatabricksTableReferenceTypeDef]
 
 class GetCollaborationPrivacyBudgetTemplateOutputTypeDef(TypedDict):
     collaborationPrivacyBudgetTemplate: CollaborationPrivacyBudgetTemplateTypeDef
@@ -3251,6 +3271,7 @@ ConfiguredTableTypeDef = TypedDict(
         "analysisMethod": AnalysisMethodType,
         "allowedColumns": list[str],
         "description": NotRequired[str],
+        "tableType": NotRequired[TableReferenceTypeType],
         "selectedAnalysisMethods": NotRequired[list[SelectedAnalysisMethodType]],
     },
 )

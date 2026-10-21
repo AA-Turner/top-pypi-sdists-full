@@ -151,6 +151,53 @@ class _IConfigurationSetRefProxy(
 typing.cast(typing.Any, IConfigurationSetRef).__jsii_proxy_class__ = lambda : _IConfigurationSetRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.INotifyConfigurationRef"
+)
+class INotifyConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a NotifyConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="notifyConfigurationRef")
+    def notify_configuration_ref(self) -> "NotifyConfigurationReference":
+        '''(experimental) A reference to a NotifyConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _INotifyConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a NotifyConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_smsvoice.INotifyConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="notifyConfigurationRef")
+    def notify_configuration_ref(self) -> "NotifyConfigurationReference":
+        '''(experimental) A reference to a NotifyConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("NotifyConfigurationReference", jsii.get(self, "notifyConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, INotifyConfigurationRef).__jsii_proxy_class__ = lambda : _INotifyConfigurationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.IOptOutListRef")
 class IOptOutListRef(
     _constructs_77d1e7e8.IConstruct,
@@ -331,6 +378,51 @@ class _IProtectConfigurationRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IProtectConfigurationRef).__jsii_proxy_class__ = lambda : _IProtectConfigurationRefProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.IRcsAgentRef")
+class IRcsAgentRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a RcsAgent.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="rcsAgentRef")
+    def rcs_agent_ref(self) -> "RcsAgentReference":
+        '''(experimental) A reference to a RcsAgent resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IRcsAgentRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a RcsAgent.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_smsvoice.IRcsAgentRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="rcsAgentRef")
+    def rcs_agent_ref(self) -> "RcsAgentReference":
+        '''(experimental) A reference to a RcsAgent resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("RcsAgentReference", jsii.get(self, "rcsAgentRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IRcsAgentRef).__jsii_proxy_class__ = lambda : _IRcsAgentRefProxy
 
 
 @jsii.interface(
@@ -560,6 +652,55 @@ class _IVerifiedDestinationNumberRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IVerifiedDestinationNumberRef).__jsii_proxy_class__ = lambda : _IVerifiedDestinationNumberRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.NotifyConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"notify_configuration_arn": "notifyConfigurationArn"},
+)
+class NotifyConfigurationReference:
+    def __init__(self, *, notify_configuration_arn: builtins.str) -> None:
+        '''A reference to a NotifyConfiguration resource.
+
+        :param notify_configuration_arn: The NotifyConfigurationArn of the NotifyConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_smsvoice as interfaces_smsvoice
+            
+            notify_configuration_reference = interfaces_smsvoice.NotifyConfigurationReference(
+                notify_configuration_arn="notifyConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ccb6aa4d2ac8171ff0ab9ef9e6e48ef2fc96583d7abad65c481f046cf04a3113)
+            check_type(argname="argument notify_configuration_arn", value=notify_configuration_arn, expected_type=type_hints["notify_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "notify_configuration_arn": notify_configuration_arn,
+        }
+
+    @builtins.property
+    def notify_configuration_arn(self) -> builtins.str:
+        '''The NotifyConfigurationArn of the NotifyConfiguration resource.'''
+        result = self._values.get("notify_configuration_arn")
+        assert result is not None, "Required property 'notify_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NotifyConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -822,6 +963,55 @@ class ProtectConfigurationReference:
 
     def __repr__(self) -> str:
         return "ProtectConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_smsvoice.RcsAgentReference",
+    jsii_struct_bases=[],
+    name_mapping={"rcs_agent_arn": "rcsAgentArn"},
+)
+class RcsAgentReference:
+    def __init__(self, *, rcs_agent_arn: builtins.str) -> None:
+        '''A reference to a RcsAgent resource.
+
+        :param rcs_agent_arn: The RcsAgentArn of the RcsAgent resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_smsvoice as interfaces_smsvoice
+            
+            rcs_agent_reference = interfaces_smsvoice.RcsAgentReference(
+                rcs_agent_arn="rcsAgentArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4b88a3adebb811047157227cb02f1a7fc4072cae9c55a334376243199139e772)
+            check_type(argname="argument rcs_agent_arn", value=rcs_agent_arn, expected_type=type_hints["rcs_agent_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "rcs_agent_arn": rcs_agent_arn,
+        }
+
+    @builtins.property
+    def rcs_agent_arn(self) -> builtins.str:
+        '''The RcsAgentArn of the RcsAgent resource.'''
+        result = self._values.get("rcs_agent_arn")
+        assert result is not None, "Required property 'rcs_agent_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RcsAgentReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -1106,19 +1296,23 @@ class VerifiedDestinationNumberReference:
 __all__ = [
     "ConfigurationSetReference",
     "IConfigurationSetRef",
+    "INotifyConfigurationRef",
     "IOptOutListRef",
     "IPhoneNumberRef",
     "IPoolRef",
     "IProtectConfigurationRef",
+    "IRcsAgentRef",
     "IRegistrationAttachmentRef",
     "IRegistrationRef",
     "IResourcePolicyRef",
     "ISenderIdRef",
     "IVerifiedDestinationNumberRef",
+    "NotifyConfigurationReference",
     "OptOutListReference",
     "PhoneNumberReference",
     "PoolReference",
     "ProtectConfigurationReference",
+    "RcsAgentReference",
     "RegistrationAttachmentReference",
     "RegistrationReference",
     "ResourcePolicyReference",
@@ -1132,6 +1326,13 @@ def _typecheckingstub__bfb39e554f6e12d2e0f782656ac6a33ba83d6aeeaeb2487ee28801dbe
     *,
     configuration_set_arn: builtins.str,
     configuration_set_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ccb6aa4d2ac8171ff0ab9ef9e6e48ef2fc96583d7abad65c481f046cf04a3113(
+    *,
+    notify_configuration_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1164,6 +1365,13 @@ def _typecheckingstub__d7a573c31ffa2a3dbcab67f8fc27bcefd307f49af5d533c3d96ed3f9e
     *,
     protect_configuration_arn: builtins.str,
     protect_configuration_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b88a3adebb811047157227cb02f1a7fc4072cae9c55a334376243199139e772(
+    *,
+    rcs_agent_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1205,5 +1413,5 @@ def _typecheckingstub__e61aa8d8c74e179af124003f4de54b0f3cc9332f35bded7c3a45a1bda
     """Type checking stubs"""
     pass
 
-for cls in [IConfigurationSetRef, IOptOutListRef, IPhoneNumberRef, IPoolRef, IProtectConfigurationRef, IRegistrationAttachmentRef, IRegistrationRef, IResourcePolicyRef, ISenderIdRef, IVerifiedDestinationNumberRef]:
+for cls in [IConfigurationSetRef, INotifyConfigurationRef, IOptOutListRef, IPhoneNumberRef, IPoolRef, IProtectConfigurationRef, IRcsAgentRef, IRegistrationAttachmentRef, IRegistrationRef, IResourcePolicyRef, ISenderIdRef, IVerifiedDestinationNumberRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

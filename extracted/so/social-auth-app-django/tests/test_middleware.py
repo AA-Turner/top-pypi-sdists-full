@@ -27,6 +27,7 @@ from social_core.exceptions import (
 
 from social_django.middleware import ErrorTransport, SocialAuthExceptionMiddleware
 from social_django.utils import load_strategy
+from tests.helpers import begin_facebook_login
 
 
 class MockAuthCanceled(AuthCanceled):
@@ -39,12 +40,9 @@ class MockAuthCanceled(AuthCanceled):
 @mock.patch("social_core.backends.base.BaseAuth.request", side_effect=MockAuthCanceled)
 class TestMiddleware(TestCase):
     def setUp(self):
-        session = self.client.session
-        session["facebook_state"] = "1"
-        session.save()
-
+        state = begin_facebook_login(self.client)
         self.complete_url = reverse("social:complete", kwargs={"backend": "facebook"})
-        self.complete_url += "?code=2&state=1"
+        self.complete_url += f"?code=2&state={state}"
 
     def test_sync_middleware(self, mocked):
         expected = HttpResponse()
@@ -404,6 +402,32 @@ class MetadataTransportTest(TestCase):
                     self.assertEqual(query["error_recovery"], ["restart_login"])
                 self.assertNotIn("secret-token", response.url)
                 self.assertNotIn("private-user", response.url)
+
+    @mock.patch("social_django.middleware.social_logger.log")
+    def test_redirected_server_error_preserves_original_traceback(self, log):
+        error = AuthConfigurationError()
+        try:
+            raise error
+        except AuthConfigurationError:
+            pass
+
+        response = SocialAuthExceptionMiddleware(mock.Mock()).process_exception(self.make_request(False), error)
+
+        self.assertEqual(response.status_code, 302)
+        log.assert_called_once()
+        self.assertEqual(log.call_args.args[0], logging.ERROR)
+        self.assertIs(log.call_args.kwargs["exc_info"][1], error)
+        self.assertIs(log.call_args.kwargs["exc_info"][2], error.__traceback__)
+        self.assertNotIn("Traceback", response.url)
+
+    @mock.patch("social_django.middleware.social_logger.log")
+    def test_redirected_client_error_omits_traceback_log(self, log):
+        response = SocialAuthExceptionMiddleware(mock.Mock()).process_exception(
+            self.make_request(False), AuthSessionError()
+        )
+
+        self.assertEqual(response.status_code, 302)
+        log.assert_not_called()
 
     def test_metadata_fallback_and_stale_values(self):
         request = self.make_request(True)

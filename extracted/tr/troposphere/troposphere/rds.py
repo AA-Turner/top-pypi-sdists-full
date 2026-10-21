@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -202,6 +202,23 @@ class DBClusterAutomatedBackup(AWSObject):
         "MasterUsername": (str, False),
         "Port": (integer, False),
         "StorageEncrypted": (boolean, False),
+    }
+
+
+class DBClusterEndpoint(AWSObject):
+    """
+    `DBClusterEndpoint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterendpoint.html>`__
+    """
+
+    resource_type = "AWS::RDS::DBClusterEndpoint"
+
+    props: PropsDictType = {
+        "CustomEndpointType": (str, True),
+        "DBClusterEndpointIdentifier": (str, True),
+        "DBClusterIdentifier": (str, True),
+        "ExcludedMembers": ([str], False),
+        "StaticMembers": ([str], False),
+        "Tags": (Tags, False),
     }
 
 
@@ -500,6 +517,7 @@ class DBProxyTargetGroup(AWSObject):
         "DBClusterIdentifiers": ([str], False),
         "DBInstanceIdentifiers": ([str], False),
         "DBProxyName": (str, True),
+        "Tags": (Tags, False),
         "TargetGroupName": (str, True),
     }
 
@@ -592,6 +610,29 @@ class DBSubnetGroup(AWSObject):
         "DBSubnetGroupName": (str, False),
         "SubnetIds": (list, True),
         "Tags": (validate_tags_or_list, False),
+    }
+
+
+class Deployment(AWSObject):
+    """
+    `Deployment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-deployment.html>`__
+    """
+
+    resource_type = "AWS::RDS::Deployment"
+
+    props: PropsDictType = {
+        "BlueGreenDeploymentName": (str, True),
+        "Source": (str, True),
+        "Tags": (Tags, False),
+        "TargetAllocatedStorage": (integer, False),
+        "TargetDBClusterParameterGroupName": (str, False),
+        "TargetDBInstanceClass": (str, False),
+        "TargetDBParameterGroupName": (str, False),
+        "TargetEngineVersion": (str, False),
+        "TargetIops": (integer, False),
+        "TargetStorageThroughput": (integer, False),
+        "TargetStorageType": (str, False),
+        "UpgradeTargetStorageConfig": (boolean, False),
     }
 
 
@@ -730,6 +771,17 @@ class DBInstanceStatusInfo(AWSProperty):
     }
 
 
+class DeploymentTask(AWSProperty):
+    """
+    `DeploymentTask <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-deploymenttask.html>`__
+    """
+
+    props: PropsDictType = {
+        "TaskName": (str, False),
+        "TaskStatus": (str, False),
+    }
+
+
 class ReadEndpoint(AWSProperty):
     """
     `ReadEndpoint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbcluster-readendpoint.html>`__
@@ -759,4 +811,16 @@ class RestoreWindow(AWSProperty):
     props: PropsDictType = {
         "EarliestTime": (str, False),
         "LatestTime": (str, False),
+    }
+
+
+class SwitchoverDetail(AWSProperty):
+    """
+    `SwitchoverDetail <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-deployment-switchoverdetail.html>`__
+    """
+
+    props: PropsDictType = {
+        "SourceMember": (str, False),
+        "SwitchoverDetailStatus": (str, False),
+        "TargetMember": (str, False),
     }

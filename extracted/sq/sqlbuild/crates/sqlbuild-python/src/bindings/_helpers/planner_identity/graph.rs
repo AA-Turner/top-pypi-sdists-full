@@ -19,10 +19,7 @@ use sqlbuild_analysis::planner_identity::main::missing_upstreams::missing_upstre
 use sqlbuild_analysis::planner_identity::main::topological_order::topological_order;
 use sqlbuild_analysis::planner_identity::models::{AvailableUpstreams, GraphKey, MissingUpstream};
 
-use crate::bindings::_helpers::analysis::explicit_references::{
-    GateRow, HookRow, native_execution_gate_edges,
-};
-use crate::bindings::_helpers::compile_driver::python_calls::KeywordArguments;
+use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
 use crate::bindings::_helpers::graph::algorithms::{closure, inverted};
 use crate::bindings::_helpers::graph::keys::KeyCache;
 use crate::bindings::_helpers::planner_identity::hashing::graph_key;
@@ -32,6 +29,9 @@ use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::fields::mapping_get_or;
 use crate::bindings::_helpers::records::fields::mapping_items;
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
+use crate::bindings::_helpers::references::explicit_references::{
+    GateRow, HookRow, native_execution_gate_edges,
+};
 
 const TABLE_FN_TEST_MODE: &str = "table_fn";
 const INLINE_SQL_HOOK: &str = "inline SQL";
@@ -142,11 +142,11 @@ pub(crate) fn build_execution_upstream_deps<'py>(
     let (gates, hooks): (Vec<GateRow>, Vec<HookRow>) = native_execution_gate_edges(project)?;
     let cache: KeyCache<'py> = KeyCache::new(py)?;
     let mut extra: Vec<(Bound<'py, PyAny>, Bound<'py, PyAny>)> = Vec::new();
-    for (_, _, gated, read) in &gates {
-        extra.push((cache.key(gated)?, cache.key(read)?));
+    for gate in &gates {
+        extra.push((cache.key(&gate.gated)?, cache.key(&gate.read)?));
     }
-    for (_, gated, read, _, _) in &hooks {
-        extra.push((cache.key(gated)?, cache.key(read)?));
+    for hook in &hooks {
+        extra.push((cache.key(&hook.gated)?, cache.key(&hook.read)?));
     }
     for (gated, read) in extra {
         let gated_upstream: Bound<'py, PyAny> =
@@ -192,7 +192,13 @@ pub(crate) fn build_execution_edge_origins<'py>(
             .call_method1("upstream", (gated.clone(),))?
             .contains(read.clone())
     };
-    for (audit_name, target, gated, read) in &gates {
+    for GateRow {
+        audit_name,
+        target,
+        gated,
+        read,
+    } in &gates
+    {
         if is_lineage(gated, read)? {
             continue;
         }
@@ -204,7 +210,14 @@ pub(crate) fn build_execution_edge_origins<'py>(
             ),
         )?;
     }
-    for (hook_name, gated, read, kind, _) in &hooks {
+    for HookRow {
+        hook_name,
+        gated,
+        read,
+        hook_type: kind,
+        ..
+    } in &hooks
+    {
         if is_lineage(gated, read)? {
             continue;
         }

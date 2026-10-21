@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: python-fasthtml
-Version: 0.14.13
+Version: 0.14.14
 Summary: The fastest way to create an HTML app
 Author-email: Jeremy Howard and contributors <github@jhoward.fastmail.fm>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/AnswerDotAI/fasthtml
 Project-URL: Documentation, https://www.fastht.ml/docs/
 Keywords: nbdev,jupyter,notebook,python

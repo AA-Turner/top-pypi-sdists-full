@@ -48,6 +48,24 @@ def _determine_page_on(list_function):
     return [page_on_list[0]]
 
 
+def get_limit_max(list_function, default=None):
+    """Return the endpoint's server-enforced maximum ``limit``, if it has one.
+
+    The generated ``Endpoint`` exposes per-parameter validations.  Used to cap
+    the per-request page size: a page must never ask for more rows than the
+    server accepts, but the *total* ``limit`` (and therefore the number of
+    pages) is not capped by this value.
+    """
+    validations = getattr(list_function, "validations", None)
+    if not isinstance(validations, dict):
+        return default
+    limit_validation = validations.get(("limit",))
+    if not isinstance(limit_validation, dict):
+        return default
+    maximum = limit_validation.get("inclusive_maximum")
+    return maximum if isinstance(maximum, int) else default
+
+
 def patch_endpoint(list_function):
     setattr(list_function, "auto_paging_iter", AutoIteratorWrapper(list_function))
 
@@ -88,7 +106,13 @@ class AutoIterator:
         self._kwargs = kwargs
         self.page_sort = page_sort or []
         self.limit = limit
-        self.page_size = page_size
+        self.page_size = max(1, page_size)
+        # A single request must not exceed the endpoint's server-enforced
+        # maximum.  This caps the page size only; ``limit`` (the total number
+        # of rows to fetch) may be larger and is satisfied over several pages.
+        limit_max = get_limit_max(self._list_function)
+        if limit_max is not None and self.page_size > limit_max:
+            self.page_size = limit_max
         self.legacy_pagination = legacy_pagination
         self._page_sort_supported = _page_sort_supported(self._list_function)
         if not self.legacy_pagination:

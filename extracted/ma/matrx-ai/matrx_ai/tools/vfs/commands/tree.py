@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from matrx_utils.utils.text_tree import render_text_tree
+
 from matrx_ai.tools.vfs.commands.base import CommandContext, encode, ok, resolve_cwd
 from matrx_ai.tools.vfs.commands.registry import register
 from matrx_ai.tools.vfs.shell.runner import CommandResult
@@ -101,11 +103,12 @@ async def _render_tree(
     if not await vfs._exists(root_abs):
         return f"{root_display} [error opening dir]\n", 0, 0, True
 
-    lines: list[str] = [root_display]
+    # Entry display name -> its children (a directory) or None; drawn by the one renderer.
+    tree: dict = {}
     dir_count = 0
     file_count = 0
 
-    async def walk(path_abs: str, display_prefix: str, indent: str, depth: int) -> None:
+    async def walk(path_abs: str, display_prefix: str, node: dict, depth: int) -> None:
         nonlocal dir_count, file_count
         if opts.max_depth is not None and depth > opts.max_depth:
             return
@@ -125,10 +128,7 @@ async def _render_tree(
             if opts.dirs_only and c.get("type") != "directory":
                 continue
             visible.append(c)
-        n = len(visible)
-        for idx, child in enumerate(visible):
-            is_last = idx == n - 1
-            connector = "└── " if is_last else "├── "
+        for child in visible:
             cname = (child.get("name") or "").rsplit("/", 1)[-1]
             ctype = child.get("type") or "file"
             cpath_abs = child["name"]
@@ -142,13 +142,10 @@ async def _render_tree(
             else:
                 display_name = cname
             if ctype == "link":
-                target = child.get("symlink_target") or ""
-                lines.append(f"{indent}{connector}{display_name} -> {target}")
-            else:
-                lines.append(f"{indent}{connector}{display_name}")
+                display_name = f"{display_name} -> {child.get('symlink_target') or ''}"
             if ctype == "directory":
                 dir_count += 1
-                next_indent = indent + ("    " if is_last else "│   ")
+                node[display_name] = children_node = {}
                 next_prefix = (
                     (display_prefix.rstrip("/") + "/" + cname)
                     if display_prefix and display_prefix != "/"
@@ -161,12 +158,13 @@ async def _render_tree(
                         next_prefix = cname
                     else:
                         next_prefix = display_prefix.rstrip("/") + "/" + cname
-                await walk(cpath_abs, next_prefix, next_indent, depth + 1)
+                await walk(cpath_abs, next_prefix, children_node, depth + 1)
             else:
+                node[display_name] = None
                 file_count += 1
 
-    await walk(root_abs, root_display, "", 1)
-    return "\n".join(lines) + "\n", dir_count, file_count, False
+    await walk(root_abs, root_display, tree, 1)
+    return render_text_tree(root_display, tree, dir_suffix="") + "\n", dir_count, file_count, False
 
 
 @register("tree")

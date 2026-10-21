@@ -1195,6 +1195,8 @@ class CDF:
             coff = 336 + 4 * num_dims
             for x in range(0, num_dims):
                 dim_varys.append(int.from_bytes(vdr[coff + 4 * x : coff + 4 * x + 4], "big", signed=True))
+            # Pad value follows DimSizes and DimVarys for all stored dims, including NOVARY ones
+            coff = 336 + 8 * num_dims
             adj = 0
             # Check for "False" dimensions, and delete them
             for x in range(0, num_dims):
@@ -1204,7 +1206,6 @@ class CDF:
                     del dim_varys[y]
                     adj = adj + 1
             num_dims = num_dims - adj
-            coff = 336 + 8 * num_dims
         else:
             # rvariable
             for x in range(0, self._rvariables_num_dims):
@@ -1295,6 +1296,8 @@ class CDF:
                     dim_varys.append(False)
                 else:
                     dim_varys.append(True)
+            # Pad value follows DimSizes and DimVarys for all stored dims, including NOVARY ones
+            coff = 128 + toadd + 8 * num_dims
             adj = 0
             # Check for "False" dimensions, and delete them
             for x in range(0, num_dims):
@@ -1304,7 +1307,6 @@ class CDF:
                     del dim_varys[y]
                     adj = adj + 1
             num_dims = num_dims - adj
-            coff = 128 + toadd + 8 * num_dims
         else:
             # rvariable
             for x in range(0, self._rvariables_num_dims):

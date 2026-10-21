@@ -198,11 +198,14 @@ from anyscale_client.models.sort_order import SortOrder
 from anyscale_client.models.ssoconfig_response import SsoconfigResponse
 from anyscale_client.models.start_cluster_options import StartClusterOptions
 from anyscale_client.models.static_sso_config import StaticSSOConfig
+from anyscale_client.models.static_traffic_policy import StaticTrafficPolicy
 from anyscale_client.models.status_checklist_item import StatusChecklistItem
 from anyscale_client.models.system_workload_name import SystemWorkloadName
 from anyscale_client.models.terminate_cluster_options import TerminateClusterOptions
 from anyscale_client.models.text_query import TextQuery
 from anyscale_client.models.tracing_config import TracingConfig
+from anyscale_client.models.traffic_policy import TrafficPolicy
+from anyscale_client.models.traffic_policy_type import TrafficPolicyType
 from anyscale_client.models.update_cluster import UpdateCluster
 from anyscale_client.models.update_organization import UpdateOrganization
 from anyscale_client.models.user_service_access_types import UserServiceAccessTypes

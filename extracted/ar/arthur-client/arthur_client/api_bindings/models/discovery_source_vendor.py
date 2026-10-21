@@ -34,6 +34,7 @@ class DiscoverySourceVendor(str, Enum):
     GCP_VERTEX = 'gcp_vertex'
     GCP_COMPUTE_ENGINE = 'gcp_compute_engine'
     AWS_EC2 = 'aws_ec2'
+    AWS_NETWORK = 'aws_network'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

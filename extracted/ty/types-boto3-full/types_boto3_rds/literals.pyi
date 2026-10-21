@@ -32,6 +32,7 @@ __all__ = (
     "ClientPasswordAuthTypeType",
     "ClusterScalabilityTypeType",
     "CustomEngineVersionStatusType",
+    "DBCapacityReservationStateType",
     "DBClusterAvailableWaiterName",
     "DBClusterDeletedWaiterName",
     "DBClusterSnapshotAvailableWaiterName",
@@ -48,6 +49,7 @@ __all__ = (
     "DefaultAuthSchemeType",
     "DescribeBlueGreenDeploymentsPaginatorName",
     "DescribeCertificatesPaginatorName",
+    "DescribeDBCapacityReservationsPaginatorName",
     "DescribeDBClusterAutomatedBackupsPaginatorName",
     "DescribeDBClusterBacktracksPaginatorName",
     "DescribeDBClusterEndpointsPaginatorName",
@@ -88,6 +90,7 @@ __all__ = (
     "DescribeSourceRegionsPaginatorName",
     "DescribeTenantDatabasesPaginatorName",
     "DownloadDBLogFilePortionPaginatorName",
+    "EndDateTypeType",
     "EndpointNetworkTypeType",
     "EngineFamilyType",
     "ExportSourceTypeType",
@@ -135,6 +138,17 @@ ClientPasswordAuthTypeType = Literal[
 ]
 ClusterScalabilityTypeType = Literal["limitless", "standard"]
 CustomEngineVersionStatusType = Literal["available", "inactive", "inactive-except-restore"]
+DBCapacityReservationStateType = Literal[
+    "active",
+    "assessing",
+    "cancelled",
+    "delayed",
+    "expired",
+    "failed",
+    "pending",
+    "scheduled",
+    "unsupported",
+]
 DBClusterAvailableWaiterName = Literal["db_cluster_available"]
 DBClusterDeletedWaiterName = Literal["db_cluster_deleted"]
 DBClusterSnapshotAvailableWaiterName = Literal["db_cluster_snapshot_available"]
@@ -168,6 +182,7 @@ DatabaseInsightsModeType = Literal["advanced", "standard"]
 DefaultAuthSchemeType = Literal["IAM_AUTH", "NONE"]
 DescribeBlueGreenDeploymentsPaginatorName = Literal["describe_blue_green_deployments"]
 DescribeCertificatesPaginatorName = Literal["describe_certificates"]
+DescribeDBCapacityReservationsPaginatorName = Literal["describe_db_capacity_reservations"]
 DescribeDBClusterAutomatedBackupsPaginatorName = Literal["describe_db_cluster_automated_backups"]
 DescribeDBClusterBacktracksPaginatorName = Literal["describe_db_cluster_backtracks"]
 DescribeDBClusterEndpointsPaginatorName = Literal["describe_db_cluster_endpoints"]
@@ -214,6 +229,7 @@ DescribeServerlessV2PlatformVersionsPaginatorName = Literal[
 DescribeSourceRegionsPaginatorName = Literal["describe_source_regions"]
 DescribeTenantDatabasesPaginatorName = Literal["describe_tenant_databases"]
 DownloadDBLogFilePortionPaginatorName = Literal["download_db_log_file_portion"]
+EndDateTypeType = Literal["limited", "unlimited"]
 EndpointNetworkTypeType = Literal["DUAL", "IPV4", "IPV6"]
 EngineFamilyType = Literal["MYSQL", "POSTGRESQL", "SQLSERVER"]
 ExportSourceTypeType = Literal["CLUSTER", "SNAPSHOT"]
@@ -716,6 +732,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "describe_blue_green_deployments",
     "describe_certificates",
+    "describe_db_capacity_reservations",
     "describe_db_cluster_automated_backups",
     "describe_db_cluster_backtracks",
     "describe_db_cluster_endpoints",

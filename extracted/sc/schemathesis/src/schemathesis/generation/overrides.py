@@ -34,6 +34,10 @@ class Override:
             if value:
                 yield key, value
 
+    def as_strategy_kwargs(self) -> dict[str, dict[str, str]]:
+        """Overridden parameters keyed by the `Case` container they fill; `body` is not overridable this way."""
+        return {location.container_name: entry for location, entry in self.items()}
+
     def apply_to(self, case: Case) -> None:
         """Merge the overridden parameters into the case's containers; `body` is not overridable this way."""
         for location, entry in self.items():
@@ -50,6 +54,15 @@ class Override:
                 for kind, stored in components.items()
             }
         )
+
+
+def strategy_kwargs_for(config: ProjectConfig, *, operation: APIOperation) -> dict[str, dict[str, str]]:
+    """Fixed parameter values from the project config; configured headers win over header overrides."""
+    kwargs = for_operation(config, operation=operation).as_strategy_kwargs()
+    headers = {**kwargs.get("headers", {}), **config.headers_for(operation=operation)}
+    if headers:
+        kwargs["headers"] = headers
+    return kwargs
 
 
 def for_operation(config: ProjectConfig, *, operation: APIOperation) -> Override:

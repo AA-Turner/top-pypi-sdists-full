@@ -114,6 +114,10 @@ _STOP_PARAMS = bytes.fromhex("29000000000009") + b"P_PROGRAM"
 _HOT_START_PARAMS = bytes.fromhex("28000000000000fd000009") + b"P_PROGRAM"
 # Cold start: same as hot start but with block "C " before PI service
 _COLD_START_PARAMS = bytes.fromhex("28000000000000fd0002432009") + b"P_PROGRAM"
+# Compress: function(0x28) + 7 reserved + block count(0) + PI length(5) + "_GARB" (as native Snap7 TReqFunCompress)
+_COMPRESS_PARAMS = bytes.fromhex("28000000000000fd000005") + b"_GARB"
+# Copy RAM to ROM: like compress but with file system "EP" before PI service "_MODU" (native TReqFunCopyRamToRom)
+_COPY_RAM_TO_ROM_PARAMS = bytes.fromhex("28000000000000fd0002455005") + b"_MODU"
 
 
 class S7Protocol:
@@ -402,7 +406,7 @@ class S7Protocol:
         Build PLC control request using the S7 PI service PDU format.
 
         Args:
-            operation: Control operation ('stop', 'hot_start', 'cold_start')
+            operation: Control operation ('stop', 'hot_start', 'cold_start', 'compress', 'copy_ram_to_rom')
 
         Returns:
             Complete S7 PDU for PLC control
@@ -411,6 +415,8 @@ class S7Protocol:
             "stop": _STOP_PARAMS,
             "hot_start": _HOT_START_PARAMS,
             "cold_start": _COLD_START_PARAMS,
+            "compress": _COMPRESS_PARAMS,
+            "copy_ram_to_rom": _COPY_RAM_TO_ROM_PARAMS,
         }
 
         if operation not in params:
@@ -449,87 +455,23 @@ class S7Protocol:
         """
         Build PLC control request for memory compression.
 
-        Uses PI service "_MSZL" (compress memory).
+        Uses PI service "_GARB" (compress memory), as native Snap7 does.
 
         Returns:
             Complete S7 PDU for compress request
         """
-        # PI service command for compress
-        pi_service = b"_MSZL"
-
-        # Parameter section: function code + PI service
-        # Format: func(1) + unknown(7) + pi_len(1) + pi_service
-        param_data = (
-            struct.pack(
-                ">BBBBBBBBB",
-                S7Function.PLC_CONTROL,  # 0x28
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                len(pi_service),  # PI service length
-            )
-            + pi_service
-        )
-
-        header = struct.pack(
-            ">BBHHHH",
-            0x32,  # Protocol ID
-            S7PDUType.REQUEST,  # PDU type
-            0x0000,  # Reserved
-            self._next_sequence(),  # Sequence
-            len(param_data),  # Parameter length
-            0x0000,  # Data length
-        )
-
-        return header + param_data
+        return self.build_plc_control_request("compress")
 
     def build_copy_ram_to_rom_request(self) -> bytes:
         """
         Build PLC control request for copying RAM to ROM.
 
-        Uses PI service "_MSZL" with file system parameters.
+        Uses PI service "_MODU" with the "EP" file system, as native Snap7 does.
 
         Returns:
             Complete S7 PDU for copy RAM to ROM request
         """
-        # PI service command for copy RAM to ROM
-        # Uses EP parameter for target file system
-        pi_service = b"_MSZL"
-        file_id = b"P"  # P = passive file system (ROM)
-
-        # Parameter section with file system identifier
-        param_data = (
-            struct.pack(
-                ">BBBBBBBBB",
-                S7Function.PLC_CONTROL,  # 0x28
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                0x00,  # Reserved
-                len(file_id),  # File ID length
-                len(pi_service),  # PI service length
-            )
-            + file_id
-            + pi_service
-        )
-
-        header = struct.pack(
-            ">BBHHHH",
-            0x32,  # Protocol ID
-            S7PDUType.REQUEST,  # PDU type
-            0x0000,  # Reserved
-            self._next_sequence(),  # Sequence
-            len(param_data),  # Parameter length
-            0x0000,  # Data length
-        )
-
-        return header + param_data
+        return self.build_plc_control_request("copy_ram_to_rom")
 
     # ========================================================================
     # Block Transfer PDU Builders (Upload/Download)
@@ -913,10 +855,9 @@ class S7Protocol:
         data_info = response.get("data", {})
         raw_data = data_info.get("data", b"")
 
-        if not raw_data:
-            return result
-        if len(raw_data) % 4 != 0:
-            raise S7ProtocolError("Block-count response length is not a multiple of four")
+        # Native Snap7 requires exactly seven four-byte entries (28 bytes)
+        if len(raw_data) != 28:
+            raise S7ProtocolError("Block-count response must contain exactly seven entries (28 bytes)")
 
         # Parse block entries (4 bytes each: 0x30 | type | count_hi | count_lo)
         # Block type codes
@@ -930,17 +871,18 @@ class S7Protocol:
             0x46: "SFBCount",  # System Function Block
         }
 
-        offset = 0
-        while offset + 4 <= len(raw_data):
+        seen: set[int] = set()
+        for offset in range(0, 28, 4):
             indicator = raw_data[offset]
             block_type = raw_data[offset + 1]
             count = struct.unpack(">H", raw_data[offset + 2 : offset + 4])[0]
 
             if indicator != 0x30 or block_type not in type_to_name:
                 raise S7ProtocolError("Invalid block-count response entry")
+            if block_type in seen:
+                raise S7ProtocolError("Duplicate block type in block-count response")
+            seen.add(block_type)
             result[type_to_name[block_type]] = count
-
-            offset += 4
 
         return result
 
@@ -998,10 +940,10 @@ class S7Protocol:
             0x00,  # DataRef (0x00 for initial request)
         )
 
-        # Data section: [0x30, type, 'A', ASCII_num(5)] per Snap7 C format
+        # Data section: [0x30, type, ASCII_num(5), 'A'] per Snap7 C TReqDataBlockInfo
         # Block number is 5-digit zero-padded ASCII (e.g., 1 -> "00001")
         block_num_ascii = f"{block_num:05d}".encode("ascii")
-        data_payload = struct.pack(">BB", 0x30, block_type) + b"A" + block_num_ascii
+        data_payload = struct.pack(">BB", 0x30, block_type) + block_num_ascii + b"A"
         data_section = struct.pack(">BBH", 0xFF, 0x09, len(data_payload)) + data_payload
 
         # S7 header for USER_DATA
@@ -1117,8 +1059,8 @@ class S7Protocol:
         # Data section: SZL ID and Index
         data_section = struct.pack(
             ">BBHHH",
-            0x0A,  # Return value (request)
-            0x00,  # Transport size
+            0xFF,  # Return value (0xFF, as engineering tools and native Snap7 send for requests carrying data)
+            0x09,  # Transport size (octet string)
             0x0004,  # Length (4 bytes for ID + Index)
             szl_id,  # SZL ID
             szl_index,  # SZL Index
@@ -1149,18 +1091,23 @@ class S7Protocol:
         Returns:
             Complete S7 PDU for follow-up request
         """
-        # Parameter section: same as initial but with DataRef = sequence_number
+        # Parameter section as sent by engineering tools for continuation requests: 12 bytes, method 0x12,
+        # DataRef = sequence_number, followed by last-data-unit and error code fields set to zero
         type_group = 0x40 | (group & 0x0F)  # Type 4 (request) | group
         param_data = struct.pack(
-            ">BBBBBBBB",
+            ">BBBBBBBBBBBB",
             0x00,  # Reserved
             0x01,  # Parameter count
             0x12,  # Type/length header
-            0x04,  # Length of following data
-            0x11,  # Method (0x11 = request)
+            0x08,  # Length of following data
+            0x12,  # Method (0x12)
             type_group,  # Type | Group
             subfunction,  # Subfunction
             sequence_number,  # DataRef from previous response
+            0x00,  # Last data unit
+            0x00,  # Reserved
+            0x00,  # Error code high
+            0x00,  # Error code low
         )
 
         # Minimal data section for follow-up
@@ -1268,6 +1215,9 @@ class S7Protocol:
 
         Returns:
             Complete S7 PDU for set clock request
+
+        Raises:
+            ValueError: If the year is outside 1990-2089, which the two-digit S7 year cannot represent.
         """
 
         # Convert datetime to BCD format
@@ -1275,6 +1225,9 @@ class S7Protocol:
         def to_bcd(value: int) -> int:
             return ((value // 10) << 4) | (value % 10)
 
+        # The two-digit S7 year maps 90-99 to 1990-1999 and 00-89 to 2000-2089
+        if not 1990 <= dt.year <= 2089:
+            raise ValueError(f"S7 clock supports years 1990-2089, got {dt.year}")
         year = dt.year % 100
         millisecond = dt.microsecond // 1000
         bcd_time = struct.pack(
@@ -1288,7 +1241,7 @@ class S7Protocol:
             to_bcd(dt.minute),  # Minute (BCD)
             to_bcd(dt.second),  # Second (BCD)
             to_bcd(millisecond // 10),
-            ((millisecond % 10) << 4) | ((dt.weekday() + 1) & 0x0F),
+            ((millisecond % 10) << 4) | (dt.isoweekday() % 7 + 1),  # S7 weekday: 1=Sunday .. 7=Saturday
         )
 
         # Parameter section for USER_DATA clock request
@@ -1335,26 +1288,39 @@ class S7Protocol:
         data_info = response.get("data", {})
         raw_data = data_info.get("data", b"")
 
-        if len(raw_data) != 8:
-            raise S7ProtocolError("Clock response must contain exactly eight bytes")
+        # The S7 clock data is ten bytes: reserved, century (0x19/0x20), then year, month, day,
+        # hour, minute, second and milliseconds/weekday. The older eight-byte form (no century byte,
+        # no milliseconds) is still accepted.
+        if len(raw_data) == 10:
+            time_bytes = raw_data[2:]
+        elif len(raw_data) == 8:
+            time_bytes = raw_data[1:]
+        else:
+            raise S7ProtocolError("Clock response must contain ten bytes (or eight in the legacy form)")
 
-        # Parse BCD time
         def from_bcd(value: int) -> int:
+            if value >> 4 > 9 or value & 0x0F > 9:
+                raise S7ProtocolError("Clock response contains an invalid BCD timestamp")
             return ((value >> 4) * 10) + (value & 0x0F)
 
-        # Skip first byte (reserved)
-        year = from_bcd(raw_data[1])
-        month = from_bcd(raw_data[2])
-        day = from_bcd(raw_data[3])
-        hour = from_bcd(raw_data[4])
-        minute = from_bcd(raw_data[5])
-        second = from_bcd(raw_data[6])
+        year = from_bcd(time_bytes[0])
+        month = from_bcd(time_bytes[1])
+        day = from_bcd(time_bytes[2])
+        hour = from_bcd(time_bytes[3])
+        minute = from_bcd(time_bytes[4])
+        second = from_bcd(time_bytes[5])
+        microsecond = 0
+        if len(raw_data) == 10:
+            # Byte 8: milliseconds hundreds/tens (BCD); high nibble of byte 9: milliseconds ones
+            microsecond = (from_bcd(time_bytes[6]) * 10 + (time_bytes[7] >> 4)) * 1000
+            if microsecond > 999000:
+                raise S7ProtocolError("Clock response contains an invalid BCD timestamp")
 
-        # Determine century (assume 2000s for years 0-99)
+        # The two-digit S7 year maps 90-99 to 1990-1999 and 00-89 to 2000-2089
         full_year = 2000 + year if year < 90 else 1900 + year
 
         try:
-            return dt_class(full_year, month, day, hour, minute, second)
+            return dt_class(full_year, month, day, hour, minute, second, microsecond)
         except ValueError as exc:
             raise S7ProtocolError("Clock response contains an invalid BCD timestamp") from exc
 
@@ -1469,6 +1435,8 @@ class S7Protocol:
         response: Dict[str, Any],
         expected_group: int | None = None,
         expected_subfunction: int | None = None,
+        *,
+        accept_null_ack: bool = False,
     ) -> None:
         """Check a USERDATA response for errors.
 
@@ -1477,6 +1445,11 @@ class S7Protocol:
 
         Args:
             response: Parsed S7 response from :meth:`parse_response`.
+            expected_group: Expected function group, if it should be verified.
+            expected_subfunction: Expected subfunction, if it should be verified.
+            accept_null_ack: For services that return no data (set clock, session passwords). Real PLCs
+                acknowledge these with return code 0x0A, transport size 0 and length 0 next to a zero
+                parameter error code, which is then a success.
 
         Raises:
             ~snap7.error.S7ProtocolError: If the response indicates an error.
@@ -1487,6 +1460,8 @@ class S7Protocol:
             if param_error != 0:
                 error_msg = get_protocol_error_message(param_error)
                 raise S7ProtocolError(f"USERDATA request failed: {error_msg} (0x{param_error:04x})")
+            if params.get("last_data_unit", 0) not in (0x00, 0x01):
+                raise S7ProtocolError(f"Invalid USERDATA last data unit value 0x{params['last_data_unit']:02x}")
             if expected_group is not None and params.get("group") != expected_group:
                 raise S7ProtocolError("Unexpected USERDATA response function group")
             if expected_subfunction is not None and params.get("subfunction") != expected_subfunction:
@@ -1497,7 +1472,13 @@ class S7Protocol:
         data_info = response.get("data", {})
         if isinstance(data_info, dict):
             return_code = data_info.get("return_code", 0xFF)
-            if return_code != 0xFF:
+            null_ack = (
+                accept_null_ack
+                and return_code == 0x0A
+                and data_info.get("transport_size", 0) == 0
+                and data_info.get("data_length", 0) == 0
+            )
+            if return_code != 0xFF and not null_ack:
                 desc = get_return_code_description(return_code)
                 raise S7ProtocolError(f"USERDATA request failed: {desc} (0x{return_code:02x})")
         else:
@@ -1580,8 +1561,9 @@ class S7Protocol:
         if pdu_type not in (S7PDUType.ACK, S7PDUType.ACK_DATA, S7PDUType.USERDATA):
             raise S7ProtocolError(f"Expected response PDU, got {pdu_type}")
 
+        # Like native Snap7, treat the whole 16-bit header error word as the failure indicator
         combined_error = (error_class << 8) | error_code
-        if error_class != 0:
+        if combined_error != 0:
             error_msg = get_protocol_error_message(combined_error)
             raise S7ProtocolError(
                 f"S7 protocol error (class={error_class:#04x}, code={error_code:#04x}): {error_msg}",
@@ -1633,7 +1615,9 @@ class S7Protocol:
             raise S7ProtocolError("S7 response contains trailing bytes")
 
         if pdu_type == S7PDUType.USERDATA:
-            self.check_userdata_response(response)
+            # The null acknowledgement is only a success for no-data services; callers that expect data
+            # run check_userdata_response again without accept_null_ack.
+            self.check_userdata_response(response, accept_null_ack=True)
 
         return response
 
@@ -1707,7 +1691,7 @@ class S7Protocol:
             [6]    Subfunction
             [7]    Sequence number (used as DataRef in follow-up)
             [8]    Data unit reference
-            [9]    Last data unit (0x00 = last, non-zero = more)
+            [9]    Last data unit (0x00 = last, 0x01 = more)
             [10-11] Error code
         """
         type_group = param_data[5]

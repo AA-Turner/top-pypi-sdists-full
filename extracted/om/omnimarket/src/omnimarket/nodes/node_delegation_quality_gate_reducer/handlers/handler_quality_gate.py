@@ -500,6 +500,12 @@ _HEURISTIC_CONTAINS_ANY_CHECKS: dict[str, tuple[str, tuple[str, ...]]] = {
     # phrasing without loosening the check into a no-op: it is still a
     # reject-only substring gate, just no longer blind to the other legitimate
     # way to walk a mechanism through in prose.
+    # OMN-17427: correct causal answers walked through with any other
+    # connective ("thus", "hence", ", so", "which means", "leads to", ...) were
+    # still vetoed (fixture: tests/unit/delegation/
+    # test_step_by_step_causal_fixture_omn17427.py). Those markers start with a
+    # space, so they match only at a word start: "enthusiasm" does not carry
+    # "thus" and ", sometimes" does not carry ", so ".
     "step_by_step_explanation": (
         "TASK_MISMATCH",
         (
@@ -513,6 +519,24 @@ _HEURISTIC_CONTAINS_ANY_CHECKS: dict[str, tuple[str, tuple[str, ...]]] = {
             "since",
             "as a result",
             "this means",
+            " thus",
+            " hence",
+            ", so ",
+            "; so ",
+            ". so ",
+            " which means",
+            " that means",
+            " leads to",
+            " led to",
+            " due to",
+            " results in",
+            " resulted in",
+            " in turn",
+            " which is why",
+            " that is why",
+            " as a consequence",
+            " causes",
+            " caused",
         ),
     ),
     "methodical_analysis": (
@@ -1285,8 +1309,57 @@ def _pytest_attribute_exists(attr: str) -> bool | None:
     return hasattr(module, attr)
 
 
-def _check_uses_pytest_mark_unit(content: str) -> str | None:
+#: OMN-19401: a prompt that rules the marker out ("do not use
+#: @pytest.mark.unit", "this repo has no pytest markers", "without markers").
+#: Read before the naming patterns, because the same sentence names the marker.
+_UNIT_MARK_RULED_OUT = re.compile(
+    r"\b(?:do not|don't|does not|doesn't|never|avoid|without|no|not)\s+"
+    r"(?:(?:use|using|add|adding|include|including|apply|need|want|put|write|with)\s+)?"
+    r"(?:(?:any|the|a|an|our|pytest|unit)\s+)*"
+    r"(?:@?pytest\.mark\.unit|markers?)\b"
+    r"|\b(?:tests? (?:are|is) unmarked|unmarked tests?)\b",
+    re.IGNORECASE,
+)
+
+#: OMN-19401: a prompt that says the target repo marks its tests ``unit``: the
+#: marker itself (a decorator, ``pytestmark``, an instruction, or a test the
+#: prompt hands over), or the plain words for it.
+_UNIT_MARK_NAMED = re.compile(
+    r"pytest\.mark\.unit\b|\bunit[- ]?(?:test )?marker\b|"
+    r"\bmark(?:ed|s)?\b[^.\n]{0,40}\bas\s+[`'\"]?unit\b",
+    re.IGNORECASE,
+)
+
+
+def _unit_marker_required(grounding_source: str | None) -> bool:
+    """Whether the target repo's own convention, as the prompt states it, marks tests.
+
+    OMN-19401. ``uses_pytest_mark_unit`` was a fixed rule for every repo: the
+    gate refused ``TASK_MISMATCH: missing @pytest.mark.unit`` for a correct draft
+    in a repo that does not mark its tests that way (the infra CI tests mark about
+    half of theirs), on all attempts, and the ladder spent every rung on it. The
+    marker is now required when the prompt says the repo uses it -- an
+    instruction, or a test of the repo's own that the prompt hands over -- and is
+    waived when the prompt is silent or rules it out. No prompt (``None``) is no
+    evidence either way, so the old floor stays.
+    """
+    if grounding_source is None:
+        return True
+    if _UNIT_MARK_RULED_OUT.search(grounding_source):
+        return False
+    return _UNIT_MARK_NAMED.search(grounding_source) is not None
+
+
+def _check_uses_pytest_mark_unit(
+    content: str, *, require_mark: bool = True
+) -> str | None:
     """Deterministic: delegated tests must carry the unit-test marker (OMN-19524).
+
+    ``require_mark=False`` (OMN-19401) is a repo whose conventions do not mark
+    tests ``unit``: the missing marker is not a failure, but the checks that
+    share this function stay, because they are not about the marker -- a
+    ``pytest.<name>`` that does not exist and a module that reads ``pytest``
+    without importing it fail at collection in every repo.
 
     Either form pytest honours satisfies it: the decorator on a test function
     or class (``@pytest.mark.unit``, called or not), or a module-level or
@@ -1307,7 +1380,7 @@ def _check_uses_pytest_mark_unit(content: str) -> str | None:
     try:
         tree = ast.parse(code)
     except SyntaxError:
-        return _unit_mark_by_tokens(code)
+        return _unit_mark_by_tokens(code) if require_mark else None
     for node in ast.walk(tree):
         if (
             isinstance(node, ast.Attribute)
@@ -1321,6 +1394,8 @@ def _check_uses_pytest_mark_unit(content: str) -> str | None:
             )
     if _reads_unbound_pytest(tree):
         return _UNBOUND_PYTEST
+    if not require_mark:
+        return None
     scopes: list[ast.Module | ast.ClassDef] = [tree]
     for node in ast.walk(tree):
         if isinstance(
@@ -1577,6 +1652,50 @@ def _check_within_sentence_limit(
     return None
 
 
+# OMN-17427: the word limit a summarization prompt states ("in at most 80
+# words"). Two delegation experiments on 2026-10-18 found the gate accepting
+# answers over a stated limit: 12 of 29 summaries asked for at most 80 words
+# were longer, and every one was accepted. A per-sentence ceiling ("at most 20
+# words per sentence") is a different rule and is not read as a total.
+_WORD_LIMIT_CHECK = "within_word_limit"
+_WORD_LIMIT_RE = re.compile(
+    r"\b(?:at\s+most|no\s+more\s+than)\s+(\d+|" + "|".join(_SENTENCE_LIMIT_WORDS) + r")"
+    r"\s+words?\b(?!\s+(?:per|a|each|every)\b)",
+    re.IGNORECASE,
+)
+
+
+def _word_limit(prompt: str | None) -> int | None:
+    """The first "at most N words" limit the prompt states, if any."""
+    if prompt is None:
+        return None
+    match = _WORD_LIMIT_RE.search(prompt)
+    if match is None:
+        return None
+    raw = match.group(1).lower()
+    return int(raw) if raw.isdigit() else _SENTENCE_LIMIT_WORDS[raw]
+
+
+def _check_within_word_limit(
+    content: str, grounding_source: str | None = None
+) -> str | None:
+    """Heuristic, reject-only: the answer stays within the prompt's word limit.
+
+    The prompt is the grounding source. With no stated limit, or no prompt, there
+    is nothing to hold the answer to and the check passes.
+    """
+    limit = _word_limit(grounding_source)
+    if limit is None:
+        return None
+    count = len(content.split())
+    if count > limit:
+        return (
+            f"TASK_MISMATCH: response has {count} words, "
+            f"the prompt allows at most {limit}"
+        )
+    return None
+
+
 def _check_max_words_per_sentence(content: str, threshold: int) -> str | None:
     """Deterministic: each sentence must stay below the configured word limit."""
     sentences = _sentences(content)
@@ -1600,9 +1719,14 @@ def _check_contains_any(
     category: str,
     markers: tuple[str, ...],
 ) -> str | None:
-    """Heuristic: content must contain at least one marker from a contract check."""
-    lowered = content.lower()
-    if any(marker in lowered for marker in markers):
+    """Heuristic: content must contain at least one marker from a contract check.
+
+    Markers match the lowercased content with its whitespace collapsed and one
+    leading space, so a marker that starts with a space matches only at the
+    start of a word, including the content's first word and a line's first.
+    """
+    haystack = " " + " ".join(content.lower().split())
+    if any(marker in haystack for marker in markers):
         return None
     return f"{category}: failed {check_name}"
 
@@ -1970,6 +2094,7 @@ _GROUNDING_AWARE_HEURISTIC_CHECKS: dict[
     # OMN-20489: summarization's own forms of `accurate` and a sentence ceiling.
     "accurate_summary": _check_accurate_summary,
     _SENTENCE_LIMIT_CHECK: _check_within_sentence_limit,
+    _WORD_LIMIT_CHECK: _check_within_word_limit,
 }
 
 
@@ -2073,7 +2198,14 @@ def _evaluate_deterministic_checks(
         elif check == "pytest_tests_present":
             reason = _check_pytest_tests_present(content)
         elif check == "uses_pytest_mark_unit":
-            reason = _check_uses_pytest_mark_unit(content)
+            marker_required = _unit_marker_required(grounding_source)
+            reason = _check_uses_pytest_mark_unit(content, require_mark=marker_required)
+            if reason is None and not marker_required:
+                # OMN-19401: the repo's convention does not ask for the marker,
+                # so the marker was not evaluated: recorded as skipped, never
+                # as a pass.
+                skipped.append(check)
+                continue
         elif check == "docstring_present":
             reason = _check_docstring_present(content)
         elif check in ("response_non_empty", "task_completed"):
@@ -2155,6 +2287,7 @@ _HEURISTIC_SIMPLE_CHECKS: dict[str, Callable[[str], str | None]] = {
     "accurate": _check_accurate,
     "accurate_summary": _check_accurate_summary,
     _SENTENCE_LIMIT_CHECK: _check_within_sentence_limit,
+    _WORD_LIMIT_CHECK: _check_within_word_limit,
     "semantic_adequacy": _check_semantic_adequacy,
     # OMN-16932: adequacy authority for a contract-declared constrained
     # response shape. Deliberately NOT in _REJECT_ONLY_HEURISTIC_CHECKS -
@@ -2169,6 +2302,7 @@ _REJECT_ONLY_HEURISTIC_CHECKS: frozenset[str] = frozenset(
         "accurate",
         "accurate_summary",
         _SENTENCE_LIMIT_CHECK,
+        _WORD_LIMIT_CHECK,
         "concise",
         "covers_args_returns_raises",
         "cites_specific_lines",
@@ -2415,7 +2549,10 @@ def _evaluate_heuristic_checks(
     claims_check = _claim_grounding_check_name()
 
     for check in dod_heuristic:
-        if check == _SENTENCE_LIMIT_CHECK and grounding_source is None:
+        if (
+            check in (_SENTENCE_LIMIT_CHECK, _WORD_LIMIT_CHECK)
+            and grounding_source is None
+        ):
             # OMN-20489: the limit is stated in the prompt. With no prompt the
             # check is recorded SKIPPED, as the other source-reading checks are,
             # so it neither inflates nor deflates the score.

@@ -29,6 +29,9 @@ AcceptCapacityReservationBillingOwnership = Action(
     "AcceptCapacityReservationBillingOwnership"
 )
 AcceptReservedInstancesExchangeQuote = Action("AcceptReservedInstancesExchangeQuote")
+AcceptTransitGatewayClientVpnAttachment = Action(
+    "AcceptTransitGatewayClientVpnAttachment"
+)
 AcceptTransitGatewayMulticastDomainAssociations = Action(
     "AcceptTransitGatewayMulticastDomainAssociations"
 )
@@ -47,6 +50,7 @@ AssignIpv6Addresses = Action("AssignIpv6Addresses")
 AssignPrivateIpAddresses = Action("AssignPrivateIpAddresses")
 AssignPrivateNatGatewayAddress = Action("AssignPrivateNatGatewayAddress")
 AssociateAddress = Action("AssociateAddress")
+AssociateApplicationStatusCheck = Action("AssociateApplicationStatusCheck")
 AssociateCapacityReservationBillingOwner = Action(
     "AssociateCapacityReservationBillingOwner"
 )
@@ -72,6 +76,7 @@ AssociateVerifiedAccessInstanceWebAcl = Action("AssociateVerifiedAccessInstanceW
 AssociateVpcCidrBlock = Action("AssociateVpcCidrBlock")
 AttachApplianceToNatGateway = Action("AttachApplianceToNatGateway")
 AttachClassicLinkVpc = Action("AttachClassicLinkVpc")
+AttachImageWatermark = Action("AttachImageWatermark")
 AttachInternetGateway = Action("AttachInternetGateway")
 AttachNetworkInterface = Action("AttachNetworkInterface")
 AttachResourcesToPlacementGroup = Action("AttachResourcesToPlacementGroup")
@@ -81,6 +86,9 @@ AttachVpnGateway = Action("AttachVpnGateway")
 AuthorizeClientVpnIngress = Action("AuthorizeClientVpnIngress")
 AuthorizeSecurityGroupEgress = Action("AuthorizeSecurityGroupEgress")
 AuthorizeSecurityGroupIngress = Action("AuthorizeSecurityGroupIngress")
+BatchModifyIpamRoutingPolicyRegistrations = Action(
+    "BatchModifyIpamRoutingPolicyRegistrations"
+)
 BundleInstance = Action("BundleInstance")
 CancelBundleTask = Action("CancelBundleTask")
 CancelCapacityReservation = Action("CancelCapacityReservation")
@@ -98,9 +106,13 @@ CopyFpgaImage = Action("CopyFpgaImage")
 CopyImage = Action("CopyImage")
 CopySnapshot = Action("CopySnapshot")
 CopyVolumes = Action("CopyVolumes")
+CreateApplicationStatusCheck = Action("CreateApplicationStatusCheck")
 CreateCapacityManagerDataExport = Action("CreateCapacityManagerDataExport")
 CreateCapacityReservation = Action("CreateCapacityReservation")
 CreateCapacityReservationBySplitting = Action("CreateCapacityReservationBySplitting")
+CreateCapacityReservationCancellationQuote = Action(
+    "CreateCapacityReservationCancellationQuote"
+)
 CreateCapacityReservationFleet = Action("CreateCapacityReservationFleet")
 CreateCarrierGateway = Action("CreateCarrierGateway")
 CreateClientVpnEndpoint = Action("CreateClientVpnEndpoint")
@@ -130,11 +142,13 @@ CreateIpam = Action("CreateIpam")
 CreateIpamExternalResourceVerificationToken = Action(
     "CreateIpamExternalResourceVerificationToken"
 )
+CreateIpamInternetRegistryAssociation = Action("CreateIpamInternetRegistryAssociation")
 CreateIpamPolicy = Action("CreateIpamPolicy")
 CreateIpamPool = Action("CreateIpamPool")
 CreateIpamPrefixListResolver = Action("CreateIpamPrefixListResolver")
 CreateIpamPrefixListResolverTarget = Action("CreateIpamPrefixListResolverTarget")
 CreateIpamResourceDiscovery = Action("CreateIpamResourceDiscovery")
+CreateIpamRoutingPolicyRegistration = Action("CreateIpamRoutingPolicyRegistration")
 CreateIpamScope = Action("CreateIpamScope")
 CreateKeyPair = Action("CreateKeyPair")
 CreateLaunchTemplate = Action("CreateLaunchTemplate")
@@ -200,6 +214,7 @@ CreateTransitGatewayMeteringPolicyEntry = Action(
 CreateTransitGatewayMulticastDomain = Action("CreateTransitGatewayMulticastDomain")
 CreateTransitGatewayPeeringAttachment = Action("CreateTransitGatewayPeeringAttachment")
 CreateTransitGatewayPolicyTable = Action("CreateTransitGatewayPolicyTable")
+CreateTransitGatewayPolicyTableEntry = Action("CreateTransitGatewayPolicyTableEntry")
 CreateTransitGatewayPrefixListReference = Action(
     "CreateTransitGatewayPrefixListReference"
 )
@@ -227,6 +242,7 @@ CreateVpnConcentrator = Action("CreateVpnConcentrator")
 CreateVpnConnection = Action("CreateVpnConnection")
 CreateVpnConnectionRoute = Action("CreateVpnConnectionRoute")
 CreateVpnGateway = Action("CreateVpnGateway")
+DeleteApplicationStatusCheck = Action("DeleteApplicationStatusCheck")
 DeleteCapacityManagerDataExport = Action("DeleteCapacityManagerDataExport")
 DeleteCarrierGateway = Action("DeleteCarrierGateway")
 DeleteClientVpnEndpoint = Action("DeleteClientVpnEndpoint")
@@ -248,11 +264,13 @@ DeleteIpam = Action("DeleteIpam")
 DeleteIpamExternalResourceVerificationToken = Action(
     "DeleteIpamExternalResourceVerificationToken"
 )
+DeleteIpamInternetRegistryAssociation = Action("DeleteIpamInternetRegistryAssociation")
 DeleteIpamPolicy = Action("DeleteIpamPolicy")
 DeleteIpamPool = Action("DeleteIpamPool")
 DeleteIpamPrefixListResolver = Action("DeleteIpamPrefixListResolver")
 DeleteIpamPrefixListResolverTarget = Action("DeleteIpamPrefixListResolverTarget")
 DeleteIpamResourceDiscovery = Action("DeleteIpamResourceDiscovery")
+DeleteIpamRoutingPolicyRegistration = Action("DeleteIpamRoutingPolicyRegistration")
 DeleteIpamScope = Action("DeleteIpamScope")
 DeleteKeyPair = Action("DeleteKeyPair")
 DeleteLaunchTemplate = Action("DeleteLaunchTemplate")
@@ -307,6 +325,9 @@ DeleteTrafficMirrorFilterRule = Action("DeleteTrafficMirrorFilterRule")
 DeleteTrafficMirrorSession = Action("DeleteTrafficMirrorSession")
 DeleteTrafficMirrorTarget = Action("DeleteTrafficMirrorTarget")
 DeleteTransitGateway = Action("DeleteTransitGateway")
+DeleteTransitGatewayClientVpnAttachment = Action(
+    "DeleteTransitGatewayClientVpnAttachment"
+)
 DeleteTransitGatewayConnect = Action("DeleteTransitGatewayConnect")
 DeleteTransitGatewayConnectPeer = Action("DeleteTransitGatewayConnectPeer")
 DeleteTransitGatewayMeteringPolicy = Action("DeleteTransitGatewayMeteringPolicy")
@@ -316,6 +337,7 @@ DeleteTransitGatewayMeteringPolicyEntry = Action(
 DeleteTransitGatewayMulticastDomain = Action("DeleteTransitGatewayMulticastDomain")
 DeleteTransitGatewayPeeringAttachment = Action("DeleteTransitGatewayPeeringAttachment")
 DeleteTransitGatewayPolicyTable = Action("DeleteTransitGatewayPolicyTable")
+DeleteTransitGatewayPolicyTableEntry = Action("DeleteTransitGatewayPolicyTableEntry")
 DeleteTransitGatewayPrefixListReference = Action(
     "DeleteTransitGatewayPrefixListReference"
 )
@@ -360,10 +382,16 @@ DeregisterTransitGatewayMulticastGroupSources = Action(
     "DeregisterTransitGatewayMulticastGroupSources"
 )
 DescribeAccountAttributes = Action("DescribeAccountAttributes")
+DescribeAccountVpcEncryptionControl = Action("DescribeAccountVpcEncryptionControl")
 DescribeAddressTransfers = Action("DescribeAddressTransfers")
 DescribeAddresses = Action("DescribeAddresses")
 DescribeAddressesAttribute = Action("DescribeAddressesAttribute")
 DescribeAggregateIdFormat = Action("DescribeAggregateIdFormat")
+DescribeApplicationStatus = Action("DescribeApplicationStatus")
+DescribeApplicationStatusCheckAssociations = Action(
+    "DescribeApplicationStatusCheckAssociations"
+)
+DescribeApplicationStatusChecks = Action("DescribeApplicationStatusChecks")
 DescribeAvailabilityZones = Action("DescribeAvailabilityZones")
 DescribeAwsNetworkPerformanceMetricSubscriptions = Action(
     "DescribeAwsNetworkPerformanceMetricSubscriptions"
@@ -380,6 +408,9 @@ DescribeCapacityBlocks = Action("DescribeCapacityBlocks")
 DescribeCapacityManagerDataExports = Action("DescribeCapacityManagerDataExports")
 DescribeCapacityReservationBillingRequests = Action(
     "DescribeCapacityReservationBillingRequests"
+)
+DescribeCapacityReservationCancellationQuotes = Action(
+    "DescribeCapacityReservationCancellationQuotes"
 )
 DescribeCapacityReservationFleets = Action("DescribeCapacityReservationFleets")
 DescribeCapacityReservationTopology = Action("DescribeCapacityReservationTopology")
@@ -443,7 +474,11 @@ DescribeIpamByoasn = Action("DescribeIpamByoasn")
 DescribeIpamExternalResourceVerificationTokens = Action(
     "DescribeIpamExternalResourceVerificationTokens"
 )
+DescribeIpamInternetRegistryAssociations = Action(
+    "DescribeIpamInternetRegistryAssociations"
+)
 DescribeIpamPolicies = Action("DescribeIpamPolicies")
+DescribeIpamPoolAllocations = Action("DescribeIpamPoolAllocations")
 DescribeIpamPools = Action("DescribeIpamPools")
 DescribeIpamPrefixListResolverTargets = Action("DescribeIpamPrefixListResolverTargets")
 DescribeIpamPrefixListResolvers = Action("DescribeIpamPrefixListResolvers")
@@ -592,6 +627,7 @@ DescribeVpnConnections = Action("DescribeVpnConnections")
 DescribeVpnGateways = Action("DescribeVpnGateways")
 DetachApplianceFromNatGateway = Action("DetachApplianceFromNatGateway")
 DetachClassicLinkVpc = Action("DetachClassicLinkVpc")
+DetachImageWatermark = Action("DetachImageWatermark")
 DetachInternetGateway = Action("DetachInternetGateway")
 DetachNetworkInterface = Action("DetachNetworkInterface")
 DetachResourcesFromPlacementGroup = Action("DetachResourcesFromPlacementGroup")
@@ -600,6 +636,9 @@ DetachVolume = Action("DetachVolume")
 DetachVpnGateway = Action("DetachVpnGateway")
 DisableAddressTransfer = Action("DisableAddressTransfer")
 DisableAllowedImagesSettings = Action("DisableAllowedImagesSettings")
+DisableApplicationStatusCheckSuppression = Action(
+    "DisableApplicationStatusCheckSuppression"
+)
 DisableAwsNetworkPerformanceMetricSubscription = Action(
     "DisableAwsNetworkPerformanceMetricSubscription"
 )
@@ -624,6 +663,7 @@ DisableVgwRoutePropagation = Action("DisableVgwRoutePropagation")
 DisableVpcClassicLink = Action("DisableVpcClassicLink")
 DisableVpcClassicLinkDnsSupport = Action("DisableVpcClassicLinkDnsSupport")
 DisassociateAddress = Action("DisassociateAddress")
+DisassociateApplicationStatusCheck = Action("DisassociateApplicationStatusCheck")
 DisassociateCapacityReservationBillingOwner = Action(
     "DisassociateCapacityReservationBillingOwner"
 )
@@ -650,6 +690,9 @@ DisassociateVerifiedAccessInstanceWebAcl = Action(
 DisassociateVpcCidrBlock = Action("DisassociateVpcCidrBlock")
 EnableAddressTransfer = Action("EnableAddressTransfer")
 EnableAllowedImagesSettings = Action("EnableAllowedImagesSettings")
+EnableApplicationStatusCheckSuppression = Action(
+    "EnableApplicationStatusCheckSuppression"
+)
 EnableAwsNetworkPerformanceMetricSubscription = Action(
     "EnableAwsNetworkPerformanceMetricSubscription"
 )
@@ -662,6 +705,7 @@ EnableImageBlockPublicAccess = Action("EnableImageBlockPublicAccess")
 EnableImageDeprecation = Action("EnableImageDeprecation")
 EnableImageDeregistrationProtection = Action("EnableImageDeregistrationProtection")
 EnableInstanceSqlHaStandbyDetections = Action("EnableInstanceSqlHaStandbyDetections")
+EnableIpamInternetRegistryAssociation = Action("EnableIpamInternetRegistryAssociation")
 EnableIpamOrganizationAdminAccount = Action("EnableIpamOrganizationAdminAccount")
 EnableIpamPolicy = Action("EnableIpamPolicy")
 EnableReachabilityAnalyzerOrganizationSharing = Action(
@@ -696,6 +740,7 @@ GetAwsNetworkPerformanceData = Action("GetAwsNetworkPerformanceData")
 GetCapacityManagerAttributes = Action("GetCapacityManagerAttributes")
 GetCapacityManagerMetricData = Action("GetCapacityManagerMetricData")
 GetCapacityManagerMetricDimensions = Action("GetCapacityManagerMetricDimensions")
+GetCapacityManagerMonitoredTagKeys = Action("GetCapacityManagerMonitoredTagKeys")
 GetCapacityReservationUsage = Action("GetCapacityReservationUsage")
 GetCoipPoolUsage = Action("GetCoipPoolUsage")
 GetConsoleOutput = Action("GetConsoleOutput")
@@ -720,6 +765,13 @@ GetIpamAddressHistory = Action("GetIpamAddressHistory")
 GetIpamDiscoveredAccounts = Action("GetIpamDiscoveredAccounts")
 GetIpamDiscoveredPublicAddresses = Action("GetIpamDiscoveredPublicAddresses")
 GetIpamDiscoveredResourceCidrs = Action("GetIpamDiscoveredResourceCidrs")
+GetIpamDiscoveredRoutes = Action("GetIpamDiscoveredRoutes")
+GetIpamInternetRegistryAssociationAsns = Action(
+    "GetIpamInternetRegistryAssociationAsns"
+)
+GetIpamInternetRegistryAssociationCidrs = Action(
+    "GetIpamInternetRegistryAssociationCidrs"
+)
 GetIpamPolicyAllocationRules = Action("GetIpamPolicyAllocationRules")
 GetIpamPolicyOrganizationTargets = Action("GetIpamPolicyOrganizationTargets")
 GetIpamPoolAllocations = Action("GetIpamPoolAllocations")
@@ -730,9 +782,16 @@ GetIpamPrefixListResolverVersionEntries = Action(
 )
 GetIpamPrefixListResolverVersions = Action("GetIpamPrefixListResolverVersions")
 GetIpamResourceCidrs = Action("GetIpamResourceCidrs")
+GetIpamRouteOriginAuthorizations = Action("GetIpamRouteOriginAuthorizations")
+GetIpamRouteProtectionFindings = Action("GetIpamRouteProtectionFindings")
+GetIpamRoutingPolicyRegistrationDeltas = Action(
+    "GetIpamRoutingPolicyRegistrationDeltas"
+)
+GetIpamRoutingPolicyRegistrations = Action("GetIpamRoutingPolicyRegistrations")
 GetLaunchTemplateData = Action("GetLaunchTemplateData")
 GetManagedPrefixListAssociations = Action("GetManagedPrefixListAssociations")
 GetManagedPrefixListEntries = Action("GetManagedPrefixListEntries")
+GetManagedResourceVisibility = Action("GetManagedResourceVisibility")
 GetNetworkInsightsAccessScopeAnalysisFindings = Action(
     "GetNetworkInsightsAccessScopeAnalysisFindings"
 )
@@ -795,7 +854,9 @@ ListImagesInRecycleBin = Action("ListImagesInRecycleBin")
 ListSnapshotsInRecycleBin = Action("ListSnapshotsInRecycleBin")
 ListVolumesInRecycleBin = Action("ListVolumesInRecycleBin")
 LockSnapshot = Action("LockSnapshot")
+ModifyAccountVpcEncryptionControl = Action("ModifyAccountVpcEncryptionControl")
 ModifyAddressAttribute = Action("ModifyAddressAttribute")
+ModifyApplicationStatusCheck = Action("ModifyApplicationStatusCheck")
 ModifyAvailabilityZoneGroup = Action("ModifyAvailabilityZoneGroup")
 ModifyCapacityReservation = Action("ModifyCapacityReservation")
 ModifyCapacityReservationFleet = Action("ModifyCapacityReservationFleet")
@@ -827,14 +888,17 @@ ModifyInstancePlacement = Action("ModifyInstancePlacement")
 ModifyIpam = Action("ModifyIpam")
 ModifyIpamPolicyAllocationRules = Action("ModifyIpamPolicyAllocationRules")
 ModifyIpamPool = Action("ModifyIpamPool")
+ModifyIpamPoolAllocation = Action("ModifyIpamPoolAllocation")
 ModifyIpamPrefixListResolver = Action("ModifyIpamPrefixListResolver")
 ModifyIpamPrefixListResolverTarget = Action("ModifyIpamPrefixListResolverTarget")
 ModifyIpamResourceCidr = Action("ModifyIpamResourceCidr")
 ModifyIpamResourceDiscovery = Action("ModifyIpamResourceDiscovery")
+ModifyIpamRoutingPolicyRegistration = Action("ModifyIpamRoutingPolicyRegistration")
 ModifyIpamScope = Action("ModifyIpamScope")
 ModifyLaunchTemplate = Action("ModifyLaunchTemplate")
 ModifyLocalGatewayRoute = Action("ModifyLocalGatewayRoute")
 ModifyManagedPrefixList = Action("ModifyManagedPrefixList")
+ModifyManagedResourceVisibility = Action("ModifyManagedResourceVisibility")
 ModifyNetworkInterfaceAttribute = Action("ModifyNetworkInterfaceAttribute")
 ModifyOdbNetworkPeering = Action("ModifyOdbNetworkPeering")
 ModifyPrivateDnsNameOptions = Action("ModifyPrivateDnsNameOptions")
@@ -853,6 +917,7 @@ ModifyTrafficMirrorFilterRule = Action("ModifyTrafficMirrorFilterRule")
 ModifyTrafficMirrorSession = Action("ModifyTrafficMirrorSession")
 ModifyTransitGateway = Action("ModifyTransitGateway")
 ModifyTransitGatewayMeteringPolicy = Action("ModifyTransitGatewayMeteringPolicy")
+ModifyTransitGatewayPolicyTableEntry = Action("ModifyTransitGatewayPolicyTableEntry")
 ModifyTransitGatewayPrefixListReference = Action(
     "ModifyTransitGatewayPrefixListReference"
 )
@@ -876,6 +941,7 @@ ModifyVpcEndpoint = Action("ModifyVpcEndpoint")
 ModifyVpcEndpointConnectionNotification = Action(
     "ModifyVpcEndpointConnectionNotification"
 )
+ModifyVpcEndpointPayerResponsibility = Action("ModifyVpcEndpointPayerResponsibility")
 ModifyVpcEndpointServiceConfiguration = Action("ModifyVpcEndpointServiceConfiguration")
 ModifyVpcEndpointServicePayerResponsibility = Action(
     "ModifyVpcEndpointServicePayerResponsibility"
@@ -916,6 +982,9 @@ RegisterTransitGatewayMulticastGroupSources = Action(
 RejectCapacityReservationBillingOwnership = Action(
     "RejectCapacityReservationBillingOwnership"
 )
+RejectTransitGatewayClientVpnAttachment = Action(
+    "RejectTransitGatewayClientVpnAttachment"
+)
 RejectTransitGatewayMulticastDomainAssociations = Action(
     "RejectTransitGatewayMulticastDomainAssociations"
 )
@@ -930,6 +999,7 @@ ReplaceIamInstanceProfileAssociation = Action("ReplaceIamInstanceProfileAssociat
 ReplaceImageCriteriaInAllowedImagesSettings = Action(
     "ReplaceImageCriteriaInAllowedImagesSettings"
 )
+ReplaceImageInstanceTypeSpecification = Action("ReplaceImageInstanceTypeSpecification")
 ReplaceNetworkAclAssociation = Action("ReplaceNetworkAclAssociation")
 ReplaceNetworkAclEntry = Action("ReplaceNetworkAclEntry")
 ReplaceRoute = Action("ReplaceRoute")
@@ -979,6 +1049,7 @@ UnassignPrivateIpAddresses = Action("UnassignPrivateIpAddresses")
 UnassignPrivateNatGatewayAddress = Action("UnassignPrivateNatGatewayAddress")
 UnlockSnapshot = Action("UnlockSnapshot")
 UnmonitorInstances = Action("UnmonitorInstances")
+UpdateCapacityManagerMonitoredTagKeys = Action("UpdateCapacityManagerMonitoredTagKeys")
 UpdateCapacityManagerOrganizationsAccess = Action(
     "UpdateCapacityManagerOrganizationsAccess"
 )
@@ -990,5 +1061,8 @@ UpdateSecurityGroupRuleDescriptionsEgress = Action(
 )
 UpdateSecurityGroupRuleDescriptionsIngress = Action(
     "UpdateSecurityGroupRuleDescriptionsIngress"
+)
+ValidateSecurityGroupQuotasForInterface = Action(
+    "ValidateSecurityGroupQuotasForInterface"
 )
 WithdrawByoipCidr = Action("WithdrawByoipCidr")

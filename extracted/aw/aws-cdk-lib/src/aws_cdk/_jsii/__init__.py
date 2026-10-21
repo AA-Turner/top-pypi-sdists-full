@@ -36,6 +36,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_apigatewayv2_authorizers": "aws_cdk.aws_apigatewayv2_authorizers",
     "aws-cdk-lib.aws_apigatewayv2_integrations": "aws_cdk.aws_apigatewayv2_integrations",
     "aws-cdk-lib.aws_appconfig": "aws_cdk.aws_appconfig",
+    "aws-cdk-lib.aws_appfabric": "aws_cdk.aws_appfabric",
     "aws-cdk-lib.aws_appflow": "aws_cdk.aws_appflow",
     "aws-cdk-lib.aws_appintegrations": "aws_cdk.aws_appintegrations",
     "aws-cdk-lib.aws_applicationautoscaling": "aws_cdk.aws_applicationautoscaling",
@@ -213,6 +214,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.aws_launchwizard": "aws_cdk.aws_launchwizard",
     "aws-cdk-lib.aws_lex": "aws_cdk.aws_lex",
     "aws-cdk-lib.aws_licensemanager": "aws_cdk.aws_licensemanager",
+    "aws-cdk-lib.aws_licensemanagerlinuxsubscriptions": "aws_cdk.aws_licensemanagerlinuxsubscriptions",
     "aws-cdk-lib.aws_lightsail": "aws_cdk.aws_lightsail",
     "aws-cdk-lib.aws_location": "aws_cdk.aws_location",
     "aws-cdk-lib.aws_logs": "aws_cdk.aws_logs",
@@ -380,6 +382,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_apigateway": "aws_cdk.interfaces.aws_apigateway",
     "aws-cdk-lib.interfaces.aws_apigatewayv2": "aws_cdk.interfaces.aws_apigatewayv2",
     "aws-cdk-lib.interfaces.aws_appconfig": "aws_cdk.interfaces.aws_appconfig",
+    "aws-cdk-lib.interfaces.aws_appfabric": "aws_cdk.interfaces.aws_appfabric",
     "aws-cdk-lib.interfaces.aws_appflow": "aws_cdk.interfaces.aws_appflow",
     "aws-cdk-lib.interfaces.aws_appintegrations": "aws_cdk.interfaces.aws_appintegrations",
     "aws-cdk-lib.interfaces.aws_applicationautoscaling": "aws_cdk.interfaces.aws_applicationautoscaling",
@@ -540,6 +543,7 @@ _SUBMODULE_FQN_MAP = {
     "aws-cdk-lib.interfaces.aws_launchwizard": "aws_cdk.interfaces.aws_launchwizard",
     "aws-cdk-lib.interfaces.aws_lex": "aws_cdk.interfaces.aws_lex",
     "aws-cdk-lib.interfaces.aws_licensemanager": "aws_cdk.interfaces.aws_licensemanager",
+    "aws-cdk-lib.interfaces.aws_licensemanagerlinuxsubscriptions": "aws_cdk.interfaces.aws_licensemanagerlinuxsubscriptions",
     "aws-cdk-lib.interfaces.aws_lightsail": "aws_cdk.interfaces.aws_lightsail",
     "aws-cdk-lib.interfaces.aws_location": "aws_cdk.interfaces.aws_location",
     "aws-cdk-lib.interfaces.aws_logs": "aws_cdk.interfaces.aws_logs",
@@ -688,7 +692,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "aws-cdk-lib", "2.273.0", __name__[0:-6], "aws-cdk-lib@2.273.0.jsii.tgz"
+    "aws-cdk-lib", "2.274.0", __name__[0:-6], "aws-cdk-lib@2.274.0.jsii.tgz"
 )
 
 __all__ = [

@@ -62,7 +62,13 @@ class TestAgentCreationSource(unittest.TestCase):
                     service_names = [
                         ''
                         ], 
-                    classification = '', )
+                    classification = '', ),
+                identity_basis = 'registered_agent',
+                destinations = [
+                    arthur_client.api_bindings.models.network_destination.NetworkDestination(
+                        host = '0', 
+                        provider = '0', )
+                    ]
             )
         else:
             return AgentCreationSource(

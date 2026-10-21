@@ -86,6 +86,8 @@ class VaspJob(Job):
         auto_continue=False,
         update_incar=False,
         terminate_timeout: float = 10.0,
+        graceful_termination: bool = False,
+        graceful_termination_timeout: float = 300.0,
     ) -> None:
         """
         This constructor is necessarily complex due to the need for
@@ -147,6 +149,16 @@ class VaspJob(Job):
             terminate_timeout (float): Timeout in seconds to wait for graceful
                 termination (SIGTERM) before escalating to SIGKILL. Large MPI
                 jobs may need longer timeouts. Defaults to 10.0 seconds.
+            graceful_termination (bool): If True, terminate() first writes a
+                STOPCAR with LABORT = .TRUE. and waits for VASP to exit on its
+                own before falling back to signals. This lets VASP close its
+                output files cleanly and avoids truncated vasprun.xml files when
+                a monitor handler stops a run (common with GPU VASP). Defaults
+                to False.
+            graceful_termination_timeout (float): Timeout in seconds to wait for
+                VASP to exit after the STOPCAR is written. VASP only reads the
+                STOPCAR at the end of an electronic step, so this should exceed
+                the duration of one SCF step. Defaults to 300.0 seconds.
         """
         self.vasp_cmd = tuple(vasp_cmd)
         self.output_file = output_file
@@ -162,6 +174,8 @@ class VaspJob(Job):
         self.auto_continue = auto_continue
         self.update_incar = update_incar
         self.terminate_timeout = terminate_timeout
+        self.graceful_termination = graceful_termination
+        self.graceful_termination_timeout = graceful_termination_timeout
 
         if SENTRY_DSN:
             # if using Sentry logging, add specific VASP executable to scope
@@ -171,7 +185,7 @@ class VaspJob(Job):
                 try:
                     if isinstance(vasp_cmd, str):
                         vasp_path = which(vasp_cmd.split(" ")[-1])
-                    elif isinstance(vasp_cmd, list):
+                    elif isinstance(vasp_cmd, (list, tuple)):
                         vasp_path = which(vasp_cmd[-1])
                     scope.set_tag("vasp_path", vasp_path)  # type: ignore
                     scope.set_tag("vasp_cmd", vasp_cmd)
@@ -417,6 +431,7 @@ class VaspJob(Job):
                 auto_npar=auto_npar,
                 final=False,
                 suffix=".precondition",
+                auto_continue=auto_continue,
                 settings_override=pre_opt_settings,
             )
         ]
@@ -427,6 +442,7 @@ class VaspJob(Job):
             auto_npar=auto_npar,
             ediffg=ediffg,
             half_kpts_first_relax=half_kpts_first_relax,
+            auto_continue=auto_continue,
             directory=directory,
         )
 
@@ -490,6 +506,7 @@ class VaspJob(Job):
         Returns:
             Generator of jobs.
         """
+        orig_kpts_dict = None
         for step in range(max_steps):
             if step == 0:
                 settings = None
@@ -501,7 +518,8 @@ class VaspJob(Job):
                 ):
                     kpts = Kpoints.from_file(os.path.join(directory, "KPOINTS"))
                     orig_kpts_dict = kpts.as_dict()
-                    kpts.kpts = np.maximum(np.array(kpts.kpts) / 2, 1).tolist()
+                    # lattice vectors with length < 8 will get >1 KPOINT
+                    kpts.kpts = np.round(np.maximum(np.array(kpts.kpts) / 2, 1)).astype(int).tolist()
                     low_kpts_dict = kpts.as_dict()
                     settings = [{"dict": "KPOINTS", "action": {"_set": low_kpts_dict}}]
             else:
@@ -524,8 +542,8 @@ class VaspJob(Job):
                         "action": {"_file_copy": {"dest": "POSCAR"}},
                     },
                 ]
-                if step == 1 and half_kpts_first_relax:
-                    settings.append({"dict": "KPOINTS", "action": {"_set": orig_kpts_dict}})  # type: ignore
+                if step == 1 and orig_kpts_dict is not None:
+                    settings.append({"dict": "KPOINTS", "action": {"_set": orig_kpts_dict}})
             logger.info(f"Generating job = {step + 1}!")
             yield VaspJob(
                 vasp_cmd,
@@ -615,7 +633,7 @@ class VaspJob(Job):
                 backup = True
             else:
                 backup = False
-                v = Vasprun("vasprun.xml")
+                v = Vasprun(os.path.join(directory, "vasprun.xml"))
                 structure = v.final_structure
                 energy = v.final_energy
                 lattice = structure.lattice
@@ -680,7 +698,7 @@ class VaspJob(Job):
                             x = (min_x + sorted_x[other]) / 2
                             logger.info(f"Bisection {lattice_direction} = {x}.")
 
-                lattice = lattice.matrix
+                lattice = lattice.matrix.copy()
                 lattice[lattice_index] = lattice[lattice_index] / np.linalg.norm(lattice[lattice_index]) * x
 
                 s = Structure(lattice, structure.species, structure.frac_coords)
@@ -712,19 +730,26 @@ class VaspJob(Job):
     def terminate(self, directory: str = "./") -> None:
         """Kill all VASP processes associated with the current job.
 
-        Tries to kill the entire process group (safest for MPI jobs), then waits
-        to confirm termination. Escalates SIGTERM → SIGKILL → parent process fallback.
+        If graceful_termination is enabled, first writes a STOPCAR with
+        LABORT = .TRUE. and waits for VASP to exit cleanly. Otherwise (or if that
+        times out), tries to kill the entire process group (safest for MPI jobs),
+        then waits to confirm termination. Escalates SIGTERM → SIGKILL → parent
+        process fallback.
 
         Note: The parent process fallback may leave behind ghost MPI child processes
         (less likely with srun since SLURM purportedly cleans up process trees).
 
         Args:
-            directory: Unused, kept for API compatibility with base class.
+            directory: Directory of the VASP run. Used to write the STOPCAR when
+                graceful_termination is enabled.
         """
         pid = self._vasp_process.pid
 
         if self._vasp_process.poll() is not None:
             logger.warning(f"Process {pid} already terminated")
+            return
+
+        if self.graceful_termination and self._terminate_with_stopcar(directory):
             return
 
         if os.name != "nt":
@@ -782,6 +807,40 @@ class VaspJob(Job):
             self._vasp_process.wait()
             logger.info(f"Process {pid} killed")
 
+    def _terminate_with_stopcar(self, directory: str) -> bool:
+        """Ask VASP to stop via a STOPCAR with LABORT = .TRUE. and wait for it to exit.
+
+        Args:
+            directory: Directory of the VASP run.
+
+        Returns:
+            bool: True if the process exited within graceful_termination_timeout.
+        """
+        pid = self._vasp_process.pid
+        timeout = self.graceful_termination_timeout
+        stopcar = os.path.join(directory, "STOPCAR")
+        logger.info(f"Writing STOPCAR with LABORT = .TRUE. to stop process {pid}")
+        try:
+            with open(stopcar, "w") as file:
+                file.write("LABORT = .TRUE.\n")
+        except OSError as exc:
+            logger.warning(f"Failed to write STOPCAR: {exc}")
+            return False
+
+        try:
+            self._vasp_process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            logger.warning(f"STOPCAR timeout ({timeout}s), falling back to signals")
+            exited = False
+        else:
+            logger.info(f"Process {pid} stopped gracefully via STOPCAR")
+            exited = True
+
+        # VASP does not always delete the STOPCAR. Remove it so a restarted run does not abort immediately.
+        if os.path.isfile(stopcar):
+            os.remove(stopcar)
+        return exited
+
 
 class VaspNEBJob(VaspJob):
     """
@@ -804,6 +863,9 @@ class VaspNEBJob(VaspJob):
         auto_continue=False,
         gamma_vasp_cmd=None,
         settings_override=None,
+        terminate_timeout: float = 10.0,
+        graceful_termination: bool = False,
+        graceful_termination_timeout: float = 300.0,
     ) -> None:
         """
         This constructor is a simplified version of VaspJob, which satisfies
@@ -855,6 +917,16 @@ class VaspNEBJob(VaspJob):
                     [{"dict": "INCAR", "action": {"_set": {"ISTART": 1}}},
                      {"file": "CONTCAR",
                       "action": {"_file_copy": {"dest": "POSCAR"}}}]
+            terminate_timeout (float): Timeout in seconds to wait for graceful
+                termination (SIGTERM) before escalating to SIGKILL. Defaults to
+                10.0 seconds.
+            graceful_termination (bool): If True, terminate() first writes a
+                STOPCAR with LABORT = .TRUE. to the NEB root directory and waits
+                for VASP to exit on its own before falling back to signals.
+                Defaults to False.
+            graceful_termination_timeout (float): Timeout in seconds to wait for
+                VASP to exit after the STOPCAR is written. Defaults to 300.0
+                seconds.
         """
         self.vasp_cmd = tuple(vasp_cmd)
         self.output_file = output_file
@@ -868,6 +940,9 @@ class VaspNEBJob(VaspJob):
         self.gamma_vasp_cmd = tuple(gamma_vasp_cmd) if gamma_vasp_cmd else None
         self.auto_continue = auto_continue
         self.settings_override = settings_override
+        self.terminate_timeout = terminate_timeout
+        self.graceful_termination = graceful_termination
+        self.graceful_termination_timeout = graceful_termination_timeout
 
     def setup(self, directory="./") -> None:
         """Performs initial setup for VaspNEBJob, including overriding any settings
@@ -984,9 +1059,12 @@ class VaspNEBJob(VaspJob):
                     shutil.copy(file, f"{file}{self.suffix}")
 
     def _get_neb_dirs(self, directory):
-        neb_dirs = sorted(  # 00, 01, etc.
-            path for path in os.listdir(directory) if os.path.isdir(path) and path.isdigit()
-        )
+        """Image folders (00, 01, ...) in directory, as paths joined with directory."""
+        neb_dirs = [  # 00, 01, etc.
+            os.path.join(directory, name)
+            for name in sorted(os.listdir(directory))
+            if name.isdigit() and os.path.isdir(os.path.join(directory, name))
+        ]
         neb_sub = neb_dirs[1:-1]  # 01, 02, etc.
         return neb_dirs, neb_sub
 

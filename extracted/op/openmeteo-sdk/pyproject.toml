@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name =  "openmeteo_sdk"
-version = "1.28.1"
+version = "1.29.0"
 authors = [
     {name = "Patrick Zippenfenig", email = "info@open-meteo.com"},
 ]

@@ -1,6 +1,7 @@
 from chalk._gen.buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.quota.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.utils.v1 import sensitive_pb2 as _sensitive_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -33,6 +34,24 @@ SIGNUP_CODE_STATUS_CONSUMED: SignupCodeStatus
 SIGNUP_CODE_STATUS_REVOKED: SignupCodeStatus
 SIGNUP_CODE_STATUS_EXPIRED: SignupCodeStatus
 
+class SignupCodeQuota(_message.Message):
+    __slots__ = ("resource", "limit")
+    RESOURCE_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    resource: _service_pb2.QuotaResource
+    limit: _service_pb2.QuotaLimit
+    def __init__(
+        self,
+        resource: _Optional[_Union[_service_pb2.QuotaResource, _Mapping]] = ...,
+        limit: _Optional[_Union[_service_pb2.QuotaLimit, _Mapping]] = ...,
+    ) -> None: ...
+
+class SignupCodeQuotaGrant(_message.Message):
+    __slots__ = ("quotas",)
+    QUOTAS_FIELD_NUMBER: _ClassVar[int]
+    quotas: _containers.RepeatedCompositeFieldContainer[SignupCodeQuota]
+    def __init__(self, quotas: _Optional[_Iterable[_Union[SignupCodeQuota, _Mapping]]] = ...) -> None: ...
+
 class SignupCode(_message.Message):
     __slots__ = (
         "id",
@@ -48,7 +67,19 @@ class SignupCode(_message.Message):
         "consumed_at",
         "team_id",
         "invite_message",
+        "initial_quotas",
+        "metadata",
+        "created_by_email",
+        "region",
     )
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     ID_FIELD_NUMBER: _ClassVar[int]
     CODE_PREFIX_FIELD_NUMBER: _ClassVar[int]
     NOTE_FIELD_NUMBER: _ClassVar[int]
@@ -62,6 +93,10 @@ class SignupCode(_message.Message):
     CONSUMED_AT_FIELD_NUMBER: _ClassVar[int]
     TEAM_ID_FIELD_NUMBER: _ClassVar[int]
     INVITE_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_QUOTAS_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_EMAIL_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
     id: str
     code_prefix: str
     note: str
@@ -75,6 +110,10 @@ class SignupCode(_message.Message):
     consumed_at: _timestamp_pb2.Timestamp
     team_id: str
     invite_message: str
+    initial_quotas: _containers.RepeatedCompositeFieldContainer[SignupCodeQuota]
+    metadata: _containers.ScalarMap[str, str]
+    created_by_email: str
+    region: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -90,18 +129,42 @@ class SignupCode(_message.Message):
         consumed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         team_id: _Optional[str] = ...,
         invite_message: _Optional[str] = ...,
+        initial_quotas: _Optional[_Iterable[_Union[SignupCodeQuota, _Mapping]]] = ...,
+        metadata: _Optional[_Mapping[str, str]] = ...,
+        created_by_email: _Optional[str] = ...,
+        region: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateSignupCodeRequest(_message.Message):
-    __slots__ = ("note", "expires_in_seconds", "invite_message")
+    __slots__ = ("note", "expires_in_seconds", "invite_message", "initial_quotas", "metadata", "region")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NOTE_FIELD_NUMBER: _ClassVar[int]
     EXPIRES_IN_SECONDS_FIELD_NUMBER: _ClassVar[int]
     INVITE_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    INITIAL_QUOTAS_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    REGION_FIELD_NUMBER: _ClassVar[int]
     note: str
     expires_in_seconds: int
     invite_message: str
+    initial_quotas: _containers.RepeatedCompositeFieldContainer[SignupCodeQuota]
+    metadata: _containers.ScalarMap[str, str]
+    region: str
     def __init__(
-        self, note: _Optional[str] = ..., expires_in_seconds: _Optional[int] = ..., invite_message: _Optional[str] = ...
+        self,
+        note: _Optional[str] = ...,
+        expires_in_seconds: _Optional[int] = ...,
+        invite_message: _Optional[str] = ...,
+        initial_quotas: _Optional[_Iterable[_Union[SignupCodeQuota, _Mapping]]] = ...,
+        metadata: _Optional[_Mapping[str, str]] = ...,
+        region: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateSignupCodeResponse(_message.Message):

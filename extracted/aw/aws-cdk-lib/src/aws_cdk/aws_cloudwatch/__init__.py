@@ -5680,12 +5680,12 @@ class CfnAnomalyDetector(
         return typing.cast("_aws_cloudwatch_70717108.AnomalyDetectorReference", jsii.get(self, "anomalyDetectorRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
+    @jsii.member(jsii_name="attrAnomalyDetectorId")
+    def attr_anomaly_detector_id(self) -> builtins.str:
         '''
-        :cloudformationAttribute: Id
+        :cloudformationAttribute: AnomalyDetectorId
         '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+        return typing.cast(builtins.str, jsii.get(self, "attrAnomalyDetectorId"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -6040,6 +6040,81 @@ class CfnAnomalyDetector(
 
         def __repr__(self) -> str:
             return "MetricCharacteristicsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnAnomalyDetector.MetricConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "excluded_time_ranges": "excludedTimeRanges",
+            "metric_time_zone": "metricTimeZone",
+        },
+    )
+    class MetricConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            excluded_time_ranges: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAnomalyDetector.RangeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            metric_time_zone: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param excluded_time_ranges: 
+            :param metric_time_zone: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                metric_configuration_property = cloudwatch.CfnAnomalyDetector.MetricConfigurationProperty(
+                    excluded_time_ranges=[cloudwatch.CfnAnomalyDetector.RangeProperty(
+                        end_time="endTime",
+                        start_time="startTime"
+                    )],
+                    metric_time_zone="metricTimeZone"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__08f89e2eab67232e4dfe8fcbab34c49cf3d56717de9b66dc338f14d587f70128)
+                check_type(argname="argument excluded_time_ranges", value=excluded_time_ranges, expected_type=type_hints["excluded_time_ranges"])
+                check_type(argname="argument metric_time_zone", value=metric_time_zone, expected_type=type_hints["metric_time_zone"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if excluded_time_ranges is not None:
+                self._values["excluded_time_ranges"] = excluded_time_ranges
+            if metric_time_zone is not None:
+                self._values["metric_time_zone"] = metric_time_zone
+
+        @builtins.property
+        def excluded_time_ranges(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.RangeProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricconfiguration.html#cfn-cloudwatch-anomalydetector-metricconfiguration-excludedtimeranges
+            '''
+            result = self._values.get("excluded_time_ranges")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAnomalyDetector.RangeProperty"]]]], result)
+
+        @builtins.property
+        def metric_time_zone(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-anomalydetector-metricconfiguration.html#cfn-cloudwatch-anomalydetector-metricconfiguration-metrictimezone
+            '''
+            result = self._values.get("metric_time_zone")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MetricConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -10727,6 +10802,304 @@ class CfnOTelEnrichmentProps:
 
     def __repr__(self) -> str:
         return "CfnOTelEnrichmentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_cloudwatch_70717108.IResourceMetricsConfigurationRef)
+class CfnResourceMetricsConfiguration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnResourceMetricsConfiguration",
+):
+    '''Resource Type definition for AWS::CloudWatch::ResourceMetricsConfiguration.
+
+    Manages the detailed monitoring metric selections for an AWS resource, identified by the ARN of the resource being monitored.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-resourcemetricsconfiguration.html
+    :cloudformationResource: AWS::CloudWatch::ResourceMetricsConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        cfn_resource_metrics_configuration = cloudwatch.CfnResourceMetricsConfiguration(self, "MyCfnResourceMetricsConfiguration",
+            resource_arn="resourceArn",
+        
+            # the properties below are optional
+            metric_selections=[cloudwatch.CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty(
+                include_metrics=["includeMetrics"]
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        resource_arn: builtins.str,
+        metric_selections: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::CloudWatch::ResourceMetricsConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which the detailed monitoring metrics configuration is managed.
+        :param metric_selections: The metric selections that define which metrics are enabled for detailed monitoring on the resource.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c800866ce1748e1c8a48f4e6566ca815f360c345638338333c85c18b1b3ae91c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnResourceMetricsConfigurationProps(
+            resource_arn=resource_arn, metric_selections=metric_selections
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnResourceMetricsConfiguration")
+    @builtins.classmethod
+    def is_cfn_resource_metrics_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourceMetricsConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4db6a2d9d55b578c76d89959a4839ddff4083ecf5d941527321ee928d38c049c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourceMetricsConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d0ac5fb2121ac919d03201bba8f354597bb8d6e301931a925feae389e8c08068)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__34b9a5e8512d7b9340ae3f6e72e0ff93c783a44417f3deb136c529e4a04bcdc6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedAt")
+    def attr_created_at(self) -> builtins.str:
+        '''The time at which the resource metrics configuration was created.
+
+        :cloudformationAttribute: CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdatedAt")
+    def attr_updated_at(self) -> builtins.str:
+        '''The time at which the resource metrics configuration was last updated.
+
+        :cloudformationAttribute: UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceMetricsConfigurationRef")
+    def resource_metrics_configuration_ref(
+        self,
+    ) -> "_aws_cloudwatch_70717108.ResourceMetricsConfigurationReference":
+        '''A reference to a ResourceMetricsConfiguration resource.'''
+        return typing.cast("_aws_cloudwatch_70717108.ResourceMetricsConfigurationReference", jsii.get(self, "resourceMetricsConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArn")
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource for which the detailed monitoring metrics configuration is managed.'''
+        return typing.cast(builtins.str, jsii.get(self, "resourceArn"))
+
+    @resource_arn.setter
+    def resource_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__48b88805337cc7b18f0c677e8ed089a81003118936a08c0fc1ad4f14c66bf151)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="metricSelections")
+    def metric_selections(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty"]]]]:
+        '''The metric selections that define which metrics are enabled for detailed monitoring on the resource.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty"]]]], jsii.get(self, "metricSelections"))
+
+    @metric_selections.setter
+    def metric_selections(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__42c92026b0bb4956b99b1496c4d4f04642adcc78477401fa0d87d9b45b725cde)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "metricSelections", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cloudwatch.CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"include_metrics": "includeMetrics"},
+    )
+    class ResourceMetricSelectionProperty:
+        def __init__(self, *, include_metrics: typing.Sequence[builtins.str]) -> None:
+            '''Defines which metrics are enabled for detailed monitoring on the resource.
+
+            :param include_metrics: The list of metric names to include in detailed monitoring for the resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-resourcemetricsconfiguration-resourcemetricselection.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cloudwatch as cloudwatch
+                
+                resource_metric_selection_property = cloudwatch.CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty(
+                    include_metrics=["includeMetrics"]
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__a2b6b5ca5f6a7a4e53cd1ce25593f0cd51dcbd81c2768af3c330dfb53a42af03)
+                check_type(argname="argument include_metrics", value=include_metrics, expected_type=type_hints["include_metrics"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "include_metrics": include_metrics,
+            }
+
+        @builtins.property
+        def include_metrics(self) -> typing.List[builtins.str]:
+            '''The list of metric names to include in detailed monitoring for the resource.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-resourcemetricsconfiguration-resourcemetricselection.html#cfn-cloudwatch-resourcemetricsconfiguration-resourcemetricselection-includemetrics
+            '''
+            result = self._values.get("include_metrics")
+            assert result is not None, "Required property 'include_metrics' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ResourceMetricSelectionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.CfnResourceMetricsConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "resource_arn": "resourceArn",
+        "metric_selections": "metricSelections",
+    },
+)
+class CfnResourceMetricsConfigurationProps:
+    def __init__(
+        self,
+        *,
+        resource_arn: builtins.str,
+        metric_selections: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourceMetricsConfiguration``.
+
+        :param resource_arn: The Amazon Resource Name (ARN) of the resource for which the detailed monitoring metrics configuration is managed.
+        :param metric_selections: The metric selections that define which metrics are enabled for detailed monitoring on the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-resourcemetricsconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            cfn_resource_metrics_configuration_props = cloudwatch.CfnResourceMetricsConfigurationProps(
+                resource_arn="resourceArn",
+            
+                # the properties below are optional
+                metric_selections=[cloudwatch.CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty(
+                    include_metrics=["includeMetrics"]
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2ed799e08c0b146eb284180377b148f070ad200cf3979f36703e0afc33542fd7)
+            check_type(argname="argument resource_arn", value=resource_arn, expected_type=type_hints["resource_arn"])
+            check_type(argname="argument metric_selections", value=metric_selections, expected_type=type_hints["metric_selections"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "resource_arn": resource_arn,
+        }
+        if metric_selections is not None:
+            self._values["metric_selections"] = metric_selections
+
+    @builtins.property
+    def resource_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the resource for which the detailed monitoring metrics configuration is managed.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-resourcemetricsconfiguration.html#cfn-cloudwatch-resourcemetricsconfiguration-resourcearn
+        '''
+        result = self._values.get("resource_arn")
+        assert result is not None, "Required property 'resource_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def metric_selections(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty"]]]]:
+        '''The metric selections that define which metrics are enabled for detailed monitoring on the resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-resourcemetricsconfiguration.html#cfn-cloudwatch-resourcemetricsconfiguration-metricselections
+        '''
+        result = self._values.get("metric_selections")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty"]]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourceMetricsConfigurationProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -22053,6 +22426,8 @@ __all__ = [
     "CfnMetricStreamProps",
     "CfnOTelEnrichment",
     "CfnOTelEnrichmentProps",
+    "CfnResourceMetricsConfiguration",
+    "CfnResourceMetricsConfigurationProps",
     "CfnView",
     "CfnViewProps",
     "Color",
@@ -22851,6 +23226,14 @@ def _typecheckingstub__782bb184e35a5f89f30dd279aa12cf0d77b7069596cc47017cd113eb3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__08f89e2eab67232e4dfe8fcbab34c49cf3d56717de9b66dc338f14d587f70128(
+    *,
+    excluded_time_ranges: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAnomalyDetector.RangeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    metric_time_zone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d07af40dc753cdda4381651fa3711189e996a0d1ada4554c36c730242ecee721(
     *,
     id: builtins.str,
@@ -23610,6 +23993,61 @@ def _typecheckingstub__3a40f7e692baf052d4c6a917734ab6c697e5a650efc5dd4c30282b646
     *,
     exclude_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     include_filters: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnOTelEnrichment.OTelEnrichmentMetricSelectorProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c800866ce1748e1c8a48f4e6566ca815f360c345638338333c85c18b1b3ae91c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    resource_arn: builtins.str,
+    metric_selections: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4db6a2d9d55b578c76d89959a4839ddff4083ecf5d941527321ee928d38c049c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d0ac5fb2121ac919d03201bba8f354597bb8d6e301931a925feae389e8c08068(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34b9a5e8512d7b9340ae3f6e72e0ff93c783a44417f3deb136c529e4a04bcdc6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__48b88805337cc7b18f0c677e8ed089a81003118936a08c0fc1ad4f14c66bf151(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42c92026b0bb4956b99b1496c4d4f04642adcc78477401fa0d87d9b45b725cde(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.List[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a2b6b5ca5f6a7a4e53cd1ce25593f0cd51dcbd81c2768af3c330dfb53a42af03(
+    *,
+    include_metrics: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ed799e08c0b146eb284180377b148f070ad200cf3979f36703e0afc33542fd7(
+    *,
+    resource_arn: builtins.str,
+    metric_selections: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnResourceMetricsConfiguration.ResourceMetricSelectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

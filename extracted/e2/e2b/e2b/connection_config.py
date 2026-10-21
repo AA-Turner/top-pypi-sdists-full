@@ -1,11 +1,19 @@
 import logging
 import os
 
-from typing import cast, Literal, Mapping, Optional, Dict, Tuple, TypedDict, Union
+from typing import (
+    cast,
+    Literal,
+    Mapping,
+    Optional,
+    Dict,
+    Tuple,
+    TypedDict,
+    Union,
+    Unpack,
+)
 
 import httpx
-from typing_extensions import Unpack
-
 from e2b.exceptions import InvalidArgumentException
 from e2b.retry import resolve_max_retries
 from e2b.api.metadata import package_version
@@ -22,6 +30,7 @@ narrows it to what the pyqwest REST transports take.
 """
 
 REQUEST_TIMEOUT: float = 60.0  # 60 seconds
+STREAM_INPUT_TIMEOUT: float = 60.0  # 60 seconds
 DEFAULT_RETRIES = 3
 
 # Idle bound for every read on the streaming envd file-transfer transport:

@@ -1,8 +1,10 @@
 //! Detect how each selected model and function changed since its recorded build.
 
-use crate::bindings::_helpers::analysis::model_reads;
+use sqlbuild_host::entries::models::{ExecutorHost, UserCodeHost};
+
+use crate::bindings::_helpers::compiled_views::model_reads;
 use crate::bindings::_helpers::contracts::spec_resolution::matching_dynamic_families;
-use crate::bindings::_helpers::model_config::config_values::config_str as authored_config_str;
+use crate::bindings::_helpers::model_config::typed_config::{config_text, model_values};
 use crate::bindings::_helpers::planner_changes::results::native_enum;
 use crate::bindings::_helpers::records::construct::{enum_member, new_record_with};
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyResult, Python};
@@ -25,14 +27,10 @@ use sqlbuild_analysis::planner_changes::models::{
     SchemaFindingRow,
 };
 
-use crate::bindings::_helpers::analysis::model_reads::{inferred_rows, star_flags};
-use crate::bindings::_helpers::compile_driver::python_calls::{
-    KeywordArguments, call_with, imported,
-};
-use crate::bindings::_helpers::compiled_project::compiled_model_view::InferredRow;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
+use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, call_with, imported};
+use crate::bindings::_helpers::compiled_views::compiled_model_view::InferredRow;
+use crate::bindings::_helpers::compiled_views::model_reads::{inferred_rows, star_flags};
 use crate::bindings::_helpers::native_host::host;
-use crate::bindings::_helpers::native_host::user_code::UserCodeHost;
 use crate::bindings::_helpers::planner_changes::renames::origin_names;
 use crate::bindings::_helpers::planner_changes::results::{
     backfill_result, change_kind, planner_enum, replay_policy_error, schema_findings,
@@ -439,12 +437,7 @@ pub(crate) fn model_change<'py>(
 /// The model's resolved `replay_on_change` policy.
 fn replay_policy(model: &Bound<'_, PyAny>) -> PyResult<Backfill> {
     let py: Python<'_> = model.py();
-    let raw: Option<String> = authored_config_str(
-        &native_field(&native_field(model, "config")?, "values")?,
-        REPLAY_CONFIG_KEY,
-    )?
-    .map(|value| value.extract())
-    .transpose()?;
+    let raw: Option<String> = config_text(py, &model_values(model)?, REPLAY_CONFIG_KEY)?;
     resolve_replay_on_change(raw.as_deref()).map_err(|error| replay_policy_error(py, error))
 }
 

@@ -92,7 +92,7 @@ def sync(
 ) -> Optional[Union[DnaSequence, DnaSequence, BadRequestError]]:
     """Create or update a registered DNA sequence.
 
-    Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the [Field](#/components/schemas/FieldWithResolution) resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value).
+    Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the `Field` resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value).
     """
 
     return sync_detailed(
@@ -128,7 +128,7 @@ async def asyncio(
 ) -> Optional[Union[DnaSequence, DnaSequence, BadRequestError]]:
     """Create or update a registered DNA sequence.
 
-    Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the [Field](#/components/schemas/FieldWithResolution) resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value).
+    Schema field links can be populated using entity registry IDs or API IDs. In the `value` field of the `Field` resource, the object `{\"entityRegistryId\": ENTITY_REGISTRY_ID}` may be provided instead of the API ID if desired (see example value).
     """
 
     return (

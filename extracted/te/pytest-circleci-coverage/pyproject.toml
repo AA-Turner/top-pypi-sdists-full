@@ -4,10 +4,10 @@ build-backend = "uv_build"
 
 [project]
 name = "pytest_circleci_coverage"
-version = "0.2.546"
+version = "0.3.883"
 description = " Pytest plugin that works with pytest-cov to generate coverage data for CircleCI's Smarter Testing"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",

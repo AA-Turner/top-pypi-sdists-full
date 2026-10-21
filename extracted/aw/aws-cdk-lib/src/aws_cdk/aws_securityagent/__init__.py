@@ -1716,6 +1716,1097 @@ class CfnArtifactProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_securityagent_9b0edcbe.IIntegrationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnIntegration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_securityagent.CfnIntegration",
+):
+    '''Resource Type definition for AWS::SecurityAgent::Integration.
+
+    Creates a connection between Security Agent and a third-party provider for code review and remediation.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html
+    :cloudformationResource: AWS::SecurityAgent::Integration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_securityagent as securityagent
+        
+        cfn_integration = securityagent.CfnIntegration(self, "MyCfnIntegration",
+            display_name="displayName",
+            provider="provider",
+        
+            # the properties below are optional
+            kms_key_id="kmsKeyId",
+            private_connection_name="privateConnectionName",
+            provider_input=securityagent.CfnIntegration.ProviderInputProperty(
+                bitbucket=securityagent.CfnIntegration.BitbucketInputProperty(
+                    code="code",
+                    installation_id="installationId",
+                    state="state",
+                    workspace="workspace"
+                ),
+                confluence=securityagent.CfnIntegration.ConfluenceInputProperty(
+                    code="code",
+                    installation_id="installationId",
+                    site_url="siteUrl",
+                    state="state"
+                ),
+                github=securityagent.CfnIntegration.GitHubInputProperty(
+                    code="code",
+                    state="state",
+        
+                    # the properties below are optional
+                    installation_id="installationId",
+                    organization_name="organizationName",
+                    target_url="targetUrl"
+                ),
+                gitlab=securityagent.CfnIntegration.GitLabInputProperty(
+                    access_token="accessToken",
+                    token_type="tokenType",
+        
+                    # the properties below are optional
+                    group_id="groupId",
+                    target_url="targetUrl"
+                )
+            ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        display_name: builtins.str,
+        provider: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        private_connection_name: typing.Optional[builtins.str] = None,
+        provider_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.ProviderInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SecurityAgent::Integration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param display_name: The display name for the integration.
+        :param provider: The integration provider.
+        :param kms_key_id: The identifier of the AWS KMS key to use for encrypting data associated with the integration. Can be a key ID, key ARN, alias name, or alias ARN.
+        :param private_connection_name: The name of an active private connection used to reach a self-hosted provider instance over private networking.
+        :param provider_input: The provider-specific input required to create the integration. Exactly one of the provider input objects must be specified.
+        :param tags: The tags to associate with the integration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__68298b4c591fc6724d7ffd2ab820476a211a8939a2c62dfbcbe48a63e32ea732)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnIntegrationProps(
+            display_name=display_name,
+            provider=provider,
+            kms_key_id=kms_key_id,
+            private_connection_name=private_connection_name,
+            provider_input=provider_input,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForIntegration")
+    @builtins.classmethod
+    def arn_for_integration(
+        cls,
+        resource: "_aws_securityagent_9b0edcbe.IIntegrationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f58a2ec38b34dd3810cca5b30dbb7f7e557e18007e037e09452f4661f4f27a49)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForIntegration", [resource]))
+
+    @jsii.member(jsii_name="isCfnIntegration")
+    @builtins.classmethod
+    def is_cfn_integration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIntegration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b2d99d7a1262c818bd17446293bcfcfe80a4b202c2cafed1936753c11d13418e)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIntegration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__fdbd3f8be8325973bd7e188d12f0571e7bdcbb39a5db6c157c9c40743312fca4)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__285087afe6a33192b5fb9da66158cff3ef7325a81be5551a370b42a87230b193)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the integration.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrInstallationId")
+    def attr_installation_id(self) -> builtins.str:
+        '''The installation identifier from the integration provider.
+
+        :cloudformationAttribute: InstallationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrInstallationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIntegrationId")
+    def attr_integration_id(self) -> builtins.str:
+        '''The unique identifier of the integration.
+
+        :cloudformationAttribute: IntegrationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrIntegrationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrProviderType")
+    def attr_provider_type(self) -> builtins.str:
+        '''The type of the integration provider.
+
+        :cloudformationAttribute: ProviderType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrProviderType"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTargetUrl")
+    def attr_target_url(self) -> builtins.str:
+        '''The HTTPS URL of the customer self-hosted instance, such as a GitHub Enterprise Server or self-managed GitLab instance.
+
+        This value is absent for SaaS integrations.
+
+        :cloudformationAttribute: TargetUrl
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTargetUrl"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="integrationRef")
+    def integration_ref(self) -> "_aws_securityagent_9b0edcbe.IntegrationReference":
+        '''A reference to a Integration resource.'''
+        return typing.cast("_aws_securityagent_9b0edcbe.IntegrationReference", jsii.get(self, "integrationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> builtins.str:
+        '''The display name for the integration.'''
+        return typing.cast(builtins.str, jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c4cbf1cc77333692f6d5dea096240a9a10b916ff6088363d06cb755abf9e29b5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provider")
+    def provider(self) -> builtins.str:
+        '''The integration provider.'''
+        return typing.cast(builtins.str, jsii.get(self, "provider"))
+
+    @provider.setter
+    def provider(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__4145346a588caced5c32712351fdcbc3b5c07cec289fa4b4a7fe32bb7a6c3eb3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provider", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="kmsKeyId")
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS key to use for encrypting data associated with the integration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "kmsKeyId"))
+
+    @kms_key_id.setter
+    def kms_key_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__51e435f254c6e338560ef5f10632f8529c2d52b5e935608f984f70c6f34d0269)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "kmsKeyId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateConnectionName")
+    def private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of an active private connection used to reach a self-hosted provider instance over private networking.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateConnectionName"))
+
+    @private_connection_name.setter
+    def private_connection_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__44cb29343501b64e1888f98f2245c5250d48ed72073c8877681ecb6beb080a87)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateConnectionName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="providerInput")
+    def provider_input(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ProviderInputProperty"]]:
+        '''The provider-specific input required to create the integration.'''
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ProviderInputProperty"]], jsii.get(self, "providerInput"))
+
+    @provider_input.setter
+    def provider_input(
+        self,
+        value: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ProviderInputProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c7f616fcbfb2da200e8ab3aedf7f3a83e084d00f61dea8f60f83e053ffdb8937)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "providerInput", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to associate with the integration.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5c56e766b8438603473958a54ba979ae13e4a024c36f067822608557c9dcf0a5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnIntegration.BitbucketInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "code": "code",
+            "installation_id": "installationId",
+            "state": "state",
+            "workspace": "workspace",
+        },
+    )
+    class BitbucketInputProperty:
+        def __init__(
+            self,
+            *,
+            code: builtins.str,
+            installation_id: builtins.str,
+            state: builtins.str,
+            workspace: builtins.str,
+        ) -> None:
+            '''The input required to create a Bitbucket integration.
+
+            :param code: The OAuth 2.0 authorization code returned from the consent redirect.
+            :param installation_id: The Atlassian installation identifier, available from the Atlassian administration console.
+            :param state: The CSRF state token echoed back from the OAuth redirect.
+            :param workspace: The Bitbucket workspace slug that identifies the workspace to integrate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-bitbucketinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                bitbucket_input_property = securityagent.CfnIntegration.BitbucketInputProperty(
+                    code="code",
+                    installation_id="installationId",
+                    state="state",
+                    workspace="workspace"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2c9a852540102e172c823312ccc366cbb0c5afa66b320d2936a16efcf7202fec)
+                check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+                check_type(argname="argument installation_id", value=installation_id, expected_type=type_hints["installation_id"])
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+                check_type(argname="argument workspace", value=workspace, expected_type=type_hints["workspace"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code": code,
+                "installation_id": installation_id,
+                "state": state,
+                "workspace": workspace,
+            }
+
+        @builtins.property
+        def code(self) -> builtins.str:
+            '''The OAuth 2.0 authorization code returned from the consent redirect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-bitbucketinput.html#cfn-securityagent-integration-bitbucketinput-code
+            '''
+            result = self._values.get("code")
+            assert result is not None, "Required property 'code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def installation_id(self) -> builtins.str:
+            '''The Atlassian installation identifier, available from the Atlassian administration console.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-bitbucketinput.html#cfn-securityagent-integration-bitbucketinput-installationid
+            '''
+            result = self._values.get("installation_id")
+            assert result is not None, "Required property 'installation_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''The CSRF state token echoed back from the OAuth redirect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-bitbucketinput.html#cfn-securityagent-integration-bitbucketinput-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def workspace(self) -> builtins.str:
+            '''The Bitbucket workspace slug that identifies the workspace to integrate.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-bitbucketinput.html#cfn-securityagent-integration-bitbucketinput-workspace
+            '''
+            result = self._values.get("workspace")
+            assert result is not None, "Required property 'workspace' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BitbucketInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnIntegration.ConfluenceInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "code": "code",
+            "installation_id": "installationId",
+            "site_url": "siteUrl",
+            "state": "state",
+        },
+    )
+    class ConfluenceInputProperty:
+        def __init__(
+            self,
+            *,
+            code: builtins.str,
+            installation_id: builtins.str,
+            site_url: builtins.str,
+            state: builtins.str,
+        ) -> None:
+            '''The input required to create a Confluence integration.
+
+            :param code: The OAuth 2.0 authorization code returned from the consent redirect.
+            :param installation_id: The Atlassian installation identifier, available from the Atlassian administration console.
+            :param site_url: The Confluence Cloud site URL, for example https://mysite.atlassian.net.
+            :param state: The CSRF state token echoed back from the OAuth redirect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-confluenceinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                confluence_input_property = securityagent.CfnIntegration.ConfluenceInputProperty(
+                    code="code",
+                    installation_id="installationId",
+                    site_url="siteUrl",
+                    state="state"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__2d0eb01b8a30d5e20f7e4e3a1c3533a53adf4cd7b046fd64822a6d6c97348944)
+                check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+                check_type(argname="argument installation_id", value=installation_id, expected_type=type_hints["installation_id"])
+                check_type(argname="argument site_url", value=site_url, expected_type=type_hints["site_url"])
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code": code,
+                "installation_id": installation_id,
+                "site_url": site_url,
+                "state": state,
+            }
+
+        @builtins.property
+        def code(self) -> builtins.str:
+            '''The OAuth 2.0 authorization code returned from the consent redirect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-confluenceinput.html#cfn-securityagent-integration-confluenceinput-code
+            '''
+            result = self._values.get("code")
+            assert result is not None, "Required property 'code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def installation_id(self) -> builtins.str:
+            '''The Atlassian installation identifier, available from the Atlassian administration console.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-confluenceinput.html#cfn-securityagent-integration-confluenceinput-installationid
+            '''
+            result = self._values.get("installation_id")
+            assert result is not None, "Required property 'installation_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def site_url(self) -> builtins.str:
+            '''The Confluence Cloud site URL, for example https://mysite.atlassian.net.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-confluenceinput.html#cfn-securityagent-integration-confluenceinput-siteurl
+            '''
+            result = self._values.get("site_url")
+            assert result is not None, "Required property 'site_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''The CSRF state token echoed back from the OAuth redirect.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-confluenceinput.html#cfn-securityagent-integration-confluenceinput-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ConfluenceInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnIntegration.GitHubInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "code": "code",
+            "state": "state",
+            "installation_id": "installationId",
+            "organization_name": "organizationName",
+            "target_url": "targetUrl",
+        },
+    )
+    class GitHubInputProperty:
+        def __init__(
+            self,
+            *,
+            code: builtins.str,
+            state: builtins.str,
+            installation_id: typing.Optional[builtins.str] = None,
+            organization_name: typing.Optional[builtins.str] = None,
+            target_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The input required to create a GitHub integration.
+
+            :param code: The OAuth authorization code received from GitHub.
+            :param state: The CSRF state token for validating the OAuth flow.
+            :param installation_id: The installation identifier provided by GitHub Enterprise Server on the install callback. Required for GitHub Enterprise Server integrations and ignored for GitHub.com.
+            :param organization_name: The name of the GitHub organization to integrate with.
+            :param target_url: The HTTPS URL of a self-hosted GitHub Enterprise Server instance. Omit this value for GitHub.com.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-githubinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                git_hub_input_property = securityagent.CfnIntegration.GitHubInputProperty(
+                    code="code",
+                    state="state",
+                
+                    # the properties below are optional
+                    installation_id="installationId",
+                    organization_name="organizationName",
+                    target_url="targetUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__c6f8492211b36deed57ccf9c348d2aaa04afdcaca6680af51a064b1cba92f1b8)
+                check_type(argname="argument code", value=code, expected_type=type_hints["code"])
+                check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+                check_type(argname="argument installation_id", value=installation_id, expected_type=type_hints["installation_id"])
+                check_type(argname="argument organization_name", value=organization_name, expected_type=type_hints["organization_name"])
+                check_type(argname="argument target_url", value=target_url, expected_type=type_hints["target_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "code": code,
+                "state": state,
+            }
+            if installation_id is not None:
+                self._values["installation_id"] = installation_id
+            if organization_name is not None:
+                self._values["organization_name"] = organization_name
+            if target_url is not None:
+                self._values["target_url"] = target_url
+
+        @builtins.property
+        def code(self) -> builtins.str:
+            '''The OAuth authorization code received from GitHub.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-githubinput.html#cfn-securityagent-integration-githubinput-code
+            '''
+            result = self._values.get("code")
+            assert result is not None, "Required property 'code' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def state(self) -> builtins.str:
+            '''The CSRF state token for validating the OAuth flow.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-githubinput.html#cfn-securityagent-integration-githubinput-state
+            '''
+            result = self._values.get("state")
+            assert result is not None, "Required property 'state' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def installation_id(self) -> typing.Optional[builtins.str]:
+            '''The installation identifier provided by GitHub Enterprise Server on the install callback.
+
+            Required for GitHub Enterprise Server integrations and ignored for GitHub.com.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-githubinput.html#cfn-securityagent-integration-githubinput-installationid
+            '''
+            result = self._values.get("installation_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def organization_name(self) -> typing.Optional[builtins.str]:
+            '''The name of the GitHub organization to integrate with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-githubinput.html#cfn-securityagent-integration-githubinput-organizationname
+            '''
+            result = self._values.get("organization_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_url(self) -> typing.Optional[builtins.str]:
+            '''The HTTPS URL of a self-hosted GitHub Enterprise Server instance.
+
+            Omit this value for GitHub.com.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-githubinput.html#cfn-securityagent-integration-githubinput-targeturl
+            '''
+            result = self._values.get("target_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitHubInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnIntegration.GitLabInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "access_token": "accessToken",
+            "token_type": "tokenType",
+            "group_id": "groupId",
+            "target_url": "targetUrl",
+        },
+    )
+    class GitLabInputProperty:
+        def __init__(
+            self,
+            *,
+            access_token: builtins.str,
+            token_type: builtins.str,
+            group_id: typing.Optional[builtins.str] = None,
+            target_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The input required to create a GitLab integration.
+
+            :param access_token: The GitLab access token used to authenticate. This can be a personal access token or a group access token.
+            :param token_type: The type of GitLab access token.
+            :param group_id: The identifier of the GitLab group. Required when TokenType is GROUP and ignored for personal tokens.
+            :param target_url: The HTTPS URL of a self-managed GitLab instance. Omit this value for GitLab SaaS (gitlab.com).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-gitlabinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                git_lab_input_property = securityagent.CfnIntegration.GitLabInputProperty(
+                    access_token="accessToken",
+                    token_type="tokenType",
+                
+                    # the properties below are optional
+                    group_id="groupId",
+                    target_url="targetUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5c2b494dc89b779f04ef660de6929bc65c1083094fe70f66ec96a497a9fa53c1)
+                check_type(argname="argument access_token", value=access_token, expected_type=type_hints["access_token"])
+                check_type(argname="argument token_type", value=token_type, expected_type=type_hints["token_type"])
+                check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
+                check_type(argname="argument target_url", value=target_url, expected_type=type_hints["target_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "access_token": access_token,
+                "token_type": token_type,
+            }
+            if group_id is not None:
+                self._values["group_id"] = group_id
+            if target_url is not None:
+                self._values["target_url"] = target_url
+
+        @builtins.property
+        def access_token(self) -> builtins.str:
+            '''The GitLab access token used to authenticate.
+
+            This can be a personal access token or a group access token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-gitlabinput.html#cfn-securityagent-integration-gitlabinput-accesstoken
+            '''
+            result = self._values.get("access_token")
+            assert result is not None, "Required property 'access_token' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_type(self) -> builtins.str:
+            '''The type of GitLab access token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-gitlabinput.html#cfn-securityagent-integration-gitlabinput-tokentype
+            '''
+            result = self._values.get("token_type")
+            assert result is not None, "Required property 'token_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def group_id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the GitLab group.
+
+            Required when TokenType is GROUP and ignored for personal tokens.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-gitlabinput.html#cfn-securityagent-integration-gitlabinput-groupid
+            '''
+            result = self._values.get("group_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_url(self) -> typing.Optional[builtins.str]:
+            '''The HTTPS URL of a self-managed GitLab instance.
+
+            Omit this value for GitLab SaaS (gitlab.com).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-gitlabinput.html#cfn-securityagent-integration-gitlabinput-targeturl
+            '''
+            result = self._values.get("target_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitLabInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_securityagent.CfnIntegration.ProviderInputProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "bitbucket": "bitbucket",
+            "confluence": "confluence",
+            "github": "github",
+            "gitlab": "gitlab",
+        },
+    )
+    class ProviderInputProperty:
+        def __init__(
+            self,
+            *,
+            bitbucket: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.BitbucketInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            confluence: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.ConfluenceInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            github: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.GitHubInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gitlab: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.GitLabInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The provider-specific input required to create the integration.
+
+            Exactly one of the provider input objects must be specified.
+
+            :param bitbucket: The input required to create a Bitbucket integration.
+            :param confluence: The input required to create a Confluence integration.
+            :param github: The input required to create a GitHub integration.
+            :param gitlab: The input required to create a GitLab integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-providerinput.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_securityagent as securityagent
+                
+                provider_input_property = securityagent.CfnIntegration.ProviderInputProperty(
+                    bitbucket=securityagent.CfnIntegration.BitbucketInputProperty(
+                        code="code",
+                        installation_id="installationId",
+                        state="state",
+                        workspace="workspace"
+                    ),
+                    confluence=securityagent.CfnIntegration.ConfluenceInputProperty(
+                        code="code",
+                        installation_id="installationId",
+                        site_url="siteUrl",
+                        state="state"
+                    ),
+                    github=securityagent.CfnIntegration.GitHubInputProperty(
+                        code="code",
+                        state="state",
+                
+                        # the properties below are optional
+                        installation_id="installationId",
+                        organization_name="organizationName",
+                        target_url="targetUrl"
+                    ),
+                    gitlab=securityagent.CfnIntegration.GitLabInputProperty(
+                        access_token="accessToken",
+                        token_type="tokenType",
+                
+                        # the properties below are optional
+                        group_id="groupId",
+                        target_url="targetUrl"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__e62cb0a5f25f3e6f529aaea4522749692fc0eda4e65cf16576e5046c1427655c)
+                check_type(argname="argument bitbucket", value=bitbucket, expected_type=type_hints["bitbucket"])
+                check_type(argname="argument confluence", value=confluence, expected_type=type_hints["confluence"])
+                check_type(argname="argument github", value=github, expected_type=type_hints["github"])
+                check_type(argname="argument gitlab", value=gitlab, expected_type=type_hints["gitlab"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if bitbucket is not None:
+                self._values["bitbucket"] = bitbucket
+            if confluence is not None:
+                self._values["confluence"] = confluence
+            if github is not None:
+                self._values["github"] = github
+            if gitlab is not None:
+                self._values["gitlab"] = gitlab
+
+        @builtins.property
+        def bitbucket(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.BitbucketInputProperty"]]:
+            '''The input required to create a Bitbucket integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-providerinput.html#cfn-securityagent-integration-providerinput-bitbucket
+            '''
+            result = self._values.get("bitbucket")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.BitbucketInputProperty"]], result)
+
+        @builtins.property
+        def confluence(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ConfluenceInputProperty"]]:
+            '''The input required to create a Confluence integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-providerinput.html#cfn-securityagent-integration-providerinput-confluence
+            '''
+            result = self._values.get("confluence")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ConfluenceInputProperty"]], result)
+
+        @builtins.property
+        def github(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.GitHubInputProperty"]]:
+            '''The input required to create a GitHub integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-providerinput.html#cfn-securityagent-integration-providerinput-github
+            '''
+            result = self._values.get("github")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.GitHubInputProperty"]], result)
+
+        @builtins.property
+        def gitlab(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.GitLabInputProperty"]]:
+            '''The input required to create a GitLab integration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-securityagent-integration-providerinput.html#cfn-securityagent-integration-providerinput-gitlab
+            '''
+            result = self._values.get("gitlab")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.GitLabInputProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ProviderInputProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_securityagent.CfnIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "display_name": "displayName",
+        "provider": "provider",
+        "kms_key_id": "kmsKeyId",
+        "private_connection_name": "privateConnectionName",
+        "provider_input": "providerInput",
+        "tags": "tags",
+    },
+)
+class CfnIntegrationProps:
+    def __init__(
+        self,
+        *,
+        display_name: builtins.str,
+        provider: builtins.str,
+        kms_key_id: typing.Optional[builtins.str] = None,
+        private_connection_name: typing.Optional[builtins.str] = None,
+        provider_input: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnIntegration.ProviderInputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIntegration``.
+
+        :param display_name: The display name for the integration.
+        :param provider: The integration provider.
+        :param kms_key_id: The identifier of the AWS KMS key to use for encrypting data associated with the integration. Can be a key ID, key ARN, alias name, or alias ARN.
+        :param private_connection_name: The name of an active private connection used to reach a self-hosted provider instance over private networking.
+        :param provider_input: The provider-specific input required to create the integration. Exactly one of the provider input objects must be specified.
+        :param tags: The tags to associate with the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_securityagent as securityagent
+            
+            cfn_integration_props = securityagent.CfnIntegrationProps(
+                display_name="displayName",
+                provider="provider",
+            
+                # the properties below are optional
+                kms_key_id="kmsKeyId",
+                private_connection_name="privateConnectionName",
+                provider_input=securityagent.CfnIntegration.ProviderInputProperty(
+                    bitbucket=securityagent.CfnIntegration.BitbucketInputProperty(
+                        code="code",
+                        installation_id="installationId",
+                        state="state",
+                        workspace="workspace"
+                    ),
+                    confluence=securityagent.CfnIntegration.ConfluenceInputProperty(
+                        code="code",
+                        installation_id="installationId",
+                        site_url="siteUrl",
+                        state="state"
+                    ),
+                    github=securityagent.CfnIntegration.GitHubInputProperty(
+                        code="code",
+                        state="state",
+            
+                        # the properties below are optional
+                        installation_id="installationId",
+                        organization_name="organizationName",
+                        target_url="targetUrl"
+                    ),
+                    gitlab=securityagent.CfnIntegration.GitLabInputProperty(
+                        access_token="accessToken",
+                        token_type="tokenType",
+            
+                        # the properties below are optional
+                        group_id="groupId",
+                        target_url="targetUrl"
+                    )
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__00d315577be7b2dafc945d26f665ac07757076cee8a3453d3935f89a79bc1866)
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+            check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
+            check_type(argname="argument private_connection_name", value=private_connection_name, expected_type=type_hints["private_connection_name"])
+            check_type(argname="argument provider_input", value=provider_input, expected_type=type_hints["provider_input"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "display_name": display_name,
+            "provider": provider,
+        }
+        if kms_key_id is not None:
+            self._values["kms_key_id"] = kms_key_id
+        if private_connection_name is not None:
+            self._values["private_connection_name"] = private_connection_name
+        if provider_input is not None:
+            self._values["provider_input"] = provider_input
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The display name for the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html#cfn-securityagent-integration-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def provider(self) -> builtins.str:
+        '''The integration provider.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html#cfn-securityagent-integration-provider
+        '''
+        result = self._values.get("provider")
+        assert result is not None, "Required property 'provider' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def kms_key_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the AWS KMS key to use for encrypting data associated with the integration.
+
+        Can be a key ID, key ARN, alias name, or alias ARN.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html#cfn-securityagent-integration-kmskeyid
+        '''
+        result = self._values.get("kms_key_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def private_connection_name(self) -> typing.Optional[builtins.str]:
+        '''The name of an active private connection used to reach a self-hosted provider instance over private networking.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html#cfn-securityagent-integration-privateconnectionname
+        '''
+        result = self._values.get("private_connection_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def provider_input(
+        self,
+    ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ProviderInputProperty"]]:
+        '''The provider-specific input required to create the integration.
+
+        Exactly one of the provider input objects must be specified.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html#cfn-securityagent-integration-providerinput
+        '''
+        result = self._values.get("provider_input")
+        return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnIntegration.ProviderInputProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''The tags to associate with the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-securityagent-integration.html#cfn-securityagent-integration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_securityagent_9b0edcbe.IPentestRef)
 class CfnPentest(
     _aws_cdk_0cae9daa.CfnResource,
@@ -4746,6 +5837,8 @@ __all__ = [
     "CfnApplicationProps",
     "CfnArtifact",
     "CfnArtifactProps",
+    "CfnIntegration",
+    "CfnIntegrationProps",
     "CfnPentest",
     "CfnPentestProps",
     "CfnSecurityRequirementPack",
@@ -5040,6 +6133,143 @@ def _typecheckingstub__48cd641a0788e520772cf73c095b52fe278e4c8a907daa7f9155058af
     artifact_type: builtins.str,
     file_name: builtins.str,
     artifact_content: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68298b4c591fc6724d7ffd2ab820476a211a8939a2c62dfbcbe48a63e32ea732(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    display_name: builtins.str,
+    provider: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    private_connection_name: typing.Optional[builtins.str] = None,
+    provider_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.ProviderInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f58a2ec38b34dd3810cca5b30dbb7f7e557e18007e037e09452f4661f4f27a49(
+    resource: _aws_securityagent_9b0edcbe.IIntegrationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2d99d7a1262c818bd17446293bcfcfe80a4b202c2cafed1936753c11d13418e(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fdbd3f8be8325973bd7e188d12f0571e7bdcbb39a5db6c157c9c40743312fca4(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__285087afe6a33192b5fb9da66158cff3ef7325a81be5551a370b42a87230b193(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4cbf1cc77333692f6d5dea096240a9a10b916ff6088363d06cb755abf9e29b5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4145346a588caced5c32712351fdcbc3b5c07cec289fa4b4a7fe32bb7a6c3eb3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51e435f254c6e338560ef5f10632f8529c2d52b5e935608f984f70c6f34d0269(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44cb29343501b64e1888f98f2245c5250d48ed72073c8877681ecb6beb080a87(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7f616fcbfb2da200e8ab3aedf7f3a83e084d00f61dea8f60f83e053ffdb8937(
+    value: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, CfnIntegration.ProviderInputProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c56e766b8438603473958a54ba979ae13e4a024c36f067822608557c9dcf0a5(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c9a852540102e172c823312ccc366cbb0c5afa66b320d2936a16efcf7202fec(
+    *,
+    code: builtins.str,
+    installation_id: builtins.str,
+    state: builtins.str,
+    workspace: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2d0eb01b8a30d5e20f7e4e3a1c3533a53adf4cd7b046fd64822a6d6c97348944(
+    *,
+    code: builtins.str,
+    installation_id: builtins.str,
+    site_url: builtins.str,
+    state: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6f8492211b36deed57ccf9c348d2aaa04afdcaca6680af51a064b1cba92f1b8(
+    *,
+    code: builtins.str,
+    state: builtins.str,
+    installation_id: typing.Optional[builtins.str] = None,
+    organization_name: typing.Optional[builtins.str] = None,
+    target_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c2b494dc89b779f04ef660de6929bc65c1083094fe70f66ec96a497a9fa53c1(
+    *,
+    access_token: builtins.str,
+    token_type: builtins.str,
+    group_id: typing.Optional[builtins.str] = None,
+    target_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e62cb0a5f25f3e6f529aaea4522749692fc0eda4e65cf16576e5046c1427655c(
+    *,
+    bitbucket: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.BitbucketInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    confluence: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.ConfluenceInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    github: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.GitHubInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    gitlab: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.GitLabInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__00d315577be7b2dafc945d26f665ac07757076cee8a3453d3935f89a79bc1866(
+    *,
+    display_name: builtins.str,
+    provider: builtins.str,
+    kms_key_id: typing.Optional[builtins.str] = None,
+    private_connection_name: typing.Optional[builtins.str] = None,
+    provider_input: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnIntegration.ProviderInputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

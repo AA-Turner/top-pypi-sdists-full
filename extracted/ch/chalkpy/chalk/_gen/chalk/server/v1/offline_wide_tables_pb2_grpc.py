@@ -15,6 +15,11 @@ class OfflineWideTablesServiceStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.UpdateMaterializedFeatureViewControl = channel.unary_unary(
+            "/chalk.server.v1.OfflineWideTablesService/UpdateMaterializedFeatureViewControl",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.UpdateMaterializedFeatureViewControlRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.UpdateMaterializedFeatureViewControlResponse.FromString,
+        )
         self.ListOfflineWideTableRuns = channel.unary_unary(
             "/chalk.server.v1.OfflineWideTablesService/ListOfflineWideTableRuns",
             request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.ListOfflineWideTableRunsRequest.SerializeToString,
@@ -40,15 +45,41 @@ class OfflineWideTablesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableFillRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableFillResponse.FromString,
         )
+        self.TriggerOfflineWideTableOverrideFill = channel.unary_unary(
+            "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineWideTableOverrideFill",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableOverrideFillRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableOverrideFillResponse.FromString,
+        )
         self.TriggerOfflineWideTableCompaction = channel.unary_unary(
             "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineWideTableCompaction",
             request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionResponse.FromString,
         )
+        self.GetOfflineWideTableFeatureWatermarks = channel.unary_unary(
+            "/chalk.server.v1.OfflineWideTablesService/GetOfflineWideTableFeatureWatermarks",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableFeatureWatermarksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableFeatureWatermarksResponse.FromString,
+        )
+        self.SetOfflineWideTableFeatureWatermarks = channel.unary_unary(
+            "/chalk.server.v1.OfflineWideTablesService/SetOfflineWideTableFeatureWatermarks",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.SetOfflineWideTableFeatureWatermarksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.SetOfflineWideTableFeatureWatermarksResponse.FromString,
+        )
+        self.DeleteOfflineWideTableFeatureWatermarks = channel.unary_unary(
+            "/chalk.server.v1.OfflineWideTablesService/DeleteOfflineWideTableFeatureWatermarks",
+            request_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.DeleteOfflineWideTableFeatureWatermarksRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.DeleteOfflineWideTableFeatureWatermarksResponse.FromString,
+        )
 
 
 class OfflineWideTablesServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def UpdateMaterializedFeatureViewControl(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def ListOfflineWideTableRuns(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -82,7 +113,31 @@ class OfflineWideTablesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def TriggerOfflineWideTableOverrideFill(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def TriggerOfflineWideTableCompaction(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetOfflineWideTableFeatureWatermarks(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SetOfflineWideTableFeatureWatermarks(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteOfflineWideTableFeatureWatermarks(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -91,6 +146,11 @@ class OfflineWideTablesServiceServicer(object):
 
 def add_OfflineWideTablesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
+        "UpdateMaterializedFeatureViewControl": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateMaterializedFeatureViewControl,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.UpdateMaterializedFeatureViewControlRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.UpdateMaterializedFeatureViewControlResponse.SerializeToString,
+        ),
         "ListOfflineWideTableRuns": grpc.unary_unary_rpc_method_handler(
             servicer.ListOfflineWideTableRuns,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.ListOfflineWideTableRunsRequest.FromString,
@@ -116,10 +176,30 @@ def add_OfflineWideTablesServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableFillRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableFillResponse.SerializeToString,
         ),
+        "TriggerOfflineWideTableOverrideFill": grpc.unary_unary_rpc_method_handler(
+            servicer.TriggerOfflineWideTableOverrideFill,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableOverrideFillRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableOverrideFillResponse.SerializeToString,
+        ),
         "TriggerOfflineWideTableCompaction": grpc.unary_unary_rpc_method_handler(
             servicer.TriggerOfflineWideTableCompaction,
             request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionResponse.SerializeToString,
+        ),
+        "GetOfflineWideTableFeatureWatermarks": grpc.unary_unary_rpc_method_handler(
+            servicer.GetOfflineWideTableFeatureWatermarks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableFeatureWatermarksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableFeatureWatermarksResponse.SerializeToString,
+        ),
+        "SetOfflineWideTableFeatureWatermarks": grpc.unary_unary_rpc_method_handler(
+            servicer.SetOfflineWideTableFeatureWatermarks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.SetOfflineWideTableFeatureWatermarksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.SetOfflineWideTableFeatureWatermarksResponse.SerializeToString,
+        ),
+        "DeleteOfflineWideTableFeatureWatermarks": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteOfflineWideTableFeatureWatermarks,
+            request_deserializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.DeleteOfflineWideTableFeatureWatermarksRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.DeleteOfflineWideTableFeatureWatermarksResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -131,6 +211,35 @@ def add_OfflineWideTablesServiceServicer_to_server(servicer, server):
 # This class is part of an EXPERIMENTAL API.
 class OfflineWideTablesService(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def UpdateMaterializedFeatureViewControl(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineWideTablesService/UpdateMaterializedFeatureViewControl",
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.UpdateMaterializedFeatureViewControlRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.UpdateMaterializedFeatureViewControlResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
 
     @staticmethod
     def ListOfflineWideTableRuns(
@@ -278,6 +387,35 @@ class OfflineWideTablesService(object):
         )
 
     @staticmethod
+    def TriggerOfflineWideTableOverrideFill(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineWideTableOverrideFill",
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableOverrideFillRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableOverrideFillResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def TriggerOfflineWideTableCompaction(
         request,
         target,
@@ -296,6 +434,93 @@ class OfflineWideTablesService(object):
             "/chalk.server.v1.OfflineWideTablesService/TriggerOfflineWideTableCompaction",
             chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.TriggerOfflineWideTableCompactionResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetOfflineWideTableFeatureWatermarks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineWideTablesService/GetOfflineWideTableFeatureWatermarks",
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableFeatureWatermarksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.GetOfflineWideTableFeatureWatermarksResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SetOfflineWideTableFeatureWatermarks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineWideTablesService/SetOfflineWideTableFeatureWatermarks",
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.SetOfflineWideTableFeatureWatermarksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.SetOfflineWideTableFeatureWatermarksResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteOfflineWideTableFeatureWatermarks(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.OfflineWideTablesService/DeleteOfflineWideTableFeatureWatermarks",
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.DeleteOfflineWideTableFeatureWatermarksRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_offline__wide__tables__pb2.DeleteOfflineWideTableFeatureWatermarksResponse.FromString,
             options,
             channel_credentials,
             insecure,

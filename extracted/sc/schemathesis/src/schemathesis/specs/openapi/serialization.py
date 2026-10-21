@@ -6,16 +6,28 @@ from functools import partial
 from typing import Any
 from urllib.parse import quote
 
-from schemathesis.core.jsonschema import BUNDLE_STORAGE_KEY, maybe_resolve_bundled, schema_with_bundle
+from schemathesis.core import media_types
+from schemathesis.core.jsonschema import (
+    BUNDLE_STORAGE_KEY,
+    maybe_resolve_bundled,
+    resolve_with_root_bundle,
+    schema_with_bundle,
+)
 from schemathesis.core.parameters import RAW_QUERY_STRING_KEY, DelimitedValue, RawQueryString
 from schemathesis.core.transforms import to_wire_string
-from schemathesis.specs.openapi.checks import _COLLECTION_FORMAT_DELIMITERS
 from schemathesis.transport.serialization import Binary
 
 Generated = dict[str, Any]
 Definition = dict[str, Any]
 DefinitionList = list[Definition]
 MapFunction = Callable[[Generated], Generated]
+
+COLLECTION_FORMAT_DELIMITERS = {
+    "csv": ",",
+    "ssv": " ",
+    "tsv": "\t",
+    "pipes": "|",
+}
 
 
 def make_serializer(
@@ -165,7 +177,7 @@ def _serialize_querystring_openapi3(
     if media_type is None:
         return
 
-    if media_type == "application/x-www-form-urlencoded":
+    if media_types.is_form_urlencoded(media_type):
         yield _serialize_querystring_urlencoded(name, media_type_object)
     else:
         yield _serialize_querystring_other_media_type(name, media_type)
@@ -305,23 +317,15 @@ def _only_for_objects(map_function: Callable | None, name: str) -> Callable | No
     return _map
 
 
-def _resolved_with_bundle(node: dict[str, Any], bundled: Any) -> dict[str, Any]:
-    """Splice the parent's bundle map onto `node` so its `$ref` resolves."""
-    if isinstance(bundled, dict) and BUNDLE_STORAGE_KEY not in node and "$ref" in node:
-        node = {**node, BUNDLE_STORAGE_KEY: bundled}
-    return maybe_resolve_bundled(node)
-
-
 def _has_object_branch(schema: dict[str, Any] | None) -> bool:
     """Return True when `anyOf`/`oneOf`/`allOf` offers an object shape."""
     if not isinstance(schema, dict):
         return False
-    bundled = schema.get(BUNDLE_STORAGE_KEY)
     for keyword in ("anyOf", "oneOf", "allOf"):
         for branch in schema.get(keyword) or []:
             if not isinstance(branch, dict):
                 continue
-            resolved = _resolved_with_bundle(branch, bundled)
+            resolved = resolve_with_root_bundle(branch, schema)
             branch_type = resolved.get("type")
             if branch_type == "object" or (isinstance(branch_type, list) and "object" in branch_type):
                 return True
@@ -364,11 +368,10 @@ def _schema_has_nested_object_properties(schema: dict[str, Any] | None) -> bool:
     properties = schema.get("properties")
     if not isinstance(properties, Mapping):
         return False
-    bundled = schema.get(BUNDLE_STORAGE_KEY)
     for property_schema in properties.values():
         if not isinstance(property_schema, dict):
             continue
-        resolved = _resolved_with_bundle(property_schema, bundled)
+        resolved = resolve_with_root_bundle(property_schema, schema)
         property_type = resolved.get("type")
         if property_type == "object":
             return True
@@ -413,13 +416,13 @@ def _serialize_swagger2(definitions: DefinitionList) -> Generator[Callable | Non
             # Headers should be coerced to a string so we can check it for validity later
             yield to_string(name)
         if type_ in ("array", "object"):
-            outer = _COLLECTION_FORMAT_DELIMITERS.get(collection_format)
+            outer = COLLECTION_FORMAT_DELIMITERS.get(collection_format)
             if outer is None:
                 continue
             items = definition.get("items")
             if isinstance(items, dict) and items.get("type") == "array":
                 inner_format = items.get("collectionFormat", "csv")
-                inner = _COLLECTION_FORMAT_DELIMITERS.get(inner_format, ",")
+                inner = COLLECTION_FORMAT_DELIMITERS.get(inner_format, ",")
                 yield delimited_nested(name, outer=outer, inner=inner)
             elif location in ("query", "path"):
                 yield delimited_encoded(name, delimiter=outer)

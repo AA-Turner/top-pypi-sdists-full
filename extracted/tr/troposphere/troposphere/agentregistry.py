@@ -7,6 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
+from .validators import boolean
 
 
 class ApprovalConfiguration(AWSProperty):
@@ -16,6 +17,28 @@ class ApprovalConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "AutoApprovalRules": ([str], False),
+    }
+
+
+class RecordTypeSchemaOverride(AWSProperty):
+    """
+    `RecordTypeSchemaOverride <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-recordtypeschemaoverride.html>`__
+    """
+
+    props: PropsDictType = {
+        "RecordType": (str, True),
+        "Schema": (str, True),
+    }
+
+
+class CustomMetadataSchemaConfiguration(AWSProperty):
+    """
+    `CustomMetadataSchemaConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-custommetadataschemaconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DefaultSchema": (str, False),
+        "RecordTypeSchemaOverrides": ([RecordTypeSchemaOverride], False),
     }
 
 
@@ -87,6 +110,16 @@ class DiscoveryConfiguration(AWSProperty):
     }
 
 
+class EncryptionConfiguration(AWSProperty):
+    """
+    `EncryptionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registry-encryptionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "KmsKeyArn": (str, True),
+    }
+
+
 class Registry(AWSObject):
     """
     `Registry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-agentregistry-registry.html>`__
@@ -97,8 +130,12 @@ class Registry(AWSObject):
     props: PropsDictType = {
         "ApprovalConfiguration": (ApprovalConfiguration, False),
         "AuthorizerType": (str, False),
+        "AutoDetectionEnabled": (boolean, False),
+        "AutoDetectionScope": (str, False),
+        "CustomMetadataSchemaConfiguration": (CustomMetadataSchemaConfiguration, False),
         "Description": (str, False),
         "DiscoveryConfiguration": (DiscoveryConfiguration, False),
+        "EncryptionConfiguration": (EncryptionConfiguration, False),
         "Name": (str, True),
         "Tags": (Tags, False),
     }
@@ -348,6 +385,7 @@ class RegistryRecord(AWSObject):
     resource_type = "AWS::AgentRegistry::RegistryRecord"
 
     props: PropsDictType = {
+        "CustomMetadata": (dict, False),
         "Description": (str, False),
         "Descriptors": (Descriptors, True),
         "DisplayName": (str, False),

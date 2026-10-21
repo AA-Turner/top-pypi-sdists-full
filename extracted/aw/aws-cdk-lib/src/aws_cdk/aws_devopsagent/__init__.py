@@ -119,6 +119,18 @@ class CfnAgentSpace(
                     created_at="createdAt",
                     idc_application_arn="idcApplicationArn",
                     updated_at="updatedAt"
+                ),
+                idp=devopsagent.CfnAgentSpace.IdpAuthConfigurationProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                    issuer_url="issuerUrl",
+                    operator_app_role_arn="operatorAppRoleArn",
+                    provider="provider",
+        
+                    # the properties below are optional
+                    created_at="createdAt",
+                    updated_at="updatedAt",
+                    user_id_claim="userIdClaim"
                 )
             ),
             preferences=devopsagent.CfnAgentSpace.PreferencesProperty(
@@ -342,6 +354,33 @@ class CfnAgentSpace(
         :cloudformationAttribute: OperatorApp.Idc.UpdatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIdcUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIdpCreatedAt")
+    def attr_operator_app_idp_created_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OperatorApp.Idp.CreatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIdpCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIdpUpdatedAt")
+    def attr_operator_app_idp_updated_at(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: OperatorApp.Idp.UpdatedAt
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIdpUpdatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrOperatorAppIdpUserIdClaim")
+    def attr_operator_app_idp_user_id_claim(self) -> builtins.str:
+        '''The identity claim used to identify users.
+
+        This value is selected by the service for the configured provider.
+
+        :cloudformationAttribute: OperatorApp.Idp.UserIdClaim
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrOperatorAppIdpUserIdClaim"))
 
     @builtins.property
     @jsii.member(jsii_name="attrUpdatedAt")
@@ -678,9 +717,183 @@ class CfnAgentSpace(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.IdpAuthConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "client_id": "clientId",
+            "client_secret": "clientSecret",
+            "issuer_url": "issuerUrl",
+            "operator_app_role_arn": "operatorAppRoleArn",
+            "provider": "provider",
+            "created_at": "createdAt",
+            "updated_at": "updatedAt",
+            "user_id_claim": "userIdClaim",
+        },
+    )
+    class IdpAuthConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            client_id: builtins.str,
+            client_secret: builtins.str,
+            issuer_url: builtins.str,
+            operator_app_role_arn: builtins.str,
+            provider: builtins.str,
+            created_at: typing.Optional[builtins.str] = None,
+            updated_at: typing.Optional[builtins.str] = None,
+            user_id_claim: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''External identity provider configuration for the Operator App.
+
+            :param client_id: The OIDC client identifier for the external identity provider application.
+            :param client_secret: The OIDC client secret for the external identity provider application. Use a Secrets Manager dynamic reference to avoid storing the secret in the template.
+            :param issuer_url: The OIDC issuer URL for the external identity provider.
+            :param operator_app_role_arn: The IAM role that Operator App users assume to access DevOps Agent APIs.
+            :param provider: The external identity provider type.
+            :param created_at: 
+            :param updated_at: 
+            :param user_id_claim: The identity claim used to identify users. This value is selected by the service for the configured provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                idp_auth_configuration_property = devopsagent.CfnAgentSpace.IdpAuthConfigurationProperty(
+                    client_id="clientId",
+                    client_secret="clientSecret",
+                    issuer_url="issuerUrl",
+                    operator_app_role_arn="operatorAppRoleArn",
+                    provider="provider",
+                
+                    # the properties below are optional
+                    created_at="createdAt",
+                    updated_at="updatedAt",
+                    user_id_claim="userIdClaim"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ee786b1a7fd639a96dd58c781bcd3ffcf2be82dfb461577c939067a7ac36b1fd)
+                check_type(argname="argument client_id", value=client_id, expected_type=type_hints["client_id"])
+                check_type(argname="argument client_secret", value=client_secret, expected_type=type_hints["client_secret"])
+                check_type(argname="argument issuer_url", value=issuer_url, expected_type=type_hints["issuer_url"])
+                check_type(argname="argument operator_app_role_arn", value=operator_app_role_arn, expected_type=type_hints["operator_app_role_arn"])
+                check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
+                check_type(argname="argument created_at", value=created_at, expected_type=type_hints["created_at"])
+                check_type(argname="argument updated_at", value=updated_at, expected_type=type_hints["updated_at"])
+                check_type(argname="argument user_id_claim", value=user_id_claim, expected_type=type_hints["user_id_claim"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "client_id": client_id,
+                "client_secret": client_secret,
+                "issuer_url": issuer_url,
+                "operator_app_role_arn": operator_app_role_arn,
+                "provider": provider,
+            }
+            if created_at is not None:
+                self._values["created_at"] = created_at
+            if updated_at is not None:
+                self._values["updated_at"] = updated_at
+            if user_id_claim is not None:
+                self._values["user_id_claim"] = user_id_claim
+
+        @builtins.property
+        def client_id(self) -> builtins.str:
+            '''The OIDC client identifier for the external identity provider application.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-clientid
+            '''
+            result = self._values.get("client_id")
+            assert result is not None, "Required property 'client_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def client_secret(self) -> builtins.str:
+            '''The OIDC client secret for the external identity provider application.
+
+            Use a Secrets Manager dynamic reference to avoid storing the secret in the template.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-clientsecret
+            '''
+            result = self._values.get("client_secret")
+            assert result is not None, "Required property 'client_secret' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def issuer_url(self) -> builtins.str:
+            '''The OIDC issuer URL for the external identity provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-issuerurl
+            '''
+            result = self._values.get("issuer_url")
+            assert result is not None, "Required property 'issuer_url' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def operator_app_role_arn(self) -> builtins.str:
+            '''The IAM role that Operator App users assume to access DevOps Agent APIs.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-operatorapprolearn
+            '''
+            result = self._values.get("operator_app_role_arn")
+            assert result is not None, "Required property 'operator_app_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def provider(self) -> builtins.str:
+            '''The external identity provider type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-provider
+            '''
+            result = self._values.get("provider")
+            assert result is not None, "Required property 'provider' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def created_at(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-createdat
+            '''
+            result = self._values.get("created_at")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def updated_at(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-updatedat
+            '''
+            result = self._values.get("updated_at")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def user_id_claim(self) -> typing.Optional[builtins.str]:
+            '''The identity claim used to identify users.
+
+            This value is selected by the service for the configured provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-idpauthconfiguration.html#cfn-devopsagent-agentspace-idpauthconfiguration-useridclaim
+            '''
+            result = self._values.get("user_id_claim")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "IdpAuthConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAgentSpace.OperatorAppProperty",
         jsii_struct_bases=[],
-        name_mapping={"iam": "iam", "idc": "idc"},
+        name_mapping={"iam": "iam", "idc": "idc", "idp": "idp"},
     )
     class OperatorAppProperty:
         def __init__(
@@ -688,10 +901,12 @@ class CfnAgentSpace(
             *,
             iam: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentSpace.IamAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             idc: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentSpace.IdcAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            idp: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAgentSpace.IdpAuthConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param iam: 
             :param idc: 
+            :param idp: External identity provider configuration for the Operator App.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-operatorapp.html
             :exampleMetadata: fixture=_generated
@@ -718,6 +933,18 @@ class CfnAgentSpace(
                         created_at="createdAt",
                         idc_application_arn="idcApplicationArn",
                         updated_at="updatedAt"
+                    ),
+                    idp=devopsagent.CfnAgentSpace.IdpAuthConfigurationProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        issuer_url="issuerUrl",
+                        operator_app_role_arn="operatorAppRoleArn",
+                        provider="provider",
+                
+                        # the properties below are optional
+                        created_at="createdAt",
+                        updated_at="updatedAt",
+                        user_id_claim="userIdClaim"
                     )
                 )
             '''
@@ -725,11 +952,14 @@ class CfnAgentSpace(
                 type_hints = cached_type_hints(_typecheckingstub__163f48e2381f16154d3ed1a507d7fa1b64898c9ada42152eb65e4a5a869c805c)
                 check_type(argname="argument iam", value=iam, expected_type=type_hints["iam"])
                 check_type(argname="argument idc", value=idc, expected_type=type_hints["idc"])
+                check_type(argname="argument idp", value=idp, expected_type=type_hints["idp"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if iam is not None:
                 self._values["iam"] = iam
             if idc is not None:
                 self._values["idc"] = idc
+            if idp is not None:
+                self._values["idp"] = idp
 
         @builtins.property
         def iam(
@@ -750,6 +980,17 @@ class CfnAgentSpace(
             '''
             result = self._values.get("idc")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.IdcAuthConfigurationProperty"]], result)
+
+        @builtins.property
+        def idp(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.IdpAuthConfigurationProperty"]]:
+            '''External identity provider configuration for the Operator App.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-agentspace-operatorapp.html#cfn-devopsagent-agentspace-operatorapp-idp
+            '''
+            result = self._values.get("idp")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAgentSpace.IdpAuthConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -892,6 +1133,18 @@ class CfnAgentSpaceProps:
                         created_at="createdAt",
                         idc_application_arn="idcApplicationArn",
                         updated_at="updatedAt"
+                    ),
+                    idp=devopsagent.CfnAgentSpace.IdpAuthConfigurationProperty(
+                        client_id="clientId",
+                        client_secret="clientSecret",
+                        issuer_url="issuerUrl",
+                        operator_app_role_arn="operatorAppRoleArn",
+                        provider="provider",
+            
+                        # the properties below are optional
+                        created_at="createdAt",
+                        updated_at="updatedAt",
+                        user_id_claim="userIdClaim"
                     )
                 ),
                 preferences=devopsagent.CfnAgentSpace.PreferencesProperty(
@@ -1569,6 +1822,7 @@ class CfnAssociation(
                     assumable_role_arn="assumableRoleArn",
         
                     # the properties below are optional
+                    agent_elevated_role_arn="agentElevatedRoleArn",
                     resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                         resource_arn="resourceArn",
         
@@ -1619,6 +1873,7 @@ class CfnAssociation(
                 ),
                 mcp_server_datadog=devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
                     description="description",
+                    enabled_elevated_tools=["enabledElevatedTools"],
                     enable_webhook_updates=False,
                     endpoint="endpoint",
                     name="name"
@@ -1627,6 +1882,7 @@ class CfnAssociation(
                     endpoint="endpoint",
         
                     # the properties below are optional
+                    enabled_elevated_tools=["enabledElevatedTools"],
                     enable_webhook_updates=False,
                     tools=["tools"]
                 ),
@@ -1664,7 +1920,15 @@ class CfnAssociation(
                         )
                     ),
                     workspace_id="workspaceId",
-                    workspace_name="workspaceName"
+                    workspace_name="workspaceName",
+        
+                    # the properties below are optional
+                    bidirectional=devopsagent.CfnAssociation.SlackBidirectionalConfigurationProperty(
+                        role_arn="roleArn",
+        
+                        # the properties below are optional
+                        enabled=False
+                    )
                 ),
                 source_aws=devopsagent.CfnAssociation.SourceAwsConfigurationProperty(
                     account_id="accountId",
@@ -1672,6 +1936,7 @@ class CfnAssociation(
                     assumable_role_arn="assumableRoleArn",
         
                     # the properties below are optional
+                    agent_elevated_role_arn="agentElevatedRoleArn",
                     resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                         resource_arn="resourceArn",
         
@@ -1876,6 +2141,7 @@ class CfnAssociation(
             "account_id": "accountId",
             "account_type": "accountType",
             "assumable_role_arn": "assumableRoleArn",
+            "agent_elevated_role_arn": "agentElevatedRoleArn",
             "resources": "resources",
             "tags": "tags",
         },
@@ -1887,6 +2153,7 @@ class CfnAssociation(
             account_id: builtins.str,
             account_type: builtins.str,
             assumable_role_arn: builtins.str,
+            agent_elevated_role_arn: typing.Optional[builtins.str] = None,
             resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.AWSResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             tags: typing.Optional[typing.Sequence[typing.Union["CfnAssociation.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -1897,6 +2164,7 @@ class CfnAssociation(
             :param account_id: Account ID corresponding to the provided resources.
             :param account_type: Account Type 'monitor' for AWS DevOps Agent monitoring.
             :param assumable_role_arn: Role ARN used by AWS DevOps Agent to access resources in the primary account.
+            :param agent_elevated_role_arn: The IAM role that AWS DevOps Agent assumes to perform elevated directed actions in this AWS account. Elevated actions also require ElevatedActionsEnabled to be set in the Preferences of the AgentSpace. When not provided, only non-elevated directed actions are available. Removing this property from the template clears the role on update. Setting this role is subject to the same iam:PassRole requirement as AssumableRoleArn.
             :param resources: List of resources to monitor.
             :param tags: List of tags as key-value pairs, used to identify resources for topology crawl.
 
@@ -1917,6 +2185,7 @@ class CfnAssociation(
                     assumable_role_arn="assumableRoleArn",
                 
                     # the properties below are optional
+                    agent_elevated_role_arn="agentElevatedRoleArn",
                     resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                         resource_arn="resourceArn",
                 
@@ -1935,6 +2204,7 @@ class CfnAssociation(
                 check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
                 check_type(argname="argument account_type", value=account_type, expected_type=type_hints["account_type"])
                 check_type(argname="argument assumable_role_arn", value=assumable_role_arn, expected_type=type_hints["assumable_role_arn"])
+                check_type(argname="argument agent_elevated_role_arn", value=agent_elevated_role_arn, expected_type=type_hints["agent_elevated_role_arn"])
                 check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
                 check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1942,6 +2212,8 @@ class CfnAssociation(
                 "account_type": account_type,
                 "assumable_role_arn": assumable_role_arn,
             }
+            if agent_elevated_role_arn is not None:
+                self._values["agent_elevated_role_arn"] = agent_elevated_role_arn
             if resources is not None:
                 self._values["resources"] = resources
             if tags is not None:
@@ -1976,6 +2248,17 @@ class CfnAssociation(
             result = self._values.get("assumable_role_arn")
             assert result is not None, "Required property 'assumable_role_arn' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def agent_elevated_role_arn(self) -> typing.Optional[builtins.str]:
+            '''The IAM role that AWS DevOps Agent assumes to perform elevated directed actions in this AWS account.
+
+            Elevated actions also require ElevatedActionsEnabled to be set in the Preferences of the AgentSpace. When not provided, only non-elevated directed actions are available. Removing this property from the template clears the role on update. Setting this role is subject to the same iam:PassRole requirement as AssumableRoleArn.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-awsconfiguration.html#cfn-devopsagent-association-awsconfiguration-agentelevatedrolearn
+            '''
+            result = self._values.get("agent_elevated_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def resources(
@@ -2732,6 +3015,7 @@ class CfnAssociation(
         jsii_struct_bases=[],
         name_mapping={
             "description": "description",
+            "enabled_elevated_tools": "enabledElevatedTools",
             "enable_webhook_updates": "enableWebhookUpdates",
             "endpoint": "endpoint",
             "name": "name",
@@ -2742,6 +3026,7 @@ class CfnAssociation(
             self,
             *,
             description: typing.Optional[builtins.str] = None,
+            enabled_elevated_tools: typing.Optional[typing.Sequence[builtins.str]] = None,
             enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             endpoint: typing.Optional[builtins.str] = None,
             name: typing.Optional[builtins.str] = None,
@@ -2751,6 +3036,7 @@ class CfnAssociation(
             Defines the server name, endpoint URL, optional description, and webhook update settings.
 
             :param description: The description of the MCP server.
+            :param enabled_elevated_tools: The mutative MCP tools enabled for this integration, by tool name. Only tools the service classifies as MUTATIVE may be listed; other names are rejected. Tool names can be found in the console or from the association's current configuration. The list fully replaces the stored value on update: removing a name disables that tool, and removing the property disables all elevated tools.
             :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
             :param endpoint: MCP server endpoint URL.
             :param name: The name of the MCP server.
@@ -2766,6 +3052,7 @@ class CfnAssociation(
                 
                 m_cp_server_datadog_configuration_property = devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
                     description="description",
+                    enabled_elevated_tools=["enabledElevatedTools"],
                     enable_webhook_updates=False,
                     endpoint="endpoint",
                     name="name"
@@ -2774,12 +3061,15 @@ class CfnAssociation(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__94bdd66d2ae6508b6fa75de77b1b7bd044d6bf7b9e0c60cb573f57ca7faa1817)
                 check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+                check_type(argname="argument enabled_elevated_tools", value=enabled_elevated_tools, expected_type=type_hints["enabled_elevated_tools"])
                 check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
                 check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
                 check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if description is not None:
                 self._values["description"] = description
+            if enabled_elevated_tools is not None:
+                self._values["enabled_elevated_tools"] = enabled_elevated_tools
             if enable_webhook_updates is not None:
                 self._values["enable_webhook_updates"] = enable_webhook_updates
             if endpoint is not None:
@@ -2795,6 +3085,17 @@ class CfnAssociation(
             '''
             result = self._values.get("description")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def enabled_elevated_tools(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The mutative MCP tools enabled for this integration, by tool name.
+
+            Only tools the service classifies as MUTATIVE may be listed; other names are rejected. Tool names can be found in the console or from the association's current configuration. The list fully replaces the stored value on update: removing a name disables that tool, and removing the property disables all elevated tools.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserverdatadogconfiguration.html#cfn-devopsagent-association-mcpserverdatadogconfiguration-enabledelevatedtools
+            '''
+            result = self._values.get("enabled_elevated_tools")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def enable_webhook_updates(
@@ -2841,6 +3142,7 @@ class CfnAssociation(
         jsii_struct_bases=[],
         name_mapping={
             "endpoint": "endpoint",
+            "enabled_elevated_tools": "enabledElevatedTools",
             "enable_webhook_updates": "enableWebhookUpdates",
             "tools": "tools",
         },
@@ -2850,12 +3152,14 @@ class CfnAssociation(
             self,
             *,
             endpoint: builtins.str,
+            enabled_elevated_tools: typing.Optional[typing.Sequence[builtins.str]] = None,
             enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             tools: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''Grafana MCP server configuration.
 
             :param endpoint: MCP server endpoint URL.
+            :param enabled_elevated_tools: The mutative MCP tools enabled for this integration, by tool name. Only tools the service classifies as MUTATIVE may be listed; other names are rejected. Tool names can be found in the console or from the association's current configuration. The list fully replaces the stored value on update: removing a name disables that tool, and removing the property disables all elevated tools. Independent of Tools, which selects the toolsets available to the agent.
             :param enable_webhook_updates: When set to true, enables the Agent Space to create and update webhooks for receiving notifications and events from the service.
             :param tools: List of tool categories to enable for the Grafana MCP server.
 
@@ -2872,6 +3176,7 @@ class CfnAssociation(
                     endpoint="endpoint",
                 
                     # the properties below are optional
+                    enabled_elevated_tools=["enabledElevatedTools"],
                     enable_webhook_updates=False,
                     tools=["tools"]
                 )
@@ -2879,11 +3184,14 @@ class CfnAssociation(
             if __debug__:
                 type_hints = cached_type_hints(_typecheckingstub__11b54af8958257d89911b20127cdb2d75dbd71fbc0701cc26c88f75e1cdec153)
                 check_type(argname="argument endpoint", value=endpoint, expected_type=type_hints["endpoint"])
+                check_type(argname="argument enabled_elevated_tools", value=enabled_elevated_tools, expected_type=type_hints["enabled_elevated_tools"])
                 check_type(argname="argument enable_webhook_updates", value=enable_webhook_updates, expected_type=type_hints["enable_webhook_updates"])
                 check_type(argname="argument tools", value=tools, expected_type=type_hints["tools"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "endpoint": endpoint,
             }
+            if enabled_elevated_tools is not None:
+                self._values["enabled_elevated_tools"] = enabled_elevated_tools
             if enable_webhook_updates is not None:
                 self._values["enable_webhook_updates"] = enable_webhook_updates
             if tools is not None:
@@ -2898,6 +3206,17 @@ class CfnAssociation(
             result = self._values.get("endpoint")
             assert result is not None, "Required property 'endpoint' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def enabled_elevated_tools(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The mutative MCP tools enabled for this integration, by tool name.
+
+            Only tools the service classifies as MUTATIVE may be listed; other names are rejected. Tool names can be found in the console or from the association's current configuration. The list fully replaces the stored value on update: removing a name disables that tool, and removing the property disables all elevated tools. Independent of Tools, which selects the toolsets available to the agent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpservergrafanaconfiguration.html#cfn-devopsagent-association-mcpservergrafanaconfiguration-enabledelevatedtools
+            '''
+            result = self._values.get("enabled_elevated_tools")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         @builtins.property
         def enable_webhook_updates(
@@ -3335,6 +3654,7 @@ class CfnAssociation(
                         assumable_role_arn="assumableRoleArn",
                 
                         # the properties below are optional
+                        agent_elevated_role_arn="agentElevatedRoleArn",
                         resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                             resource_arn="resourceArn",
                 
@@ -3385,6 +3705,7 @@ class CfnAssociation(
                     ),
                     mcp_server_datadog=devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
                         description="description",
+                        enabled_elevated_tools=["enabledElevatedTools"],
                         enable_webhook_updates=False,
                         endpoint="endpoint",
                         name="name"
@@ -3393,6 +3714,7 @@ class CfnAssociation(
                         endpoint="endpoint",
                 
                         # the properties below are optional
+                        enabled_elevated_tools=["enabledElevatedTools"],
                         enable_webhook_updates=False,
                         tools=["tools"]
                     ),
@@ -3430,7 +3752,15 @@ class CfnAssociation(
                             )
                         ),
                         workspace_id="workspaceId",
-                        workspace_name="workspaceName"
+                        workspace_name="workspaceName",
+                
+                        # the properties below are optional
+                        bidirectional=devopsagent.CfnAssociation.SlackBidirectionalConfigurationProperty(
+                            role_arn="roleArn",
+                
+                            # the properties below are optional
+                            enabled=False
+                        )
                     ),
                     source_aws=devopsagent.CfnAssociation.SourceAwsConfigurationProperty(
                         account_id="accountId",
@@ -3438,6 +3768,7 @@ class CfnAssociation(
                         assumable_role_arn="assumableRoleArn",
                 
                         # the properties below are optional
+                        agent_elevated_role_arn="agentElevatedRoleArn",
                         resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                             resource_arn="resourceArn",
                 
@@ -3793,6 +4124,85 @@ class CfnAssociation(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.SlackBidirectionalConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"role_arn": "roleArn", "enabled": "enabled"},
+    )
+    class SlackBidirectionalConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            role_arn: builtins.str,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        ) -> None:
+            '''Optional bidirectional communication configuration.
+
+            Supply this configuration and set Enabled to true so you can interact with the agent directly from Slack
+
+            :param role_arn: IAM role ARN that AWS DevOps Agent assumes to exchange messages with your Slack workspace on behalf of this association.
+            :param enabled: Whether bidirectional communication is enabled for this association. When set to true, you can mention the agent in a configured Slack channel and it responds in that channel. When omitted or set to false, the agent ignores mentions and only sends notifications
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-slackbidirectionalconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                slack_bidirectional_configuration_property = devopsagent.CfnAssociation.SlackBidirectionalConfigurationProperty(
+                    role_arn="roleArn",
+                
+                    # the properties below are optional
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__afb6e9c71bc184d8318bbad52e38df15d5bf59d8cc71a2a721cc2840bf4d2c43)
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "role_arn": role_arn,
+            }
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''IAM role ARN that AWS DevOps Agent assumes to exchange messages with your Slack workspace on behalf of this association.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-slackbidirectionalconfiguration.html#cfn-devopsagent-association-slackbidirectionalconfiguration-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+            '''Whether bidirectional communication is enabled for this association.
+
+            When set to true, you can mention the agent in a configured Slack channel and it responds in that channel. When omitted or set to false, the agent ignores mentions and only sends notifications
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-slackbidirectionalconfiguration.html#cfn-devopsagent-association-slackbidirectionalconfiguration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SlackBidirectionalConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnAssociation.SlackChannelProperty",
         jsii_struct_bases=[],
         name_mapping={"channel_id": "channelId", "channel_name": "channelName"},
@@ -3872,6 +4282,7 @@ class CfnAssociation(
             "transmission_target": "transmissionTarget",
             "workspace_id": "workspaceId",
             "workspace_name": "workspaceName",
+            "bidirectional": "bidirectional",
         },
     )
     class SlackConfigurationProperty:
@@ -3881,6 +4292,7 @@ class CfnAssociation(
             transmission_target: typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.SlackTransmissionTargetProperty", typing.Dict[builtins.str, typing.Any]]],
             workspace_id: builtins.str,
             workspace_name: builtins.str,
+            bidirectional: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.SlackBidirectionalConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration for Slack workspace integration.
 
@@ -3889,6 +4301,7 @@ class CfnAssociation(
             :param transmission_target: Transmission targets for agent notifications.
             :param workspace_id: Associated Slack workspace ID.
             :param workspace_name: Associated Slack workspace name.
+            :param bidirectional: Optional bidirectional communication configuration. Supply this configuration and set Enabled to true so you can interact with the agent directly from Slack
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-slackconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -3909,7 +4322,15 @@ class CfnAssociation(
                         )
                     ),
                     workspace_id="workspaceId",
-                    workspace_name="workspaceName"
+                    workspace_name="workspaceName",
+                
+                    # the properties below are optional
+                    bidirectional=devopsagent.CfnAssociation.SlackBidirectionalConfigurationProperty(
+                        role_arn="roleArn",
+                
+                        # the properties below are optional
+                        enabled=False
+                    )
                 )
             '''
             if __debug__:
@@ -3917,11 +4338,14 @@ class CfnAssociation(
                 check_type(argname="argument transmission_target", value=transmission_target, expected_type=type_hints["transmission_target"])
                 check_type(argname="argument workspace_id", value=workspace_id, expected_type=type_hints["workspace_id"])
                 check_type(argname="argument workspace_name", value=workspace_name, expected_type=type_hints["workspace_name"])
+                check_type(argname="argument bidirectional", value=bidirectional, expected_type=type_hints["bidirectional"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "transmission_target": transmission_target,
                 "workspace_id": workspace_id,
                 "workspace_name": workspace_name,
             }
+            if bidirectional is not None:
+                self._values["bidirectional"] = bidirectional
 
         @builtins.property
         def transmission_target(
@@ -3954,6 +4378,19 @@ class CfnAssociation(
             result = self._values.get("workspace_name")
             assert result is not None, "Required property 'workspace_name' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def bidirectional(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.SlackBidirectionalConfigurationProperty"]]:
+            '''Optional bidirectional communication configuration.
+
+            Supply this configuration and set Enabled to true so you can interact with the agent directly from Slack
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-slackconfiguration.html#cfn-devopsagent-association-slackconfiguration-bidirectional
+            '''
+            result = self._values.get("bidirectional")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnAssociation.SlackBidirectionalConfigurationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4036,6 +4473,7 @@ class CfnAssociation(
             "account_id": "accountId",
             "account_type": "accountType",
             "assumable_role_arn": "assumableRoleArn",
+            "agent_elevated_role_arn": "agentElevatedRoleArn",
             "resources": "resources",
             "tags": "tags",
         },
@@ -4047,6 +4485,7 @@ class CfnAssociation(
             account_id: builtins.str,
             account_type: builtins.str,
             assumable_role_arn: builtins.str,
+            agent_elevated_role_arn: typing.Optional[builtins.str] = None,
             resources: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnAssociation.AWSResourceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             tags: typing.Optional[typing.Sequence[typing.Union["CfnAssociation.KeyValuePairProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -4057,6 +4496,7 @@ class CfnAssociation(
             :param account_id: Account ID corresponding to the provided resources.
             :param account_type: Account Type 'source' for AWS DevOps Agent monitoring.
             :param assumable_role_arn: Role ARN to be assumed by AWS DevOps Agent to operate on behalf of customer.
+            :param agent_elevated_role_arn: The IAM role that AWS DevOps Agent assumes to perform elevated directed actions in this AWS account. Elevated actions also require ElevatedActionsEnabled to be set in the Preferences of the AgentSpace. When not provided, only non-elevated directed actions are available. Removing this property from the template clears the role on update. Setting this role is subject to the same iam:PassRole requirement as AssumableRoleArn.
             :param resources: List of resources to monitor.
             :param tags: List of tags as key-value pairs, used to identify resources for topology crawl.
 
@@ -4077,6 +4517,7 @@ class CfnAssociation(
                     assumable_role_arn="assumableRoleArn",
                 
                     # the properties below are optional
+                    agent_elevated_role_arn="agentElevatedRoleArn",
                     resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                         resource_arn="resourceArn",
                 
@@ -4095,6 +4536,7 @@ class CfnAssociation(
                 check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
                 check_type(argname="argument account_type", value=account_type, expected_type=type_hints["account_type"])
                 check_type(argname="argument assumable_role_arn", value=assumable_role_arn, expected_type=type_hints["assumable_role_arn"])
+                check_type(argname="argument agent_elevated_role_arn", value=agent_elevated_role_arn, expected_type=type_hints["agent_elevated_role_arn"])
                 check_type(argname="argument resources", value=resources, expected_type=type_hints["resources"])
                 check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4102,6 +4544,8 @@ class CfnAssociation(
                 "account_type": account_type,
                 "assumable_role_arn": assumable_role_arn,
             }
+            if agent_elevated_role_arn is not None:
+                self._values["agent_elevated_role_arn"] = agent_elevated_role_arn
             if resources is not None:
                 self._values["resources"] = resources
             if tags is not None:
@@ -4136,6 +4580,17 @@ class CfnAssociation(
             result = self._values.get("assumable_role_arn")
             assert result is not None, "Required property 'assumable_role_arn' is missing"
             return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def agent_elevated_role_arn(self) -> typing.Optional[builtins.str]:
+            '''The IAM role that AWS DevOps Agent assumes to perform elevated directed actions in this AWS account.
+
+            Elevated actions also require ElevatedActionsEnabled to be set in the Preferences of the AgentSpace. When not provided, only non-elevated directed actions are available. Removing this property from the template clears the role on update. Setting this role is subject to the same iam:PassRole requirement as AssumableRoleArn.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-sourceawsconfiguration.html#cfn-devopsagent-association-sourceawsconfiguration-agentelevatedrolearn
+            '''
+            result = self._values.get("agent_elevated_role_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def resources(
@@ -4217,6 +4672,7 @@ class CfnAssociationProps:
                         assumable_role_arn="assumableRoleArn",
             
                         # the properties below are optional
+                        agent_elevated_role_arn="agentElevatedRoleArn",
                         resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                             resource_arn="resourceArn",
             
@@ -4267,6 +4723,7 @@ class CfnAssociationProps:
                     ),
                     mcp_server_datadog=devopsagent.CfnAssociation.MCPServerDatadogConfigurationProperty(
                         description="description",
+                        enabled_elevated_tools=["enabledElevatedTools"],
                         enable_webhook_updates=False,
                         endpoint="endpoint",
                         name="name"
@@ -4275,6 +4732,7 @@ class CfnAssociationProps:
                         endpoint="endpoint",
             
                         # the properties below are optional
+                        enabled_elevated_tools=["enabledElevatedTools"],
                         enable_webhook_updates=False,
                         tools=["tools"]
                     ),
@@ -4312,7 +4770,15 @@ class CfnAssociationProps:
                             )
                         ),
                         workspace_id="workspaceId",
-                        workspace_name="workspaceName"
+                        workspace_name="workspaceName",
+            
+                        # the properties below are optional
+                        bidirectional=devopsagent.CfnAssociation.SlackBidirectionalConfigurationProperty(
+                            role_arn="roleArn",
+            
+                            # the properties below are optional
+                            enabled=False
+                        )
                     ),
                     source_aws=devopsagent.CfnAssociation.SourceAwsConfigurationProperty(
                         account_id="accountId",
@@ -4320,6 +4786,7 @@ class CfnAssociationProps:
                         assumable_role_arn="assumableRoleArn",
             
                         # the properties below are optional
+                        agent_elevated_role_arn="agentElevatedRoleArn",
                         resources=[devopsagent.CfnAssociation.AWSResourceProperty(
                             resource_arn="resourceArn",
             
@@ -5133,6 +5600,7 @@ class CfnService(
             # the properties below are optional
             exchange_url_private_connection_name="exchangeUrlPrivateConnectionName",
             kms_key_arn="kmsKeyArn",
+            name="name",
             private_connection_name="privateConnectionName",
             service_details=devopsagent.CfnService.ServiceDetailsProperty(
                 azure_identity=devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
@@ -5154,6 +5622,23 @@ class CfnService(
                             client_name="clientName",
                             exchange_parameters=exchange_parameters
                         )
+                    )
+                ),
+                git_hub=devopsagent.CfnService.GitHubDetailsProperty(
+                    app_verification=devopsagent.CfnService.GitHubAppVerificationDetailsProperty(
+                        app_variant="appVariant",
+                        token_value="tokenValue",
+        
+                        # the properties below are optional
+                        organization_name="organizationName",
+                        target_url="targetUrl"
+                    ),
+                    direct_access=devopsagent.CfnService.GitHubPatDetailsProperty(
+                        token_value="tokenValue",
+        
+                        # the properties below are optional
+                        organization_name="organizationName",
+                        target_url="targetUrl"
                     )
                 ),
                 git_lab=devopsagent.CfnService.GitLabDetailsProperty(
@@ -5304,6 +5789,7 @@ class CfnService(
         service_type: builtins.str,
         exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
         private_connection_name: typing.Optional[builtins.str] = None,
         service_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5316,6 +5802,7 @@ class CfnService(
         :param service_type: The type of service being registered.
         :param exchange_url_private_connection_name: The name of the private connection to use for OAuth token exchange requests only. Cannot be specified when PrivateConnectionName is provided.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
+        :param name: The display name for the service registration.
         :param private_connection_name: The name of the private connection to use for VPC connectivity.
         :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
@@ -5329,6 +5816,7 @@ class CfnService(
             service_type=service_type,
             exchange_url_private_connection_name=exchange_url_private_connection_name,
             kms_key_arn=kms_key_arn,
+            name=name,
             private_connection_name=private_connection_name,
             service_details=service_details,
             tags=tags,
@@ -5536,6 +6024,19 @@ class CfnService(
         jsii.set(self, "kmsKeyArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The display name for the service registration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__05e87b85ed328732cfab4a9ce3102addf2e91fdd671861c82f5e90955082a8d4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="privateConnectionName")
     def private_connection_name(self) -> typing.Optional[builtins.str]:
         '''The name of the private connection to use for VPC connectivity.'''
@@ -5604,6 +6105,7 @@ class CfnService(
         name_mapping={
             "azure_identity": "azureIdentity",
             "dynatrace": "dynatrace",
+            "git_hub": "gitHub",
             "git_lab": "gitLab",
             "mcp_server": "mcpServer",
             "mcp_server_grafana": "mcpServerGrafana",
@@ -5620,6 +6122,7 @@ class CfnService(
             *,
             azure_identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.RegisteredAzureIdentityDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dynatrace: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.RegisteredDynatraceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            git_hub: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.RegisteredGitHubServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             git_lab: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.RegisteredGitLabServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.RegisteredMCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_grafana: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.RegisteredMCPServerGrafanaDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -5632,6 +6135,7 @@ class CfnService(
             '''
             :param azure_identity: Azure Identity service details returned after registration.
             :param dynatrace: Dynatrace service details returned after registration.
+            :param git_hub: GitHub service details returned after registration.
             :param git_lab: GitLab service details returned after registration.
             :param mcp_server: MCP server details returned after registration.
             :param mcp_server_grafana: Grafana MCP server details returned after registration.
@@ -5659,6 +6163,16 @@ class CfnService(
                     ),
                     dynatrace=devopsagent.CfnService.RegisteredDynatraceDetailsProperty(
                         account_urn="accountUrn"
+                    ),
+                    git_hub=devopsagent.CfnService.RegisteredGitHubServiceDetailsProperty(
+                        owner="owner",
+                        owner_type="ownerType",
+                
+                        # the properties below are optional
+                        app_variant="appVariant",
+                        auth_mode="authMode",
+                        hosting_type="hostingType",
+                        target_url="targetUrl"
                     ),
                     git_lab=devopsagent.CfnService.RegisteredGitLabServiceDetailsProperty(
                         target_url="targetUrl",
@@ -5726,6 +6240,7 @@ class CfnService(
                 type_hints = cached_type_hints(_typecheckingstub__35d2aa127fac97efcf9f5ae815fbac6244f4de11a1b85beb8acc053b8eb8edee)
                 check_type(argname="argument azure_identity", value=azure_identity, expected_type=type_hints["azure_identity"])
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
+                check_type(argname="argument git_hub", value=git_hub, expected_type=type_hints["git_hub"])
                 check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
                 check_type(argname="argument mcp_server_grafana", value=mcp_server_grafana, expected_type=type_hints["mcp_server_grafana"])
@@ -5739,6 +6254,8 @@ class CfnService(
                 self._values["azure_identity"] = azure_identity
             if dynatrace is not None:
                 self._values["dynatrace"] = dynatrace
+            if git_hub is not None:
+                self._values["git_hub"] = git_hub
             if git_lab is not None:
                 self._values["git_lab"] = git_lab
             if mcp_server is not None:
@@ -5777,6 +6294,17 @@ class CfnService(
             '''
             result = self._values.get("dynatrace")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.RegisteredDynatraceDetailsProperty"]], result)
+
+        @builtins.property
+        def git_hub(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.RegisteredGitHubServiceDetailsProperty"]]:
+            '''GitHub service details returned after registration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-additionalservicedetails.html#cfn-devopsagent-service-additionalservicedetails-github
+            '''
+            result = self._values.get("git_hub")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.RegisteredGitHubServiceDetailsProperty"]], result)
 
         @builtins.property
         def git_lab(
@@ -6319,6 +6847,307 @@ class CfnService(
 
         def __repr__(self) -> str:
             return "DynatraceServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.GitHubAppVerificationDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "app_variant": "appVariant",
+            "token_value": "tokenValue",
+            "organization_name": "organizationName",
+            "target_url": "targetUrl",
+        },
+    )
+    class GitHubAppVerificationDetailsProperty:
+        def __init__(
+            self,
+            *,
+            app_variant: builtins.str,
+            token_value: builtins.str,
+            organization_name: typing.Optional[builtins.str] = None,
+            target_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The token verifies an existing DevOps Agent GitHub App installation on github.com and is then discarded. Not supported for GitHub Enterprise Server.
+
+            :param app_variant: Permission variant of the DevOps Agent GitHub App that must already be installed on the organization or account.
+            :param token_value: GitHub personal access token (PAT) value. Accepts classic PATs (ghp_...), fine-grained PATs (github_pat_...), and GitHub Enterprise Server token formats
+            :param organization_name: GitHub organization to scope the service to. The token must be an active member of the organization and only that organization's repositories are accessible. Omit to register the token's own user account
+            :param target_url: GitHub instance URL. Omit for github.com. Provide the instance host for GitHub Enterprise Server or GitHub Enterprise Cloud with data residency (e.g. https://github.example.com)
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubappverificationdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                git_hub_app_verification_details_property = devopsagent.CfnService.GitHubAppVerificationDetailsProperty(
+                    app_variant="appVariant",
+                    token_value="tokenValue",
+                
+                    # the properties below are optional
+                    organization_name="organizationName",
+                    target_url="targetUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__5816c753fe1711062701cdebc7b0f7ad133138e5f8fc4f6ea25dca150dac6853)
+                check_type(argname="argument app_variant", value=app_variant, expected_type=type_hints["app_variant"])
+                check_type(argname="argument token_value", value=token_value, expected_type=type_hints["token_value"])
+                check_type(argname="argument organization_name", value=organization_name, expected_type=type_hints["organization_name"])
+                check_type(argname="argument target_url", value=target_url, expected_type=type_hints["target_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "app_variant": app_variant,
+                "token_value": token_value,
+            }
+            if organization_name is not None:
+                self._values["organization_name"] = organization_name
+            if target_url is not None:
+                self._values["target_url"] = target_url
+
+        @builtins.property
+        def app_variant(self) -> builtins.str:
+            '''Permission variant of the DevOps Agent GitHub App that must already be installed on the organization or account.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubappverificationdetails.html#cfn-devopsagent-service-githubappverificationdetails-appvariant
+            '''
+            result = self._values.get("app_variant")
+            assert result is not None, "Required property 'app_variant' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def token_value(self) -> builtins.str:
+            '''GitHub personal access token (PAT) value.
+
+            Accepts classic PATs (ghp_...), fine-grained PATs (github_pat_...), and GitHub Enterprise Server token formats
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubappverificationdetails.html#cfn-devopsagent-service-githubappverificationdetails-tokenvalue
+            '''
+            result = self._values.get("token_value")
+            assert result is not None, "Required property 'token_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def organization_name(self) -> typing.Optional[builtins.str]:
+            '''GitHub organization to scope the service to.
+
+            The token must be an active member of the organization and only that organization's repositories are accessible. Omit to register the token's own user account
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubappverificationdetails.html#cfn-devopsagent-service-githubappverificationdetails-organizationname
+            '''
+            result = self._values.get("organization_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_url(self) -> typing.Optional[builtins.str]:
+            '''GitHub instance URL.
+
+            Omit for github.com. Provide the instance host for GitHub Enterprise Server or GitHub Enterprise Cloud with data residency (e.g. https://github.example.com)
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubappverificationdetails.html#cfn-devopsagent-service-githubappverificationdetails-targeturl
+            '''
+            result = self._values.get("target_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitHubAppVerificationDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.GitHubDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "app_verification": "appVerification",
+            "direct_access": "directAccess",
+        },
+    )
+    class GitHubDetailsProperty:
+        def __init__(
+            self,
+            *,
+            app_verification: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GitHubAppVerificationDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            direct_access: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GitHubPatDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param app_verification: The token verifies an existing DevOps Agent GitHub App installation on github.com and is then discarded. Not supported for GitHub Enterprise Server.
+            :param direct_access: The token is stored and used as the long-lived credential for GitHub API access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                git_hub_details_property = devopsagent.CfnService.GitHubDetailsProperty(
+                    app_verification=devopsagent.CfnService.GitHubAppVerificationDetailsProperty(
+                        app_variant="appVariant",
+                        token_value="tokenValue",
+                
+                        # the properties below are optional
+                        organization_name="organizationName",
+                        target_url="targetUrl"
+                    ),
+                    direct_access=devopsagent.CfnService.GitHubPatDetailsProperty(
+                        token_value="tokenValue",
+                
+                        # the properties below are optional
+                        organization_name="organizationName",
+                        target_url="targetUrl"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ac7647a4b7e489e31375c7fc01c2a033174cd88f4cd73d3099d2a881ef8c9bcd)
+                check_type(argname="argument app_verification", value=app_verification, expected_type=type_hints["app_verification"])
+                check_type(argname="argument direct_access", value=direct_access, expected_type=type_hints["direct_access"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if app_verification is not None:
+                self._values["app_verification"] = app_verification
+            if direct_access is not None:
+                self._values["direct_access"] = direct_access
+
+        @builtins.property
+        def app_verification(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GitHubAppVerificationDetailsProperty"]]:
+            '''The token verifies an existing DevOps Agent GitHub App installation on github.com and is then discarded. Not supported for GitHub Enterprise Server.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubdetails.html#cfn-devopsagent-service-githubdetails-appverification
+            '''
+            result = self._values.get("app_verification")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GitHubAppVerificationDetailsProperty"]], result)
+
+        @builtins.property
+        def direct_access(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GitHubPatDetailsProperty"]]:
+            '''The token is stored and used as the long-lived credential for GitHub API access.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubdetails.html#cfn-devopsagent-service-githubdetails-directaccess
+            '''
+            result = self._values.get("direct_access")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GitHubPatDetailsProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitHubDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.GitHubPatDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "token_value": "tokenValue",
+            "organization_name": "organizationName",
+            "target_url": "targetUrl",
+        },
+    )
+    class GitHubPatDetailsProperty:
+        def __init__(
+            self,
+            *,
+            token_value: builtins.str,
+            organization_name: typing.Optional[builtins.str] = None,
+            target_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''The token is stored and used as the long-lived credential for GitHub API access.
+
+            :param token_value: GitHub personal access token (PAT) value. Accepts classic PATs (ghp_...), fine-grained PATs (github_pat_...), and GitHub Enterprise Server token formats
+            :param organization_name: GitHub organization to scope the service to. The token must be an active member of the organization and only that organization's repositories are accessible. Omit to register the token's own user account
+            :param target_url: GitHub instance URL. Omit for github.com. Provide the instance host for GitHub Enterprise Server or GitHub Enterprise Cloud with data residency (e.g. https://github.example.com)
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubpatdetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                git_hub_pat_details_property = devopsagent.CfnService.GitHubPatDetailsProperty(
+                    token_value="tokenValue",
+                
+                    # the properties below are optional
+                    organization_name="organizationName",
+                    target_url="targetUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__79e6d7e1f41828a15d448e06d1691d3bd23335cb85be3178c12373141fc853d5)
+                check_type(argname="argument token_value", value=token_value, expected_type=type_hints["token_value"])
+                check_type(argname="argument organization_name", value=organization_name, expected_type=type_hints["organization_name"])
+                check_type(argname="argument target_url", value=target_url, expected_type=type_hints["target_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "token_value": token_value,
+            }
+            if organization_name is not None:
+                self._values["organization_name"] = organization_name
+            if target_url is not None:
+                self._values["target_url"] = target_url
+
+        @builtins.property
+        def token_value(self) -> builtins.str:
+            '''GitHub personal access token (PAT) value.
+
+            Accepts classic PATs (ghp_...), fine-grained PATs (github_pat_...), and GitHub Enterprise Server token formats
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubpatdetails.html#cfn-devopsagent-service-githubpatdetails-tokenvalue
+            '''
+            result = self._values.get("token_value")
+            assert result is not None, "Required property 'token_value' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def organization_name(self) -> typing.Optional[builtins.str]:
+            '''GitHub organization to scope the service to.
+
+            The token must be an active member of the organization and only that organization's repositories are accessible. Omit to register the token's own user account
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubpatdetails.html#cfn-devopsagent-service-githubpatdetails-organizationname
+            '''
+            result = self._values.get("organization_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_url(self) -> typing.Optional[builtins.str]:
+            '''GitHub instance URL.
+
+            Omit for github.com. Provide the instance host for GitHub Enterprise Server or GitHub Enterprise Cloud with data residency (e.g. https://github.example.com)
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-githubpatdetails.html#cfn-devopsagent-service-githubpatdetails-targeturl
+            '''
+            result = self._values.get("target_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GitHubPatDetailsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -8138,6 +8967,146 @@ class CfnService(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredGitHubServiceDetailsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "owner": "owner",
+            "owner_type": "ownerType",
+            "app_variant": "appVariant",
+            "auth_mode": "authMode",
+            "hosting_type": "hostingType",
+            "target_url": "targetUrl",
+        },
+    )
+    class RegisteredGitHubServiceDetailsProperty:
+        def __init__(
+            self,
+            *,
+            owner: builtins.str,
+            owner_type: builtins.str,
+            app_variant: typing.Optional[builtins.str] = None,
+            auth_mode: typing.Optional[builtins.str] = None,
+            hosting_type: typing.Optional[builtins.str] = None,
+            target_url: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''GitHub service details returned after registration.
+
+            :param owner: The GitHub repository owner name derived from the token.
+            :param owner_type: Type of repository owner.
+            :param app_variant: The GitHub App variant the service was registered with.
+            :param auth_mode: How the service authenticates against the GitHub API: app after AppVerification, pat after DirectAccess.
+            :param hosting_type: The GitHub hosting type the service was registered with.
+            :param target_url: GitHub instance URL (absent for github.com).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgithubservicedetails.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devopsagent as devopsagent
+                
+                registered_git_hub_service_details_property = devopsagent.CfnService.RegisteredGitHubServiceDetailsProperty(
+                    owner="owner",
+                    owner_type="ownerType",
+                
+                    # the properties below are optional
+                    app_variant="appVariant",
+                    auth_mode="authMode",
+                    hosting_type="hostingType",
+                    target_url="targetUrl"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__ef49e9017f95d7d3ddf5a1cf7116284b4e338b81ad4d34793cbb187f60be159a)
+                check_type(argname="argument owner", value=owner, expected_type=type_hints["owner"])
+                check_type(argname="argument owner_type", value=owner_type, expected_type=type_hints["owner_type"])
+                check_type(argname="argument app_variant", value=app_variant, expected_type=type_hints["app_variant"])
+                check_type(argname="argument auth_mode", value=auth_mode, expected_type=type_hints["auth_mode"])
+                check_type(argname="argument hosting_type", value=hosting_type, expected_type=type_hints["hosting_type"])
+                check_type(argname="argument target_url", value=target_url, expected_type=type_hints["target_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "owner": owner,
+                "owner_type": owner_type,
+            }
+            if app_variant is not None:
+                self._values["app_variant"] = app_variant
+            if auth_mode is not None:
+                self._values["auth_mode"] = auth_mode
+            if hosting_type is not None:
+                self._values["hosting_type"] = hosting_type
+            if target_url is not None:
+                self._values["target_url"] = target_url
+
+        @builtins.property
+        def owner(self) -> builtins.str:
+            '''The GitHub repository owner name derived from the token.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgithubservicedetails.html#cfn-devopsagent-service-registeredgithubservicedetails-owner
+            '''
+            result = self._values.get("owner")
+            assert result is not None, "Required property 'owner' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def owner_type(self) -> builtins.str:
+            '''Type of repository owner.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgithubservicedetails.html#cfn-devopsagent-service-registeredgithubservicedetails-ownertype
+            '''
+            result = self._values.get("owner_type")
+            assert result is not None, "Required property 'owner_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def app_variant(self) -> typing.Optional[builtins.str]:
+            '''The GitHub App variant the service was registered with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgithubservicedetails.html#cfn-devopsagent-service-registeredgithubservicedetails-appvariant
+            '''
+            result = self._values.get("app_variant")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def auth_mode(self) -> typing.Optional[builtins.str]:
+            '''How the service authenticates against the GitHub API: app after AppVerification, pat after DirectAccess.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgithubservicedetails.html#cfn-devopsagent-service-registeredgithubservicedetails-authmode
+            '''
+            result = self._values.get("auth_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def hosting_type(self) -> typing.Optional[builtins.str]:
+            '''The GitHub hosting type the service was registered with.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgithubservicedetails.html#cfn-devopsagent-service-registeredgithubservicedetails-hostingtype
+            '''
+            result = self._values.get("hosting_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def target_url(self) -> typing.Optional[builtins.str]:
+            '''GitHub instance URL (absent for github.com).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredgithubservicedetails.html#cfn-devopsagent-service-registeredgithubservicedetails-targeturl
+            '''
+            result = self._values.get("target_url")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RegisteredGitHubServiceDetailsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devopsagent.CfnService.RegisteredGitLabServiceDetailsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -8843,6 +9812,7 @@ class CfnService(
         name_mapping={
             "azure_identity": "azureIdentity",
             "dynatrace": "dynatrace",
+            "git_hub": "gitHub",
             "git_lab": "gitLab",
             "mcp_server": "mcpServer",
             "mcp_server_grafana": "mcpServerGrafana",
@@ -8859,6 +9829,7 @@ class CfnService(
             *,
             azure_identity: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.AzureIdentityServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dynatrace: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.DynatraceServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            git_hub: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GitHubDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             git_lab: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.GitLabDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.MCPServerDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server_grafana: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.MCPServerGrafanaDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -8871,6 +9842,7 @@ class CfnService(
             '''
             :param azure_identity: Azure Identity service configuration for federated identity.
             :param dynatrace: Dynatrace service configuration.
+            :param git_hub: GitHub personal access token (PAT) service configuration. Exactly one of AppVerification or DirectAccess selects how the token is used
             :param git_lab: GitLab service configuration.
             :param mcp_server: MCP server configuration.
             :param mcp_server_grafana: Grafana MCP server configuration.
@@ -8911,6 +9883,23 @@ class CfnService(
                                 client_name="clientName",
                                 exchange_parameters=exchange_parameters
                             )
+                        )
+                    ),
+                    git_hub=devopsagent.CfnService.GitHubDetailsProperty(
+                        app_verification=devopsagent.CfnService.GitHubAppVerificationDetailsProperty(
+                            app_variant="appVariant",
+                            token_value="tokenValue",
+                
+                            # the properties below are optional
+                            organization_name="organizationName",
+                            target_url="targetUrl"
+                        ),
+                        direct_access=devopsagent.CfnService.GitHubPatDetailsProperty(
+                            token_value="tokenValue",
+                
+                            # the properties below are optional
+                            organization_name="organizationName",
+                            target_url="targetUrl"
                         )
                     ),
                     git_lab=devopsagent.CfnService.GitLabDetailsProperty(
@@ -9050,6 +10039,7 @@ class CfnService(
                 type_hints = cached_type_hints(_typecheckingstub__2d3cc706658e74f84415c4cda29e3f1af191a52f1dbbf8701c25e0091302740f)
                 check_type(argname="argument azure_identity", value=azure_identity, expected_type=type_hints["azure_identity"])
                 check_type(argname="argument dynatrace", value=dynatrace, expected_type=type_hints["dynatrace"])
+                check_type(argname="argument git_hub", value=git_hub, expected_type=type_hints["git_hub"])
                 check_type(argname="argument git_lab", value=git_lab, expected_type=type_hints["git_lab"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
                 check_type(argname="argument mcp_server_grafana", value=mcp_server_grafana, expected_type=type_hints["mcp_server_grafana"])
@@ -9063,6 +10053,8 @@ class CfnService(
                 self._values["azure_identity"] = azure_identity
             if dynatrace is not None:
                 self._values["dynatrace"] = dynatrace
+            if git_hub is not None:
+                self._values["git_hub"] = git_hub
             if git_lab is not None:
                 self._values["git_lab"] = git_lab
             if mcp_server is not None:
@@ -9101,6 +10093,19 @@ class CfnService(
             '''
             result = self._values.get("dynatrace")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.DynatraceServiceDetailsProperty"]], result)
+
+        @builtins.property
+        def git_hub(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GitHubDetailsProperty"]]:
+            '''GitHub personal access token (PAT) service configuration.
+
+            Exactly one of AppVerification or DirectAccess selects how the token is used
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicedetails.html#cfn-devopsagent-service-servicedetails-github
+            '''
+            result = self._values.get("git_hub")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnService.GitHubDetailsProperty"]], result)
 
         @builtins.property
         def git_lab(
@@ -9364,6 +10369,7 @@ class CfnService(
         "service_type": "serviceType",
         "exchange_url_private_connection_name": "exchangeUrlPrivateConnectionName",
         "kms_key_arn": "kmsKeyArn",
+        "name": "name",
         "private_connection_name": "privateConnectionName",
         "service_details": "serviceDetails",
         "tags": "tags",
@@ -9377,6 +10383,7 @@ class CfnServiceProps:
         service_type: builtins.str,
         exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
         private_connection_name: typing.Optional[builtins.str] = None,
         service_details: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnService.ServiceDetailsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -9387,6 +10394,7 @@ class CfnServiceProps:
         :param service_type: The type of service being registered.
         :param exchange_url_private_connection_name: The name of the private connection to use for OAuth token exchange requests only. Cannot be specified when PrivateConnectionName is provided.
         :param kms_key_arn: The ARN of the KMS key to use for encryption.
+        :param name: The display name for the service registration.
         :param private_connection_name: The name of the private connection to use for VPC connectivity.
         :param service_details: Service-specific configuration details - MCPServerSigV4 supports in-place updates; GitLab (TokenValue), MCPServer (ApiKey or BearerToken credential rotation), MCPServerNewRelic (ApiKey rotation), and MCPServerGrafana (BearerToken rotation) support in-place credential rotation; all other service types and fields require replacement when modified
         :param tags: An array of key-value pairs to apply to this resource.
@@ -9410,6 +10418,7 @@ class CfnServiceProps:
                 # the properties below are optional
                 exchange_url_private_connection_name="exchangeUrlPrivateConnectionName",
                 kms_key_arn="kmsKeyArn",
+                name="name",
                 private_connection_name="privateConnectionName",
                 service_details=devopsagent.CfnService.ServiceDetailsProperty(
                     azure_identity=devopsagent.CfnService.AzureIdentityServiceDetailsProperty(
@@ -9431,6 +10440,23 @@ class CfnServiceProps:
                                 client_name="clientName",
                                 exchange_parameters=exchange_parameters
                             )
+                        )
+                    ),
+                    git_hub=devopsagent.CfnService.GitHubDetailsProperty(
+                        app_verification=devopsagent.CfnService.GitHubAppVerificationDetailsProperty(
+                            app_variant="appVariant",
+                            token_value="tokenValue",
+            
+                            # the properties below are optional
+                            organization_name="organizationName",
+                            target_url="targetUrl"
+                        ),
+                        direct_access=devopsagent.CfnService.GitHubPatDetailsProperty(
+                            token_value="tokenValue",
+            
+                            # the properties below are optional
+                            organization_name="organizationName",
+                            target_url="targetUrl"
                         )
                     ),
                     git_lab=devopsagent.CfnService.GitLabDetailsProperty(
@@ -9577,6 +10603,7 @@ class CfnServiceProps:
             check_type(argname="argument service_type", value=service_type, expected_type=type_hints["service_type"])
             check_type(argname="argument exchange_url_private_connection_name", value=exchange_url_private_connection_name, expected_type=type_hints["exchange_url_private_connection_name"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument private_connection_name", value=private_connection_name, expected_type=type_hints["private_connection_name"])
             check_type(argname="argument service_details", value=service_details, expected_type=type_hints["service_details"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -9588,6 +10615,8 @@ class CfnServiceProps:
             self._values["exchange_url_private_connection_name"] = exchange_url_private_connection_name
         if kms_key_arn is not None:
             self._values["kms_key_arn"] = kms_key_arn
+        if name is not None:
+            self._values["name"] = name
         if private_connection_name is not None:
             self._values["private_connection_name"] = private_connection_name
         if service_details is not None:
@@ -9625,6 +10654,15 @@ class CfnServiceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-kmskeyarn
         '''
         result = self._values.get("kms_key_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The display name for the service registration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-service.html#cfn-devopsagent-service-name
+        '''
+        result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -10319,10 +11357,25 @@ def _typecheckingstub__54cfce91472eb9681ce65a0ce7a6d266ecbcafccbd8e1842288a0f262
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ee786b1a7fd639a96dd58c781bcd3ffcf2be82dfb461577c939067a7ac36b1fd(
+    *,
+    client_id: builtins.str,
+    client_secret: builtins.str,
+    issuer_url: builtins.str,
+    operator_app_role_arn: builtins.str,
+    provider: builtins.str,
+    created_at: typing.Optional[builtins.str] = None,
+    updated_at: typing.Optional[builtins.str] = None,
+    user_id_claim: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__163f48e2381f16154d3ed1a507d7fa1b64898c9ada42152eb65e4a5a869c805c(
     *,
     iam: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.IamAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     idc: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.IdcAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    idp: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAgentSpace.IdpAuthConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10494,6 +11547,7 @@ def _typecheckingstub__9f1d632ade69849147b75fe20e7412c90e54c9e84dafe76046f35e5fa
     account_id: builtins.str,
     account_type: builtins.str,
     assumable_role_arn: builtins.str,
+    agent_elevated_role_arn: typing.Optional[builtins.str] = None,
     resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.AWSResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnAssociation.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -10574,6 +11628,7 @@ def _typecheckingstub__97d8de94964f9d444ce60e60c71a8386873d9d717628a8b450e046392
 def _typecheckingstub__94bdd66d2ae6508b6fa75de77b1b7bd044d6bf7b9e0c60cb573f57ca7faa1817(
     *,
     description: typing.Optional[builtins.str] = None,
+    enabled_elevated_tools: typing.Optional[typing.Sequence[builtins.str]] = None,
     enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     endpoint: typing.Optional[builtins.str] = None,
     name: typing.Optional[builtins.str] = None,
@@ -10584,6 +11639,7 @@ def _typecheckingstub__94bdd66d2ae6508b6fa75de77b1b7bd044d6bf7b9e0c60cb573f57ca7
 def _typecheckingstub__11b54af8958257d89911b20127cdb2d75dbd71fbc0701cc26c88f75e1cdec153(
     *,
     endpoint: builtins.str,
+    enabled_elevated_tools: typing.Optional[typing.Sequence[builtins.str]] = None,
     enable_webhook_updates: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tools: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -10654,6 +11710,14 @@ def _typecheckingstub__9767ae84f8f9ac8fbffe3c19d1ac1dc61d581770deb87d97b058eb73c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__afb6e9c71bc184d8318bbad52e38df15d5bf59d8cc71a2a721cc2840bf4d2c43(
+    *,
+    role_arn: builtins.str,
+    enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__06cf6d0fee94466c60ffb3cbfb9f571fb9f69201085fc5de6cd2f0d6e4b8d633(
     *,
     channel_id: builtins.str,
@@ -10667,6 +11731,7 @@ def _typecheckingstub__28eb759dbeb853e46c5ba811aba401a06c7b87554a3bac255792e3d13
     transmission_target: typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.SlackTransmissionTargetProperty, typing.Dict[builtins.str, typing.Any]]],
     workspace_id: builtins.str,
     workspace_name: builtins.str,
+    bidirectional: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.SlackBidirectionalConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -10683,6 +11748,7 @@ def _typecheckingstub__f7f309a9bf78a2704dbd1fd90dfdf8ff7ac7091cdb4572312fad3281c
     account_id: builtins.str,
     account_type: builtins.str,
     assumable_role_arn: builtins.str,
+    agent_elevated_role_arn: typing.Optional[builtins.str] = None,
     resources: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnAssociation.AWSResourceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnAssociation.KeyValuePairProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -10805,6 +11871,7 @@ def _typecheckingstub__76700bf71c0ca9d7d21edc970f56dd1c8a41f67b248c3228096feb305
     service_type: builtins.str,
     exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
     private_connection_name: typing.Optional[builtins.str] = None,
     service_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10871,6 +11938,12 @@ def _typecheckingstub__e3ab3739f548aec69137bae335dee8322f36ef0dcddbdf6693dea63fc
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__05e87b85ed328732cfab4a9ce3102addf2e91fdd671861c82f5e90955082a8d4(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dd785ef0a512fafa3dfa79caf4a70ddcb6e2f2f9236834ec36da53afb806bb27(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -10899,6 +11972,7 @@ def _typecheckingstub__35d2aa127fac97efcf9f5ae815fbac6244f4de11a1b85beb8acc053b8
     *,
     azure_identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.RegisteredAzureIdentityDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dynatrace: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.RegisteredDynatraceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    git_hub: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.RegisteredGitHubServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     git_lab: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.RegisteredGitLabServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.RegisteredMCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_grafana: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.RegisteredMCPServerGrafanaDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -10950,6 +12024,33 @@ def _typecheckingstub__1093f5ca4a6437d94226499a72d7ed498cbf6c82d31179c14e9526707
     *,
     account_urn: builtins.str,
     authorization_config: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DynatraceAuthorizationConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5816c753fe1711062701cdebc7b0f7ad133138e5f8fc4f6ea25dca150dac6853(
+    *,
+    app_variant: builtins.str,
+    token_value: builtins.str,
+    organization_name: typing.Optional[builtins.str] = None,
+    target_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ac7647a4b7e489e31375c7fc01c2a033174cd88f4cd73d3099d2a881ef8c9bcd(
+    *,
+    app_verification: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GitHubAppVerificationDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    direct_access: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GitHubPatDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79e6d7e1f41828a15d448e06d1691d3bd23335cb85be3178c12373141fc853d5(
+    *,
+    token_value: builtins.str,
+    organization_name: typing.Optional[builtins.str] = None,
+    target_url: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11118,6 +12219,18 @@ def _typecheckingstub__699f5a8b23e937bb3b578edf7c8136622218b1b1889514fbae9a95088
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ef49e9017f95d7d3ddf5a1cf7116284b4e338b81ad4d34793cbb187f60be159a(
+    *,
+    owner: builtins.str,
+    owner_type: builtins.str,
+    app_variant: typing.Optional[builtins.str] = None,
+    auth_mode: typing.Optional[builtins.str] = None,
+    hosting_type: typing.Optional[builtins.str] = None,
+    target_url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__4d854446e4c62fec988f432899059d4e43ccb4fc2c2abfed1d4da911d0c348df(
     *,
     target_url: builtins.str,
@@ -11189,6 +12302,7 @@ def _typecheckingstub__2d3cc706658e74f84415c4cda29e3f1af191a52f1dbbf8701c25e0091
     *,
     azure_identity: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.AzureIdentityServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dynatrace: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.DynatraceServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    git_hub: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GitHubDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     git_lab: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.GitLabDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.MCPServerDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server_grafana: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.MCPServerGrafanaDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -11221,6 +12335,7 @@ def _typecheckingstub__a12adbc62e2ac0f5b7caf0c232882e56ee71ed33922d8b268e225ddc8
     service_type: builtins.str,
     exchange_url_private_connection_name: typing.Optional[builtins.str] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
     private_connection_name: typing.Optional[builtins.str] = None,
     service_details: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnService.ServiceDetailsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,

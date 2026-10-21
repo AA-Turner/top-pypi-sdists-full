@@ -27,3 +27,4 @@ def test_t13_adds_row_access_without_rejecting_legacy_visibility_payloads() -> N
     )
     assert OfficeToolResult.model_validate({"action": "generate", "visibility": "public"}).visibility == "public"
     assert NoteToolResult.model_validate({"visibility": "private"}).visibility == "private"
+    assert NoteToolResult.model_validate({"folder_name": "Legacy"}).folder_name == "Legacy"

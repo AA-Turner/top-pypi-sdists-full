@@ -24,6 +24,16 @@ class RunOptions(BaseModel):
   train_on_timeout: bool | None = None
   """Train on execution and sandbox timeouts, using zero when no reward is recorded."""
 
+  evaluation_enabled: bool | None = None
+  """Enable evaluations during training."""
+
+  evaluation_frequency: int | None = None
+  """
+    Optimizer steps between evaluations during training: 0 disables evaluation, 1 evaluates
+    after every step, and 2 after every other step. When enabled, the initial policy and
+    final step are always evaluated.
+    """
+
   evaluation_max_samples: int | None = None
   """
     Maximum distinct tasks per evaluation. Standalone evals run every task in the selected
@@ -74,6 +84,13 @@ class RunOptions(BaseModel):
 
   max_active_rollouts: int | None = None
   """Maximum active training rollouts per run."""
+
+  max_steps_off_policy: int | None = None
+  """
+    Maximum optimizer steps a training rollout's starting policy may trail the current
+    policy. Older in-flight rollouts are cancelled and older completed rollouts are
+    discarded; 0 trains only on rollouts started from the current policy.
+    """
 
   execution_timeout_seconds: int | None = None
   """

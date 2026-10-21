@@ -24459,3 +24459,74 @@ def total_expense(Price=None,TaxRate=None,CRV=None):
     except Exception as e:
         print(e)
         return
+
+
+def trip_time(speed=None,distance=None):
+    try:
+        if speed in [None,]:
+            speed=0
+
+        if distance in [None,]:
+            distance=0
+
+        fields={
+            'distance':{
+                'type':'float',
+                'default':distance,
+                'help':'Distance in miles or kilemeters, keep speed in the same system of units',
+                'ptext':'Distance',
+            },
+            'speed':{
+                'type':'float',
+                'default':speed,
+                'help':'Speed in Miles Per Hour, or Kilometers Per Hour, Keep within the same system as distance',
+                'ptext':'Speed',
+            },
+        }
+        fb=FormBuilder(data=fields,passThruText="How Much Time will be needed to cross a distance Y at Speed of X Time=(Distance/Speed)")
+        if fb in BooleanAnswers.NONE:
+            return
+
+        distance=fb['distance']
+        speed=fb['speed']
+        duration='{}:{}:{}'.format(*[f"{int(distance/speed):.0f}",f"{int((distance/speed)*60)}",f"{(((distance/speed)*60)%int((distance/speed)*60))*60:.0f}"])
+        fb['duration']=duration
+        return results_def(fb)
+    except Exception as e:
+        print(e)
+
+def trip_time2(speed=None,distance=None):
+    try:
+        QTY=pint.Quantity
+        if speed in [None,]:
+            speed='0 mph'
+
+        if distance in [None,]:
+            distance='0 miles'
+
+        fields={
+            'distance':{
+                'type':'string',
+                'default':distance,
+                'help':'Distance in miles or kilemeters, keep speed in the same system of units',
+                'ptext':'Distance with Unit',
+            },
+            'speed':{
+                'type':'string',
+                'default':speed,
+                'help':'Speed in Miles Per Hour, or Kilometers Per Hour, Keep within the same system as distance',
+                'ptext':'Speed with Unit',
+            },
+        }
+        fb=FormBuilder(data=fields,passThruText="How Much Time will be needed to cross a distance Y at Speed of X Time=(Distance/Speed)")
+        if fb in BooleanAnswers.NONE:
+            return
+
+        distance=QTY(fb['distance'])
+        speed=QTY(fb['speed'])
+        duration=distance/speed
+        
+        fb['duration']=timedelta(hours=duration.magnitude)
+        return results_def(fb)
+    except Exception as e:
+        print(e)

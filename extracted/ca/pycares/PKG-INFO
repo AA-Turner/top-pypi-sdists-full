@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycares
-Version: 5.2.0
+Version: 5.2.1
 Summary: Python interface for c-ares
 Author-email: Saúl Ibarra Corretgé <s@saghul.net>
 License-Expression: MIT

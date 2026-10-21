@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents
-Version: 0.7.28
+Version: 0.7.29
 Summary: Production-ready, extensible agent harness with a built-in filesystem and context management, sub-agent delegation, skills, and long-term memory.
 License: MIT
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
@@ -25,7 +25,7 @@ Requires-Python: <4.0,>=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: langchain<2.0.0,>=1.4.6
-Requires-Dist: langchain-core<2.0.0,>=1.6.11
+Requires-Dist: langchain-core<2.0.0,>=1.6.12
 Requires-Dist: langchain-anthropic<2.0.0,>=1.7.6
 Requires-Dist: langchain-google-genai<5.0.0,>=4.4.2
 Requires-Dist: langsmith>=0.14.11

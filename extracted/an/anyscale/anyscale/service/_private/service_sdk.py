@@ -3,6 +3,9 @@ import copy
 import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from packaging.version import InvalidVersion, Version
+from urllib3.exceptions import HTTPError
+
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload import WorkloadSDK
 from anyscale.client.openapi_client.models.apply_production_service_multi_version_v2_model import (
@@ -43,6 +46,7 @@ from anyscale.sdk.anyscale_client.models import (
     ServiceSortField,
     TracingConfig as APITracingConfg,
 )
+from anyscale.sdk.anyscale_client.rest import ApiException
 from anyscale.service.models import (
     BANNED_PROXY_LOCATIONS,
     RayGCSExternalStorageConfig,
@@ -67,13 +71,32 @@ from anyscale.utils.workspace_notification import (
 
 
 MAX_PAGE_SIZE = 50
+# Advisory version check only. The backend checks the running Serve capability.
+# Confirm the release cutoff before publishing the Ray 2.60 update.
+IN_PLACE_ROLLBACK_MIN_RAY_VERSION = (2, 60)
 
 
 class PrivateServiceSDK(WorkloadSDK):
+    def _cloud_resources_of_compute_config(self, compute_config_id: str) -> List[Optional[str]]:
+        """The cloud resource of each entry of the compute config, by id when the
+        entry has one and by name otherwise."""
+        compute_template = self.client.get_compute_config(compute_config_id)
+        if (
+            compute_template is None
+            or compute_template.config is None
+            or not compute_template.config.deployment_configs
+        ):
+            return []
+        return [
+            deployment_config.cloud_resource_id or deployment_config.cloud_deployment
+            for deployment_config in compute_template.config.deployment_configs
+        ]
+
     def _override_application_runtime_envs(
         self,
         config: ServiceConfig,
         *,
+        compute_config_id: str,
         autopopulate_in_workspace: bool = True,
         cloud_id: Optional[str] = None,
         workspace_requirements_path: Optional[str] = None,
@@ -81,7 +104,11 @@ class PrivateServiceSDK(WorkloadSDK):
         """Overrides the runtime_env of each application in the config.
 
         Local directories specified in the 'working_dir' or 'py_modules' fields will be
-        uploaded and replaced with the resulting remote URIs.
+        uploaded to the bucket of the compute config's cloud resource and replaced with
+        the resulting remote URIs. When the compute config spans several cloud resources,
+        each directory is uploaded to every resource's bucket and replaced with its path
+        there, in 'relative_working_dir' and 'relative_py_modules', which the backend
+        resolves against each cluster's bucket.
 
         Requirements files will be loaded and populated into the 'pip' field.
 
@@ -93,16 +120,30 @@ class PrivateServiceSDK(WorkloadSDK):
         new_applications = copy.deepcopy(config.applications)
         new_runtime_envs = [app.get("runtime_env", {}) for app in new_applications]
 
-        # Multi-deployment compute configs are not supported for services.
-        new_runtime_envs = self.override_and_upload_local_dirs_single_deployment(
-            new_runtime_envs,
-            working_dir_override=config.working_dir,
-            excludes_override=config.excludes,
-            cloud_id=cloud_id,
-            autopopulate_in_workspace=autopopulate_in_workspace,
-            additional_py_modules=config.py_modules,
-            py_executable_override=config.py_executable,
-        )
+        cloud_resources = self._cloud_resources_of_compute_config(compute_config_id)
+        if len(cloud_resources) > 1:
+            new_runtime_envs = self.override_and_upload_local_dirs_multi_cloud_resource(
+                new_runtime_envs,
+                working_dir_override=config.working_dir,
+                excludes_override=config.excludes,
+                cloud_resource_names=cloud_resources,
+                cloud_id=cloud_id,
+                autopopulate_in_workspace=autopopulate_in_workspace,
+                additional_py_modules=config.py_modules,
+                py_executable_override=config.py_executable,
+            )
+        else:
+            new_runtime_envs = self.override_and_upload_local_dirs_single_deployment(
+                new_runtime_envs,
+                working_dir_override=config.working_dir,
+                excludes_override=config.excludes,
+                cloud_id=cloud_id,
+                autopopulate_in_workspace=autopopulate_in_workspace,
+                additional_py_modules=config.py_modules,
+                py_executable_override=config.py_executable,
+                # None (no entries) uploads to the cloud's primary resource.
+                cloud_resource_name=cloud_resources[0] if cloud_resources else None,
+            )
         new_runtime_envs = self.override_and_load_requirements_files(
             new_runtime_envs,
             requirements_override=config.requirements,
@@ -213,6 +254,31 @@ class PrivateServiceSDK(WorkloadSDK):
         # Since config doesn't allow passing a port, keeping it as default port.
         return GrpcProtocolConfig(enabled=enabled, service_names=service_names)
 
+    def _warn_if_in_place_rollback_unsupported(self, build_id: str) -> None:
+        try:
+            build = self.client.get_cluster_env_build(build_id)
+        except (ApiException, HTTPError, ValueError) as exc:
+            # A best-effort metadata lookup must not block deployment.
+            self.logger.debug(f"Could not check the service's Ray version: {exc}")
+            return
+        ray_version = build.ray_version if build is not None else None
+        if not ray_version:
+            return
+        try:
+            release = Version(ray_version).release
+        except InvalidVersion:
+            return
+        if release[:2] >= IN_PLACE_ROLLBACK_MIN_RAY_VERSION:
+            return
+        min_version = ".".join(str(part) for part in IN_PLACE_ROLLBACK_MIN_RAY_VERSION)
+        self.logger.warning(
+            f"This service runs Ray {ray_version}. Automatic rollback after applying an "
+            f"in-place update requires Ray {min_version} or later. A failed update may "
+            "interrupt traffic and require you to redeploy a working config. Upgrade "
+            f"the service image to Ray {min_version} or later using a deployment without "
+            "--in-place."
+        )
+
     def _build_apply_service_model_for_in_place_update(  # noqa: PLR0912
         self,
         name: str,
@@ -236,7 +302,9 @@ class PrivateServiceSDK(WorkloadSDK):
             raise ValueError("canary_percent cannot be specified when doing an in_place update.")
         if max_surge_percent is not None:
             raise ValueError(
-                "max_surge_percent cannot be specified when doing an in_place update."
+                "max_surge_percent cannot be specified when doing an in_place update. "
+                "For in-place replica replacement on Ray 2.60 or later, set "
+                "max_surge_percent in each Ray Serve deployment config instead."
             )
         if existing_service is None:
             raise RuntimeError(
@@ -274,10 +342,12 @@ class PrivateServiceSDK(WorkloadSDK):
             )
 
         existing_config: ProductionServiceV2VersionModel = existing_service.primary_version
+        self._warn_if_in_place_rollback_unsupported(existing_config.build_id)
         query_auth_token_enabled = existing_service.auth_token is not None
         cloud_id = self.client.get_cloud_id(compute_config_id=existing_config.compute_config_id)
         config = self._override_application_runtime_envs(
             config,
+            compute_config_id=existing_config.compute_config_id,
             cloud_id=cloud_id,
             workspace_requirements_path=self.client.get_workspace_requirements_path(),
         )
@@ -385,6 +455,7 @@ class PrivateServiceSDK(WorkloadSDK):
 
         config = self._override_application_runtime_envs(
             config,
+            compute_config_id=compute_config_id,
             cloud_id=cloud_id,
             workspace_requirements_path=requirements_path_to_be_populated_in_runtime_env,
         )

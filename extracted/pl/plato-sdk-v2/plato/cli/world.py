@@ -1,6 +1,7 @@
 """World CLI commands for Plato."""
 
 import json
+import os
 import subprocess
 import zipfile
 from pathlib import Path
@@ -9,6 +10,7 @@ import typer
 
 from plato.cli.publish_flow import WORLD, find_wheel, publish_image_then_wheel, registry_api_url
 from plato.cli.utils import console, maybe_bump_package_version, require_api_key
+from plato.utils.pypi_index import plato_build_env
 
 world_app = typer.Typer(help="Manage and deploy worlds")
 
@@ -237,6 +239,11 @@ def world_publish(
     # them). Otherwise hatchling's isolated build env installs only
     # [build-system.requires], the world module import fails, and we ship
     # a wheel with stale or missing schema.json.
+    # `uv run plato` exports the SDK's VIRTUAL_ENV; build in the world's instead.
+    build_env = {k: v for k, v in os.environ.items() if k != "UV_PROJECT_ENVIRONMENT"}
+    build_env["VIRTUAL_ENV"] = str(pkg_path / ".venv")
+    # plato-sdk-v2 is private: add the pypi-store index so uv resolves it during sync/build.
+    build_env = plato_build_env(api_key=api_key, base=build_env) or build_env
     console.print("[cyan]Syncing world venv...[/cyan]")
     try:
         for cmd in (
@@ -245,7 +252,7 @@ def world_publish(
             # install it explicitly into the world's venv for the build.
             ["uv", "pip", "install", "--quiet", "hatchling"],
         ):
-            result = subprocess.run(cmd, cwd=pkg_path, capture_output=True, text=True)
+            result = subprocess.run(cmd, cwd=pkg_path, capture_output=True, text=True, env=build_env)
             if result.returncode != 0:
                 console.print(f"[red]Command failed ({' '.join(cmd)}):[/red]")
                 console.print(result.stderr)
@@ -257,6 +264,7 @@ def world_publish(
             cwd=pkg_path,
             capture_output=True,
             text=True,
+            env=build_env,
         )
         if result.returncode != 0:
             console.print("[red]Build failed:[/red]")

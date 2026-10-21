@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
 import pytest
+from airbyte_protocol.models import ConfiguredAirbyteCatalog
 
 from airbyte_ops_mcp.regression_tests import connector_runner as connector_runner_module
 from airbyte_ops_mcp.regression_tests.connector_runner import ConnectorRunner
@@ -42,6 +44,55 @@ def execution_inputs(
 @pytest.fixture
 def runner(execution_inputs: ExecutionInputs) -> ConnectorRunner:
     return ConnectorRunner(execution_inputs=execution_inputs)
+
+
+@pytest.mark.parametrize(
+    "namespace",
+    [pytest.param(None, id="omitted"), pytest.param("sample", id="present")],
+)
+def test_prepare_data_directory_omits_none_namespace_and_preserves_present(
+    connector_under_test: ConnectorUnderTest,
+    tmp_path: Path,
+    namespace: str | None,
+) -> None:
+    stream_definition: dict[str, object] = {
+        "name": "sample",
+        "json_schema": {},
+        "supported_sync_modes": ["full_refresh"],
+    }
+    if namespace is not None:
+        stream_definition["namespace"] = namespace
+    catalog = ConfiguredAirbyteCatalog.model_validate(
+        {
+            "streams": [
+                {
+                    "stream": stream_definition,
+                    "sync_mode": "full_refresh",
+                    "destination_sync_mode": "append",
+                }
+            ]
+        }
+    )
+    inputs = ExecutionInputs(
+        connector_under_test=connector_under_test,
+        command=Command.READ,
+        output_dir=tmp_path / "output",
+        config={},
+        configured_catalog=catalog,
+    )
+    catalog_runner = ConnectorRunner(execution_inputs=inputs)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+
+    catalog_runner._prepare_data_directory(data_dir)
+
+    written_stream = json.loads((data_dir / ConnectorRunner.CATALOG_FILE).read_text())[
+        "streams"
+    ][0]["stream"]
+    if namespace is None:
+        assert "namespace" not in written_stream
+    else:
+        assert written_stream["namespace"] == namespace
 
 
 def test_build_docker_command_overrides_workdir(

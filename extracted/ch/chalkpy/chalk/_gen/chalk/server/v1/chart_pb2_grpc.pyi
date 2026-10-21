@@ -26,6 +26,8 @@ from chalk._gen.chalk.server.v1.chart_pb2 import (
     GetChartSnapshotByQueryResponse,
     GetChartSnapshotRequest,
     GetChartSnapshotResponse,
+    GetClusterChartSnapshotRequest,
+    GetClusterChartSnapshotResponse,
     GetFeatureMetricsRequest,
     GetFeatureMetricsResponse,
     GetFormulaOptionsRequest,
@@ -116,6 +118,13 @@ class ChartsServiceStub:
         GetChartSnapshotRequest,
         GetChartSnapshotResponse,
     ]
+    GetClusterChartSnapshot: UnaryUnaryMultiCallable[
+        GetClusterChartSnapshotRequest,
+        GetClusterChartSnapshotResponse,
+    ]
+    """Evaluates an allowlisted VictoriaMetrics chart for a cluster owned by the
+    requesting team. The server resolves both the cluster scope and VM client.
+    """
     GetChartSnapshotByQuery: UnaryUnaryMultiCallable[
         GetChartSnapshotByQueryRequest,
         GetChartSnapshotByQueryResponse,
@@ -242,6 +251,15 @@ class ChartsServiceServicer(metaclass=ABCMeta):
         request: GetChartSnapshotRequest,
         context: ServicerContext,
     ) -> GetChartSnapshotResponse: ...
+    @abstractmethod
+    def GetClusterChartSnapshot(
+        self,
+        request: GetClusterChartSnapshotRequest,
+        context: ServicerContext,
+    ) -> GetClusterChartSnapshotResponse:
+        """Evaluates an allowlisted VictoriaMetrics chart for a cluster owned by the
+        requesting team. The server resolves both the cluster scope and VM client.
+        """
     @abstractmethod
     def GetChartSnapshotByQuery(
         self,

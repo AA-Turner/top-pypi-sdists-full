@@ -919,6 +919,521 @@ class CfnConfigurationSetProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.INotifyConfigurationRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnNotifyConfiguration(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnNotifyConfiguration",
+):
+    '''A notify configuration defines the settings used to send templated messages with AWS End User Messaging SMS managed messaging, including the display name, use case, enabled channels, and enabled countries.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html
+    :cloudformationResource: AWS::SMSVOICE::NotifyConfiguration
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_smsvoice as smsvoice
+        
+        cfn_notify_configuration = smsvoice.CfnNotifyConfiguration(self, "MyCfnNotifyConfiguration",
+            display_name="displayName",
+            enabled_channels=["enabledChannels"],
+            use_case="useCase",
+        
+            # the properties below are optional
+            default_template_id="defaultTemplateId",
+            deletion_protection_enabled=False,
+            enabled_countries=["enabledCountries"],
+            pool_id="poolId",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        display_name: builtins.str,
+        enabled_channels: typing.Sequence[builtins.str],
+        use_case: builtins.str,
+        default_template_id: typing.Optional[builtins.str] = None,
+        deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enabled_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pool_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SMSVOICE::NotifyConfiguration``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param display_name: The display name to associate with the notify configuration.
+        :param enabled_channels: An array of channels to enable for the notify configuration. Supported values include SMS and VOICE.
+        :param use_case: The use case for the notify configuration.
+        :param default_template_id: The default template identifier to associate with the notify configuration. If specified, this template is used when sending messages without an explicit template identifier.
+        :param deletion_protection_enabled: By default this is set to false. When set to true the notify configuration can't be deleted.
+        :param enabled_countries: An array of two-character ISO country codes, in ISO 3166-1 alpha-2 format, that are enabled for the notify configuration.
+        :param pool_id: The identifier of the pool to associate with the notify configuration.
+        :param tags: An array of tags (key and value pairs) associated with the notify configuration.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1675ef4108cd6d32a52a8f75b56dd9d5b7811061ea8a99e14e02a58ab3b51969)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnNotifyConfigurationProps(
+            display_name=display_name,
+            enabled_channels=enabled_channels,
+            use_case=use_case,
+            default_template_id=default_template_id,
+            deletion_protection_enabled=deletion_protection_enabled,
+            enabled_countries=enabled_countries,
+            pool_id=pool_id,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForNotifyConfiguration")
+    @builtins.classmethod
+    def arn_for_notify_configuration(
+        cls,
+        resource: "_aws_smsvoice_61a140be.INotifyConfigurationRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b8968e58a9fe608058212dd68d117540c5b78bcc14ddc2013f71076273120b70)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNotifyConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnNotifyConfiguration")
+    @builtins.classmethod
+    def is_cfn_notify_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNotifyConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__9116def1a9f6debc8e63d2048bbd6521ba0613e63d23e9f7b9412eea49ad7c07)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNotifyConfiguration", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__91d926d697de60b045c69d623ee4dec957d200684a386636f8fc368e32cebc3f)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0ac3f3033383759a7dde32ad88772802172257bbf2c4c56de5e494bff7d6cbff)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time when the notify configuration was created.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNotifyConfigurationArn")
+    def attr_notify_configuration_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) for the notify configuration.
+
+        :cloudformationAttribute: NotifyConfigurationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNotifyConfigurationArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrNotifyConfigurationId")
+    def attr_notify_configuration_id(self) -> builtins.str:
+        '''The unique identifier for the notify configuration.
+
+        :cloudformationAttribute: NotifyConfigurationId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNotifyConfigurationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the notify configuration.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTier")
+    def attr_tier(self) -> builtins.str:
+        '''The tier of the notify configuration.
+
+        :cloudformationAttribute: Tier
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTier"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTierUpgradeStatus")
+    def attr_tier_upgrade_status(self) -> builtins.str:
+        '''The tier upgrade status of the notify configuration.
+
+        :cloudformationAttribute: TierUpgradeStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTierUpgradeStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="notifyConfigurationRef")
+    def notify_configuration_ref(
+        self,
+    ) -> "_aws_smsvoice_61a140be.NotifyConfigurationReference":
+        '''A reference to a NotifyConfiguration resource.'''
+        return typing.cast("_aws_smsvoice_61a140be.NotifyConfigurationReference", jsii.get(self, "notifyConfigurationRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="displayName")
+    def display_name(self) -> builtins.str:
+        '''The display name to associate with the notify configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "displayName"))
+
+    @display_name.setter
+    def display_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5cc1f74cfe008ded0aa178bb41f4222e7502d93b5f7e0ff8d4bd1130ef598fd1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "displayName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabledChannels")
+    def enabled_channels(self) -> typing.List[builtins.str]:
+        '''An array of channels to enable for the notify configuration.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "enabledChannels"))
+
+    @enabled_channels.setter
+    def enabled_channels(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__f73e40ee5ac5ffe8f28817521697ac967f649342b86134602c2607444aa82ba0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabledChannels", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="useCase")
+    def use_case(self) -> builtins.str:
+        '''The use case for the notify configuration.'''
+        return typing.cast(builtins.str, jsii.get(self, "useCase"))
+
+    @use_case.setter
+    def use_case(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__93a7eb17425dfc02c0bd408646d03bb3935b588acc1ca7aa12e82c997d92a429)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "useCase", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="defaultTemplateId")
+    def default_template_id(self) -> typing.Optional[builtins.str]:
+        '''The default template identifier to associate with the notify configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "defaultTemplateId"))
+
+    @default_template_id.setter
+    def default_template_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bd2b7ca6a6ec4b2dc5f6db6c3799f3fedc2e5db54ebb5fe9af5cd54a5b603af9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "defaultTemplateId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtectionEnabled")
+    def deletion_protection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''By default this is set to false.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtectionEnabled"))
+
+    @deletion_protection_enabled.setter
+    def deletion_protection_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6e03f0c9a9caa80d0b4e9095558dd375ade168f8e83111cb5b84c859499fcc5a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enabledCountries")
+    def enabled_countries(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of two-character ISO country codes, in ISO 3166-1 alpha-2 format, that are enabled for the notify configuration.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "enabledCountries"))
+
+    @enabled_countries.setter
+    def enabled_countries(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7628e42c49d236188d9c6d4826638a27f9615279de0439f1e0a01863a268ee88)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enabledCountries", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="poolId")
+    def pool_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the pool to associate with the notify configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "poolId"))
+
+    @pool_id.setter
+    def pool_id(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ec9c6368688d71500b74298c25e8ae90a496de41fc7a6691bf9906bdbd86d44e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "poolId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of tags (key and value pairs) associated with the notify configuration.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__25265aa9e429ccc556d9a9afe943a4a60918c5cb83306ec9db4377005876edb2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnNotifyConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "display_name": "displayName",
+        "enabled_channels": "enabledChannels",
+        "use_case": "useCase",
+        "default_template_id": "defaultTemplateId",
+        "deletion_protection_enabled": "deletionProtectionEnabled",
+        "enabled_countries": "enabledCountries",
+        "pool_id": "poolId",
+        "tags": "tags",
+    },
+)
+class CfnNotifyConfigurationProps:
+    def __init__(
+        self,
+        *,
+        display_name: builtins.str,
+        enabled_channels: typing.Sequence[builtins.str],
+        use_case: builtins.str,
+        default_template_id: typing.Optional[builtins.str] = None,
+        deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        enabled_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pool_id: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNotifyConfiguration``.
+
+        :param display_name: The display name to associate with the notify configuration.
+        :param enabled_channels: An array of channels to enable for the notify configuration. Supported values include SMS and VOICE.
+        :param use_case: The use case for the notify configuration.
+        :param default_template_id: The default template identifier to associate with the notify configuration. If specified, this template is used when sending messages without an explicit template identifier.
+        :param deletion_protection_enabled: By default this is set to false. When set to true the notify configuration can't be deleted.
+        :param enabled_countries: An array of two-character ISO country codes, in ISO 3166-1 alpha-2 format, that are enabled for the notify configuration.
+        :param pool_id: The identifier of the pool to associate with the notify configuration.
+        :param tags: An array of tags (key and value pairs) associated with the notify configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_smsvoice as smsvoice
+            
+            cfn_notify_configuration_props = smsvoice.CfnNotifyConfigurationProps(
+                display_name="displayName",
+                enabled_channels=["enabledChannels"],
+                use_case="useCase",
+            
+                # the properties below are optional
+                default_template_id="defaultTemplateId",
+                deletion_protection_enabled=False,
+                enabled_countries=["enabledCountries"],
+                pool_id="poolId",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__3e613802f8f1524396b194e6fbb4150ff7c8499d9965ddc3b186e3d21a75dc68)
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument enabled_channels", value=enabled_channels, expected_type=type_hints["enabled_channels"])
+            check_type(argname="argument use_case", value=use_case, expected_type=type_hints["use_case"])
+            check_type(argname="argument default_template_id", value=default_template_id, expected_type=type_hints["default_template_id"])
+            check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
+            check_type(argname="argument enabled_countries", value=enabled_countries, expected_type=type_hints["enabled_countries"])
+            check_type(argname="argument pool_id", value=pool_id, expected_type=type_hints["pool_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "display_name": display_name,
+            "enabled_channels": enabled_channels,
+            "use_case": use_case,
+        }
+        if default_template_id is not None:
+            self._values["default_template_id"] = default_template_id
+        if deletion_protection_enabled is not None:
+            self._values["deletion_protection_enabled"] = deletion_protection_enabled
+        if enabled_countries is not None:
+            self._values["enabled_countries"] = enabled_countries
+        if pool_id is not None:
+            self._values["pool_id"] = pool_id
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''The display name to associate with the notify configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def enabled_channels(self) -> typing.List[builtins.str]:
+        '''An array of channels to enable for the notify configuration.
+
+        Supported values include SMS and VOICE.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-enabledchannels
+        '''
+        result = self._values.get("enabled_channels")
+        assert result is not None, "Required property 'enabled_channels' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    @builtins.property
+    def use_case(self) -> builtins.str:
+        '''The use case for the notify configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-usecase
+        '''
+        result = self._values.get("use_case")
+        assert result is not None, "Required property 'use_case' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_template_id(self) -> typing.Optional[builtins.str]:
+        '''The default template identifier to associate with the notify configuration.
+
+        If specified, this template is used when sending messages without an explicit template identifier.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-defaulttemplateid
+        '''
+        result = self._values.get("default_template_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def deletion_protection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''By default this is set to false.
+
+        When set to true the notify configuration can't be deleted.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-deletionprotectionenabled
+        '''
+        result = self._values.get("deletion_protection_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def enabled_countries(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of two-character ISO country codes, in ISO 3166-1 alpha-2 format, that are enabled for the notify configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-enabledcountries
+        '''
+        result = self._values.get("enabled_countries")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def pool_id(self) -> typing.Optional[builtins.str]:
+        '''The identifier of the pool to associate with the notify configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-poolid
+        '''
+        result = self._values.get("pool_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of tags (key and value pairs) associated with the notify configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-notifyconfiguration.html#cfn-smsvoice-notifyconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNotifyConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.IOptOutListRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnOptOutList(
     _aws_cdk_0cae9daa.CfnResource,
@@ -3709,6 +4224,736 @@ class CfnProtectConfigurationProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.IRcsAgentRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnRcsAgent(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnRcsAgent",
+):
+    '''An AWS RCS Agent in AWS End User Messaging SMS.
+
+    The RCS agent is the top-level resource representing your brand for RCS messaging, and serves as an origination identity for sending RCS messages. A newly created agent is in CREATED status; it advances through TESTING, PARTIAL and ACTIVE only as testing and country launch registrations are submitted and approved by carriers.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html
+    :cloudformationResource: AWS::SMSVOICE::RcsAgent
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_smsvoice as smsvoice
+        
+        cfn_rcs_agent = smsvoice.CfnRcsAgent(self, "MyCfnRcsAgent",
+            deletion_protection_enabled=False,
+            opt_out_list_name="optOutListName",
+            self_managed_opt_outs_enabled=False,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            two_way_channel_arn="twoWayChannelArn",
+            two_way_channel_role="twoWayChannelRole",
+            two_way_enabled=False,
+            two_way_media_s3_bucket_name="twoWayMediaS3BucketName",
+            two_way_media_s3_key_prefix="twoWayMediaS3KeyPrefix",
+            two_way_media_s3_role="twoWayMediaS3Role",
+            two_way_rcs_events_enabled=["twoWayRcsEventsEnabled"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        opt_out_list_name: typing.Optional[builtins.str] = None,
+        self_managed_opt_outs_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        two_way_channel_arn: typing.Optional[builtins.str] = None,
+        two_way_channel_role: typing.Optional[builtins.str] = None,
+        two_way_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        two_way_media_s3_bucket_name: typing.Optional[builtins.str] = None,
+        two_way_media_s3_key_prefix: typing.Optional[builtins.str] = None,
+        two_way_media_s3_role: typing.Optional[builtins.str] = None,
+        two_way_rcs_events_enabled: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::SMSVOICE::RcsAgent``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param deletion_protection_enabled: When set to true the RCS agent can't be deleted. By default this is false.
+        :param opt_out_list_name: The name of the opt-out list associated with the RCS agent.
+        :param self_managed_opt_outs_enabled: When set to true you're responsible for responding to HELP and STOP requests, and for tracking and honoring opt-out requests. By default this is false.
+        :param tags: An array of key-value pairs to apply to the RCS agent.
+        :param two_way_channel_arn: The Amazon Resource Name (ARN) of the two way channel where inbound messages are delivered.
+        :param two_way_channel_role: The Amazon Resource Name (ARN) of an IAM role for the service to assume in order to post inbound messages to the two way channel.
+        :param two_way_enabled: When set to true two-way messaging is enabled for the RCS agent.
+        :param two_way_media_s3_bucket_name: The name of the Amazon S3 bucket where inbound RCS media objects are written.
+        :param two_way_media_s3_key_prefix: The key prefix used for inbound RCS media objects in the Amazon S3 bucket.
+        :param two_way_media_s3_role: The Amazon Resource Name (ARN) of the IAM role used to write inbound RCS media files to the Amazon S3 bucket. The role must have s3:PutObject permission on the bucket and a trust policy allowing sms-voice.amazonaws.com to assume it.
+        :param two_way_rcs_events_enabled: The list of RCS event types enabled for two-way messaging. An empty list disables all event types. The special value ALL enables all current and future event types and must be the only element if used. Requires TwoWayEnabled to be true.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__af9b1a87f67bb44a285995cdb668206a7e60794031b74dd6c24e1b4ba8364ec4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRcsAgentProps(
+            deletion_protection_enabled=deletion_protection_enabled,
+            opt_out_list_name=opt_out_list_name,
+            self_managed_opt_outs_enabled=self_managed_opt_outs_enabled,
+            tags=tags,
+            two_way_channel_arn=two_way_channel_arn,
+            two_way_channel_role=two_way_channel_role,
+            two_way_enabled=two_way_enabled,
+            two_way_media_s3_bucket_name=two_way_media_s3_bucket_name,
+            two_way_media_s3_key_prefix=two_way_media_s3_key_prefix,
+            two_way_media_s3_role=two_way_media_s3_role,
+            two_way_rcs_events_enabled=two_way_rcs_events_enabled,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRcsAgent")
+    @builtins.classmethod
+    def arn_for_rcs_agent(
+        cls,
+        resource: "_aws_smsvoice_61a140be.IRcsAgentRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__034fc2207e147fa8625906d97d259a30e186fa7f97ac20ff4c6c32716fa97766)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRcsAgent", [resource]))
+
+    @jsii.member(jsii_name="isCfnRcsAgent")
+    @builtins.classmethod
+    def is_cfn_rcs_agent(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRcsAgent.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__71263e3605865bbdd30e034425e4d4156f785da6e4705fe70ffbc6598f46c5e4)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRcsAgent", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cf52e07251a2b648ed93929b6b07888257014c060ae4e210fafce6e6ae40fb5e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__486753600b6c7b9bc3c0ed3d9108ab4cf90607336b18f84b2631a651e0b831b4)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTimestamp")
+    def attr_created_timestamp(self) -> builtins.str:
+        '''The time when the RCS agent was created.
+
+        :cloudformationAttribute: CreatedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPoolId")
+    def attr_pool_id(self) -> builtins.str:
+        '''The unique identifier of the pool associated with the RCS agent.
+
+        This is populated only while the agent is associated with a pool, which is done through the pool APIs rather than through this resource.
+
+        :cloudformationAttribute: PoolId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPoolId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRcsAgentArn")
+    def attr_rcs_agent_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the RCS agent.
+
+        :cloudformationAttribute: RcsAgentArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRcsAgentArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRcsAgentId")
+    def attr_rcs_agent_id(self) -> builtins.str:
+        '''The unique identifier for the RCS agent, in the format rcs- followed by a hexadecimal string.
+
+        :cloudformationAttribute: RcsAgentId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRcsAgentId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''The current status of the RCS agent.
+
+        CREATED means the agent exists but no registration has been submitted. PENDING means a registration is awaiting processing. TESTING means the testing registration is approved and the agent can message registered test devices. PARTIAL means at least one country launch is active. ACTIVE means all submitted country launches are active. DELETED means the agent has been deleted.
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTestingAgent")
+    def attr_testing_agent(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''Information about the testing agent (RCS for Business ID) associated with the RCS agent.
+
+        A testing agent is created by submitting a testing registration, and allows sending to registered test devices without carrier approval.
+
+        :cloudformationAttribute: TestingAgent
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrTestingAgent"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rcsAgentRef")
+    def rcs_agent_ref(self) -> "_aws_smsvoice_61a140be.RcsAgentReference":
+        '''A reference to a RcsAgent resource.'''
+        return typing.cast("_aws_smsvoice_61a140be.RcsAgentReference", jsii.get(self, "rcsAgentRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="deletionProtectionEnabled")
+    def deletion_protection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When set to true the RCS agent can't be deleted.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "deletionProtectionEnabled"))
+
+    @deletion_protection_enabled.setter
+    def deletion_protection_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__390151a9d4f03ecf0de7a06b3b877a6d159ac334e91ab052b835f9387bc12f51)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deletionProtectionEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="optOutListName")
+    def opt_out_list_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the opt-out list associated with the RCS agent.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "optOutListName"))
+
+    @opt_out_list_name.setter
+    def opt_out_list_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b00a4f39552009137bae22394dab302817b63d7e297676c4ea217ef6453c4a06)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "optOutListName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="selfManagedOptOutsEnabled")
+    def self_managed_opt_outs_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When set to true you're responsible for responding to HELP and STOP requests, and for tracking and honoring opt-out requests.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "selfManagedOptOutsEnabled"))
+
+    @self_managed_opt_outs_enabled.setter
+    def self_managed_opt_outs_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7556d45bf493783d18e422e1f81d380c08259d6335005e9255a318c0c16c71a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "selfManagedOptOutsEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the RCS agent.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0425bf3299507762f196fda7d8aa368fb3ef777cb76094c93903035920dcf349)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="twoWayChannelArn")
+    def two_way_channel_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the two way channel where inbound messages are delivered.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "twoWayChannelArn"))
+
+    @two_way_channel_arn.setter
+    def two_way_channel_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__907bfd563090606dcef7d61c5d8449c18a1e697b371c825c16c8868f9c4240c1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "twoWayChannelArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="twoWayChannelRole")
+    def two_way_channel_role(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an IAM role for the service to assume in order to post inbound messages to the two way channel.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "twoWayChannelRole"))
+
+    @two_way_channel_role.setter
+    def two_way_channel_role(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__cb2a3e9ca5127ae4973e1779fb6ba5a63386d51b072498f88c92810df686910f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "twoWayChannelRole", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="twoWayEnabled")
+    def two_way_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When set to true two-way messaging is enabled for the RCS agent.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], jsii.get(self, "twoWayEnabled"))
+
+    @two_way_enabled.setter
+    def two_way_enabled(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__abf1472fd5ce966626b5c0051bbd1c9122083e5850eb592124cda6a7340e0cb3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "twoWayEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="twoWayMediaS3BucketName")
+    def two_way_media_s3_bucket_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon S3 bucket where inbound RCS media objects are written.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "twoWayMediaS3BucketName"))
+
+    @two_way_media_s3_bucket_name.setter
+    def two_way_media_s3_bucket_name(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b491711a39e04c7af43d0b470459c8695dbf999f75852935d3a9768f409fff47)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "twoWayMediaS3BucketName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="twoWayMediaS3KeyPrefix")
+    def two_way_media_s3_key_prefix(self) -> typing.Optional[builtins.str]:
+        '''The key prefix used for inbound RCS media objects in the Amazon S3 bucket.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "twoWayMediaS3KeyPrefix"))
+
+    @two_way_media_s3_key_prefix.setter
+    def two_way_media_s3_key_prefix(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__a979edf7a11ff08a749c9db87deec03ca6bd7de73ed5ef384766093aa68c0c0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "twoWayMediaS3KeyPrefix", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="twoWayMediaS3Role")
+    def two_way_media_s3_role(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role used to write inbound RCS media files to the Amazon S3 bucket.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "twoWayMediaS3Role"))
+
+    @two_way_media_s3_role.setter
+    def two_way_media_s3_role(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6704a24e5725a9f0f86c76ff28232e8191485498bcf4eee2889147515b6f7fbf)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "twoWayMediaS3Role", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="twoWayRcsEventsEnabled")
+    def two_way_rcs_events_enabled(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of RCS event types enabled for two-way messaging.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "twoWayRcsEventsEnabled"))
+
+    @two_way_rcs_events_enabled.setter
+    def two_way_rcs_events_enabled(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__565697ace250cc55ee9e8216976f75636974b6fadd8ee835da8278812ac5b06b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "twoWayRcsEventsEnabled", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_smsvoice.CfnRcsAgent.TestingAgentInformationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "registration_id": "registrationId",
+            "testing_agent_status": "testingAgentStatus",
+            "testing_agent_id": "testingAgentId",
+        },
+    )
+    class TestingAgentInformationProperty:
+        def __init__(
+            self,
+            *,
+            registration_id: builtins.str,
+            testing_agent_status: builtins.str,
+            testing_agent_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Information about the testing agent (RCS for Business ID) associated with the RCS agent.
+
+            A testing agent is created by submitting a testing registration, and allows sending to registered test devices without carrier approval.
+
+            :param registration_id: The unique identifier of the testing registration that created the testing agent.
+            :param testing_agent_status: The status of the testing agent. Named distinctly from the resource-level Status property, which has its own larger set of values.
+            :param testing_agent_id: The identifier of the testing agent assigned by the RCS infrastructure provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-smsvoice-rcsagent-testingagentinformation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_smsvoice as smsvoice
+                
+                testing_agent_information_property = smsvoice.CfnRcsAgent.TestingAgentInformationProperty(
+                    registration_id="registrationId",
+                    testing_agent_status="testingAgentStatus",
+                
+                    # the properties below are optional
+                    testing_agent_id="testingAgentId"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__9698cae22840811dd0acda926e5b8a5f9cb6eba79000012d53ed2e747e04cb3a)
+                check_type(argname="argument registration_id", value=registration_id, expected_type=type_hints["registration_id"])
+                check_type(argname="argument testing_agent_status", value=testing_agent_status, expected_type=type_hints["testing_agent_status"])
+                check_type(argname="argument testing_agent_id", value=testing_agent_id, expected_type=type_hints["testing_agent_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "registration_id": registration_id,
+                "testing_agent_status": testing_agent_status,
+            }
+            if testing_agent_id is not None:
+                self._values["testing_agent_id"] = testing_agent_id
+
+        @builtins.property
+        def registration_id(self) -> builtins.str:
+            '''The unique identifier of the testing registration that created the testing agent.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-smsvoice-rcsagent-testingagentinformation.html#cfn-smsvoice-rcsagent-testingagentinformation-registrationid
+            '''
+            result = self._values.get("registration_id")
+            assert result is not None, "Required property 'registration_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def testing_agent_status(self) -> builtins.str:
+            '''The status of the testing agent.
+
+            Named distinctly from the resource-level Status property, which has its own larger set of values.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-smsvoice-rcsagent-testingagentinformation.html#cfn-smsvoice-rcsagent-testingagentinformation-testingagentstatus
+            '''
+            result = self._values.get("testing_agent_status")
+            assert result is not None, "Required property 'testing_agent_status' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def testing_agent_id(self) -> typing.Optional[builtins.str]:
+            '''The identifier of the testing agent assigned by the RCS infrastructure provider.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-smsvoice-rcsagent-testingagentinformation.html#cfn-smsvoice-rcsagent-testingagentinformation-testingagentid
+            '''
+            result = self._values.get("testing_agent_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TestingAgentInformationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_smsvoice.CfnRcsAgentProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "deletion_protection_enabled": "deletionProtectionEnabled",
+        "opt_out_list_name": "optOutListName",
+        "self_managed_opt_outs_enabled": "selfManagedOptOutsEnabled",
+        "tags": "tags",
+        "two_way_channel_arn": "twoWayChannelArn",
+        "two_way_channel_role": "twoWayChannelRole",
+        "two_way_enabled": "twoWayEnabled",
+        "two_way_media_s3_bucket_name": "twoWayMediaS3BucketName",
+        "two_way_media_s3_key_prefix": "twoWayMediaS3KeyPrefix",
+        "two_way_media_s3_role": "twoWayMediaS3Role",
+        "two_way_rcs_events_enabled": "twoWayRcsEventsEnabled",
+    },
+)
+class CfnRcsAgentProps:
+    def __init__(
+        self,
+        *,
+        deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        opt_out_list_name: typing.Optional[builtins.str] = None,
+        self_managed_opt_outs_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        two_way_channel_arn: typing.Optional[builtins.str] = None,
+        two_way_channel_role: typing.Optional[builtins.str] = None,
+        two_way_enabled: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
+        two_way_media_s3_bucket_name: typing.Optional[builtins.str] = None,
+        two_way_media_s3_key_prefix: typing.Optional[builtins.str] = None,
+        two_way_media_s3_role: typing.Optional[builtins.str] = None,
+        two_way_rcs_events_enabled: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnRcsAgent``.
+
+        :param deletion_protection_enabled: When set to true the RCS agent can't be deleted. By default this is false.
+        :param opt_out_list_name: The name of the opt-out list associated with the RCS agent.
+        :param self_managed_opt_outs_enabled: When set to true you're responsible for responding to HELP and STOP requests, and for tracking and honoring opt-out requests. By default this is false.
+        :param tags: An array of key-value pairs to apply to the RCS agent.
+        :param two_way_channel_arn: The Amazon Resource Name (ARN) of the two way channel where inbound messages are delivered.
+        :param two_way_channel_role: The Amazon Resource Name (ARN) of an IAM role for the service to assume in order to post inbound messages to the two way channel.
+        :param two_way_enabled: When set to true two-way messaging is enabled for the RCS agent.
+        :param two_way_media_s3_bucket_name: The name of the Amazon S3 bucket where inbound RCS media objects are written.
+        :param two_way_media_s3_key_prefix: The key prefix used for inbound RCS media objects in the Amazon S3 bucket.
+        :param two_way_media_s3_role: The Amazon Resource Name (ARN) of the IAM role used to write inbound RCS media files to the Amazon S3 bucket. The role must have s3:PutObject permission on the bucket and a trust policy allowing sms-voice.amazonaws.com to assume it.
+        :param two_way_rcs_events_enabled: The list of RCS event types enabled for two-way messaging. An empty list disables all event types. The special value ALL enables all current and future event types and must be the only element if used. Requires TwoWayEnabled to be true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_smsvoice as smsvoice
+            
+            cfn_rcs_agent_props = smsvoice.CfnRcsAgentProps(
+                deletion_protection_enabled=False,
+                opt_out_list_name="optOutListName",
+                self_managed_opt_outs_enabled=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                two_way_channel_arn="twoWayChannelArn",
+                two_way_channel_role="twoWayChannelRole",
+                two_way_enabled=False,
+                two_way_media_s3_bucket_name="twoWayMediaS3BucketName",
+                two_way_media_s3_key_prefix="twoWayMediaS3KeyPrefix",
+                two_way_media_s3_role="twoWayMediaS3Role",
+                two_way_rcs_events_enabled=["twoWayRcsEventsEnabled"]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__6255385c3100a8d318f59477eeb70190ac1218b38580f08b5f43930be68529e3)
+            check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
+            check_type(argname="argument opt_out_list_name", value=opt_out_list_name, expected_type=type_hints["opt_out_list_name"])
+            check_type(argname="argument self_managed_opt_outs_enabled", value=self_managed_opt_outs_enabled, expected_type=type_hints["self_managed_opt_outs_enabled"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument two_way_channel_arn", value=two_way_channel_arn, expected_type=type_hints["two_way_channel_arn"])
+            check_type(argname="argument two_way_channel_role", value=two_way_channel_role, expected_type=type_hints["two_way_channel_role"])
+            check_type(argname="argument two_way_enabled", value=two_way_enabled, expected_type=type_hints["two_way_enabled"])
+            check_type(argname="argument two_way_media_s3_bucket_name", value=two_way_media_s3_bucket_name, expected_type=type_hints["two_way_media_s3_bucket_name"])
+            check_type(argname="argument two_way_media_s3_key_prefix", value=two_way_media_s3_key_prefix, expected_type=type_hints["two_way_media_s3_key_prefix"])
+            check_type(argname="argument two_way_media_s3_role", value=two_way_media_s3_role, expected_type=type_hints["two_way_media_s3_role"])
+            check_type(argname="argument two_way_rcs_events_enabled", value=two_way_rcs_events_enabled, expected_type=type_hints["two_way_rcs_events_enabled"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if deletion_protection_enabled is not None:
+            self._values["deletion_protection_enabled"] = deletion_protection_enabled
+        if opt_out_list_name is not None:
+            self._values["opt_out_list_name"] = opt_out_list_name
+        if self_managed_opt_outs_enabled is not None:
+            self._values["self_managed_opt_outs_enabled"] = self_managed_opt_outs_enabled
+        if tags is not None:
+            self._values["tags"] = tags
+        if two_way_channel_arn is not None:
+            self._values["two_way_channel_arn"] = two_way_channel_arn
+        if two_way_channel_role is not None:
+            self._values["two_way_channel_role"] = two_way_channel_role
+        if two_way_enabled is not None:
+            self._values["two_way_enabled"] = two_way_enabled
+        if two_way_media_s3_bucket_name is not None:
+            self._values["two_way_media_s3_bucket_name"] = two_way_media_s3_bucket_name
+        if two_way_media_s3_key_prefix is not None:
+            self._values["two_way_media_s3_key_prefix"] = two_way_media_s3_key_prefix
+        if two_way_media_s3_role is not None:
+            self._values["two_way_media_s3_role"] = two_way_media_s3_role
+        if two_way_rcs_events_enabled is not None:
+            self._values["two_way_rcs_events_enabled"] = two_way_rcs_events_enabled
+
+    @builtins.property
+    def deletion_protection_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When set to true the RCS agent can't be deleted.
+
+        By default this is false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-deletionprotectionenabled
+        '''
+        result = self._values.get("deletion_protection_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def opt_out_list_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the opt-out list associated with the RCS agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-optoutlistname
+        '''
+        result = self._values.get("opt_out_list_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def self_managed_opt_outs_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When set to true you're responsible for responding to HELP and STOP requests, and for tracking and honoring opt-out requests.
+
+        By default this is false.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-selfmanagedoptoutsenabled
+        '''
+        result = self._values.get("self_managed_opt_outs_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''An array of key-value pairs to apply to the RCS agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def two_way_channel_arn(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the two way channel where inbound messages are delivered.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-twowaychannelarn
+        '''
+        result = self._values.get("two_way_channel_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def two_way_channel_role(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of an IAM role for the service to assume in order to post inbound messages to the two way channel.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-twowaychannelrole
+        '''
+        result = self._values.get("two_way_channel_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def two_way_enabled(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]]:
+        '''When set to true two-way messaging is enabled for the RCS agent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-twowayenabled
+        '''
+        result = self._values.get("two_way_enabled")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]], result)
+
+    @builtins.property
+    def two_way_media_s3_bucket_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the Amazon S3 bucket where inbound RCS media objects are written.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-twowaymedias3bucketname
+        '''
+        result = self._values.get("two_way_media_s3_bucket_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def two_way_media_s3_key_prefix(self) -> typing.Optional[builtins.str]:
+        '''The key prefix used for inbound RCS media objects in the Amazon S3 bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-twowaymedias3keyprefix
+        '''
+        result = self._values.get("two_way_media_s3_key_prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def two_way_media_s3_role(self) -> typing.Optional[builtins.str]:
+        '''The Amazon Resource Name (ARN) of the IAM role used to write inbound RCS media files to the Amazon S3 bucket.
+
+        The role must have s3:PutObject permission on the bucket and a trust policy allowing sms-voice.amazonaws.com to assume it.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-twowaymedias3role
+        '''
+        result = self._values.get("two_way_media_s3_role")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def two_way_rcs_events_enabled(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The list of RCS event types enabled for two-way messaging.
+
+        An empty list disables all event types. The special value ALL enables all current and future event types and must be the only element if used. Requires TwoWayEnabled to be true.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-smsvoice-rcsagent.html#cfn-smsvoice-rcsagent-twowayrcseventsenabled
+        '''
+        result = self._values.get("two_way_rcs_events_enabled")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnRcsAgentProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_smsvoice_61a140be.IRegistrationRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnRegistration(
     _aws_cdk_0cae9daa.CfnResource,
@@ -5145,6 +6390,8 @@ class CfnVerifiedDestinationNumberProps:
 __all__ = [
     "CfnConfigurationSet",
     "CfnConfigurationSetProps",
+    "CfnNotifyConfiguration",
+    "CfnNotifyConfigurationProps",
     "CfnOptOutList",
     "CfnOptOutListProps",
     "CfnPhoneNumber",
@@ -5153,6 +6400,8 @@ __all__ = [
     "CfnPoolProps",
     "CfnProtectConfiguration",
     "CfnProtectConfigurationProps",
+    "CfnRcsAgent",
+    "CfnRcsAgentProps",
     "CfnRegistration",
     "CfnRegistrationAttachment",
     "CfnRegistrationAttachmentProps",
@@ -5299,6 +6548,108 @@ def _typecheckingstub__259d6b5c44c463276b6d9a529504479acbd49524ef7bd8a0d1d913ca2
     event_destinations: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnConfigurationSet.EventDestinationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     message_feedback_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     protect_configuration_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1675ef4108cd6d32a52a8f75b56dd9d5b7811061ea8a99e14e02a58ab3b51969(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    display_name: builtins.str,
+    enabled_channels: typing.Sequence[builtins.str],
+    use_case: builtins.str,
+    default_template_id: typing.Optional[builtins.str] = None,
+    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enabled_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+    pool_id: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b8968e58a9fe608058212dd68d117540c5b78bcc14ddc2013f71076273120b70(
+    resource: _aws_smsvoice_61a140be.INotifyConfigurationRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9116def1a9f6debc8e63d2048bbd6521ba0613e63d23e9f7b9412eea49ad7c07(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__91d926d697de60b045c69d623ee4dec957d200684a386636f8fc368e32cebc3f(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ac3f3033383759a7dde32ad88772802172257bbf2c4c56de5e494bff7d6cbff(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cc1f74cfe008ded0aa178bb41f4222e7502d93b5f7e0ff8d4bd1130ef598fd1(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f73e40ee5ac5ffe8f28817521697ac967f649342b86134602c2607444aa82ba0(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93a7eb17425dfc02c0bd408646d03bb3935b588acc1ca7aa12e82c997d92a429(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd2b7ca6a6ec4b2dc5f6db6c3799f3fedc2e5db54ebb5fe9af5cd54a5b603af9(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e03f0c9a9caa80d0b4e9095558dd375ade168f8e83111cb5b84c859499fcc5a(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7628e42c49d236188d9c6d4826638a27f9615279de0439f1e0a01863a268ee88(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec9c6368688d71500b74298c25e8ae90a496de41fc7a6691bf9906bdbd86d44e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25265aa9e429ccc556d9a9afe943a4a60918c5cb83306ec9db4377005876edb2(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e613802f8f1524396b194e6fbb4150ff7c8499d9965ddc3b186e3d21a75dc68(
+    *,
+    display_name: builtins.str,
+    enabled_channels: typing.Sequence[builtins.str],
+    use_case: builtins.str,
+    default_template_id: typing.Optional[builtins.str] = None,
+    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    enabled_countries: typing.Optional[typing.Sequence[builtins.str]] = None,
+    pool_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5791,6 +7142,141 @@ def _typecheckingstub__78062d029c984e0fa8e4c182345051e18cb19671a3a88fec3a04ea748
     country_rule_set: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnProtectConfiguration.CountryRuleSetProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af9b1a87f67bb44a285995cdb668206a7e60794031b74dd6c24e1b4ba8364ec4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    opt_out_list_name: typing.Optional[builtins.str] = None,
+    self_managed_opt_outs_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    two_way_channel_arn: typing.Optional[builtins.str] = None,
+    two_way_channel_role: typing.Optional[builtins.str] = None,
+    two_way_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    two_way_media_s3_bucket_name: typing.Optional[builtins.str] = None,
+    two_way_media_s3_key_prefix: typing.Optional[builtins.str] = None,
+    two_way_media_s3_role: typing.Optional[builtins.str] = None,
+    two_way_rcs_events_enabled: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__034fc2207e147fa8625906d97d259a30e186fa7f97ac20ff4c6c32716fa97766(
+    resource: _aws_smsvoice_61a140be.IRcsAgentRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__71263e3605865bbdd30e034425e4d4156f785da6e4705fe70ffbc6598f46c5e4(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cf52e07251a2b648ed93929b6b07888257014c060ae4e210fafce6e6ae40fb5e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__486753600b6c7b9bc3c0ed3d9108ab4cf90607336b18f84b2631a651e0b831b4(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__390151a9d4f03ecf0de7a06b3b877a6d159ac334e91ab052b835f9387bc12f51(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b00a4f39552009137bae22394dab302817b63d7e297676c4ea217ef6453c4a06(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7556d45bf493783d18e422e1f81d380c08259d6335005e9255a318c0c16c71a7(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0425bf3299507762f196fda7d8aa368fb3ef777cb76094c93903035920dcf349(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__907bfd563090606dcef7d61c5d8449c18a1e697b371c825c16c8868f9c4240c1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cb2a3e9ca5127ae4973e1779fb6ba5a63386d51b072498f88c92810df686910f(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__abf1472fd5ce966626b5c0051bbd1c9122083e5850eb592124cda6a7340e0cb3(
+    value: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b491711a39e04c7af43d0b470459c8695dbf999f75852935d3a9768f409fff47(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a979edf7a11ff08a749c9db87deec03ca6bd7de73ed5ef384766093aa68c0c0e(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6704a24e5725a9f0f86c76ff28232e8191485498bcf4eee2889147515b6f7fbf(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__565697ace250cc55ee9e8216976f75636974b6fadd8ee835da8278812ac5b06b(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9698cae22840811dd0acda926e5b8a5f9cb6eba79000012d53ed2e747e04cb3a(
+    *,
+    registration_id: builtins.str,
+    testing_agent_status: builtins.str,
+    testing_agent_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6255385c3100a8d318f59477eeb70190ac1218b38580f08b5f43930be68529e3(
+    *,
+    deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    opt_out_list_name: typing.Optional[builtins.str] = None,
+    self_managed_opt_outs_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    two_way_channel_arn: typing.Optional[builtins.str] = None,
+    two_way_channel_role: typing.Optional[builtins.str] = None,
+    two_way_enabled: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
+    two_way_media_s3_bucket_name: typing.Optional[builtins.str] = None,
+    two_way_media_s3_key_prefix: typing.Optional[builtins.str] = None,
+    two_way_media_s3_role: typing.Optional[builtins.str] = None,
+    two_way_rcs_events_enabled: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

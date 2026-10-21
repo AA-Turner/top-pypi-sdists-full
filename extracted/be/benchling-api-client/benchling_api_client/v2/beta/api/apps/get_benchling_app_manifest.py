@@ -83,7 +83,7 @@ def sync(
     client: Client,
     app_id: str,
 ) -> Optional[Union[BenchlingAppManifest, ForbiddenError, NotFoundError]]:
-    """ This endpoint has been deprecated; please use the new [GET /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://benchling.com/api/v2-beta/reference#/App%20Definitions/getBenchlingAppDefinitionVersionManifest) endpoint instead. """
+    """ This endpoint has been deprecated; please use the new [GET /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/app-definitions/get-benchling-app-definition-version-manifest) endpoint instead. """
 
     return sync_detailed(
         client=client,
@@ -112,7 +112,7 @@ async def asyncio(
     client: Client,
     app_id: str,
 ) -> Optional[Union[BenchlingAppManifest, ForbiddenError, NotFoundError]]:
-    """ This endpoint has been deprecated; please use the new [GET /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://benchling.com/api/v2-beta/reference#/App%20Definitions/getBenchlingAppDefinitionVersionManifest) endpoint instead. """
+    """ This endpoint has been deprecated; please use the new [GET /app-definitions/<app_definition_id>/versions/<version_id>/manifest.yaml](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/app-definitions/get-benchling-app-definition-version-manifest) endpoint instead. """
 
     return (
         await asyncio_detailed(

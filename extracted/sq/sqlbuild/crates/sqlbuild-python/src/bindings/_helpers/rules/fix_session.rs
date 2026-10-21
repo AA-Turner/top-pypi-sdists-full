@@ -10,21 +10,24 @@ use pyo3::types::{
     PyDict, PyDictMethods, PyFrozenSet, PyList, PyListMethods, PyString, PyStringMethods, PyTuple,
 };
 use sqlbuild_core::text::main::python_strip::python_strip;
+use sqlbuild_host::entries::models::AdapterHost;
 use sqlbuild_rules::fix_verification::main::refusal::refusal;
 use sqlbuild_rules::fix_verification::main::with_edits::with_edits;
 use sqlbuild_rules::fix_verification::models::{FixEdit, FixEligibility};
 
-use crate::bindings::_helpers::compile_attachment::sql_expansion_context::SqlExpansionInputs;
+use crate::bindings::_helpers::boundary::python_calls::{KeywordArguments, keywords};
 use crate::bindings::_helpers::compile_driver::project::build_compiled_project;
-use crate::bindings::_helpers::compile_driver::python_calls::{KeywordArguments, keywords};
+use crate::bindings::_helpers::compiled_views::relation_keys::{
+    RelationKeys, project_relation_keys,
+};
 use crate::bindings::_helpers::discovery::model_file_record::NativeModelFile;
-use crate::bindings::_helpers::native_host::adapter::AdapterHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::construct::error_class;
 use crate::bindings::_helpers::records::construct::new_record_with;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::fields::{field, replaced};
 use crate::bindings::_helpers::records::ids::{ErrorId, RecordId};
+use crate::bindings::_helpers::render::authored_sql::SqlExpansionInputs;
 use crate::bindings::_helpers::rules::constants::SAFE_RULE_FIX_CODES;
 use crate::bindings::_helpers::rules::fix_facts::compile_facts;
 use crate::bindings::_helpers::rules::fix_verdict::fix_verdict;
@@ -34,7 +37,6 @@ use crate::bindings::_helpers::rules::lint_expansion::{
 use crate::bindings::_helpers::rules::lint_pipeline::{
     LintFile, LintOutcome, LintRequest, LintSettings, ViolationClasses, lint, lint_sources,
 };
-use crate::bindings::_helpers::rules::relation_keys::{RelationKeys, project_relation_keys};
 use crate::bindings::_helpers::rules::run_lint::given_files;
 
 const VERIFICATION_FAILURE: &str =
@@ -461,12 +463,12 @@ impl<'py> FixSession<'py> {
             .map(|(path, reason)| {
                 violation(
                     &path,
-                    (
-                        "format-fix-skipped",
-                        &format!("Rule fixes skipped this file: {}", reason.str()?),
-                        "warning",
-                        "Fix the reported problem, then rerun `sqb format --fix`.",
-                    ),
+                    ViolationDetails {
+                        code: "format-fix-skipped",
+                        message: &format!("Rule fixes skipped this file: {}", reason.str()?),
+                        severity: "warning",
+                        remediation: "Fix the reported problem, then rerun `sqb format --fix`.",
+                    },
                 )
             })
             .collect()
@@ -681,9 +683,17 @@ fn refused<'py>(report: &Bound<'py, PyAny>, reason: &str) -> PyResult<Bound<'py,
     )
 }
 
+/// The code, message, severity and remediation of one whole-file violation.
+struct ViolationDetails<'a> {
+    code: &'a str,
+    message: &'a str,
+    severity: &'a str,
+    remediation: &'a str,
+}
+
 fn violation<'py>(
     path: &Bound<'py, PyAny>,
-    details: (&str, &str, &str, &str),
+    details: ViolationDetails<'_>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = path.py();
     new_record_with(
@@ -693,11 +703,14 @@ fn violation<'py>(
             ("file_path", path.clone()),
             ("line", 1_i64.into_pyobject(py)?.into_any()),
             ("column", 1_i64.into_pyobject(py)?.into_any()),
-            ("code", details.0.into_pyobject(py)?.into_any()),
-            ("message", details.1.into_pyobject(py)?.into_any()),
-            ("severity", details.2.into_pyobject(py)?.into_any()),
+            ("code", details.code.into_pyobject(py)?.into_any()),
+            ("message", details.message.into_pyobject(py)?.into_any()),
+            ("severity", details.severity.into_pyobject(py)?.into_any()),
             ("engine", "native".into_pyobject(py)?.into_any()),
-            ("remediation", details.3.into_pyobject(py)?.into_any()),
+            (
+                "remediation",
+                details.remediation.into_pyobject(py)?.into_any(),
+            ),
         ],
     )
 }
@@ -705,12 +718,12 @@ fn violation<'py>(
 fn verification_fault<'py>(path: &Bound<'py, PyAny>, reason: &str) -> PyResult<Bound<'py, PyAny>> {
     violation(
         path,
-        (
-            "format-fix-verification-failed",
-            reason,
-            "fault",
-            "Restructure the SQL manually and recompile; the original file was retained.",
-        ),
+        ViolationDetails {
+            code: "format-fix-verification-failed",
+            message: reason,
+            severity: "fault",
+            remediation: "Restructure the SQL manually and recompile; the original file was retained.",
+        },
     )
 }
 

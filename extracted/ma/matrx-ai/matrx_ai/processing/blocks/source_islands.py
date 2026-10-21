@@ -47,6 +47,7 @@ from matrx_ai.processing.blocks.fence_nesting import (
     trim_fence_line,
 )
 from matrx_ai.processing.blocks.gfm_table_lines import is_html_block_tag_name
+from matrx_ai.processing.blocks.tree_line import MIN_TREE_LINES, is_tree_line
 
 __all__ = ["SourceIsland", "list_islands", "BLOCK_ISLAND_TYPES", "INLINE_ISLAND_TYPES"]
 
@@ -173,7 +174,6 @@ CALLOUT_NAMES: frozenset[str] = frozenset(
     }
 )
 
-_TREE_GLYPHS = re.compile("[├└│┌┐┘┬┴┤┼─]")
 _PINNED_ANCHOR = re.compile(r"<!--@a:[A-Za-z0-9_-]+-->")
 _CITE = re.compile(f'<matrxcite{_S}+n="[0-9]+"{_S}*/>')
 _DIRECTIVE_OPEN = re.compile(r"(:{2,})([A-Za-z][A-Za-z0-9_-]*)")
@@ -185,7 +185,6 @@ _INDENTED = re.compile(r"(?: {4}|\t)")
 _QUOTE_LINE = re.compile(r" {0,3}>")
 _LIST_CONTINUATION = re.compile(r"[ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t]")
 _HEADING = re.compile(f"#{{1,6}}{_S}")
-_SPLITTER_TREE_LINE = re.compile(f"[{_WS}│|]*[├└+|][{_WS}─\\-]+")
 _GENERIC_XML_PREFIX = re.compile(f"<([A-Za-z_][A-Za-z0-9_.:-]*)(?={_S}|/|\\Z)")
 _FIRST_JSON_KEY = re.compile(f'\\{{{_S}*"([^"]+)"')
 _KIND_PROBE = re.compile(f'\\{{{_S}*"')
@@ -1076,10 +1075,6 @@ def _is_unclosed_generic_xml_opening(source: str) -> bool:
     return True
 
 
-def _is_splitter_tree_line(line: str) -> bool:
-    return _TREE_GLYPHS.search(line) is not None or _SPLITTER_TREE_LINE.match(line) is not None
-
-
 class _Tokenizer:
     def __init__(self, text: str) -> None:
         self.text = text
@@ -1252,7 +1247,7 @@ class _Tokenizer:
             js = self.bare_json(p, li, tp)
             if js is not None:
                 return js
-        if _TREE_GLYPHS.search(t):
+        if is_tree_line(t):
             tree = self.tree(p, li)
             if tree is not None:
                 return tree
@@ -1590,12 +1585,12 @@ class _Tokenizer:
             if self.line_is_blank(k):
                 k += 1
                 continue
-            if not _TREE_GLYPHS.search(self.line_text(k)):
+            if not is_tree_line(self.line_text(k)):
                 break
             tree_lines += 1
             last_tree = k
             k += 1
-        if tree_lines < 3:
+        if tree_lines < MIN_TREE_LINES:
             return None
         return _Raw("tree", p, self.content_ends[last_tree], True)
 
@@ -1619,7 +1614,7 @@ class _Tokenizer:
                 root = break_line
                 for j in range(break_line - 1, li - 1, -1):
                     trimmed = _trim(self.line_text(j))
-                    if not trimmed or _is_splitter_tree_line(trimmed) or _HEADING.match(trimmed):
+                    if not trimmed or is_tree_line(trimmed) or _HEADING.match(trimmed):
                         break
                     root = j
                 if root < break_line:

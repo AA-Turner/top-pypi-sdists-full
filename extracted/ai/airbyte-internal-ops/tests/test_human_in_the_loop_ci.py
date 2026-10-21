@@ -994,6 +994,78 @@ def test_send_hitl_notification_renders_usergroups_end_to_end(
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize(
+    "target_person, cc_persons, resolved_ids, expected_cc",
+    [
+        pytest.param(
+            "@oc-hydra",
+            ["@oc-hydra", "S0BJ4K3LC4X"],
+            {"@oc-hydra": "S0BJ4K3LC4X", "S0BJ4K3LC4X": "S0BJ4K3LC4X"},
+            [],
+            id="drop-target-from-cc",
+        ),
+        pytest.param(
+            "U00000000",
+            ["@a", "@A"],
+            {"U00000000": "U00000000"},
+            ["`@a` (could not resolve to Slack)"],
+            id="deduplicate-unresolved-case-insensitively",
+        ),
+        pytest.param(
+            "U00000000",
+            ["@first", "@second"],
+            {
+                "U00000000": "U00000000",
+                "@first": "U11111111",
+                "@second": "S22222222",
+            },
+            ["<@U11111111>", "<!subteam^S22222222>"],
+            id="preserve-distinct-cc-order",
+        ),
+    ],
+)
+def test_send_hitl_notification_deduplicates_resolved_recipients(
+    monkeypatch: pytest.MonkeyPatch,
+    target_person: str,
+    cc_persons: list[str],
+    resolved_ids: dict[str, str],
+    expected_cc: list[str],
+) -> None:
+    """The final Slack renderer drops duplicate target and CC identities."""
+
+    def resolve_recipient(
+        identifier: str,
+        roster: list[dict[str, str | int | None]],
+        *,
+        allow_usergroup: bool = False,
+        slack_token: str | None = None,
+    ) -> str | None:
+        return resolved_ids.get(identifier)
+
+    monkeypatch.setattr(slack_posting, "_resolve_to_slack_id", resolve_recipient)
+    with patch("airbyte_ops_mcp.slack_posting._post_message") as mock_post:
+        send_hitl_notification(
+            target_person=target_person,
+            message="Test message.",
+            cc_persons=cc_persons,
+            slack_token="xoxb-test",
+            roster=[],
+        )
+
+    blocks = mock_post.call_args.kwargs["blocks"]
+    context = next(block for block in blocks if block["type"] == "context")
+    text = context["elements"][0]["text"]
+    if expected_cc:
+        cc_text = text.split("*CC:* ", 1)[1]
+        positions = [cc_text.index(mention) for mention in expected_cc]
+        assert positions == sorted(positions)
+        for mention in expected_cc:
+            assert cc_text.count(mention) == 1
+    else:
+        assert "*CC:*" not in text
+
+
+@pytest.mark.unit
 @patch("airbyte_ops_mcp.slack_posting._post_message")
 def test_send_hitl_notification_passes_thread_timestamp(
     mock_post: MagicMock,

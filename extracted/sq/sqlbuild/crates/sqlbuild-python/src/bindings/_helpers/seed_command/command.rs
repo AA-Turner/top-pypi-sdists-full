@@ -13,18 +13,19 @@ use sqlbuild_core::seed_command::main::render_seed_ready::render_seed_ready;
 use sqlbuild_core::seed_command::main::render_seed_row::render_seed_row;
 use sqlbuild_core::seed_command::main::seed_exit_code::seed_exit_code;
 use sqlbuild_core::seed_command::models::SeedRow;
+use sqlbuild_host::entries::models::ExecutorHost;
 
-use crate::bindings::_helpers::cli::progress::current_native_progress_projector;
-use crate::bindings::_helpers::cli::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::cli::progress_text::write_execution_header;
+use crate::bindings::_helpers::boundary::python_calls::call_with;
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::build_progress::progress::current_native_progress_projector;
+use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
+use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
+use crate::bindings::_helpers::command_runtime::concurrency::resolve_concurrency;
 use crate::bindings::_helpers::command_runtime::invocation::resolve_command_invocation;
 use crate::bindings::_helpers::compile_driver::pipeline_entries::build_static_pipeline_result;
 use crate::bindings::_helpers::compile_driver::plan_result::connection_with_hooks;
-use crate::bindings::_helpers::compile_driver::python_calls::call_with;
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
-use crate::bindings::_helpers::compile_driver::selection_phases::compile_static_command_context;
+use crate::bindings::_helpers::compile_driver::static_context::compile_static_command_context;
 use crate::bindings::_helpers::dbt_interop::reference_resolver::resolve_external_sql_reference_resolver;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::planner_entries::command_plans::build_seed_command_plan;
 use crate::bindings::_helpers::planner_entries::command_plans::read_selected_seed_fingerprints;
@@ -437,16 +438,12 @@ pub(crate) fn run_seed_command(py: Python<'_>, request: &Bound<'_, PyAny>) -> Py
     let invocation: Bound<'_, PyAny> =
         resolve_command_invocation(request, &record_class(py, RecordId::SeedInvocation)?)?;
     let pipeline: Bound<'_, PyAny> = compile_seeds(request, &invocation)?;
-    let requested: Bound<'_, PyAny> = native_field(request, "concurrency")?;
-    let concurrency: i64 = if requested.is_none() {
-        native_field(
-            &native_field(&native_field(&pipeline, "project")?, "settings")?,
-            "concurrency",
-        )?
-        .extract::<i64>()?
-    } else {
-        requested.extract::<i64>()?
-    }
+    let concurrency: i64 = resolve_concurrency(
+        &native_field(request, "concurrency")?,
+        &native_field(&invocation, "discovered_inputs")?,
+        &native_field(request, "selected_target")?,
+    )?
+    .limit
     .max(1);
     write_header(&invocation, &pipeline, concurrency)?;
     let started: Instant = Instant::now();

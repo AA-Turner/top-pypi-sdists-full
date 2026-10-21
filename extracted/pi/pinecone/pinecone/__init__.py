@@ -14,7 +14,7 @@ and set ``PINECONE_API_KEY``::
 
     pc.indexes.create(
         name="movie-recommendations",
-        schema={"fields": {"embedding": {
+        schema={"fields": {"your_vector": {
             "type": "dense_vector", "dimension": 1536, "metric": "cosine"}}},
         deployment={"deployment_type": "managed", "cloud": "aws", "region": "us-east-1"},
     )
@@ -27,21 +27,23 @@ in for a full 1536-dimensional embedding::
     index = pc.index("movie-recommendations")
     index.documents.upsert(
         namespace="movies-en",
-        documents=[{"_id": "movie-42", "embedding": [0.012, -0.087, 0.153]}],
+        documents=[{"_id": "movie-42", "your_vector": [0.012, -0.087, 0.153]}],
     )
     results = index.documents.search(
         namespace="movies-en",
         top_k=5,
-        score_by=[DenseVectorQuery(field="embedding", values=[0.012, -0.087, 0.153])],
+        score_by=[DenseVectorQuery(field="your_vector", values=[0.012, -0.087, 0.153])],
     )
 
 How the index was created decides which data-plane interface it answers on. An
 index declaring a ``schema`` of your own field names stores documents, read and
 written through ``index.documents``. The vector methods :meth:`Index.upsert` and
 :meth:`Index.query` serve indexes created with top-level ``dimension`` and
-``metric``, and the server rejects them on a schema-based index. An index built
-by ``pc.indexes.create_for_model()`` embeds text server-side, so you search it
-with text rather than with a vector::
+``metric``, and the server rejects them on a schema-based index. A legacy
+integrated index, built by ``pc.indexes.create_for_model()``, requires the legacy
+Records API: it embeds text server-side, so you search it with text rather than
+with a vector (for a new index, give a document index a field with integrated
+embedding instead)::
 
     index = pc.index("semantic-search")
     results = index.search(
@@ -63,18 +65,20 @@ with text rather than with a vector::
             results = await index.documents.search(
                 namespace="movies-en",
                 top_k=5,
-                score_by=[DenseVectorQuery(field="embedding",
+                score_by=[DenseVectorQuery(field="your_vector",
                                            values=[0.012, -0.087, 0.153])],
             )
 
 Organizations, projects, and API keys are managed through :class:`Admin`, which
 authenticates with OAuth2 client credentials rather than an API key. Every
 error the SDK raises derives from :class:`PineconeError`; see
-:doc:`/guides/error-handling` for which call produces which.
+`Error handling <https://sdk.pinecone.io/python/guides/error-handling.html>`__
+for which call produces which.
 
 Upgrading from 9.x? ``create`` and ``configure`` moved from
 ``spec=``/``dimension=`` to ``schema=``/``deployment=``; see
-:doc:`/migration/v10-migration` for the field-by-field mapping and
+`Migrating to V10 <https://sdk.pinecone.io/python/migration/v10-migration.html>`__
+for the field-by-field mapping and
 before/after code for each flow.
 """
 
@@ -115,6 +119,7 @@ if TYPE_CHECKING:
         ListConversionException,
         NotFoundError,
         NotFoundException,
+        PayloadTooLargeError,
         PaymentRequiredError,
         PineconeApiAttributeError,
         PineconeApiException,
@@ -208,6 +213,7 @@ if TYPE_CHECKING:
         CreateBackupScheduleRequest,
         UpdateBackupScheduleRequest,
     )
+    from pinecone.models.batch import BatchError, BatchResult
     from pinecone.models.collections.list import CollectionList
     from pinecone.models.collections.model import CollectionModel
     from pinecone.models.documents.document import (
@@ -228,6 +234,8 @@ if TYPE_CHECKING:
         DocumentFetchUsage,
         DocumentListUsage,
         DocumentSearchUsage,
+        DocumentUpdateUsage,
+        DocumentUpsertUsage,
         FetchDocumentsResponse,
         ListDocumentsResponse,
         ListedDocumentRecord,
@@ -238,7 +246,9 @@ if TYPE_CHECKING:
     from pinecone.models.documents.score_by import (
         DenseVectorQuery,
         DocumentScoringMethod,
+        EmbedQuery,
         QueryStringQuery,
+        SparseEmbedQuery,
         SparseVectorQuery,
         TextQuery,
     )
@@ -287,6 +297,8 @@ if TYPE_CHECKING:
     from pinecone.models.indexes.schema import (
         BooleanField,
         DenseVectorField,
+        FieldEmbedConfig,
+        FieldSparseEmbedConfig,
         FloatField,
         FullTextSearchConfig,
         IndexSchema,
@@ -345,9 +357,9 @@ if TYPE_CHECKING:
     from pinecone.models.vectors.sparse import SparseValues
     from pinecone.models.vectors.vector import ScoredVector, Vector
     from pinecone.schema_builder import SchemaBuilder
-    from pinecone.utils.filter_builder import Field, FilterBuilder
+    from pinecone.utils.filter_builder import Condition, Field, FilterBuilder
 
-__version__ = "10.0.0"
+__version__ = "10.1.0"
 
 if _os.environ.get("PINECONE_DEBUG"):
     import logging as _logging
@@ -377,7 +389,9 @@ __all__ = [
     "BackupScheduleHistoryList",
     "BackupScheduleList",
     "BackupScheduleModel",
+    "BatchError",
     "BatchResponseInfo",
+    "BatchResult",
     "BooleanField",
     "ByocDeployment",
     "ByocSpec",
@@ -393,6 +407,7 @@ __all__ = [
     "CollectionDescription",
     "CollectionList",
     "CollectionModel",
+    "Condition",
     "ConfigureIndexRequest",
     "ConflictError",
     "ContextOptions",
@@ -414,8 +429,11 @@ __all__ = [
     "DocumentRecord",
     "DocumentScoringMethod",
     "DocumentSearchUsage",
+    "DocumentUpdateUsage",
+    "DocumentUpsertUsage",
     "EmbedConfig",
     "EmbedModel",
+    "EmbedQuery",
     "EmbeddingsList",
     "FailedPreconditionError",
     "FetchByMetadataResponse",
@@ -423,6 +441,8 @@ __all__ = [
     "FetchDocumentsResponse",
     "FetchResponse",
     "Field",
+    "FieldEmbedConfig",
+    "FieldSparseEmbedConfig",
     "FilterBuilder",
     "FloatField",
     "ForbiddenError",
@@ -480,6 +500,7 @@ __all__ = [
     "Page",
     "PaginationResponse",
     "Paginator",
+    "PayloadTooLargeError",
     "PaymentRequiredError",
     "Pinecone",
     "PineconeApiAttributeError",
@@ -550,6 +571,7 @@ __all__ = [
     "ServiceAccountWithSecret",
     "ServiceError",
     "ServiceException",
+    "SparseEmbedQuery",
     "SparseEmbedding",
     "SparseValues",
     "SparseVectorField",
@@ -601,8 +623,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "AsyncIndex": ("pinecone.async_client.async_index", "AsyncIndex"),
     "AsyncPaginator": ("pinecone.models.pagination", "AsyncPaginator"),
     "AsyncPinecone": ("pinecone.async_client.pinecone", "AsyncPinecone"),
-    "AwsRegion": ("pinecone.db_control.enums.clouds", "AwsRegion"),
-    "AzureRegion": ("pinecone.db_control.enums.clouds", "AzureRegion"),
+    "AwsRegion": ("pinecone.models.enums", "AwsRegion"),
+    "AzureRegion": ("pinecone.models.enums", "AzureRegion"),
     "BackupList": ("pinecone.models.backups.list", "BackupList"),
     "BackupModel": ("pinecone.models.backups.model", "BackupModel"),
     "BackupScheduleHistoryItem": (
@@ -615,7 +637,9 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     ),
     "BackupScheduleList": ("pinecone.models.backups.list", "BackupScheduleList"),
     "BackupScheduleModel": ("pinecone.models.backups.schedules", "BackupScheduleModel"),
+    "BatchError": ("pinecone.models.batch", "BatchError"),
     "BatchResponseInfo": ("pinecone.models.response_info", "BatchResponseInfo"),
+    "BatchResult": ("pinecone.models.batch", "BatchResult"),
     "BooleanField": ("pinecone.models.indexes.schema", "BooleanField"),
     "ByocDeployment": ("pinecone.models.indexes.deployment", "ByocDeployment"),
     "ByocSpec": ("pinecone.models.indexes.specs", "ByocSpec"),
@@ -631,12 +655,10 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "ChatStream": ("pinecone.models.assistant.streaming", "ChatStream"),
     "ChatStreamChunk": ("pinecone.models.assistant.streaming", "ChatStreamChunk"),
     "CloudProvider": ("pinecone.models.enums", "CloudProvider"),
-    "CollectionDescription": (
-        "pinecone.db_control.models.collection_description",
-        "CollectionDescription",
-    ),
+    "CollectionDescription": ("pinecone.models.collections.description", "CollectionDescription"),
     "CollectionList": ("pinecone.models.collections.list", "CollectionList"),
     "CollectionModel": ("pinecone.models.collections.model", "CollectionModel"),
+    "Condition": ("pinecone.utils.filter_builder", "Condition"),
     "ConfigureIndexRequest": ("pinecone.models.indexes.requests", "ConfigureIndexRequest"),
     "ConflictError": ("pinecone.errors.exceptions", "ConflictError"),
     "ContextOptions": ("pinecone.models.assistant.options", "ContextOptions"),
@@ -670,8 +692,11 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "DocumentRecord": ("pinecone.models.documents.document", "DocumentRecord"),
     "DocumentScoringMethod": ("pinecone.models.documents.score_by", "DocumentScoringMethod"),
     "DocumentSearchUsage": ("pinecone.models.documents.responses", "DocumentSearchUsage"),
+    "DocumentUpdateUsage": ("pinecone.models.documents.responses", "DocumentUpdateUsage"),
+    "DocumentUpsertUsage": ("pinecone.models.documents.responses", "DocumentUpsertUsage"),
     "EmbedConfig": ("pinecone.models.indexes.specs", "EmbedConfig"),
     "EmbedModel": ("pinecone.models.enums", "EmbedModel"),
+    "EmbedQuery": ("pinecone.models.documents.score_by", "EmbedQuery"),
     "EmbeddingsList": ("pinecone.models.inference.embed", "EmbeddingsList"),
     "FailedPreconditionError": ("pinecone.errors.exceptions", "FailedPreconditionError"),
     "FetchByMetadataResponse": ("pinecone.models.vectors.responses", "FetchByMetadataResponse"),
@@ -679,12 +704,14 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "FetchDocumentsResponse": ("pinecone.models.documents.responses", "FetchDocumentsResponse"),
     "FetchResponse": ("pinecone.models.vectors.responses", "FetchResponse"),
     "Field": ("pinecone.utils.filter_builder", "Field"),
+    "FieldEmbedConfig": ("pinecone.models.indexes.schema", "FieldEmbedConfig"),
+    "FieldSparseEmbedConfig": ("pinecone.models.indexes.schema", "FieldSparseEmbedConfig"),
     "FilterBuilder": ("pinecone.utils.filter_builder", "FilterBuilder"),
     "FloatField": ("pinecone.models.indexes.schema", "FloatField"),
     "ForbiddenError": ("pinecone.errors.exceptions", "ForbiddenError"),
     "ForbiddenException": ("pinecone.errors.exceptions", "ForbiddenException"),
     "FullTextSearchConfig": ("pinecone.models.indexes.schema", "FullTextSearchConfig"),
-    "GcpRegion": ("pinecone.db_control.enums.clouds", "GcpRegion"),
+    "GcpRegion": ("pinecone.models.enums", "GcpRegion"),
     "GrpcIndex": ("pinecone.grpc", "GrpcIndex"),
     "Hit": ("pinecone.models.vectors.search", "Hit"),
     "ImportErrorMode": ("pinecone.models.imports.error_mode", "ImportErrorMode"),
@@ -736,6 +763,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "Page": ("pinecone.models.pagination", "Page"),
     "PaginationResponse": ("pinecone.models.admin.pagination", "PaginationResponse"),
     "Paginator": ("pinecone.models.pagination", "Paginator"),
+    "PayloadTooLargeError": ("pinecone.errors.exceptions", "PayloadTooLargeError"),
     "PaymentRequiredError": ("pinecone.errors.exceptions", "PaymentRequiredError"),
     "Pinecone": ("pinecone._client", "Pinecone"),
     "PineconeApiAttributeError": ("pinecone.errors.exceptions", "PineconeApiAttributeError"),
@@ -808,9 +836,9 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "SearchDocumentsRequest": ("pinecone.models.documents.requests", "SearchDocumentsRequest"),
     "SearchDocumentsResponse": ("pinecone.models.documents.responses", "SearchDocumentsResponse"),
     "SearchInputs": ("pinecone.models.vectors.search", "SearchInputs"),
-    "SearchQuery": ("pinecone.db_data.dataclasses.search_query", "SearchQuery"),
+    "SearchQuery": ("pinecone.models.vectors.search", "SearchQuery"),
     "SearchRecordsResponse": ("pinecone.models.vectors.search", "SearchRecordsResponse"),
-    "SearchRerank": ("pinecone.db_data.dataclasses.search_rerank", "SearchRerank"),
+    "SearchRerank": ("pinecone.models.vectors.search", "SearchRerank"),
     "SearchResult": ("pinecone.models.vectors.search", "SearchResult"),
     "SearchUsage": ("pinecone.models.vectors.search", "SearchUsage"),
     "SemanticTextField": ("pinecone.models.indexes.schema", "SemanticTextField"),
@@ -824,6 +852,7 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     ),
     "ServiceError": ("pinecone.errors.exceptions", "ServiceError"),
     "ServiceException": ("pinecone.errors.exceptions", "ServiceException"),
+    "SparseEmbedQuery": ("pinecone.models.documents.score_by", "SparseEmbedQuery"),
     "SparseEmbedding": ("pinecone.models.inference.embed", "SparseEmbedding"),
     "SparseValues": ("pinecone.models.vectors.sparse", "SparseValues"),
     "SparseVectorField": ("pinecone.models.indexes.schema", "SparseVectorField"),

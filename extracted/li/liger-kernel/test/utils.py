@@ -35,7 +35,7 @@ device = infer_device()
 # Transformers Version Compatibility Utilities
 # =============================================================================
 # These utilities help maintain backward compatibility across different
-# versions of the transformers library (v4.52.0, v4.57.6, v5.0.0+).
+# versions of the transformers library (v5.0.0+).
 
 TRANSFORMERS_VERSION = version.parse(transformers.__version__)
 TRANSFORMERS_V5 = version.parse("5.0.0")
@@ -880,6 +880,18 @@ def revert_liger_kernel_to_hunyuan_v1_moe(model_config: MiniModelConfig):
 
     importlib.reload(modeling_hunyuan_v1_moe)
     model_config.model_class = modeling_hunyuan_v1_moe.HunYuanMoEV1ForCausalLM
+
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_deepseek_v2(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to DeepSeek-V2.
+    """
+    from transformers.models.deepseek_v2 import modeling_deepseek_v2
+
+    importlib.reload(modeling_deepseek_v2)
+    model_config.model_class = modeling_deepseek_v2.DeepseekV2ForCausalLM
 
     print("Liger kernel patches have been reverted.")
 

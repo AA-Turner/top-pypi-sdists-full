@@ -30,6 +30,8 @@ from .literals import (
     ControlAssessmentResultType,
     DataProductSortByType,
     DataProductVisibilityStringType,
+    ExpressPrivateOfferConfigurationSortByType,
+    ExpressPrivateOfferConfigurationStateStringType,
     FailureCodeType,
     IntentType,
     MachineLearningProductSortByType,
@@ -112,6 +114,12 @@ __all__ = (
     "EntityTypeSortTypeDef",
     "ErrorDetailTypeDef",
     "ErrorScopeTypeDef",
+    "ExpressPrivateOfferConfigurationEntityIdFilterTypeDef",
+    "ExpressPrivateOfferConfigurationFiltersTypeDef",
+    "ExpressPrivateOfferConfigurationProductIdFilterTypeDef",
+    "ExpressPrivateOfferConfigurationSortTypeDef",
+    "ExpressPrivateOfferConfigurationStateFilterTypeDef",
+    "ExpressPrivateOfferConfigurationSummaryTypeDef",
     "FilterTypeDef",
     "FrameworkFiltersTypeDef",
     "FrameworkSummaryTypeDef",
@@ -373,6 +381,10 @@ class DescribeEntityRequestTypeDef(TypedDict):
     Catalog: str
     EntityId: str
 
+class ExpressPrivateOfferConfigurationSummaryTypeDef(TypedDict):
+    ProductId: NotRequired[str]
+    State: NotRequired[ExpressPrivateOfferConfigurationStateStringType]
+
 class MachineLearningProductSummaryTypeDef(TypedDict):
     ProductTitle: NotRequired[str]
     Visibility: NotRequired[MachineLearningProductVisibilityStringType]
@@ -418,6 +430,10 @@ class SaaSProductSummaryTypeDef(TypedDict):
     ProductTitle: NotRequired[str]
     Visibility: NotRequired[SaaSProductVisibilityStringType]
 
+class ExpressPrivateOfferConfigurationSortTypeDef(TypedDict):
+    SortBy: NotRequired[ExpressPrivateOfferConfigurationSortByType]
+    SortOrder: NotRequired[SortOrderType]
+
 class MachineLearningProductSortTypeDef(TypedDict):
     SortBy: NotRequired[MachineLearningProductSortByType]
     SortOrder: NotRequired[SortOrderType]
@@ -437,6 +453,15 @@ class ResaleAuthorizationSortTypeDef(TypedDict):
 class SaaSProductSortTypeDef(TypedDict):
     SortBy: NotRequired[SaaSProductSortByType]
     SortOrder: NotRequired[SortOrderType]
+
+class ExpressPrivateOfferConfigurationEntityIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+class ExpressPrivateOfferConfigurationProductIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+class ExpressPrivateOfferConfigurationStateFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[ExpressPrivateOfferConfigurationStateStringType]]
 
 class FilterTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -718,6 +743,9 @@ class EntitySummaryTypeDef(TypedDict):
     ResaleAuthorizationSummary: NotRequired[ResaleAuthorizationSummaryTypeDef]
     MachineLearningProductSummary: NotRequired[MachineLearningProductSummaryTypeDef]
     OfferSetSummary: NotRequired[OfferSetSummaryTypeDef]
+    ExpressPrivateOfferConfigurationSummary: NotRequired[
+        ExpressPrivateOfferConfigurationSummaryTypeDef
+    ]
 
 class EntityTypeSortTypeDef(TypedDict):
     DataProductSort: NotRequired[DataProductSortTypeDef]
@@ -728,6 +756,12 @@ class EntityTypeSortTypeDef(TypedDict):
     ResaleAuthorizationSort: NotRequired[ResaleAuthorizationSortTypeDef]
     MachineLearningProductSort: NotRequired[MachineLearningProductSortTypeDef]
     OfferSetSort: NotRequired[OfferSetSortTypeDef]
+    ExpressPrivateOfferConfigurationSort: NotRequired[ExpressPrivateOfferConfigurationSortTypeDef]
+
+class ExpressPrivateOfferConfigurationFiltersTypeDef(TypedDict):
+    EntityId: NotRequired[ExpressPrivateOfferConfigurationEntityIdFilterTypeDef]
+    ProductId: NotRequired[ExpressPrivateOfferConfigurationProductIdFilterTypeDef]
+    State: NotRequired[ExpressPrivateOfferConfigurationStateFilterTypeDef]
 
 class ListChangeSetsRequestPaginateTypeDef(TypedDict):
     Catalog: str
@@ -930,6 +964,9 @@ class EntityTypeFiltersTypeDef(TypedDict):
     ResaleAuthorizationFilters: NotRequired[ResaleAuthorizationFiltersTypeDef]
     MachineLearningProductFilters: NotRequired[MachineLearningProductFiltersTypeDef]
     OfferSetFilters: NotRequired[OfferSetFiltersTypeDef]
+    ExpressPrivateOfferConfigurationFilters: NotRequired[
+        ExpressPrivateOfferConfigurationFiltersTypeDef
+    ]
 
 class ListEntitiesRequestPaginateTypeDef(TypedDict):
     Catalog: str

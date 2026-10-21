@@ -44,6 +44,7 @@ from matrx_ai.processing.blocks.gfm_table_lines import (
     table_starts_at,
 )
 from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
+from matrx_ai.processing.blocks.tree_line import MIN_TREE_LINES, is_tree_line
 
 # ---------------------------------------------------------------------------
 # Data structures
@@ -451,7 +452,7 @@ def extract_xml_block(
             return ExtractionResult(
                 content=result["content"] or full_content,
                 next_index=i,
-                metadata=result["metadata"],
+                metadata={**result["metadata"], "rawXml": full_content},
             )
         after_tag_trimmed = after_tag.strip()
         if after_tag_trimmed:
@@ -495,7 +496,7 @@ def extract_xml_block(
     return ExtractionResult(
         content=result["content"] or full_content,
         next_index=i,
-        metadata=result["metadata"],
+        metadata={**result["metadata"], "rawXml": full_content},
     )
 
 
@@ -1435,6 +1436,12 @@ def _literal_context_ranges(source: str) -> list[tuple[int, int]]:
 
 
 _XML_TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*(?:\s[^<>]*)?/?>")
+_JSON_FENCE_LANGUAGES = frozenset(("", "json", "jsonc", "json5"))
+
+
+def _is_json_fence_language(language: str | None) -> bool:
+    """Match the frontend's JSON-region fence classifier."""
+    return (language or "").strip().lower() in _JSON_FENCE_LANGUAGES
 
 
 def _is_bare_xml_tag_piece(content: str) -> bool:
@@ -1452,10 +1459,21 @@ def _recover_embedded_kind_json_blocks(
     """
     recovered: list[DetectedBlock] = []
     for block in blocks:
-        if block.type in _ROOT_KIND_BLOCK_TYPES or (
+        if (
+            block.type in _ROOT_KIND_BLOCK_TYPES
+            # A fenced non-JSON region is literal code.  A kind-shaped string
+            # inside it belongs to the code sample; the TS splitter keeps the
+            # whole fence too.
+            or (
+                block.type == "code"
+                and block.language != "xml"
+                and not _is_json_fence_language(block.language)
+            )
+            or (
             block.language == "xml"
             and block.metadata.get("genericXmlContainer")
             and block.metadata.get("isComplete") is False
+            )
         ):
             # Incomplete generic XML owns its bytes through every later adapter;
             # only complete containers can recover bare nested kinds.
@@ -1468,19 +1486,110 @@ def _recover_embedded_kind_json_blocks(
         if not regions:
             recovered.append(block)
             continue
+        # A complete JSON fence can carry a kind inside a larger object.  The
+        # frontend lifts the kind *and* retains the remaining JSON value (when
+        # one exists); losing sibling fields here would make the split lossy.
+        if block.type == "code" and _is_json_fence_language(block.language):
+            try:
+                parsed = json.loads(block.content.strip())
+            except json.JSONDecodeError:
+                parsed = None
+            else:
+                def without_kind(value: Any) -> Any:
+                    if isinstance(value, dict):
+                        return {
+                            key: without_kind(child)
+                            for key, child in value.items()
+                            if not (
+                                isinstance(child, dict)
+                                and isinstance(child.get("__kind"), str)
+                                and child["__kind"].strip()
+                            )
+                        }
+                    if isinstance(value, list):
+                        return [
+                            without_kind(child)
+                            for child in value
+                            if not (
+                                isinstance(child, dict)
+                                and isinstance(child.get("__kind"), str)
+                                and child["__kind"].strip()
+                            )
+                        ]
+                    return value
+
+                def carries_data(value: Any) -> bool:
+                    if isinstance(value, (dict, list)):
+                        return any(carries_data(child) for child in value.values()) if isinstance(value, dict) else any(carries_data(child) for child in value)
+                    return True
+
+                def is_pure_json_structure(span: str) -> bool:
+                    without_keys = re.sub(r'"(?:[^"\\]|\\.)*"\s*:', "", span)
+                    return bool(re.fullmatch(r"[\s{}\[\],:]*", without_keys))
+
+                is_root_kind = (
+                    isinstance(parsed, dict)
+                    and isinstance(parsed.get("__kind"), str)
+                    and parsed["__kind"].strip()
+                )
+                if isinstance(parsed, (dict, list)) and not is_root_kind:
+                    residual = without_kind(parsed)
+                    residual_json = (
+                        json.dumps(residual, ensure_ascii=False, indent=2)
+                        if carries_data(residual)
+                        else None
+                    )
+                    residual_placed = residual_json is None
+                    cursor = 0
+                    for start, end, _kind in regions:
+                        span = block.content[cursor:start]
+                        if span and not residual_placed and not is_pure_json_structure(span):
+                            recovered.append(
+                                DetectedBlock(type="code", content=residual_json, language="json")
+                            )
+                            residual_placed = True
+                        recovered.append(
+                            DetectedBlock(
+                                type="code",
+                                content=block.content[start:end],
+                                language="json",
+                            )
+                        )
+                        cursor = end
+                    span = block.content[cursor:]
+                    if span and not residual_placed and not is_pure_json_structure(span):
+                        recovered.append(
+                            DetectedBlock(type="code", content=residual_json, language="json")
+                        )
+                        residual_placed = True
+                    if not residual_placed:
+                        recovered.append(
+                            DetectedBlock(type="code", content=residual_json, language="json")
+                        )
+                    continue
+        fragment_metadata = (
+            {"genericXmlContainer": True}
+            if block.metadata.get("genericXmlContainer")
+            else {}
+        )
         cursor = 0
         for start, end, _kind in regions:
             if start > cursor and not (
                 block.metadata.get("genericXmlContainer")
                 and _is_bare_xml_tag_piece(block.content[cursor:start])
             ):
-                recovered.append(
+                fragment = block.content[cursor:start]
+                if block.type == "text":
+                    fragment = fragment.rstrip()
+                if fragment:
+                    recovered.append(
                     DetectedBlock(
                         type=block.type,
-                        content=block.content[cursor:start],
+                        content=fragment,
                         language=block.language,
                         src=block.src,
                         alt=block.alt,
+                        metadata=fragment_metadata,
                     )
                 )
             recovered.append(
@@ -1495,15 +1604,67 @@ def _recover_embedded_kind_json_blocks(
             block.metadata.get("genericXmlContainer")
             and _is_bare_xml_tag_piece(block.content[cursor:])
         ):
-            recovered.append(
-                DetectedBlock(
-                    type=block.type,
-                    content=block.content[cursor:],
-                    language=block.language,
-                    src=block.src,
-                    alt=block.alt,
+            fragment = block.content[cursor:]
+            if block.type == "text":
+                fragment = fragment.lstrip()
+            if fragment:
+                recovered.append(
+                    DetectedBlock(
+                        type=block.type,
+                        content=fragment,
+                        language=block.language,
+                        src=block.src,
+                        alt=block.alt,
+                        metadata=fragment_metadata,
+                    )
                 )
+    return recovered
+
+
+def _recover_terminal_incomplete_kind_json(blocks: list[DetectedBlock]) -> list[DetectedBlock]:
+    """Give a final unknown ``__kind`` prefix the TS opaque-JSON fallback.
+
+    Streaming must keep an incomplete root as text until its kind resolver can
+    identify it; changing that path changes the partial-event contract.  A
+    completed message is different: the frontend retains the terminal bytes in
+    a JSON code block so they never become prose.
+    """
+    recovered: list[DetectedBlock] = []
+    marker = re.compile(r'\{\s*"__kind"\s*:')
+    for block in blocks:
+        if block.type != "text":
+            recovered.append(block)
+            continue
+        literal_ranges = _literal_context_ranges(block.content)
+        match = None
+        for candidate in marker.finditer(block.content):
+            line_start = block.content.rfind("\n", 0, candidate.start()) + 1
+            # Match TS openRootOf: an unclosed backtick run only suppresses a
+            # root on its current line.  A quote that opened on an earlier line
+            # does not swallow a later line's real JSON root.
+            if any(
+                start <= candidate.start() < end and start >= line_start
+                for start, end in literal_ranges
+            ):
+                continue
+            match = candidate
+            break
+        if match is None:
+            recovered.append(block)
+            continue
+        start = match.start()
+        prefix, candidate = block.content[:start], block.content[start:]
+        prefix = prefix.rstrip()
+        if prefix:
+            recovered.append(DetectedBlock(type="text", content=prefix))
+        recovered.append(
+            DetectedBlock(
+                type="code",
+                content=candidate,
+                language="json",
+                metadata={"isComplete": False},
             )
+        )
     return recovered
 
 
@@ -1972,23 +2133,9 @@ def detect_matrx_file_markdown(line: str) -> dict[str, Any] | None:
 # Tree diagrams + custom dividers (TS steps 5.7, 1b)
 # ---------------------------------------------------------------------------
 
-_TREE_CHARS_RE = re.compile(r"[├└│┌┐┘┬┴┤┼─]")
-# An ASCII connector is `+`/`|` followed by a dash (`|-- src`, `+-- lib`), after any
-# run of vertical rails; a bare `| ` is a table row's edge, never a connector
-# (verify-RC-B4 round 9 — twin of the TS ASCII_TREE_PATTERNS).
-_ASCII_TREE_RE = re.compile(r"^[\s│|]*(?:[├└]|[+|][─\-])")
 _HEADING_RE = re.compile(r"^#{1,6}\s")
 ACCENT_DIVIDER_RE = re.compile(r"^\*\s*\*\s*\*\s*$")
 HEAVY_DIVIDER_RE = re.compile(r"^#\s*={3,}\s*$")
-
-
-def is_tree_line(line: str) -> bool:
-    if not line:
-        return False
-    if _TREE_CHARS_RE.search(line):
-        return True
-    # A GFM delimiter row (`|---|---|`) is a table's, never a tree connector.
-    return bool(_ASCII_TREE_RE.match(line)) and not is_gfm_delimiter_row(line)
 
 
 def _is_markdown_heading_line(line: str) -> bool:
@@ -2157,7 +2304,9 @@ def split_content_into_blocks(md_content: str) -> list[DetectedBlock]:
 
     Direct port of TypeScript splitContentIntoBlocksV2.
     """
-    return _recover_embedded_kind_json_blocks(_split_lines(re.split(r"\r?\n", md_content)))
+    return _recover_terminal_incomplete_kind_json(
+        _recover_embedded_kind_json_blocks(_split_lines(re.split(r"\r?\n", md_content)))
+    )
 
 
 @dataclass
@@ -2675,7 +2824,7 @@ def _split_lines(
                 if is_tree_line(normalize_line(x).strip())
             )
             # Need at least 3 tree-like lines to constitute a tree block.
-            if tree_lines_count >= 3:
+            if tree_lines_count >= MIN_TREE_LINES:
                 tree_start = find_tree_block_start(lines, i)
                 if tree_start < i:
                     current_text = _strip_accumulated_lines_from_text(

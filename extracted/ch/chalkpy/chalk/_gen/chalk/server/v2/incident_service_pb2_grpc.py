@@ -30,6 +30,11 @@ class IncidentServiceStub(object):
             request_serializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.CloseIncidentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.CloseIncidentResponse.FromString,
         )
+        self.DeleteIncident = channel.unary_unary(
+            "/chalk.server.v2.IncidentService/DeleteIncident",
+            request_serializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.DeleteIncidentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.DeleteIncidentResponse.FromString,
+        )
 
 
 class IncidentServiceServicer(object):
@@ -53,6 +58,15 @@ class IncidentServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def DeleteIncident(self, request, context):
+        """Deletes an incident by archiving it: ListIncidents omits it unless include_archived is set,
+        and GetIncident still returns it. An open incident is resolved first, notifying alert
+        channels the way CloseIncident does. Deleting an archived incident keeps its archived_at.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_IncidentServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -70,6 +84,11 @@ def add_IncidentServiceServicer_to_server(servicer, server):
             servicer.CloseIncident,
             request_deserializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.CloseIncidentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.CloseIncidentResponse.SerializeToString,
+        ),
+        "DeleteIncident": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteIncident,
+            request_deserializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.DeleteIncidentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v2_dot_incident__service__pb2.DeleteIncidentResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v2.IncidentService", rpc_method_handlers)
@@ -157,6 +176,35 @@ class IncidentService(object):
             "/chalk.server.v2.IncidentService/CloseIncident",
             chalk_dot_server_dot_v2_dot_incident__service__pb2.CloseIncidentRequest.SerializeToString,
             chalk_dot_server_dot_v2_dot_incident__service__pb2.CloseIncidentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteIncident(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v2.IncidentService/DeleteIncident",
+            chalk_dot_server_dot_v2_dot_incident__service__pb2.DeleteIncidentRequest.SerializeToString,
+            chalk_dot_server_dot_v2_dot_incident__service__pb2.DeleteIncidentResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -71,6 +71,96 @@ export function plotSpec(variable, override) {
     return { ...base, kind };
 }
 
+// --- reduction of high-rank variables -----------------------------------------
+// A particle distribution (records, phi, theta, energy) is drawn by reducing it in WASM
+// (CdfFile.reduce_values) to one row per record. Each non-record axis has a mode: KEEP,
+// COLLAPSE (sum or mean over it), or an index >= 0 (a slice). At most one axis is kept, so
+// the result is a time series or a spectrogram.
+export const KEEP = -1;
+export const COLLAPSE = -2;
+const CDF_DOUBLE = 45;
+const ENERGY = /energ/i;
+
+export function needsReduction(variable) {
+    return !CHAR_TYPES.has(variable.type) && !TIME_TYPES.has(variable.type)
+        && (variable.shape?.length ?? 0) > MAX_PLOT_DIMENSIONS && variable.shape[0] > 0;
+}
+
+// Keep the energy axis (found from its DEPEND_k name), else the last one; collapse the rest:
+// an omnidirectional energy spectrogram.
+export function defaultModes(variable) {
+    const axes = variable.shape.length - 1;
+    const attrs = variable.attributes ?? {};
+    const energy = Array.from({ length: axes }, (_, k) => k)
+        .find((k) => ENERGY.test(String(attrs[`DEPEND_${k + 1}`] ?? "")));
+    const kept = energy ?? axes - 1;
+    return Array.from({ length: axes }, (_, k) => (k === kept ? KEEP : COLLAPSE));
+}
+
+export function withAxisMode(modes, axis, mode) {
+    return modes.map((m, k) => (k === axis ? mode : mode === KEEP && m === KEEP ? COLLAPSE : m));
+}
+
+// Metadata of the reduced (records, kept axis) variable, for plotSpec and the axis resolvers.
+// The mask is applied in WASM before reducing, so FILLVAL/VALIDMIN/VALIDMAX are dropped: a
+// sum may rightly exceed VALIDMAX. DISPLAY_TYPE is dropped: the shape decides.
+export function reducedVariable(variable, modes) {
+    const { FILLVAL, VALIDMIN, VALIDMAX, DISPLAY_TYPE, ...attrs } = variable.attributes ?? {};
+    for (let k = 1; k < variable.shape.length; k++) {
+        delete attrs[`DEPEND_${k}`];
+        delete attrs[`LABL_PTR_${k}`];
+    }
+    const kept = modes.indexOf(KEEP);
+    const shape = [variable.shape[0]];
+    if (kept !== -1) {
+        shape.push(variable.shape[kept + 1]);
+        for (const key of ["DEPEND", "LABL_PTR"]) {
+            const value = variable.attributes?.[`${key}_${kept + 1}`];
+            if (value !== undefined) attrs[`${key}_1`] = value;
+        }
+    }
+    return { type: CDF_DOUBLE, shape, attributes: attrs };
+}
+
+// [fill, validMin, validMax] for reduce_values; NaN when unset.
+export function maskArgs(attributes) {
+    return ["FILLVAL", "VALIDMIN", "VALIDMAX"].map((k) => numericAttr(attributes?.[k]) ?? NaN);
+}
+
+// Whether the y axis is logarithmic. override: undefined | "log" | "linear" (the toggle);
+// fileLog: the ISTP SCALETYP default; possible: false when the axis has values <= 0 that
+// must stay visible (spectrogram bin centers).
+export function yAxisLog(override, fileLog, possible) {
+    if (!possible) return false;
+    return override === undefined ? fileLog : override === "log";
+}
+
+// Y tick label. uPlot's default rounds to a few decimals, so a distribution summed to
+// ~1e-20 would read "0" on every tick: very small and very large values use exponents.
+export function tickLabel(v) {
+    const a = Math.abs(v);
+    if (a !== 0 && (a < 1e-3 || a >= 1e6))
+        return v.toExponential(2).replace(/\.?0+e/, "e");
+    return v.toLocaleString("en-US", { maximumSignificantDigits: 4 });
+}
+
+// uPlot's tzDate: a Date whose local getters read the UTC time of `seconds`. uPlot labels
+// time axes with local getters, so without this they show the viewer's timezone.
+// The offset is taken again at the shifted date: uPlot.tzDate(d, "UTC") uses the offset at
+// the real date, which is an hour off for ~2 h around each DST change.
+// simplify: the UTC times whose wall clock is a skipped local hour (spring forward) still
+// read one hour late; exact everywhere would need a UTC fmtDate and our own time splits.
+export function utcWallClock(seconds) {
+    const ms = seconds * 1e3;
+    const firstGuess = new Date(ms + new Date(ms).getTimezoneOffset() * 6e4);
+    return new Date(ms + firstGuess.getTimezoneOffset() * 6e4);
+}
+
+// A log axis cannot place values <= 0: they become gaps.
+export function positiveOnly(values) {
+    return values.map((v) => (v > 0 ? v : NaN));
+}
+
 // Min/max decimation for line plots: bucket into ~targetCols columns, emitting the
 // per-bucket min and max (in index order) so spikes survive. NaN-only buckets emit
 // a single NaN gap. Returns parallel { x, y } arrays. Pass-through when already small.
@@ -293,10 +383,17 @@ export function spectroView({ centers, grid, rows }, lo, hi, maxCols) {
     const parts = splitAtGaps(centers, start, end, gapThreshold(centers)).map(([s, e]) =>
         thinColumns(centers.slice(s, e), grid.subarray(s * rows, e * rows), rows,
             Math.max(1, Math.floor(maxCols * (e - s) / total))));
-    return {
-        centers: parts.flatMap((p) => p.centers),
-        grid: Float64Array.from(parts.flatMap((p) => Array.from(p.grid))),
-    };
+    return { centers: parts.flatMap((p) => p.centers), grid: concatGrids(parts.map((p) => p.grid)) };
+}
+
+function concatGrids(grids) {
+    const out = new Float64Array(grids.reduce((n, g) => n + g.length, 0));
+    let at = 0;
+    for (const g of grids) {
+        out.set(g, at);
+        at += g.length;
+    }
+    return out;
 }
 
 function thinColumns(centers, grid, rows, maxCols) {

@@ -1,7 +1,7 @@
 from setuptools import setup,find_packages
 from datetime import datetime
 from pathlib import Path
-VERSION="0.1.169"
+VERSION="0.1.171"
 long_description=Path('README.md')
 license='GPL-3.0-only'
 license_files=['COPYING',]

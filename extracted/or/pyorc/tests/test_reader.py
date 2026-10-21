@@ -1,6 +1,7 @@
 import pytest
 
 import io
+import gc
 import math
 import string
 from datetime import datetime, date, timezone
@@ -28,9 +29,9 @@ from conftest import output_file, NullValue
 
 @pytest.fixture
 def orc_data():
-    def _init(row):
+    def _init(row: int) -> io.BytesIO:
         data = io.BytesIO()
-        with Writer(
+        with Writer[dict[str, str | int]](
             data, "struct<col0:int,col1:string>", struct_repr=StructRepr.DICT
         ) as writer:
             for i in range(row):
@@ -48,9 +49,9 @@ def orc_data():
 
 @pytest.fixture
 def striped_orc_data():
-    def _init(row):
+    def _init(row: int) -> io.BytesIO:
         data = io.BytesIO()
-        with Writer(
+        with Writer[tuple[int]](
             data,
             "struct<col0:int>",
             batch_size=65535,
@@ -284,6 +285,8 @@ def test_include():
     assert next(reader) == {"col0": 1, "col2": 3.14}
     with pytest.raises(TypeError):
         _ = Reader(data, column_indices=[0, "2"], struct_repr=StructRepr.DICT)
+    with pytest.raises(TypeError):
+        _ = Reader(data, column_names="wrong", struct_repr=StructRepr.DICT)
     reader = Reader(data, column_names=["col0"], struct_repr=StructRepr.DICT)
     assert next(reader) == {"col0": 1}
     reader = Reader(data, column_names=["col1", "col2"], struct_repr=StructRepr.DICT)
@@ -407,9 +410,9 @@ def test_writer_id():
 
 def test_writer_version():
     data = io.BytesIO()
-    with Writer(data, "int") as writer:
+    with Writer[int](data, "int") as writer:
         writer.writerows(range(10))
-    reader = Reader(data)
+    reader = Reader[int](data)
     assert reader.writer_version == WriterVersion.ORC_135
 
 
@@ -618,3 +621,11 @@ def test_read_custom_null_value(orc_type, value):
     else:
         assert next(reader) == value
     assert next(reader) is NullValue()
+
+
+def test_stripe_keeps_reader_alive(striped_orc_data):
+    stripe = Reader(striped_orc_data(655)).read_stripe(0)
+    gc.collect()
+    assert len(list(stripe)) == len(stripe)
+    assert isinstance(stripe[0].statistics, dict)
+    assert stripe.bytes_length > 0

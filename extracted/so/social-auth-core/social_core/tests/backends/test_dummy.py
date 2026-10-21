@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import json
 from typing import Any, cast
 
@@ -12,6 +12,21 @@ from social_core.exceptions import AuthPolicyError
 from social_core.tests.models import User
 
 from .oauth import BaseAuthUrlTestMixin, OAuth2Test
+
+MALFORMED_EMAILS = (
+    " ",
+    "\t",
+    "@bar.com",
+    " @bar.com",
+    ".foo@bar.com",
+    "foo.@bar.com",
+    "foo..bar@bar.com",
+    "foo bar@bar.com",
+    "foo@@bar.com",
+    "foo@",
+    "Foo <foo@bar.com>",
+    "foo\n@bar.com",
+)
 
 
 class DummyOAuth2(BaseOAuth2):
@@ -100,6 +115,37 @@ class WhitelistEmailsTest(DummyOAuth2Test):
         self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_EMAILS": ["foo@bAR.com"]})
         self.do_login()
 
+    def test_login_without_email(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_EMAILS": ["foo@bar.com"]})
+        self.user_data_body = json.dumps({"id": 1, "username": "foobar"})
+
+        with self.assertRaises(AuthPolicyError) as caught:
+            self.do_login()
+
+        self.assertEqual(caught.exception.code, "authentication_disallowed")
+        self.assertEqual(caught.exception.stage, "pipeline")
+        self.assertFalse(User.cache)
+
+    def test_invalid_email_values_are_not_allowed(self) -> None:
+        self.strategy.set_settings(
+            {"SOCIAL_AUTH_WHITELISTED_EMAILS": ["foo@bar.com", *MALFORMED_EMAILS]}
+        )
+
+        invalid_emails: tuple[object, ...] = (
+            None,
+            "",
+            "not-an-email",
+            1,
+            [],
+            {},
+            *MALFORMED_EMAILS,
+        )
+        for email in invalid_emails:
+            with self.subTest(email=email):
+                self.assertFalse(self.backend.auth_allowed({}, {"email": email}))
+
+        self.assertFalse(self.backend.auth_allowed({}, {}))
+
 
 class WhitelistDomainsTest(DummyOAuth2Test):
     def test_valid_login(self) -> None:
@@ -107,12 +153,72 @@ class WhitelistDomainsTest(DummyOAuth2Test):
         self.do_login()
 
     def test_invalid_login(self) -> None:
-        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_EMAILS": ["bar2.com"]})
+        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_DOMAINS": ["bar2.com"]})
         with self.assertRaises(AuthPolicyError):
             self.do_login()
 
+    def test_login_without_email(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_DOMAINS": ["bar.com"]})
+        self.user_data_body = json.dumps({"id": 1, "username": "foobar"})
 
-DELTA = datetime.timedelta(days=1)
+        with self.assertRaises(AuthPolicyError):
+            self.do_login()
+
+    def test_login_without_local_part(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_DOMAINS": ["bar.com"]})
+        self.user_data_body = json.dumps(
+            {"id": 1, "username": "foobar", "email": "@bar.com"}
+        )
+
+        with self.assertRaises(AuthPolicyError) as caught:
+            self.do_login()
+
+        self.assertEqual(caught.exception.code, "authentication_disallowed")
+        self.assertEqual(caught.exception.stage, "pipeline")
+        self.assertFalse(User.cache)
+
+    def test_valid_local_parts_are_allowed(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_DOMAINS": ["bar.com"]})
+
+        for email in (
+            "foo+tag@bar.com",
+            "foo.bar@bar.com",
+            '"foo bar"@bar.com',
+            '"foo"@bar.com',
+            '"foo@baz.com"@bar.com',
+        ):
+            with self.subTest(email=email):
+                self.assertTrue(self.backend.auth_allowed({}, {"email": email}))
+
+    def test_login_without_email_or_whitelist(self) -> None:
+        self.user_data_body = json.dumps({"id": 1, "username": "foobar"})
+        self.do_login()
+
+    def test_empty_email_values_without_whitelist(self) -> None:
+        for email in (None, ""):
+            with self.subTest(email=email):
+                self.assertTrue(self.backend.auth_allowed({}, {"email": email}))
+
+    def test_invalid_email_values_are_not_allowed(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_WHITELISTED_DOMAINS": ["bar.com"]})
+
+        invalid_emails: tuple[object, ...] = (
+            None,
+            "",
+            "not-an-email",
+            1,
+            [],
+            {},
+            *MALFORMED_EMAILS,
+        )
+        for email in invalid_emails:
+            with self.subTest(email=email):
+                self.assertFalse(self.backend.auth_allowed({}, {"email": email}))
+
+        self.assertFalse(self.backend.auth_allowed({}, {}))
+
+
+DELTA = dt.timedelta(days=1)
 
 
 class ExpirationTimeTest(DummyOAuth2Test):
@@ -124,9 +230,7 @@ class ExpirationTimeTest(DummyOAuth2Test):
             "first_name": "Foo",
             "last_name": "Bar",
             "email": "foo@bar.com",
-            "expires": (
-                datetime.datetime.now(datetime.timezone.utc) + DELTA
-            ).timestamp(),
+            "expires": (dt.datetime.now(dt.timezone.utc) + DELTA).timestamp(),
         }
     )
 

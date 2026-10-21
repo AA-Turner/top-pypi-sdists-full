@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: rasa-sdk
-Version: 3.20.2
+Version: 3.21.0
 Summary: Open source machine learning framework to automate text- and voice-based conversations: NLU, dialogue management, connect to Slack, Facebook, and more - Create chatbots and voice assistants
 License: Apache-2.0
 Keywords: nlp,machine-learning,machine-learning-library,bot,bots,botkit,rasa conversational-agents,conversational-ai,chatbot,chatbot-framework,bot-framework
@@ -19,14 +19,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Dist: coloredlogs (>=10,<16)
-Requires-Dist: grpcio (>=1.83.0,<1.84.0)
-Requires-Dist: grpcio-health-checking (>=1.83.0,<1.84.0)
+Requires-Dist: grpcio (>=1.84.0,<1.85.0)
+Requires-Dist: grpcio-health-checking (>=1.84.0,<1.85.0)
 Requires-Dist: grpcio-tools (>=1.83.0,<1.84.0) ; python_version < "3.14"
-Requires-Dist: opentelemetry-api (>=1.44.0,<1.45.0)
-Requires-Dist: opentelemetry-exporter-otlp (>=1.44.0,<1.45.0)
-Requires-Dist: opentelemetry-sdk (>=1.44.0,<1.45.0)
+Requires-Dist: opentelemetry-api (>=1.45.0,<1.46.0)
+Requires-Dist: opentelemetry-exporter-otlp (>=1.45.0,<1.46.0)
+Requires-Dist: opentelemetry-sdk (>=1.45.0,<1.46.0)
 Requires-Dist: pluggy (>=1.0.0,<2.0.0)
-Requires-Dist: protobuf (>=7.35.1,<7.36.0)
+Requires-Dist: protobuf (>=7.36.0,<7.37.0)
 Requires-Dist: pydantic (>=2.13.4,<2.14.0)
 Requires-Dist: ruamel.yaml (>=0.19.1,<0.20.0)
 Requires-Dist: sanic (>=25.12,<25.13)

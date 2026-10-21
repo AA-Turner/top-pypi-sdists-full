@@ -3,6 +3,7 @@ from typing import (
     Callable,
     Dict,
     Generator,
+    Iterable,
     List,
     Literal,
     Optional,
@@ -13,20 +14,19 @@ from typing import (
 import httpx
 
 from e2b.api.client_sync import get_envd_api
-from connectrpc.code import Code
-from connectrpc.errors import ConnectError
 from packaging.version import Version
 from e2b.connection_config import (
     ConnectionConfig,
     Username,
     KEEPALIVE_PING_HEADER,
     KEEPALIVE_PING_INTERVAL_SEC,
+    STREAM_INPUT_TIMEOUT,
 )
 from protobuf import Oneof
 
 from e2b.envd.process import process_connect, process_pb
 from e2b.envd.api import check_sandbox_health
-from e2b.envd.rpc import handle_rpc_exception_with_health
+from e2b.envd.rpc import handle_rpc_exception_with_health, kill_process
 from e2b.envd.utils import (
     authentication_header,
     extract_start_pid,
@@ -34,9 +34,10 @@ from e2b.envd.utils import (
 )
 from e2b.envd.client_sync import as_stream, create_rpc_client
 from e2b.envd.versions import ENVD_COMMANDS_STDIN, ENVD_ENVD_CLOSE
-from e2b.exceptions import SandboxException
+from e2b.exceptions import InvalidArgumentException, SandboxException
 from e2b.sandbox.commands.main import ProcessInfo
 from e2b.sandbox.commands.command_handle import CommandResult
+from e2b.sandbox.commands.stream_input import stream_input_data, stream_input_start
 from e2b.sandbox_sync.commands.command_handle import CommandHandle
 
 
@@ -119,22 +120,12 @@ class Commands:
 
         :return: `True` if the command was killed, `False` if the command was not found
         """
-        try:
-            self._rpc.send_signal(
-                process_pb.SendSignalRequest(
-                    process=process_pb.ProcessSelector(selector=Oneof("pid", pid)),
-                    signal=process_pb.Signal.SIGKILL,
-                ),
-                timeout_ms=timeout_to_ms(
-                    self._connection_config.get_request_timeout(request_timeout)
-                ),
-            )
-            return True
-        except Exception as e:
-            if isinstance(e, ConnectError):
-                if e.code == Code.NOT_FOUND:
-                    return False
-            raise handle_rpc_exception_with_health(e, self._check_health)
+        return kill_process(
+            self._rpc,
+            pid,
+            self._connection_config.get_request_timeout(request_timeout),
+            self._check_health,
+        )
 
     def send_stdin(
         self,
@@ -165,6 +156,48 @@ class Commands:
             )
         except Exception as e:
             raise handle_rpc_exception_with_health(e, self._check_health)
+
+    def stream_input(
+        self,
+        pid: int,
+        data: Iterable[Union[str, bytes]],
+        *,
+        timeout: Optional[float] = STREAM_INPUT_TIMEOUT,
+    ) -> None:
+        """Stream input to command stdin.
+
+        Blocks until ``data`` is exhausted; input is sent as the iterable
+        yields it, and no keepalives are sent while it blocks.
+
+        :param pid: Process ID of the command.
+        :param data: Iterable of strings or bytes to send in order.
+        :param timeout: Timeout in seconds; defaults to ``STREAM_INPUT_TIMEOUT``
+            (60 seconds). ``0`` or ``None`` disables the timeout.
+        :return: ``None`` after all input is sent and envd acknowledges the stream.
+        :raises NotFoundException: If the command does not exist.
+        :raises TimeoutException: If the stream timeout expires.
+        :raises SandboxException: If the streaming request fails.
+        :raises InvalidArgumentException: If ``data`` is a single ``str`` or
+            ``bytes`` value instead of an iterable of chunks.
+        """
+        if isinstance(data, (str, bytes, bytearray, memoryview)):
+            raise InvalidArgumentException(
+                "`data` must be an iterable of str or bytes chunks, not a single "
+                "chunk; wrap it in a list, e.g. `stream_input(pid, [data])`."
+            )
+
+        def requests() -> Generator[process_pb.StreamInputRequest, None, None]:
+            yield stream_input_start(pid)
+            for item in data:
+                yield stream_input_data("stdin", item)
+
+        try:
+            self._rpc.stream_input(
+                requests(),
+                timeout_ms=timeout_to_ms(timeout),
+            )
+        except Exception as error:
+            raise handle_rpc_exception_with_health(error, self._check_health)
 
     def close_stdin(
         self,

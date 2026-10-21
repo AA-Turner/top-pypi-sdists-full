@@ -60,7 +60,7 @@ from arelle.CompareInstance import compareInstance
 from arelle.Locale import format_string, setApplicationLocale, setDisableRTL
 from arelle.ModelFormulaObject import FormulaOptions
 from arelle.ModelValue import qname
-from arelle.ValidateFileSource import ValidateFileSource
+from arelle.ValidateFileSource import ValidateFileSource, isPackage
 from arelle.oim.xml.Save import saveOimReportToXmlInstance
 from arelle.rendering import RenderingEvaluator
 from arelle.RuntimeOptions import RuntimeOptions, RuntimeOptionsException
@@ -363,6 +363,16 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
             )
         )
     validationGroup.add_option(
+        "--skipPackageContentLoading",
+        "--skippackagecontentloading",
+        action="store_true",
+        dest="skipPackageContentLoading",
+        help=_(
+            "Skips loading reports and taxonomies inside report and taxonomy packages. Useful for validating "
+            "package structure without asserting anything about the reports and taxonomies within."
+            )
+        )
+    validationGroup.add_option(
         "--baseTaxonomyValidation",
         "--basetaxonomyvalidation",
         choices=("disclosureSystem", "none", "all"),
@@ -466,7 +476,7 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
         "--infoset",
         action="store_true",
         dest="infosetValidate",
-        help=_("Select validation with respect testcase infosets.")
+        help=_("Deprecated - testcase infosets are always compared when a variation provides one.")
         )
     validationGroup.add_option(
         "--compareInstance",
@@ -493,6 +503,13 @@ def parseArgs(args: list[str]) -> tuple[RuntimeOptions, dict[str, Any]]:
         action="store_true",
         dest="taxonomyPackage",
         help=_("Ignore detected file type and validate all files as Taxonomy Packages.")
+        )
+    validationGroup.add_option(
+        "--requireInlineXbrl",
+        "--requireinlinexbrl",
+        action="store_true",
+        dest="requireInlineXbrl",
+        help=_("Report an error for any input that is not Inline XBRL.")
         )
     validationGroup.add_option(
         "--validationExitCode",
@@ -1827,12 +1844,14 @@ class CntlrCmdLine(Cntlr.Cntlr):
         self.modelManager.validateTableConstraintsSkipLoading = options.validateTableConstraintsSkipLoading
         if options.validateTableConstraintsSkipLoading:
             options.validate = True
+        self.modelManager.skipPackageContentLoading = options.skipPackageContentLoading
         if options.validateDuplicateFacts:
             duplicateTypeArg = ValidateDuplicateFactsConst.DuplicateTypeArg(options.validateDuplicateFacts)
             duplicateType = duplicateTypeArg.duplicateType()
             self.modelManager.validateDuplicateFacts = duplicateType
         self.modelManager.validateAllFilesAsReportPackages = options.reportPackage
         self.modelManager.validateAllFilesAsTaxonomyPackages = options.taxonomyPackage
+        self.modelManager.requiredDocumentTypes = ModelDocument.Type.INLINEXBRLTYPES if options.requireInlineXbrl else ()
         if options.utrUrl:  # override disclosureSystem utrUrl
             self.modelManager.disclosureSystem.utrUrl = [options.utrUrl]
             # can be set now because the utr is first loaded at validation time
@@ -1878,8 +1897,6 @@ class CntlrCmdLine(Cntlr.Cntlr):
                               messageCode="info", file=options.entrypointFile)  # type: ignore[arg-type]
         if options.utrValidate:
             self.modelManager.validateUtr = True
-        if options.infosetValidate:
-            self.modelManager.validateInfoset = True
         if options.abortOnMajorError:
             self.modelManager.abortOnMajorError = True
         if options.collectProfileStats:
@@ -1988,7 +2005,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
             if not (options.entrypointFile or sourceZipStream):
                 return True
 
-        entrypointParseResult = parseEntrypointFileInput(self, options.entrypointFile, sourceZipStream)
+        entrypointParseResult = parseEntrypointFileInput(self, options.entrypointFile, sourceZipStream, skipPackageEntries=options.skipPackageContentLoading)
         if not entrypointParseResult.success:
             return False
         filesource = entrypointParseResult.filesource
@@ -2001,7 +2018,9 @@ class CntlrCmdLine(Cntlr.Cntlr):
         if options.validate and filesource is not None:
             ValidateFileSource(self, filesource).validate(options.reportPackage, options.taxonomyPackage)
 
-        if len(_entrypointFiles) == 0 and not options.packages:
+        skipContentLoading = options.skipPackageContentLoading and filesource is not None and isPackage(filesource)
+        entrypointsRequired = not options.packages and not skipContentLoading
+        if entrypointsRequired and len(_entrypointFiles) == 0:
             if options.entrypointFile:
                 msg = _("No XBRL entry points could be loaded from provided file: {}").format(options.entrypointFile)
             else:
@@ -2029,7 +2048,8 @@ class CntlrCmdLine(Cntlr.Cntlr):
                         filesource,
                         _("views loading"),
                         entrypoint=_entrypoint,
-                        errorCaptureLevel=errorCaptureLevel
+                        errorCaptureLevel=errorCaptureLevel,
+                        requiredDocumentTypes=self.modelManager.requiredDocumentTypes,
                     )
                     if filesource.isArchive:
                         # Keep archive filesource potentially used by multiple reports open.
@@ -2206,7 +2226,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
                             ViewFileTests.viewTests(self.modelManager.modelXbrl, options.testReport, options.testReportCols)  # type: ignore[no-untyped-call]
 
                         if options.rssReport:
-                            ViewFileRssFeed.viewRssFeed(self.modelManager.modelXbrl, options.rssReport, options.rssReportCols)  # type: ignore[no-untyped-call]
+                            ViewFileRssFeed.viewRssFeed(self.modelManager.modelXbrl, options.rssReport, options.rssReportCols)  # type: ignore[arg-type]
 
                         if options.DTSFile:
                             ViewFileDTS.viewDTS(modelXbrl, options.DTSFile)  # type: ignore[arg-type]
@@ -2215,7 +2235,7 @@ class CntlrCmdLine(Cntlr.Cntlr):
                         if options.factTableFile:
                             ViewFileFactTable.viewFacts(modelXbrl, options.factTableFile, labelrole=options.labelRole, lang=options.labelLang, cols=options.factTableCols)  # type: ignore[arg-type]
                         if options.conceptsFile:
-                            ViewFileConcepts.viewConcepts(modelXbrl, options.conceptsFile, labelrole=options.labelRole, lang=options.labelLang)  # type: ignore[no-untyped-call]
+                            ViewFileConcepts.viewConcepts(modelXbrl, options.conceptsFile, labelrole=options.labelRole, lang=options.labelLang)  # type: ignore[arg-type]
                         if options.preFile:
                             ViewFileRelationshipSet.viewRelationshipSet(modelXbrl, options.preFile, "Presentation Linkbase", XbrlConst.parentChild, labelrole=options.labelRole, lang=options.labelLang, cols=options.relationshipCols)  # type: ignore[arg-type]
                         if options.tableFile:

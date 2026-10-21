@@ -20,9 +20,8 @@ from torch.nn import functional as F
 from typing_extensions import Self
 
 from pocket_tts.data.audio import audio_read
-from pocket_tts.data.audio_utils import convert_audio
+from pocket_tts.data.audio_utils import convert_audio, end_on_pause
 from pocket_tts.default_parameters import (
-    DEFAULT_EOS_THRESHOLD,
     DEFAULT_LANGUAGE,
     DEFAULT_NOISE_CLAMP,
     DEFAULT_SAMPLER_DECODE_STEPS,
@@ -244,9 +243,10 @@ class TTSModel(nn.Module):
         # Load mimi weights from the config safetensors file with complete mapping for strict loading
 
         if config.mimi.weights_path is not None:
-            if config.flow_lm.weights_path is None:
+            if config.flow_lm.weights_path is None and config.weights_path is None:
                 raise ValueError(
-                    "If you specify mimi.weights_path you should specify flow_lm.weights_path"
+                    "If you specify mimi.weights_path you should specify flow_lm.weights_path "
+                    "or weights_path"
                 )
             logger.info(f"Loading Mimi weights from {config.mimi.weights_path}")
             mimi_state = get_mimi_state_dict(download_if_necessary(config.mimi.weights_path))
@@ -265,6 +265,10 @@ class TTSModel(nn.Module):
                 weights_file = download_if_necessary(config.weights_path_without_voice_cloning)
 
             state_dict = safetensors.torch.load_file(weights_file)
+            if config.mimi.weights_path is not None:
+                # mimi.weights_path, loaded above, replaces the Mimi weights of the bundle.
+                state_dict = {k: v for k, v in state_dict.items() if not k.startswith("mimi.")}
+                state_dict.update({f"mimi.{k}": v for k, v in tts_model.mimi.state_dict().items()})
             tts_model.load_state_dict(state_dict, strict=True)
 
         if config.flow_lm.weights_path is None and config.weights_path is None:
@@ -289,7 +293,7 @@ class TTSModel(nn.Module):
         temp: float | None = None,
         sampler_decode_steps: int = DEFAULT_SAMPLER_DECODE_STEPS,
         noise_clamp: float | None = DEFAULT_NOISE_CLAMP,
-        eos_threshold: float = DEFAULT_EOS_THRESHOLD,
+        eos_threshold: float | None = None,
         quantize: bool = False,
         checkpoint: str | Path | None = None,
         lsd_decode_steps: int | None = None,
@@ -303,8 +307,8 @@ class TTSModel(nn.Module):
         Args:
             language: Optional language identifier to select a predefined config. Incompatible with
                 the `config` argument. Available options
-                are `"english_2026-01"`, `"english_2026-04"`, `"english_2026-09"`, `"english"`, `"french"`, `"french_24l"`, `"german"`, `"german_24l"`, `"portuguese"`, `"portuguese_24l"`, `"italian"`, `"italian_24l"`, `"spanish"`, `"spanish_24l"`, `"dutch"`, `"dutch_24l"`.
-                If neither `config` nor `language` is provided, defaults to `"english", which is the same model as 'english_2026-09'`.
+                are `"english_2026-01"`, `"english_2026-04"`, `"english_2026-09"`, `"english_2026-09_2"`, `"english_drifting_26-09"`, `"english_18m_2026-10"`, `"english_18m_refl_2026-10"`, `"english_7m_2026-10"`, `"english_7m_refl_2026-10"`, `"english_2m_2026-10"`, `"english_2m_refl_2026-10"`, `"english"`, `"french"`, `"french_24l"`, `"german"`, `"german_24l"`, `"portuguese"`, `"portuguese_24l"`, `"italian"`, `"italian_24l"`, `"spanish"`, `"spanish_24l"`, `"dutch"`, `"dutch_24l"`.
+                If neither `config` nor `language` is provided, defaults to `"english", which is the same model as 'english_2026-09_2'`.
             config: A path to a custom YAML config file: a local path (e.g., `"C://pocket_tts/pocket_tts_config.yaml"`),
                 an `https://` URL, or an `hf://` path (e.g. `"hf://<repo_id>/<path>[@revision]"`).
             temp: Sampling temperature for generation. Higher values produce more
@@ -316,7 +320,8 @@ class TTSModel(nn.Module):
             noise_clamp: Maximum value for noise sampling. If None, no clamping
                 is applied. Helps prevent extreme values in generation.
             eos_threshold: Threshold for end-of-sequence detection. Higher values
-                make the model more likely to continue generating.
+                make the model more likely to continue generating. If None, defaults to
+                the model's value from its config file (``default_eos_threshold``, -4.0).
             checkpoint: Optional training checkpoint (.pt) to load instead of the
                 config's safetensors weights, so any step of a run can be played
                 without exporting first. EMA weights are used when the checkpoint
@@ -369,6 +374,8 @@ class TTSModel(nn.Module):
         model_config = load_config(config_path)
         if temp is None:
             temp = model_config.default_temperature
+        if eos_threshold is None:
+            eos_threshold = model_config.default_eos_threshold
         logger.info(f"Loading model from config at {config_path}...")
 
         origin = Path(config_path)
@@ -469,7 +476,7 @@ class TTSModel(nn.Module):
         for module_name, module_state in model_state.items():
             if "cache" in module_state:
                 cache = module_state["cache"]
-                # KV cache has shape [2, batch_size, current_length, num_heads, dim_per_head]
+                # KV cache has shape [2, batch_size, current_length, num_kv_heads, dim_per_head]
                 current_length = cache.shape[2]
                 if current_length < sequence_length:
                     # Create expanded cache filled with NaN for unused positions
@@ -511,6 +518,10 @@ class TTSModel(nn.Module):
         try:
             audio_chunks = []
             mimi_state = init_states(self.mimi, batch_size=1, sequence_length=mimi_sequence_length)
+            # A fresh Mimi decoder state puts a small step (about -41 dBFS) in its first samples, heard
+            # as a click at the start of every chunk: fade the first 5 ms in. (The longer burst some
+            # voices produced came from prompts ending on speech, handled by end_on_pause.)
+            fade_in: torch.Tensor | None = torch.linspace(0, 1, self.config.mimi.sample_rate // 200)
             while True:
                 latent = latents_queue.get()
                 if latent is None:
@@ -537,6 +548,10 @@ class TTSModel(nn.Module):
 
                 t = time.monotonic()
                 audio_frame = self.mimi.decode_from_latent(mimi_decoding_input, mimi_state)
+                if fade_in is not None:
+                    n = min(fade_in.numel(), audio_frame.shape[-1])
+                    audio_frame[..., :n] *= fade_in[:n].to(audio_frame)
+                    fade_in = None
                 increment_steps(
                     self.mimi, mimi_state, increment=mimi_steps_per_latent * len(latents)
                 )
@@ -1020,6 +1035,7 @@ class TTSModel(nn.Module):
                 audio, conditioning_sample_rate, self.config.mimi.sample_rate, 1
             )
 
+        audio_conditioning = end_on_pause(audio_conditioning, self.config.mimi.sample_rate)
         with display_execution_time("Encoding audio prompt"):
             prompt = self._encode_audio(audio_conditioning.unsqueeze(0).to(self.device))
 

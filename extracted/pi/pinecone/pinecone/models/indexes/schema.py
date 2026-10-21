@@ -18,6 +18,8 @@ from msgspec import Struct
 __all__ = [
     "BooleanField",
     "DenseVectorField",
+    "FieldEmbedConfig",
+    "FieldSparseEmbedConfig",
     "FloatField",
     "FullTextSearchConfig",
     "IndexSchema",
@@ -82,18 +84,19 @@ class DenseVectorField(Struct, tag="dense_vector", tag_field="type", kw_only=Tru
             :class:`~pinecone.schema_builder.SchemaBuilder` rejects anything
             outside that range before the request leaves the client.
         metric: How similarity is scored — ``"cosine"``, ``"dotproduct"``, or
-            ``"euclidean"``. Fixed for the life of the field; see
+            ``"euclidean"``. Capitals are lowercased when the index is
+            created. Fixed for the life of the field; see
             :class:`~pinecone.models.enums.Metric` for how to choose.
         description: Free-text note about the field, or ``None`` when none was
             given. Always present in responses.
 
     Examples:
-        The ``schema=`` entry that declares one:
+        A ``schema=`` that declares one:
 
         .. code-block:: python
 
-            {"embedding": {"type": "dense_vector", "dimension": 1536,
-                           "metric": "cosine"}}
+            {"fields": {"your_vector": {"type": "dense_vector", "dimension": 1536,
+                                        "metric": "cosine"}}}
     """
 
     dimension: int
@@ -118,22 +121,27 @@ class SparseVectorField(Struct, tag="sparse_vector", tag_field="type", kw_only=T
         description: Free-text note about the field, or ``None``.
 
     Examples:
-        The ``schema=`` entry that declares one:
+        A ``schema=`` that declares one:
 
         .. code-block:: python
 
-            {"keywords": {"type": "sparse_vector"}}
+            {"fields": {"keywords": {"type": "sparse_vector"}}}
     """
 
     description: str | None = None
 
 
 class SemanticTextField(Struct, tag="semantic_text", tag_field="type", kw_only=True):
-    """Text that Pinecone embeds for you, on write and on read.
+    """The embedded text field of a legacy integrated index, created via create-for-model.
 
     With a semantic text field you upsert and query plain text and never
     handle a vector yourself — the difference from :class:`DenseVectorField`,
-    where producing the embedding is your job.
+    where producing the embedding is your job. Legacy integrated indexes
+    require the legacy Records API (``upsert_records`` and ``search``). For
+    new work, create a document index with a :class:`StringField` that uses
+    integrated embedding (``embed`` or ``sparse_embed``) instead: a document
+    index is read and written through ``index.documents``, and describe
+    reports the field as a ``string``.
 
     **Response-only, and there is exactly one way to get one:**
     :meth:`~pinecone.client.indexes.Indexes.create_for_model`, which names the
@@ -188,8 +196,8 @@ class NgramConfig(Struct, kw_only=True):
 
         .. code-block:: python
 
-            {"title": {"type": "string", "full_text_search": {
-                "ngram": {"min_gram": 2, "max_gram": 3}}}}
+            {"fields": {"title": {"type": "string", "full_text_search": {
+                "ngram": {"min_gram": 2, "max_gram": 3}}}}}
     """
 
     min_gram: int
@@ -209,7 +217,9 @@ class FullTextSearchConfig(Struct, kw_only=True):
     Attributes:
         language: Language whose analysis rules to use, as a two-letter code
             or its English name — ``"en"`` and ``"english"`` are both
-            accepted. ``None`` takes the server default of English.
+            accepted. ``None`` takes the server default of English. Setting it
+            does not turn on ``stemming`` or ``stop_words``: ``{"language": "en"}``
+            on its own matches exact words only, the same as ``{}``.
         stemming: Fold tokens to their root form, so ``running`` matches
             ``run``. ``None`` takes the server default of off.
         stop_words: Drop common words like ``the`` from the index. Requires
@@ -228,39 +238,179 @@ class FullTextSearchConfig(Struct, kw_only=True):
     ngram: NgramConfig | None = None
 
 
+class FieldEmbedConfig(Struct, kw_only=True):
+    """Dense integrated embedding for a string field of a document index.
+
+    Set on a :class:`StringField` as ``embed``. Pinecone embeds the field's
+    text with a hosted model when you upsert or update a document, and embeds
+    the query text with the same model when a search scores the field with an
+    :class:`~pinecone.models.documents.score_by.EmbedQuery`. You never handle
+    the vector yourself.
+
+    Every key is optional, so ``FieldEmbedConfig()`` (or ``{}``) selects the
+    default model at its default dimension and metric. Describe reports the
+    resolved configuration, with every omitted key filled in from the model.
+    The configuration is fixed at creation.
+
+    The parameter defaults are chosen per model and are rarely worth changing.
+    ``pc.inference.get_model(model).supported_parameters`` lists the keys a
+    model accepts, and the `model guide
+    <https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models>`_ describes
+    each model.
+
+    An ``embed`` field takes the index's one dense vector slot, so it cannot
+    sit alongside a ``dense_vector`` field or ``embed`` on another field.
+
+    Attributes:
+        model: Hosted dense embedding model, e.g. ``"llama-text-embed-v2"``,
+            the server default. ``None`` on create takes the default.
+        dimension: Width of the embeddings, one the model supports, e.g.
+            ``512``. ``None`` on create takes the model's default.
+        metric: ``"cosine"``, ``"dotproduct"`` or ``"euclidean"``, though which
+            of them work depends on the model, and the server rejects an
+            unsupported one with a 400. Capitals are lowercased when the index
+            is created. For example, ``"llama-text-embed-v2"`` (the default
+            model) takes ``"cosine"`` and ``"dotproduct"``, and
+            ``"multilingual-e5-large"`` takes ``"cosine"`` and
+            ``"euclidean"``. ``None`` on create takes the model's default
+            (``"cosine"`` for those two).
+        write_parameters: Model parameters used when embedding document text,
+            e.g. ``{"dimension": 1024}``. Describe reports them merged with the
+            model's defaults.
+        read_parameters: Model parameters used when embedding query text,
+            e.g. ``{"dimension": 1024}``. Describe reports them merged with the
+            model's defaults.
+
+    Examples:
+        A ``schema=`` that declares one:
+
+        .. code-block:: python
+
+            {"fields": {"body": {"type": "string",
+                                 "embed": {"model": "llama-text-embed-v2",
+                                           "dimension": 512}}}}
+    """
+
+    model: str | None = None
+    dimension: int | None = None
+    metric: str | None = None
+    write_parameters: dict[str, Any] | None = None
+    read_parameters: dict[str, Any] | None = None
+
+
+class FieldSparseEmbedConfig(Struct, kw_only=True):
+    """Learned-sparse integrated embedding for a string field of a document index.
+
+    Set on a :class:`StringField` as ``sparse_embed``. It works like
+    :class:`FieldEmbedConfig`, with a sparse model, and is searched with a
+    :class:`~pinecone.models.documents.score_by.SparseEmbedQuery`. A sparse
+    embedding has no dimension and no metric, so there is nothing to set but
+    the model and its parameters. As with :class:`FieldEmbedConfig`, the
+    parameter defaults are chosen per model and are rarely worth changing;
+    ``pc.inference.get_model(model).supported_parameters`` lists the keys a
+    model accepts, and the `model guide
+    <https://docs.pinecone.io/guides/index-data/create-an-index#embedding-models>`_ describes
+    each model.
+
+    A ``sparse_embed`` field takes the index's one sparse vector slot, so it
+    cannot sit alongside a ``sparse_vector`` field or ``sparse_embed`` on
+    another field.
+
+    Attributes:
+        model: Hosted sparse embedding model, e.g.
+            ``"pinecone-sparse-english-v0"``, the server default. ``None`` on
+            create takes the default.
+        write_parameters: Model parameters used when embedding document text.
+            Describe reports them merged with the model's defaults.
+        read_parameters: Model parameters used when embedding query text.
+            Describe reports them merged with the model's defaults.
+
+    Examples:
+        A ``schema=`` that declares one:
+
+        .. code-block:: python
+
+            {"fields": {"body": {"type": "string", "sparse_embed": {}}}}
+    """
+
+    model: str | None = None
+    write_parameters: dict[str, Any] | None = None
+    read_parameters: dict[str, Any] | None = None
+
+
 class StringField(Struct, tag="string", tag_field="type", kw_only=True):
-    """Text, either full-text searchable or filterable — never both.
+    """Text that is searched — by full-text search, by integrated embedding, or both.
 
-    A string field you declare on create must carry a ``full_text_search``
-    config, because search is the only reason the schema takes a string field.
-    Text you only want to filter on is not declared at all: put it in the
-    documents you upsert. Its ``type`` in a ``schema=`` dict is ``"string"``.
+    A string field you declare on create must carry at least one search
+    configuration, because search is the only reason the schema takes a string
+    field: ``full_text_search`` for keyword search, ``embed`` to have Pinecone
+    embed the text into a dense vector, ``sparse_embed`` for a learned-sparse
+    one. They combine on one field, so the same text can be searched all three
+    ways. Text you only want to filter on is not declared at all: put it in
+    the documents you upsert. Its ``type`` in a ``schema=`` dict is
+    ``"string"``.
 
-    In responses, a searchable field reports its ``full_text_search`` object
-    and a filter-only field reports just ``filterable``.
+    **Stored text.** ``store_text`` is only meaningful as ``False``, on a field
+    with ``embed`` or ``sparse_embed``. The server rejects ``store_text=False``
+    on a field without ``embed`` or ``sparse_embed``, and together with
+    ``full_text_search``, each with a ``400``. By default the field's text is
+    stored, and stored text is always indexed for full-text search: declare
+    only ``embed`` and describe reports ``full_text_search`` with default
+    settings as well.
+
+    Turning off text storage can save space when the field is only used for
+    similarity search, or keep sensitive text out of Pinecone. It also means
+    the field has no full-text search: it cannot be returned, so a fetch or
+    search whose ``include_fields`` names it is rejected with a ``400``
+    (``["*"]`` leaves it out), and it cannot be scored by ``text`` or
+    ``query_string`` or matched by ``$match_*`` filters. If you're not sure
+    whether you'll need full-text search, keep text storage on, for more
+    search flexibility later.
+
+    Each value is at most 100 KB; with ``store_text`` true, the full-text
+    limit of 10,000 tokens per value also applies. The setting is fixed at
+    creation.
+
+    In responses, a searchable field reports its search configurations and
+    ``store_text``, and a filter-only field reports just ``filterable``.
 
     Attributes:
         description: Free-text note about the field, or ``None``.
         filterable: Whether the field can be used in metadata filters.
-            Defaults to ``False``. Sending ``filterable=True`` alongside
-            ``full_text_search`` does not give you both: the server keeps the
-            filter, discards the search configuration, and reports no error
-            for doing so, so the field silently comes back unsearchable.
+            Defaults to ``False``. A field is filtered or searched, not both:
+            the server rejects ``filterable=True`` alongside
+            ``full_text_search``, ``embed`` or ``sparse_embed`` with a
+            ``400``.
         full_text_search: A :class:`FullTextSearchConfig` — its presence, even
-            empty, is what makes the field searchable; ``None`` means it is
-            not.
+            empty, makes the field full-text searchable; ``None`` means it is
+            not, unless the text is stored, in which case responses report
+            the default configuration.
+        embed: A :class:`FieldEmbedConfig` to have Pinecone embed the text
+            into a dense vector, or ``None``.
+        sparse_embed: A :class:`FieldSparseEmbedConfig` to have Pinecone embed
+            the text into a sparse vector, or ``None``.
+        store_text: Whether the text is stored, ``True`` by default. Only
+            meaningful as ``False``, on a field with ``embed`` or
+            ``sparse_embed``; see **Stored text** above. ``None`` on create
+            leaves it to the server default; describe always reports it for a
+            search field.
 
     Examples:
-        The ``schema=`` entry that declares one:
+        ``schema=`` values that declare one:
 
         .. code-block:: python
 
-            {"title": {"type": "string", "full_text_search": {}}}
+            {"fields": {"title": {"type": "string", "full_text_search": {}}}}
+            {"fields": {"body": {"type": "string", "embed": {}, "sparse_embed": {}}}}
+            {"fields": {"body": {"type": "string", "store_text": False, "embed": {}}}}
     """
 
     description: str | None = None
     filterable: bool = False
     full_text_search: FullTextSearchConfig | None = None
+    embed: FieldEmbedConfig | None = None
+    sparse_embed: FieldSparseEmbedConfig | None = None
+    store_text: bool | None = None
 
 
 class StringListField(Struct, tag="string_list", tag_field="type", kw_only=True):
@@ -269,10 +419,13 @@ class StringListField(Struct, tag="string_list", tag_field="type", kw_only=True)
     A filter on this field matches if any element matches, which is what makes
     it right for tags like ``["sci-fi", "mystery"]``.
 
-    **Response-only.** You read one back for a field the server indexed for
-    you at upsert time; sending ``string_list`` in a ``schema=`` on create is
-    rejected, and one rejected field fails the whole schema. Upsert the list
-    as an ordinary document value instead.
+    **Response-only.** On a documents index, ``describe`` lists only the
+    fields you declared, even after you upsert undeclared metadata of this
+    kind. The server keeps this type so it can read schemas stored earlier, so
+    an index that already stores one may still return it. Sending
+    ``string_list`` in a ``schema=`` on create is rejected, and one rejected
+    field fails the whole schema. Upsert the list as an ordinary document
+    value instead.
 
     Attributes:
         description: Free-text note about the field, or ``None``.
@@ -286,10 +439,12 @@ class StringListField(Struct, tag="string_list", tag_field="type", kw_only=True)
 class BooleanField(Struct, tag="boolean", tag_field="type", kw_only=True):
     """Boolean metadata, filterable.
 
-    **Response-only.** You read one back for a field the server indexed for
-    you at upsert time; sending ``boolean`` in a ``schema=`` on create is
-    rejected, and one rejected field fails the whole schema. Upsert the value
-    as an ordinary document value instead.
+    **Response-only.** On a documents index, ``describe`` lists only the
+    fields you declared, even after you upsert undeclared metadata of this
+    kind. The server keeps this type so it can read schemas stored earlier, so
+    an index that already stores one may still return it. Sending ``boolean``
+    in a ``schema=`` on create is rejected, and one rejected field fails the
+    whole schema. Upsert the value as an ordinary document value instead.
 
     Attributes:
         description: Free-text note about the field, or ``None``.
@@ -306,9 +461,10 @@ class IntegerField(Struct, tag="integer", tag_field="type", kw_only=True):
     **Response-only, and the one field type with a sharp edge.** Numbers are
     normalised to ``float`` at upsert time now, so ``integer`` only ever comes
     back from an older index. There is no ``integer`` type in the create
-    schema, and sending one is rejected with a plain-text body rather than a
-    structured API error — so the exception you catch will not tell you which
-    field was at fault.
+    schema, and sending one is rejected with a 422 whose body is plain text
+    rather than a structured API error, so it carries no error code. The
+    message does name the field path, as in ``schema.fields.<name>.type``, so it
+    tells you which field to drop.
 
     This matters for describe-then-create: a schema read off an old index
     cannot be handed straight to :meth:`create
@@ -337,10 +493,12 @@ class FloatField(Struct, tag="float", tag_field="type", kw_only=True):
     integers are stored and filtered as floats, and ``float`` is the only
     numeric type name the API uses.
 
-    **Response-only.** You read one back for a field the server indexed for
-    you at upsert time; sending ``float`` in a ``schema=`` on create is
-    rejected, and one rejected field fails the whole schema. Upsert the number
-    as an ordinary document value instead.
+    **Response-only.** On a documents index, ``describe`` lists only the
+    fields you declared, even after you upsert undeclared metadata of this
+    kind. The server keeps this type so it can read schemas stored earlier, so
+    an index that already stores one may still return it. Sending ``float`` in
+    a ``schema=`` on create is rejected, and one rejected field fails the
+    whole schema. Upsert the number as an ordinary document value instead.
 
     Attributes:
         description: Free-text note about the field, or ``None``.
@@ -408,11 +566,12 @@ class IndexSchema(Struct, kw_only=True):
     "looks like a 9.x metadata schema" because none of its fields carry a
     ``type``.
 
-    The remaining types are things you read back, never things you ask for.
-    Declaring one is rejected, and because one bad field fails the whole
-    schema, a single response-only field turns the entire create call into an
-    error rather than being ignored — which is what makes a describe-then-create
-    round-trip fail.
+    The remaining types are never accepted on create; ``describe`` returns
+    them only from an index that already stores them. Declaring one is
+    rejected, and because one bad field fails the whole schema, a single
+    response-only field turns the entire create call into an error rather than
+    being ignored — which is what makes a describe-then-create round-trip
+    fail.
 
     Declarable when you create an index:
 
@@ -423,18 +582,24 @@ class IndexSchema(Struct, kw_only=True):
         Variable-length index/value pairs for keyword-style scoring, with no
         dimension and no choice of metric — see :class:`SparseVectorField`.
     ``string``
-        Text made full-text searchable by a ``full_text_search`` config — see
+        Text searched by full-text search (``full_text_search``), by
+        dense integrated embedding (``embed``), by sparse integrated embedding
+        (``sparse_embed``), or any mix of the three — see
         :class:`StringField`.
 
     Read back but not declarable — sending one on create is rejected:
 
     ``semantic_text``
-        Text Pinecone embeds for you on write and on read.
-        :meth:`~pinecone.client.indexes.Indexes.create_for_model` is the only
-        way to get one — see :class:`SemanticTextField`.
+        The embedded text field of a legacy integrated index, created via
+        :meth:`~pinecone.client.indexes.Indexes.create_for_model`, the only
+        way to get one — see :class:`SemanticTextField`. In a document index,
+        a ``string`` field with integrated embedding (``embed`` /
+        ``sparse_embed``) takes its place.
     ``float``, ``boolean``, ``string_list``
-        Numeric, boolean and tag-style metadata, indexed for filtering
-        automatically at upsert time — see :class:`FloatField`,
+        Numeric, boolean and tag-style metadata. Upserted metadata is indexed
+        for filtering automatically, but ``describe`` on a documents index
+        lists only the fields you declared; an index that already stores one
+        of these types may still return it — see :class:`FloatField`,
         :class:`BooleanField`, :class:`StringListField`.
     ``integer``
         Numeric metadata on indexes predating the normalisation of numbers to
@@ -461,7 +626,9 @@ class IndexSchema(Struct, kw_only=True):
     .. seealso::
        :class:`~pinecone.schema_builder.SchemaBuilder` — assembles the
        ``schema=`` dict with one validated method per declarable field type,
-       and refuses the response-only ones before you spend a round trip.
+       and refuses ``integer`` locally before you spend a round trip. The other
+       types in that group (``float``, ``boolean``, ``string_list``) have
+       builder methods, but the server rejects them on create.
     """
 
     fields: dict[str, IndexSchemaField]
@@ -483,12 +650,12 @@ def _encode_schema_for_request(schema: IndexSchema) -> dict[str, Any]:
     """Encode a typed schema for a create or configure request body.
 
     ``filterable`` is omitted from a :class:`StringField` that carries a
-    ``full_text_search`` config and did not ask to be filterable.  The
-    server reads a string field as filter-only metadata as soon as
-    ``filterable`` is present and discards the full-text-search
-    configuration, so emitting the ``False`` default would turn every
-    full-text-search field into a filter-only one.  An explicit
-    ``filterable=True`` is still sent as given.
+    search configuration (``full_text_search``, ``embed`` or
+    ``sparse_embed``) or ``store_text`` and did not ask to be filterable.
+    The server rejects ``filterable`` on a search field with a ``400``, even
+    ``"filterable": false``, so emitting the ``False`` default would break
+    every search field.  An explicit ``filterable=True`` is still sent as
+    given, and the server rejects it.
 
     Every other field type, and a schema passed as a plain dict, is
     encoded unchanged.
@@ -496,10 +663,15 @@ def _encode_schema_for_request(schema: IndexSchema) -> dict[str, Any]:
     encoded: dict[str, Any] = msgspec.to_builtins(schema)
     fields: dict[str, Any] = encoded["fields"]
     for name, field in schema.fields.items():
-        if (
-            isinstance(field, StringField)
-            and field.full_text_search is not None
-            and not field.filterable
-        ):
+        if isinstance(field, StringField) and not field.filterable and _is_search_field(field):
             fields[name].pop("filterable")
     return encoded
+
+
+def _is_search_field(field: StringField) -> bool:
+    return (
+        field.full_text_search is not None
+        or field.embed is not None
+        or field.sparse_embed is not None
+        or field.store_text is not None
+    )

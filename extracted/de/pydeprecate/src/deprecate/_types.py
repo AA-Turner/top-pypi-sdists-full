@@ -418,6 +418,12 @@ class DeprecationConfig:
             names on the target class when ``target`` is provided, or on the wrapped source class otherwise.
             Non-cyclic chains are stored and surfaced by audit tooling.  ``None`` (default) means the proxy uses its
             blanket-warning behaviour (every attribute access emits a warning).
+        as_exception: Whether this deprecation raises :class:`~deprecate._fatal.DeprecatedError` instead of
+            emitting a warning.  ``None`` (default) defers to the process-wide ``deprecate.AS_EXCEPTIONS``
+            switch; ``True`` is always fatal; ``False`` means "not fatal by default" and still yields to a
+            ``True`` global, so a consumer's strict run cannot be opted out of by an upstream wrapper.  See
+            :func:`~deprecate._fatal._resolve_as_exception` for the resolution rule.  A fatal deprecation
+            bypasses ``num_warns`` entirely — it raises on every call rather than on the first one.
         args_mapping: Optional dict remapping argument names; values are a plain string (new argument name) or
             ``None`` (drop the argument).
         args_mapping_auto_expanded: Keys that were automatically copied from ``attrs_mapping`` into
@@ -495,6 +501,7 @@ class DeprecationConfig:
     docstring_style: Literal["rst", "mkdocs"] = "rst"
     message_template: Optional[str] = None
     attrs_mapping: Optional[dict[str, Optional[str]]] = None
+    as_exception: Optional[bool] = None
     args_mapping_auto_expanded: tuple[str, ...] = field(default_factory=tuple)
     args_mapping_positional_only: tuple[str, ...] = field(default_factory=tuple)
     target_positional_only: frozenset[str] = field(default_factory=frozenset)
@@ -640,14 +647,15 @@ class DeprecationProxy(Protocol, Generic[_T_co]):
 
     !!! note "Static-typing scope"
         This Protocol is the type to *annotate* against; it is not what the public functions declare as their
-        return type. ``deprecated_class`` and ``deprecated_instance`` return the concrete
-        :class:`~deprecate.proxy._DeprecatedProxy`, whose forwarded dunders (``int()``, ``with``, ``await``, ...)
-        a narrow Protocol would hide from type checkers. No call shape narrows to ``DeprecationProxy[T]`` on its
-        own, so to let the target type flow into call sites, annotate the one site that needs it —
-        ``OldCls: DeprecationProxy[NewCls] = deprecated_class(target=NewCls, ...)(OldClsDef)``. The decorator form
-        ``@deprecated_class(target=NewCls, ...)`` is typed as the raw source class because mypy does not rebind a
-        class definition to an instance return type; annotating it would require returning a real class
-        instead of a proxy.
+        return type. ``deprecated_instance`` returns the concrete :class:`~deprecate.proxy._DeprecatedProxy`, whose
+        forwarded dunders (``int()``, ``with``, ``await``, ...) a narrow Protocol would hide from type checkers;
+        annotate an instance proxy as ``DeprecationProxy[T]`` to name the type calling it produces.
+        ``deprecated_class`` types a class alias as a class instead: ``deprecated_class(target=NewCls, ...)(OldCls)``
+        is ``type[NewCls]`` whichever class it wraps, and without a class ``target`` the alias keeps the wrapped
+        class's own type. The ``@deprecated_class(...)`` decorator form is read as the class statement by mypy, while
+        pyright applies the same return type as the call form. A class alias is therefore not assignable to
+        ``DeprecationProxy``. To reach the proxy-only attributes of a class alias statically, use
+        :func:`get_deprecation_config`, or ``cast(DeprecationProxy[Any], OldCls)`` at the one site that needs them.
 
     !!! warning "``isinstance`` only"
         This is a *data* Protocol (it declares attributes, not just methods), so only ``isinstance`` is
@@ -667,14 +675,16 @@ class DeprecationProxy(Protocol, Generic[_T_co]):
         >>> OldColor.__wrapped__ is OldColor.__wrapped__  # breadcrumb back to the source class
         True
 
-        An explicit annotation on the assignment is what gives mypy the target type — spelled out as
-        ``DeprecationProxy[NewColor]``, ``OldColorAlias(1)`` is typed as ``NewColor``:
+        An instance proxy is where the type parameter pays off — spelled out as ``DeprecationProxy[NewColor]``,
+        calling the proxy is typed as producing a ``NewColor``:
 
-        >>> _decorator = deprecated_class(target=NewColor, deprecated_in="1.0", remove_in="2.0", stream=None)
-        >>> class _OldColorSource:
-        ...     pass
-        >>> OldColorAlias: DeprecationProxy[NewColor] = _decorator(_OldColorSource)
-        >>> isinstance(OldColorAlias(1), NewColor)
+        >>> from deprecate import deprecated_instance
+        >>> def make_color(code: int) -> NewColor:
+        ...     return NewColor(code)
+        >>> legacy_factory: DeprecationProxy[NewColor] = deprecated_instance(
+        ...     make_color, name="legacy_factory", deprecated_in="1.0", remove_in="2.0", stream=None
+        ... )
+        >>> isinstance(legacy_factory(1), NewColor)
         True
 
     """
@@ -760,9 +770,10 @@ class _ProxyConfig:
 
 @dataclass
 class _WrapperState:
-    """Private mutable runtime state for ``@deprecated``-decorated callables.
+    """Private mutable runtime state for callable and module deprecation warning budgets.
 
-    This is an internal type — not exported from the package and not referenced outside of :mod:`deprecate.deprecation`.
+    This is an internal type — not exported from the package. Callable wrappers use all counters; module deprecation
+    uses ``warned_calls`` and ``lock`` for its module-wide ``num_warns`` budget.
 
     Attributes:
         called: Total invocation count, including calls where the warning was suppressed.

@@ -113,6 +113,8 @@
 #include "meshioplusplus/operations/agglomerate.hpp"
 #include "meshioplusplus/operations/subdivide.hpp"
 #include "meshioplusplus/operations/voxelize.hpp"
+#include "meshioplusplus/operations/primitives.hpp"
+#include "meshioplusplus/operations/octree.hpp"
 #include "meshioplusplus/operations/surface.hpp"
 #include "meshioplusplus/operations/transform.hpp"
 #include "meshioplusplus/operations/blend.hpp"
@@ -5505,6 +5507,24 @@ static_assert(static_cast<int>(meshioplusplus::SdfWatertightCheck::Off) == MIO_S
 // that nesting across the ABI keeps the two independently extensible.
 static_assert(sizeof(mio_sdf_opts) == 104, "mio_sdf_opts grew outside its reserved tail");
 static_assert(sizeof(mio_voxel_opts) == 112, "mio_voxel_opts grew outside its reserved tail");
+static_assert(sizeof(mio_gen_opts) == 160, "mio_gen_opts grew outside its reserved tail");
+static_assert(sizeof(mio_octree_opts) == 176, "mio_octree_opts grew outside its reserved tail");
+static_assert(sizeof(mio_octree_report) == 96, "mio_octree_report layout changed");
+static_assert(static_cast<int>(meshioplusplus::OctreeTransition::Hanging) == MIO_OCTREE_HANGING &&
+                  static_cast<int>(meshioplusplus::OctreeTransition::Polyhedra) ==
+                      MIO_OCTREE_POLYHEDRA &&
+                  static_cast<int>(meshioplusplus::OctreeTransition::Templates) ==
+                      MIO_OCTREE_TEMPLATES,
+              "mio_octree_transition drifted from OctreeTransition");
+static_assert(static_cast<int>(meshioplusplus::detail::PlanarPlane::Auto) == MIO_PLANE_AUTO &&
+                  static_cast<int>(meshioplusplus::detail::PlanarPlane::XY) == MIO_PLANE_XY &&
+                  static_cast<int>(meshioplusplus::detail::PlanarPlane::XZ) == MIO_PLANE_XZ &&
+                  static_cast<int>(meshioplusplus::detail::PlanarPlane::YZ) == MIO_PLANE_YZ,
+              "mio_planar_plane drifted from PlanarPlane");
+static_assert(static_cast<int>(meshioplusplus::OctreeBalance::None) == MIO_OCTREE_BALANCE_NONE &&
+                  static_cast<int>(meshioplusplus::OctreeBalance::Face) == MIO_OCTREE_BALANCE_FACE &&
+                  static_cast<int>(meshioplusplus::OctreeBalance::Full) == MIO_OCTREE_BALANCE_FULL,
+              "mio_octree_balance drifted from OctreeBalance");
 static_assert(sizeof(mio_compute_sdf_opts) == 232,
               "mio_compute_sdf_opts grew outside its reserved tail");
 static_assert(sizeof(mio_surface_quality) == 72,
@@ -5569,6 +5589,59 @@ meshioplusplus::VoxelOptions capi_voxel_options(const mio_voxel_opts& rOpts) {
                                         std::to_string(rOpts.watertight_check));
     options.mDistance.mWatertightCheck =
         static_cast<meshioplusplus::SdfWatertightCheck>(rOpts.watertight_check);
+    return options;
+}
+
+/// Translate the flat option struct into the core's OctreeOptions.
+meshioplusplus::OctreeOptions capi_octree_options(const mio_octree_opts& rOpts) {
+    meshioplusplus::OctreeOptions options;
+    if (rOpts.root_cells != nullptr)
+        options.mRootCells = std::array<std::int64_t, 3>{
+            {rOpts.root_cells[0], rOpts.root_cells[1], rOpts.root_cells[2]}};
+    if (rOpts.bounds != nullptr)
+        options.mBounds =
+            std::array<double, 6>{{rOpts.bounds[0], rOpts.bounds[1], rOpts.bounds[2],
+                                   rOpts.bounds[3], rOpts.bounds[4], rOpts.bounds[5]}};
+    options.mPadding = rOpts.padding;
+    options.mPaddingRelative = rOpts.padding_relative;
+    options.mSampleDistance = rOpts.sample_distance;
+    options.mMinLevel = rOpts.min_level;
+    options.mMaxLevel = rOpts.max_level;
+    options.mDimension = rOpts.dimension;
+    options.mMaxCells = rOpts.max_cells;
+    if (rOpts.balance < 0 || rOpts.balance > MIO_OCTREE_BALANCE_FULL)
+        throw meshioplusplus::ReadError("meshio++: octree: unknown balance " +
+                                        std::to_string(rOpts.balance));
+    options.mBalance = static_cast<meshioplusplus::OctreeBalance>(rOpts.balance);
+    if (rOpts.fill < 0 || rOpts.fill > MIO_VOXEL_INSIDE)
+        throw meshioplusplus::ReadError("meshio++: octree: unknown fill " +
+                                        std::to_string(rOpts.fill));
+    options.mFill = static_cast<meshioplusplus::VoxelFill>(rOpts.fill);
+    options.mAttachDistance = rOpts.attach_distance != 0;
+    options.mEvenOdd = rOpts.even_odd != 0;
+    if (rOpts.sign < 0 || rOpts.sign > MIO_SDF_WINDING_NUMBER)
+        throw meshioplusplus::ReadError("meshio++: octree: unknown sign " +
+                                        std::to_string(rOpts.sign));
+    options.mDistance.mSign = static_cast<meshioplusplus::SdfSign>(rOpts.sign);
+    if (rOpts.watertight_check < 0 || rOpts.watertight_check > MIO_SDF_WATERTIGHT_ERROR)
+        throw meshioplusplus::ReadError("meshio++: octree: unknown watertight check " +
+                                        std::to_string(rOpts.watertight_check));
+    options.mDistance.mWatertightCheck =
+        static_cast<meshioplusplus::SdfWatertightCheck>(rOpts.watertight_check);
+    if (rOpts.transition < 0 || rOpts.transition > MIO_OCTREE_TEMPLATES)
+        throw meshioplusplus::ReadError("meshio++: octree: unknown transition " +
+                                        std::to_string(rOpts.transition));
+    options.mTransition = static_cast<meshioplusplus::OctreeTransition>(rOpts.transition);
+    options.mSnap = rOpts.snap != 0;
+    options.mSurfaceLevel = rOpts.surface_level;
+    options.mCurvatureThreshold = rOpts.curvature_threshold;
+    options.mFeatureAngle = rOpts.feature_angle;
+    if (rOpts.size_array != nullptr)
+        options.mSizeArray = rOpts.size_array;
+    if (rOpts.plane < 0 || rOpts.plane > MIO_PLANE_YZ)
+        throw meshioplusplus::ReadError("meshio++: octree: unknown plane " +
+                                        std::to_string(rOpts.plane));
+    options.mPlane = static_cast<meshioplusplus::detail::PlanarPlane>(rOpts.plane);
     return options;
 }
 
@@ -5653,6 +5726,30 @@ void mio_voxel_opts_init(mio_voxel_opts* opts) {
         return;
     *opts = mio_voxel_opts{};
     opts->max_cells = 20000000;
+    opts->sign = MIO_SDF_PSEUDONORMAL;
+    opts->watertight_check = MIO_SDF_WATERTIGHT_WARN;
+}
+
+void mio_gen_opts_init(mio_gen_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_gen_opts{};
+    opts->counts[0] = opts->counts[1] = opts->counts[2] = 8;
+    opts->size[0] = opts->size[1] = opts->size[2] = 1.0;
+    opts->radius = 1.0;
+    opts->height = 1.0;
+    opts->max_cells = 20000000;
+    opts->order = 1;
+}
+
+void mio_octree_opts_init(mio_octree_opts* opts) {
+    if (!opts)
+        return;
+    *opts = mio_octree_opts{};
+    opts->max_level = 4;
+    opts->max_cells = 20000000;
+    opts->balance = MIO_OCTREE_BALANCE_FACE;
+    opts->surface_level = -1;
     opts->sign = MIO_SDF_PSEUDONORMAL;
     opts->watertight_check = MIO_SDF_WATERTIGHT_WARN;
 }
@@ -5755,6 +5852,139 @@ mio_mesh* mio_grid(const int64_t dims[3], const double origin[3], const double s
     });
 }
 
+namespace {
+
+// The spelling of a generator's cell type, or its default when the options leave
+// it unset. A value the shape does not build is an error by name, not a silent
+// default.
+std::string capi_gen_cell(const mio_gen_opts& rOpts, const char* pShape, const char* pDefault,
+                          std::initializer_list<std::pair<int, const char*>> Allowed) {
+    if (rOpts.cell_type == MIO_GEN_DEFAULT)
+        return pDefault;
+    for (const auto& [value, name] : Allowed)
+        if (rOpts.cell_type == value)
+            return name;
+    throw meshioplusplus::ReadError(std::string("meshio++: ") + pShape +
+                                    ": cell_type " + std::to_string(rOpts.cell_type) +
+                                    " is not built by this shape");
+}
+
+mio_gen_opts capi_gen_defaults(const mio_gen_opts* pOpts) {
+    mio_gen_opts out;
+    if (pOpts) {
+        out = *pOpts;
+        if (out.pad != 0)
+            throw meshioplusplus::ReadError("meshio++: mio_gen_opts: pad must be zero");
+        for (int64_t r : out.reserved)
+            if (r != 0)
+                throw meshioplusplus::ReadError(
+                    "meshio++: mio_gen_opts: reserved fields must be zero");
+    } else {
+        mio_gen_opts_init(&out);
+    }
+    if (out.order == 0)
+        out.order = 1;
+    return out;
+}
+
+}  // namespace
+
+mio_mesh* mio_rectangle(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        const std::string type = capi_gen_cell(
+            o, "rectangle", "quad", {{MIO_GEN_QUAD, "quad"}, {MIO_GEN_TRIANGLE, "triangle"}});
+        static const char* const splits[] = {"zigzag", "up", "down", "center"};
+        if (o.split < 0 || o.split > 3)
+            throw meshioplusplus::ReadError("meshio++: rectangle: split is not a mio_gen_split");
+        return new mio_mesh{meshioplusplus::rectangle(
+            {{o.counts[0], o.counts[1]}}, {{o.size[0], o.size[1]}},
+            {{o.origin[0], o.origin[1], o.origin[2]}}, type, splits[o.split], o.order,
+            o.max_cells)};
+    });
+}
+
+mio_mesh* mio_box(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        const std::string type =
+            capi_gen_cell(o, "box", "hexahedron",
+                          {{MIO_GEN_HEXAHEDRON, "hexahedron"},
+                           {MIO_GEN_TETRA, "tetra"},
+                           {MIO_GEN_WEDGE, "wedge"}});
+        return new mio_mesh{meshioplusplus::box(
+            {{o.counts[0], o.counts[1], o.counts[2]}}, {{o.size[0], o.size[1], o.size[2]}},
+            {{o.origin[0], o.origin[1], o.origin[2]}}, type, o.order, o.max_cells)};
+    });
+}
+
+mio_mesh* mio_disk(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        const std::string type = capi_gen_cell(
+            o, "disk", "quad", {{MIO_GEN_QUAD, "quad"}, {MIO_GEN_TRIANGLE, "triangle"}});
+        return new mio_mesh{meshioplusplus::disk(
+            o.radius, o.counts[0], {{o.origin[0], o.origin[1], o.origin[2]}}, type, o.order,
+            o.max_cells)};
+    });
+}
+
+mio_mesh* mio_uv_sphere(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        const std::string type = capi_gen_cell(
+            o, "uv_sphere", "triangle", {{MIO_GEN_TRIANGLE, "triangle"}, {MIO_GEN_QUAD, "quad"}});
+        return new mio_mesh{meshioplusplus::uv_sphere(
+            o.radius, o.counts[0], o.counts[1], {{o.origin[0], o.origin[1], o.origin[2]}}, type,
+            o.order, o.max_cells)};
+    });
+}
+
+mio_mesh* mio_icosa_sphere(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        if (o.cell_type != MIO_GEN_DEFAULT && o.cell_type != MIO_GEN_TRIANGLE)
+            throw meshioplusplus::ReadError(
+                "meshio++: icosa_sphere: cell_type is not built by this shape");
+        return new mio_mesh{meshioplusplus::icosa_sphere(
+            o.radius, o.counts[0], {{o.origin[0], o.origin[1], o.origin[2]}}, o.order,
+            o.max_cells)};
+    });
+}
+
+mio_mesh* mio_cylinder(const mio_gen_opts* opts) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        const mio_gen_opts o = capi_gen_defaults(opts);
+        const std::string type = capi_gen_cell(
+            o, "cylinder", "hexahedron",
+            {{MIO_GEN_HEXAHEDRON, "hexahedron"}, {MIO_GEN_WEDGE, "wedge"}});
+        return new mio_mesh{meshioplusplus::cylinder(
+            o.radius, o.height, o.counts[0], o.counts[1],
+            {{o.origin[0], o.origin[1], o.origin[2]}}, type, o.order, o.max_cells)};
+    });
+}
+
+mio_mesh* mio_reference_cells(const char* types, int32_t pairs) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        std::vector<std::string> names;
+        if (types) {
+            std::string current;
+            for (const char* p = types;; ++p) {
+                if (*p == ',' || *p == '\0') {
+                    if (!current.empty())
+                        names.push_back(current);
+                    current.clear();
+                    if (*p == '\0')
+                        break;
+                } else {
+                    current.push_back(*p);
+                }
+            }
+        }
+        return new mio_mesh{meshioplusplus::reference_cells(names, pairs != 0)};
+    });
+}
+
 mio_mesh* mio_voxelize(const mio_mesh* mesh, const mio_voxel_opts* opts, int64_t dims_out[3],
                        double origin_out[3], double spacing_out[3], int64_t* num_occupied) {
     return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
@@ -5776,6 +6006,34 @@ mio_mesh* mio_voxelize(const mio_mesh* mesh, const mio_voxel_opts* opts, int64_t
         }
         if (num_occupied)
             *num_occupied = r.mNumOccupied;
+        return new mio_mesh{std::move(r.mMesh)};
+    });
+}
+
+mio_mesh* mio_octree(const mio_mesh* mesh, const mio_octree_opts* opts,
+                     mio_octree_report* report) {
+    return guarded_ptr(static_cast<mio_mesh*>(nullptr), [&]() -> mio_mesh* {
+        if (!mesh)
+            throw meshioplusplus::ReadError("meshio++: mesh is NULL");
+        mio_octree_opts defaults;
+        if (!opts) {
+            mio_octree_opts_init(&defaults);
+            opts = &defaults;
+        }
+        meshioplusplus::OctreeResult r =
+            meshioplusplus::octree(mesh->mMesh, capi_octree_options(*opts));
+        if (report) {
+            *report = mio_octree_report{};
+            report->dimension = r.mDimension;
+            report->num_leaves = r.mNumLeaves;
+            report->num_hanging = r.mNumHanging;
+            report->finest_level = r.mFinestLevel;
+            for (int k = 0; k < 3; ++k)
+                report->origin[k] = r.mOrigin[static_cast<std::size_t>(k)];
+            report->root_size = r.mRootSize;
+            report->num_snapped = r.mNumSnapped;
+            report->num_refused = r.mNumRefused;
+        }
         return new mio_mesh{std::move(r.mMesh)};
     });
 }
@@ -6158,6 +6416,8 @@ void mio_segment_opts_init(mio_segment_opts* opts) {
     *opts = mio_segment_opts{};
     opts->feature_angle = 30.0;
     opts->min_patch_cells = 1;
+    opts->method = MIO_SEGMENT_ANGLE;
+    opts->tolerance = 1e-3;
 }
 
 mio_mesh* mio_segment(const mio_mesh* mesh, const mio_segment_opts* opts,
@@ -6175,6 +6435,15 @@ mio_mesh* mio_segment(const mio_mesh* mesh, const mio_segment_opts* opts,
                 options.mRegion = opts->region;
             if (opts->prefix && opts->prefix[0] != '\0')
                 options.mPrefix = opts->prefix;
+            if (opts->method != MIO_SEGMENT_ANGLE && opts->method != MIO_SEGMENT_PRIMITIVE) {
+                fail(MIO_ERR_INVALID_ARG, "meshio++: segment: method must be MIO_SEGMENT_ANGLE or "
+                                          "MIO_SEGMENT_PRIMITIVE");
+                return nullptr;
+            }
+            options.mMethod = static_cast<meshioplusplus::SegmentMethod>(opts->method);
+            // A struct zero-filled before the field existed takes the default.
+            if (opts->tolerance > 0.0)
+                options.mTolerance = opts->tolerance;
         }
         meshioplusplus::SegmentResult r = meshioplusplus::segment(mesh->mMesh, options);
         if (report) {
@@ -6244,6 +6513,8 @@ void mio_fit_cad_opts_init(mio_fit_cad_opts* opts) {
     opts->freeform_split = 1;
     opts->fillets = 1;
     opts->threads = 1;
+    opts->merge_faces = 1;
+    opts->backend = MIO_FIT_CAD_AUTO;
 }
 
 void mio_iga_opts_init(mio_iga_opts* opts) {
@@ -6469,6 +6740,14 @@ mio_mesh* mio_fit_cad_ex(const mio_mesh* mesh, const char* step_path, const mio_
             options.mFreeformSplit = opts->freeform_split != 0;
             options.mFillets = opts->fillets != 0;
             options.mThreads = opts->threads != 0;
+            options.mMergeFaces = opts->merge_faces != 0;
+            if (opts->backend != MIO_FIT_CAD_AUTO && opts->backend != MIO_FIT_CAD_OCCT &&
+                opts->backend != MIO_FIT_CAD_NATIVE) {
+                fail(MIO_ERR_INVALID_ARG, "meshio++: fit_cad: backend must be MIO_FIT_CAD_AUTO, "
+                                          "MIO_FIT_CAD_OCCT or MIO_FIT_CAD_NATIVE");
+                return nullptr;
+            }
+            options.mBackend = static_cast<meshioplusplus::FitCadBackend>(opts->backend);
         }
         meshioplusplus::FitCadResult r =
             meshioplusplus::fit_cad(mesh->mMesh, step_path ? step_path : "", options);
@@ -6508,6 +6787,9 @@ mio_mesh* mio_fit_cad_ex(const mio_mesh* mesh, const char* step_path, const mio_
             report_ex->num_conic_blend = r.mNumConicBlend;
             report_ex->num_tapered_thread = r.mNumTaperedThread;
             report_ex->num_variable_pitch_thread = r.mNumVariablePitchThread;
+            report_ex->backend = r.mBackend == meshioplusplus::FitCadBackend::Native
+                                     ? MIO_FIT_CAD_NATIVE
+                                     : MIO_FIT_CAD_OCCT;
         }
         return new mio_mesh{std::move(r.mMesh)};
     });

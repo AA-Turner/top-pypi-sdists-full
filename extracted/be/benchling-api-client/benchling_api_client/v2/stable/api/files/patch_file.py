@@ -94,7 +94,7 @@ def sync(
     file_id: str,
     json_body: FileUpdate,
 ) -> Optional[Union[File, BadRequestError, ForbiddenError, NotFoundError]]:
-    """Update a file. After you upload the file contents to S3, call this endpoint to mark the upload as `SUCCEEDED`. See [Create a file](#/Analyses/createFile) for documentation of the full upload flow."""
+    """Update a file. After you upload the file contents to S3, call this endpoint to mark the upload as `SUCCEEDED`. See [Create a file](https://docs.benchling.com/docs/api/v2/benchling-api/files/create-file) for documentation of the full upload flow."""
 
     return sync_detailed(
         client=client,
@@ -127,7 +127,7 @@ async def asyncio(
     file_id: str,
     json_body: FileUpdate,
 ) -> Optional[Union[File, BadRequestError, ForbiddenError, NotFoundError]]:
-    """Update a file. After you upload the file contents to S3, call this endpoint to mark the upload as `SUCCEEDED`. See [Create a file](#/Analyses/createFile) for documentation of the full upload flow."""
+    """Update a file. After you upload the file contents to S3, call this endpoint to mark the upload as `SUCCEEDED`. See [Create a file](https://docs.benchling.com/docs/api/v2/benchling-api/files/create-file) for documentation of the full upload flow."""
 
     return (
         await asyncio_detailed(

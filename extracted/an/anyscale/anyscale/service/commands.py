@@ -33,9 +33,9 @@ anyscale.service.deploy(
 
 _DEPLOY_ARG_DOCSTRINGS = {
     "configs": "The config options defining the service.",
-    "in_place": "Perform an in-place upgrade without starting a new cluster. This can be used for faster iteration during development but is *not* currently recommended for production deploys. This *cannot* be used to change cluster-level options such as image and compute config (they will be ignored).",
+    "in_place": "Update the running cluster. Ignores cluster-level options such as image and compute config. On Ray 2.60 or later, single-version services support automatic rollback to a verified healthy config. Older versions may require manual recovery. In-place updates can interrupt traffic.",
     "canary_percent": "The percentage of traffic to send to the canary version of the service (0-100). This can be used to manually shift traffic toward (or away from) the canary version. If not provided, traffic will be shifted incrementally toward the canary version until it reaches 100. Not supported when using --in-place. This is ignored when restarting a service or creating a new service.",
-    "max_surge_percent": "Amount of excess capacity allowed to be used while updating the service (0-100). Defaults to 100. Not supported when using --in-place.",
+    "max_surge_percent": "Excess replica capacity allowed during a rollout across two clusters (0-100). Defaults to 100. Not supported with --in-place. For in-place replica replacement on Ray 2.60 or later, set max_surge_percent in each Ray Serve deployment config instead.",
     "versions": "Enable multi-version deployment by providing a JSON array of objects or a JSON object in text format. Defines the version name, traffic and capacity percents per version. Capacity defaults to traffic.",
     "name": "Name of the service. When running in a workspace, this defaults to the workspace name.",
     "cloud": "The Anyscale Cloud of this workload. If not provided, the organization default will be used (or, if running in a workspace, the cloud of the workspace).",

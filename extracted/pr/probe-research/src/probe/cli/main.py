@@ -1697,11 +1697,6 @@ def _login(
         ok=bool(settings.token) == signing_in["signed_in"],
     )
     if settings.token:
-        from probe.cli import setup as wizard
-
-        for line in wizard.after_sign_in():
-            print(line)
-    if settings.token:
         # Fresh credentials un-block the outbox: forget any recorded 401/403
         # and wake the drainer so queued writes deliver without further steps.
         try:
@@ -1715,7 +1710,19 @@ def _login(
 @app.command()
 def logout() -> None:
     """Stop imports, revoke the calling token, and clear local config."""
+    from probe.cli import setup as wizard
+    from probe.cli import telemetry as telemetry_mod
+
     with _wizard_run_lock(command="probe logout"):
+        try:
+            base_url = resolve(base_url=_conn.base_url).base_url
+        except Exception:  # noqa: BLE001 -- sign-out must not depend on telemetry
+            base_url = None
+        tel = telemetry_mod.TelemetryContext.start(
+            via=telemetry_mod.Via.COMMAND, interactive=wizard.interactive(), base_url=base_url
+        )
+        # Before the token goes, as the wizard's Sign out does (`pin_identity`).
+        tel.pin_identity()
         _clear_wizard_imports()
         try:
             with _client() as c:
@@ -1723,6 +1730,7 @@ def logout() -> None:
             print("token revoked")
         except errors.RosError as exc:
             print(f"revoke skipped ({exc})", file=sys.stderr)
+        tel.emit(telemetry_mod.EVENT_WIZARD_SIGNED_OUT, agent_count=0, warnings=0)
         # The ACTIVE context only. Deleting the whole file would sign the user out of every
         # other endpoint they have configured, which is not what "logout" means.
         name = current_context_name()
@@ -1980,14 +1988,8 @@ def doctor(
 
     from probe.cli.capabilities import refresh_mcp_token_verdict
 
-    from probe.cli.capabilities import cloud_agent_here
-
     refresh_mcp_token_verdict()  # one /v1/me: a refused read token reads "login needed"
     caps = doctor_impl.collect()
-    cloud = cloud_agent_here()
-    if cloud is not None:
-        print(doctor_impl.render_cloud(caps, cloud))
-        return
     print(doctor_impl.render(caps, codex_hooks=doctor_impl.codex_hook_rows(caps)))
     from probe.cli import probe_config_cli
 
@@ -2033,27 +2035,6 @@ def status_command(
         return
     # The one object on stdout, as `python -m probe.core.run status` writes it.
     reads.print_status(refresh=refresh, timeout=limit)
-
-
-def _default_agents(available_sources: tuple[str, ...], *, unattended: bool) -> tuple[str, ...]:
-    """The agents a run that names none configures: every one found here,
-    except, with nobody watching, a cloud agent (Capy) not already captured
-    here -- its install needs the researcher's own key."""
-    from probe.cli import setup as wizard
-
-    return tuple(
-        source
-        for source in available_sources
-        if not unattended or source not in wizard.CLOUD_AGENT_SOURCES or _cloud_agent_connected(source)
-    ) or ("claude_code",)
-
-
-def _cloud_agent_connected(source: str) -> bool:
-    """A cloud agent this machine already captures (a saved connection, not
-    just a leftover credential file)."""
-    from probe.cli import cloud_agents
-
-    return cloud_agents.module(source).load_config() is not None
 
 
 def _installable_agent(name: str):
@@ -2114,7 +2095,7 @@ def _explicit_agent_sources(agent) -> tuple[str, ...] | None:
     does something categorically different. pi is reachable only by naming it.
 
     Every other value names ONE agent: its registry `cli_flag`, id or alias
-    (`claude`, `kimi`, `capy`, ...), so a new installable row is reachable here
+    (`claude`, `kimi`, ...), so a new installable row is reachable here
     the moment it lands -- and, like pi, only by name. Repeating the flag adds
     agents (`--agent claude --agent pi`): one run, one browser approval.
     """
@@ -2172,18 +2153,6 @@ class _JsonCommand(typer.core.TyperCommand):
             raise
 
 
-def _capy_project_option():
-    """`--capy-project` on `install` and `wizard` (a fresh Option each): the Capy
-    projects whose threads to capture, for a run with no terminal to pick them
-    on (the key comes from $CAPY_API_KEY, never argv)."""
-    return typer.Option(
-        None,
-        "--capy-project",
-        help="Capy only: a Capy project to capture threads from (id or name); repeat for more. "
-        "The key comes from $CAPY_API_KEY, else this machine's saved Capy connection.",
-    )
-
-
 @app.command(name="install", cls=_JsonCommand)
 def install(
     agent: Optional[list[str]] = typer.Option(  # noqa: UP007
@@ -2207,7 +2176,6 @@ def install(
         "--agent-rules/--no-agent-rules",
         help="managed Probe block in each selected agent's global instructions",
     ),
-    capy_project: Optional[list[str]] = _capy_project_option(),  # noqa: UP007
     yes: bool = typer.Option(False, "--yes", "-y", help="skip the prompts"),
     json_output: bool = typer.Option(False, "--json", help=_JSON_HELP),
     auth_code: str = typer.Argument(
@@ -2250,7 +2218,6 @@ def install(
         no_browser=False,
         who_records=None,
         auth_code=auth_code,
-        capy_project=capy_project,
         json_output=json_output is True,
     )
 
@@ -2295,7 +2262,6 @@ def wizard(
         "--agent-rules/--no-agent-rules",
         help="managed Probe block in each selected agent's global instructions",
     ),
-    capy_project: Optional[list[str]] = _capy_project_option(),  # noqa: UP007
     channel: str = typer.Option(  # noqa: ARG001 - compat, see below
         None,
         "--channel",
@@ -2378,7 +2344,7 @@ def wizard(
                     or any(value is not None for value in (tracking, capture, auto_update, agent_rules,
                                                           token, base_url, context, ingest_token, hmac_secret,
                                                           who_records, folder))
-                    or uninstall or endpoint_only or no_browser or capy_project):
+                    or uninstall or endpoint_only or no_browser):
                 raise typer.BadParameter("--reinstall needs --action configure and explicit --agent; leave sign-in and settings flags out")
             from probe.cli.integration_reinstall import run as reinstall_integrations
 
@@ -2392,9 +2358,14 @@ def wizard(
         if who_records is not None:
             if who_records not in session_marker.RECORDERS:
                 raise typer.BadParameter("--who-records takes agent or daemon")
-            if action not in (None, "recorder"):
-                raise typer.BadParameter("--who-records goes with --action recorder")
-            action = "recorder"
+            if action == "configure" and isinstance(auth_code, str):
+                # A dashboard handoff may request the selected mode's credential
+                # during Configure; the separate Recorder action still applies it.
+                pass
+            elif action in (None, "recorder"):
+                action = "recorder"
+            else:
+                raise typer.BadParameter("--who-records goes with --action recorder, or configure with a website sign-in code")
 
         # SIGN IN ONLY (`--action login` with its flags): nothing is installed or
         # configured, so a GPU box or a self-hosted server gets a login and no
@@ -2415,7 +2386,6 @@ def wizard(
                     ("--capture/--no-capture", capture),
                     ("--auto-update/--no-auto-update", auto_update),
                     ("--agent-rules/--no-agent-rules", agent_rules),
-                    ("--capy-project", capy_project if isinstance(capy_project, (list, tuple)) and capy_project else None),
                     ("--uninstall", uninstall or None),
                     ("--folder", folder),
                     ("a sign-in code", auth_code),
@@ -2473,8 +2443,6 @@ def wizard(
                 yes=yes,
                 auth_code=auth_code,
                 who_records=who_records,
-                # A direct Python call gets typer's Option default, not a list.
-                cloud_projects=tuple(capy_project) if isinstance(capy_project, (list, tuple)) else (),
             )
 
 
@@ -2520,7 +2488,6 @@ def _wizard_session(
     yes,
     auth_code,
     who_records=None,
-    cloud_projects: tuple[str, ...] = (),
 ) -> None:
     """`wizard`, inside its window. See `wizard` for the contract."""
     from probe.cli import actions as actions_mod
@@ -2653,20 +2620,7 @@ def _wizard_session(
         # interactive path above: inside Codex a human sees codex ticked and can
         # untick it. Applied headless it would be the same silent narrowing this
         # branch exists to remove, just landing on a different agent.
-        #
-        # A CLOUD agent (Capy) found only by its app is the one exception: its
-        # install needs the researcher's own Capy key, which a run nobody is
-        # watching does not have, so it would leave every such install
-        # unfinished. It joins once named (`--agent capy`), ticked in the
-        # picker, or already capturing on this machine.
-        agent_defaults = _default_agents(available_sources, unattended=yes or not wizard.interactive())
-        left_out = [source for source in available_sources if source not in agent_defaults]
-        if left_out and action in (None, "configure"):
-            print(
-                f"leaving out {wizard.agent_label(left_out)} (found, not connected): "
-                "its install needs its own API key -- name it with --agent to include it",
-                flush=True,
-            )
+        agent_defaults = available_sources or ("claude_code",)
 
     from contextlib import contextmanager
 
@@ -3196,76 +3150,21 @@ def _wizard_session(
             install_needs = list(
                 dict.fromkeys(["api", "mcp", *wizard.grants_for(shared_selection)])
             )
+            # The desktop already obtained browser consent for this one-use install code.
+            # Include the explicitly selected daemon's own scoped key in that same
+            # exchange; never substitute the account PAT or widen an Inline install.
+            if who_records == session_marker.RECORDER_DAEMON:
+                install_needs.append(wizard.COMPANION_GRANT)
             install_capture_sources = list(agent_sources) if shared_selection.capture else []
             install_context = wizard.install_client_context(caps_by_source)
 
-        # A CLOUD agent's capture (Capy) needs the researcher's own API key and
-        # projects. Asked HERE, after the review screen and before anything is
-        # applied, so a human creating a key never spends the apply budget
-        # (`wizard.PHASE_BUDGET_S`); a run with no terminal reads $CAPY_API_KEY
-        # and --capy-project instead. An answer that cannot connect takes the
-        # agent out of this run's capture pairing, so no credential is minted
-        # for a connection that will not exist.
-        cloud_asks: dict = {}
-        if chosen_action is actions_mod.Action.CONFIGURE:
-            from probe.cli import cloud_agents
-
-            for source in agent_sources:
-                if source not in wizard.CLOUD_AGENT_SOURCES:
-                    continue
-                # The selection the apply will use: the guided one, else the
-                # one agent's own, else the shared answer of several.
-                if shared_selection is not None:
-                    wanted = shared_selection
-                elif len(agent_sources) == 1:
-                    wanted = wizard.resolve_selection(
-                        caps_by_source[source],
-                        tracking=tracking,
-                        capture=capture,
-                        auto_update=auto_update,
-                        agent_rules=agent_rules,
-                        configured=configured,
-                    )
-                else:
-                    wanted = _shared_selection(
-                        caps_by_source,
-                        tracking=tracking,
-                        capture=capture,
-                        auto_update=auto_update,
-                        agent_rules=agent_rules,
-                        configured=configured,
-                    )[1]
-                if not wanted.capture:
-                    continue
-                asking = wizard.interactive() and not yes
-                if asking:
-                    tui.clear()
-                cloud_asks[source] = cloud_agents.module(source).ask_capture(
-                    interactive=asking, projects=list(cloud_projects)
-                )
-            unpaired = {source for source, ask in cloud_asks.items() if not ask.pairs}
-            if unpaired and install_capture_sources is not None:
-                install_capture_sources = [s for s in install_capture_sources if s not in unpaired]
-                if not install_capture_sources and install_needs:
-                    install_needs = [grant for grant in install_needs if grant != "capture"]
-                rest = {s: c for s, c in caps_by_source.items() if s not in unpaired}
-                if (
-                    install_needs
-                    and install_code is None
-                    and shared_selection is not None
-                    and _install_grants_held(
-                        # Capy-only: its own snapshot still says whether the
-                        # API token is refused; its capture is not wanted.
-                        rest or caps_by_source,
-                        shared_selection if rest else dataclasses.replace(shared_selection, capture=False),
-                        base_url=base_now,
-                    )
-                ):
-                    # The Capy credential it skipped was all the approval was for.
-                    install_needs = []
-
         installation_completion = (
-            _InstallationCompletion(len(agent_sources), unattended=yes or not wizard.interactive())
+            _InstallationCompletion(
+                len(agent_sources),
+                was_configured=_probe_already_installed(
+                    [*state_caps_by_source.values(), *caps_by_source.values()]
+                ),
+            )
             if chosen_action is actions_mod.Action.CONFIGURE
             else None
         )
@@ -3380,7 +3279,6 @@ def _wizard_session(
                     install_code=install_code,
                     installation_completion=installation_completion,
                     telemetry=tel,
-                    cloud_ask=cloud_asks.get(agent_sources[0]),
                 )
         elif chosen_action is actions_mod.Action.CONFIGURE:
             aggregate, resolved = _shared_selection(
@@ -3409,22 +3307,11 @@ def _wizard_session(
                 else [
                     source
                     for source, snapshot in caps_by_source.items()
-                    if shared_selection.capture
-                    and not snapshot.capture_token_sources
-                    and (source not in cloud_asks or cloud_asks[source].pairs)
+                    if shared_selection.capture and not snapshot.capture_token_sources
                 ]
             )
-            if not missing_capture_sources and install_needs is None:
-                # Nothing left to pair (a cloud agent that will not connect was
-                # the only one): no capture grant to ask the browser for.
-                shared_needs = [grant for grant in shared_needs if grant != "capture"]
             lines = []
-            # Cloud agents (Capy) first: the server keeps ONE capabilities
-            # record per device, so the settling registration reports every
-            # agent in this run (`_InstallationCompletion`), and a local agent
-            # beside a cloud one reports last.
-            ordered = sorted(agent_sources, key=lambda source: source not in wizard.CLOUD_AGENT_SOURCES)
-            for index, source in enumerate(ordered):
+            for index, source in enumerate(agent_sources):
                 current = _collect_agent(source, fresh=index > 0)
                 # A guided run resolved every selected source together. The
                 # first apply raises if approval failed; later agents reuse
@@ -3462,7 +3349,6 @@ def _wizard_session(
                         install_code=install_code if index == 0 else None,
                         installation_completion=installation_completion,
                         telemetry=tel,
-                        cloud_ask=cloud_asks.get(source),
                     )
                 if result:
                     label = wizard.agent_label(source)
@@ -3511,9 +3397,6 @@ def _wizard_session(
                 if updating
                 else contextlib.nullcontext([]) as registration_warnings,
             ):
-                # Cloud agents first, as in Install, so the passes end on a
-                # local agent.
-                targets = sorted(targets, key=lambda source: source not in wizard.CLOUD_AGENT_SOURCES)
                 for index, source in enumerate(targets):
                     # Uninstall revokes each agent's capture key as it goes, and
                     # the next agent's answer can change under it (the server
@@ -3636,15 +3519,18 @@ def _wizard_session(
                 ),
                 agent_count=len(agent_sources),
                 guided=bool(guided_install),
+                # One event per run names every agent, so #probe-usage can say
+                # "added Codex" once instead of a message per agent.
+                agents=list(agent_sources),
+                was_configured=installation_completion.was_configured,
+                # Omitted, not [], when nothing was added: PostHog's `is_set`
+                # is the filter a destination writes, and an empty list is set.
+                **(
+                    {"agents_added": list(installation_completion.added)}
+                    if installation_completion.added
+                    else {}
+                ),
             )
-        if (
-            installation_completion is not None
-            and installation_completion.cloud_blocked
-            and installation_completion.unattended
-        ):
-            # Every agent ran; a script still learns the install did not finish.
-            raise typer.Exit(1)
-
         # This computer's workspace: where every project made on it goes (the CLI,
         # the daemon, SDK runs). After every agent applied and the credential is
         # saved, before the import offer so imports land there too. Asks only on
@@ -3707,17 +3593,8 @@ def _wizard_session(
                     fraction=1.0,
                 )
             ):
-                cloud_steps, cloud_opens = _cloud_agent_finish(
-                    agent_sources,
-                    tracking=shared_selection is None or shared_selection.tracking,
-                    base_url=base_now,
-                )
                 try:
-                    completion = onboarding_complete.show(
-                        base_now,
-                        **({"next_steps": cloud_steps} if cloud_steps else {}),
-                        **({"open_apps": cloud_opens} if cloud_opens else {}),
-                    )
+                    completion = onboarding_complete.show(base_now)
                 except KeyboardInterrupt:
                     # Not "back", and not the wizard's Exit either: this is the
                     # last screen of a guided install being walked away from,
@@ -4074,7 +3951,6 @@ def _run_wizard_action(
     back_to_selection: bool = False,
     default_state: str | None = None,
     recorder: str | None = None,
-    cloud_ask=None,
 ) -> list[str] | None:
     """Perform ONE action and RETURN its output.
 
@@ -4312,41 +4188,6 @@ def _run_wizard_action(
     # tracking guaranteed the token was never minted, so every pi user fell
     # through to /probe-mcp-login's interactive OAuth -- the "Known limitation"
     # the README documents. The limitation WAS this branch.
-    #
-    # A CLOUD agent (Capy) takes its own branch through the work list and the
-    # verdict below: nothing of Probe's installs into it, so its tracking is
-    # the settings steps printed at the end (never a missing plugin), and its
-    # capture is a connection with its own outcome (`CaptureOutcome`).
-    cloud = caps.agent_source in wizard.CLOUD_AGENT_SOURCES
-    cloud_agent = None
-    cloud_capture_wanted = False
-    if cloud:
-        from probe.cli import cloud_agents
-
-        cloud_agent = cloud_agents.module(caps.agent_source)
-        cloud_capture_wanted = selection.capture
-        if cloud_capture_wanted and cloud_ask is None:
-            # Nobody asked on the review screen (a direct call): read
-            # $CAPY_API_KEY now, which waits on no one.
-            cloud_ask = cloud_agent.ask_capture(interactive=False)
-        if cloud_capture_wanted and not cloud_ask.pairs:
-            # No connection will exist, so no capture grant to ask for.
-            selection = dataclasses.replace(selection, capture=False)
-
-    cloud_result: dict = {}
-
-    def _cloud_capture_step() -> list[str]:
-        # Until the step returns, it has not connected: a crash inside it
-        # (caught by `_run_step`) must not read as a finished install.
-        cloud_result["outcome"] = cloud_agent.CaptureOutcome.REFUSED
-        outcome, lines = cloud_agent.apply_capture(
-            cloud_ask,
-            on_prompt=lambda prompt: progress.note(
-                f"  visit: {prompt.verification_uri_complete}", f"  code:  {prompt.user_code}"
-            ),
-        )
-        cloud_result["outcome"] = outcome
-        return lines
 
     steps = wizard.plan(caps, selection)
     mcp_token_drifted = selection.tracking and wizard.mcp_token_drifted()
@@ -4356,8 +4197,7 @@ def _run_wizard_action(
         else _needs_for_this_run(wizard.needs_authorization(caps, selection), yes=yes)
     )
     if (
-        not cloud
-        and not steps
+        not steps
         and not authorization_needs
         # `--json`: a grant the plan has no row for -- the MCP's read token
         # alone; `tracking_on` does not read it -- is still work, because the
@@ -4437,195 +4277,173 @@ def _run_wizard_action(
     # The fourth field is the step's stable name for `--json` (`json_events.Step`).
     work: list[tuple[str, object, object, Step]] = []
 
-    if cloud:
-        # A cloud agent (Capy): no plugin, MCP login or skills to install here
-        # (its settings steps print at the end); its capture is a connection.
-        if cloud_capture_wanted:
-            work.append(
-                (
-                    f"connect {cloud_agent.label()} capture",
-                    _cloud_capture_step,
-                    Capability.CAPTURE if cloud_ask.pairs else None,
-                    Step.CLOUD_CAPTURE,
-                )
-            )
-        elif cloud_agent.connected_here():
-            work.append(
-                (
-                    f"turn {cloud_agent.label()} capture off",
-                    lambda: cloud_agent.capture_off(uninstall=uninstall),
-                    None,
-                    Step.CLOUD_CAPTURE,
-                )
-            )
+    # Whether the selected agent's own CLI is on this machine. A plugin install
+    # shells out to it, so without it the step can only fail — and on the
+    # degraded install path the confirm screen has already SAID the plugins
+    # are skipped, so failing at them anyway would contradict the screen. The
+    # honest step is a skip that names the recovery.
+    if caps.agent_source == "pi":
+        # pi has no marketplace CLI a plugin-install step could shell out to
+        # (see wizard.INSTALLABLE_AGENT_SOURCES) -- there is no "is it on
+        # this machine" question to ask here, because nothing below ever
+        # attempts a plugin install for pi (apply_capture()/install_plugin()
+        # refuse it themselves; see their own pi guards). True rather than
+        # False specifically so a pi run never shows the "Skipped ... —
+        # Claude Code is not on this machine" message, which used to fire
+        # here (via the old ternary's silent claude_code default) for a run
+        # that was never about Claude Code at all.
+        agent_here = True
+        agent_name = wizard.agent_label(caps.agent_source)
+    elif caps.agent_source == plugin_cli.KIMI:
+        # Kimi Code's plugins are files the wizard writes (kimi_config); it
+        # still needs the agent itself on the machine to be worth installing.
+        from probe.cli import kimi_config
+
+        agent_here = kimi_config.binary_available()
+        agent_name = wizard.agent_label(caps.agent_source)
     else:
-        # Whether the selected agent's own CLI is on this machine. A plugin install
-        # shells out to it, so without it the step can only fail — and on the
-        # degraded install path the confirm screen has already SAID the plugins
-        # are skipped, so failing at them anyway would contradict the screen. The
-        # honest step is a skip that names the recovery.
-        if caps.agent_source == "pi":
-            # pi has no marketplace CLI a plugin-install step could shell out to
-            # (see wizard.INSTALLABLE_AGENT_SOURCES) -- there is no "is it on
-            # this machine" question to ask here, because nothing below ever
-            # attempts a plugin install for pi (apply_capture()/install_plugin()
-            # refuse it themselves; see their own pi guards). True rather than
-            # False specifically so a pi run never shows the "Skipped ... —
-            # Claude Code is not on this machine" message, which used to fire
-            # here (via the old ternary's silent claude_code default) for a run
-            # that was never about Claude Code at all.
-            agent_here = True
-            agent_name = wizard.agent_label(caps.agent_source)
-        elif caps.agent_source == plugin_cli.KIMI:
-            # Kimi Code's plugins are files the wizard writes (kimi_config); it
-            # still needs the agent itself on the machine to be worth installing.
-            from probe.cli import kimi_config
+        agent_here = caps.codex_available if caps.agent_source == "codex" else caps.claude_available
+        agent_name = "Codex" if caps.agent_source == "codex" else "Claude Code"
 
-            agent_here = kimi_config.binary_available()
-            agent_name = wizard.agent_label(caps.agent_source)
+    def _skip_plugin(what: str):
+        return lambda: [
+            f"Skipped {what} — {agent_name} is not on this machine. "
+            "After installing it, run `probe wizard` and pick “Install Probe”."
+        ]
+
+    if selection.tracking and not caps.tracking_plugin_installed:
+        if agent_here:
+            work.append(
+                (
+                    "install the CLI + MCP plugin",
+                    lambda: wizard.apply_tracking(True, on_retry=_may_retry),
+                    Capability.TRACKING,
+                    Step.TRACKING_PLUGIN,
+                )
+            )
         else:
-            agent_here = caps.codex_available if caps.agent_source == "codex" else caps.claude_available
-            agent_name = "Codex" if caps.agent_source == "codex" else "Claude Code"
+            work.append(
+                ("skip the CLI + MCP plugin", _skip_plugin("the CLI + MCP plugin"), None, Step.TRACKING_PLUGIN)
+            )
+    elif not selection.tracking and not caps.tracking_plugin_installed:
+        # The plugin is already gone -- removed with `/plugin uninstall` rather
+        # than here -- but its skills are copies in the agent's OWN folder, and
+        # with no plugin left no session-start hook runs to prune them. Without
+        # this they sit there unrefreshed forever: the `POINTER_VERSION` failure,
+        # reachable by one command. Silent when there is nothing to remove.
+        work.append((
+            "remove Probe's skills",
+            lambda: wizard.remove_root_skills(caps.agent_source),
+            None,
+            Step.REMOVE_SKILLS,
+        ))
+    elif not selection.tracking and caps.tracking_plugin_installed:
+        work.append((
+            "remove the CLI + MCP plugin",
+            # pi keeps its one package while capture stays selected.
+            lambda: wizard.apply_tracking(False, keep_capture=selection.capture),
+            None,
+            Step.TRACKING_PLUGIN,
+        ))
 
-        def _skip_plugin(what: str):
-            return lambda: [
-                f"Skipped {what} — {agent_name} is not on this machine. "
-                "After installing it, run `probe wizard` and pick “Install Probe”."
-            ]
+    if (
+        selection.tracking
+        and caps.agent_source == "codex"
+        and agent_here
+        and caps.mcp_authenticated is not True
+        # The daemon profile's plugin carries no MCP to log in to.
+        and not wizard.daemon_records(caps.agent_source)
+    ):
+        # `agent_here` gates this like the installs: `codex mcp login` shells
+        # out to the absent binary, and a failed step right after a screen
+        # that said the coding-agent work is skipped contradicts the screen.
+        work.append(
+            (
+                "authenticate the Codex MCP",
+                wizard.apply_codex_mcp_auth,
+                Capability.TRACKING,
+                Step.CODEX_MCP_LOGIN,
+            )
+        )
+    elif mcp_token_drifted:
+        # THE REPAIR NEEDS ITS OWN SIGNAL, because every other gate on this
+        # screen closes in exactly the state that needs repairing:
+        #
+        #   * needs_authorization() reads `mcp` as held whenever a read token
+        #     is saved, stale or not, so a signed-in device never re-enters
+        #     authorize() and never reaches the sync inside it.
+        #   * the branch above wants `mcp_authenticated is not True`, but
+        #     `codex mcp list` answers `bearer_token` for a DEAD header, so
+        #     this reads as authenticated precisely when it is not.
+        #   * and it wants agent_source == "codex", which a machine running
+        #     both agents does not report.
+        #
+        # `probe doctor` tells people to run this command; before this branch
+        # existed the command did nothing for them, which is the doctor/wizard
+        # circle this repo has paid for before (see `plan()`'s AGENT_RULES
+        # comment). The drift check is two file reads and self-guarding, so it
+        # is cheap to ask on every run and a no-op on a healthy machine.
+        work.append(
+            (
+                "re-point your agents' Probe MCP at your current read token",
+                wizard.sync_mcp_token,
+                Capability.TRACKING,
+                Step.MCP_TOKEN_SYNC,
+            )
+        )
 
-        if selection.tracking and not caps.tracking_plugin_installed:
-            if agent_here:
-                work.append(
-                    (
-                        "install the CLI + MCP plugin",
-                        lambda: wizard.apply_tracking(True, on_retry=_may_retry),
-                        Capability.TRACKING,
-                        Step.TRACKING_PLUGIN,
-                    )
-                )
-            else:
-                work.append(
-                    ("skip the CLI + MCP plugin", _skip_plugin("the CLI + MCP plugin"), None, Step.TRACKING_PLUGIN)
-                )
-        elif not selection.tracking and not caps.tracking_plugin_installed:
-            # The plugin is already gone -- removed with `/plugin uninstall` rather
-            # than here -- but its skills are copies in the agent's OWN folder, and
-            # with no plugin left no session-start hook runs to prune them. Without
-            # this they sit there unrefreshed forever: the `POINTER_VERSION` failure,
-            # reachable by one command. Silent when there is nothing to remove.
-            work.append((
-                "remove Probe's skills",
-                lambda: wizard.remove_root_skills(caps.agent_source),
+    if selection.capture and not agent_here and not caps.capture_plugin_installed:
+        work.append(
+            ("skip the Session capture plugin", _skip_plugin("the Session capture plugin"), None, Step.CAPTURE)
+        )
+    elif selection.capture and (
+        not caps.capture_plugin_installed
+        or not caps.capture_on
+        or caps.legacy_capture_plugin_installed
+    ):
+        # NOT gated on "plugin absent": the killswitch is cleared here too, and
+        # a killswitched machine with the plugin already installed needs that
+        # clear or capture stays off while the run reports success.
+        # apply_capture skips the install itself when the plugin is present, so
+        # this cannot reintroduce the reinstall.
+        if caps.agent_source not in wizard.INSTALLABLE_AGENT_SOURCES:
+            # pi: capture_plugin_installed is always False here (see
+            # capabilities.installed_plugins()'s pi guard), which would
+            # otherwise pick "install the Session capture plugin" below --
+            # a label starting with "install" is exactly what the
+            # marketplace-refresh trigger a few lines down keys on, and
+            # apply_capture() itself now refuses any actual plugin install
+            # for pi (see its own guard). The work IS real -- clear the
+            # killswitch, let the token authorize() already minted take
+            # effect -- it is just never a plugin install for pi.
+            capture_label = "pair Session capture"
+        elif not caps.capture_plugin_installed:
+            capture_label = "install the Session capture plugin"
+        elif caps.legacy_capture_plugin_installed:
+            capture_label = "retire the legacy Session capture plugin"
+        else:
+            capture_label = "re-enable Session capture"
+        work.append(
+            (
+                capture_label,
+                lambda: wizard.apply_capture(caps, True, mode=OffMode.DISABLE, on_retry=_may_retry),
+                Capability.CAPTURE,
+                Step.CAPTURE,
+            )
+        )
+    elif not selection.capture and (caps.capture_plugin_installed or caps.capture_on):
+        work.append(
+            (
+                "turn Session capture off",
+                lambda: wizard.apply_capture(
+                    caps,
+                    False,
+                    mode=OffMode.UNINSTALL if uninstall else OffMode.DISABLE,
+                ),
                 None,
-                Step.REMOVE_SKILLS,
-            ))
-        elif not selection.tracking and caps.tracking_plugin_installed:
-            work.append((
-                "remove the CLI + MCP plugin",
-                # pi keeps its one package while capture stays selected.
-                lambda: wizard.apply_tracking(False, keep_capture=selection.capture),
-                None,
-                Step.TRACKING_PLUGIN,
-            ))
-
-        if (
-            selection.tracking
-            and caps.agent_source == "codex"
-            and agent_here
-            and caps.mcp_authenticated is not True
-            # The daemon profile's plugin carries no MCP to log in to.
-            and not wizard.daemon_records(caps.agent_source)
-        ):
-            # `agent_here` gates this like the installs: `codex mcp login` shells
-            # out to the absent binary, and a failed step right after a screen
-            # that said the coding-agent work is skipped contradicts the screen.
-            work.append(
-                (
-                    "authenticate the Codex MCP",
-                    wizard.apply_codex_mcp_auth,
-                    Capability.TRACKING,
-                    Step.CODEX_MCP_LOGIN,
-                )
+                Step.CAPTURE,
             )
-        elif mcp_token_drifted:
-            # THE REPAIR NEEDS ITS OWN SIGNAL, because every other gate on this
-            # screen closes in exactly the state that needs repairing:
-            #
-            #   * needs_authorization() reads `mcp` as held whenever a read token
-            #     is saved, stale or not, so a signed-in device never re-enters
-            #     authorize() and never reaches the sync inside it.
-            #   * the branch above wants `mcp_authenticated is not True`, but
-            #     `codex mcp list` answers `bearer_token` for a DEAD header, so
-            #     this reads as authenticated precisely when it is not.
-            #   * and it wants agent_source == "codex", which a machine running
-            #     both agents does not report.
-            #
-            # `probe doctor` tells people to run this command; before this branch
-            # existed the command did nothing for them, which is the doctor/wizard
-            # circle this repo has paid for before (see `plan()`'s AGENT_RULES
-            # comment). The drift check is two file reads and self-guarding, so it
-            # is cheap to ask on every run and a no-op on a healthy machine.
-            work.append(
-                (
-                    "re-point your agents' Probe MCP at your current read token",
-                    wizard.sync_mcp_token,
-                    Capability.TRACKING,
-                    Step.MCP_TOKEN_SYNC,
-                )
-            )
-
-        if selection.capture and not agent_here and not caps.capture_plugin_installed:
-            work.append(
-                ("skip the Session capture plugin", _skip_plugin("the Session capture plugin"), None, Step.CAPTURE)
-            )
-        elif selection.capture and (
-            not caps.capture_plugin_installed
-            or not caps.capture_on
-            or caps.legacy_capture_plugin_installed
-        ):
-            # NOT gated on "plugin absent": the killswitch is cleared here too, and
-            # a killswitched machine with the plugin already installed needs that
-            # clear or capture stays off while the run reports success.
-            # apply_capture skips the install itself when the plugin is present, so
-            # this cannot reintroduce the reinstall.
-            if caps.agent_source not in wizard.INSTALLABLE_AGENT_SOURCES:
-                # pi: capture_plugin_installed is always False here (see
-                # capabilities.installed_plugins()'s pi guard), which would
-                # otherwise pick "install the Session capture plugin" below --
-                # a label starting with "install" is exactly what the
-                # marketplace-refresh trigger a few lines down keys on, and
-                # apply_capture() itself now refuses any actual plugin install
-                # for pi (see its own guard). The work IS real -- clear the
-                # killswitch, let the token authorize() already minted take
-                # effect -- it is just never a plugin install for pi.
-                capture_label = "pair Session capture"
-            elif not caps.capture_plugin_installed:
-                capture_label = "install the Session capture plugin"
-            elif caps.legacy_capture_plugin_installed:
-                capture_label = "retire the legacy Session capture plugin"
-            else:
-                capture_label = "re-enable Session capture"
-            work.append(
-                (
-                    capture_label,
-                    lambda: wizard.apply_capture(caps, True, mode=OffMode.DISABLE, on_retry=_may_retry),
-                    Capability.CAPTURE,
-                    Step.CAPTURE,
-                )
-            )
-        elif not selection.capture and (caps.capture_plugin_installed or caps.capture_on):
-            work.append(
-                (
-                    "turn Session capture off",
-                    lambda: wizard.apply_capture(
-                        caps,
-                        False,
-                        mode=OffMode.UNINSTALL if uninstall else OffMode.DISABLE,
-                    ),
-                    None,
-                    Step.CAPTURE,
-                )
-            )
+        )
 
     if selection.auto_update != caps.auto_update_enabled:
         work.append(
@@ -4636,9 +4454,7 @@ def _run_wizard_action(
                 Step.AUTO_UPDATE,
             )
         )
-    if cloud:
-        pass  # no instruction file or status line on this machine is a cloud agent's
-    elif (
+    if (
         selection.agent_rules != caps.agent_rules_installed
         or caps.agent_rules_stale
         or (not selection.agent_rules and wizard.leftover_team_note(caps))
@@ -4843,9 +4659,6 @@ def _run_wizard_action(
             switched_to = wizard.account_email(base_now)
             if switched_to:
                 progress.note(f"Signed in as {switched_to}.")
-            # A website code can switch the account: a cloud agent's capture
-            # connected for another team stops here (`after_sign_in`).
-            progress.note(*wizard.after_sign_in())
         tel.emit(
             telemetry_mod.EVENT_WIZARD_SIGNED_IN,
             outcome=(
@@ -4904,7 +4717,7 @@ def _run_wizard_action(
     # capture chosen (the daemon records from capture), only after a clean run,
     # and never a browser (`follow_machine_recorder` needs the daemon set up).
     first_setup = not caps.tracking_plugin_installed and not caps.capture_plugin_installed
-    if not cloud and first_setup and selection.tracking and selection.capture and not skipped and not ungranted:
+    if first_setup and selection.tracking and selection.capture and not skipped and not ungranted:
         joined = wizard.follow_machine_recorder(
             caps.agent_source, doctor_impl.collect(), base_url=base_now, rules=selection.agent_rules
         )
@@ -4920,21 +4733,6 @@ def _run_wizard_action(
     # ONE re-collect, reused. collect() already runs `claude plugin list`, so
     # asking installed_plugins() again would pay for the same subprocess twice.
     after = doctor_impl.collect()
-    if cloud:
-        return _finish_cloud_configure(
-            cloud_agent,
-            selection=selection,
-            outcome=cloud_result.get("outcome"),
-            missing=[grant for grant in needs if grant not in granted],
-            incomplete=bool(skipped or ungranted),
-            after=after,
-            progress=progress,
-            register=register_configure,
-            telemetry=tel,
-            started=configure_t0,
-            completion=installation_completion,
-            ask_on_screen=not (installation_completion.unattended if installation_completion is not None else yes),
-        )
     wanted_plugins = []
     if selection.tracking and not after.tracking_plugin_installed:
         wanted_plugins.append(capabilities.tracking_plugin_name(caps.agent_source))
@@ -5018,6 +4816,14 @@ def _run_wizard_action(
         caps.agent_source, selection, after, ok=True,
         message=unverified if wanted_plugins and not after.plugins_verified else "",
     )
+    tracking_newly_installed = bool(
+        selection.tracking and not caps.tracking_plugin_installed and after.tracking_plugin_installed
+    )
+    capture_newly_installed = bool(
+        selection.capture and not caps.capture_plugin_installed and after.capture_plugin_installed
+    )
+    if installation_completion is not None and (tracking_newly_installed or capture_newly_installed):
+        installation_completion.added.append(caps.agent_source)
     tel.emit(
         telemetry_mod.EVENT_WIZARD_CONFIGURE_COMPLETED,
         outcome=(
@@ -5025,17 +4831,9 @@ def _run_wizard_action(
             if wanted_plugins and not after.plugins_verified
             else telemetry_mod.ConfigureOutcome.SUCCESS
         ),
-        tracking_newly_installed=bool(
-            selection.tracking
-            and not caps.tracking_plugin_installed
-            and after.tracking_plugin_installed
-        ),
+        tracking_newly_installed=tracking_newly_installed,
         tracking_already_present=bool(selection.tracking and caps.tracking_plugin_installed),
-        capture_newly_installed=bool(
-            selection.capture
-            and not caps.capture_plugin_installed
-            and after.capture_plugin_installed
-        ),
+        capture_newly_installed=capture_newly_installed,
         capture_already_present=bool(selection.capture and caps.capture_plugin_installed),
         steps_skipped=len(skipped),
         duration_seconds=int(time.monotonic() - configure_t0),
@@ -5080,124 +4878,6 @@ def _record_configure(source: str, selection, after, *, ok: bool, message: str =
     if unmet and not message:
         message = f"not as asked: {', '.join(unmet)}"
     json_events.agent_result(source, requested=requested, actual=actual, ok=ok and not unmet, message=message)
-
-
-def _cloud_agent_finish(agent_sources, *, tracking: bool, base_url: str | None):
-    """The last page's part for each cloud agent (Capy) being installed: its
-    own settings step, the one part of its install no command can do, and the
-    apps this machine can open on that step's screen, as (name, opener) for
-    the page to offer. Opening is the researcher's choice, made after reading
-    the step, never automatic."""
-    from probe.cli import cloud_agents
-    from probe.cli import setup as wizard
-
-    if not tracking:
-        return [], []
-    lines: list[str] = []
-    opens = []
-    for source in agent_sources:
-        if source not in wizard.CLOUD_AGENT_SOURCES:
-            continue
-        agent = cloud_agents.module(source)
-        lines.extend(agent.setup_summary(base_url=base_url))
-        if agent.can_open_add_plugin(base_url=base_url):
-            opens.append((agent.label(), agent.open_add_plugin))
-    return lines, opens
-
-
-def _finish_cloud_configure(
-    agent,
-    *,
-    selection,
-    outcome,
-    missing: list[str],
-    incomplete: bool,
-    after,
-    progress,
-    register,
-    telemetry,
-    started: float,
-    completion: "_InstallationCompletion | None" = None,
-    ask_on_screen: bool = True,
-) -> list[str]:
-    """The verdict of a cloud agent's configure (Capy).
-
-    Its tracking cannot be verified from here (it lives in the agent's own
-    settings), so it is never a missing plugin: the steps that put it there
-    print as what is next. Capture is finished when it connected or already
-    was; a key or project the researcher chose not to give is their decision
-    and leaves the install complete, while one a run could not get (no
-    terminal, no $CAPY_API_KEY) or Capy or Probe refused leaves it unfinished
-    -- reported, with the command that finishes it, and never a failed run
-    for the other agents beside it."""
-    import time
-
-    from probe.cli import telemetry as telemetry_mod
-    from probe.cli import tui
-
-    blocked = outcome is not None and outcome.blocks
-    complete = not (missing or incomplete or blocked)
-    telemetry.emit(
-        telemetry_mod.EVENT_WIZARD_CONFIGURE_COMPLETED,
-        outcome=(
-            telemetry_mod.ConfigureOutcome.SUCCESS if complete else telemetry_mod.ConfigureOutcome.FAILED
-        ),
-        **(
-            {}
-            if complete
-            else {
-                "failure_kind": telemetry_mod.ConfigureFailureKind.MISSING_GRANTS
-                if missing
-                else telemetry_mod.ConfigureFailureKind.RUNTIME
-            }
-        ),
-        duration_seconds=int(time.monotonic() - started),
-    )
-    if missing:
-        progress.note("", f"Not finished — no credential for: {', '.join(missing)}.", "Re-run `probe wizard` to retry.")
-    elif blocked:
-        progress.note("", f"Not finished — {agent.label()} capture is not connected.")
-    from probe.cli import json_events
-
-    if json_events.enabled():
-        json_events.agent_result(
-            after.agent_source,
-            requested=_capability_fields(selection),
-            actual=_capability_fields(after.enabled()),
-            ok=complete,
-            message=(
-                f"Not finished — no credential for: {', '.join(missing)}." if missing
-                else f"Not finished — {agent.label()} capture is not connected." if blocked
-                else "" if complete else "Not finished."
-            ),
-        )
-    if selection.tracking:
-        progress.note_next(*agent.setup_steps(base_url=_conn.base_url))
-    progress.close()
-    for message in register(after, complete=complete):
-        tui.say(message)
-    if missing:
-        raise typer.Exit(1)
-    if blocked:
-        if completion is not None:
-            # The run finishes the other agents, then exits non-zero.
-            completion.cloud_blocked = True
-        if ask_on_screen and tui.interactive():
-            # The import offer replaces the progress page next, and the last
-            # page shows only for a finished install: say it here, with the
-            # steps for its settings, which still apply.
-            tui.page(
-                [
-                    f"{agent.label()} capture is not connected",
-                    "",
-                    f"Run `probe {agent.SOURCE} connect` when you have a key, or run the install again.",
-                    "",
-                    *(agent.setup_summary(base_url=_conn.base_url) if selection.tracking else []),
-                ],
-                prompt="Continue",
-            )
-    return []
-
 
 
 def _run_defaults_action(
@@ -5530,21 +5210,18 @@ def _run_recorder_action(
 
 def _record_recorder(chosen: str | None, caps_by_source: dict, lines: list[str] | None) -> None:
     """`--json`'s result rows for a Who records switch: what each agent's own
-    config says now, never which steps ran. A refusal, a missing key or
-    libraries, or an agent with no daemon profile all leave it on the other
-    recorder, so its row is not ok, with the switch's own words as the reason."""
+    config says now, never which steps ran. A refusal or a missing key or
+    libraries leaves an agent on the other recorder, so its row is not ok, with
+    the switch's own words as the reason. An agent with no daemon profile is not
+    part of the switch (the lines say it keeps recording itself), so it has no
+    row: its row could never be ok, and the run would never read complete."""
     from probe.cli import json_events
     from probe.cli import setup as wizard
 
     if chosen is None or not json_events.enabled():
         return
-    daemon = session_marker.RECORDER_DAEMON
     detail = "\n".join(lines or [])
-    agents = [
-        source
-        for source, snapshot in caps_by_source.items()
-        if source in wizard.RECORDER_SOURCES or (chosen == daemon and snapshot.configured)
-    ]
+    agents = [source for source in caps_by_source if source in wizard.RECORDER_SOURCES]
     if not agents:
         actual = wizard.machine_recorder()
         json_events.agent_result(
@@ -5891,9 +5568,19 @@ def _run_account_action(
             tui.clear()
             if wizard.confirm_sign_out(caps.logged_in_as if caps else None) is not True:
                 return None
-        for line in wizard.sign_out(sources):
+        # BEFORE the credential goes: `sign_out` revokes this device's token,
+        # and an event resolved after that belongs to no person (`pin_identity`).
+        tel.pin_identity()
+        lines = wizard.sign_out(sources)
+        for line in lines:
             tui.say(line)
         _record_device_sign_in(wanted=False)
+        tel.emit(
+            telemetry_mod.EVENT_WIZARD_SIGNED_OUT,
+            agent_count=len(sources),
+            # Counts only, never the `! ...` lines themselves: they name paths.
+            warnings=sum(1 for line in lines if line.startswith("!")),
+        )
         raise typer.Exit(0)
 
     # SIGN IN. This one streams: the approval URL is only useful WHILE the flow
@@ -5966,17 +5653,18 @@ class _InstallationCompletion:
 
     remaining: int
     settled: bool = True
-    #: The session runs with nobody watching (`--yes` or no terminal): each
-    #: agent's apply is told `yes=True` in a multi-agent run, so this is the
-    #: one place the session's own answer survives.
-    unattended: bool = False
-    #: A cloud agent's (Capy's) capture could not connect: the run finishes
-    #: the other agents and exits non-zero (`_finish_cloud_configure`).
-    cloud_blocked: bool = False
 
     #: Every agent's state so far: the settling report covers the whole run,
     #: so an install whose last agent has no capture does not report it removed.
     passes: list = dataclasses.field(default_factory=list)
+    #: Probe was installed on this device before this run
+    #: (`_probe_already_installed`). With `added`, it is how
+    #: `wizard.install_settled` tells a NEW agent on a known machine from a
+    #: first install, which the server already announces once per machine.
+    was_configured: bool = False
+    #: Agents whose tracking or capture plugin this run installed (absent before,
+    #: present after), in the order they finished.
+    added: list = dataclasses.field(default_factory=list)
 
     def register(self, caps, *, settings, complete: bool = True) -> list[str]:
         self.remaining -= 1
@@ -5989,6 +5677,25 @@ class _InstallationCompletion:
         return _register_local_capabilities(
             caps, settings=settings, complete=settling, alongside=earlier
         )
+
+
+def _probe_already_installed(snapshots) -> bool:
+    """Whether Probe was set up on this device before the current run.
+
+    Not `Capabilities.configured`: that counts the sign-in, and a fresh
+    machine is signed in before the wizard's menu even opens, so every first
+    install read as an agent added to a set-up machine. Only what an install
+    leaves behind counts -- a plugin, the agent rules, auto-update (off until
+    an install turns it on) -- and auto-update is device-wide, which is how
+    `--agent codex` alone still sees a machine Claude Code was set up on."""
+    return any(
+        caps.tracking_plugin_installed
+        or caps.capture_plugin_installed
+        or caps.legacy_capture_plugin_installed
+        or caps.agent_rules_installed
+        or caps.auto_update_enabled
+        for caps in snapshots
+    )
 
 
 def _register_local_capabilities(
@@ -6050,12 +5757,10 @@ app.add_typer(source_app, name="source")
 app.add_typer(dataset_app, name="dataset")
 app.add_typer(checkpoint_app, name="checkpoint")
 app.command("provenance")(provenance_cmd)
+# Capy support was removed: `probe capy sync` is what an old Capy timer still runs.
+from .capy_retire import capy_app  # noqa: E402 -- registration, not use
 
-# -- Capy (capy.ai), a cloud agent: its sessions are pulled, not watched -------
-from .capy_cli import SOURCE as CAPY_SOURCE  # noqa: E402 -- registration, not use
-from .capy_cli import capy_app  # noqa: E402 -- registration, not use
-
-app.add_typer(capy_app, name=CAPY_SOURCE)
+app.add_typer(capy_app, name="capy", hidden=True)
 app.command("approvals")(approvals_cmd)
 
 # -- summaries and Metrics-center visuals, kept by the recorder (writer-owns-summary)
@@ -10372,13 +10077,7 @@ def statusline_show(
     """
     session_id = session or os.environ.get("CLAUDE_CODE_SESSION_ID") or ""
     if not session_id:
-        from probe.cli.capabilities import cloud_agent_refusal
-
-        print(
-            cloud_agent_refusal("probe session")
-            or "no session id: pass --session, or run inside a coding agent",
-            file=sys.stderr,
-        )
+        print("no session id: pass --session, or run inside a coding agent", file=sys.stderr)
         raise typer.Exit(1)
     state = session_marker.read(session_id)
     settings = resolve()
@@ -10442,13 +10141,7 @@ def _resolve_agent_session(session: str | None, *, read: bool = False) -> str:
     """
     resolved = session or agent_session.session_id_from_env() or (_daemon_session() if read else None)
     if not resolved:
-        from probe.cli.capabilities import cloud_agent_refusal
-
-        print(
-            cloud_agent_refusal("probe session")
-            or "no session id: pass --session, or run inside a coding agent",
-            file=sys.stderr,
-        )
+        print("no session id: pass --session, or run inside a coding agent", file=sys.stderr)
         raise typer.Exit(1)
     return resolved
 

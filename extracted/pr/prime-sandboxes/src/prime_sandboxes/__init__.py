@@ -77,11 +77,14 @@ from .models import (
     TeamImageOwner,
     UpdateImagesRequest,
     UpdateImagesResponse,
+    Volume,
+    VolumeListResponse,
+    VolumeMount,
 )
 from .process import AsyncSandboxProcess
 from .sandbox import AsyncSandboxClient, SandboxClient
 
-__version__ = "0.4.7"
+__version__ = "0.5.0"
 
 # Deprecated alias for backward compatibility
 TimeoutError = APITimeoutError
@@ -148,6 +151,9 @@ __all__ = [
     "ImageUpdateResult",
     "ImageCoordinateState",
     "ImageMutationError",
+    "Volume",
+    "VolumeListResponse",
+    "VolumeMount",
     # Exceptions
     "APIError",
     "BatchStatusUnsupportedError",

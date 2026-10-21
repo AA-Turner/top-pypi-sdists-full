@@ -12,19 +12,19 @@ use sqlbuild_core::scenario_command::main::validate_scenario_test_flags::validat
 use sqlbuild_core::scenario_command::models::{
     ScenarioNamespace, ScenarioTestFlags, SqlAnalysisCommand,
 };
+use sqlbuild_host::entries::models::ExecutorHost;
 
-use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_settings_config;
-use crate::bindings::_helpers::compile_driver::python_calls::call_with;
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
-use crate::bindings::_helpers::native_host::executor::ExecutorHost;
+use crate::bindings::_helpers::boundary::python_calls::call_with;
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::command_runtime::concurrency::resolve_concurrency;
 use crate::bindings::_helpers::native_host::host;
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::result_output::documents::format_scenario_execution_json;
 use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
 use crate::bindings::_helpers::scenario_command::conversions::succeeded;
 use crate::bindings::_helpers::scenario_command::presentation::{
-    CompletionKind, SectionStatus, activity, begin_section, connection_hooks, progress_relay,
-    write_completion,
+    CompletionKind, RelayContext, SectionStatus, activity, begin_section, connection_hooks,
+    progress_relay, write_completion,
 };
 use crate::bindings::_helpers::scenario_command::setup::{
     CompileInputs, ScenarioProject, boolean, cli_user_error, compile, discover_project, flush, int,
@@ -98,16 +98,12 @@ fn prepare<'py>(py: Python<'py>, request: &Bound<'py, PyAny>) -> PyResult<TestRu
         project_connection_config(&project)?
     };
     let style: CliStyle = style(request)?;
-    let requested: Bound<'py, PyAny> = request.getattr("concurrency")?;
-    let concurrency: i64 = if requested.is_none() {
-        native_field(
-            &build_effective_settings_config(&project.discovered.clone())?,
-            "concurrency",
-        )?
-        .extract()?
-    } else {
-        requested.extract()?
-    };
+    let concurrency: i64 = resolve_concurrency(
+        &request.getattr("concurrency")?,
+        &project.discovered,
+        &py.None().into_bound(py),
+    )?
+    .limit;
     let sys: Bound<'py, PyModule> = py.import("sys")?;
     let stream: Bound<'py, PyAny> = sys.getattr(if flag(request, "json_output")? {
         "stderr"
@@ -213,12 +209,12 @@ fn run_scenarios(
     let relay = progress_relay(
         &run.stream,
         &section,
-        (
-            &run.project.project_dir,
-            &run.adapter,
-            CompletionKind::Run { target_dir },
-            run.style,
-        ),
+        RelayContext {
+            project_dir: &run.project.project_dir,
+            adapter: &run.adapter,
+            kind: CompletionKind::Run { target_dir },
+            style: run.style,
+        },
     )?;
     let project_name: Bound<'_, PyAny> = native_field(
         &native_field(&run.project.discovered, "project_config")?,

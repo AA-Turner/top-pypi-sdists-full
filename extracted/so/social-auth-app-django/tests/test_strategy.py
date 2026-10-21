@@ -1,15 +1,18 @@
+import json
 from unittest import mock
 
 from django.contrib.auth import authenticate as django_authenticate
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.http import HttpResponse, QueryDict
 from django.test import RequestFactory, TestCase
 from django.utils.translation import gettext_lazy
+from social_core.exceptions import AuthSessionError
 from social_core.pipeline.utils import partial_prepare
 from social_core.utils import PARTIAL_TOKEN_PENDING_CONFIRMATION_SESSION_NAME
 
+from social_django.models import Partial, UserSocialAuth
 from social_django.strategy import PARTIAL_PIPELINE_CONFIRMATION_NONCE_PARAMETER
 from social_django.utils import load_backend, load_strategy
 
@@ -79,6 +82,108 @@ class TestStrategy(TestCase):
         self.assertEqual(callback_strategy.session_get("saml_authn_request_id"), "TEST_ID")
         self.assertNotEqual(callback_strategy.get_session_id(), session_id)
 
+    def test_restore_session_uses_restored_session_user(self):
+        user_model = get_user_model()
+        user = user_model._default_manager.create_user(username="test")
+        login(self.request, user, backend="django.contrib.auth.backends.ModelBackend")
+        session_id = self.strategy.get_session_id()
+        self.strategy.session.save()
+
+        callback_request = self.request_factory.post("/")
+        SessionMiddleware(lambda _request: HttpResponse()).process_request(callback_request)
+        callback_strategy = load_strategy(request=callback_request)
+        kwargs = {"user": None}
+        callback_strategy.restore_session(session_id, kwargs)
+
+        self.assertEqual(kwargs["user"], user)
+        self.assertEqual(callback_request.user, user)
+
+    def test_restore_anonymous_session_uses_none(self):
+        session_id = self.strategy.get_session_id()
+        self.strategy.session.save()
+
+        callback_request = self.request_factory.post("/")
+        SessionMiddleware(lambda _request: HttpResponse()).process_request(callback_request)
+        callback_strategy = load_strategy(request=callback_request)
+        kwargs = {"user": None}
+        callback_strategy.restore_session(session_id, kwargs)
+
+        self.assertIsNone(kwargs["user"])
+        self.assertFalse(callback_request.user.is_authenticated)
+
+    def test_restore_anonymous_session_rejects_authenticated_user(self):
+        user_model = get_user_model()
+        victim = user_model._default_manager.create_user(username="victim")
+        restored_session_id = self.strategy.get_session_id()
+        self.strategy.session.save()
+
+        callback_request = self.request_factory.post("/")
+        SessionMiddleware(lambda _request: HttpResponse()).process_request(callback_request)
+        login(callback_request, victim, backend="django.contrib.auth.backends.ModelBackend")
+        callback_request.user = victim
+        callback_request.session.save()
+        original_session_id = callback_request.session.session_key
+        callback_strategy = load_strategy(request=callback_request)
+        kwargs = {"user": victim}
+
+        with self.assertRaises(AuthSessionError) as caught:
+            callback_strategy.restore_session(restored_session_id, kwargs)
+
+        self.assertEqual(caught.exception.code, "user_mismatch")
+        self.assertEqual(caught.exception.stage, "callback")
+        self.assertEqual(kwargs["user"], victim)
+        self.assertEqual(callback_request.user, victim)
+        self.assertEqual(callback_strategy.get_session_id(), original_session_id)
+        self.assertTrue(self.strategy.session.exists(restored_session_id))
+
+    def test_restore_session_rejects_different_authenticated_user(self):
+        user_model = get_user_model()
+        initiator = user_model._default_manager.create_user(username="initiator")
+        victim = user_model._default_manager.create_user(username="victim")
+        login(self.request, initiator, backend="django.contrib.auth.backends.ModelBackend")
+        restored_session_id = self.strategy.get_session_id()
+        self.strategy.session.save()
+
+        callback_request = self.request_factory.post("/")
+        SessionMiddleware(lambda _request: HttpResponse()).process_request(callback_request)
+        login(callback_request, victim, backend="django.contrib.auth.backends.ModelBackend")
+        callback_request.user = victim
+        callback_request.session.save()
+        original_session_id = callback_request.session.session_key
+        callback_strategy = load_strategy(request=callback_request)
+        kwargs = {"user": victim}
+
+        with self.assertRaises(AuthSessionError) as caught:
+            callback_strategy.restore_session(restored_session_id, kwargs)
+
+        self.assertEqual(caught.exception.code, "user_mismatch")
+        self.assertEqual(kwargs["user"], victim)
+        self.assertEqual(callback_request.user, victim)
+        self.assertEqual(callback_strategy.get_session_id(), original_session_id)
+
+    def test_restore_session_accepts_same_user_from_different_session(self):
+        user_model = get_user_model()
+        user = user_model._default_manager.create_user(username="test")
+        login(self.request, user, backend="django.contrib.auth.backends.ModelBackend")
+        restored_session_id = self.strategy.get_session_id()
+        self.strategy.session.save()
+
+        callback_request = self.request_factory.post("/")
+        SessionMiddleware(lambda _request: HttpResponse()).process_request(callback_request)
+        login(callback_request, user, backend="django.contrib.auth.backends.ModelBackend")
+        callback_request.user = user
+        callback_request.session.save()
+        original_session_id = callback_request.session.session_key
+        callback_strategy = load_strategy(request=callback_request)
+        kwargs = {"user": user}
+
+        callback_strategy.restore_session(restored_session_id, kwargs)
+
+        self.assertEqual(kwargs["user"], user)
+        self.assertEqual(callback_request.user, user)
+        self.assertNotEqual(callback_strategy.get_session_id(), restored_session_id)
+        self.assertNotEqual(callback_strategy.get_session_id(), original_session_id)
+
     def test_random_string(self):
         rs1 = self.strategy.random_string()
         self.assertEqual(len(rs1), 12)
@@ -90,10 +195,159 @@ class TestStrategy(TestCase):
         ctype = ContentType.objects.get_for_model(user_model)
 
         val = self.strategy.to_session_value(val=user)
-        self.assertEqual(val, {"pk": user.pk, "ctype": ctype.pk})
+        self.assertEqual(
+            val,
+            {
+                "__social_django_session_value__": 1,
+                "kind": "model",
+                "value": {"pk": user.pk, "ctype": ctype.pk},
+            },
+        )
 
-        instance = self.strategy.from_session_value(val=val)
+        instance = self.strategy.from_session_value(val=json.loads(json.dumps(val)))
         self.assertEqual(instance, user)
+
+    def test_session_value_preserves_plain_data(self):
+        user = get_user_model().objects.create_user(username="test")
+        reference = {"pk": user.pk, "ctype": ContentType.objects.get_for_model(user).pk}
+        envelope = {"__social_django_session_value__": 1, "kind": "model", "value": reference}
+        values = (
+            None,
+            False,
+            1,
+            "value",
+            {},
+            {"provider": "facebook", "uid": "test"},
+            reference,
+            {**reference, "email": "test@example.com"},
+            {"pk": "missing", "ctype": "invalid"},
+            envelope,
+            {"__social_django_session_value__": "invalid"},
+            {"__social_django_session_value__": 1, "kind": "plain", "value": envelope},
+            {"nested": envelope},
+            [reference, envelope],
+        )
+        for value in values:
+            with self.subTest(value=value), self.assertNumQueries(0):
+                encoded = self.strategy.to_session_value(value)
+                decoded = self.strategy.from_session_value(json.loads(json.dumps(encoded)))
+                self.assertEqual(decoded, value)
+
+    def test_from_session_value_preserves_legacy_request_data(self):
+        for value in (
+            {"pk": "1", "ctype": "1"},
+            {"pk": "missing", "ctype": "invalid"},
+            {"pk": 1, "ctype": "1"},
+            {"pk": 1, "ctype": True},
+            {"pk": 1, "ctype": 1.0},
+            {"pk": 1, "ctype": 1, "extra": "data"},
+            {"pk": 1},
+            {"ctype": 1},
+            {"nested": {"pk": 1, "ctype": 1}},
+        ):
+            with self.subTest(value=value), self.assertNumQueries(0):
+                self.assertIs(self.strategy.from_session_value(value), value)
+
+    def test_from_session_value_preserves_unsupported_envelopes(self):
+        envelope = {
+            "__social_django_session_value__": 1,
+            "kind": "model",
+            "value": {"pk": 1, "ctype": 1},
+        }
+        values = (
+            {"__social_django_session_value__": 1},
+            {**envelope, "extra": "data"},
+            {**envelope, "__social_django_session_value__": True},
+            {**envelope, "__social_django_session_value__": 1.0},
+            {**envelope, "__social_django_session_value__": "1"},
+            {**envelope, "__social_django_session_value__": 2},
+            {**envelope, "kind": "unknown"},
+            {**envelope, "kind": []},
+            {**envelope, "value": None},
+            {**envelope, "value": {"pk": 1, "ctype": "1"}},
+            {**envelope, "value": {"pk": 1, "ctype": True}},
+            {**envelope, "value": {"pk": 1, "ctype": 1, "extra": "data"}},
+            {**envelope, "kind": "plain", "value": []},
+            {**envelope, "pk": 1, "ctype": 1},
+        )
+        for value in values:
+            with self.subTest(value=value), self.assertNumQueries(0):
+                self.assertIs(self.strategy.from_session_value(value), value)
+
+    def test_session_value_preserves_model_lookup_errors(self):
+        user_model = get_user_model()
+        user = user_model.objects.create_user(username="test")
+        ctype = ContentType.objects.get_for_model(user)
+        stale = ContentType.objects.create(app_label="missing", model="missing")
+        cases = (
+            ({"pk": user.pk + 1, "ctype": ctype.pk}, user_model.DoesNotExist),
+            ({"pk": user.pk, "ctype": stale.pk + 1}, ContentType.DoesNotExist),
+            ({"pk": user.pk, "ctype": stale.pk}, TypeError),
+        )
+        for reference, error in cases:
+            for value in (
+                reference,
+                {"__social_django_session_value__": 1, "kind": "model", "value": reference},
+            ):
+                with self.subTest(value=value), self.assertRaises(error):
+                    self.strategy.from_session_value(value)
+
+    def test_partial_round_trip_with_model_and_plain_values(self):
+        user = get_user_model().objects.create_user(username="test")
+        social = UserSocialAuth.objects.create(user=user, provider="facebook", uid="test")
+        reference = {"pk": user.pk, "ctype": ContentType.objects.get_for_model(user).pk}
+        for probe in (
+            {"pk": "missing", "ctype": "invalid"},
+            {"__social_django_session_value__": "1", "kind": "model", "value": "request"},
+        ):
+            with self.subTest(probe=probe):
+                request = self.request_factory.get("/complete/facebook/", data=probe)
+                SessionMiddleware(lambda: None).process_request(request)
+                strategy = load_strategy(request=request)
+                backend = load_backend(strategy=strategy, name="facebook", redirect_uri="/")
+                partial = partial_prepare(strategy, backend, 0, user, social, user, response=reference)
+                strategy.storage.partial.store(partial)
+
+                loaded = strategy.partial_load(partial.token)
+
+                self.assertEqual(loaded.args, [user])
+                self.assertEqual(loaded.kwargs["user"], user)
+                self.assertEqual(loaded.kwargs["social"], social)
+                self.assertEqual(loaded.kwargs["response"], reference)
+                self.assertEqual(loaded.request_data, probe)
+
+    def test_partial_load_preserves_legacy_values(self):
+        user = get_user_model().objects.create_user(username="test")
+        social = UserSocialAuth.objects.create(user=user, provider="facebook", uid="test")
+        reference = {"pk": user.pk, "ctype": ContentType.objects.get_for_model(user).pk}
+        backend = load_backend(strategy=self.strategy, name="facebook", redirect_uri="/")
+        probe = {"pk": "missing", "ctype": "invalid", "email": "test@example.com"}
+        for legacy_request in (False, True):
+            with self.subTest(legacy_request=legacy_request):
+                data = {
+                    "args": [reference],
+                    "kwargs": {
+                        "user": user.pk,
+                        "social": {"provider": social.provider, "uid": social.uid},
+                        "response": probe,
+                    },
+                }
+                if legacy_request:
+                    data["kwargs"]["request"] = probe
+                else:
+                    data["request_data"] = probe
+                partial = Partial.objects.create(
+                    token=Partial.generate_token(), backend=backend.name, next_step=0, data=data
+                )
+
+                loaded = self.strategy.partial_load(partial.token)
+
+                self.assertEqual(loaded.args, [user])
+                self.assertEqual(loaded.kwargs["user"], user)
+                self.assertEqual(loaded.kwargs["social"], social)
+                self.assertEqual(loaded.kwargs["response"], probe)
+                self.assertEqual(loaded.request_data, probe)
+                self.assertNotIn("request", loaded.kwargs)
 
     def test_session_value_flattens_request_data(self):
         request = self.request_factory.get(

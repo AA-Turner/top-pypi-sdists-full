@@ -578,9 +578,7 @@ def ask_cmd(
         raise typer.Exit(1)
     sid = agent_session.session_id_from_env()
     if not sid:
-        from probe.cli.capabilities import cloud_agent_refusal
-
-        typer.echo(cloud_agent_refusal("probe ask") or ASK_NO_SESSION, err=True)
+        typer.echo(ASK_NO_SESSION, err=True)
         raise typer.Exit(1)
     state = session_marker.session_state(sid)
     if state == session_marker.STATE_OFF:

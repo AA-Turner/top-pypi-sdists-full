@@ -37,7 +37,7 @@ from schemathesis.engine.errors import (
 from schemathesis.engine.run import PhaseName
 from schemathesis.engine.run.unit._case import BudgetExpired, ServerWentAway
 from schemathesis.engine._baseline import is_known
-from schemathesis.engine._rate_limit_retry import call_and_validate_with_retry
+from schemathesis.engine._rate_limit_retry import send_tracked, validate_with_rate_limited
 from schemathesis.engine.run.stateful.context import StatefulContext
 from schemathesis.engine.recorder import ReproductionStep, ScenarioRecorder
 from schemathesis.generation import overrides
@@ -277,19 +277,19 @@ def _send_step(machine: APIStateMachine, case: Case, *, engine: EngineContext, e
     """Send the step's request and validate the response, waiting out rate limits when configured."""
     machine.before_call(case)
     kwargs = machine.get_call_kwargs(case)
-
-    def call() -> Response:
-        response = engine.server.track(case, lambda: machine.call(case, **kwargs), transport_kwargs=kwargs)
-        machine.after_call(response, case)
-        return response
-
-    return call_and_validate_with_retry(
-        call_fn=call,
-        validate_fn=lambda response: machine.validate_response(response, case),
-        auto_mode=engine.config.rate_limit_for(operation=case.operation) == "auto",
-        on_delay=lambda delay, retries_left: event_queue.put(
-            events.RateLimitRetry(operation=case.operation.label, delay=delay, retries_left=retries_left)
-        ),
+    rate_limited, response = send_tracked(
+        engine,
+        case,
+        transport_kwargs=kwargs,
+        emit=event_queue.put,
+        send=lambda: machine.call(case, **kwargs),
+        after_response=lambda response: machine.after_call(response, case),
+    )
+    return validate_with_rate_limited(
+        rate_limited,
+        response,
+        lambda response: machine.validate_response(response, case),
+        lambda response: machine.recorder.record_response(case_id=case.id, response=response),
     )
 
 
@@ -448,7 +448,7 @@ def _validate_step_response(
         case=case,
         stateful_ctx=ctx,
         check_ctx=check_ctx,
-        checks=check_ctx._checks,
+        checks=check_ctx.internals.checks,
         control=engine.control,
         recorder=recorder,
         additional_checks=additional_checks,

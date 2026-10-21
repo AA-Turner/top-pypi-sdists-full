@@ -18,7 +18,6 @@ classifiers = [
     'Intended Audience :: Developers',
     'Natural Language :: English',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
@@ -26,7 +25,7 @@ classifiers = [
     'Operating System :: OS Independent',
     'Topic :: Text Processing :: Markup :: XML'
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     'bottle>=0.13,<0.14',
     'certifi',
@@ -37,7 +36,7 @@ dependencies = [
     'lxml>=4,<7,!=6.0.0',
     'numpy>=1,<3',
     'openpyxl>=3,<4',
-    'pillow>=10,<13',
+    'pillow>=10,<14',
     'pyparsing>=3,<4',
     'python-dateutil>=2,<3',
     'regex',
@@ -47,7 +46,7 @@ dependencies = [
 
 [project.optional-dependencies]
 Crypto = [
-    'pycryptodome>=3,<4',
+    'pycryptodome>=3,<5',
 ]
 DB = [
     'oracledb>=3,<27',
@@ -141,7 +140,6 @@ extend-exclude = [
     "docs",
     "lib",
     "pygettext.py",
-    "msgfmt.py",
     "tests/resources",
     "venv",
 ]
@@ -154,16 +152,8 @@ extend-exclude = [
 preview = true
 select = ["E", "W", "F", "Q", "CPY"]
 ignore = [
-    # indentation contains mixed spaces and tabs
-    "E101",
     # indentation is not a multiple of 4
     "E111",
-    # indentation is not a multiple of 4 (comment)
-    "E114",
-    # expected an indented block (comment)
-    "E115",
-    # E116 unexpected indentation (comment)
-    "E116",
     # over-indented
     "E117",
     # whitespace after '('
@@ -184,24 +174,18 @@ ignore = [
     "E226",
     # missing whitespace around bitwise or shift operator
     "E227",
-    # missing whitespace around modulo operator
-    "E228",
     # missing whitespace after ':'
     "E231",
     # multiple spaces after ','
     "E241",
     # unexpected spaces around keyword / parameter equals
     "E251",
-    # missing whitespace around parameter equals
-    "E252",
     # at least two spaces before inline comment
     "E261",
     # inline comment should start with '# '
     "E262",
     # block comment should start with '# '
     "E265",
-    # too many leading '#' for block comment
-    "E266",
     # multiple spaces after keyword
     "E271",
     # multiple spaces before keyword
@@ -232,45 +216,23 @@ ignore = [
     "E702",
     # statement ends with a semicolon
     "E703",
-    # comparison to None should be 'if cond is not None:'
-    "E711",
     # comparison to True should be 'if cond is True:' or 'if cond:'
     "E712",
     # test for membership should be 'not in'
     "E713",
-    # test for object identity should be 'is not'
-    "E714",
-    # do not compare types, use 'isinstance()'
-    "E721",
     # do not use bare 'except'
     "E722",
-    # do not assign a lambda expression, use a def
-    "E731",
     # ambiguous variable name
     "E741",
 
     # imported but unused
     "F401",
-    # import 'xxx' from line 15 shadowed by loop variable
-    "F402",
-    # 'from xxx import *' used; unable to detect undefined names
-    "F403",
-    # xxx may be undefined, or defined from star imports: xxx
-    "F405",
-    # '...'  ... has unused named argument(s)
-    "F504",
-    # '...'.format(...) has unused arguments at position(s): n
-    "F523",
-    # '...'.format(...) is missing argument(s) for placeholder(s): n
-    "F524",
     # dictionary key 'xs' repeated with different values
     "F601",
     # redefinition of unused 'xxx' from line 31
     "F811",
     # undefined name
     "F821",
-    # local variable 'id' defined as a builtin referenced before assignment
-    "F823",
     # local variable name is assigned to but never used
     "F841",
 
@@ -298,7 +260,7 @@ ignore = [
 "arelle/archive/plugin/sakaCalendar.py" = ["CPY001"]
 "arelle/archive/plugin/validate/XFsyntax/xf.py" = ["CPY001"]
 "arelle/plugin/internet/**" = ["CPY001"]
-"arelle/webserver/bottle.py" = ["CPY001"]
+"arelle/webserver/bottle.py" = ["CPY001", "F403"]
 
 [tool.ruff.lint.flake8-copyright]
 notice-rgx = "See COPYRIGHT\\.md for copyright information\\."
@@ -349,11 +311,8 @@ module = [
     'arelle.rendering.RenderingLayout',
     'arelle.rendering.RenderingResolution',
     'arelle.Version',
-    'arelle.ViewFileConcepts',
-    'arelle.ViewFileRssFeed',
     'arelle.ViewFileTests',
     'arelle.ViewWinTests',
-    'arelle.ViewWinXml',
     'arelle.archive.CustomLogger',
     'arelle.archive.LoadEFMvalidate',
     'arelle.archive.LoadSavePreLbCsv',

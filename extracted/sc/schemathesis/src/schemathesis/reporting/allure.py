@@ -11,7 +11,6 @@ from allure_commons import hookimpl
 from allure_commons.logger import AllureFileLogger
 from allure_commons.model2 import Attachment, Label, Link, StatusDetails, TestResult, TestStepResult
 
-from schemathesis.core.failures import format_failures
 from schemathesis.engine import Status
 from schemathesis.reporting.recorders import grouped_failures_from_recorder
 
@@ -216,13 +215,7 @@ class AllureWriter:
                         name=f"Test Case: {group.case_id}" if group.case_id is not None else "Run check",
                         status="failed",
                         statusDetails=StatusDetails(
-                            message=format_failures(
-                                case_id=None,
-                                response=group.response,
-                                failures=group.failures,
-                                curl=group.code_sample,
-                                config=self._config,
-                            ).lstrip()
+                            message=group.format(index=None, curl=group.code_sample, config=self._config).lstrip()
                         ),
                         start=result.start,
                         stop=result.stop,
@@ -240,11 +233,11 @@ class AllureWriter:
             self._logger.report_result(result=result)
 
 
-class _AllureCallBuffer:
+class AllureCallBuffer:
     """Captures dynamic allure API calls in xdist workers for cross-process transport.
 
     Implements the same accumulate_* interface as AllureWriter so it can be
-    passed directly to _AllureHookForwarder as a writer substitute.
+    passed directly to AllureHookForwarder as a writer substitute.
     """
 
     __slots__ = ("_calls",)
@@ -272,7 +265,7 @@ class _AllureCallBuffer:
         return self._calls
 
 
-class _AllureHookForwarder:
+class AllureHookForwarder:
     """Per-test-item pluggy hookimpl that routes dynamic allure API calls to AllureWriter instances.
 
     Created fresh per pytest item, registered before the test body runs, unregistered in teardown.
@@ -281,7 +274,7 @@ class _AllureHookForwarder:
 
     __slots__ = ("_label", "_writers")
 
-    def __init__(self, label: str, writers: Sequence[AllureWriter | _AllureCallBuffer]) -> None:
+    def __init__(self, label: str, writers: Sequence[AllureWriter | AllureCallBuffer]) -> None:
         self._label = label
         self._writers = writers
 

@@ -350,6 +350,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentResponse.FromString,
         )
+        self.GetTelemetryDeploymentAvailability = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetTelemetryDeploymentAvailability",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentAvailabilityRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentAvailabilityResponse.FromString,
+        )
         self.ListTelemetryDeployments = channel.unary_unary(
             "/chalk.server.v1.BuilderService/ListTelemetryDeployments",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsRequest.SerializeToString,
@@ -419,6 +424,11 @@ class BuilderServiceStub(object):
             "/chalk.server.v1.BuilderService/DeleteClusterBackgroundPersistence",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceResponse.FromString,
+        )
+        self.GetClusterNodepools = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetClusterNodepools",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterNodepoolsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterNodepoolsResponse.FromString,
         )
 
 
@@ -853,6 +863,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetTelemetryDeploymentAvailability(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def ListTelemetryDeployments(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -932,6 +948,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def DeleteClusterBackgroundPersistence(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClusterNodepools(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -1275,6 +1297,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentResponse.SerializeToString,
         ),
+        "GetTelemetryDeploymentAvailability": grpc.unary_unary_rpc_method_handler(
+            servicer.GetTelemetryDeploymentAvailability,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentAvailabilityRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentAvailabilityResponse.SerializeToString,
+        ),
         "ListTelemetryDeployments": grpc.unary_unary_rpc_method_handler(
             servicer.ListTelemetryDeployments,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ListTelemetryDeploymentsRequest.FromString,
@@ -1344,6 +1371,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.DeleteClusterBackgroundPersistence,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceResponse.SerializeToString,
+        ),
+        "GetClusterNodepools": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterNodepools,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterNodepoolsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterNodepoolsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BuilderService", rpc_method_handlers)
@@ -3298,6 +3330,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def GetTelemetryDeploymentAvailability(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetTelemetryDeploymentAvailability",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentAvailabilityRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentAvailabilityResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def ListTelemetryDeployments(
         request,
         target,
@@ -3693,6 +3754,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/DeleteClusterBackgroundPersistence",
             chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterBackgroundPersistenceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterNodepools(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetClusterNodepools",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterNodepoolsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterNodepoolsResponse.FromString,
             options,
             channel_credentials,
             insecure,

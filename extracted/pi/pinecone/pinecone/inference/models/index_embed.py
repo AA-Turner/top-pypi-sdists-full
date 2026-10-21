@@ -1,10 +1,8 @@
-"""Backwards-compatibility shim — IndexEmbed model for integrated indexes.
+"""The :class:`IndexEmbed` model for legacy integrated indexes.
 
-Defines the class that used to live at
-:mod:`pinecone.inference.models.index_embed` in earlier releases, so that code
-written against it keeps working.
-
-:meta private:
+This module is the class's only definition. ``from pinecone import
+IndexEmbed`` and ``from pinecone.inference.models import IndexEmbed`` both
+reach it.
 """
 
 from __future__ import annotations
@@ -17,14 +15,18 @@ __all__ = ["IndexEmbed"]
 
 @dataclasses.dataclass(frozen=True)
 class IndexEmbed:
-    """Which model embeds an integrated index, and which field it embeds.
+    """Which model embeds a legacy integrated index, and which field it embeds.
 
     Accepted as the ``embed`` argument of
+    :meth:`~pinecone.client.indexes.Indexes.create_for_model` and
     :meth:`~pinecone.Pinecone.create_index_for_model`, alongside a plain dict
-    and ``EmbedConfig``. Kept here, and importable from ``pinecone``, for code
-    written against earlier releases.
+    and :class:`~pinecone.models.indexes.specs.EmbedConfig`, which is the
+    shape new code should prefer.
 
-    :meta private:
+    >>> from pinecone import IndexEmbed
+    >>> embed = IndexEmbed(model="llama-text-embed-v2", field_map={"text": "chunk_text"})
+    >>> embed.as_dict()["model"]
+    'llama-text-embed-v2'
     """
 
     model: str

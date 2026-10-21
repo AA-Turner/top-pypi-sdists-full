@@ -18,7 +18,6 @@ never rely on someone remembering. CI (`ci.yml`, `release.yml`) and the MCP depl
 from __future__ import annotations
 
 import filecmp
-import json
 import re
 from pathlib import Path
 
@@ -30,10 +29,6 @@ from tests.held_for_plugin_release import HELD_NEW_SKILLS, HELD_SKILLS, REASON
 _ROOT = Path(__file__).resolve().parent.parent
 
 _CANONICAL = _ROOT / "skills"
-#: Skills only the Capy bundle ships (profiles.json "capy"): the public mirror
-#: renders them under capy/skills/, and no plugin carries them.
-_PROFILES = json.loads((_CANONICAL / "profiles.json").read_text())
-_CAPY_ONLY = set(_PROFILES["capy"]) - set(_PROFILES["full"])
 _PLUGIN = _ROOT / "plugins" / "probe-research" / "agent-skills"
 
 # Mirrors the Makefile's sync-plugin-skills list.
@@ -106,7 +101,7 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
 
     Without this, adding skills/foo/ without wiring the sync would leave the plugin
     silently missing it while every parametrized case above still passed."""
-    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - _CAPY_ONLY - HELD_NEW_SKILLS
+    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - HELD_NEW_SKILLS
     covered = set(_SYNCED)
     assert on_disk == covered, (
         f"skills/ holds {sorted(on_disk)} but this guard covers {sorted(covered)}; "

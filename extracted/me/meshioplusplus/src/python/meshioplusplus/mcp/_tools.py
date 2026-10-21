@@ -48,6 +48,7 @@ from .. import (
     GridSpec,
     agglomerate,
     attach_quality,
+    box,
     cell_data_to_point_data,
     check_quality,
     clean,
@@ -61,6 +62,7 @@ from .. import (
     contact_pairs,
     convert_cells,
     crop,
+    cylinder,
     data_calc,
     data_condition,
     data_info,
@@ -69,6 +71,7 @@ from .. import (
     decimate,
     decimate_volume,
     diff,
+    disk,
     distance_to_surface,
     edit_regions,
     estimate_error,
@@ -83,6 +86,7 @@ from .. import (
     grid,
     hausdorff_distance,
     hessian,
+    icosa_sphere,
     iga_evaluate,
     iga_refine,
     iga_sample,
@@ -90,6 +94,7 @@ from .. import (
     isosurface,
     match_periodic_nodes,
     merge,
+    octree,
     optimize_volume,
     partition,
     point_data_to_cell_data,
@@ -97,6 +102,8 @@ from .. import (
     proximity_graph,
     read,
     read_metadata,
+    rectangle,
+    reference_cells,
     refine,
     region_adjacency,
     remesh,
@@ -127,6 +134,7 @@ from .. import (
     tessellate,
     transform,
     undo_green,
+    uv_sphere,
     voxelize,
     write,
 )
@@ -1392,6 +1400,150 @@ def tool_grid(
     return _result(_store(out, output_path, output_format), out)
 
 
+def tool_rectangle(
+    output_path,
+    output_format=None,
+    dims=None,
+    size=None,
+    origin=None,
+    cell_type="quad",
+    split="zigzag",
+    order=1,
+    max_cells=20000000,
+):
+    """Generate a regular 2-D grid of quads or triangles; reads no input."""
+    out = rectangle(
+        dims=(1, 1) if dims is None else dims,
+        size=(1.0, 1.0) if size is None else size,
+        origin=(0.0, 0.0, 0.0) if origin is None else origin,
+        cell_type=cell_type,
+        split=split,
+        order=order,
+        max_cells=max_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_box(
+    output_path,
+    output_format=None,
+    dims=None,
+    size=None,
+    origin=None,
+    cell_type="hexahedron",
+    order=1,
+    max_cells=20000000,
+):
+    """Generate a regular 3-D grid of hexahedra, tetrahedra or wedges; reads no input."""
+    out = box(
+        dims=(1, 1, 1) if dims is None else dims,
+        size=(1.0, 1.0, 1.0) if size is None else size,
+        origin=(0.0, 0.0, 0.0) if origin is None else origin,
+        cell_type=cell_type,
+        order=order,
+        max_cells=max_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_disk(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    n=8,
+    center=None,
+    cell_type="quad",
+    order=1,
+    max_cells=20000000,
+):
+    """Generate a disk of quads or triangles; reads no input."""
+    out = disk(
+        radius=radius,
+        n=n,
+        center=(0.0, 0.0, 0.0) if center is None else center,
+        cell_type=cell_type,
+        order=order,
+        max_cells=max_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_uv_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    nu=16,
+    nv=8,
+    center=None,
+    cell_type="triangle",
+    order=1,
+    max_cells=20000000,
+):
+    """Generate a latitude/longitude sphere surface, oriented outward; reads no input."""
+    out = uv_sphere(
+        radius=radius,
+        nu=nu,
+        nv=nv,
+        center=(0.0, 0.0, 0.0) if center is None else center,
+        cell_type=cell_type,
+        order=order,
+        max_cells=max_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_icosa_sphere(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    subdivisions=2,
+    center=None,
+    order=1,
+    max_cells=20000000,
+):
+    """Generate an icosahedron-based sphere surface; reads no input."""
+    out = icosa_sphere(
+        radius=radius,
+        subdivisions=subdivisions,
+        center=(0.0, 0.0, 0.0) if center is None else center,
+        order=order,
+        max_cells=max_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_cylinder(
+    output_path,
+    output_format=None,
+    radius=1.0,
+    height=1.0,
+    nxy=8,
+    nz=8,
+    center=None,
+    cell_type="hexahedron",
+    order=1,
+    max_cells=20000000,
+):
+    """Generate a solid cylinder along z with side/top/bottom regions; reads no input."""
+    out = cylinder(
+        radius=radius,
+        height=height,
+        nxy=nxy,
+        nz=nz,
+        center=(0.0, 0.0, 0.0) if center is None else center,
+        cell_type=cell_type,
+        order=order,
+        max_cells=max_cells,
+    )
+    return _result(_store(out, output_path, output_format), out)
+
+
+def tool_reference_cells(output_path, output_format=None, types=None, pairs=False):
+    """Generate one cell of each requested type in reference coordinates; reads no input."""
+    out = reference_cells(types=types, pairs=pairs)
+    return _result(_store(out, output_path, output_format), out)
+
+
 def tool_voxelize(
     input_path,
     output_path,
@@ -1422,6 +1574,64 @@ def tool_voxelize(
         sign=sign,
         watertight_check="off",
         return_report=True,
+    )
+    return _result(_store(out, output_path, output_format), out, **report)
+
+
+def tool_octree(
+    input_path,
+    output_path,
+    input_format=None,
+    output_format=None,
+    root_cells=(1, 1, 1),
+    min_level=0,
+    max_level=4,
+    bounds=None,
+    padding=0.0,
+    padding_relative=0.0,
+    dimension=0,
+    sample_distance=0.0,
+    balance="face",
+    fill="all",
+    attach_distance=False,
+    even_odd=False,
+    max_cells=20000000,
+    sign="pseudonormal",
+    transition="hanging",
+    snap=False,
+    surface_level=None,
+    curvature_threshold=0.0,
+    feature_angle=0.0,
+    size_array=None,
+    plane="auto",
+):
+    """Build an octree (quadtree) around a mesh skin, fine only where the skin is."""
+    mesh = _load(input_path, input_format)
+    out, report = octree(
+        mesh,
+        root_cells=root_cells,
+        min_level=min_level,
+        max_level=max_level,
+        bounds=bounds,
+        padding=padding,
+        padding_relative=padding_relative,
+        dimension=dimension,
+        sample_distance=sample_distance,
+        balance=balance,
+        fill=fill,
+        attach_distance=attach_distance,
+        even_odd=even_odd,
+        max_cells=max_cells,
+        sign=sign,
+        watertight_check="off",
+        return_report=True,
+        transition=transition,
+        snap=snap,
+        surface_level=surface_level,
+        curvature_threshold=curvature_threshold,
+        feature_angle=feature_angle,
+        size_array=size_array,
+        plane=plane,
     )
     return _result(_store(out, output_path, output_format), out, **report)
 
@@ -1939,10 +2149,14 @@ def tool_segment(
     min_patch_cells=1,
     region="",
     prefix="patch",
+    method="angle",
+    tolerance=1e-3,
 ):
     """Split a surface into smooth patches by region growing, bounded by its
-    feature edges; written with cell data segment:patch, field data
-    segment:adjacency and one cell region per patch (<prefix>:<k>)."""
+    feature edges (method="angle") or where the plane, sphere, cylinder, cone
+    or torus its facets lie on changes (method="primitive"); written with cell
+    data segment:patch, field data segment:adjacency and one cell region per
+    patch (<prefix>:<k>)."""
     mesh = _load(input_path, input_format)
     out, report = segment(
         mesh,
@@ -1953,6 +2167,8 @@ def tool_segment(
         region=region,
         prefix=prefix,
         return_report=True,
+        method=method,
+        tolerance=tolerance,
     )
     return _result(
         _store(out, output_path, output_format),
@@ -2117,7 +2333,7 @@ def tool_fit_cad(
     mesh_output_path=None,
     curvature_tolerance=0.0,
     min_patch_cells=1,
-    fit_tolerance=1e-3,
+    fit_tolerance=None,
     tolerance=None,
     exact_edges=True,
     types=None,
@@ -2130,32 +2346,49 @@ def tool_fit_cad(
     freeform_split=True,
     fillets=True,
     threads=True,
+    segment_method="primitive",
+    segment_tolerance=1e-3,
+    merge_faces=True,
+    backend="auto",
 ):
     """Turn the fitted patches of a closed skin into a CAD solid with analytic
-    faces (and, for what no primitive explains, rolling-ball fillet, thread
-    flank and freeform B-spline ones), written to output_path as STEP (needs a
-    core built with OpenCASCADE), and to cad_json_output_path as Kratos CAD
-    JSON. A skin without segment:patch / fit:patch_* is segmented
-    (curvature_tolerance, min_patch_cells) and fitted (fit_tolerance) first."""
+    faces (and, through OpenCASCADE, rolling-ball fillet, thread flank and
+    freeform B-spline ones for what no primitive explains), written to
+    output_path as STEP, and to cad_json_output_path as Kratos CAD JSON. A skin
+    without segment:patch is segmented (segment_method, segment_tolerance,
+    curvature_tolerance, min_patch_cells) and fitted (fit_tolerance, by
+    default the primitive segmentation's own as a length) first. backend
+    "native" (and "auto" without OpenCASCADE) needs no CAD kernel."""
     from .._fit_cad import has_occt
 
-    if not has_occt():
+    occt = has_occt()
+    if backend == "occt" and not occt:
         # The guarded error shape, plus the capability itself.
         return {
-            "error": "meshio++: fit_cad: this build has no OpenCASCADE backend; "
-            "rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON (OpenCASCADE 7.6 or later)",
+            "error": "meshio++: fit_cad: this build has no OpenCASCADE backend "
+            "(the PyPI wheels carry it); rebuild with -DMESHIOPLUSPLUS_WITH_OCCT=ON "
+            "(OpenCASCADE 7.6 or later), or use backend='native'",
             "error_type": "NotImplementedError",
             "occt_available": False,
         }
     mesh = _load(input_path, input_format)
+    fit_kwargs = {} if fit_tolerance is None else {"tolerance": fit_tolerance}
     if "segment:patch" not in mesh.cell_data:
         mesh = segment(
             mesh,
             curvature_tolerance=curvature_tolerance,
             min_patch_cells=min_patch_cells,
+            method=segment_method,
+            tolerance=segment_tolerance,
         )
+        if segment_method == "primitive" and fit_tolerance is None:
+            # Fit at the tolerance the patches were grown at, as a length.
+            pts = np.asarray(mesh.points, dtype=np.float64)
+            diag = float(np.linalg.norm(pts.max(axis=0) - pts.min(axis=0)))
+            if diag > 0.0:
+                fit_kwargs = {"tolerance": segment_tolerance * diag, "relative": False}
     if "fit:patch_id" not in mesh.field_data:
-        mesh = fit_primitives(mesh, tolerance=fit_tolerance)
+        mesh = fit_primitives(mesh, **fit_kwargs)
     step_path = _resolve(output_path, for_write=True)
     out, report = fit_cad(
         mesh,
@@ -2172,9 +2405,11 @@ def tool_fit_cad(
         fillets=fillets,
         threads=threads,
         return_report=True,
+        merge_faces=merge_faces,
+        backend=backend,
     )
     _cache_invalidate(step_path)
-    extra = {"step_path": step_path, "occt_available": True, **report}
+    extra = {"step_path": step_path, "occt_available": occt, **report}
     if cad_json_output_path:
         cad_path = _resolve(cad_json_output_path, for_write=True)
         write(cad_path, out, file_format="cad_json")
@@ -4621,7 +4856,7 @@ TOOL_REGISTRY = OrderedDict(
         ),
         (
             "fit_cad",
-            {"fn": tool_fit_cad, "wraps": ("fit_cad",), "gated": "occt"},
+            {"fn": tool_fit_cad, "wraps": ("fit_cad",), "gated": None},
         ),
         (
             "iga_refine",
@@ -4697,7 +4932,21 @@ TOOL_REGISTRY = OrderedDict(
             {"fn": tool_estimate_error, "wraps": ("estimate_error",), "gated": None},
         ),
         ("grid", {"fn": tool_grid, "wraps": ("grid",), "gated": None}),
+        ("rectangle", {"fn": tool_rectangle, "wraps": ("rectangle",), "gated": None}),
+        ("box", {"fn": tool_box, "wraps": ("box",), "gated": None}),
+        ("disk", {"fn": tool_disk, "wraps": ("disk",), "gated": None}),
+        ("uv_sphere", {"fn": tool_uv_sphere, "wraps": ("uv_sphere",), "gated": None}),
+        (
+            "icosa_sphere",
+            {"fn": tool_icosa_sphere, "wraps": ("icosa_sphere",), "gated": None},
+        ),
+        ("cylinder", {"fn": tool_cylinder, "wraps": ("cylinder",), "gated": None}),
+        (
+            "reference_cells",
+            {"fn": tool_reference_cells, "wraps": ("reference_cells",), "gated": None},
+        ),
         ("voxelize", {"fn": tool_voxelize, "wraps": ("voxelize",), "gated": None}),
+        ("octree", {"fn": tool_octree, "wraps": ("octree",), "gated": None}),
         (
             "grid_sample",
             {"fn": tool_grid_sample, "wraps": ("sample_grid",), "gated": None},

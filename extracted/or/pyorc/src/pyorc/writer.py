@@ -1,5 +1,7 @@
 import copy
-from typing import Any, BinaryIO, Dict, List, Optional, Type, Union
+from collections.abc import Collection
+from typing import Any, BinaryIO, Generic, TYPE_CHECKING
+
 
 from pyorc._pyorc import writer
 
@@ -7,32 +9,38 @@ from .converters import DEFAULT_CONVERTERS, ORCConverter
 from .enums import CompressionKind, CompressionStrategy, StructRepr, TypeKind
 from .typedescription import TypeDescription
 
-try:
-    import zoneinfo
-except ImportError:
-    from backports import zoneinfo
+import zoneinfo
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeVar
+
+    T = TypeVar("T", default=Any)
+else:
+    from typing import TypeVar
+
+    T = TypeVar("T")
 
 
-class Writer(writer):
+class Writer(writer[T], Generic[T]):
     def __init__(
         self,
         fileo: BinaryIO,
-        schema: Union[str, TypeDescription],
+        schema: str | TypeDescription,
         batch_size: int = 1024,
         stripe_size: int = 67108864,
         row_index_stride: int = 10000,
         compression: CompressionKind = CompressionKind.ZLIB,
         compression_strategy: CompressionStrategy = CompressionStrategy.SPEED,
         compression_block_size: int = 65536,
-        bloom_filter_columns: Optional[List[Union[str, int]]] = None,
+        bloom_filter_columns: Collection[str | int] | None = None,
         bloom_filter_fpp: float = 0.05,
         timezone: zoneinfo.ZoneInfo = zoneinfo.ZoneInfo("UTC"),
         struct_repr: StructRepr = StructRepr.TUPLE,
-        converters: Optional[Dict[TypeKind, Type[ORCConverter]]] = None,
+        converters: dict[TypeKind, type[ORCConverter]] | None = None,
         padding_tolerance: float = 0.0,
         dict_key_size_threshold: float = 0.0,
         null_value: Any = None,
-        memory_block_size = 65536,
+        memory_block_size: int = 65536,
     ) -> None:
         if isinstance(schema, str):
             schema = TypeDescription.from_string(schema)
@@ -41,10 +49,10 @@ class Writer(writer):
         if 0.0 >= bloom_filter_fpp or bloom_filter_fpp >= 1.0:
             raise ValueError("False positive probability should be > 0.0 & < 1.0")
         self.__schema = schema
-        self.__user_metadata: Dict[str, bytes] = {}
+        self.__user_metadata: dict[str, bytes] = {}
         comp = CompressionKind(compression)
         comp_strat = CompressionStrategy(compression_strategy)
-        bf_set = set()
+        bf_set: set[int] = set()
         if bloom_filter_columns:
             if any(not isinstance(item, (int, str)) for item in bloom_filter_columns):
                 raise ValueError(
@@ -81,7 +89,7 @@ class Writer(writer):
             memory_block_size,
         )
 
-    def __enter__(self) -> "Writer":
+    def __enter__(self) -> "Writer[T]":
         return self
 
     def __exit__(self, *exc: Any) -> None:

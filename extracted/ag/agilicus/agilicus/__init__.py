@@ -78,6 +78,7 @@ class AgilicusAPIHelper:
     groups: "GroupsApi"
     connectors: "ConnectorsApi"
     resources: "ResourcesApi"
+    # Deprecated typo of ``resources``, kept so existing callers keep working.
     resouces: "ResourcesApi"
     catalogues: "CataloguesApi"
     permissions: "PermissionsApi"
@@ -95,6 +96,178 @@ class AgilicusAPIHelper:
     rules: "RulesApi"
     policy_config: "PolicyConfigApi"
     licensing: "LicensingApi"
+    credentials: "CredentialsApi"
+    deployments: "DeploymentsApi"
+    features: "FeaturesApi"
+    hosts: "HostsApi"
+    labels: "LabelsApi"
+    launchers: "LaunchersApi"
+    regions: "RegionsApi"
+
+    # CLI-compatible aliases.
+    #
+    # ``context.get_apiclient()`` returns an ``ApiHelper`` whose services are
+    # named with an ``_api`` suffix (``metrics_api``, ``audits_api``, ...),
+    # while ``GetClient()`` has always used short names (``metrics``,
+    # ``audits``, ...).  Both are public enough that code gets written against
+    # one and reused with the other, so expose the CLI names here too.  These
+    # are plain properties: they add no imports and keep ``import agilicus``
+    # lazy.
+    @property
+    def metrics_api(self):
+        return self.metrics
+
+    @property
+    def audits_api(self):
+        return self.audits
+
+    @property
+    def org_api(self):
+        return self.organisations
+
+    @property
+    def organisations_api(self):
+        return self.organisations
+
+    @property
+    def user_api(self):
+        return self.users
+
+    @property
+    def users_api(self):
+        return self.users
+
+    @property
+    def application_api(self):
+        return self.applications
+
+    @property
+    def applications_api(self):
+        return self.applications
+
+    @property
+    def app_services_api(self):
+        return self.application_services
+
+    @property
+    def application_services_api(self):
+        return self.application_services
+
+    @property
+    def logs_api(self):
+        return self.diagnostics
+
+    @property
+    def diagnostics_api(self):
+        return self.diagnostics
+
+    @property
+    def policy_api(self):
+        return self.policies
+
+    @property
+    def policies_api(self):
+        return self.policies
+
+    @property
+    def resources_api(self):
+        return self.resources
+
+    @property
+    def billing_api(self):
+        return self.billing
+
+    @property
+    def catalogues_api(self):
+        return self.catalogues
+
+    @property
+    def certificates_api(self):
+        return self.certificates
+
+    @property
+    def challenges_api(self):
+        return self.challenges
+
+    @property
+    def connectors_api(self):
+        return self.connectors
+
+    @property
+    def credentials_api(self):
+        return self.credentials
+
+    @property
+    def deployments_api(self):
+        return self.deployments
+
+    @property
+    def features_api(self):
+        return self.features
+
+    @property
+    def files_api(self):
+        return self.files
+
+    @property
+    def groups_api(self):
+        return self.groups
+
+    @property
+    def hosts_api(self):
+        return self.hosts
+
+    @property
+    def issuers_api(self):
+        return self.issuers
+
+    @property
+    def labels_api(self):
+        return self.labels
+
+    @property
+    def launchers_api(self):
+        return self.launchers
+
+    @property
+    def licensing_api(self):
+        return self.licensing
+
+    @property
+    def lookups_api(self):
+        return self.lookups
+
+    @property
+    def messages_api(self):
+        return self.messages
+
+    @property
+    def permissions_api(self):
+        return self.permissions
+
+    @property
+    def policy_config_api(self):
+        return self.policy_config
+
+    @property
+    def policy_templates_api(self):
+        return self.policy_templates
+
+    @property
+    def regions_api(self):
+        return self.regions
+
+    @property
+    def rules_api(self):
+        return self.rules
+
+    @property
+    def tokens_api(self):
+        return self.tokens
+
+    @property
+    def trusted_certs_api(self):
+        return self.trusted_certs
 
 
 _UNSET = object()
@@ -128,10 +301,16 @@ def GetClient(
         ChallengesApi,
         Configuration,
         ConnectorsApi,
+        CredentialsApi,
+        DeploymentsApi,
         DiagnosticsApi,
+        FeaturesApi,
         FilesApi,
         GroupsApi,
+        HostsApi,
         IssuersApi,
+        LabelsApi,
+        LaunchersApi,
         LicensingApi,
         LookupsApi,
         MessagesApi,
@@ -141,6 +320,7 @@ def GetClient(
         PolicyApi,
         PolicyConfigApi,
         PolicyTemplatesApi,
+        RegionsApi,
         ResourcesApi,
         RulesApi,
         TokensApi,
@@ -197,6 +377,10 @@ def GetClient(
     if "org" in access_token:
         _default_org_id = access_token["org"]
 
+    # One ResourcesApi instance shared by ``resources`` and the historical
+    # ``resouces`` typo, so both names refer to the same client.
+    resources = ResourcesApi(ApiClient(config))
+
     return AgilicusAPIHelper(
         default_org_id=_default_org_id,
         users=UsersApi(ApiClient(config)),
@@ -208,8 +392,8 @@ def GetClient(
         applications=ApplicationsApi(ApiClient(config)),
         groups=GroupsApi(ApiClient(config)),
         connectors=ConnectorsApi(ApiClient(config)),
-        resouces=ResourcesApi(ApiClient(config)),
-        resources=ResourcesApi(ApiClient(config)),
+        resouces=resources,
+        resources=resources,
         catalogues=CataloguesApi(ApiClient(config)),
         permissions=PermissionsApi(ApiClient(config)),
         audits=AuditsApi(ApiClient(config)),
@@ -226,4 +410,11 @@ def GetClient(
         rules=RulesApi(ApiClient(config)),
         policy_config=PolicyConfigApi(ApiClient(config)),
         licensing=LicensingApi(ApiClient(config)),
+        credentials=CredentialsApi(ApiClient(config)),
+        deployments=DeploymentsApi(ApiClient(config)),
+        features=FeaturesApi(ApiClient(config)),
+        hosts=HostsApi(ApiClient(config)),
+        labels=LabelsApi(ApiClient(config)),
+        launchers=LaunchersApi(ApiClient(config)),
+        regions=RegionsApi(ApiClient(config)),
     )

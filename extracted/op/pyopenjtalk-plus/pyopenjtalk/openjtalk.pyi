@@ -8,6 +8,8 @@ from .tsqyomi.types import ReadingAnalysis
 
 class OpenJTalk:
     _lock: Lock  # 同一インスタンスの呼び出しを直列化する内部実装用ロック
+    userdic_reading_protection: tuple[bool, ...]  # ユーザー辞書ごとの読み保護の指定 (読み込んだ順)
+    userdic_paths: tuple[str, ...]  # ユーザー辞書ファイルのパス (読み込んだ順)
 
     def __init__(
         self,
@@ -22,7 +24,7 @@ class OpenJTalk:
         Args:
             dn_mecab (bytes): MeCab システム辞書のディレクトリパス
             userdic (bytes): OpenJTalk 用ユーザー辞書 (.dic) のパス。空バイト列の場合は無視される。複数指定時はカンマ区切り。デフォルト: 空
-            userdic_reading_protection (Sequence[bool] | None): 各ユーザー辞書の読み候補を tsqyomi による MeCab feature 差し替えから保護するか
+            userdic_reading_protection (Sequence[bool] | None): 各ユーザー辞書が与えた読みを、tsqyomi を含む後段の読み補正から保護するか
                 None の場合は全辞書を未保護として扱う。デフォルト: None
 
         Raises:
@@ -39,6 +41,7 @@ class OpenJTalk:
     def normalize_for_mecab(self, text: str | bytes | bytearray) -> str:
         """
         OpenJTalk の MeCab 入力と同じ規則で本文を正規化する。
+        NUL を含む ASCII 制御文字は読み飛ばし、その後ろの本文も正規化する。
 
         Args:
             text (str | bytes | bytearray): 入力テキスト (str の場合は UTF-8 にエンコードされる)
@@ -71,6 +74,7 @@ class OpenJTalk:
         """
         MeCab を1回だけ実行し、run_mecab() 互換の features と詳細 morphs を返す。
         詳細 morphs には "記号,空白" も含まれ、未知語フラグ・コスト情報を保持する。
+        tsqyomi を適用する前なので、is_tsqyomi_selected と is_tsqyomi_target は False になる。
 
         Args:
             text (str | bytes | bytearray): 入力テキスト (str の場合は UTF-8 にエンコードされる)
@@ -130,7 +134,12 @@ class OpenJTalk:
         """
         pass
 
-    def run_njd_from_mecab(self, mecab_features: list[str]) -> list[NJDFeature]:
+    def run_njd_from_mecab(
+        self,
+        mecab_features: list[str],
+        restore_unknown_katakana: bool = False,
+        modify_numeral_reading: bool = True,
+    ) -> list[NJDFeature]:
         """
         MeCab の feature 文字列のリストから NJD 処理を実行する。
         run_mecab() の戻り値をそのまま渡す想定。
@@ -138,19 +147,28 @@ class OpenJTalk:
 
         Args:
             mecab_features (list[str]): MeCab の feature 文字列のリスト
+            restore_unknown_katakana (bool): True の場合、未知カタカナ語の品詞とアクセントを MeCab の結果から復元する (デフォルト: False)
+            modify_numeral_reading (bool): True の場合、分数の分母の「分」を「ブン」、2つ以上続く「〇」を「マル」と読み、数詞の直後の「ｇ」「ｍ」などの単位の英字を助数詞として読む (デフォルト: True)
 
         Returns:
             list[NJDFeature]: NJDNode 用 features
         """
         pass
 
-    def run_frontend(self, text: str | bytes | bytearray) -> list[NJDFeature]:
+    def run_frontend(
+        self,
+        text: str | bytes | bytearray,
+        restore_unknown_katakana: bool = False,
+        modify_numeral_reading: bool = True,
+    ) -> list[NJDFeature]:
         """
         OpenJTalk のテキスト処理フロントエンドを実行する。
         MeCab 形態素詳細を構築せず、NJD features のみを返す軽量経路。
 
         Args:
             text (str | bytes | bytearray): 入力テキスト (str の場合は UTF-8 にエンコードされる)
+            restore_unknown_katakana (bool): True の場合、未知カタカナ語の品詞とアクセントを MeCab の結果から復元する (デフォルト: False)
+            modify_numeral_reading (bool): True の場合、分数の分母の「分」を「ブン」、2つ以上続く「〇」を「マル」と読み、数詞の直後の「ｇ」「ｍ」などの単位の英字を助数詞として読む (デフォルト: True)
 
         Returns:
             list[NJDFeature]: NJDNode 用 features
@@ -158,7 +176,10 @@ class OpenJTalk:
         pass
 
     def run_frontend_detailed(
-        self, text: str | bytes | bytearray
+        self,
+        text: str | bytes | bytearray,
+        restore_unknown_katakana: bool = False,
+        modify_numeral_reading: bool = True,
     ) -> tuple[list[NJDFeature], list[MeCabMorph]]:
         """
         OpenJTalk のテキスト処理フロントエンドを MeCab 形態素詳細付きで実行する。
@@ -166,6 +187,8 @@ class OpenJTalk:
 
         Args:
             text (str | bytes | bytearray): 入力テキスト (str の場合は UTF-8 にエンコードされる)
+            restore_unknown_katakana (bool): True の場合、未知カタカナ語の品詞とアクセントを MeCab の結果から復元する (デフォルト: False)
+            modify_numeral_reading (bool): True の場合、分数の分母の「分」を「ブン」、2つ以上続く「〇」を「マル」と読み、数詞の直後の「ｇ」「ｍ」などの単位の英字を助数詞として読む (デフォルト: True)
 
         Returns:
             tuple[list[NJDFeature], list[MeCabMorph]]: (NJD features, MeCab morphs)
@@ -186,6 +209,23 @@ class OpenJTalk:
 
         NOTE:
             `try/finally` で `JPCommon_refresh()` と `NJD_refresh()` を呼び、インスタンス共有バッファを解放する
+        """
+        pass
+
+    def set_unvoiced_vowel(self, features: Iterable[NJDFeature]) -> list[NJDFeature]:
+        """
+        NJD features の発音に、OpenJTalk の規則で母音の無声化の記号「’」を付け直す。
+        すでに付いている「’」はそのまま残すので、付け直したい形態素は呼び出し側で「’」を外してから渡す。
+
+        Args:
+            features (Iterable[NJDFeature]): NJDNode 用 features (run_frontend() の戻り値)
+
+        Returns:
+            list[NJDFeature]: 無声化の記号を付け直した NJDNode 用 features。形態素の数と順は入力と同じ
+
+        NOTE:
+            `njd_set_unvoiced_vowel()` だけを通し、数詞・アクセント句・アクセント型・長音の処理はしない
+            読み保護と読みの書き換えの印は NJD のノードに持てないので、入力の値を位置ごとに写して返す
         """
         pass
 
@@ -270,18 +310,5 @@ def build_mecab_dictionary(dn_mecab: bytes) -> int:
 
     Returns:
         int: mecab-dict-index の戻り値 (0: 成功, 非 0: 失敗)
-    """
-    ...
-
-def apply_original_rule_before_chaining(njd_features: list[NJDFeature]) -> list[NJDFeature]:
-    """
-    NJD features に chaining 前の独自ルールを適用する。内部用。
-    サ変接続・接頭語・動詞連続・連用形・助動詞などのアクセント結合規則を適用する。
-
-    Args:
-        njd_features (list[NJDFeature]): NJDNode 用 features 。インプレースで更新される
-
-    Returns:
-        list[NJDFeature]: 更新後の njd_features（同一オブジェクト）
     """
     ...

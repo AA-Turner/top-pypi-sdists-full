@@ -11,13 +11,18 @@ from devenv.lib import proc
 from devenv.lib.context import Context
 from devenv.lib.modules import DevModuleInfo
 from devenv.lib.modules import ExitCode
+from devenv.lib.repository import Repository
+
+DEFAULT_ORG = "getsentry"
 
 
 def main(context: Context, argv: Sequence[str] | None = None) -> ExitCode:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "repo", type=str, help="the repository to fetch e.g., getsentry/sentry"
+        "repo",
+        type=str,
+        help="the repository to fetch e.g., sentry or getsentry/sentry",
     )
 
     args = parser.parse_args(argv)
@@ -60,7 +65,10 @@ def main(context: Context, argv: Sequence[str] | None = None) -> ExitCode:
 def fetch(
     coderoot: str, repo: str, auth: bool = True, sync: bool = True
 ) -> None:
-    org, slug = repo.split("/")
+    if "/" not in repo:
+        repo = f"{DEFAULT_ORG}/{repo}"
+
+    _, slug = repo.split("/")
 
     reporoot = f"{coderoot}/{slug}"
 
@@ -92,7 +100,7 @@ def fetch(
     }
 
     # optional post-fetch, meant for recommended but not required defaults
-    fp = f"{reporoot}/devenv/post_fetch.py"
+    fp = f"{Repository(reporoot).config_path}/post_fetch.py"
     if os.path.exists(fp):
         print(f"running {fp}")
         spec = importlib.util.spec_from_file_location("post_fetch", fp)

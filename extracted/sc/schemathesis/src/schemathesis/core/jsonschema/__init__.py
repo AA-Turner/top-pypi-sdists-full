@@ -29,16 +29,6 @@ FANCY_REGEX_OPTIONS = jsonschema_rs.FancyRegexOptions(size_limit=150_000_000)
 DRAFT_03_DIALECT = "http://json-schema.org/draft-03/schema#"
 
 
-def compile_ecma_pattern(pattern: str) -> re.Pattern[str] | None:
-    """The pattern under the validator's reading of it, or `None` when Python `re` rejects it."""
-    # `re.ASCII`: the validator's engine expands `\d`, `\w` and `\b` over ASCII, Python over the whole
-    # of Unicode, so the default reading draws values the schema rejects. `\s` follows neither reading.
-    try:
-        return re.compile(pattern, re.ASCII)
-    except (re.error, ValueError):
-        return None
-
-
 @lru_cache(maxsize=256)
 def matches_pattern(pattern: str) -> Callable[[str], bool]:
     """The validator's own `pattern` check, for the places where Python `re` reads the pattern differently."""
@@ -90,6 +80,31 @@ DRAFT4_SUPPLEMENTAL_FORMATS: dict[str, Callable[[Any], bool]] = {
 def supplemental_formats(validator_cls: type) -> dict[str, Callable[[Any], bool]] | None:
     return DRAFT4_SUPPLEMENTAL_FORMATS if validator_cls is jsonschema_rs.Draft4Validator else None
 
+
+# Formats with a standard definition; servers validate them that way whatever draft the schema declares.
+STANDARD_FORMATS = frozenset(
+    {
+        "date",
+        "date-time",
+        "duration",
+        "email",
+        "hostname",
+        "idn-email",
+        "idn-hostname",
+        "ipv4",
+        "ipv6",
+        "iri",
+        "iri-reference",
+        "json-pointer",
+        "regex",
+        "relative-json-pointer",
+        "time",
+        "uri",
+        "uri-reference",
+        "uri-template",
+        "uuid",
+    }
+)
 
 # Format names that each `jsonschema_rs` validator class actually validates (after
 # the supplemental `uuid` registration for Draft 4 above). Anything outside the
@@ -150,52 +165,8 @@ VALIDATED_FORMATS_BY_DRAFT: dict[type[jsonschema_rs.Validator], frozenset[str]] 
             "uri-template",
         }
     ),
-    jsonschema_rs.Draft201909Validator: frozenset(
-        {
-            "date",
-            "date-time",
-            "duration",
-            "email",
-            "hostname",
-            "idn-email",
-            "idn-hostname",
-            "ipv4",
-            "ipv6",
-            "iri",
-            "iri-reference",
-            "json-pointer",
-            "regex",
-            "relative-json-pointer",
-            "time",
-            "uri",
-            "uri-reference",
-            "uri-template",
-            "uuid",
-        }
-    ),
-    jsonschema_rs.Draft202012Validator: frozenset(
-        {
-            "date",
-            "date-time",
-            "duration",
-            "email",
-            "hostname",
-            "idn-email",
-            "idn-hostname",
-            "ipv4",
-            "ipv6",
-            "iri",
-            "iri-reference",
-            "json-pointer",
-            "regex",
-            "relative-json-pointer",
-            "time",
-            "uri",
-            "uri-reference",
-            "uri-template",
-            "uuid",
-        }
-    ),
+    jsonschema_rs.Draft201909Validator: STANDARD_FORMATS,
+    jsonschema_rs.Draft202012Validator: STANDARD_FORMATS,
 }
 
 
@@ -366,6 +337,12 @@ def maybe_resolve_bundled(schema: dict[str, Any]) -> dict[str, Any]:
     return resolve_bundled_ref(schema, schema.get(BUNDLE_STORAGE_KEY))
 
 
+def resolve_with_root_bundle(schema: dict[str, Any], root_schema: dict[str, Any]) -> dict[str, Any]:
+    """Follow a bundled `$ref` (e.g. `#/x-bundled/Foo`) by splicing `root_schema`'s bundle into `schema`."""
+    # `schema_with_bundle` preserves shape: dict in, dict out.
+    return maybe_resolve_bundled(cast("dict[str, Any]", schema_with_bundle(schema, root_schema)))
+
+
 def resolve_bundled_ref(schema: dict[str, Any], bundled: object) -> dict[str, Any]:
     """Follow `$ref` into the `bundled` map; return `schema` as-is when it does not point into it."""
     ref = schema.get("$ref")
@@ -410,6 +387,7 @@ __all__ = [
     "DRAFT4_SUPPLEMENTAL_FORMATS",
     "supplemental_formats",
     "DRAFT_03_DIALECT",
+    "STANDARD_FORMATS",
     "VALIDATED_FORMATS_BY_DRAFT",
     "FANCY_REGEX_OPTIONS",
     "is_unsatisfiable",
@@ -418,6 +396,7 @@ __all__ = [
     "make_validator_for",
     "maybe_resolve_bundled",
     "resolve_bundled_ref",
+    "resolve_with_root_bundle",
     "bundle",
     "schema_with_bundle",
     "REFERENCE_TO_BUNDLE_PREFIX",

@@ -179,7 +179,8 @@ class CollectionSearch(BaseSearch):
         client: An instance of Client for retrieving results. This is normally populated
             by the client that returns this CollectionSearch instance.
         limit: A recommendation to the service as to the number of collections to return
-            *per page* of results. Defaults to 100.
+            *per page* of results. If not provided, no ``limit`` is sent and the
+            service's own default page size applies.
         bbox: A list, tuple, or iterator representing a bounding box of 2D
             or 3D coordinates. Results will be filtered
             to only those intersecting the bounding box.
@@ -304,17 +305,21 @@ class CollectionSearch(BaseSearch):
             if any([bbox, datetime, q, query, filter, sortby, fields]):
                 if not self._collection_search_extension_enabled:
                     warnings.warn(
-                        str(DoesNotConformTo("COLLECTION_SEARCH"))
-                        + ". Filtering will be performed client-side where only bbox, "
-                        "datetime, and q arguments are supported"
+                        DoesNotConformTo(
+                            "COLLECTION_SEARCH",
+                            "Filtering will be performed client-side where only bbox, "
+                            "datetime, and q arguments are supported",
+                        )
                     )
                     self._validate_client_side_args()
                 else:
                     if not self._collection_search_free_text_enabled:
                         warnings.warn(
-                            str(DoesNotConformTo("COLLECTION_SEARCH#FREE_TEXT"))
-                            + ". Free-text search is not enabled for collection search"
-                            "Free-text filters will be applied client-side."
+                            DoesNotConformTo(
+                                "COLLECTION_SEARCH#FREE_TEXT",
+                                "Free-text search is not enabled for collection search"
+                                "Free-text filters will be applied client-side.",
+                            )
                         )
 
         else:

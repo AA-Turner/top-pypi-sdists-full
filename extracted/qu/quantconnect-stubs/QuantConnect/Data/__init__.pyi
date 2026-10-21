@@ -2017,7 +2017,7 @@ class IDataAggregator(System.IDisposable, metaclass=abc.ABCMeta):
         Remove the given subscription
         
         :param data_config: defines the subscription configuration data.
-        :returns: Returns true if given SubscriptionDataConfig was found and succesfully removed; otherwise false.
+        :returns: Returns true if given SubscriptionDataConfig was found and successfully removed; otherwise false.
         """
         ...
 

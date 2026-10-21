@@ -97,12 +97,12 @@ def sync(
     """Update a data frame.
 
     After uploading a `.csv` data drame file to S3, call this endpoint to mark the upload status as `IN_PROGRESS`
-    to launch a [long-running task](#/Tasks/getTask) to validate and transform the raw `.csv` file into a
+    to launch a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task) to validate and transform the raw `.csv` file into a
     data frame. Once complete, the data frame's status will either be updated to `SUCCEEDED` or `FAILED_VALIDATION`.
 
     For more details on how we process and validate data frames, [click here](https://docs.benchling.com/docs/datasets-ingestion-reference).
 
-    See [Create a data frame](#/Data%20Frames/createDataFrame) for documentation of the full upload flow.
+    See [Create a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/create-data-frame) for documentation of the full upload flow.
     """
 
     return sync_detailed(
@@ -139,12 +139,12 @@ async def asyncio(
     """Update a data frame.
 
     After uploading a `.csv` data drame file to S3, call this endpoint to mark the upload status as `IN_PROGRESS`
-    to launch a [long-running task](#/Tasks/getTask) to validate and transform the raw `.csv` file into a
+    to launch a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task) to validate and transform the raw `.csv` file into a
     data frame. Once complete, the data frame's status will either be updated to `SUCCEEDED` or `FAILED_VALIDATION`.
 
     For more details on how we process and validate data frames, [click here](https://docs.benchling.com/docs/datasets-ingestion-reference).
 
-    See [Create a data frame](#/Data%20Frames/createDataFrame) for documentation of the full upload flow.
+    See [Create a data frame](https://docs.benchling.com/docs/api/v2-beta/benchling-api-beta/data-frames/create-data-frame) for documentation of the full upload flow.
     """
 
     return (

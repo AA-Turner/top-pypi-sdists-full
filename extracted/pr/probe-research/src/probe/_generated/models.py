@@ -1354,7 +1354,6 @@ class CaptureSource(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
-    capy = 'capy'
 
 
 class Status1(StrEnum):
@@ -2250,7 +2249,6 @@ class CaptureSources1Enum(StrEnum):
     codex = 'codex'
     pi = 'pi'
     kimi_code = 'kimi_code'
-    capy = 'capy'
 
 
 class CaptureSources1(RootModel[list[CaptureSources1Enum]]):

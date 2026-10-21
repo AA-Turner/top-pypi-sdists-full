@@ -109,7 +109,7 @@ class TableUiBlockDataFrameSource:
 
     @property
     def data_frame_id(self) -> Optional[str]:
-        """`dataFrameId` of an uploaded data frame (see [Create Data Frame endpoint](https://benchling.com/api/v2-beta/reference#/Data%20Frames)). Note: Canvas tables currently support only text-type columns."""
+        """`dataFrameId` of an uploaded data frame (see [Create Data Frame endpoint](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame)). Note: Canvas tables currently support only text-type columns."""
         if isinstance(self._data_frame_id, Unset):
             raise NotPresentError(self, "data_frame_id")
         return self._data_frame_id

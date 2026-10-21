@@ -21165,16 +21165,16 @@ class LogGroupLogDestination(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _stage: "_aws_apigateway_3170ac3a.IStageRef",
+        stage: "_aws_apigateway_3170ac3a.IStageRef",
     ) -> "AccessLogDestinationConfig":
         '''Binds this destination to the CloudWatch Logs.
 
-        :param _stage: -
+        :param stage: -
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4a19c59b494e920f4294a640b251c2f8c481a6f520483bb6a66bf0f645b448fc)
-            check_type(argname="argument _stage", value=_stage, expected_type=type_hints["_stage"])
-        return typing.cast("AccessLogDestinationConfig", jsii.invoke(self, "bind", [_stage]))
+            check_type(argname="argument stage", value=stage, expected_type=type_hints["stage"])
+        return typing.cast("AccessLogDestinationConfig", jsii.invoke(self, "bind", [stage]))
 
 
 @jsii.data_type(
@@ -38321,7 +38321,7 @@ def _typecheckingstub__a84eaa748025edeb06434794d8ce0f9b8ad3d9438d71bcf66f8fe753a
     pass
 
 def _typecheckingstub__4a19c59b494e920f4294a640b251c2f8c481a6f520483bb6a66bf0f645b448fc(
-    _stage: _aws_apigateway_3170ac3a.IStageRef,
+    stage: _aws_apigateway_3170ac3a.IStageRef,
 ) -> None:
     """Type checking stubs"""
     pass

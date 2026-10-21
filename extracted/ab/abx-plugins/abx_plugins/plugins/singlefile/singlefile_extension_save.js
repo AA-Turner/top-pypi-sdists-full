@@ -160,6 +160,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
   let releaseDownloadLock;
   let downloadedPath;
   let originalProfileOptions;
+  let captureStarted = false;
   try {
     // Download behavior belongs to the live CDP connection. The launch
     // connection has already disconnected, so relying on it sends extension
@@ -174,6 +175,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     await chromeUtils.sendBrowserCommand(page.browser(), "Browser.setDownloadBehavior", {
       behavior: "allowAndName", downloadPath: CHROME_DOWNLOADS_DIR, eventsEnabled: true,
     });
+    console.error(`[singlefile] phase=helper-navigation started elapsed_ms=${Date.now() - saveStartedAt}`);
     await helperPage.goto(
       `chrome-extension://${extension.id}${SERVICE_WORKER_WAKE_PATH}`
     );
@@ -181,6 +183,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     // optimizations discard currently hidden images and alternate media rules.
     // Use its normal configuration API, restoring the persona's preferences
     // after this capture while still holding the browser download lock.
+    console.error(`[singlefile] phase=helper-profile started elapsed_ms=${Date.now() - saveStartedAt}`);
     originalProfileOptions = await helperPage.evaluate(async (tabId) => {
       const [result] = await chrome.scripting.executeScript({
         target: { tabId },
@@ -199,6 +202,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
     // Use Chrome's actual toolbar action. Importing SingleFile's source modules
     // bypasses its bundled entrypoint and breaks bare imports in current releases.
     // Register download listeners first; a small page can finish immediately.
+    console.error(`[singlefile] phase=helper-bindings started elapsed_ms=${Date.now() - saveStartedAt}`);
     const installed = (await page.browser().extensions()).get(extension.id);
     if (!installed) throw new Error("SingleFile is no longer installed in this browser");
     await helperPage.exposeFunction("archiveboxDownloadMatchesContent", async (filename, digest) => {
@@ -213,6 +217,7 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       // opening the observer page above otherwise leaves that helper selected.
       await page.bringToFront();
       console.error(`[singlefile] phase=capture started elapsed_ms=${Date.now() - saveStartedAt}`);
+      captureStarted = true;
       await page.triggerExtensionAction(installed);
     });
     const downloadTimeoutMs = deadline - Date.now();
@@ -304,16 +309,10 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
               await findCompleted();
             })().catch(fail);
           };
-          const timer = setTimeout(async () => {
+          const timer = setTimeout(() => {
             if (settled) return;
             settled = true;
             cleanup();
-            // SingleFile treats taskId=0 as absent. Send its native tab-cancel
-            // message from the capture tab, and finish before closing this helper.
-            await chrome.scripting.executeScript({
-              target: { tabId: exactTab.id },
-              func: () => chrome.runtime.sendMessage({ method: "downloads.cancel" }),
-            }).catch(error => console.error("SingleFile cancellation failed:", error));
             reject(
               new Error(
                 `SingleFile download for tab ${exactTab.id} did not complete within ${timeoutMs}ms`
@@ -328,6 +327,23 @@ async function saveSinglefileWithExtension(page, extension, options = {}) {
       { exactTab: tab, extensionId: extension.id, timeoutMs: downloadTimeoutMs }
     );
     console.error(`[singlefile] phase=download completed elapsed_ms=${Date.now() - saveStartedAt}`);
+  } catch (error) {
+    if (captureStarted) {
+      // A CDP failure can reject before the in-page download timer fires.
+      // Cancel the owned native task before closing its observer, including
+      // task id 0, which SingleFile's task-id cancellation treats as absent.
+      await chromeUtils.withTimeout(
+        () => helperPage.evaluate(async (tabId) => {
+          await chrome.scripting.executeScript({
+            target: { tabId },
+            func: () => chrome.runtime.sendMessage({ method: "downloads.cancel" }),
+          });
+        }, tab.id),
+        DOWNLOAD_WAIT_RESERVE_MS,
+        "SingleFile cancellation deadline exceeded"
+      ).catch(cancelError => console.error("SingleFile cancellation failed:", cancelError));
+    }
+    throw error;
   } finally {
     try {
       if (originalProfileOptions) {
@@ -420,7 +436,8 @@ async function main() {
     console.log(savedPath);
     process.exit(0);
   } catch (error) {
-    console.error(`[❌] ${error.message || error}`);
+    // Context-loss messages alone cannot distinguish helper setup from capture.
+    console.error(`[❌] ${error.stack || error.message || error}`);
     process.exit(4);
   } finally {
     if (browser) await browser.disconnect().catch(() => {});

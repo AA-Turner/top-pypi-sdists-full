@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 
+from plato.utils.pypi_index import plato_build_env
 from plato.v1.cli.utils import console, require_api_key
 
 world_app = typer.Typer(help="Manage and deploy worlds")
@@ -148,6 +149,7 @@ def world_publish(
         result = subprocess.run(
             ["uv", "build"],
             cwd=pkg_path,
+            env=plato_build_env(),
             capture_output=True,
             text=True,
         )

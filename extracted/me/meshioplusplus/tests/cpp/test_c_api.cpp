@@ -4058,6 +4058,102 @@ TEST(CApi, GridDefaultsOriginAndSpacingWhenNull) {
     mio_mesh_free(g);
 }
 
+TEST(CApi, GenOptsInitDefaultsAndLayout) {
+    mio_gen_opts opts;
+    std::memset(&opts, 0xAB, sizeof opts);
+    mio_gen_opts_init(&opts);
+    EXPECT_EQ(sizeof(mio_gen_opts), 160u);
+    EXPECT_EQ(opts.counts[0], 8);
+    EXPECT_EQ(opts.size[2], 1.0);
+    EXPECT_EQ(opts.radius, 1.0);
+    EXPECT_EQ(opts.order, 1);
+    EXPECT_EQ(opts.max_cells, 20000000);
+    EXPECT_EQ(opts.pad, 0);
+    for (int64_t r : opts.reserved)
+        EXPECT_EQ(r, 0);
+    mio_gen_opts_init(nullptr);  // a NULL options pointer is a no-op, not a crash
+}
+
+TEST(CApi, GeneratorsBuildMeshesAndRefuseBadRequests) {
+    // NULL options mean mio_gen_opts_init's defaults: 8 x 8 x 8 hexahedra.
+    mio_mesh* b = mio_box(nullptr);
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(b), 9 * 9 * 9);
+    EXPECT_EQ(block_type(b, 0), "hexahedron");
+    mio_mesh_free(b);
+
+    mio_gen_opts o;
+    mio_gen_opts_init(&o);
+    o.counts[0] = o.counts[1] = o.counts[2] = 2;
+    o.cell_type = MIO_GEN_TETRA;
+    o.order = 2;
+    b = mio_box(&o);
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(block_type(b, 0), "tetra10");
+    mio_mesh_free(b);
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 3;
+    o.counts[1] = 2;
+    o.cell_type = MIO_GEN_TRIANGLE;
+    o.split = MIO_GEN_SPLIT_CENTER;
+    mio_mesh* r = mio_rectangle(&o);
+    ASSERT_NE(r, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(r), 12 + 6);
+    mio_mesh_free(r);
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 8;
+    o.counts[1] = 4;
+    o.cell_type = MIO_GEN_QUAD;
+    mio_mesh* s = mio_uv_sphere(&o);
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(s), 2);
+    mio_mesh_free(s);
+
+    mio_gen_opts_init(&o);
+    o.counts[0] = 1;
+    mio_mesh* ico = mio_icosa_sphere(&o);
+    ASSERT_NE(ico, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(ico), 42);
+    mio_mesh_free(ico);
+
+    for (auto fn : {mio_disk, mio_cylinder}) {
+        mio_gen_opts_init(&o);
+        o.counts[0] = 2;
+        o.counts[1] = 2;
+        mio_mesh* m = fn(&o);
+        ASSERT_NE(m, nullptr);
+        mio_mesh_free(m);
+    }
+
+    mio_mesh* ref = mio_reference_cells("tetra,wedge", 0);
+    ASSERT_NE(ref, nullptr);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(ref), 2);
+    mio_mesh_free(ref);
+    ref = mio_reference_cells(nullptr, 1);
+    ASSERT_NE(ref, nullptr);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(ref), 7);
+    mio_mesh_free(ref);
+
+    // A cell type the shape does not build, a nonzero reserved tail, a bad
+    // count, an exceeded budget and an unknown type all fail rather than crash.
+    mio_gen_opts_init(&o);
+    o.cell_type = MIO_GEN_WEDGE;
+    EXPECT_EQ(mio_disk(&o), nullptr);
+    mio_gen_opts_init(&o);
+    o.reserved[2] = 1;
+    EXPECT_EQ(mio_box(&o), nullptr);
+    mio_gen_opts_init(&o);
+    o.counts[0] = -1;
+    EXPECT_EQ(mio_box(&o), nullptr);
+    mio_gen_opts_init(&o);
+    o.counts[0] = o.counts[1] = o.counts[2] = 100;
+    o.max_cells = 1000;
+    EXPECT_EQ(mio_box(&o), nullptr);
+    EXPECT_EQ(mio_reference_cells("blob", 0), nullptr);
+}
+
 TEST(CApi, VoxelOptsInitDefaultsAndVoxelize) {
     mio_voxel_opts opts;
     mio_voxel_opts_init(&opts);
@@ -4206,6 +4302,58 @@ TEST(CApi, VoxelizeInsideKeepsTheInterior) {
     ASSERT_NE(g, nullptr);
     EXPECT_EQ(occupied, 27);
     mio_mesh_free(g);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, OctreeAroundASurfaceRefinesOnlyWhereItCuts) {
+    mio_mesh* cube = capi_cube_surface();
+    mio_octree_opts opts;
+    mio_octree_opts_init(&opts);
+    const double bounds[6] = {-0.5, -0.5, -0.5, 1.5, 1.5, 1.5};
+    opts.bounds = bounds;
+    opts.max_level = 3;
+    opts.fill = MIO_VOXEL_INSIDE;
+    opts.watertight_check = MIO_SDF_WATERTIGHT_OFF;
+
+    mio_octree_report report;
+    mio_mesh* tree = mio_octree(cube, &opts, &report);
+    ASSERT_NE(tree, nullptr);
+    EXPECT_EQ(report.dimension, 3);
+    EXPECT_GT(report.num_leaves, 0);
+    EXPECT_EQ(report.finest_level, 3);
+    mio_mesh_free(tree);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, OctreeConformingTransitionsHaveNoHangingNodes) {
+    mio_mesh* cube = capi_cube_surface();
+    for (int transition : {MIO_OCTREE_POLYHEDRA, MIO_OCTREE_TEMPLATES}) {
+        mio_octree_opts opts;
+        mio_octree_opts_init(&opts);
+        const double bounds[6] = {-0.5, -0.5, -0.5, 1.5, 1.5, 1.5};
+        opts.bounds = bounds;
+        opts.max_level = 3;
+        opts.transition = transition;
+        opts.watertight_check = MIO_SDF_WATERTIGHT_OFF;
+        mio_octree_report report;
+        mio_mesh* tree = mio_octree(cube, &opts, &report);
+        ASSERT_NE(tree, nullptr);
+        EXPECT_EQ(report.num_hanging, 0);
+        mio_mesh_free(tree);
+    }
+    mio_octree_opts bad;
+    mio_octree_opts_init(&bad);
+    bad.transition = 99;
+    EXPECT_EQ(mio_octree(cube, &bad, nullptr), nullptr);
+    mio_mesh_free(cube);
+}
+
+TEST(CApi, OctreeRejectsAnUnknownBalance) {
+    mio_mesh* cube = capi_cube_surface();
+    mio_octree_opts opts;
+    mio_octree_opts_init(&opts);
+    opts.balance = 99;  // drift guard: an out-of-range enum fails, never reinterprets
+    EXPECT_EQ(mio_octree(cube, &opts, nullptr), nullptr);
     mio_mesh_free(cube);
 }
 
@@ -4886,6 +5034,26 @@ TEST(CApi, SegmentAndFitACube) {
     mio_segment_opts_init(&sopts);
     EXPECT_DOUBLE_EQ(sopts.feature_angle, 30.0);
     EXPECT_EQ(sopts.min_patch_cells, 1);  // an all-zero struct is NOT the default
+    EXPECT_EQ(sopts.method, MIO_SEGMENT_ANGLE);
+    EXPECT_DOUBLE_EQ(sopts.tolerance, 1e-3);
+    {
+        // The primitive method (v17.9.0) finds the cube's six planes too.
+        mio_segment_opts popts = sopts;
+        popts.method = MIO_SEGMENT_PRIMITIVE;
+        mio_segment_report preport;
+        mio_mesh* pseg = mio_segment(m, &popts, &preport);
+        ASSERT_NE(pseg, nullptr) << mio_last_error();
+        EXPECT_EQ(preport.num_patches, 6);
+        mio_mesh_free(pseg);
+        popts.method = 4;
+        EXPECT_EQ(mio_segment(m, &popts, nullptr), nullptr);
+        // A struct zero-filled before the fields existed is the angle method.
+        popts.method = MIO_SEGMENT_ANGLE;
+        popts.tolerance = 0.0;
+        pseg = mio_segment(m, &popts, nullptr);
+        ASSERT_NE(pseg, nullptr) << mio_last_error();
+        mio_mesh_free(pseg);
+    }
     mio_segment_report sreport;
     mio_mesh* seg = mio_segment(m, &sopts, &sreport);
     ASSERT_NE(seg, nullptr) << mio_last_error();
@@ -4929,9 +5097,28 @@ TEST(CApi, FitCadBuildsOrNamesTheBackend) {
     EXPECT_EQ(opts.freeform_split, 1);
     EXPECT_EQ(opts.fillets, 1);
     EXPECT_EQ(opts.threads, 1);
-    EXPECT_EQ(opts.reserved1, 0);
+    EXPECT_EQ(opts.merge_faces, 1);
+    EXPECT_EQ(opts.backend, MIO_FIT_CAD_AUTO);
+    EXPECT_EQ(opts.reserved32, 0);
     mio_fit_cad_report report;
     mio_mesh* solid = mio_fit_cad(m, nullptr, &opts, &report);
+    {
+        // The native backend runs in every build (v17.9.0).
+        mio_fit_cad_opts native = opts;
+        native.backend = MIO_FIT_CAD_NATIVE;
+        mio_fit_cad_report nr;
+        mio_fit_cad_report_ex nex;
+        mio_mesh* skin = mio_fit_cad_ex(m, nullptr, &native, &nr, &nex);
+        ASSERT_NE(skin, nullptr) << mio_last_error();
+        EXPECT_EQ(nex.backend, MIO_FIT_CAD_NATIVE);
+        EXPECT_EQ(nr.valid, 1);
+        EXPECT_EQ(nr.num_plane, 6);
+        EXPECT_EQ(nr.num_faceted_faces, 0);
+        mio_mesh_free(skin);
+        native.backend = 9;
+        EXPECT_EQ(mio_fit_cad(m, nullptr, &native, nullptr), nullptr);
+        EXPECT_NE(std::string(mio_last_error()).find("backend"), std::string::npos);
+    }
     if (mio_has_occt()) {
         ASSERT_NE(solid, nullptr) << mio_last_error();
         EXPECT_EQ(report.valid, 1);
@@ -4958,6 +5145,7 @@ TEST(CApi, FitCadBuildsOrNamesTheBackend) {
         EXPECT_EQ(ex.num_conic_blend, 0);
         EXPECT_EQ(ex.num_tapered_thread, 0);
         EXPECT_EQ(ex.num_variable_pitch_thread, 0);
+        EXPECT_EQ(ex.backend, MIO_FIT_CAD_OCCT);
         for (int64_t r : ex.reserved)
             EXPECT_EQ(r, 0);
         mio_mesh_free(solid);
@@ -4972,7 +5160,13 @@ TEST(CApi, FitCadBuildsOrNamesTheBackend) {
         opts.max_demotion_rounds = -1;
         EXPECT_EQ(mio_fit_cad(m, nullptr, &opts, nullptr), nullptr);
     } else {
-        EXPECT_EQ(solid, nullptr);
+        // Without OpenCASCADE the automatic backend is the native one, and
+        // asking for OpenCASCADE names the flag.
+        ASSERT_NE(solid, nullptr) << mio_last_error();
+        EXPECT_EQ(report.num_plane, 6);
+        mio_mesh_free(solid);
+        opts.backend = MIO_FIT_CAD_OCCT;
+        EXPECT_EQ(mio_fit_cad(m, nullptr, &opts, nullptr), nullptr);
         EXPECT_NE(std::string(mio_last_error()).find("MESHIOPLUSPLUS_WITH_OCCT"),
                   std::string::npos);
     }

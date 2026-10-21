@@ -19,14 +19,13 @@ import dataclasses
 from typing import Any, override
 
 import jax
-from tokamax._src.ops.experimental.lightning_indexer import pallas_mosaic_tpu as jax_pallas_mosaic_tpu
-from tokamax._src.ops.experimental.lightning_indexer.kernel import config as kernel_config
+from tokamax._src.ops.lightning_indexer import pallas_mosaic_tpu as jax_pallas_mosaic_tpu
+from tokamax._src.ops.lightning_indexer.kernel import config as kernel_config
 from tokamax.experimental.torch_tpu.ops import torch_op
 from tokamax.experimental.torch_tpu.ops.lightning_indexer import torch_base
 import torch
 
 Config = jax_pallas_mosaic_tpu.Config
-KVLayout = kernel_config.KVLayout
 
 
 def _to_triple(val: Sequence[int] | int) -> tuple[int, int, int]:
@@ -101,18 +100,6 @@ class _PallasMosaicTpuLightningIndexer(
     )
 
   @override
-  def op_impl_call_config_setup(
-      self, *args: Any, config: Any = None, **kwargs: Any
-  ) -> tuple[int, ...] | None:
-    if config is None:
-      config = self.deconstruct_config(
-          self.get_bound_args(*args, **kwargs).get_config(
-              check_autotuning_cache=False,
-          )
-      )
-    return config
-
-  @override
   def __call__(
       self,
       q: torch.Tensor,
@@ -124,7 +111,7 @@ class _PallasMosaicTpuLightningIndexer(
       distribution: torch.Tensor,
       k: int,
       compression_ratio: int = 1,
-      kv_layout: KVLayout | str = KVLayout.HEAD_ALONG_SUBLANE,
+      kv_layout: str = "head_along_sublane",
       cp_size: int = 1,
       cp_rank: torch.Tensor | int = 0,
       interleave_size: int = 1,
@@ -150,7 +137,7 @@ class _PallasMosaicTpuLightningIndexer(
         distribution,
         k=k,
         compression_ratio=compression_ratio,
-        kv_layout=torch_base.kv_layout_to_str(kv_layout),
+        kv_layout=kv_layout,
         cp_size=cp_size,
         cp_rank=cp_rank,
         interleave_size=interleave_size,
@@ -196,7 +183,7 @@ class _PallasMosaicTpuLightningIndexer(
         distribution,
         k=k,
         compression_ratio=compression_ratio,
-        kv_layout=KVLayout.parse(kv_layout),
+        kv_layout=kernel_config.KVLayout(kv_layout),
         cp_size=cp_size,
         cp_rank=cp_rank,
         interleave_size=interleave_size,

@@ -18,6 +18,7 @@ from typing import Any
 import packaging.version
 
 import onnx_ir as ir
+from onnx_ir._shard_filename import get_shard_filename
 
 _HEADER_SIZE_NUMBER_SIZE = 8
 # https://github.com/huggingface/safetensors/blob/806426784adb43631e9a1102d4621126bb589347/safetensors/src/tensor.rs#L811
@@ -50,6 +51,8 @@ _IR_DTYPE_TO_SAFETENSORS_DTYPE = {
     ir.DataType.FLOAT8E8M0: "float8_e8m0",
     ir.DataType.FLOAT8E4M3FNUZ: "uint8",
     ir.DataType.FLOAT8E5M2FNUZ: "uint8",
+    ir.DataType.FLOAT6E2M3: "uint8",
+    ir.DataType.FLOAT6E3M2: "uint8",
     ir.DataType.BFLOAT16: "bfloat16",
     ir.DataType.FLOAT16: "float16",
     ir.DataType.FLOAT: "float32",
@@ -68,6 +71,12 @@ _IR_DTYPE_TO_SAFETENSORS_DTYPE = {
     ir.DataType.UINT64: "uint64",
     ir.DataType.COMPLEX64: "complex64",
 }
+
+
+def _get_shard_filename(base_name: str, shard_idx: int, total_shards: int) -> str:
+    # ``.safetensors`` is the complete format suffix. Preserve dotted model
+    # variants such as ``model.fp16`` as part of the stem.
+    return get_shard_filename(base_name, shard_idx, total_shards, suffix_count=1)
 
 
 @functools.lru_cache(maxsize=1)
@@ -90,32 +99,6 @@ def _import_safetensors():
         )
 
     return safetensors
-
-
-def _get_shard_filename(base_name: str, shard_idx: int, total_shards: int) -> str:
-    """Generate a filename for a shard.
-
-    Args:
-        base_name: The base filename (e.g., 'model.safetensors').
-        shard_idx: The index of this shard (1-indexed).
-        total_shards: The total number of shards.
-
-    Returns:
-        The shard filename (e.g., 'model-00001-of-00003.safetensors').
-    """
-    if total_shards == 1:
-        return base_name
-
-    # Extract extension
-    if "." in base_name:
-        name, ext = base_name.rsplit(".", 1)
-        ext = f".{ext}"
-    else:
-        name = base_name
-        ext = ""
-
-    # Always use 5 digits to follow transformers convention
-    return f"{name}-{shard_idx:05d}-of-{total_shards:05d}{ext}"
 
 
 def _shard_tensors(
@@ -247,7 +230,7 @@ def _save_file(
 
             # Build tensor_dict for this shard only
             shard_dict: dict[str, Any] = {}
-            for tensor in tensor_shard:
+            for shard_index, tensor in enumerate(tensor_shard):
                 if callback is not None:
                     callback(
                         tensor,
@@ -256,6 +239,8 @@ def _save_file(
                             index=current_index,
                             offset=current_offset,
                             filename=shard_filename,
+                            shard_total=len(tensor_shard),
+                            shard_index=shard_index,
                         ),
                     )
                 assert tensor.name is not None
@@ -519,6 +504,8 @@ def _migrate_tensor_shape_dtype(
         ir.DataType.INT2,
         ir.DataType.UINT4,
         ir.DataType.UINT2,
+        ir.DataType.FLOAT6E2M3,
+        ir.DataType.FLOAT6E3M2,
     }:
         return ir.ExternalTensor(
             location=safe_tensor.location,

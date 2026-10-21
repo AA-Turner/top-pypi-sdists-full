@@ -12,10 +12,12 @@ from pydantic import ValidationError
 from exp.common.core.artifacts import JsonObject
 from exp.common.models import ModelCapabilities
 from exp.common.models.catalog import (
+    BillingSource,
     GatewayDeploymentCapabilities,
     GatewayDeploymentMetadata,
     GatewayTokenPrices,
 )
+from exp.common.models.catalog_prices import GatewayServiceTierPrices
 from exp.common.models.dispatch_policy import GatewayRungDispatchPolicy
 from exp.common.models.gateway_catalog import ExactModelDeployment
 from exp.runtime.anthropic_protocol.requests import decode_messages
@@ -26,18 +28,20 @@ from exp.runtime.gateway.budgets_test import _accepted_chain, _activate_chain, _
 from exp.runtime.gateway.contracts import (
     AuthorizationSnapshot,
     DirectTarget,
-    ExecutionSnapshot,
     GatewayApiSurface,
     GatewayMessage,
     GatewayRequest,
 )
+from exp.runtime.gateway.execution_snapshot import ExecutionSnapshot
 from exp.runtime.gateway.model_plan import model_execution_snapshot, project_stage_selection
 from exp.runtime.gateway.model_plan_test import catalog as staged_catalog
 from exp.runtime.gateway.native_execution import select_route_deployments
 from exp.runtime.gateway.native_rungs import (
+    NOVITA_SESSION_HEADER,
     ZDR_CONSTRAINT_CAPABILITY,
     RungDispatch,
     build_rung_dispatch,
+    with_session_affinity,
 )
 from exp.runtime.gateway.routing import GatewayRoute
 from exp.runtime.models.providers.base import GatewayWireProfile
@@ -794,6 +798,45 @@ def test_request_class_and_pace_default_to_none() -> None:
             AuthorizationSnapshot.model_validate(_AUTHORIZATION.model_dump() | invalid)
 
 
+def test_fast_runs_first_on_vllm_and_keeps_the_tier_off_its_wire() -> None:
+    """:fast on our vLLM rung: priority -1 and no service_tier; a third-party rung gets neither."""
+    base = _priority_rung("vllm", upstream_priority=True)
+    carded = base.gateway.prices.model_copy(
+        update={
+            "priority": GatewayServiceTierPrices(
+                input_nano_usd_per_million_tokens=2, output_nano_usd_per_million_tokens=4
+            )
+        }
+    )
+    vllm = base.model_copy(
+        update={
+            "gateway": base.gateway.model_copy(update={"prices": carded}),
+            "billing_source": BillingSource.HOST_MANAGED,
+        }
+    )
+    third_party = _deployment("third-party", "openrouter")
+    route = _route((vllm, third_party))
+    request = _request().model_copy(update={"service_tier": "priority"})
+    fast = _AUTHORIZATION.model_copy(update={"fast": True, "priority_class": 8})
+
+    def payload(deployment: ExactModelDeployment) -> JsonObject:
+        result = build_rung_dispatch(
+            route,
+            deployment,
+            _profile(),
+            _NoSigningClient(),
+            provider_request=request,
+            public_request=request,
+            authorization=fast,
+        ).wire_entry["upstream_payload"]
+        assert isinstance(result, dict)
+        return result
+
+    assert payload(vllm)["priority"] == -1
+    assert "service_tier" not in payload(vllm)
+    assert "priority" not in payload(third_party)
+
+
 @pytest.mark.parametrize("dispatch", [None, GatewayRungDispatchPolicy()])
 def test_upstream_priority_absent_without_opt_in(
     dispatch: GatewayRungDispatchPolicy | None,
@@ -884,3 +927,50 @@ def test_reasoning_off_on_an_openrouter_rung_ignores_upstreams_that_think_anyway
     on = payload_for("high")
     assert on["reasoning"] == {"effort": "high"}
     assert "provider" not in on
+
+
+_NOVITA_PROFILE = GatewayWireProfile(
+    dialect="openai_compatible",
+    url="https://api.novita.ai/v3/openai/chat/completions",
+    headers={"Authorization": "Bearer k"},
+    model_id="deepseek/deepseek-v4.1-flash",
+)
+
+
+def test_a_novita_rung_names_the_conversation_in_x_session_id() -> None:
+    """Novita pins by session: the derived id rides beside the static headers."""
+    request = _request().model_copy(update={"provider_session_id": "xpls-abc"})
+
+    assert with_session_affinity(_NOVITA_PROFILE, request, None) == {
+        "Authorization": "Bearer k",
+        NOVITA_SESSION_HEADER: "xpls-abc",
+    }
+    composed = {"Authorization": "Bearer k", "anthropic-beta": "x"}
+    assert with_session_affinity(_NOVITA_PROFILE, request, composed) == {
+        **composed,
+        NOVITA_SESSION_HEADER: "xpls-abc",
+    }
+
+
+def test_other_origins_and_sessionless_requests_keep_their_headers() -> None:
+    """Only Novita's host gets the header, and only when a session id was derived."""
+    request = _request().model_copy(update={"provider_session_id": "xpls-abc"})
+    assert with_session_affinity(_profile(), request, None) is None
+    assert with_session_affinity(_NOVITA_PROFILE, _request(), None) is None
+
+
+def test_the_session_header_reaches_the_frozen_wire_entry() -> None:
+    """build_rung_dispatch carries the header into what the data plane sends."""
+    rung = _deployment("novita-rung", "novita")
+    route = _route((rung,))
+    request = _request().model_copy(update={"provider_session_id": "xpls-abc"})
+    entry = build_rung_dispatch(
+        route,
+        rung,
+        _NOVITA_PROFILE,
+        _NoSigningClient(),
+        provider_request=request,
+        public_request=request,
+        authorization=route.snapshot.authorization,
+    ).wire_entry
+    assert entry["headers"] == {"Authorization": "Bearer k", NOVITA_SESSION_HEADER: "xpls-abc"}

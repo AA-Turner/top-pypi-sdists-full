@@ -49,6 +49,31 @@ def test_pdf_generation(ctx):
             assert transport.serialize_case(case)["data"] == SAMPLE_PDF
 
 
+def test_wildcard_media_type_uses_matching_custom_strategy(ctx):
+    payloads = {"image/png": b"PNG", "image/jpeg": b"JPEG"}
+    for media_type, payload in payloads.items():
+        schemathesis.openapi.media_type(media_type, st.just(payload))
+
+    operation = ctx.openapi.load_operation(
+        "POST /image",
+        {
+            "requestBody": {
+                "required": True,
+                "content": {"image/*": {"schema": {"type": "string", "format": "binary"}}},
+            },
+            "responses": {"204": {"description": "OK"}},
+        },
+    )
+    seen = set()
+
+    @run_given(case=operation.as_strategy(), max_examples=10)
+    def test(case):
+        assert case.body == payloads[case.media_type]
+        seen.add(case.media_type)
+
+    assert seen == set(payloads)
+
+
 def test_explicit_example_with_custom_media_type(ctx, cli, snapshot_cli):
     app, _ = ctx.openapi.make_flask_app(
         {
@@ -167,80 +192,6 @@ def test_jose_jwe_generation(ctx):
         assert case.media_type == "application/jose+jwe"
         assert case.body == {"payload": 42}
         assert REQUESTS_TRANSPORT.serialize_case(case)["json"] == {"payload": 42}
-
-
-def test_coverage_phase(ctx, testdir):
-    api = ctx.openapi.apps.success()
-    testdir.make_test(
-        f"""
-schemathesis.openapi.media_type("image/jpeg", st.just(b""))
-schema.config.update(base_url="{api.base_url}/api")
-schema.config.phases.examples.enabled = False
-schema.config.phases.fuzzing.enabled = False
-
-@schema.include(path_regex="success").parametrize()
-def test(case):
-    case.call()
-""",
-        paths={
-            "/success": {
-                "post": {
-                    "parameters": [
-                        {"name": "key", "in": "query", "required": True, "schema": {"type": "integer"}, "example": 42}
-                    ],
-                    "requestBody": {
-                        "content": {
-                            "image/jpeg": {
-                                "schema": {"format": "base64", "type": "string"},
-                            }
-                        }
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        },
-        schema_name="simple_openapi.yaml",
-    )
-    result = testdir.runpytest()
-    result.assert_outcomes(passed=1)
-
-
-def test_non_serializable_example(ctx, testdir):
-    api = ctx.openapi.apps.success()
-    testdir.make_test(
-        f"""
-schema.config.update(base_url="{api.base_url}/api")
-schema.config.phases.examples.enabled = False
-schema.config.phases.fuzzing.enabled = False
-
-@schema.include(path_regex="success").parametrize()
-@settings(phases=[Phase.explicit])
-def test(case):
-    case.call()
-""",
-        paths={
-            "/success": {
-                "post": {
-                    "parameters": [
-                        {"name": "key", "in": "query", "required": True, "schema": {"type": "integer"}, "example": 42}
-                    ],
-                    "requestBody": {
-                        "content": {
-                            "image/jpeg": {
-                                "schema": {"format": "base64", "type": "string"},
-                            }
-                        }
-                    },
-                    "responses": {"200": {"description": "OK"}},
-                }
-            }
-        },
-        schema_name="simple_openapi.yaml",
-    )
-    result = testdir.runpytest()
-    # The body is unreachable, but the query parameter is still exercised without one.
-    result.assert_outcomes(passed=1, warnings=1)
-    assert "Skipped test cases with unsupported payload media types: image/jpeg" in result.stdout.str()
 
 
 def test_multipart_encoding_multiple_content_types(ctx):

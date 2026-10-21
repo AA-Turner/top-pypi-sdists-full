@@ -42,6 +42,11 @@ class WorkflowOrchestratorServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryResponse.FromString,
         )
+        self.SendWorkflowMessage = channel.unary_unary(
+            "/chalk.server.v1.WorkflowOrchestratorService/SendWorkflowMessage",
+            request_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageResponse.FromString,
+        )
 
 
 class WorkflowOrchestratorServiceServicer(object):
@@ -79,6 +84,16 @@ class WorkflowOrchestratorServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def SendWorkflowMessage(self, request, context):
+        """Delivers a named message to a running workflow in the caller's environment, for steps
+        that wait on a person or another system, such as a review that approves or rejects a run.
+        The workflow receives the payload together with the authenticated sender, which it can use
+        to decide whose decisions to accept. Fails with NOT_FOUND when the workflow is not running.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_WorkflowOrchestratorServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -106,6 +121,11 @@ def add_WorkflowOrchestratorServiceServicer_to_server(servicer, server):
             servicer.GetWorkflowOrchestratorWorkflowHistory,
             request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryResponse.SerializeToString,
+        ),
+        "SendWorkflowMessage": grpc.unary_unary_rpc_method_handler(
+            servicer.SendWorkflowMessage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -253,6 +273,35 @@ class WorkflowOrchestratorService(object):
             "/chalk.server.v1.WorkflowOrchestratorService/GetWorkflowOrchestratorWorkflowHistory",
             chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.GetWorkflowOrchestratorWorkflowHistoryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SendWorkflowMessage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.WorkflowOrchestratorService/SendWorkflowMessage",
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_workflow__orchestrator__pb2.SendWorkflowMessageResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -66,6 +66,11 @@ class AuthServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserResponse.FromString,
         )
+        self.UpdateUserProfile = channel.unary_unary(
+            "/chalk.server.v1.AuthService/UpdateUserProfile",
+            request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserProfileRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserProfileResponse.FromString,
+        )
         self.LinkAccount = channel.unary_unary(
             "/chalk.server.v1.AuthService/LinkAccount",
             request_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.LinkAccountRequest.SerializeToString,
@@ -211,6 +216,12 @@ class AuthServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def UpdateUser(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateUserProfile(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -372,6 +383,11 @@ def add_AuthServiceServicer_to_server(servicer, server):
             servicer.UpdateUser,
             request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserResponse.SerializeToString,
+        ),
+        "UpdateUserProfile": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateUserProfile,
+            request_deserializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserProfileRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserProfileResponse.SerializeToString,
         ),
         "LinkAccount": grpc.unary_unary_rpc_method_handler(
             servicer.LinkAccount,
@@ -747,6 +763,35 @@ class AuthService(object):
             "/chalk.server.v1.AuthService/UpdateUser",
             chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateUserProfile(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.AuthService/UpdateUserProfile",
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserProfileRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_auth__pb2.UpdateUserProfileResponse.FromString,
             options,
             channel_credentials,
             insecure,

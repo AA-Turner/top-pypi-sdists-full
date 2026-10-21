@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from snap7 import DB, Row
 from snap7.type import Area, WordLen
-from snap7.util import get_byte, get_time, get_fstring, get_int
+from snap7.util import get_byte, get_time, get_fstring, get_int, get_string, get_wstring
 from snap7.util import set_byte, set_time, set_fstring, set_int
 from snap7.util.db import print_row
 
@@ -642,6 +642,23 @@ class TestNewSetters(unittest.TestCase):
         data = bytearray(30)
         set_wstring(data, 0, "hello", 10)
         self.assertEqual(get_wstring(data, 0), "hello")
+
+    def test_wstring_round_trip_capacities(self) -> None:
+        from snap7.util import set_wstring, get_wstring
+
+        for capacity in (0, 1, 8191, 8192, 16382):
+            data = bytearray(4 + capacity * 2)
+            value = "a" * min(capacity, 3)
+            set_wstring(data, 0, value, capacity)
+            self.assertEqual(get_wstring(data, 0), value, capacity)
+
+    def test_get_wstring_rejects_capacity_over_limit(self) -> None:
+        from snap7.util import get_wstring
+
+        data = bytearray(4 + 16384 * 2)
+        data[0:2] = (16383).to_bytes(2, "big")
+        with self.assertRaises(TypeError):
+            get_wstring(data, 0)
 
     def test_set_wstring_unicode(self) -> None:
         from snap7.util import set_wstring, get_wstring
@@ -1478,3 +1495,16 @@ class TestRowWriteWithRowOffset:
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@pytest.mark.parametrize(
+    "func,data",
+    [
+        (get_string, bytearray([3, 3, 65])),
+        (get_string, bytearray([5, 4, 65, 66])),
+        (get_wstring, bytearray([0, 3, 0, 3, 0, 65, 0, 66])),
+    ],
+)
+def test_get_string_short_buffer_raises(func, data) -> None:  # type: ignore[no-untyped-def]
+    with pytest.raises(ValueError):
+        func(data, 0)

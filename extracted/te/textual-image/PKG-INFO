@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: textual-image
-Version: 0.14.1
+Version: 0.14.2
 Summary: Render images via Kitty's Terminal Graphics Protocol with Rich and Textual
 Author: Simon Hayessen
 Author-email: Simon Hayessen <simon@lnqs.io>

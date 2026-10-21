@@ -30,8 +30,13 @@ class BatchError(Struct, kw_only=True):
         items: The items this batch was carrying, ready to be resent.
         error: The exception that ended the attempt — the thing to log or
             re-raise when you want the underlying cause.
-        error_message: The same failure as a readable string, which is what
-            :class:`BatchResult` groups and counts by.
+        error_message: The same failure as a readable string. A timeout or
+            stall message names this batch's item count and index.
+        group_key: The failure with that per-batch detail left out, which is
+            what :class:`BatchResult` groups and counts by, so that failures
+            of one kind print as one line however many batches they hit.
+            Equal to ``error_message`` unless you set it. Group failures of
+            your own on this rather than on ``error_message``.
         disposition: How far this batch got before failing, which is what
             tells you whether a retry could double-write. ``"rejected"`` means
             the attempt reached the server and came back with an error, so the
@@ -53,6 +58,11 @@ class BatchError(Struct, kw_only=True):
     error_message: str
     disposition: str = "rejected"
     retryable: bool = True
+    group_key: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.group_key:
+            self.group_key = self.error_message
 
     def __repr__(self) -> str:
         return (
@@ -75,6 +85,7 @@ class BatchError(Struct, kw_only=True):
             "error_message": self.error_message,
             "disposition": self.disposition,
             "retryable": self.retryable,
+            "group_key": self.group_key,
         }
 
     def to_json(self) -> str:
@@ -88,8 +99,11 @@ class BatchResult(Struct, kw_only=True):
     A bulk method splits your items into batches and reports the outcome of
     all of them here, so a partial failure is a value you inspect rather than
     an exception that loses the successes. Start with :attr:`has_errors`; if
-    it is ``True``, :attr:`errors` holds one
-    :class:`BatchError` per failed batch, each carrying its own items back.
+    it is ``True``, :attr:`errors` holds the
+    :class:`BatchError` rows for the failed batches, each carrying its own
+    items back. A batch the server rejected as too large is split and resent
+    in pieces, so one batch can yield several rows sharing a ``batch_index``,
+    each holding only the items of the piece that failed.
 
     The last five attributes are backpressure telemetry rather than results.
     Read them when a bulk write was slower than expected: they say whether the
@@ -102,10 +116,14 @@ class BatchResult(Struct, kw_only=True):
         total_batch_count: How many batches the items were split into.
         successful_batch_count: How many of those landed.
         failed_batch_count: How many did not.
-        errors: One :class:`BatchError` per failed batch.
+        errors: The :class:`BatchError` rows, ordered by ``batch_index``: one
+            per failed batch, or several sharing a ``batch_index`` when a
+            batch was split and only some pieces failed. A batch with any
+            failed piece counts in ``failed_batch_count`` even though its
+            other pieces count in ``successful_item_count``.
         response_info: A :class:`BatchResponseInfo` carrying the log position
             the batch is durable through, or ``None`` when no batch reported
-            one. Use it to check that a later read sees these writes.
+            one. Use it to check that a later search sees these writes.
         timed_out: Whether a ``total_timeout`` expired with work left unsent. The
             batches that were never attempted appear in ``errors``, so
             ``failed_items`` is what remains to be sent. A deadline that elapses
@@ -128,6 +146,9 @@ class BatchResult(Struct, kw_only=True):
             itself re-probes after a cool-down.
 
     Examples:
+        On an index whose schema declares ``chunk_text`` as a ``string`` field with
+        ``embed``, the field each document must carry besides ``_id``:
+
         >>> index = pc.index(name="product-search")
         >>> documents = [
         ...     {"_id": f"article-{i:05d}", "chunk_text": f"Paragraph {i}"}
@@ -203,14 +224,20 @@ class BatchResult(Struct, kw_only=True):
         return items
 
     def _error_summary(self) -> list[tuple[str, int]]:
-        """Distinct error messages with batch counts, most frequent first."""
-        counts: Counter[str] = Counter()
+        """Distinct error groups with distinct-batch counts, most frequent first."""
+        batches: dict[str, set[int]] = {}
         for err in self.errors:
-            counts[err.error_message] += 1
+            batches.setdefault(err.group_key, set()).add(err.batch_index)
+        counts = Counter({key: len(idx) for key, idx in batches.items()})
         return counts.most_common()
 
     def __repr__(self) -> str:
-        status = "PARTIAL FAILURE" if self.has_errors else "SUCCESS"
+        if not self.has_errors:
+            status = "SUCCESS"
+        elif self.total_batch_count > 0 and self.successful_item_count == 0:
+            status = "FAILURE"
+        else:
+            status = "PARTIAL FAILURE"
         header = (
             f"BatchResult({status}: "
             f"{self.successful_item_count}/{self.total_item_count} items, "

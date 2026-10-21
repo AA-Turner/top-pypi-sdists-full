@@ -5,6 +5,7 @@ from chalk._gen.chalk.server.v1 import cloud_credentials_pb2 as _cloud_credentia
 from chalk._gen.chalk.server.v1 import cluster_class_pb2 as _cluster_class_pb2
 from chalk._gen.chalk.server.v1 import team_pb2 as _team_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -944,13 +945,18 @@ class CreateCloudComponentClusterResponse(_message.Message):
     def __init__(self, cluster: _Optional[_Union[CloudComponentClusterResponse, _Mapping]] = ...) -> None: ...
 
 class UpdateCloudComponentClusterRequest(_message.Message):
-    __slots__ = ("id", "cluster")
+    __slots__ = ("id", "cluster", "update_mask")
     ID_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
     id: str
     cluster: CloudComponentClusterRequest
+    update_mask: _field_mask_pb2.FieldMask
     def __init__(
-        self, id: _Optional[str] = ..., cluster: _Optional[_Union[CloudComponentClusterRequest, _Mapping]] = ...
+        self,
+        id: _Optional[str] = ...,
+        cluster: _Optional[_Union[CloudComponentClusterRequest, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateCloudComponentClusterResponse(_message.Message):

@@ -450,13 +450,19 @@ typing.cast(typing.Any, IWALWorkspaceRef).__jsii_proxy_class__ = lambda : _IWALW
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_emr.InstanceFleetConfigReference",
     jsii_struct_bases=[],
-    name_mapping={"instance_fleet_config_id": "instanceFleetConfigId"},
+    name_mapping={"cluster_id": "clusterId", "instance_fleet_id": "instanceFleetId"},
 )
 class InstanceFleetConfigReference:
-    def __init__(self, *, instance_fleet_config_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        cluster_id: builtins.str,
+        instance_fleet_id: builtins.str,
+    ) -> None:
         '''A reference to a InstanceFleetConfig resource.
 
-        :param instance_fleet_config_id: The Id of the InstanceFleetConfig resource.
+        :param cluster_id: The ClusterId of the InstanceFleetConfig resource.
+        :param instance_fleet_id: The InstanceFleetId of the InstanceFleetConfig resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -467,21 +473,31 @@ class InstanceFleetConfigReference:
             from aws_cdk.interfaces import aws_emr as interfaces_emr
             
             instance_fleet_config_reference = interfaces_emr.InstanceFleetConfigReference(
-                instance_fleet_config_id="instanceFleetConfigId"
+                cluster_id="clusterId",
+                instance_fleet_id="instanceFleetId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__eab7877a2d45d234b1d3068bffb62e7ebde897f5a905ade3c3ea3d070f83dbb2)
-            check_type(argname="argument instance_fleet_config_id", value=instance_fleet_config_id, expected_type=type_hints["instance_fleet_config_id"])
+            check_type(argname="argument cluster_id", value=cluster_id, expected_type=type_hints["cluster_id"])
+            check_type(argname="argument instance_fleet_id", value=instance_fleet_id, expected_type=type_hints["instance_fleet_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_fleet_config_id": instance_fleet_config_id,
+            "cluster_id": cluster_id,
+            "instance_fleet_id": instance_fleet_id,
         }
 
     @builtins.property
-    def instance_fleet_config_id(self) -> builtins.str:
-        '''The Id of the InstanceFleetConfig resource.'''
-        result = self._values.get("instance_fleet_config_id")
-        assert result is not None, "Required property 'instance_fleet_config_id' is missing"
+    def cluster_id(self) -> builtins.str:
+        '''The ClusterId of the InstanceFleetConfig resource.'''
+        result = self._values.get("cluster_id")
+        assert result is not None, "Required property 'cluster_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instance_fleet_id(self) -> builtins.str:
+        '''The InstanceFleetId of the InstanceFleetConfig resource.'''
+        result = self._values.get("instance_fleet_id")
+        assert result is not None, "Required property 'instance_fleet_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -879,7 +895,8 @@ def _typecheckingstub__eb26faf26da6b6e132c7248c008afeda83d3b7eb2e886a3e304114ba2
 
 def _typecheckingstub__eab7877a2d45d234b1d3068bffb62e7ebde897f5a905ade3c3ea3d070f83dbb2(
     *,
-    instance_fleet_config_id: builtins.str,
+    cluster_id: builtins.str,
+    instance_fleet_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

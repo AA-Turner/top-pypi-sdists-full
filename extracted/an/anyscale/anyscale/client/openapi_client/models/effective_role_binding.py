@@ -35,8 +35,11 @@ class EffectiveRoleBinding(object):
     openapi_types = {
         'id': 'str',
         'role_id': 'str',
+        'role_name': 'str',
         'resource_type': 'RoleBindingResourceType',
         'resource_id': 'str',
+        'resource_name': 'str',
+        'parent_cloud_name': 'str',
         'origin': 'BindingOrigin',
         'created_at': 'datetime',
         'source': 'EffectiveBindingSource'
@@ -45,14 +48,17 @@ class EffectiveRoleBinding(object):
     attribute_map = {
         'id': 'id',
         'role_id': 'role_id',
+        'role_name': 'role_name',
         'resource_type': 'resource_type',
         'resource_id': 'resource_id',
+        'resource_name': 'resource_name',
+        'parent_cloud_name': 'parent_cloud_name',
         'origin': 'origin',
         'created_at': 'created_at',
         'source': 'source'
     }
 
-    def __init__(self, id=None, role_id=None, resource_type=None, resource_id=None, origin=None, created_at=None, source=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, role_id=None, role_name=None, resource_type=None, resource_id=None, resource_name=None, parent_cloud_name=None, origin=None, created_at=None, source=None, local_vars_configuration=None):  # noqa: E501
         """EffectiveRoleBinding - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -60,8 +66,11 @@ class EffectiveRoleBinding(object):
 
         self._id = None
         self._role_id = None
+        self._role_name = None
         self._resource_type = None
         self._resource_id = None
+        self._resource_name = None
+        self._parent_cloud_name = None
         self._origin = None
         self._created_at = None
         self._source = None
@@ -69,8 +78,14 @@ class EffectiveRoleBinding(object):
 
         self.id = id
         self.role_id = role_id
+        if role_name is not None:
+            self.role_name = role_name
         self.resource_type = resource_type
         self.resource_id = resource_id
+        if resource_name is not None:
+            self.resource_name = resource_name
+        if parent_cloud_name is not None:
+            self.parent_cloud_name = parent_cloud_name
         if origin is not None:
             self.origin = origin
         self.created_at = created_at
@@ -123,6 +138,29 @@ class EffectiveRoleBinding(object):
         self._role_id = role_id
 
     @property
+    def role_name(self):
+        """Gets the role_name of this EffectiveRoleBinding.  # noqa: E501
+
+        The role's name.  # noqa: E501
+
+        :return: The role_name of this EffectiveRoleBinding.  # noqa: E501
+        :rtype: str
+        """
+        return self._role_name
+
+    @role_name.setter
+    def role_name(self, role_name):
+        """Sets the role_name of this EffectiveRoleBinding.
+
+        The role's name.  # noqa: E501
+
+        :param role_name: The role_name of this EffectiveRoleBinding.  # noqa: E501
+        :type: str
+        """
+
+        self._role_name = role_name
+
+    @property
     def resource_type(self):
         """Gets the resource_type of this EffectiveRoleBinding.  # noqa: E501
 
@@ -167,6 +205,52 @@ class EffectiveRoleBinding(object):
             raise ValueError("Invalid value for `resource_id`, must not be `None`")  # noqa: E501
 
         self._resource_id = resource_id
+
+    @property
+    def resource_name(self):
+        """Gets the resource_name of this EffectiveRoleBinding.  # noqa: E501
+
+        The name of the resource the binding is held on, or its id when the name is empty. Absent when the resource is not live.  # noqa: E501
+
+        :return: The resource_name of this EffectiveRoleBinding.  # noqa: E501
+        :rtype: str
+        """
+        return self._resource_name
+
+    @resource_name.setter
+    def resource_name(self, resource_name):
+        """Sets the resource_name of this EffectiveRoleBinding.
+
+        The name of the resource the binding is held on, or its id when the name is empty. Absent when the resource is not live.  # noqa: E501
+
+        :param resource_name: The resource_name of this EffectiveRoleBinding.  # noqa: E501
+        :type: str
+        """
+
+        self._resource_name = resource_name
+
+    @property
+    def parent_cloud_name(self):
+        """Gets the parent_cloud_name of this EffectiveRoleBinding.  # noqa: E501
+
+        For a binding held on a project, the name of the cloud the project sits in, or the cloud's id when that name is empty. Absent for a project in no cloud.  # noqa: E501
+
+        :return: The parent_cloud_name of this EffectiveRoleBinding.  # noqa: E501
+        :rtype: str
+        """
+        return self._parent_cloud_name
+
+    @parent_cloud_name.setter
+    def parent_cloud_name(self, parent_cloud_name):
+        """Sets the parent_cloud_name of this EffectiveRoleBinding.
+
+        For a binding held on a project, the name of the cloud the project sits in, or the cloud's id when that name is empty. Absent for a project in no cloud.  # noqa: E501
+
+        :param parent_cloud_name: The parent_cloud_name of this EffectiveRoleBinding.  # noqa: E501
+        :type: str
+        """
+
+        self._parent_cloud_name = parent_cloud_name
 
     @property
     def origin(self):

@@ -230,7 +230,9 @@ class ConnectorRunner:
 
         if self.configured_catalog is not None:
             catalog_path = temp_dir / self.CATALOG_FILE
-            catalog_path.write_text(self.configured_catalog.json())
+            catalog_path.write_text(
+                self.configured_catalog.model_dump_json(exclude_none=True)
+            )
             catalog_path.chmod(0o666)
             self.logger.debug(f"Wrote catalog to {catalog_path}")
 

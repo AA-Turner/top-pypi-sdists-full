@@ -1,5 +1,11 @@
+from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.graph.v1 import graph_pb2 as _graph_pb2
+from chalk._gen.chalk.graph.v1 import source_file_reference_pb2 as _source_file_reference_pb2
+from chalk._gen.chalk.graph.v1 import sql_resolver_retry_policy_pb2 as _sql_resolver_retry_policy_pb2
+from chalk._gen.chalk.server.v1 import scheduled_query_run_pb2 as _scheduled_query_run_pb2
 from google.protobuf import empty_pb2 as _empty_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
@@ -139,6 +145,10 @@ class OfflineWideTableRun(_message.Message):
         "environment",
         "wide_table_config_fingerprint",
         "resource_group",
+        "fill_bytes_scanned",
+        "fill_compute_ms",
+        "hwm_probe_bytes_scanned",
+        "hwm_probe_compute_ms",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -159,6 +169,10 @@ class OfflineWideTableRun(_message.Message):
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
     WIDE_TABLE_CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    FILL_BYTES_SCANNED_FIELD_NUMBER: _ClassVar[int]
+    FILL_COMPUTE_MS_FIELD_NUMBER: _ClassVar[int]
+    HWM_PROBE_BYTES_SCANNED_FIELD_NUMBER: _ClassVar[int]
+    HWM_PROBE_COMPUTE_MS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     deployment_id: str
@@ -178,6 +192,10 @@ class OfflineWideTableRun(_message.Message):
     environment: _empty_pb2.Empty
     wide_table_config_fingerprint: int
     resource_group: str
+    fill_bytes_scanned: int
+    fill_compute_ms: int
+    hwm_probe_bytes_scanned: int
+    hwm_probe_compute_ms: int
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -199,6 +217,10 @@ class OfflineWideTableRun(_message.Message):
         environment: _Optional[_Union[_empty_pb2.Empty, _Mapping]] = ...,
         wide_table_config_fingerprint: _Optional[int] = ...,
         resource_group: _Optional[str] = ...,
+        fill_bytes_scanned: _Optional[int] = ...,
+        fill_compute_ms: _Optional[int] = ...,
+        hwm_probe_bytes_scanned: _Optional[int] = ...,
+        hwm_probe_compute_ms: _Optional[int] = ...,
     ) -> None: ...
 
 class ListOfflineWideTableRunsRequest(_message.Message):
@@ -352,18 +374,21 @@ class OfflineWideTableCompactionInfo(_message.Message):
     ) -> None: ...
 
 class OfflineWideTableNamespaceInfo(_message.Message):
-    __slots__ = ("namespace", "fill", "compaction")
+    __slots__ = ("namespace", "fill", "compaction", "control")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     FILL_FIELD_NUMBER: _ClassVar[int]
     COMPACTION_FIELD_NUMBER: _ClassVar[int]
+    CONTROL_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     fill: OfflineWideTableFillInfo
     compaction: OfflineWideTableCompactionInfo
+    control: MaterializedFeatureViewControl
     def __init__(
         self,
         namespace: _Optional[str] = ...,
         fill: _Optional[_Union[OfflineWideTableFillInfo, _Mapping]] = ...,
         compaction: _Optional[_Union[OfflineWideTableCompactionInfo, _Mapping]] = ...,
+        control: _Optional[_Union[MaterializedFeatureViewControl, _Mapping]] = ...,
     ) -> None: ...
 
 class OfflineWideTableEnvironmentMaintenanceInfo(_message.Message):
@@ -423,6 +448,43 @@ class TriggerOfflineWideTableFillResponse(_message.Message):
     run: OfflineWideTableRun
     def __init__(self, run: _Optional[_Union[OfflineWideTableRun, _Mapping]] = ...) -> None: ...
 
+class TriggerOfflineWideTableOverrideFillRequest(_message.Message):
+    __slots__ = (
+        "namespace",
+        "materialized_feature_view",
+        "inserted_at_lower_bound_exclusive",
+        "inserted_at_upper_bound_inclusive",
+        "resource_group",
+        "observed_at_upper_bound_exclusive",
+    )
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    MATERIALIZED_FEATURE_VIEW_FIELD_NUMBER: _ClassVar[int]
+    INSERTED_AT_LOWER_BOUND_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    INSERTED_AT_UPPER_BOUND_INCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    OBSERVED_AT_UPPER_BOUND_EXCLUSIVE_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    materialized_feature_view: _graph_pb2.MaterializedFeatureView
+    inserted_at_lower_bound_exclusive: _timestamp_pb2.Timestamp
+    inserted_at_upper_bound_inclusive: _timestamp_pb2.Timestamp
+    resource_group: str
+    observed_at_upper_bound_exclusive: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        materialized_feature_view: _Optional[_Union[_graph_pb2.MaterializedFeatureView, _Mapping]] = ...,
+        inserted_at_lower_bound_exclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        inserted_at_upper_bound_inclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        resource_group: _Optional[str] = ...,
+        observed_at_upper_bound_exclusive: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class TriggerOfflineWideTableOverrideFillResponse(_message.Message):
+    __slots__ = ("run",)
+    RUN_FIELD_NUMBER: _ClassVar[int]
+    run: OfflineWideTableRun
+    def __init__(self, run: _Optional[_Union[OfflineWideTableRun, _Mapping]] = ...) -> None: ...
+
 class TriggerOfflineWideTableCompactionRequest(_message.Message):
     __slots__ = ("namespace", "resource_group")
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
@@ -436,3 +498,155 @@ class TriggerOfflineWideTableCompactionResponse(_message.Message):
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
     operation_id: str
     def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+
+class MaterializedFeatureViewControl(_message.Message):
+    __slots__ = ("name", "status", "agent_id", "updated_at")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    status: _scheduled_query_run_pb2.CronControlStatus
+    agent_id: str
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
+        agent_id: _Optional[str] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateMaterializedFeatureViewControlOperation(_message.Message):
+    __slots__ = ("status",)
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    status: _scheduled_query_run_pb2.CronControlStatus
+    def __init__(self, status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...) -> None: ...
+
+class UpdateMaterializedFeatureViewControlRequest(_message.Message):
+    __slots__ = ("name", "status", "update_mask", "update")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    status: _scheduled_query_run_pb2.CronControlStatus
+    update_mask: _field_mask_pb2.FieldMask
+    update: UpdateMaterializedFeatureViewControlOperation
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        status: _Optional[_Union[_scheduled_query_run_pb2.CronControlStatus, str]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+        update: _Optional[_Union[UpdateMaterializedFeatureViewControlOperation, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateMaterializedFeatureViewControlResponse(_message.Message):
+    __slots__ = ("control",)
+    CONTROL_FIELD_NUMBER: _ClassVar[int]
+    control: MaterializedFeatureViewControl
+    def __init__(self, control: _Optional[_Union[MaterializedFeatureViewControl, _Mapping]] = ...) -> None: ...
+
+class OfflineWideTableFeatureWatermark(_message.Message):
+    __slots__ = ("config_fingerprint", "persistence_key", "filled_through", "updated_at", "feature_fqn")
+    CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
+    PERSISTENCE_KEY_FIELD_NUMBER: _ClassVar[int]
+    FILLED_THROUGH_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FQN_FIELD_NUMBER: _ClassVar[int]
+    config_fingerprint: int
+    persistence_key: str
+    filled_through: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    feature_fqn: str
+    def __init__(
+        self,
+        config_fingerprint: _Optional[int] = ...,
+        persistence_key: _Optional[str] = ...,
+        filled_through: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        feature_fqn: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetOfflineWideTableFeatureWatermarksRequest(_message.Message):
+    __slots__ = ("namespace", "config_fingerprint", "persistence_keys", "feature_fqns")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
+    PERSISTENCE_KEYS_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FQNS_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    config_fingerprint: int
+    persistence_keys: _containers.RepeatedScalarFieldContainer[str]
+    feature_fqns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        config_fingerprint: _Optional[int] = ...,
+        persistence_keys: _Optional[_Iterable[str]] = ...,
+        feature_fqns: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class GetOfflineWideTableFeatureWatermarksResponse(_message.Message):
+    __slots__ = ("watermarks",)
+    WATERMARKS_FIELD_NUMBER: _ClassVar[int]
+    watermarks: _containers.RepeatedCompositeFieldContainer[OfflineWideTableFeatureWatermark]
+    def __init__(
+        self, watermarks: _Optional[_Iterable[_Union[OfflineWideTableFeatureWatermark, _Mapping]]] = ...
+    ) -> None: ...
+
+class OfflineWideTableFeatureWatermarkUpdate(_message.Message):
+    __slots__ = ("feature_fqn", "filled_through")
+    FEATURE_FQN_FIELD_NUMBER: _ClassVar[int]
+    FILLED_THROUGH_FIELD_NUMBER: _ClassVar[int]
+    feature_fqn: str
+    filled_through: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        feature_fqn: _Optional[str] = ...,
+        filled_through: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class SetOfflineWideTableFeatureWatermarksRequest(_message.Message):
+    __slots__ = ("namespace", "config_fingerprint", "updates")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
+    UPDATES_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    config_fingerprint: int
+    updates: _containers.RepeatedCompositeFieldContainer[OfflineWideTableFeatureWatermarkUpdate]
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        config_fingerprint: _Optional[int] = ...,
+        updates: _Optional[_Iterable[_Union[OfflineWideTableFeatureWatermarkUpdate, _Mapping]]] = ...,
+    ) -> None: ...
+
+class SetOfflineWideTableFeatureWatermarksResponse(_message.Message):
+    __slots__ = ("watermarks_written",)
+    WATERMARKS_WRITTEN_FIELD_NUMBER: _ClassVar[int]
+    watermarks_written: int
+    def __init__(self, watermarks_written: _Optional[int] = ...) -> None: ...
+
+class DeleteOfflineWideTableFeatureWatermarksRequest(_message.Message):
+    __slots__ = ("namespace", "persistence_keys", "config_fingerprint", "feature_fqns")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    PERSISTENCE_KEYS_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_FQNS_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    persistence_keys: _containers.RepeatedScalarFieldContainer[str]
+    config_fingerprint: int
+    feature_fqns: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        persistence_keys: _Optional[_Iterable[str]] = ...,
+        config_fingerprint: _Optional[int] = ...,
+        feature_fqns: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class DeleteOfflineWideTableFeatureWatermarksResponse(_message.Message):
+    __slots__ = ("watermarks_deleted",)
+    WATERMARKS_DELETED_FIELD_NUMBER: _ClassVar[int]
+    watermarks_deleted: int
+    def __init__(self, watermarks_deleted: _Optional[int] = ...) -> None: ...

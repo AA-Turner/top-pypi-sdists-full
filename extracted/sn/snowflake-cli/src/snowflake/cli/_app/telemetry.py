@@ -16,10 +16,11 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import sys
 import threading
 from enum import Enum, unique
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
 
 import click
 import typer
@@ -70,6 +71,8 @@ class CLITelemetryField(Enum):
     COMMAND_AUTH_TYPE = "command_auth_type"
     COMMAND_AGENT_ENVIRONMENT = "command_agent_environment"
     COMMAND_AGENT_SESSION_ID = "command_agent_session_id"
+    COMMAND_CORTEX_CLIENT_SURFACE = "command_cortex_client_surface"
+    COMMAND_CORTEX_TERMINAL_LAUNCHER = "command_cortex_terminal_launcher"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
     CONFIG_PROVIDER_TYPE = "config_provider_type"
@@ -114,6 +117,7 @@ class CLITelemetryField(Enum):
     UPGRADE_FROM = "upgrade_from"
     UPGRADE_TO = "upgrade_to"
     UPGRADE_ROLLOUT_BUCKET = "upgrade_rollout_bucket"
+    UPGRADE_ROLLOUT_SCORE = "upgrade_rollout_score"
 
 
 class TelemetryEvent(Enum):
@@ -469,9 +473,45 @@ def _telemetry_may_open_connection() -> bool:
         return False
 
 
+_CORTEX_CLIENT_SURFACE_ENV = "CORTEX_CODE_CLIENT_SURFACE"
+_CORTEX_TERMINAL_LAUNCHER_ENV = "CORTEX_TERMINAL_LAUNCHER_SOURCE"
+_CORTEX_TELEMETRY_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+_CORTEX_TELEMETRY_TOKEN_MAX_LEN = 64
+
+
+def _sanitize_cortex_telemetry_token(raw: str) -> str:
+    """Lowercase host-set tokens. Drop non-identifiers; cap length at 64."""
+    token = raw.strip().lower()
+    if not _CORTEX_TELEMETRY_TOKEN_RE.fullmatch(token):
+        return ""
+    return token[:_CORTEX_TELEMETRY_TOKEN_MAX_LEN]
+
+
+def _get_cortex_client_surface() -> str:
+    return _sanitize_cortex_telemetry_token(
+        os.environ.get(_CORTEX_CLIENT_SURFACE_ENV, "")
+    )
+
+
+def _get_cortex_terminal_launcher() -> str:
+    return _sanitize_cortex_telemetry_token(
+        os.environ.get(_CORTEX_TERMINAL_LAUNCHER_ENV, "")
+    )
+
+
+def _is_cortex_environment() -> bool:
+    if "CORTEX_SESSION_ID" in os.environ:
+        return True
+    if _get_cortex_client_surface():
+        return True
+    if _get_cortex_terminal_launcher():
+        return True
+    return _is_env_truthy("COCO_AGENT")
+
+
 def _detect_agent_environment() -> str:
     """Detect AI coding agent based on environment variables."""
-    if "CORTEX_SESSION_ID" in os.environ:
+    if _is_cortex_environment():
         return "CORTEX"
     if _is_env_truthy("CURSOR_AGENT"):
         return "CURSOR"
@@ -483,6 +523,8 @@ def _detect_agent_environment() -> str:
         return "OPENCODE"
     if "CODEX_API_KEY" in os.environ:
         return "CODEX"
+    if _is_env_truthy("COPILOT_CLI"):
+        return "COPILOT_CLI"
     return "UNKNOWN"
 
 
@@ -575,7 +617,11 @@ class CLITelemetryClient:
         command_info: TelemetryDict | None = None,
     ) -> Dict[str, Any]:
         if command_info is None:
-            command_info = _find_command_info()
+            try:
+                command_info = _find_command_info()
+            except RuntimeError:
+                # Auto-upgrade records before Typer pushes a Click context.
+                command_info = _command_info_without_click()
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
             CLITelemetryField.INSTALLATION_SOURCE: __about__.INSTALLATION_SOURCE.value,
@@ -588,6 +634,8 @@ class CLITelemetryClient:
             CLITelemetryField.COMMAND_AUTH_TYPE: _get_auth_type(),
             CLITelemetryField.COMMAND_AGENT_ENVIRONMENT: _detect_agent_environment(),
             CLITelemetryField.COMMAND_AGENT_SESSION_ID: _get_agent_session_id(),
+            CLITelemetryField.COMMAND_CORTEX_CLIENT_SURFACE: _get_cortex_client_surface(),
+            CLITelemetryField.COMMAND_CORTEX_TERMINAL_LAUNCHER: _get_cortex_terminal_launcher(),
             CLITelemetryField.CONFIG_FEATURE_FLAGS: {
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
@@ -639,23 +687,36 @@ class CLITelemetryClient:
     def log_repl_completion(self, payload: Dict[str, Any]) -> None:
         """Queue a privacy-safe REPL completion event.
 
-        Does not need a Click context. A worker thread omits the command path
-        instead of raising ``RuntimeError`` from ``click.get_current_context``.
-        The worker only enqueues. The REPL drains on the UI thread.
+        The worker only enqueues the allowlisted payload. Assembling the full
+        record reads the shared CLI context and config; doing that on the
+        completion thread races, and ``ignore_exceptions`` then drops the
+        event. ``_drain`` enriches it on the UI thread.
         """
-        message_payload = {
-            TelemetryField.KEY_TYPE: TelemetryEvent.REPL_COMPLETION.value,
+        message = {
+            TelemetryField.KEY_TYPE.value: TelemetryEvent.REPL_COMPLETION.value,
             **payload,
         }
+        self._enqueue(message, get_time_millis())
+
+    def _enrich_repl_completion(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        """Add command and config fields. Keep ``message`` if assembly fails."""
         try:
-            command_info = _find_command_info()
-        except RuntimeError:
-            command_info = _command_info_without_click()
-        self._enqueue(
-            self.generate_telemetry_data_dict(
-                message_payload, command_info=command_info
-            ),
-            get_time_millis(),
+            try:
+                command_info = _find_command_info()
+            except Exception:
+                command_info = _command_info_without_click()
+            return self.generate_telemetry_data_dict(
+                cast(TelemetryDict, message), command_info=command_info
+            )
+        except Exception:
+            return message
+
+    @staticmethod
+    def _is_bare_repl_completion(message: Dict[str, Any]) -> bool:
+        return (
+            message.get(TelemetryField.KEY_TYPE.value)
+            == TelemetryEvent.REPL_COMPLETION.value
+            and CLITelemetryField.SOURCE.value not in message
         )
 
     def _drain(self):
@@ -675,17 +736,28 @@ class CLITelemetryClient:
         with self._lock:
             pending, self._pending = self._pending, []
         auth_type_field = CLITelemetryField.COMMAND_AUTH_TYPE.value
-        for message, timestamp in pending:
-            # An event buffered before the connection opened could not resolve the
-            # authenticator yet; fill it in now that one is available, so the field
-            # is not lost on the pre-command event.
-            if not message.get(auth_type_field):
-                message[auth_type_field] = _get_auth_type()
-            telemetry.try_add_log_to_batch(
-                TelemetryData.from_telemetry_data_dict(
-                    from_dict=message, timestamp=timestamp
+        sent = 0
+        try:
+            for message, timestamp in pending:
+                if self._is_bare_repl_completion(message):
+                    message = self._enrich_repl_completion(message)
+                # An event buffered before the connection opened could not resolve the
+                # authenticator yet; fill it in now that one is available, so the field
+                # is not lost on the pre-command event.
+                if not message.get(auth_type_field):
+                    message[auth_type_field] = _get_auth_type()
+                telemetry.try_add_log_to_batch(
+                    TelemetryData.from_telemetry_data_dict(
+                        from_dict=message, timestamp=timestamp
+                    )
                 )
-            )
+                sent += 1
+        finally:
+            # A send that raises must not drop the tail. Put it back ahead of
+            # anything enqueued while this batch was in flight.
+            if sent < len(pending):
+                with self._lock:
+                    self._pending[0:0] = pending[sent:]
 
     def _flush_upgrade_spool(
         self, telemetry, auth_type_field: str

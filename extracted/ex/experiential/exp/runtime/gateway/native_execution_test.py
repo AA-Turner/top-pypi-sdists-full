@@ -12,12 +12,12 @@ from exp.common.models.gateway_catalog import ExactModelDeployment, FailoverMode
 from exp.runtime.gateway.contracts import (
     AuthorizationSnapshot,
     DirectTarget,
-    ExecutionSnapshot,
     GatewayApiSurface,
     GatewayFailure,
     GatewayFailureClass,
     GatewayRequest,
 )
+from exp.runtime.gateway.execution_snapshot import ExecutionSnapshot
 from exp.runtime.gateway.health import DeploymentHealthKey, DeploymentHealthRegistry
 from exp.runtime.gateway.native_execution import (
     THROTTLE_BACKOFF,
@@ -141,32 +141,6 @@ def test_select_route_deployments_rejects_invalid_indexes(indexes: tuple[int, ..
     """An invalid compatibility selection cannot corrupt waterfall accounting."""
     with pytest.raises(ValueError):
         select_route_deployments(_route(), indexes)
-
-
-def test_admission_dead_failure_mirrors_runtime_circuit_classes() -> None:
-    """A dead-at-admission rung feeds the circuit like the runtime failure it mirrors."""
-    from exp.runtime.gateway.native_execution import _admission_dead_failure
-    from exp.runtime.models import ModelConnectionError
-    from exp.runtime.models.credentials import MissingModelCredentialError, ModelCredentialError
-    from exp.runtime.models.providers.errors import ProviderCapabilityError
-
-    # A missing credential opens the circuit at once, like a runtime 401.
-    for credential_error in (
-        ModelCredentialError("no key"),
-        MissingModelCredentialError("TEST_KEY", connection_id="conn"),
-    ):
-        failure = _admission_dead_failure(credential_error)
-        assert failure.failure_class == GatewayFailureClass.PROVIDER_AUTHENTICATION
-
-    # A connection or capability drift is operational, like a runtime transport failure.
-    assert (
-        _admission_dead_failure(ModelConnectionError("drifted")).failure_class
-        == GatewayFailureClass.TRANSPORT
-    )
-    assert (
-        _admission_dead_failure(ProviderCapabilityError(capability="reasoning")).failure_class
-        == GatewayFailureClass.TRANSPORT
-    )
 
 
 def test_claim_ladder_prefers_healthy_then_probe_then_forced() -> None:

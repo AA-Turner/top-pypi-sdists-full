@@ -55,6 +55,7 @@ class CloudInstanceType(_message.Message):
         "local_ssd_count",
         "local_ssd_size_gb",
         "gke_boot_disk_type",
+        "older_generation",
     )
     MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
     CPUS_FIELD_NUMBER: _ClassVar[int]
@@ -65,6 +66,7 @@ class CloudInstanceType(_message.Message):
     LOCAL_SSD_COUNT_FIELD_NUMBER: _ClassVar[int]
     LOCAL_SSD_SIZE_GB_FIELD_NUMBER: _ClassVar[int]
     GKE_BOOT_DISK_TYPE_FIELD_NUMBER: _ClassVar[int]
+    OLDER_GENERATION_FIELD_NUMBER: _ClassVar[int]
     machine_type: str
     cpus: float
     memory_gb: float
@@ -74,6 +76,7 @@ class CloudInstanceType(_message.Message):
     local_ssd_count: int
     local_ssd_size_gb: int
     gke_boot_disk_type: str
+    older_generation: bool
     def __init__(
         self,
         machine_type: _Optional[str] = ...,
@@ -85,4 +88,5 @@ class CloudInstanceType(_message.Message):
         local_ssd_count: _Optional[int] = ...,
         local_ssd_size_gb: _Optional[int] = ...,
         gke_boot_disk_type: _Optional[str] = ...,
+        older_generation: bool = ...,
     ) -> None: ...

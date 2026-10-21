@@ -18,7 +18,6 @@ from collections.abc import Sequence
 import dataclasses
 from typing import Any
 import jax
-from tokamax._src.ops.ragged_dot import base as jax_base
 from tokamax._src.ops.ragged_dot import pallas_mosaic_tpu_v2 as jax_pallas_mosaic_tpu
 from tokamax.experimental.torch_tpu.ops import torch_op
 from tokamax.experimental.torch_tpu.ops import torch_utils
@@ -62,7 +61,7 @@ class _PallasMosaicTpuRaggedDot(
     config = config_parts[0]
     assert config is not None, "Config not set."
     tile_m, tile_k, tile_n, bucket_base = (
-        None if x is None or x <= 0 else x for x in config
+        None if x <= 0 else x for x in config
     )
     return Config(
         tile_m=tile_m,
@@ -78,20 +77,13 @@ class _PallasMosaicTpuRaggedDot(
       rhs: torch.Tensor,
       group_sizes: torch.Tensor,
       ragged_dot_dimension_numbers: (
-          jax.lax.RaggedDotDimensionNumbers | Sequence[int] | None
+          torch_base.RaggedDotDimensionNumbers | Sequence[int] | None
       ) = None,
-      precision: jax.lax.PrecisionLike = None,
-      preferred_element_type: (
-          torch.dtype | jax.typing.DTypeLike | str | None
-      ) = None,
+      precision: torch_base.PrecisionLike = None,
+      preferred_element_type: torch.dtype | str | None = None,
       return_residuals: bool = False,
-      activation: jax_base.ActivationFunction | None = None,
       configs: tuple[Config | None, Config | None] | None = None,
   ) -> Any:
-    if activation is not None:
-      raise NotImplementedError(
-          "activations are not supported on Torch TPU Tokamax"
-      )
     dim_nums = torch_base.tuple_to_dim_nums(ragged_dot_dimension_numbers)
     dim_nums_tuple = torch_base.dim_nums_to_tuple(dim_nums)
     precision_str = torch_base.precision_to_str(precision)
@@ -105,7 +97,7 @@ class _PallasMosaicTpuRaggedDot(
         " in the constructor."
     )
     assert self.backward_op_torch is not None, "Backward op not set."
-    is_fwd = dim_nums == jax_base.DEFAULT_RAGGED_DOT_DIM_NUMS
+    is_fwd = dim_nums == torch_base.DEFAULT_RAGGED_DOT_DIM_NUMS
     out, residuals = self._torch_tokamax_op(
         lhs,
         rhs,
@@ -136,9 +128,9 @@ class _PallasMosaicTpuRaggedDot(
     assert self.op_impl_jax is not None, "Forward class not set."
     assert config is not None, "Config not set."
     kernel_config = self.reconstruct_config(config)
-    dim_nums = torch_base.tuple_to_dim_nums(ragged_dot_dimension_numbers)
-    canon_precision = torch_base.str_to_precision(precision)
-    preferred_element_type_dtype = torch_utils.str_to_jax_dtype(
+    dim_nums = torch_base.dim_nums_to_jax(ragged_dot_dimension_numbers)
+    canon_precision = torch_base.precision_to_jax(precision)
+    preferred_element_type_dtype = torch_utils.to_jax_dtype(
         preferred_element_type
     )
     op_impl_jax = self.op_impl_jax
@@ -200,8 +192,8 @@ class _PallasMosaicTpuRaggedDot(
     assert self.backward_op_torch is not None, "Backward op not set."
     lhs, rhs, group_sizes, _, _ = ctx.saved_tensors
 
-    dlhs_dim_nums = jax_base.TRANS_RHS_RAGGED_DOT_DIM_NUMS
-    drhs_dim_nums = jax_base.RAGGED_CONTRACTING_DOT_DIM_NUMS
+    dlhs_dim_nums = torch_base.TRANS_RHS_RAGGED_DOT_DIM_NUMS
+    drhs_dim_nums = torch_base.RAGGED_CONTRACTING_DOT_DIM_NUMS
 
     # Execute dlhs and drhs using the Pallas ragged_dot op itself (since
     # self.backward_op_torch is self), retrieving the config for each backward

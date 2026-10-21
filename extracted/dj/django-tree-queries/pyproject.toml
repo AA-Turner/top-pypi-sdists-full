@@ -12,7 +12,7 @@ license = { text = "BSD-3-Clause" }
 authors = [
   { name = "Matthias Kestenholz", email = "mk@feinheit.ch" },
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
   "Environment :: Web Environment",
   "Framework :: Django",
@@ -21,13 +21,12 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
   "Topic :: Software Development",
 ]
@@ -36,11 +35,11 @@ dynamic = [
 ]
 dependencies = []
 optional-dependencies.admin = [
-  "django-js-asset",
+  "django-js-asset>=4",
 ]
 optional-dependencies.tests = [
   "coverage",
-  "django-js-asset",
+  "django-js-asset>=4",
   "pytest",
   "pytest-cov",
   "pytest-django",
@@ -54,7 +53,7 @@ build.include = [
 ]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py310"
 preview = true
 fix = true
 show-fixes = true

@@ -40,6 +40,7 @@ from plato.utils.ecr import (
     retag_image,
     retag_image_via_chronos,
 )
+from plato.utils.pypi_index import plato_token_simple_index
 
 # (chronos_url, package_name, source_tag, target_tag, api_key) -> (ok, error)
 ChronosRetag = Callable[[str, str, str, str, str], tuple[bool, str | None]]
@@ -332,6 +333,10 @@ def publish_image(
         repo_prefix=kind.ecr_repo_prefix,
         build_args=build_args,
         no_cache=no_cache,
+        # plato-sdk-v2 is private: Dockerfiles that install the package from
+        # source resolve it from pypi-store through this BuildKit secret (a
+        # build arg would bake the API key into image history).
+        secrets={"plato_pypi_index": plato_token_simple_index("pypi-store", api_key=api_key)} if api_key else None,
     )
     if not result.success:
         console.print(f"[red]{result.error}[/red]")

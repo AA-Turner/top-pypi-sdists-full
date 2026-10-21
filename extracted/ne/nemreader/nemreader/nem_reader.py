@@ -69,6 +69,7 @@ class NEMFile:
         try:
             record_indicator = int(first_row[0])
         except Exception:
+            log.exception("Error parsing first row of file %s", file_name)
             record_indicator = 0
 
         if not first_row or record_indicator != 100:
@@ -291,7 +292,6 @@ def parse_nem12_rows(nem_list: Iterable, file_name=None) -> NEMReadings:
                     )
 
                 observed_900_records.append(row_num)
-                pass
 
             elif record_indicator == 200:
                 try:
@@ -355,7 +355,7 @@ def parse_nem12_rows(nem_list: Iterable, file_name=None) -> NEMReadings:
         except (KeyError, ValueError, AssertionError, IndexError, TypeError) as e:
             raise ValueError(f"Unable to parse line {row_num}") from e
 
-    for nmi in readings:
+    for nmi in readings:  # noqa: PLC0206
         for suffix in readings[nmi]:
             readings[nmi][suffix] = flatten_list(readings[nmi][suffix])
 
@@ -377,7 +377,7 @@ def parse_nem13_rows(nem_list: Iterable) -> NEMReadings:
         record_indicator = int(row[0])
 
         if record_indicator == 900:
-            for nmi in readings:
+            for nmi in readings:  # noqa: PLC0206
                 for suffix in readings[nmi]:
                     readings[nmi][suffix] = flatten_list(readings[nmi][suffix])
             break  # End of file
@@ -561,21 +561,26 @@ def parse_interval_records(
 ) -> list[Reading]:
     """Convert interval values into tuples with datetime"""
     interval_delta = timedelta(minutes=interval)
-    return [
-        Reading(
-            t_start=interval_date + (i * interval_delta),
-            t_end=interval_date + (i * interval_delta) + interval_delta,
-            read_value=parse_reading(val),
-            uom=uom,
-            quality_method=quality_method,
-            meter_serial_number=meter_serial_number,
-            event_code=event_code,  # This may get changed later by a 400 row
-            event_desc=event_desc,  # This may get changed later by a 400 row
-            val_start=None,
-            val_end=None,  # No before and after readings for intervals
+    readings = []
+    t_start = interval_date
+    for val in interval_record:
+        t_end = t_start + interval_delta
+        readings.append(
+            Reading(
+                t_start=t_start,
+                t_end=t_end,
+                read_value=parse_reading(val),
+                uom=uom,
+                quality_method=quality_method,
+                meter_serial_number=meter_serial_number,
+                event_code=event_code,  # This may get changed later by a 400 row
+                event_desc=event_desc,  # This may get changed later by a 400 row
+                val_start=None,
+                val_end=None,  # No before and after readings for intervals
+            )
         )
-        for i, val in enumerate(interval_record)
-    ]
+        t_start = t_end
+    return readings
 
 
 def parse_reading(val: str) -> float | None:

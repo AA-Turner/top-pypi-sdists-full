@@ -26,13 +26,19 @@ from schemathesis.core.errors import (
 from schemathesis.core.jsonschema import (
     CANONICALIZE_DRAFT_BY_VALIDATOR,
     FANCY_REGEX_OPTIONS,
+    VALIDATED_FORMATS_BY_DRAFT,
     build_validator_for,
-    compile_ecma_pattern,
     make_validator,
     make_validator_for,
     matches_pattern,
 )
-from schemathesis.core.jsonschema.patterns import normalize_regex, pattern_length_bounds, update_quantifier
+from schemathesis.core.jsonschema.patterns import (
+    anchor_end_of_string,
+    compile_ecma_pattern,
+    normalize_regex,
+    pattern_length_bounds,
+    update_quantifier,
+)
 from schemathesis.core.output import truncate_json
 from schemathesis.core.transforms import deepclone
 from schemathesis.core.validation import has_surrounding_whitespace
@@ -71,7 +77,7 @@ def _compiled_pattern(pattern: str) -> re.Pattern[str] | None:
         return None
     # No `re.ASCII`: the translation spells properties out as ranges, and the flag would refuse every
     # non-ASCII one of them. The translation only comes back once it has compiled, so this cannot fail.
-    return re.compile(translated)
+    return re.compile(anchor_end_of_string(translated))
 
 
 def _countable(bound: int | None) -> int | None:
@@ -455,7 +461,7 @@ def _array(
     # `st.lists` refuses either bound over an element strategy drawing nothing, so the bounds are
     # answered here instead. Skipped while a pointer target is still being built, where `is_empty`
     # would force a strategy that is not there yet.
-    if kwargs and not ctx.pending and element.is_empty:
+    if kwargs and not ctx.building_cycle and element.is_empty:
         # No position can be filled, so the empty array is the only value the bounds may allow.
         return st.nothing() if kwargs.get("min_size") else st.builds(list)
     if all_distinct:
@@ -612,7 +618,7 @@ def _from_layout(
     if layout.entries:
         parts.append(st.tuples(*[from_schema(entry, ctx) for entry in layout.entries]))
     parts.extend(
-        _repeated(placement, unique=all_distinct)
+        _repeated(placement, ctx, unique=all_distinct)
         for placement in layout.placements
         if placement.placed or placement.slack
     )
@@ -833,13 +839,14 @@ def _narrowed(
     return schema
 
 
-def _repeated(placement: _Placement, *, unique: bool) -> SearchStrategy[list[JsonValue]]:
+def _repeated(placement: _Placement, ctx: StrategyContext, *, unique: bool) -> SearchStrategy[list[JsonValue]]:
     """One demand's matches, drawn together rather than as a strategy per position."""
     element = placement.demand.element
     # A placement only ever takes positions the demand can fill; `_laid_out` gives up otherwise.
     assert element is not None
     count = placement.placed
-    if element.is_empty:
+    # Skipped while a pointer target is still being built, where `is_empty` would force a strategy that is not there yet.
+    if not ctx.building_cycle and element.is_empty:
         # A contradiction canonicalization could not see: nothing meets the demand, so no array clears
         # the schema this way. Other layouts, and the schema's other branches, may still.
         return st.nothing()
@@ -1553,6 +1560,16 @@ def _admitted_strings(view: jsonschema_rs.canonical.StringView, ctx: StrategyCon
     # A name with no generator behind it is an annotation and leaves the strings unconstrained.
     known = [name for name in view.formats if name in ctx.formats]
     if known:
+        drivers = [pattern for pattern in view.patterns if _compiled_pattern(pattern) is not None]
+        sources = [source for name in known if (source := _format_source(name, view, ctx)) is not None]
+        # A pattern stricter than the format admits few generator values, so it drives when they miss; only a
+        # format the facet check asserts can vouch for what the pattern draws.
+        if drivers and sources and all(name in _CHECKED_FORMATS for name in known):
+            return _format_or_pattern(
+                st.one_of(sources),
+                _string_check(known, view),
+                st.one_of([_pattern_formatted(pattern, known, view, ctx) for pattern in drivers]),
+            )
         # One generator drives, the rest filter; which pair flows depends on the value, so every
         # driver gets a branch and the dead ones reject their draws.
         return st.one_of([_formatted(name, [other for other in known if other != name], view, ctx) for name in known])
@@ -1676,13 +1693,10 @@ def _pattern_driven(
     # spelled into the pattern, it is drawn to.
     folded = update_quantifier(compiled.pattern, view.min_length, view.max_length)
     if folded != compiled.pattern:
-        compiled = re.compile(folded, compiled.flags)
+        compiled = _compiled_pattern(folded)
+        assert compiled is not None
     # Python `re` reads the pattern differently from the validator, so the validator decides what the draw is worth.
     strategy = _from_pattern(compiled, ctx).filter(_facet_check("pattern", pattern))
-    if "$" in pattern:
-        # Python also matches `$` before a trailing newline, where the validator means end of string;
-        # telling literal `$`s apart costs more than dropping the newline-terminated values.
-        strategy = strategy.filter(lambda value: not value.endswith("\n"))
     for other in others:
         strategy = strategy.filter(_facet_check("pattern", other))
     # Length is normally folded into the pattern upstream; this filter is the soundness net.
@@ -1704,6 +1718,47 @@ def _pattern_joined(
     for pattern in view.patterns:
         strategy = strategy.filter(_facet_check("pattern", pattern))
     return _within_length(strategy, view)
+
+
+_CHECKED_FORMATS = VALIDATED_FORMATS_BY_DRAFT[jsonschema_rs.Draft202012Validator]
+# As many tries as a filtered format value gets before its draw is rejected.
+_FORMAT_ATTEMPTS = 3
+
+
+@st.composite  # type: ignore[untyped-decorator]
+def _format_or_pattern(
+    draw: st.DrawFn,
+    formatted: SearchStrategy[JsonValue],
+    admits: Callable[[JsonValue], bool],
+    pattern_driven: SearchStrategy[JsonValue],
+) -> JsonValue:
+    """A format value when one meets every facet within a few tries, a pattern-driven one otherwise."""
+    # A loose pattern admits most format values, a strict one nearly none; falling back rather than
+    # splitting draws between the two keeps the dead side from rejecting its share of them.
+    for _ in range(_FORMAT_ATTEMPTS):
+        value = draw(formatted)
+        if admits(value):
+            return value
+    return draw(pattern_driven)
+
+
+def _string_check(formats: list[str], view: jsonschema_rs.canonical.StringView) -> Callable[[JsonValue], bool]:
+    checks = [_facet_check("format", name) for name in formats]
+    checks.extend(_facet_check("pattern", pattern) for pattern in view.patterns)
+    within = _length_check(view)
+    if within is not None:
+        checks.append(within)
+    return lambda value: all(check(value) for check in checks)
+
+
+def _pattern_formatted(
+    pattern: str, formats: list[str], view: jsonschema_rs.canonical.StringView, ctx: StrategyContext
+) -> SearchStrategy[JsonValue]:
+    """Values drawn from one pattern and filtered by the remaining patterns and every format."""
+    strategy = _pattern_driven(pattern, [other for other in view.patterns if other != pattern], view, ctx)
+    for name in formats:
+        strategy = strategy.filter(_facet_check("format", name))
+    return strategy
 
 
 def _formatted(
@@ -1763,18 +1818,25 @@ def _facet_check(keyword: str, value: str) -> Callable[[JsonValue], bool]:
 def _within_length(
     strategy: SearchStrategy[JsonValue], view: jsonschema_rs.canonical.StringView
 ) -> SearchStrategy[JsonValue]:
-    if view.min_length is None and view.max_length is None:
+    check = _length_check(view)
+    if check is None:
         return strategy
+    return strategy.filter(check)
+
+
+def _length_check(view: jsonschema_rs.canonical.StringView) -> Callable[[JsonValue], bool] | None:
+    if view.min_length is None and view.max_length is None:
+        return None
     low = view.min_length or 0
     high = math.inf if view.max_length is None else view.max_length
-    # A binary payload spells its bytes outside the string, so its byte count is the length.
-    return strategy.filter(
-        lambda value: (
-            low <= len(value.data) <= high
-            if isinstance(value, Binary)
-            else contains_binary(value) or low <= len(value) <= high
-        )
-    )
+
+    def check(value: JsonValue) -> bool:
+        # A binary payload spells its bytes outside the string, so its byte count is the length.
+        if isinstance(value, Binary):
+            return low <= len(value.data) <= high
+        return contains_binary(value) or low <= len(cast("str", value)) <= high
+
+    return check
 
 
 def _anything(ctx: StrategyContext) -> SearchStrategy[JsonValue]:

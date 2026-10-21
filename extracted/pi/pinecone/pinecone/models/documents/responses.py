@@ -23,6 +23,8 @@ __all__ = [
     "DocumentFetchUsage",
     "DocumentListUsage",
     "DocumentSearchUsage",
+    "DocumentUpdateUsage",
+    "DocumentUpsertUsage",
     "FetchDocumentsResponse",
     "ListDocumentsResponse",
     "ListedDocumentRecord",
@@ -37,9 +39,13 @@ class DocumentSearchUsage(Struct, kw_only=True, gc=False):
 
     Attributes:
         read_units: Read units this call consumed.
+        embed_total_tokens: Tokens Pinecone embedded for the query text of an
+            ``embed`` or ``sparse_embed`` clause, or ``None`` when the search embedded no
+            text or the server did not report it.
     """
 
     read_units: int
+    embed_total_tokens: int | None = None
 
 
 class DocumentFetchUsage(Struct, kw_only=True, gc=False):
@@ -62,16 +68,43 @@ class DocumentListUsage(Struct, kw_only=True, gc=False):
     read_units: int
 
 
+class DocumentUpsertUsage(Struct, kw_only=True, gc=False):
+    """What one document upsert cost in embedding.
+
+    Attributes:
+        embed_total_tokens: Tokens Pinecone embedded for the ``embed`` and
+            ``sparse_embed`` fields of the upserted documents, summed across every
+            field and model.
+    """
+
+    embed_total_tokens: int
+
+
+class DocumentUpdateUsage(Struct, kw_only=True, gc=False):
+    """What one document update cost in embedding.
+
+    Attributes:
+        embed_total_tokens: Tokens Pinecone embedded for the ``embed`` and
+            ``sparse_embed`` fields the update set, summed across every field and
+            model.
+    """
+
+    embed_total_tokens: int
+
+
 class UpsertDocumentsResponse(Struct, kw_only=True):
     """What a document upsert wrote.
 
     Attributes:
         upserted_count: Documents the server accepted.
+        usage: What the upsert cost in embedding, or ``None`` when Pinecone embedded
+            no text for it.
         response_info: HTTP response metadata (request ID and LSN headers), or ``None``
             when not present.
     """
 
     upserted_count: int
+    usage: DocumentUpsertUsage | None = None
     response_info: ResponseInfo | None = None
 
 
@@ -104,11 +137,14 @@ class UpdateDocumentsResponse(Struct, kw_only=True):
             not be read in time. The patch is applied asynchronously, so
             this is a point-in-time count rather than a guarantee of the
             number of documents ultimately patched.
+        usage: What the update cost in embedding, or ``None`` when Pinecone
+            embedded no text for it.
         response_info: HTTP response metadata (request ID and LSN headers),
             or ``None`` when not present.
     """
 
     matched_records: int | None = None
+    usage: DocumentUpdateUsage | None = None
     response_info: ResponseInfo | None = None
 
 
@@ -155,7 +191,8 @@ class ListDocumentsResponse(Struct, kw_only=True):
             when not present.
 
     .. seealso::
-       :doc:`/guides/pagination` — which pagination shape applies where, and the
+       `Pagination <https://sdk.pinecone.io/python/guides/pagination.html>`__
+       — which pagination shape applies where, and the
        paginator that saves you writing the loop.
     """
 
@@ -237,7 +274,10 @@ class SearchDocumentsResponse:
             matches=[Document(match) for match in data.get("matches", [])],
             namespace=data.get("namespace", ""),
             usage=(
-                DocumentSearchUsage(read_units=raw_usage["read_units"])
+                DocumentSearchUsage(
+                    read_units=raw_usage["read_units"],
+                    embed_total_tokens=raw_usage.get("embed_total_tokens"),
+                )
                 if raw_usage is not None
                 else None
             ),
@@ -255,7 +295,10 @@ class SearchDocumentsResponse:
             "namespace": self.namespace,
         }
         if self.usage is not None:
-            result["usage"] = {"read_units": self.usage.read_units}
+            usage: dict[str, Any] = {"read_units": self.usage.read_units}
+            if self.usage.embed_total_tokens is not None:
+                usage["embed_total_tokens"] = self.usage.embed_total_tokens
+            result["usage"] = usage
         return result
 
     def __eq__(self, other: object) -> bool:
@@ -281,6 +324,8 @@ class SearchDocumentsResponse:
         ]
         if self.usage is not None:
             rows.append(("Read Units:", self.usage.read_units))
+            if self.usage.embed_total_tokens is not None:
+                rows.append(("Embed Tokens:", self.usage.embed_total_tokens))
         return render_table("SearchDocumentsResponse", rows)
 
 

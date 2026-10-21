@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: django-auth-ldap
-Version: 5.3.0
+Version: 5.4.0
 Summary: Django LDAP authentication backend
 Author-email: Peter Sagerson <psagers@ignorare.net>
 Maintainer-email: François Freitag <mail@franek.fr>
-License: BSD
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/django-auth-ldap/django-auth-ldap
 Project-URL: Documentation, https://django-auth-ldap.readthedocs.io/
 Project-URL: Source, https://github.com/django-auth-ldap/django-auth-ldap
@@ -13,27 +13,26 @@ Project-URL: Changelog, https://github.com/django-auth-ldap/django-auth-ldap/rel
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Systems Administration :: Authentication/Directory :: LDAP
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django>=4.2
+Requires-Dist: Django>=5.2
 Requires-Dist: python-ldap>=3.1
 Dynamic: license-file
 

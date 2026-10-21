@@ -25,6 +25,7 @@ from . import (
     _feature_edges,
     _find_interface,
     _fit_primitives,
+    _generate,
     _grid_transfer,
     _guard,
     _hausdorff,
@@ -34,6 +35,7 @@ from . import (
     _isosurface,
     _merge,
     _normals,
+    _octree,
     _optimize_volume,
     _partition,
     _periodic,
@@ -182,7 +184,8 @@ def main(argv=None):
 
     parser = subparsers.add_parser(
         "to-cad",
-        help="Fitted patches as a STEP solid with analytic faces (needs OpenCASCADE)",
+        help="Fitted patches as a STEP solid with analytic, freeform, fillet and thread "
+        "faces (analytic only without OpenCASCADE)",
     )
     _to_cad.add_args(parser)
     parser.set_defaults(func=_to_cad.to_cad_cmd)
@@ -312,11 +315,26 @@ def main(argv=None):
     parser.set_defaults(func=_isosurface.isosurface_cmd)
 
     parser = subparsers.add_parser(
+        "generate",
+        help="Build a mesh from parameters: rectangle, box, disk, spheres, cylinder, "
+        "reference cells",
+    )
+    _generate.add_args(parser)
+    parser.set_defaults(func=_generate.generate_cmd)
+
+    parser = subparsers.add_parser(
         "voxelize",
         help="Regular hexahedron grid around a mesh (whole box / surface / interior)",
     )
     _voxelize.add_args(parser)
     parser.set_defaults(func=_voxelize.voxelize_cmd)
+
+    parser = subparsers.add_parser(
+        "octree",
+        help="Octree / quadtree around a skin, fine only where the skin is",
+    )
+    _octree.add_args(parser)
+    parser.set_defaults(func=_octree.octree_cmd)
 
     parser = subparsers.add_parser(
         "grid-sample",

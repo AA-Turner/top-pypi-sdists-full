@@ -40,7 +40,7 @@ from matrx_graph.types.primitives import ActionTier, NodeCategory
 from matrx_graph.types.result import NodeResult, success
 from pydantic import ConfigDict, Field
 
-from matrx_ai._ext import has_ext
+from matrx_ai._ext import get_ext, has_ext
 from matrx_ai.graph_nodes.agent_action import (
     _AGENT_RESULT_BOOKKEEPING,
     _AGENT_RESULT_QUORUM,
@@ -116,6 +116,29 @@ def agent_variables_outside_provision(inputs: MandateStartInput) -> list[str]:
     names = sorted(extras)
     names += sorted(f"variables.{k}" for k in (inputs.variables or {}))
     return names
+
+
+def drop_state_echoes(inputs: MandateStartInput) -> MandateStartInput:
+    """The step without top-level copies of the state it already hands over (defect 75, 2026-10-20).
+
+    The graph engine hands an ENTRY node the run's input as its own top-level fields, so a Run
+    Mandate step that starts a workflow and hands that same input over as ``provision_values``
+    (``{"$input": name}``) also received every value a second time, by name. Those copies are not
+    values fed outside the state — they ARE the state: counting them refused a correct step
+    (``mandate_unresolved``, PB-02 R3), and before the refusal they rode to the doer beside the
+    binding (``insurance_policy`` included). A top-level field is an echo only when the state
+    carries the SAME name with the SAME value; anything else is still refused below."""
+    state = inputs.provision_values
+    extras = dict(inputs.model_extra or {})
+    if not state or not extras:
+        return inputs
+    echoes = {k for k, v in extras.items() if k in state and state[k] == v}
+    if not echoes:
+        return inputs
+    kept = {k: v for k, v in extras.items() if k not in echoes}
+    return MandateStartInput.model_validate(
+        {**inputs.model_dump(exclude=set(extras), exclude_none=True), **kept}
+    )
 
 
 def refuse_agent_variables_outside_provision(inputs: MandateStartInput, node_id: str) -> None:
@@ -213,16 +236,55 @@ async def mandate_start(
             "inputs": inputs.model_copy(),
             "config": config.model_copy() if config is not None else None,
         },
-        lambda: _mandate_start_body(ctx, inputs, config),
+        lambda: _mandate_start_recorded(ctx, inputs, config),
     )
+
+
+async def _mandate_start_recorded(
+    ctx: NodeExecutionContext,
+    inputs: MandateStartInput,
+    config: AgentStartConfig | None,
+) -> NodeResult[AiExecutionResult]:
+    """EVERY FAILURE LEAVES A RECORD (defect 76, 2026-10-20). A step that fails before its Holder
+    starts (a refused input, an unresolved mandate, a binding that cannot apply) kept no
+    conversation and no request — the person had only a red step. The host's
+    ``mandate_step_failure_recorder`` keeps the run's mandate record with the failure; a failure
+    after the Holder started is the Holder run's own record. Never changes the step's outcome."""
+    progress = {"holder_started": False}
+    try:
+        return await _mandate_start_body(ctx, inputs, config, progress)
+    except Exception as exc:
+        from matrx_graph.errors import GraphInterrupt
+
+        if not progress["holder_started"] and not isinstance(exc, GraphInterrupt):
+            await _record_step_failure(ctx, inputs.mandate_key, exc)
+        raise
+
+
+async def _record_step_failure(ctx: NodeExecutionContext, mandate_key: str, exc: BaseException) -> None:
+    if not has_ext("mandate_step_failure_recorder"):
+        logger.warning("[mandate step] %s failed and the host keeps no failure record: %s", mandate_key, exc)
+        return
+    try:
+        await get_ext("mandate_step_failure_recorder")(
+            mandate_key=mandate_key,
+            error=exc,
+            workflow_run_id=str(getattr(ctx, "run_id", "") or "") or None,
+            node_id=getattr(ctx, "node_id", None),
+        )
+    except Exception:  # noqa: BLE001 — a record never changes the step's outcome
+        logger.exception("[mandate step] %s: the failure record could not be written", mandate_key)
 
 
 async def _mandate_start_body(
     ctx: NodeExecutionContext,
     inputs: MandateStartInput,
     config: AgentStartConfig | None,
+    progress: dict[str, bool] | None = None,
 ) -> NodeResult[AiExecutionResult]:
+    progress = progress if progress is not None else {}
     node_id = getattr(ctx, "node_id", None) or "?"
+    inputs = drop_state_echoes(inputs)
     refuse_agent_variables_outside_provision(inputs, node_id)
     resolved = await resolve_step_agent_full(
         inputs,
@@ -233,6 +295,7 @@ async def _mandate_start_body(
     )
     declared_variables = list(getattr(config, "exposed_variables", None) or [])
     if isinstance(resolved, StepWorkflowMandate):
+        progress["holder_started"] = True
         return await _run_workflow_held_mandate(
             ctx, _state_as_extras(inputs), resolved, declared_variables=declared_variables
         )
@@ -264,6 +327,7 @@ async def _mandate_start_body(
     if replayed is not None:
         return success(AiExecutionResult.model_validate(replayed))
 
+    progress["holder_started"] = True
     completed = await run_step_agent(
         ctx,
         resolved.agent_id,

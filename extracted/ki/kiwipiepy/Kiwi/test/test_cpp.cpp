@@ -212,6 +212,17 @@ TEST(KiwiCpp, InitClose)
 	Kiwi& kiwi = reuseKiwiInstance();
 }
 
+TEST(KiwiCpp, ZeroTopN)
+{
+	Kiwi& kiwi = reuseKiwiInstance();
+	EXPECT_THROW(kiwi.analyze(u"짧은 문장", 0, Match::allWithNormalizing), std::invalid_argument);
+	EXPECT_THROW(kiwi.analyze(0, []() { return std::u16string{ u"짧은 문장" }; }, [](std::vector<TokenResult>&&) {}, Match::allWithNormalizing), std::invalid_argument);
+
+	Kiwi pooled = KiwiBuilder{ MODEL_PATH, 1, BuildOption::default_, ModelType::none }.build();
+	EXPECT_THROW(pooled.asyncAnalyze(u"짧은 문장", 0, Match::allWithNormalizing).get(), std::invalid_argument);
+	EXPECT_THROW(pooled.analyze(0, []() { return std::u16string{ u"짧은 문장" }; }, [](std::vector<TokenResult>&&) {}, Match::allWithNormalizing), std::invalid_argument);
+}
+
 TEST(KiwiCpp, EmptyResult)
 {
 	Kiwi& kiwi = reuseKiwiInstance();
@@ -2136,6 +2147,66 @@ TEST(KiwiCpp, JoinRestore)
 	}
 }
 
+TEST(KiwiCpp, IssueP220)
+{
+	Kiwi& kiwi = reuseKiwiInstance();
+
+	// 여는 괄호 뒤, 닫는 괄호 뒤에는 오른쪽이 무엇이든 공백을 넣지 않는다.
+	auto joiner = kiwi.newJoiner();
+	joiner.add(u"(", POSTag::sso);
+	joiner.add(u"mike", POSTag::sl);
+	joiner.add(u")", POSTag::ssc);
+	EXPECT_EQ(joiner.getU16(), u"(mike)");
+
+	joiner = kiwi.newJoiner();
+	joiner.add(u"(", POSTag::sso);
+	joiner.add(u"1", POSTag::sn);
+	joiner.add(u")", POSTag::ssc);
+	EXPECT_EQ(joiner.getU16(), u"(1)");
+
+	// 숫자 뒤에 오는 기호에는 공백을 넣지 않는다.
+	joiner = kiwi.newJoiner();
+	joiner.add(u"9", POSTag::sn);
+	joiner.add(u"%", POSTag::sw);
+	joiner.add(u"씩", POSTag::mag);
+	EXPECT_EQ(joiner.getU16(), u"9%씩");
+
+	joiner = kiwi.newJoiner();
+	joiner.add(u"30", POSTag::sn);
+	joiner.add(u"℃", POSTag::sw);
+	joiner.add(u"까지", POSTag::jx);
+	EXPECT_EQ(joiner.getU16(), u"30℃까지");
+
+	// 여는 괄호 앞과 한글 뒤 기호 앞의 공백은 그대로 유지된다.
+	joiner = kiwi.newJoiner();
+	joiner.add(u"mike", POSTag::sl);
+	joiner.add(u"(", POSTag::sso);
+	joiner.add(u"a", POSTag::sl);
+	joiner.add(u")", POSTag::ssc);
+	EXPECT_EQ(joiner.getU16(), u"mike (a)");
+
+	joiner = kiwi.newJoiner();
+	joiner.add(u"사과", POSTag::nng);
+	joiner.add(u"%", POSTag::sw);
+	EXPECT_EQ(joiner.getU16(), u"사과 %");
+
+	// 분석 결과를 형태와 품사만으로 다시 이었을 때 원문이 복원되어야 한다.
+	for (auto c : {
+		u8"9%씩 올랐다.",
+		u8"(mike)에게 물었다.",
+		u8"30℃까지 오른다.",
+		})
+	{
+		auto tokens = kiwi.analyze(c, Match::allWithNormalizing).first;
+		auto j = kiwi.newJoiner();
+		for (auto& t : tokens)
+		{
+			j.add(t.str, t.tag, false);
+		}
+		EXPECT_EQ(j.getU8(), c);
+	}
+}
+
 TEST(KiwiCpp, JoinZSiot)
 {
 	Kiwi& kiwi = reuseKiwiInstance();
@@ -2181,6 +2252,46 @@ TEST(KiwiCpp, IssueP172_LengthError)
 	Kiwi& kiwi = reuseKiwiInstance();
 	auto res = kiwi.analyze(text, Match::allWithNormalizing).first;
 	EXPECT_GT(res.size(), 0);
+}
+
+TEST(KiwiCpp, LongChunkOver65536)
+{
+	// 공백 없이 라틴 문자와 기호가 이어진 덩어리가 65536자를 넘으면 KGraphNode의 위치가 16비트로 잘려 크래시가 났다.
+	Kiwi& kiwi = reuseKiwiInstance();
+	for (auto p : { std::make_pair(127, 512), std::make_pair(100, 700) })
+	{
+		std::u16string text;
+		for (int i = 0; i < p.second; ++i)
+		{
+			text += std::u16string(p.first, u'A');
+			text += u"#";
+		}
+		auto res = kiwi.analyze(text, Match::allWithNormalizing).first;
+		ASSERT_GT(res.size(), 0);
+		EXPECT_EQ(res.back().position + res.back().length, text.size());
+	}
+}
+
+TEST(KiwiCpp, UnicodeLineSeparatorsAsSpace)
+{
+	// Test for Unicode white space characters: U+0085, U+2028, U+2029
+	Kiwi& kiwi = reuseKiwiInstance();
+	auto ref = kiwi.analyze(u"사시도이다. 발명", Match::allWithNormalizing).first;
+	for (auto sep : { u"\u0085", u" ", u" " })
+	{
+		std::u16string text = u"사시도이다.";
+		text += sep;
+		text += u"발명";
+		auto res = kiwi.analyze(text, Match::allWithNormalizing).first;
+		ASSERT_EQ(res.size(), ref.size());
+		for (size_t i = 0; i < res.size(); ++i)
+		{
+			EXPECT_EQ(res[i].str, ref[i].str);
+			EXPECT_EQ(res[i].tag, ref[i].tag);
+			EXPECT_NE(res[i].tag, POSTag::sw);
+		}
+		EXPECT_EQ(res.back().position, 7);
+	}
 }
 
 TEST(KiwiCpp, IssueP189)

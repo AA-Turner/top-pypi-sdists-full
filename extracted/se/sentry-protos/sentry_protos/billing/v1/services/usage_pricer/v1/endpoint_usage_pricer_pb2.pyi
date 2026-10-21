@@ -9,7 +9,10 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
+import sentry_protos.billing.v1.common.v1.line_item_details_pb2
+import sentry_protos.billing.v1.services.usage.v1.endpoint_usage_by_project_pb2
 import sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2
+import sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_get_daily_breakdown_pb2
 import sentry_protos.billing.v1.sku_pb2
 import typing
 
@@ -48,6 +51,7 @@ class GetPriceForContractRequest(google.protobuf.message.Message):
     SIMULATED_USAGE_FIELD_NUMBER: builtins.int
     OVERRIDE_PACKAGE_UID_FIELD_NUMBER: builtins.int
     OVERRIDE_MONTH_INTERVAL_FIELD_NUMBER: builtins.int
+    USAGE_BY_PROJECT_FIELD_NUMBER: builtins.int
     contract_id: builtins.int
     override_package_uid: builtins.str
     """When set, price the contract's usage against this package's rate card instead
@@ -67,6 +71,12 @@ class GetPriceForContractRequest(google.protobuf.message.Message):
         pre-constructed usage data to simulate what the priced usage would be
         """
 
+    @property
+    def usage_by_project(self) -> sentry_protos.billing.v1.services.usage.v1.endpoint_usage_by_project_pb2.GetUsageByProjectResponse:
+        """Per-project usage for the same window as the priced usage. When set,
+        the response's ``project_daily_breakdowns`` is populated from it.
+        """
+
     def __init__(
         self,
         *,
@@ -75,15 +85,18 @@ class GetPriceForContractRequest(google.protobuf.message.Message):
         simulated_usage: sentry_protos.billing.v1.services.usage.v1.endpoint_usage_pb2.GetUsageResponse | None = ...,
         override_package_uid: builtins.str | None = ...,
         override_month_interval: builtins.int | None = ...,
+        usage_by_project: sentry_protos.billing.v1.services.usage.v1.endpoint_usage_by_project_pb2.GetUsageByProjectResponse | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "_simulated_usage", b"_simulated_usage", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "_simulated_usage", b"_simulated_usage", "contract_id", b"contract_id", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid", "simulated_usage", b"simulated_usage", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "_simulated_usage", b"_simulated_usage", "_usage_by_project", b"_usage_by_project", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid", "simulated_usage", b"simulated_usage", "usage_by_project", b"usage_by_project", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_override_month_interval", b"_override_month_interval", "_override_package_uid", b"_override_package_uid", "_simulated_usage", b"_simulated_usage", "_usage_by_project", b"_usage_by_project", "contract_id", b"contract_id", "override_month_interval", b"override_month_interval", "override_package_uid", b"override_package_uid", "simulated_usage", b"simulated_usage", "usage_by_project", b"usage_by_project", "usage_start_watermark_ts", b"usage_start_watermark_ts"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_override_month_interval", b"_override_month_interval"]) -> typing.Literal["override_month_interval"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_override_package_uid", b"_override_package_uid"]) -> typing.Literal["override_package_uid"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_simulated_usage", b"_simulated_usage"]) -> typing.Literal["simulated_usage"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_usage_by_project", b"_usage_by_project"]) -> typing.Literal["usage_by_project"] | None: ...
 
 global___GetPriceForContractRequest = GetPriceForContractRequest
 
@@ -235,6 +248,29 @@ class SharedLineItemUsageSummary(google.protobuf.message.Message):
 global___SharedLineItemUsageSummary = SharedLineItemUsageSummary
 
 @typing.final
+class ProjectDailyBreakdown(google.protobuf.message.Message):
+    """One project's per-day outcomes. Only days and line items with usage
+    are present; anything missing had no usage.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    PROJECT_ID_FIELD_NUMBER: builtins.int
+    DAYS_FIELD_NUMBER: builtins.int
+    project_id: builtins.int
+    @property
+    def days(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_get_daily_breakdown_pb2.DailyLineItemOutcomes]: ...
+    def __init__(
+        self,
+        *,
+        project_id: builtins.int = ...,
+        days: collections.abc.Iterable[sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_get_daily_breakdown_pb2.DailyLineItemOutcomes] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["days", b"days", "project_id", b"project_id"]) -> None: ...
+
+global___ProjectDailyBreakdown = ProjectDailyBreakdown
+
+@typing.final
 class UsagePricerResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -243,6 +279,9 @@ class UsagePricerResponse(google.protobuf.message.Message):
     LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
     SHARED_LINE_ITEM_SUMMARIES_FIELD_NUMBER: builtins.int
     LAST_USAGE_TS_FIELD_NUMBER: builtins.int
+    DAILY_BREAKDOWN_FIELD_NUMBER: builtins.int
+    LINE_ITEMS_FIELD_NUMBER: builtins.int
+    PROJECT_DAILY_BREAKDOWNS_FIELD_NUMBER: builtins.int
     @property
     def sku_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SKUUsageSummary]:
         """use line_item_summaries"""
@@ -257,6 +296,27 @@ class UsagePricerResponse(google.protobuf.message.Message):
     def shared_line_item_summaries(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SharedLineItemUsageSummary]: ...
     @property
     def last_usage_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def daily_breakdown(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_get_daily_breakdown_pb2.DailyLineItemOutcomes]:
+        """Raw (pre-grant) per-day outcomes for every metered line item, one
+        entry per day of the contract's on-demand period, as evaluated
+        while pricing. Matches ``GetDailyBreakdownResponse.days`` for the
+        same usage.
+        """
+
+    @property
+    def line_items(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails]:
+        """Details (name, units, ...) of every line item in ``daily_breakdown``
+        and ``project_daily_breakdowns``, so the breakdowns can be rendered
+        without resolving the package.
+        """
+
+    @property
+    def project_daily_breakdowns(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___ProjectDailyBreakdown]:
+        """Per-project equivalent of ``daily_breakdown``, evaluated from the
+        request's ``usage_by_project``. Empty when that was not provided.
+        """
+
     def __init__(
         self,
         *,
@@ -265,8 +325,11 @@ class UsagePricerResponse(google.protobuf.message.Message):
         line_item_summaries: collections.abc.Iterable[global___LineItemUsageSummary] | None = ...,
         shared_line_item_summaries: collections.abc.Iterable[global___SharedLineItemUsageSummary] | None = ...,
         last_usage_ts: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        daily_breakdown: collections.abc.Iterable[sentry_protos.billing.v1.services.usage_pricer.v1.endpoint_get_daily_breakdown_pb2.DailyLineItemOutcomes] | None = ...,
+        line_items: collections.abc.Iterable[sentry_protos.billing.v1.common.v1.line_item_details_pb2.LineItemDetails] | None = ...,
+        project_daily_breakdowns: collections.abc.Iterable[global___ProjectDailyBreakdown] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["last_usage_ts", b"last_usage_ts"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["last_usage_ts", b"last_usage_ts", "line_item_summaries", b"line_item_summaries", "shared_budget_summaries", b"shared_budget_summaries", "shared_line_item_summaries", b"shared_line_item_summaries", "sku_summaries", b"sku_summaries"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["daily_breakdown", b"daily_breakdown", "last_usage_ts", b"last_usage_ts", "line_item_summaries", b"line_item_summaries", "line_items", b"line_items", "project_daily_breakdowns", b"project_daily_breakdowns", "shared_budget_summaries", b"shared_budget_summaries", "shared_line_item_summaries", b"shared_line_item_summaries", "sku_summaries", b"sku_summaries"]) -> None: ...
 
 global___UsagePricerResponse = UsagePricerResponse

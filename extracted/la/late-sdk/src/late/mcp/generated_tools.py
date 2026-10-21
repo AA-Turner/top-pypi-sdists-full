@@ -646,7 +646,8 @@ def register_generated_tools(mcp, _get_client):
         platform: str | None = None,
         status: Literal["connected", "disconnected"] | None = None,
         search: str | None = None,
-        category: Literal["social", "ads", "communication", "blogs"] | None = None,
+        category: Literal["social", "ads", "communication", "blogs", "crm"]
+        | None = None,
         sort: Literal["account", "platform", "profile", "status", "connected"]
         | None = None,
         order: Literal["asc", "desc"] = "asc",
@@ -670,7 +671,7 @@ def register_generated_tools(mcp, _get_client):
                 platform: Filter accounts by platform (e.g. "instagram", "twitter").
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
                 search: Case-insensitive match on the account username, display name or platform user id, or an exact account id. Combine with page/limit to paginate the matches.
-                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, social = every other platform.
+                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit), communication = WhatsApp, Telegram, Discord, Slack and iMessage, blogs = Shopify and WordPress, crm = HubSpot, social = every other platform.
                 sort: Sort a paginated listing (page/limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
                 include_over_limit: When true, includes accounts from over-limit profiles.
@@ -886,6 +887,7 @@ def register_generated_tools(mcp, _get_client):
             "openaiads",
             "redditads",
             "whopads",
+            "hubspot",
         ]
         | None = None,
         status: Literal["healthy", "warning", "error"] | None = None,
@@ -2031,6 +2033,60 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.accounts.get_linked_in_mentions(
                 account_id=account_id, url=url, display_name=display_name
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get HubSpot account settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_hub_spot_settings(account_id: str) -> str:
+        """Get HubSpot account settings
+
+        Read a connected HubSpot portal and what Zernio syncs to it.
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_hub_spot_settings(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update HubSpot account settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_update_hub_spot_settings(
+        account_id: str,
+        sync_contacts: bool | None = None,
+        log_messages: bool | None = None,
+    ) -> str:
+        """Update HubSpot account settings
+
+        Turn contact sync or message logging on or off for a connected HubSpot portal. Send at least one field; omitted fields keep their value. Settings survive reconnecting the same portal.
+
+        Args:
+            account_id: (required)
+            sync_contacts: Create a HubSpot contact for an inbox contact that matches none by email or phone. A match is linked as it is and never updated.
+            log_messages: Log inbound and outbound inbox messages on the contact's HubSpot timeline."""
+        client = _get_client()
+        try:
+            response = client.accounts.update_hub_spot_settings(
+                account_id=account_id,
+                sync_contacts=sync_contacts,
+                log_messages=log_messages,
             )
             return _format_response(response)
         except Exception as e:
@@ -4322,6 +4378,178 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List user access invitations",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_ad_account_user_invitations(
+        account_id: str, ad_account_id: str | None = None
+    ) -> str:
+        """List user access invitations
+
+        Lists the email invitations to a Google Ads account, with their role and status.
+
+        Reads Google's `customer_user_access_invitation` resource for one customer: invitations that are `PENDING`, `DECLINED` or `EXPIRED` (Google expires them 20 days after sending). An accepted invitation becomes a user of the account and leaves this list, which can take Google up to 24 hours. An invitation still waiting for multi-party approval is not listed until a second admin approves it; GET /v1/ads/accounts/user-invitations/pending-approvals lists those. Results are cached for 10 minutes and dropped on every invite or revoke through Zernio.
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google Ads customer id, digits only. Defaults to the connection's selected customer."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_ad_account_user_invitations(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Invite a user to an ad account by email",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_invite_ad_account_user(
+        account_id: str,
+        ad_account_id: str,
+        email_address: str,
+        access_role: Literal["ADMIN", "STANDARD", "READ_ONLY", "EMAIL_ONLY"],
+        validate_only: bool = False,
+    ) -> str:
+        """Invite a user to an ad account by email
+
+        Emails someone an invitation to a Google Ads account with the access role you choose, for example to hand a client account you created under your manager to its owner.
+
+        Creates a user access invitation (Google's CustomerUserAccessInvitationService) on `adAccountId`. The connection's Google user needs admin access to that account, directly or through a manager above it, which is the case for an account created with POST /v1/ads/accounts. The recipient accepts from the email, possibly with another Google account. When Google requires multi-party approval, nothing is sent until a second admin of the account approves the request in Google Ads: the response then has `status: PENDING_APPROVAL` and a `multiPartyAuthReviewId` instead of an `invitationId`, which DELETE /v1/ads/accounts/user-invitations/pending-approvals withdraws. Not idempotent: Google refuses a second invitation while the email has one pending or awaiting approval. Google has no server-side check for this call, so ...
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google Ads customer id to invite the user to, digits only. (required)
+            email_address: (required)
+            access_role: (required)
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.invite_ad_account_user(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                email_address=email_address,
+                access_role=access_role,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Revoke a user access invitation",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_revoke_ad_account_user_invitation(
+        account_id: str, ad_account_id: str, invitation_id: str
+    ) -> str:
+        """Revoke a user access invitation
+
+        Withdraws an email invitation to a Google Ads account that has not been accepted yet.
+
+        Removes the invitation `invitationId` (from GET on this path) from `adAccountId`. It no longer works from the email, and the address can be invited again.
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google Ads customer id, digits only. (required)
+            invitation_id: Numeric invitation id from GET /v1/ads/accounts/user-invitations. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.revoke_ad_account_user_invitation(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                invitation_id=invitation_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List invitations awaiting multi-party approval",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_list_ad_account_user_invitation_approvals(
+        account_id: str, ad_account_id: str | None = None
+    ) -> str:
+        """List invitations awaiting multi-party approval
+
+        Lists the email invitations to a Google Ads account that Google is holding until a second admin approves them.
+
+        When Google requires multi-party approval, POST /v1/ads/accounts/user-invitations answers `status: PENDING_APPROVAL` and sends nothing. Those requests are not in GET /v1/ads/accounts/user-invitations; this reads Google's `multi_party_auth_review` resource for the ones still `PENDING` that target an invitation. Approved, rejected, revoked and expired reviews are not listed. Results are cached for 10 minutes and dropped on every invite or withdrawal through Zernio, but an approval or rejection made in Google Ads can take that long to show.
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google Ads customer id, digits only. Defaults to the connection's selected customer."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.list_ad_account_user_invitation_approvals(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Withdraw an invitation awaiting multi-party approval",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_withdraw_ad_account_user_invitation_approval(
+        account_id: str, ad_account_id: str, multi_party_auth_review_id: str
+    ) -> str:
+        """Withdraw an invitation awaiting multi-party approval
+
+        Cancels an email invitation that Google is still holding for a second admin's approval, so the same address can be invited again right away.
+
+        Resolves the review `multiPartyAuthReviewId` (from POST /v1/ads/accounts/user-invitations or GET on this path) to `REVOKED` through Google's MultiPartyAuthReviewService. Only the Google user who sent the invitation can withdraw it, and only while no admin has approved or rejected it; otherwise Google refuses and this returns a 400. Without a withdrawal, Google refuses a new invitation to the address until the review is resolved or expires.
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google Ads customer id, digits only. (required)
+            multi_party_auth_review_id: Numeric review id from POST /v1/ads/accounts/user-invitations or GET /v1/ads/accounts/user-invitations/pending-approvals. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.withdraw_ad_account_user_invitation_approval(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                multi_party_auth_review_id=multi_party_auth_review_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Ad account users",
             readOnlyHint=True,
             destructiveHint=False,
@@ -4518,32 +4746,18 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Create Meta ad account",
+            title="Create ad account",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         )
     )
-    def ad_accounts_create_ad_account(
-        account_id: str,
-        business_id: str,
-        name: str,
-        currency: str,
-        timezone_id: int,
-        end_advertiser: str = "NONE",
-        media_agency: str = "NONE",
-        partner: str = "NONE",
-        invoice: bool | None = None,
-        invoice_group_id: str | None = None,
-        invoicing_emails: list[str] | None = None,
-        io: bool | None = None,
-        po_number: str | None = None,
-        funding_id: str | None = None,
-        ad_account_created_from_bm_flag: bool | None = None,
-    ) -> str:
-        """Create Meta ad account
+    def ad_accounts_create_ad_account(body: dict[str, Any]) -> str:
+        """Create ad account
 
-        Creates a new Meta ad account in the user's own business portfolio (a payment method must then be added in Ads Manager).
+        Creates a new Meta ad account in the user's own business portfolio, or a Google Ads client account under a manager (MCC) account the connection reaches. Billing must then be set up on the platform.
+
+        **Meta** (omit `platform` or send `meta`).
 
         Creates a durable Meta ad account in the end user's own business portfolio using
         their connected Meta Ads token. Requires an active metaads accountId, Ads access,
@@ -4555,47 +4769,15 @@ def register_generated_tools(mcp, _get_client):
         method in Ads Manager before ads can deliver. Zernio cannot add payment methods.
         Meta may require business verification and limits how many accounts a business can
         create. Closing an account does not guarantee more capacity. An ad account cannot
-        truly be deleted, even after closing it and removing it from a business.
+        truly be deleted, even after closing it and removing it ...
 
-        timezoneId is Meta's numeric ID, not an IANA timezone name. Select it from ...
-
-        Platforms: meta
+        Platforms: meta, google
 
         Args:
-            account_id: Zernio metaads SocialAccount ID. (required)
-            business_id: Business portfolio that will own the account. (required)
-            name: Ad account name. Whitespace is trimmed. (required)
-            currency: Uppercase ISO 4217 currency supported by Meta. (required)
-            timezone_id: Numeric Meta timezone ID from the linked timezone list. For example 1 is America/Los_Angeles. (required)
-            end_advertiser: End advertiser business or page ID. NONE uses the owning business.
-            media_agency: Media agency business or page ID. NONE for self-serve customers.
-            partner: Partner business or page ID. NONE for self-serve customers.
-            invoice: Request Meta invoicing. Eligibility is determined by Meta.
-            invoice_group_id: Existing Meta invoice group ID.
-            invoicing_emails: Addresses for Meta invoices.
-            io: Meta insertion-order invoicing option.
-            po_number: Purchase order number.
-            funding_id: Existing Meta funding reference. Does not add a payment method.
-            ad_account_created_from_bm_flag: Meta Business Manager creation flag."""
+            body: Full request body as documented in the API reference. (required)"""
         client = _get_client()
         try:
-            response = client.ad_accounts.create_ad_account(
-                account_id=account_id,
-                business_id=business_id,
-                name=name,
-                currency=currency,
-                timezone_id=timezone_id,
-                end_advertiser=end_advertiser,
-                media_agency=media_agency,
-                partner=partner,
-                invoice=invoice,
-                invoice_group_id=invoice_group_id,
-                invoicing_emails=invoicing_emails,
-                io=io,
-                po_number=po_number,
-                funding_id=funding_id,
-                ad_account_created_from_bm_flag=ad_account_created_from_bm_flag,
-            )
+            response = client.ad_accounts.create_ad_account(body=body)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -5249,11 +5431,15 @@ def register_generated_tools(mcp, _get_client):
         Use source=all to include externally-synced ads from platform ad managers.
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
 
+        History: when an ad account connects, Zernio imports its last 90 days of metrics, so the
+        metrics hold no data for days before that. When `accountId` or `adAccountId` resolves to a
+        Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) are imported in the background;
+        repeat the request until it returns 200.
+        A request scoped to no Meta account never returns `202`.
+
         To find the Zernio ad behind a comment you see in Meta Business Manager, filter by
-        platformAdId (the Meta ad ID), effectiveObjectStoryId (Facebook), or
-        effectiveInstagramMediaId (Instagram). Those are the post/media the ad's engagement
-        lives on, and are also returned on each ad's `creative` object. Then call
-        GET /v1/ads/{adId}/comments with the returned ad id.
+        platformAdId (the Meta ad ID), effectiveObjectStoryId (Facebook), or ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -7370,13 +7556,12 @@ def register_generated_tools(mcp, _get_client):
         ID are grouped into synthetic \"Ungrouped\" buckets.
         If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
 
-        Pass `timeIncrement=1` to also get a daily breakdown: each node gains a `daily[]` array of
-        per-day metrics (same fields as the aggregated `metrics`) in the same call. Use `dailyLevel`
-        (`campaign` default, or `adset` / `ad`) to choose which levels carry the series. This replaces
-        calling the tree once per day for per-campaign daily trends.
-
-        **Deleted objects stay in the tree.** Deleting an ad or a campaign is a soft delete: the Ad
-        documents move to `status: ...
+        History: when an ad account connects, Zernio imports its last 90 days of metrics, so the
+        metrics hold no data for days before that. When `accountId` or `adAccountId` resolves to a
+        Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) are imported in the background;
+        repeat the request until it returns 200.
+        A request scoped to no Meta account never returns `202`. ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -7466,12 +7651,12 @@ def register_generated_tools(mcp, _get_client):
         ID also includes ads under the linked `facebook` / `instagram` posting account
         (and vice-versa), the same convention as `/v1/ads/tree` and `/v1/ads`.
 
-        Date range defaults to the last 90 days. Capped at 730 days. Ranges older
-        than the ingested history return a `202` immediately with the covered part
-        and `backfillPending: true` while the rest is backfilled in the background;
-        repeat the request shortly until it returns 200 with full data.
+        Date range defaults to the last 90 days. Capped at 730 days.
 
-        With adAccountId set to a Google customer id this is the customer-level performance report (clicks, ...
+        History: when an ad account connects, Zernio imports its last 90 days of metrics, so `rows`
+        hold no data for days before that. When `accountId` or `adAccountId` resolves to a Meta ad
+        account, a range reaching further back answers `202` with `backfillPending: true` and the
+        covered part while the older days (up to 730 days back) ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -9063,7 +9248,7 @@ def register_generated_tools(mcp, _get_client):
                 catalog_format: Meta catalog template creatives only (goal `catalog_sales`, goal `traffic` with `promotedObject.productSetId`, or `adSetId` with `promotedObject.productSetId`); a 400 otherwise. Sent as `object_story_spec.template_data.format_option`. `force_single_link` is never sent with it (Meta rejects the pair, subcode 1443051). `single_image` also sends `format_transformation_spec` with `carousel` and `da_collection` set to `data_source: ["none"]`, so Meta keeps the single image instead of turning it into a carousel or collection. `carousel_images_single_item` also sends `template_data.multi_share_end_card: false`, which Meta requires for that format (subcode 1443167). Omit it to let Meta pick the format.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
                 ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
-                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image, all-image placementAssets with per-rule copy, existing video.id or existingCreativeId; other media pools, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
+                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error.
                 budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget. Reddit Ads: the ad group's daily or lifetime spend goal; lifetime needs `endDate`.
                 status: Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default, back-compat); PAUSED pauses only the TOP-MOST object this call creates and switches everything below it on, so one resume of that object brings the new tree live and nothing that already existed is touched: a new campaign is held paused with its ad set and ad on; with `existingCampaignId` the new ad set is held paused with its ad on; with `adSetId` the new ad itself is paused. `campaignStatus: ACTIVE` with `status: PAUSED` moves the pause down to the new ad set. `campaignStatus`, `adSetStatus` and `adStatus` set one level each and always win for that level; `status: PAUSED` adds a hold of its own only when none of them is PAUSED. To create every object paused, send all three as PAUSED. LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE; a new campaign in an existing group stays DRAFT; a held creative (with `adSetId`) is created DRAFT, as LinkedIn refuses PAUSED until its review is APPROVED. X has no per-ad switch, so its lowest level is the line item. Google Performance Max and Demand Gen accept PAUSED only (the campaign is created paused).
@@ -10576,9 +10761,10 @@ def register_generated_tools(mcp, _get_client):
             age/gender/placement/etc. without summing thousands of per-ad reads. `campaignId` is the platform campaign id; pass
             `platform` when a campaign id could be ambiguous across platforms. If no date range is provided,
             defaults to the last 90 days. Date range is capped at 730 days max.
-            Google adds searchImpressionShare, searchBudgetLostImpressionShare,
-            searchRankLostImpressionShare, searchTopImpressionShare and searchAbsoluteTopImpressionShare
-            under analytics.summary for the requested inclusive ...
+
+            History: when an ad account connects, Zernio imports its last 90 days of metrics. `summary`
+            and `daily` come from those synced metrics, so they hold no data for days before that.
+            Breakdowns and Google's impression ...
 
             Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -10995,6 +11181,15 @@ def register_generated_tools(mcp, _get_client):
             Includes summary metrics, a daily timeline
             over the requested date range, and optional demographic breakdowns (Meta, TikTok and LinkedIn only).
             If no date range is provided, defaults to the last 90 days. Date range is capped at 730 days max.
+
+            History: when an ad account connects, Zernio imports its last 90 days of metrics. `summary`
+            and `daily` come from those synced metrics, so they hold no data for days before that.
+            Breakdowns are read live from the platform over the requested range, so they are not limited
+            by the import.
+            When the ad belongs to a Meta ad account, a range reaching further back answers `202` with `backfillPending: true` and the
+            covered part while the older days (up to 730 days back) are imported in the background;
+            repeat the request until it returns 200.
+            Other platforms never return `202`.
 
             Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -12197,9 +12392,9 @@ def register_generated_tools(mcp, _get_client):
                 account_id: The Zernio SocialAccount ID for the Instagram account (required)
                 metrics: Comma-separated list of metrics. Defaults to "reach,views,accounts_engaged,total_interactions".
         Valid metrics: reach, views, accounts_engaged, total_interactions, comments, likes, saves, shares,
-        replies, reposts, follows_and_unfollows, profile_links_taps.
+        replies, reposts, follows_and_unfollows, profile_links_taps, profile_views, website_clicks.
         Note: only "reach" supports metricType=time_series. All other metrics (including
-        follows_and_unfollows) are total_value only. This is an Instagram Graph API limitation,
+        follows_and_unfollows, profile_views and website_clicks) are total_value only. This is an Instagram Graph API limitation,
         not a Zernio limitation - the IG API does not return time-series data for these metrics.
         For a daily running follower count, use /v1/analytics/instagram/follower-history instead.
                 from_date: Start date (YYYY-MM-DD). Defaults to 30 days ago.
@@ -12761,22 +12956,30 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def analytics_get_google_business_search_keywords(
-        account_id: str, start_month: str | None = None, end_month: str | None = None
+        account_id: str,
+        start_month: str | None = None,
+        end_month: str | None = None,
+        page_token: str | None = None,
     ) -> str:
         """Get Google Business Profile search keywords
 
         Returns search keywords that triggered impressions for a Google Business Profile location.
-        Data is aggregated monthly. Keywords below a minimum impression threshold set by Google are excluded.
+        Data is aggregated monthly. Keywords Google reports only as below a threshold have `impressions` 0 and `impressionsThreshold` set to that threshold.
+        Returns up to 100 keywords per page. When `nextPageToken` is not null, pass it as `pageToken` with the same `startMonth` and `endMonth` to get the next page.
         Max 18 months of historical data. Requires the Analytics add-on.
 
         Args:
             account_id: The Zernio SocialAccount ID for the Google Business Profile account. (required)
             start_month: Start month (YYYY-MM). Defaults to 3 months ago.
-            end_month: End month (YYYY-MM). Defaults to current month."""
+            end_month: End month (YYYY-MM). Defaults to current month.
+            page_token: The nextPageToken from the previous page. Valid only with the same startMonth and endMonth as the request that returned it."""
         client = _get_client()
         try:
             response = client.analytics.get_google_business_search_keywords(
-                account_id=account_id, start_month=start_month, end_month=end_month
+                account_id=account_id,
+                start_month=start_month,
+                end_month=end_month,
+                page_token=page_token,
             )
             return _format_response(response)
         except Exception as e:
@@ -13860,7 +14063,7 @@ def register_generated_tools(mcp, _get_client):
             logo_url: HTTPS URL of a PNG, JPEG, WebP or SVG logo. Zernio converts it to the 256x256 BMP the carriers require and hosts it.
             authorizer: Object with keys: name (string, required) - A real person at the business who authorizes the registration.; email (string, required) - The carrier emails a 6-digit code here once the identity passes review.
             references: Object with keys: business (list of objects with keys fullName, jobTitle, organization, relationshipToRegistrant, phoneNumber, email, timezone, required); financial (object with keys fullName, jobTitle, organization, relationshipToRegistrant, phoneNumber, email, timezone, required)
-            review_answers: One entry per point id of the open reviewRequest. A text point takes text; a link point takes url; file and link_or_file points take url set to the URL of a file you uploaded first (POST /v1/media/upload). A point id that is not on the open request is a 422.
+            review_answers: One entry per point id of the open reviewRequest. A text point takes text; a link point takes url; file and link_or_file points take url set to the URL of a file you uploaded first (POST /v1/media/presign). A point id that is not on the open request is a 422.
             review_note"""
         client = _get_client()
         try:
@@ -19670,7 +19873,7 @@ def register_generated_tools(mcp, _get_client):
         signup: Literal["hosted"] | None = None,
         brand_name: str | None = None,
         primary_color: str | None = None,
-        welcome: bool = False,
+        welcome: bool | None = None,
         welcome_theme: str | None = None,
         logo_url: str | None = None,
         language: Literal["en", "es", "pt-BR"] | None = None,
@@ -19875,9 +20078,9 @@ def register_generated_tools(mcp, _get_client):
         open. Skin it with `brandName`, `primaryColor` and `language` below.
                 brand_name: Your product name, for the two branded pages. With `signup=hosted` (WhatsApp) it replaces Zernio in the page title ("Connect your WhatsApp number to <brandName>"). With `welcome=true` it fills the heading ("<brandName> wants to connect to your <platform>"); without it the screen shows Zernio and the Zernio mark. Both pages keep a Zernio mark: they are co-branded, not white-label. Trimmed; 1 to 60 characters. Rejected with 400 `INVALID_FIELD_VALUE` without `signup=hosted` or `welcome=true`. Sealed into the page link at issue time, so editing the URL cannot change it.
                 primary_color: Hex colour (`#RRGGBB`) for the primary button on the hosted WhatsApp signup page (`signup=hosted`) or the welcome screen (`welcome=true`). Validated server-side; anything else is a 400 `INVALID_FIELD_VALUE`. Rejected without one of the two.
-                welcome: Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") with a Continue button; Continue sends the user to the platform's own authorization screen and the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio's own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform's authorization screen still names the Zernio app.
-                welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine` and `consentLine` (up to 200 each), `buttonLabel` (up to 30); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor`, `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected without `welcome=true`. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
-                logo_url: Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` without `welcome=true`.
+                welcome: Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button fills for about a second and then sends the user on to the platform's own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio's own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform's authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.
+                welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine` and `consentLine` (up to 200 each), `buttonLabel` (up to 30, the label on that button); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor`, `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
+                logo_url: Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.
                 language: Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`."""
         client = _get_client()
         try:
@@ -20209,6 +20412,45 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.connect.connect_shopify_with_token(
                 profile_id=profile_id, shop=shop, access_token=access_token
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get HubSpot OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_hub_spot_connect_url(
+        profile_id: str, redirect_url: str | None = None
+    ) -> str:
+        """Get HubSpot OAuth connect URL
+
+        Initiates OAuth for a HubSpot portal. HubSpot is a connect-only CRM
+        platform: the connected account does not post, read analytics or run
+        ads. One HubSpot portal can be connected per profile; connecting a
+        different portal to a profile that already has one redirects with
+        `error=hubspot_profile_has_portal`.
+        Redirect the user to `authUrl`; after authorization, HubSpot returns
+        the browser to Zernio's internal callback and Zernio redirects to
+        `redirect_url` (or the dashboard when omitted). On success the redirect
+        carries `connected=hubspot`, `profileId`, `accountId` and `username`
+        (the portal domain); on failure it carries `error`, `platform=hubspot`
+        and `error_message`. Reconnecting the same portal and profile updates
+        the stored connection in place and keeps its settings.
+        Requested scopes: `oauth`, `crm.objects.contacts.read`, `crm.objects.contacts.write`.
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+        client = _get_client()
+        try:
+            response = client.connect.get_hub_spot_connect_url(
+                profile_id=profile_id, redirect_url=redirect_url
             )
             return _format_response(response)
         except Exception as e:
@@ -20584,6 +20826,60 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 pending_data_token=pending_data_token,
                 redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get the saved welcome screen",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_connect_welcome_screen() -> str:
+        """Get the saved welcome screen
+
+        The workspace's saved welcome screen settings, shared by the whole team. With `showByDefault` on, every `GET /v1/connect/{platform}` made with your API key shows the welcome screen before the platform's authorization screen, without `welcome=true` or any branding parameter. Connects started from the Zernio dashboard always show it, with this branding when saved."""
+        client = _get_client()
+        try:
+            response = client.connect.get_connect_welcome_screen()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Save the welcome screen",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_update_connect_welcome_screen(
+        show_by_default: bool,
+        brand_name: str | None = None,
+        logo_url: str | None = None,
+        theme: dict[str, Any] | None = None,
+    ) -> str:
+        """Save the welcome screen
+
+        Replaces the workspace's welcome screen settings: a field left out is cleared. Only the account owner or a full-access team member can save, and not with a profile-scoped API key. Parameters sent on a connect call still win over these values for that call.
+
+        Args:
+            show_by_default: Show the welcome screen on connect calls that do not pass `welcome`. (required)
+            brand_name
+            logo_url: https URL of a square logo.
+            theme: Same keys as the `welcomeTheme` parameter of `GET /v1/connect/{platform}`, as a JSON object."""
+        client = _get_client()
+        try:
+            response = client.connect.update_connect_welcome_screen(
+                show_by_default=show_by_default,
+                brand_name=brand_name,
+                logo_url=logo_url,
+                theme=theme,
             )
             return _format_response(response)
         except Exception as e:
@@ -21898,7 +22194,7 @@ def register_generated_tools(mcp, _get_client):
         Returns a subreddit's posting rules plus Reddit's site-wide rules, so you can check
         them before submitting and avoid a removal.
 
-        Use this alongside `POST /v1/tools/validate/subreddit`, which only confirms that a
+        Use this alongside `GET /v1/tools/validate/subreddit`, which only confirms that a
         subreddit exists and reports its basic posting settings.
 
         Args:
@@ -22450,7 +22746,7 @@ def register_generated_tools(mcp, _get_client):
         pixel wire id. For Pinterest, the numeric ad account id. For
         Reddit, the pixel id (`a2_...`).
          (required)
-                events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. The same eventId must be used on pixel + CAPI to prevent double-counting. Mapped to event_id on Meta, transactionId on Google, eventId on ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; actionSource (one of: web, app, offline, crm, phone_call, system_generated) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
+                events: Each item is an object with keys: eventName (string, required) - Standard event name (Purchase, Lead, CompleteRegistration, AddToCart, InitiateCheckout, AddPaymentInfo, Subscribe, StartTrial, ViewContent, Search, Contact, ...; eventTime (integer, required) - When the conversion happened, in unix seconds.; eventId (string, required) - Unique dedup key. The same eventId must be used on pixel + CAPI to prevent double-counting. Mapped to event_id on Meta, transactionId on Google, eventId on ...; value (number) - Conversion value in the specified currency.; currency (string) - ISO 4217 currency code.; user (object with keys email, phone, firstName, lastName, externalId, ipAddress, userAgent, country, city, state, zip, dob, gender, leadId, clickIds, required) - User identity fields. More signals mean higher match rates.; items (list of objects with keys id, name, price, quantity, category) - Item-level detail for ecommerce events.; sourceUrl (string) - URL where the conversion originated (used by Meta).; actionSource (one of: web, app, offline, crm, phone_call, system_generated, business_messaging) - Where the conversion happened. Used by Meta. Google also requires an event source internally; omitting this field sends OTHER to Google. Send an explicit ...; messaging (object with keys channel, wabaId, ctwaClid, pageId, instagramBusinessAccountId, pageScopedUserId, instagramScopedUserId) - Meta only, read when `actionSource` is `business_messaging` (Conversions API for Business Messaging). `channel` is sent as the event's `messaging_channel` ...; platformData (object) - Escape hatch for platform-specific fields we haven't normalized. On Meta, keys are shallow-merged into `custom_data` only: fields Zernio already builds ... (required)
                 test_code: Meta `test_event_code` passthrough. On Pinterest any value sends the batch with `test=true` (validated, not recorded). On Reddit, sent as `test_id` so the events show in the pixel's test view. Ignored by Google, LinkedIn, and OpenAI Ads.
                 consent: Batch-level user consent. Required by Google for EEA/UK events under the Feb 2026 restrictions. On Meta, any DENIED flag enables Limited Data Use on every event in the batch (data_processing_options ["LDU"] with geolocation, country 0 / state 0); GRANTED or absent consent sends events with Meta's default processing. On Reddit, `adUserData: DENIED` drops every user field from the events. Ignored by LinkedIn. Object with keys: adUserData (one of: GRANTED, DENIED); adPersonalization (one of: GRANTED, DENIED)"""
         client = _get_client()
@@ -25946,6 +26242,77 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List the collaborators of an Instagram post",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def instagram_list_instagram_media_collaborators(
+        account_id: str, media_id: str
+    ) -> str:
+        """List the collaborators of an Instagram post
+
+        Returns the accounts invited as collaborators on one of the connected
+        account's own posts (feed image, Reel or carousel), with whether each
+        invitation was accepted or is still pending. Use it to check who
+        accepted a collab post after publishing it.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        serves this edge on graph.facebook.com only, so accounts connected with
+        classic Instagram Login receive a 400
+        (`instagram_collaborators_require_facebook_login`) and must be
+        reconnected choosing the Facebook option.
+
+        Meta returns at most 5 collaborators and only those who allow
+        collaborator tagging. A post without collaborators returns an empty list.
+
+        Args:
+            account_id: The ID of a connected Instagram account (Facebook Login). (required)
+            media_id: Instagram media ID of a post published by this account (digits only, e.g. the platformPostId of a published post). (required)"""
+        client = _get_client()
+        try:
+            response = client.instagram.list_instagram_media_collaborators(
+                account_id=account_id, media_id=media_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the live broadcasts of an Instagram account",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def instagram_list_instagram_live_media(account_id: str) -> str:
+        """List the live broadcasts of an Instagram account
+
+        Returns the live videos the connected Instagram account is broadcasting
+        right now. Meta only returns broadcasts in progress at the time of the
+        request, so the list is empty when nothing is live (a 200, not an error).
+        Pair the returned `id` with comments flagged as live (the live_comments
+        webhook field) or with a `live_comment` comment automation.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        documents the live_media edge on graph.facebook.com only, so accounts
+        connected with classic Instagram Login receive a 400
+        (`instagram_live_media_requires_facebook_login`) and must be
+        reconnected choosing the Facebook option.
+
+        Args:
+            account_id: The ID of a connected Instagram account (Facebook Login). (required)"""
+        client = _get_client()
+        try:
+            response = client.instagram.list_instagram_live_media(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get Instagram story insights",
             readOnlyHint=True,
             destructiveHint=False,
@@ -25961,8 +26328,10 @@ def register_generated_tools(mcp, _get_client):
         - `live`: fetched from Meta in real time (story is still active)
         - `cached`: fetched from a persisted `story_insights` webhook payload
           (story has expired but we received its final-state metrics from Meta)
-        - `unavailable`: story has expired and we never received its webhook
-          payload (for example, the account connected after the story expired)
+        - `unavailable`: story has expired and Meta sent no `story_insights` webhook for it.
+          Meta sends it most reliably for accounts connected with Facebook Login or with their
+          linked Facebook Page connected, so read insights while the story is live if you need
+          final numbers.
 
         Meta can report an expired story as an empty successful result rather
         than an error, so an expired story resolves to `cached` or `unavailable`
@@ -26258,6 +26627,8 @@ def register_generated_tools(mcp, _get_client):
         Lists the leads submitted through one Meta lead form.
 
         Serves persisted leads (ingested via the leadgen webhook) when available, falling back to a live Graph read. Accepts a Facebook account or a metaads business-login account with leads_retrieval access to the form; the latter uses its system-user token without a posting parent.
+
+        Persisted leads arrive in real time through Meta's webhook, and a background pass re-reads every Page from Meta to catch the leads the webhook misses: every 15 minutes for Pages that received a lead in the last 7 days. `meta.lastCheckedAt` says when that pass last ran, so polling this endpoint faster than that returns nothing new; subscribe to the `lead.received` webhook instead. The live Graph read is cached for 5 minutes, and `meta.lastCheckedAt` is when it was read.
 
         Platforms: meta
 
@@ -26614,6 +26985,7 @@ def register_generated_tools(mcp, _get_client):
             "telegram",
             "whatsapp",
             "imessage",
+            "sms",
         ]
         | None = None,
         status: Literal["active", "archived"] | None = None,
@@ -26627,13 +26999,11 @@ def register_generated_tools(mcp, _get_client):
 
         Fetch conversations (DMs) from all connected messaging accounts in a single API call. Supports filtering by profile and platform. Results are aggregated and deduplicated.
 
-        Supported platforms: Facebook, Instagram, X, Bluesky, Reddit, Telegram.
+        Supported platforms: Facebook, Instagram, X, Bluesky, Reddit, Telegram, WhatsApp, iMessage and SMS.
 
         **X limitation.** X has replaced traditional DMs with encrypted \"X Chat\" for many accounts. Messages sent or received through encrypted X Chat are not accessible via X's API (the /2/dm_events endpoint only returns legacy unencrypted DMs). This means some X conversations may show only outgoing messages or appear empty. This is an X platform limitation that affects all third-party applications. See X's docs on encrypted messaging for more details.
 
-        **Instagram and Facebook pre-connect history.** When one of these accounts is connected, Zernio replays the DM history the account already holds on Meta, so conversations that began before the account was connected appear here. Up to 500 conversations per account are replayed.
-
-        - The replay runs in ...
+        **Instagram and Facebook pre-connect history.** When one of these accounts is connected, Zernio replays the DM history the account already holds on Meta, so conversations that began before the account was connected appear here. Up to 500 conversations per account are ...
 
         Args:
             profile_id: Filter by profile ID
@@ -27273,6 +27643,10 @@ def register_generated_tools(mcp, _get_client):
 
         For iMessage, this also marks the conversation read with the contact
         (1:1 conversations only). Best-effort.
+
+        For Instagram (Instagram Login and Facebook Login) and Facebook Messenger,
+        this also sends a `mark_seen` read receipt to the contact, so they see the
+        conversation as seen. Best-effort: a Meta failure never fails the request.
 
         This is the explicit, human-driven counterpart to `GET .../messages`,
         which is side-effect-free and does NOT mark anything read. Call this when
@@ -29900,6 +30274,8 @@ def register_generated_tools(mcp, _get_client):
         page: int = 1,
         limit: int = 10,
         offset: int | None = None,
+        cursor: str | None = None,
+        fields: str | None = None,
         source: Literal["zernio", "external"] = "zernio",
         status: Literal[
             "draft",
@@ -29939,6 +30315,8 @@ def register_generated_tools(mcp, _get_client):
             page: Page number
             limit: Page size. Values above the maximum return 400 rather than being clamped.
             offset: Row offset. Takes precedence over page when both are sent; the response pagination.page is derived from it.
+            cursor: Opaque cursor from a previous response's `pagination.nextCursor`. Returns the page that follows it in the same `sortBy` order, and takes precedence over `page` and `offset`. Each cursor page costs the same however deep it is, unlike `page`/`offset`, which get slower the further you go; prefer it to walk a long history. Send the same filters and `sortBy` as the request that issued it: a cursor from another `sortBy` returns 400. Not available with `sortBy=status` or `sortBy=platform`, or with `source=external`.
+            fields: Comma-separated list of post fields to return. Each post then carries `_id` plus only these fields, which makes large pages much cheaper: leave out `platforms`, `content`, `mediaItems` or `metadata` when you do not need them. Accepted: `userId`, `title`, `content`, `mediaItems`, `platforms`, `scheduledFor`, `timezone`, `status`, `tags`, `hashtags`, `mentions`, `visibility`, `metadata`, `recycling`, `recycledFromPostId`, `queuedFromProfile`, `queueId`, `createdAt`, `updatedAt`. An unknown field returns 400 naming it. `fields=_id` returns ids only. Omit it (or send it empty) for the full post. Not available with `source=external`.
             source: Which collection to read. `zernio` (default) returns posts authored through Zernio. `external` returns posts synced from the platform (existing/historical posts that were published outside Zernio). Combine with `accountId` and paginate via `page`/`limit` to walk the full synced history (we keep up to the last ~12 months per account).
             status
             platform
@@ -29959,6 +30337,8 @@ def register_generated_tools(mcp, _get_client):
                 page=page,
                 limit=limit,
                 offset=offset,
+                cursor=cursor,
+                fields=fields,
                 source=source,
                 status=status,
                 platform=platform,
@@ -30036,7 +30416,7 @@ def register_generated_tools(mcp, _get_client):
                 title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
                 content: Post caption/text. Optional when media is attached, all platforms have customContent, every platform entry is an X Article (platformSpecificData.article), or every platform entry is a LinkedIn text-free reshare (platformSpecificData.reshareUrl with no text). Required for other text-only posts.
                 media_items: Media attached to every platform in the request (a platform entry can override it with `customMedia`). Each entry needs a publicly reachable HTTPS `url`; `type` (image, video, gif, document) is inferred from the URL extension when omitted and a `type` that contradicts the extension is rejected with 400. Upload files with `POST /v1/media/presign` first; per-platform size, duration and format limits are listed on each platform schema. Each item is an object with keys: type (one of: image, video, gif, document); url (string) - A media item with a null, missing or empty url is dropped.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image, applied on every platform that supports it: Instagram (feed images only, not Reels/Stories), Facebook, Threads, X ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, regular video uploads, and LinkedIn video posts. Max ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Sent to YouTube, Facebook videos, LinkedIn, X and ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
-                platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override. When set, this content is used instead of the top-level post content for this platform. Useful for tailoring captions per ...; customMedia (list of objects with keys type, url, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. When omitted, the top-level scheduledFor is used.; platformSpecificData (object with keys article, replyToTweetId, quoteTweetId, replySettings, threadItems, poll, longVideo, geoRestriction, paidPartnership, madeWithAi, sensitiveMedia)
+                platforms: Target platforms and accounts for this post. Required for non-draft posts (returns 400 if empty). Drafts can omit platforms. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override. When set, this content is used instead of the top-level post content for this platform. Useful for tailoring captions per ...; customMedia (list of objects with keys type, url, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. When omitted, the top-level scheduledFor is used.; platformSpecificData (object with keys article, replyToTweetId, quoteTweetId, replySettings, threadItems, poll, longVideo, geoRestriction, paidPartnership, madeWithAi, sensitiveMedia, mediaTaggedUsers)
                 scheduled_for: When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. An ISO 8601 value with a `Z` or offset (`2026-01-15T10:00:00Z`, `2026-01-15T11:00:00+01:00`) is taken as-is; a value without one (`2026-01-15T10:00:00` or `2026-01-15 10:00`) is read as local time in `timezone`. A value already in the past is published synchronously in the same request. Ignored when `publishNow` is true.
                 publish_now: Publish to every platform synchronously in this request instead of scheduling; the response then carries each platform result and `platformPostUrl`, with HTTP 207 when some platforms failed. Takes precedence over `scheduledFor`; ignored when `isDraft` is true.
                 is_draft: When true, saves the post as a draft. When none of scheduledFor, publishNow, or queuedFromProfile are provided, the post defaults to draft automatically.
@@ -37809,7 +38189,7 @@ def register_generated_tools(mcp, _get_client):
         List active WhatsApp group chats for a business phone number.
         These are actual WhatsApp group conversations on the platform.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             account_id: WhatsApp account ID (required)
@@ -37842,7 +38222,7 @@ def register_generated_tools(mcp, _get_client):
 
         Create a new WhatsApp group chat. Returns the group ID and optionally an invite link.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             account_id: WhatsApp account ID (required)
@@ -37875,7 +38255,7 @@ def register_generated_tools(mcp, _get_client):
         Retrieve metadata about a WhatsApp group including subject, description,
         participants, and settings.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -37908,7 +38288,7 @@ def register_generated_tools(mcp, _get_client):
 
         Update the subject, description, or join approval mode of a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -37942,7 +38322,7 @@ def register_generated_tools(mcp, _get_client):
 
         Delete a WhatsApp group and remove all participants.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -37971,7 +38351,7 @@ def register_generated_tools(mcp, _get_client):
 
         Add participants to a WhatsApp group. Maximum 8 participants per request. A group holds at most 8 participants in total (a Meta limit), so later requests cannot grow a group past 8. Meta documents groups as invite-only, so people normally join through the group's invite link.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -38001,7 +38381,7 @@ def register_generated_tools(mcp, _get_client):
 
         Remove participants from a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -38031,7 +38411,7 @@ def register_generated_tools(mcp, _get_client):
 
         Create a new invite link for a WhatsApp group. The previous link is revoked.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -38060,7 +38440,7 @@ def register_generated_tools(mcp, _get_client):
 
         List pending join requests for a WhatsApp group (only for groups with approval_required mode).
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -38089,7 +38469,7 @@ def register_generated_tools(mcp, _get_client):
 
         Approve pending join requests for a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -38119,7 +38499,7 @@ def register_generated_tools(mcp, _get_client):
 
         Reject pending join requests for a WhatsApp group.
 
-        Not available on [Coexistence](/platforms/whatsapp/connection#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
+        Not available on [Coexistence](/platforms/whatsapp/connect#whatsapp-business-app-coexistence) numbers. Requires a Cloud API-only number.
 
         Args:
             group_id: Group ID (required)
@@ -40348,7 +40728,7 @@ def register_generated_tools(mcp, _get_client):
             platform
             name: (required)
             description
-            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 16 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. All string fields support `{{variable}}` interpolation against the run's variable bag (resolved at execution time). **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 17 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. All string fields support `{{variable}}` interpolation against the run's variable bag (resolved at execution time). **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
             edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string or null) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
             entry_node_id: The trigger node id; derived from the single trigger node if omitted"""
         client = _get_client()
@@ -40414,7 +40794,7 @@ def register_generated_tools(mcp, _get_client):
             workflow_id: (required)
             name
             description
-            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 16 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. All string fields support `{{variable}}` interpolation against the run's variable bag (resolved at execution time). **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 17 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. All string fields support `{{variable}}` interpolation against the run's variable bag (resolved at execution time). **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
             edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string or null) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
             entry_node_id
             account_id: Reassign the workflow to a different `SocialAccount`. `platform` and `profileId` are derived server-side from the new account (the client never sends them directly). The account must belong to the caller's team and be on a workflow-supported platform (whatsapp, instagram, facebook, telegram, twitter, bluesky, reddit, tiktok). Changing this triggers a graph revalidation against the new platform."""

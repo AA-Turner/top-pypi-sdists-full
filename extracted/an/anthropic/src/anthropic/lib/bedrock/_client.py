@@ -11,6 +11,7 @@ from ... import _exceptions
 from ._beta import Beta, AsyncBeta
 from ..._types import Timeout, NotGiven, OpenTelemetryClientOption, not_given
 from ..._utils import is_dict, asyncify, is_given
+from ..._client import _keep_client_header_params
 from ..._compat import model_copy
 from ..._version import __version__
 from ..._streaming import Stream, AsyncStream
@@ -35,7 +36,7 @@ _DefaultStreamT = TypeVar("_DefaultStreamT", bound=Union[Stream[Any], AsyncStrea
 
 
 def _prepare_options(input_options: FinalRequestOptions) -> FinalRequestOptions:
-    options = model_copy(input_options, deep=True)
+    options = model_copy(_keep_client_header_params(input_options), deep=True)
 
     if is_dict(options.json_data):
         options.json_data.setdefault("anthropic_version", DEFAULT_VERSION)

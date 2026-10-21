@@ -38,7 +38,6 @@ from schemathesis.core.spec import CoverageCapabilities
 from schemathesis.core.statistic import ApiStatistic, StatefulInference
 from schemathesis.core.transport import (
     HTTP_METHODS_SCHEMA,
-    HttpMethod,
     HttpMethodSchema,
     Response,
     restful_method_priority,
@@ -46,7 +45,7 @@ from schemathesis.core.transport import (
 from schemathesis.engine.link_calibration import LinkCalibrationState
 from schemathesis.generation.case import Case
 from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
-from schemathesis.generation.meta import CaseMetadata, ComponentInfo
+from schemathesis.generation.meta import ComponentInfo
 from schemathesis.resources import ExtraDataSource, ResourcePool
 from schemathesis.specs.openapi import adapter
 from schemathesis.specs.openapi.adapter.parameters import RequestBodySchemaCache
@@ -62,6 +61,7 @@ from ...hooks import (
     dispatch_before_process_path,
 )
 from ...schemas import APIOperation, APIOperationMap, BaseSchema
+from . import checks  # noqa: F401
 from ._hypothesis import jsonify_python_specific_types, openapi_cases
 from ._operation_lookup import OperationLookup
 from .examples import get_strategies_from_examples
@@ -69,10 +69,9 @@ from .operations import SCHEMA_PARSING_ERRORS, OperationLoader, RawSchemaVersion
 from .serialization import _build_urlencoded_serializer
 from .stateful import collect_transitions, create_state_machine
 from .utils import PathTemplate, coerce_wire_string, compile_path_template, parameter_types, parse_spec_version
-from .validation import ResponseValidator
+from .validation import validate_documented_response
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from typing import Self, TypeAlias
 
     from hypothesis import HealthCheck
@@ -80,7 +79,6 @@ if TYPE_CHECKING:
 
     from schemathesis.auths import AuthContext, AuthProvider, AuthStorage
     from schemathesis.config import GenerationConfig
-    from schemathesis.core.adapter import ParsedParameters
     from schemathesis.core.cache import CacheWriter
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.error_feedback.store import Observation
@@ -99,7 +97,6 @@ if TYPE_CHECKING:
     from schemathesis.specs.openapi.adapter.parameters import OpenApiParameter
     from schemathesis.specs.openapi.adapter.security import OpenApiSecurityParameters, SecurityRequirements
     from schemathesis.specs.openapi.auth_flow.bootstrap import OpenApiAuthFlow
-    from schemathesis.specs.openapi.types import OperationObject
 
     OpenApiOperation: TypeAlias = APIOperation[
         OpenApiParameter, OpenApiResponses, OpenApiSecurityParameters, "OpenApiSchema"
@@ -135,7 +132,6 @@ class OpenApiSchema(BaseSchema):
         self.raw_schema_version = RawSchemaVersion()
         self._operation_lookup = OperationLookup(self, HTTP_METHODS_SCHEMA)
         self._operations = OperationLoader(self)
-        self._response_validator = ResponseValidator(self)
         # Path-level dedup of undeclared-method coverage probes for callers that pass no run-scoped set.
         self.coverage_unexpected_methods_seen: set[tuple[str, str]] = set()
         # Per-operation security overlays populated by runtime auth inference. Empty when the server
@@ -641,15 +637,6 @@ class OpenApiSchema(BaseSchema):
         __tracebackhide__ = True
         yield from self._operations.iter_all()
 
-    def _raise_invalid_schema(
-        self,
-        error: Exception,
-        path: str | None = None,
-        method: str | None = None,
-    ) -> NoReturn:
-        __tracebackhide__ = True
-        self._operations._raise_invalid_schema(error, path, method)
-
     @override
     def validate(self) -> None:
         error = self._validation_error
@@ -666,37 +653,6 @@ class OpenApiSchema(BaseSchema):
         except TypeError:
             pass
         return None
-
-    def _iter_parameters(
-        self,
-        definition: OperationObject,
-        shared_parameters: Sequence[dict[str, Any]],
-        resolver: Resolver | None = None,
-    ) -> ParsedParameters:
-        return self._operations._iter_parameters(definition, shared_parameters, resolver=resolver)
-
-    def _parse_responses(
-        self, definition: OperationObject, scope: str, resolver: Resolver | None = None
-    ) -> OpenApiResponses:
-        return self._operations._parse_responses(definition, scope, resolver=resolver)
-
-    def _parse_security(self, definition: OperationObject) -> OpenApiSecurityParameters:
-        return self._operations._parse_security(definition)
-
-    def make_operation(
-        self,
-        path: str,
-        method: HttpMethodSchema,
-        parameters: ParsedParameters,
-        definition: OperationObject,
-        scope: str,
-        resolver: Resolver | None = None,
-        path_item: Mapping[str, Any] | None = None,
-    ) -> APIOperation:
-        __tracebackhide__ = True
-        return self._operations.make_operation(
-            path, method, parameters, definition, scope, resolver=resolver, path_item=path_item
-        )
 
     @cached_property
     def root_resolver(self) -> Resolver:
@@ -773,15 +729,12 @@ class OpenApiSchema(BaseSchema):
         definitions = [item.definition for item in operation.iter_parameters() if item.location == location]
         config = self.config.generation_for(operation=operation)
         if config.with_security_parameters:
-            security_parameters = [param for param in operation.security.iter_parameters() if param["in"] == location]
-            if security_parameters:
-                definitions.extend(security_parameters)
+            definitions.extend(
+                param.definition for param in operation.security.iter_parameters() if param.location == location
+            )
         if definitions:
-            return self._get_parameter_serializer(definitions)
+            return self.adapter.get_parameter_serializer(definitions)
         return None
-
-    def _get_parameter_serializer(self, definitions: list[dict[str, Any]]) -> Callable | None:
-        return self.adapter.get_parameter_serializer(definitions)
 
     @override
     def get_tags(self, operation: APIOperation) -> list[str] | None:
@@ -790,6 +743,10 @@ class OpenApiSchema(BaseSchema):
     @override
     def get_operation_id(self, operation: APIOperation) -> str | None:
         return operation.definition.raw.get("operationId")
+
+    @override
+    def is_deprecated(self, operation: APIOperation) -> bool:
+        return operation.definition.raw.get("deprecated") is True
 
     @override
     def prepare_multipart(
@@ -810,36 +767,10 @@ class OpenApiSchema(BaseSchema):
         return body
 
     @override
-    def make_case(
-        self,
-        *,
-        operation: APIOperation,
-        method: HttpMethod | None = None,
-        path: str | None = None,
-        path_parameters: dict[str, Any] | None = None,
-        headers: dict[str, Any] | CaseInsensitiveDict | None = None,
-        cookies: dict[str, Any] | None = None,
-        query: dict[str, Any] | None = None,
-        body: Body = NOT_SET,
-        media_type: str | None = None,
-        multipart_content_types: dict[str, str] | None = None,
-        meta: CaseMetadata | None = None,
-    ) -> Case:
+    def _case_media_type(self, operation: APIOperation, body: Body, media_type: str | None) -> str | None:
         if body is not NOT_SET and media_type is None:
-            media_type = operation._get_default_media_type()
-        return Case(
-            operation=operation,
-            method=method or cast("HttpMethod", operation.method.upper()),
-            path=path or operation.path,
-            path_parameters=path_parameters or {},
-            headers=CaseInsensitiveDict() if headers is None else CaseInsensitiveDict(headers),
-            cookies=cookies or {},
-            query=query or {},
-            body=body,
-            media_type=media_type,
-            multipart_content_types=multipart_content_types,
-            meta=meta,
-        )
+            return operation._get_default_media_type()
+        return media_type
 
     @override
     def validate_response(
@@ -850,12 +781,12 @@ class OpenApiSchema(BaseSchema):
         case: Case | None = None,
     ) -> bool | None:
         __tracebackhide__ = True
-        return self._response_validator.validate(operation, response, case=case)
+        return validate_documented_response(self, operation, response, case)
 
 
 def _as_read_from_wire(operation: APIOperation, location: ParameterLocation, value: Mapping) -> dict[str, Any]:
     """Parameter values as a server parses them from text, e.g. `"5"` for an integer parameter as `5`."""
-    container = getattr(operation, location.container_name)
+    container = operation.get_parameter_set(location)
     parsed = dict(value)
     for name, item in value.items():
         parameter = container.get(name)
@@ -896,16 +827,17 @@ class MethodMap(Mapping):
         operation = self._path_item[method]
         schema = cast(OpenApiSchema, self._parent._schema)
         path = self._path
-        cached = schema._operations.cached(self._scope, path, method)
+        loader = schema._operations
+        cached = loader.cached(self._scope, path, method)
         if cached is not None:
             return cached
         try:
-            parameters = schema._iter_parameters(
+            parameters = loader._iter_parameters(
                 operation, self._path_item.get("parameters", []), resolver=self._resolver
             )
         except SCHEMA_PARSING_ERRORS as exc:
-            schema._raise_invalid_schema(exc, path, method)
-        return schema.make_operation(
+            loader._raise_invalid_schema(exc, path, method)
+        return loader.make_operation(
             path,
             cast("HttpMethodSchema", method),
             parameters,

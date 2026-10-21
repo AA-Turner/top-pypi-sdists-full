@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hypothesis-graphql
-Version: 0.13.3
+Version: 0.13.4
 Summary: Hypothesis strategies for GraphQL queries
 Project-URL: Changelog, https://github.com/Stranger6667/hypothesis-graphql/blob/master/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/Stranger6667/hypothesis-graphql

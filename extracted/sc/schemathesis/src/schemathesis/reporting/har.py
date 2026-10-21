@@ -14,7 +14,7 @@ from schemathesis.config import OutputConfig
 from schemathesis.core.output.sanitization import sanitize_url, sanitize_value
 from schemathesis.core.timing import format_timestamp
 from schemathesis.core.transforms import deepclone
-from schemathesis.core.transport import Headers, Response
+from schemathesis.core.transport import Headers, Response, response_content_type
 from schemathesis.engine.recorder import RecordedScenario
 
 if TYPE_CHECKING:
@@ -68,13 +68,13 @@ class HarWriter:
             else:
                 post_data = None
             if interaction.response is not None:
-                content_type = interaction.response.headers.get("content-type", [""])[0]
+                content_type = response_content_type(interaction.response) or ""
                 content = harfile.Content(
                     size=interaction.response.body_size or 0,
                     mimeType=content_type,
                     text=interaction.response.encoded_body
                     if self._preserve_bytes
-                    else interaction.response.content.decode("utf-8", "replace")
+                    else interaction.response.text_lossy()
                     if interaction.response.content is not None
                     else None,
                     encoding="base64" if interaction.response.content is not None and self._preserve_bytes else None,

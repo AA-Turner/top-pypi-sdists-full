@@ -48,7 +48,6 @@ from probe.cli import (
     agent_rules,
     autoupdate,
     claude_cli,
-    cloud_agents,
     codex_config,
     pi_config,
     plugin_cli,
@@ -139,15 +138,6 @@ def _installable_rows():
 AGENT_LABELS = {h.id: h.label for h in _installable_rows()}
 
 
-def _captured_labels() -> dict[str, str]:
-    """Every captured agent's label, including a cloud agent's (Capy), which
-    installs nothing and so is not in AGENT_LABELS: messages that name a
-    capture source (a pairing) need it too."""
-    from probe.harness import get_registry
-
-    return {h.id: h.label for h in get_registry().captured()}
-
-
 def agent_logo(source: str) -> bytes | None:
     """The agent's logo as the PNG a terminal draws in the device summary
     (Richard 2026-10-06: "actually get the correct icons", in "this circular
@@ -201,13 +191,6 @@ MARKETPLACE_AGENT_SOURCES: tuple[str, ...] = tuple(h.id for h in _installable_ro
 #: offers -- see `MARKETPLACE_AGENT_SOURCES` above for that narrower one.
 INSTALLABLE_AGENT_SOURCES: tuple[str, ...] = tuple(h.id for h in _installable_rows())
 
-#: The installable agents nothing on this machine can configure (registry
-#: family `cloud`, Capy): in the picker like every other agent, but their
-#: install prints the steps that put Probe inside them and connects their
-#: capture to the vendor's API (`cloud_agents`). No plugin, marketplace,
-#: instruction file or status line is ever written for them.
-CLOUD_AGENT_SOURCES: tuple[str, ...] = cloud_agents.sources()
-
 
 #: The pi `--help` "coding" sniff, MOVED to `pi_config` and re-exported here
 #: under its original name so every caller and test that says
@@ -244,13 +227,6 @@ def detectable_sources(*, sniff: bool = True) -> tuple[str, ...]:
     detected = [source for source in MARKETPLACE_AGENT_SOURCES if plugin_cli.available(source)]
     if pi_binary_available() if sniff else pi_config.pi_on_path():
         detected.append("pi")
-    # A cloud agent has no command on PATH: its app on disk is the sign, and so
-    # is a capture connection this machine already runs for it.
-    detected.extend(
-        source
-        for source in CLOUD_AGENT_SOURCES
-        if cloud_agents.found_here(source) or cloud_agents.module(source).connected_here()
-    )
     return tuple(detected)
 
 
@@ -271,8 +247,6 @@ AGENT_ROW_DETAIL: dict[str, tuple[str, ...]] = {
     "codex": ("Plugins and session capture.",),
     "pi": ("Extension, skills and MCP, via settings.json.",),
     "kimi_code": ("Plugins and session capture.",),
-    # A cloud agent's row, per action: what this machine CAN do for it.
-    **{source: ("Setup steps for its settings, and thread capture.",) for source in CLOUD_AGENT_SOURCES},
 }
 
 
@@ -290,8 +264,7 @@ def short_path(path: Path) -> str:
 def agent_label(sources: tuple[str, ...] | list[str] | str) -> str:
     """User-facing name for the exact agents selected in this wizard run."""
     normalized = (sources,) if isinstance(sources, str) else tuple(sources)
-    known = {**_captured_labels(), **AGENT_LABELS}
-    labels = [label for source, label in known.items() if source in normalized]
+    labels = [AGENT_LABELS[source] for source in AGENT_LABELS if source in normalized]
     if not labels:
         return "coding agent"
     if len(labels) == 1:
@@ -486,7 +459,6 @@ AGENT_ROW_DETAIL_BY_ACTION: dict[str, dict[str, tuple[str, ...]]] = {
         "codex": ("Remove plugins and stop capture.",),
         "kimi_code": ("Remove plugins and stop capture.",),
         "pi": ("Remove its settings.json entry.",),
-        **{source: ("Stop thread capture.",) for source in CLOUD_AGENT_SOURCES},
     },
     "update": {
         "claude_code": ("Update the plugins.",),
@@ -496,22 +468,18 @@ AGENT_ROW_DETAIL_BY_ACTION: dict[str, dict[str, tuple[str, ...]]] = {
         # output. Promising an upgrade here that the apply then declines is the
         # same class of mismatch as the install copy this table replaces.
         "pi": ("Update it through pi.",),
-        # Nothing of Probe's is installed in it: its app updates itself.
-        **{source: ("Nothing to update: its app updates itself.",) for source in CLOUD_AGENT_SOURCES},
     },
     "diagnose": {
         "claude_code": ("Check setup, sign-in and updates.",),
         "codex": ("Check setup, sign-in and updates.",),
         "kimi_code": ("Check setup, sign-in and updates.",),
         "pi": ("Check setup, sign-in and updates.",),
-        **{source: ("Check thread capture and sign-in.",) for source in CLOUD_AGENT_SOURCES},
     },
     "manual": {
         "claude_code": ("Print the setup commands.",),
         "codex": ("Print the setup commands.",),
         "kimi_code": ("Print the setup commands.",),
         "pi": ("Print the setup commands.",),
-        **{source: ("Print the steps for its settings.",) for source in CLOUD_AGENT_SOURCES},
     },
 }
 
@@ -1461,11 +1429,6 @@ def confirm_rows(
                 "Coding-agent plugins — skipped",
                 ("No Claude Code or Codex found. Install one, then run probe wizard › Install Probe.",),
             )
-        cloud = tuple(source for source in normalized if source in CLOUD_AGENT_SOURCES)
-        if cloud:
-            # Needs no binary, so it is never degraded: same copy as the full screen.
-            title, details = menu_copy(cloud)[Capability.CAPTURE]
-            bullet(f"{agent_label(cloud)} — {title.lower()}", details)
         return lines
 
     # Capture LAST, deliberately: on a terminal shorter than the block,
@@ -1474,8 +1437,6 @@ def confirm_rows(
     # must is the data grant.
     copy = menu_copy(agent_sources)
     for capability in (Capability.TRACKING, Capability.AGENT_RULES):
-        if capability is Capability.AGENT_RULES and all(source in CLOUD_AGENT_SOURCES for source in normalized):
-            continue  # no instruction file on this machine is a cloud agent's
         title, details = copy[capability]
         bullet(title, details)
     _, auto_update_detail = auto_update_copy(agent_sources)
@@ -1756,32 +1717,21 @@ def resolve_selection(
 def menu_copy(
     sources: tuple[str, ...] | list[str] | str,
 ) -> dict[Capability, tuple[str, tuple[str, ...]]]:
-    """Capability copy scoped to the agents this run will actually configure.
-
-    A cloud agent (Capy) is said apart from the local ones: nothing installs
-    into it (its settings steps print at the end), its capture copies the
-    threads you start on a timer rather than streaming this device's
-    sessions, and it has no instruction file here."""
-    normalized = (sources,) if isinstance(sources, str) else tuple(sources)
-    local = tuple(source for source in normalized if source not in CLOUD_AGENT_SOURCES)
-    cloud = tuple(source for source in normalized if source in CLOUD_AGENT_SOURCES)
-    tracking = ["Track runs and search your team's work."]
-    capture = []
-    if local:
-        capture.append(f"Sends this device's {agent_label(local)} sessions to your team.")
-    if cloud:
-        tracking.append(f"{agent_label(cloud)}: add Probe in its settings; the steps print at the end.")
-        minutes = min(cloud_agents.module(source).SYNC_INTERVAL_SECONDS for source in cloud) // 60
-        capture.append(
-            f"Copies the {agent_label(cloud)} threads you start every {minutes} minutes, with your API key."
-        )
-    rules_for = local or normalized
+    """Capability copy scoped to the agents this run will actually configure."""
+    agents = agent_label(sources)
+    rules = instruction_files(sources)
     return {
-        Capability.TRACKING: ("CLI + MCP", tuple(tracking)),
-        Capability.CAPTURE: ("Session capture", tuple(capture)),
+        Capability.TRACKING: (
+            "CLI + MCP",
+            ("Track runs and search your team's work.",),
+        ),
+        Capability.CAPTURE: (
+            "Session capture",
+            (f"Sends this device's {agents} sessions to your team.",),
+        ),
         Capability.AGENT_RULES: (
-            f"Rules in your global {instruction_files(rules_for)}",
-            (f"Prompts {agent_label(rules_for)} to search and track research in Probe.",),
+            f"Rules in your global {rules}",
+            (f"Prompts {agents} to search and track research in Probe.",),
         ),
     }
 
@@ -1894,7 +1844,7 @@ def refresh_marketplace(*, source: str | None = None) -> claude_cli.Result:
     codex. A failure-shaped no-op would paint a real success red.
     """
     selected = source or agent_source()
-    if selected == "pi" or selected in CLOUD_AGENT_SOURCES:
+    if selected == "pi":
         return claude_cli.Result(ok=True, detail=f"{selected} has no plugin marketplace to refresh")
     if selected not in INSTALLABLE_AGENT_SOURCES:
         return claude_cli.Result(
@@ -1992,8 +1942,10 @@ def install_plugin(name: str, *, source: str | None = None, on_retry=None) -> cl
     never consulted on that branch.
     """
     selected = source or agent_source()
-    if selected not in INSTALLABLE_AGENT_SOURCES or selected in CLOUD_AGENT_SOURCES:
-        return _no_plugin(selected)
+    if selected not in INSTALLABLE_AGENT_SOURCES:
+        return claude_cli.Result(
+            ok=False, detail=f"{selected} has no plugin marketplace", reachable=False
+        )
     if selected == "pi":
         # One package, two halves: only the tracking half's install (either
         # profile's name) brings Probe's skills and MCP on a FRESH entry; the
@@ -2006,16 +1958,6 @@ def install_plugin(name: str, *, source: str | None = None, on_retry=None) -> cl
     return plugin_cli.install(selected, f"{name}@{MARKETPLACE}")
 
 
-def _no_plugin(selected: str) -> claude_cli.Result:
-    """What installing or removing a plugin answers for an agent that has none:
-    a cloud agent (Probe goes in through its own settings) or an unknown one."""
-    if selected in CLOUD_AGENT_SOURCES:
-        detail = f"{agent_label(selected)} has no plugin: Probe goes in through its own settings"
-    else:
-        detail = f"{selected} has no plugin marketplace"
-    return claude_cli.Result(ok=False, detail=detail, reachable=False)
-
-
 #: The tracking half's plugin names (either profile). For pi, whose one package
 #: carries both halves, these decide which half an install or uninstall means.
 _TRACKING_NAMES = (TRACKING_PLUGIN_NAME, DAEMON_PLUGIN_NAME)
@@ -2025,8 +1967,10 @@ def uninstall_plugin(
     name: str, *, source: str | None = None, keep_capture: bool | None = None
 ) -> claude_cli.Result:
     selected = source or agent_source()
-    if selected not in INSTALLABLE_AGENT_SOURCES or selected in CLOUD_AGENT_SOURCES:
-        return _no_plugin(selected)
+    if selected not in INSTALLABLE_AGENT_SOURCES:
+        return claude_cli.Result(
+            ok=False, detail=f"{selected} has no plugin marketplace", reachable=False
+        )
     if selected == "pi":
         capture_stays = _settings_capture_on(selected) if keep_capture is None else keep_capture
         if name in _TRACKING_NAMES and capture_stays:
@@ -2450,11 +2394,6 @@ def leftover_team_note(caps: Capabilities) -> bool:
     """A team-note block with no pointer beside it: what an opt-out left before
     the opt-out removed both. `agent_rules_installed` reads only the pointer,
     so without this an explicit `--no-agent-rules` found nothing to change."""
-    from probe.harness import get_registry
-
-    harness = get_registry().find(caps.agent_source)
-    if harness is None or not harness.instructions:
-        return False  # a cloud agent (Capy) has no instruction file here
     return not caps.agent_rules_installed and agent_rules.has_block(
         agent_rules.memory_path(caps.agent_source), agent_rules.NOTE_BLOCK
     )
@@ -3522,10 +3461,6 @@ def apply_agent_rules(want: bool, *, stale: bool = False) -> list[str]:
     the only way a wording fix reaches a machine that ticked this once and never
     re-ran the wizard.
     """
-    if not _current_harness().instructions:
-        # A cloud agent: no instruction file on this machine is its own. Its
-        # plugin's skills reach its threads by their descriptions instead.
-        return []
     path = agent_rules.memory_path()
     # The status line rides along with the rules rather than asking its own
     # question. They are one concern -- make this machine's agent aware that
@@ -3871,11 +3806,10 @@ def run_action_menu(caps: Capabilities | dict[str, Capabilities]):
     installed = detectable_sources()
     images = tui.image_protocol()
     agent_images = len(caps) if isinstance(caps, dict) else 1
-    cloud = cloud_status(caps) if isinstance(caps, dict) else {}
 
     def live_lines():
         progress = import_jobs_ui.active_progress_lines()
-        lines = describe_state(caps, installed=installed, images=images, cloud=cloud)
+        lines = describe_state(caps, installed=installed, images=images)
         if progress:
             lines += ["", tui.StyledLine("Import progress", style="class:question"), "", *progress]
         return lines
@@ -4103,24 +4037,9 @@ def _state_row(label: str, value: str, style: str = "") -> str:
     return tui.StyledLine(f"  {label:<{_STATE_LABEL_WIDTH}} {value}", style=style, clip=True)
 
 
-def cloud_status(sources: Iterable[str]) -> dict[str, tuple[str, bool] | None]:
-    """Each cloud agent's capture line (`wizard_status`). It reads files and may
-    ask systemctl, so a caller that redraws computes it once and passes it in."""
-    return {source: cloud_agents.module(source).wizard_status() for source in sources if source in CLOUD_AGENT_SOURCES}
-
-
-def _agent_rows(
-    caps_by_source: dict[str, Capabilities],
-    images=None,
-    cloud: dict[str, tuple[str, bool] | None] | None = None,
-) -> list[str]:
+def _agent_rows(caps_by_source: dict[str, Capabilities], images=None) -> list[str]:
     """One row per agent: its logo (or its name), then MCP and capture in
     aligned columns.
-
-    A cloud agent (Capy) is a row like the others, but neither column is a
-    plugin fact: its MCP is whatever its own settings hold (this machine cannot
-    see them), and its capture is the connection its module reports (`cloud`,
-    from `cloud_status`).
 
     `images` is the terminal's `tui.ImageProtocol`. With one, each agent is its
     logo, two cells wide, and pointing at the row shows its name; without one
@@ -4133,35 +4052,24 @@ def _agent_rows(
     logos = {source: agent_logo(source) for source in caps_by_source} if images else {}
     drawn = bool(logos) and all(logos.values())
     lead = 2 if drawn else max(map(len, names.values()), default=0)
-    if cloud is None:
-        cloud = cloud_status(caps_by_source)
     mcp = {
-        source: "MCP in its settings"
-        if source in CLOUD_AGENT_SOURCES
-        else f"MCP {_MCP_WORDS.get(snapshot.mcp_state, snapshot.mcp_state)}"
+        source: f"MCP {_MCP_WORDS.get(snapshot.mcp_state, snapshot.mcp_state)}"
         for source, snapshot in caps_by_source.items()
     }
     mcp_width = max(map(len, mcp.values()), default=0)
     rows: list[str] = []
     for index, (source, snapshot) in enumerate(caps_by_source.items()):
-        style = ""
-        if source in CLOUD_AGENT_SOURCES:
-            status = cloud.get(source)
-            capture, problem = status if status else ("capture off (not connected)", False)
-            style = "class:instruction" if problem else ""
-        else:
-            capture = "on" if snapshot.capture_on else "off"
-            if snapshot.capture_killswitched:
-                capture = "off (killswitch set)"
-            capture = f"capture {capture}"
+        capture = "on" if snapshot.capture_on else "off"
+        if snapshot.capture_killswitched:
+            capture = "off (killswitch set)"
         label = "" if drawn else names[source]
-        text = f"  {label:<{lead}}  {mcp[source]:<{mcp_width}}   {capture}"
+        text = f"  {label:<{lead}}  {mcp[source]:<{mcp_width}}   capture {capture}"
         if drawn:
             # Drawn over the two blank cells before column 4, once that column is.
             logo = tui.image_escape(logos[source], images, cells=2, image_id=tui.IMAGE_ID_BASE + index)
-            rows.append(tui.StyledLine(text, style=style, clip=True, escapes=((4, logo),), hover=names[source]))
+            rows.append(tui.StyledLine(text, clip=True, escapes=((4, logo),), hover=names[source]))
         else:
-            rows.append(tui.StyledLine(text, style=style, clip=True))
+            rows.append(tui.StyledLine(text, clip=True))
     return rows
 
 
@@ -4286,7 +4194,6 @@ def describe_state(
     caps: Capabilities | dict[str, Capabilities],
     installed: Iterable[str] | None = None,
     images=None,
-    cloud: dict[str, tuple[str, bool] | None] | None = None,
 ) -> list[str]:
     """A one-glance summary printed above the menu on a re-run.
 
@@ -4296,13 +4203,12 @@ def describe_state(
     `installed` limits the agent rows to the agents found on this machine
     (`detectable_sources`); None shows every agent in `caps`. The device rows
     still come off the first snapshot either way. `images` draws each agent as
-    its logo (`_agent_rows`); `cloud` is `cloud_status`, which a caller that
-    redraws (the menu, every frame) computes once and passes in.
+    its logo (`_agent_rows`).
     """
     if isinstance(caps, dict):
         found = None if installed is None else set(installed)
         agents = {source: snapshot for source, snapshot in caps.items() if found is None or source in found}
-        lines: list[str] = _agent_rows(agents, images, cloud) if agents else [
+        lines: list[str] = _agent_rows(agents, images) if agents else [
             _state_row("Coding agents", "none found on this device")
         ]
         first = next(iter(caps.values()), None)
@@ -5828,16 +5734,7 @@ def sign_in(
     # The FILE, not `resolve()`: an exported PROBE_TOKEN belongs to whoever
     # exported it (CI, a colleague's shell profile) and is not ours to revoke.
     previous = load_context()
-    # A cloud agent's (Capy's) capture is never paired or re-paired here: its
-    # connection names one person's threads in one team (`probe capy connect`
-    # checks both), so moving its credential with a sign-in -- to a new account,
-    # or before any key or project was given -- would send those threads where
-    # nobody agreed to them. Its own connect step pairs it.
-    normalized = tuple(
-        source
-        for source in ((sources,) if isinstance(sources, str) else tuple(sources))
-        if source not in CLOUD_AGENT_SOURCES
-    )
+    normalized = (sources,) if isinstance(sources, str) else tuple(sources)
     repair = locally_paired_capture(normalized)
     new_capture = (
         [
@@ -5896,22 +5793,7 @@ def sign_in(
                 what="the token this device was using before",
             )
         )
-    lines.extend(after_sign_in())
     return SignInResult(ok=True, lines=lines)
-
-
-def after_sign_in() -> list[str]:
-    """After ANY sign-in or account switch: a cloud agent's capture connected
-    for another team is turned off, not moved (see `sign_in`), with a line
-    saying how to connect it here; back on its own team, that stop lifts.
-    Best-effort: a sign-in never fails on it."""
-    lines: list[str] = []
-    for source in CLOUD_AGENT_SOURCES:
-        try:
-            lines.extend(cloud_agents.module(source).after_sign_in())
-        except Exception as exc:  # noqa: BLE001 -- reported, never fatal
-            lines.append(f"! could not check {agent_label(source)} capture's team ({type(exc).__name__})")
-    return lines
 
 
 def release_credentials() -> list[str]:
@@ -5930,20 +5812,11 @@ def release_credentials() -> list[str]:
 
     context = current_context_name()
     stored = load_context()
-    lines: list[str] = []
+    # What removed Capy capture left here (its key, credential and timer) goes
+    # with the account, not on the old timer's schedule.
+    from . import capy_retire
 
-    # A cloud agent's capture (Capy) runs from a timer with its own key and
-    # capture credential, none of them in the config this clears: left alone,
-    # it keeps uploading this device's threads after sign-out and uninstall.
-    for source in CLOUD_AGENT_SOURCES:
-        agent = cloud_agents.module(source)
-        if not agent.connected_here():
-            continue
-        try:
-            lines.extend(agent.disconnect())
-        except Exception as exc:  # noqa: BLE001 -- best-effort, like every step here
-            lines.append(f"! could not disconnect {agent.label()} ({type(exc).__name__}); "
-                         f"run `probe {source} disconnect`")
+    lines: list[str] = capy_retire.retire()
 
     if stored.get("token"):
         lines.extend(
@@ -6090,20 +5963,10 @@ def switch_account(
     normalized = (sources,) if isinstance(sources, str) else tuple(sources)
     for source in normalized:
         if TokenSource.PAIRED_FILE in capture_token_sources(source):
-            # A cloud agent's (Capy's) connection names one person's threads
-            # in one team: a sign-in never moves it, its own connect does.
-            fix = (
-                f"`probe {source} connect` connects it to this one."
-                if source in CLOUD_AGENT_SOURCES
-                else "`probe wizard --action login` re-pairs it to this one."
-            )
-            if source in CLOUD_AGENT_SOURCES:
-                continue  # `after_sign_in` below stops it if it is another team's
             lines.append(
                 f"! {agent_label(source)} Session capture still uploads to the account that "
-                f"paired it. {fix}"
+                "paired it. `probe wizard --action login` re-pairs it to this one."
             )
-    lines.extend(after_sign_in())
     return lines
 
 
@@ -6122,8 +5985,6 @@ def remove_everything(caps: Capabilities) -> list[str]:
     from . import import_jobs
 
     import_jobs.clear_all()
-    if caps.agent_source in CLOUD_AGENT_SOURCES:
-        return _remove_cloud_agent(caps.agent_source)
     messages: list[str] = []
     result = turn_off(OffMode.UNINSTALL)
     messages.append(result.summary())
@@ -6191,21 +6052,6 @@ def remove_everything(caps: Capabilities) -> list[str]:
     # last coding agent has run through here. Releasing it from inside this
     # function would revoke the credential that the NEXT agent's pass -- and
     # this one's own capability registration -- still has to authenticate with.
-    messages.append("Removed.")
-    return messages
-
-
-def _remove_cloud_agent(source: str) -> list[str]:
-    """`remove_everything` for a cloud agent (Capy): this machine holds only its
-    capture connection, so that goes; Probe inside the agent's own settings is
-    out of this machine's reach, so the researcher is told where it is."""
-    agent = cloud_agents.module(source)
-    messages = agent.disconnect() if agent.connected_here() else []
-    messages.append(
-        f"Probe's MCP server and skills stay in {agent.label()} until you remove them in its "
-        "settings (MCP & plugins): nothing on this machine can reach them."
-    )
-    autoupdate.forget()
     messages.append("Removed.")
     return messages
 

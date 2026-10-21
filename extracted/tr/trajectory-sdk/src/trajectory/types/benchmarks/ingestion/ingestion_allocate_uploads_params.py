@@ -16,6 +16,9 @@ class BenchmarkIngestionUploadObjectParam(TypedDict, total=False):
 
 class IngestionAllocateUploadsParams(TypedDict, total=False):
   files: Required[Iterable[BenchmarkIngestionUploadObjectParam]]
+  """
+  At most 1000 files and 1024 KiB with `put`, or 5000 files and 4096 KiB with `post`.
+  """
   upload_method: Literal["put", "post"]
   """
   `put` returns a signed PUT URL per file. `post` returns one signed form-upload policy for the

@@ -725,3 +725,31 @@ def test_write_empty_variable_with_compression(tmp_path):
     reader = cdf_read(fn)
     info = reader.varinq("EmptyVar")
     assert info.Last_Rec == -1
+
+
+def test_zvariable_novary_dim_pad(tmp_path):
+    fn = tmp_path / fnbasic
+    vs: Dict[str, Any] = {}
+    vs["Variable"] = "Variable1"
+    vs["Data_Type"] = 8
+    vs["Num_Elements"] = 1
+    vs["Rec_Vary"] = True
+    vs["Dim_Sizes"] = [2, 3]
+    vs["Pad"] = np.array([-7], dtype=np.int64)
+
+    tfile = cdf_create(fn, {})
+    tfile.write_var(vs, var_data=np.zeros((1, 2, 3), dtype=np.int64))
+    tfile.close()
+
+    # cdfwrite can't emit NOVARY zVariable dims, so mark the first dim NOVARY in place.
+    # The z-VDR's Name field starts 84 bytes into the record; DimVarys follow 256-byte Name, zNumDims, 2 DimSizes.
+    raw = bytearray(fn.read_bytes())
+    name_off = raw.index(b"Variable1\x00")
+    dimvary_off = name_off + 256 + 4 + 2 * 4
+    assert raw[dimvary_off : dimvary_off + 8] == (-1).to_bytes(4, "big", signed=True) * 2
+    raw[dimvary_off : dimvary_off + 4] = (0).to_bytes(4, "big")
+    fn.write_bytes(raw)
+
+    varinq = cdf_read(fn).varinq("Variable1")
+    assert varinq.Dim_Sizes == [3]
+    assert varinq.Pad[0] == -7

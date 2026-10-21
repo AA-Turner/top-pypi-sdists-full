@@ -231,6 +231,53 @@ typing.cast(typing.Any, IGroupingConfigurationRef).__jsii_proxy_class__ = lambda
 
 
 @jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_applicationsignals.IInstrumentationConfigRef"
+)
+class IInstrumentationConfigRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstrumentationConfig.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="instrumentationConfigRef")
+    def instrumentation_config_ref(self) -> "InstrumentationConfigReference":
+        '''(experimental) A reference to a InstrumentationConfig resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IInstrumentationConfigRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a InstrumentationConfig.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_applicationsignals.IInstrumentationConfigRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="instrumentationConfigRef")
+    def instrumentation_config_ref(self) -> "InstrumentationConfigReference":
+        '''(experimental) A reference to a InstrumentationConfig resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("InstrumentationConfigReference", jsii.get(self, "instrumentationConfigRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstrumentationConfigRef).__jsii_proxy_class__ = lambda : _IInstrumentationConfigRefProxy
+
+
+@jsii.interface(
     jsii_type="aws-cdk-lib.interfaces.aws_applicationsignals.IServiceLevelObjectiveRef"
 )
 class IServiceLevelObjectiveRef(
@@ -275,6 +322,126 @@ class _IServiceLevelObjectiveRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IServiceLevelObjectiveRef).__jsii_proxy_class__ = lambda : _IServiceLevelObjectiveRefProxy
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_applicationsignals.InstrumentationConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={
+        "environment": "environment",
+        "instrumentation_config_arn": "instrumentationConfigArn",
+        "instrumentation_type": "instrumentationType",
+        "location_hash": "locationHash",
+        "service": "service",
+        "signal_type": "signalType",
+    },
+)
+class InstrumentationConfigReference:
+    def __init__(
+        self,
+        *,
+        environment: builtins.str,
+        instrumentation_config_arn: builtins.str,
+        instrumentation_type: builtins.str,
+        location_hash: builtins.str,
+        service: builtins.str,
+        signal_type: builtins.str,
+    ) -> None:
+        '''A reference to a InstrumentationConfig resource.
+
+        :param environment: The Environment of the InstrumentationConfig resource.
+        :param instrumentation_config_arn: The ARN of the InstrumentationConfig resource.
+        :param instrumentation_type: The InstrumentationType of the InstrumentationConfig resource.
+        :param location_hash: The LocationHash of the InstrumentationConfig resource.
+        :param service: The Service of the InstrumentationConfig resource.
+        :param signal_type: The SignalType of the InstrumentationConfig resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_applicationsignals as interfaces_applicationsignals
+            
+            instrumentation_config_reference = interfaces_applicationsignals.InstrumentationConfigReference(
+                environment="environment",
+                instrumentation_config_arn="instrumentationConfigArn",
+                instrumentation_type="instrumentationType",
+                location_hash="locationHash",
+                service="service",
+                signal_type="signalType"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d3cc9d8c4a1181b4392489dc4c126f125e83cd446e8fafaf12f50913d7e506bb)
+            check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
+            check_type(argname="argument instrumentation_config_arn", value=instrumentation_config_arn, expected_type=type_hints["instrumentation_config_arn"])
+            check_type(argname="argument instrumentation_type", value=instrumentation_type, expected_type=type_hints["instrumentation_type"])
+            check_type(argname="argument location_hash", value=location_hash, expected_type=type_hints["location_hash"])
+            check_type(argname="argument service", value=service, expected_type=type_hints["service"])
+            check_type(argname="argument signal_type", value=signal_type, expected_type=type_hints["signal_type"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "environment": environment,
+            "instrumentation_config_arn": instrumentation_config_arn,
+            "instrumentation_type": instrumentation_type,
+            "location_hash": location_hash,
+            "service": service,
+            "signal_type": signal_type,
+        }
+
+    @builtins.property
+    def environment(self) -> builtins.str:
+        '''The Environment of the InstrumentationConfig resource.'''
+        result = self._values.get("environment")
+        assert result is not None, "Required property 'environment' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instrumentation_config_arn(self) -> builtins.str:
+        '''The ARN of the InstrumentationConfig resource.'''
+        result = self._values.get("instrumentation_config_arn")
+        assert result is not None, "Required property 'instrumentation_config_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def instrumentation_type(self) -> builtins.str:
+        '''The InstrumentationType of the InstrumentationConfig resource.'''
+        result = self._values.get("instrumentation_type")
+        assert result is not None, "Required property 'instrumentation_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def location_hash(self) -> builtins.str:
+        '''The LocationHash of the InstrumentationConfig resource.'''
+        result = self._values.get("location_hash")
+        assert result is not None, "Required property 'location_hash' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def service(self) -> builtins.str:
+        '''The Service of the InstrumentationConfig resource.'''
+        result = self._values.get("service")
+        assert result is not None, "Required property 'service' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def signal_type(self) -> builtins.str:
+        '''The SignalType of the InstrumentationConfig resource.'''
+        result = self._values.get("signal_type")
+        assert result is not None, "Required property 'signal_type' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstrumentationConfigReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -331,7 +498,9 @@ __all__ = [
     "GroupingConfigurationReference",
     "IDiscoveryRef",
     "IGroupingConfigurationRef",
+    "IInstrumentationConfigRef",
     "IServiceLevelObjectiveRef",
+    "InstrumentationConfigReference",
     "ServiceLevelObjectiveReference",
 ]
 
@@ -351,6 +520,18 @@ def _typecheckingstub__63cfc8e32ddc4fa983bee8463cd6da319f6fe3561d33da2f7e1d761b2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d3cc9d8c4a1181b4392489dc4c126f125e83cd446e8fafaf12f50913d7e506bb(
+    *,
+    environment: builtins.str,
+    instrumentation_config_arn: builtins.str,
+    instrumentation_type: builtins.str,
+    location_hash: builtins.str,
+    service: builtins.str,
+    signal_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c2e32f6fff740d39f1d435dbac6302f0703af42f33b9a51669c9841041bb9140(
     *,
     service_level_objective_arn: builtins.str,
@@ -358,5 +539,5 @@ def _typecheckingstub__c2e32f6fff740d39f1d435dbac6302f0703af42f33b9a51669c984104
     """Type checking stubs"""
     pass
 
-for cls in [IDiscoveryRef, IGroupingConfigurationRef, IServiceLevelObjectiveRef]:
+for cls in [IDiscoveryRef, IGroupingConfigurationRef, IInstrumentationConfigRef, IServiceLevelObjectiveRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

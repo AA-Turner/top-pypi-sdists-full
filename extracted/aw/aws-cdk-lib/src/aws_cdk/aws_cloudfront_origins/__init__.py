@@ -112,6 +112,26 @@ imported_oac = cloudfront.S3OriginAccessControl.from_origin_access_control_id(se
 > [Note](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html): When you use OAC with S3
 > bucket origins, the bucket's object ownership must be either set to Bucket owner enforced (default for new S3 buckets) or Bucket owner preferred (only if you require ACLs).
 
+#### Setting up OAC for an S3 Multi-Region Access Point origin
+
+An [S3 Multi-Region Access Point](https://docs.aws.amazon.com/AmazonS3/latest/userguide/MultiRegionAccessPoints.html) origin requires an origin access control that signs with SigV4A, and is configured as a custom origin using the Multi-Region Access Point hostname:
+
+```python
+oac = cloudfront.S3OriginAccessControl(self, "MyMrapOAC",
+    signing=cloudfront.Signing.SIGV4A_ALWAYS
+)
+
+cloudfront.Distribution(self, "myDist",
+    default_behavior=cloudfront.BehaviorOptions(
+        origin=origins.HttpOrigin("mfzwi23gnjvgw.mrap.accesspoint.s3-global.amazonaws.com",
+            origin_access_control_id=oac.origin_access_control_id
+        )
+    )
+)
+```
+
+You must also grant CloudFront access in the Multi-Region Access Point policy and in the bucket policy of every underlying bucket. See [Restrict access to an Amazon S3 Multi-Region Access Point origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3-mrap.html).
+
 #### Setting up OAC with a SSE-KMS encrypted S3 origin
 
 If the objects in the S3 bucket origin are encrypted using server-side encryption with
@@ -936,6 +956,27 @@ cloudfront.Distribution(self, "MyDistribution",
 ### Function URL permissions
 
 Lambda requires both `lambda:InvokeFunctionUrl` and `lambda:InvokeFunction` for CloudFront to call a newly created function URL through OAC. `FunctionUrlOrigin.withOriginAccessControl` adds both permissions.
+
+## From a Lambda Web Function
+
+An [AWS Lambda Web Function](https://docs.aws.amazon.com/lambda/latest/dg/web-functions.html) endpoint with the `IamAuth` authentication type can be a CloudFront origin protected by origin access control. Web Function origins support only the `always-amz-auth` signing behavior, which signs every origin request and passes the viewer's `Authorization` header to the function unchanged. For a regional endpoint, use `Signing.SIGV4_ALWAYS_AMZ_AUTH`:
+
+```python
+oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
+    signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
+)
+
+cloudfront.Distribution(self, "MyDistribution",
+    default_behavior=cloudfront.BehaviorOptions(
+        origin=origins.HttpOrigin("bcdfghjklmnpqrst.b7t.lambda-web.us-east-1.on.aws",
+            origin_access_control_id=oac.origin_access_control_id
+        ),
+        origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
+    )
+)
+```
+
+Web Function endpoints return HTTP 404 if the `Host` header isn't the endpoint domain name, so don't forward the viewer's `Host` header. You must also attach a resource-based policy to the Web Function that allows `cloudfront.amazonaws.com` to call `lambda:InvokeWebFunctionEndpoint`. See [Restrict access to an AWS Lambda Web Function origin](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-lambda-web.html).
 '''
 from __future__ import annotations
 
@@ -1913,15 +1954,16 @@ class HttpOrigin(
 
     Example::
 
-        my_bucket = s3.Bucket(self, "myBucket")
-        cloudfront.Distribution(self, "myDist",
+        oac = cloudfront.FunctionUrlOriginAccessControl(self, "WebFunctionOAC",
+            signing=cloudfront.Signing.SIGV4_ALWAYS_AMZ_AUTH
+        )
+        
+        cloudfront.Distribution(self, "MyDistribution",
             default_behavior=cloudfront.BehaviorOptions(
-                origin=origins.OriginGroup(
-                    primary_origin=origins.S3BucketOrigin.with_origin_access_control(my_bucket),
-                    fallback_origin=origins.HttpOrigin("www.example.com"),
-                    # optional, defaults to: 500, 502, 503 and 504
-                    fallback_status_codes=[404]
-                )
+                origin=origins.HttpOrigin("bcdfghjklmnpqrst.b7t.lambda-web.us-east-1.on.aws",
+                    origin_access_control_id=oac.origin_access_control_id
+                ),
+                origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
             )
         )
     '''
@@ -2063,12 +2105,16 @@ class HttpOriginProps(_aws_cloudfront_b4a5fa56.OriginProps):
 
         Example::
 
-            origin = origins.HttpOrigin("www.example.com",
-                ip_address_type=cloudfront.OriginIpAddressType.IPV6
+            oac = cloudfront.S3OriginAccessControl(self, "MyMrapOAC",
+                signing=cloudfront.Signing.SIGV4A_ALWAYS
             )
             
-            cloudfront.Distribution(self, "Distribution",
-                default_behavior=cloudfront.BehaviorOptions(origin=origin)
+            cloudfront.Distribution(self, "myDist",
+                default_behavior=cloudfront.BehaviorOptions(
+                    origin=origins.HttpOrigin("mfzwi23gnjvgw.mrap.accesspoint.s3-global.amazonaws.com",
+                        origin_access_control_id=oac.origin_access_control_id
+                    )
+                )
             )
         '''
         if __debug__:

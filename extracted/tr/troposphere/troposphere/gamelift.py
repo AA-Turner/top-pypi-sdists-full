@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -304,6 +304,7 @@ class GameServerContainerDefinition(AWSProperty):
         "PortConfiguration": (PortConfiguration, False),
         "ResolvedImageDigest": (str, False),
         "ServerSdkVersion": (str, True),
+        "Vcpu": (double, False),
     }
 
 
@@ -358,7 +359,7 @@ class ContainerGroupDefinition(AWSObject):
         "SupportContainerDefinitions": ([SupportContainerDefinition], False),
         "Tags": (Tags, False),
         "TotalMemoryLimitMebibytes": (integer, True),
-        "TotalVcpuLimit": (double, True),
+        "TotalVcpuLimit": (double, False),
         "VersionDescription": (str, False),
     }
 

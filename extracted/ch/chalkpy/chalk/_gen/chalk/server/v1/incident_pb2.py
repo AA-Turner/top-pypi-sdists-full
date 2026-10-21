@@ -19,7 +19,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1e\x63halk/server/v1/incident.proto\x12\x0f\x63halk.server.v1\x1a\x1e\x63halk/artifacts/v1/chart.proto\x1a)chalk/chart/v1/densetimeserieschart.proto\x1a\x1fgoogle/protobuf/timestamp.proto"y\n\x14IncidentLinkedEntity\x12\x44\n\x0b\x65ntity_kind\x18\x01 \x01(\x0e\x32#.chalk.server.v1.IncidentEntityKindR\nentityKind\x12\x1b\n\tentity_id\x18\x02 \x01(\tR\x08\x65ntityId"B\n\rIncidentGroup\x12\x1b\n\tgroup_key\x18\x01 \x01(\tR\x08groupKey\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value"\xe9\x03\n\x0eMetricIncident\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x39\n\nstarted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartedAt\x12\x37\n\tclosed_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x08\x63losedAt\x12\x45\n\rmetric_config\x18\x04 \x01(\x0b\x32 .chalk.artifacts.v1.MetricConfigR\x0cmetricConfig\x12S\n\rlinked_entity\x18\x05 \x01(\x0b\x32%.chalk.server.v1.IncidentLinkedEntityB\x02\x18\x01H\x00R\x0clinkedEntity\x88\x01\x01\x12\x1d\n\ndedupe_key\x18\x06 \x01(\tR\tdedupeKey\x12\x36\n\x06groups\x18\x07 \x03(\x0b\x32\x1e.chalk.server.v1.IncidentGroupR\x06groups\x12N\n\x0flinked_entities\x18\x08 \x03(\x0b\x32%.chalk.server.v1.IncidentLinkedEntityR\x0elinkedEntitiesB\x10\n\x0e_linked_entity"5\n\x12GetIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId"R\n\x13GetIncidentResponse\x12;\n\x08incident\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.MetricIncidentR\x08incident"v\n\x1dGetIncidentAlertsChartRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId\x12$\n\x0bpoint_limit\x18\x02 \x01(\x03H\x00R\npointLimit\x88\x01\x01\x42\x0e\n\x0c_point_limit"\\\n\x1eGetIncidentAlertsChartResponse\x12:\n\x05\x63hart\x18\x01 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x05\x63hart"q\n\x16ListIncidentsPageToken\x12@\n\x0e\x63reated_at_hwm\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0c\x63reatedAtHwm\x12\x15\n\x06id_hwm\x18\x02 \x01(\tR\x05idHwm"\xd4\x04\n\x14ListIncidentsFilters\x12g\n created_at_lower_bound_inclusive\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x1c\x63reatedAtLowerBoundInclusive\x88\x01\x01\x12g\n created_at_upper_bound_exclusive\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x1c\x63reatedAtUpperBoundExclusive\x88\x01\x01\x12/\n\x11has_closed_filter\x18\x03 \x01(\x08H\x02R\x0fhasClosedFilter\x88\x01\x01\x12\x63\n\x19linked_entity_kind_filter\x18\x04 \x01(\x0e\x32#.chalk.server.v1.IncidentEntityKindH\x03R\x16linkedEntityKindFilter\x88\x01\x01\x12:\n\x17linked_entity_id_filter\x18\x05 \x01(\tH\x04R\x14linkedEntityIdFilter\x88\x01\x01\x42#\n!_created_at_lower_bound_inclusiveB#\n!_created_at_upper_bound_exclusiveB\x14\n\x12_has_closed_filterB\x1c\n\x1a_linked_entity_kind_filterB\x1a\n\x18_linked_entity_id_filter"\xc0\x01\n\x14ListIncidentsRequest\x12\x44\n\x07\x66ilters\x18\x01 \x01(\x0b\x32%.chalk.server.v1.ListIncidentsFiltersH\x00R\x07\x66ilters\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12"\n\npage_token\x18\x03 \x01(\tH\x02R\tpageToken\x88\x01\x01\x42\n\n\x08_filtersB\x08\n\x06_limitB\r\n\x0b_page_token"\x97\x01\n\x15ListIncidentsResponse\x12=\n\tincidents\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.MetricIncidentR\tincidents\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token*\xed\x01\n\x12IncidentEntityKind\x12$\n INCIDENT_ENTITY_KIND_UNSPECIFIED\x10\x00\x12 \n\x1cINCIDENT_ENTITY_KIND_FEATURE\x10\x01\x12!\n\x1dINCIDENT_ENTITY_KIND_RESOLVER\x10\x02\x12(\n$INCIDENT_ENTITY_KIND_SCHEDULED_QUERY\x10\x03\x12\x1e\n\x1aINCIDENT_ENTITY_KIND_QUERY\x10\x04\x12"\n\x1eINCIDENT_ENTITY_KIND_SQL_QUERY\x10\x05\x42\x96\x01\n\x13\x63om.chalk.server.v1B\rIncidentProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1e\x63halk/server/v1/incident.proto\x12\x0f\x63halk.server.v1\x1a\x1e\x63halk/artifacts/v1/chart.proto\x1a)chalk/chart/v1/densetimeserieschart.proto\x1a\x1fgoogle/protobuf/timestamp.proto"y\n\x14IncidentLinkedEntity\x12\x44\n\x0b\x65ntity_kind\x18\x01 \x01(\x0e\x32#.chalk.server.v1.IncidentEntityKindR\nentityKind\x12\x1b\n\tentity_id\x18\x02 \x01(\tR\x08\x65ntityId"B\n\rIncidentGroup\x12\x1b\n\tgroup_key\x18\x01 \x01(\tR\x08groupKey\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value"k\n\x10IncidentSnapshot\x12O\n\x0emetric_monitor\x18\x01 \x01(\x0b\x32&.chalk.server.v1.MetricMonitorSnapshotH\x00R\rmetricMonitorB\x06\n\x04\x62ody"O\n\x15MetricMonitorSnapshot\x12\x36\n\x06groups\x18\x01 \x03(\x0b\x32\x1e.chalk.server.v1.IncidentGroupR\x06groups"\xe9\x03\n\x0eMetricIncident\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x39\n\nstarted_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tstartedAt\x12\x37\n\tclosed_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x08\x63losedAt\x12\x45\n\rmetric_config\x18\x04 \x01(\x0b\x32 .chalk.artifacts.v1.MetricConfigR\x0cmetricConfig\x12S\n\rlinked_entity\x18\x05 \x01(\x0b\x32%.chalk.server.v1.IncidentLinkedEntityB\x02\x18\x01H\x00R\x0clinkedEntity\x88\x01\x01\x12\x1d\n\ndedupe_key\x18\x06 \x01(\tR\tdedupeKey\x12\x36\n\x06groups\x18\x07 \x03(\x0b\x32\x1e.chalk.server.v1.IncidentGroupR\x06groups\x12N\n\x0flinked_entities\x18\x08 \x03(\x0b\x32%.chalk.server.v1.IncidentLinkedEntityR\x0elinkedEntitiesB\x10\n\x0e_linked_entity"5\n\x12GetIncidentRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId"R\n\x13GetIncidentResponse\x12;\n\x08incident\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.MetricIncidentR\x08incident"v\n\x1dGetIncidentAlertsChartRequest\x12\x1f\n\x0bincident_id\x18\x01 \x01(\tR\nincidentId\x12$\n\x0bpoint_limit\x18\x02 \x01(\x03H\x00R\npointLimit\x88\x01\x01\x42\x0e\n\x0c_point_limit"\\\n\x1eGetIncidentAlertsChartResponse\x12:\n\x05\x63hart\x18\x01 \x01(\x0b\x32$.chalk.chart.v1.DenseTimeSeriesChartR\x05\x63hart"q\n\x16ListIncidentsPageToken\x12@\n\x0e\x63reated_at_hwm\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0c\x63reatedAtHwm\x12\x15\n\x06id_hwm\x18\x02 \x01(\tR\x05idHwm"\xd4\x04\n\x14ListIncidentsFilters\x12g\n created_at_lower_bound_inclusive\x18\x01 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\x1c\x63reatedAtLowerBoundInclusive\x88\x01\x01\x12g\n created_at_upper_bound_exclusive\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\x1c\x63reatedAtUpperBoundExclusive\x88\x01\x01\x12/\n\x11has_closed_filter\x18\x03 \x01(\x08H\x02R\x0fhasClosedFilter\x88\x01\x01\x12\x63\n\x19linked_entity_kind_filter\x18\x04 \x01(\x0e\x32#.chalk.server.v1.IncidentEntityKindH\x03R\x16linkedEntityKindFilter\x88\x01\x01\x12:\n\x17linked_entity_id_filter\x18\x05 \x01(\tH\x04R\x14linkedEntityIdFilter\x88\x01\x01\x42#\n!_created_at_lower_bound_inclusiveB#\n!_created_at_upper_bound_exclusiveB\x14\n\x12_has_closed_filterB\x1c\n\x1a_linked_entity_kind_filterB\x1a\n\x18_linked_entity_id_filter"\xc0\x01\n\x14ListIncidentsRequest\x12\x44\n\x07\x66ilters\x18\x01 \x01(\x0b\x32%.chalk.server.v1.ListIncidentsFiltersH\x00R\x07\x66ilters\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x12"\n\npage_token\x18\x03 \x01(\tH\x02R\tpageToken\x88\x01\x01\x42\n\n\x08_filtersB\x08\n\x06_limitB\r\n\x0b_page_token"\x97\x01\n\x15ListIncidentsResponse\x12=\n\tincidents\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.MetricIncidentR\tincidents\x12+\n\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x42\x12\n\x10_next_page_token*\x98\x05\n\x12IncidentEntityKind\x12$\n INCIDENT_ENTITY_KIND_UNSPECIFIED\x10\x00\x12 \n\x1cINCIDENT_ENTITY_KIND_FEATURE\x10\x01\x12!\n\x1dINCIDENT_ENTITY_KIND_RESOLVER\x10\x02\x12(\n$INCIDENT_ENTITY_KIND_SCHEDULED_QUERY\x10\x03\x12\x1e\n\x1aINCIDENT_ENTITY_KIND_QUERY\x10\x04\x12"\n\x1eINCIDENT_ENTITY_KIND_SQL_QUERY\x10\x05\x12#\n\x1fINCIDENT_ENTITY_KIND_DEPLOYMENT\x10\x06\x12\x1c\n\x18INCIDENT_ENTITY_KIND_POD\x10\x07\x12%\n!INCIDENT_ENTITY_KIND_SERVICE_KIND\x10\x08\x12\'\n#INCIDENT_ENTITY_KIND_RESOURCE_GROUP\x10\t\x12&\n"INCIDENT_ENTITY_KIND_OFFLINE_QUERY\x10\n\x12,\n(INCIDENT_ENTITY_KIND_SCHEDULED_QUERY_RUN\x10\x0b\x12%\n!INCIDENT_ENTITY_KIND_TRAINING_RUN\x10\x0c\x12&\n"INCIDENT_ENTITY_KIND_SCALING_GROUP\x10\r\x12\x1d\n\x19INCIDENT_ENTITY_KIND_NODE\x10\x0e\x12!\n\x1dINCIDENT_ENTITY_KIND_FUNCTION\x10\x0f\x12/\n+INCIDENT_ENTITY_KIND_SCALING_GROUP_REVISION\x10\x10\x42\x96\x01\n\x13\x63om.chalk.server.v1B\rIncidentProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -32,28 +32,32 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.server.v1B\rIncidentProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
     _globals["_METRICINCIDENT"].fields_by_name["linked_entity"]._options = None
     _globals["_METRICINCIDENT"].fields_by_name["linked_entity"]._serialized_options = b"\030\001"
-    _globals["_INCIDENTENTITYKIND"]._serialized_start = 2259
-    _globals["_INCIDENTENTITYKIND"]._serialized_end = 2496
+    _globals["_INCIDENTENTITYKIND"]._serialized_start = 2449
+    _globals["_INCIDENTENTITYKIND"]._serialized_end = 3113
     _globals["_INCIDENTLINKEDENTITY"]._serialized_start = 159
     _globals["_INCIDENTLINKEDENTITY"]._serialized_end = 280
     _globals["_INCIDENTGROUP"]._serialized_start = 282
     _globals["_INCIDENTGROUP"]._serialized_end = 348
-    _globals["_METRICINCIDENT"]._serialized_start = 351
-    _globals["_METRICINCIDENT"]._serialized_end = 840
-    _globals["_GETINCIDENTREQUEST"]._serialized_start = 842
-    _globals["_GETINCIDENTREQUEST"]._serialized_end = 895
-    _globals["_GETINCIDENTRESPONSE"]._serialized_start = 897
-    _globals["_GETINCIDENTRESPONSE"]._serialized_end = 979
-    _globals["_GETINCIDENTALERTSCHARTREQUEST"]._serialized_start = 981
-    _globals["_GETINCIDENTALERTSCHARTREQUEST"]._serialized_end = 1099
-    _globals["_GETINCIDENTALERTSCHARTRESPONSE"]._serialized_start = 1101
-    _globals["_GETINCIDENTALERTSCHARTRESPONSE"]._serialized_end = 1193
-    _globals["_LISTINCIDENTSPAGETOKEN"]._serialized_start = 1195
-    _globals["_LISTINCIDENTSPAGETOKEN"]._serialized_end = 1308
-    _globals["_LISTINCIDENTSFILTERS"]._serialized_start = 1311
-    _globals["_LISTINCIDENTSFILTERS"]._serialized_end = 1907
-    _globals["_LISTINCIDENTSREQUEST"]._serialized_start = 1910
-    _globals["_LISTINCIDENTSREQUEST"]._serialized_end = 2102
-    _globals["_LISTINCIDENTSRESPONSE"]._serialized_start = 2105
-    _globals["_LISTINCIDENTSRESPONSE"]._serialized_end = 2256
+    _globals["_INCIDENTSNAPSHOT"]._serialized_start = 350
+    _globals["_INCIDENTSNAPSHOT"]._serialized_end = 457
+    _globals["_METRICMONITORSNAPSHOT"]._serialized_start = 459
+    _globals["_METRICMONITORSNAPSHOT"]._serialized_end = 538
+    _globals["_METRICINCIDENT"]._serialized_start = 541
+    _globals["_METRICINCIDENT"]._serialized_end = 1030
+    _globals["_GETINCIDENTREQUEST"]._serialized_start = 1032
+    _globals["_GETINCIDENTREQUEST"]._serialized_end = 1085
+    _globals["_GETINCIDENTRESPONSE"]._serialized_start = 1087
+    _globals["_GETINCIDENTRESPONSE"]._serialized_end = 1169
+    _globals["_GETINCIDENTALERTSCHARTREQUEST"]._serialized_start = 1171
+    _globals["_GETINCIDENTALERTSCHARTREQUEST"]._serialized_end = 1289
+    _globals["_GETINCIDENTALERTSCHARTRESPONSE"]._serialized_start = 1291
+    _globals["_GETINCIDENTALERTSCHARTRESPONSE"]._serialized_end = 1383
+    _globals["_LISTINCIDENTSPAGETOKEN"]._serialized_start = 1385
+    _globals["_LISTINCIDENTSPAGETOKEN"]._serialized_end = 1498
+    _globals["_LISTINCIDENTSFILTERS"]._serialized_start = 1501
+    _globals["_LISTINCIDENTSFILTERS"]._serialized_end = 2097
+    _globals["_LISTINCIDENTSREQUEST"]._serialized_start = 2100
+    _globals["_LISTINCIDENTSREQUEST"]._serialized_end = 2292
+    _globals["_LISTINCIDENTSRESPONSE"]._serialized_start = 2295
+    _globals["_LISTINCIDENTSRESPONSE"]._serialized_end = 2446
 # @@protoc_insertion_point(module_scope)

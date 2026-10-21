@@ -19,6 +19,7 @@ from .api_types import (
     ConfluenceComment,
     ConfluenceContentProperty,
     ConfluenceContentVersion,
+    ConfluenceFolderProperties,
     ConfluenceIdentifiedContentProperty,
     ConfluenceIdentifiedLabel,
     ConfluencePage,
@@ -28,11 +29,12 @@ from .api_types import (
     ConfluenceParentType,
     ConfluenceRepresentation,
     ConfluenceStatus,
+    ConfluenceTypedID,
     ConfluenceVersion,
     ConfluenceVersionedContentProperty,
 )
 from .compatibility import override
-from .environment import ConfluenceError
+from .environment import ConfluenceAPIVersionMismatch, ConfluenceError
 from .options_api import ConfluenceSessionOptions
 from .serializer import JsonType, json_to_object
 
@@ -162,16 +164,14 @@ class ConfluenceSessionV1(ConfluenceSessionShared):
             return ""
 
     @override
-    def get_object_space_id(self, object_id: str) -> str:
-        page = self.get_page_properties(object_id)
+    def get_object_space_id(self, object_id: ConfluenceTypedID) -> str:
+        page = self.get_page_properties(object_id.page_id)
         return page.spaceId
 
     @override
-    def get_object_parent_position(self, object_id: str) -> tuple[str | None, int | None]:
-        page = self.get_page_properties(object_id)
-        parent_id = page.parentId
-        position = page.position
-        return parent_id, position
+    def get_object_parent_position(self, object_id: ConfluenceTypedID) -> tuple[ConfluenceTypedID | None, int | None]:
+        page = self.get_page_properties(object_id.page_id)
+        return page.parent, page.position
 
     @override
     def get_homepage_id(self, space_id: str) -> str:
@@ -248,11 +248,34 @@ class ConfluenceSessionV1(ConfluenceSessionShared):
 
     @override
     def get_content_property_for_attachment(self, attachment_id: str, key: str) -> ConfluenceIdentifiedContentProperty | None:
-        raise NotImplementedError("attachment content properties are not supported")
+        raise ConfluenceAPIVersionMismatch("attachment content properties require REST API v2")
 
     @override
     def update_content_property_for_attachment(self, attachment_id: str, property: ConfluenceContentProperty) -> None:
-        raise NotImplementedError("attachment content properties are not supported")
+        raise ConfluenceAPIVersionMismatch("attachment content properties require REST API v2")
+
+    @property
+    @override
+    def supports_folders(self) -> bool:
+        return False
+
+    @override
+    def get_folder_properties(self, folder_id: str) -> ConfluenceFolderProperties:
+        """Retrieves a Confluence folder by its explicitly identified folder ID."""
+
+        raise ConfluenceAPIVersionMismatch("Confluence folders require REST API v2")
+
+    @override
+    def get_folder_properties_by_title(self, title: str, *, parent_id: ConfluenceTypedID) -> ConfluenceFolderProperties | None:
+        """Finds a direct child folder with a matching title."""
+
+        raise ConfluenceAPIVersionMismatch("Confluence folders require REST API v2")
+
+    @override
+    def create_folder(self, *, title: str, parent_id: str, space_id: str) -> ConfluenceFolderProperties:
+        """Creates a folder in the Confluence content tree."""
+
+        raise ConfluenceAPIVersionMismatch("Confluence folders require REST API v2")
 
     @override
     def get_page_properties_by_title(self, title: str, *, space_id: str | None = None, space_key: str | None = None) -> ConfluencePageProperties:

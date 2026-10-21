@@ -17,7 +17,7 @@
 from typing import Any
 import jax
 import jax.numpy as jnp
-from tokamax._src.ops.experimental.tpu.topk import pallas_mosaic_tpu as jax_pallas_mosaic_tpu
+from tokamax._src.ops.topk import pallas_mosaic_tpu as jax_pallas_mosaic_tpu
 from tokamax.experimental.torch_tpu.ops import torch_op
 from tokamax.experimental.torch_tpu.ops.topk import torch_base
 import torch
@@ -61,20 +61,6 @@ class _PallasMosaicTpuTopK(
         scheduling_group_id=None if config[0] < 0 else int(config[0]),
         stage2_scheduling_group_id=None if config[1] < 0 else int(config[1]),
     )
-
-  # Overridden so default config resolution routes through
-  # `self.deconstruct_config` instead of the base class's `dataclasses.astuple`.
-  @override
-  def op_impl_call_config_setup(
-      self, *args: Any, config: Any = None, **kwargs: Any
-  ) -> tuple[int, ...] | None:
-    if config is None:
-      config = self.deconstruct_config(
-          self.get_bound_args(*args, **kwargs).get_config(
-              check_autotuning_cache=False,
-          )
-      )
-    return config
 
   @override
   def __call__(

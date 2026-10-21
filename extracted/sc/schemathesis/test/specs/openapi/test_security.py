@@ -3,6 +3,7 @@ import pytest
 from schemathesis.config._auth import AuthConfig
 from schemathesis.core.jsonschema.resolver import make_root_resolver
 from schemathesis.generation import GenerationMode
+from schemathesis.generation.hypothesis.examples import generate_many
 from schemathesis.specs.openapi.adapter.security import extract_security_definitions_v3
 from test.utils import run_given
 
@@ -150,8 +151,8 @@ def test_invalid_security_requirement_types_are_ignored(ctx):
     params = list(operation.security.iter_parameters())
     # Only the valid ApiKeyAuth requirement should be processed
     assert len(params) == 1
-    assert params[0]["name"] == "X-API-Key"
-    assert params[0]["in"] == "header"
+    assert params[0].name == "X-API-Key"
+    assert params[0].location == "header"
 
 
 SECURITY_DEFINITIONS = {
@@ -223,6 +224,37 @@ def test_optional_auth_keeps_configured_credentials(ctx):
         assert case.headers == {"Authorization": "Basic dXNlcjpzZWNyZXQ="}
 
 
+@pytest.mark.parametrize(
+    "auth",
+    [
+        {"openapi": {"basicAuth": {"username": "user", "password": "secret"}}},
+        {"basic": {"username": "user", "password": "secret"}},
+    ],
+    ids=["openapi", "basic"],
+)
+def test_configured_auth_skipped_when_negated_alongside_body(ctx, auth):
+    operation = ctx.openapi.load_operation(
+        "POST /test",
+        {
+            "security": [{"basicAuth": []}],
+            "requestBody": {
+                "required": True,
+                "content": {"application/json": {"schema": {"type": "object", "required": ["name"]}}},
+            },
+            "responses": {"200": {"description": "OK"}},
+        },
+        components={"securitySchemes": {"basicAuth": {"type": "http", "scheme": "basic"}}},
+    )
+    operation.schema.config.auth = AuthConfig.from_dict(auth)
+    negated_with_body = [
+        case
+        for case in generate_many(operation.as_strategy(generation_mode=GenerationMode.NEGATIVE), 50)
+        if {mutation.parameter for mutation in case.meta.phase.data.mutations} == {"Authorization", None}
+    ]
+    assert negated_with_body
+    assert "Basic dXNlcjpzZWNyZXQ=" not in [case.headers.get("Authorization") for case in negated_with_body]
+
+
 SECURITY_REQUIRED_CASES = [
     ([{"basicAuth": []}], {"Authorization": True}),
     ([{"basicAuth": [], "apiKeyAuth": []}], {"Authorization": True, "X-API-Key": True}),
@@ -239,4 +271,6 @@ SECURITY_REQUIRED_CASES = [
 )
 def test_only_schemes_demanded_by_every_alternative_are_required(ctx, version, security, expected):
     operation = _schema_with_security(ctx, version, security)["/test"]["GET"]
-    assert {parameter["name"]: parameter["required"] for parameter in operation.security.iter_parameters()} == expected
+    assert {
+        parameter.name: parameter.definition["required"] for parameter in operation.security.iter_parameters()
+    } == expected

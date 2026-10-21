@@ -904,6 +904,36 @@ export type OpSpec =
     }
   | {
       /**
+       * An octree (quadtree for a planar `line` skin) around the mesh: leaves
+       * are fine only where the skin is. Like `voxelize` it replaces the
+       * geometry; the result carries `octree:level`/`octree:cut` cell data and
+       * `octree:hanging` point data.
+       */
+      op: 'octree';
+      rootCells?: number[];
+      minLevel?: number;
+      maxLevel?: number;
+      bounds?: number[];
+      padding?: number;
+      paddingRelative?: number;
+      dimension?: number;
+      sampleDistance?: number;
+      balance?: OctreeBalance;
+      fill?: VoxelFill;
+      attachDistance?: boolean;
+      evenOdd?: boolean;
+      maxCells?: number;
+      sign?: SdfSign;
+      transition?: OctreeTransition;
+      snap?: boolean;
+      surfaceLevel?: number;
+      curvatureThreshold?: number;
+      featureAngle?: number;
+      sizeArray?: string;
+      plane?: PlanarPlane;
+    }
+  | {
+      /**
        * A signed distance field: a grid over the mesh's surface, filled. Like
        * `voxelize` it replaces the geometry — what comes out is the grid,
        * carrying `sdf:distance`. `structure: 'octree'` refines only near the
@@ -970,6 +1000,15 @@ export type GradientOperator = 'gradient' | 'divergence' | 'curl';
 
 /** Which cells `voxelize` keeps. See doc/voxelize.md. */
 export type VoxelFill = 'all' | 'surface' | 'inside';
+
+/** How strictly `octree` keeps neighbouring leaves the same size. See doc/octree.md. */
+export type OctreeBalance = 'none' | 'face' | 'full';
+
+/** What `octree` emits where a fine leaf meets a coarse one. See doc/octree.md. */
+export type OctreeTransition = 'hanging' | 'polyhedra' | 'templates';
+
+/** The plane of a 2-D skin. */
+export type PlanarPlane = 'auto' | 'xy' | 'xz' | 'yz';
 
 /** How a signed distance decides which side of the surface a point is on. */
 export type SdfSign = 'unsigned' | 'pseudonormal' | 'winding-number';
@@ -1105,8 +1144,9 @@ export type InterpolateOnConflict = 'error' | 'overwrite' | 'suffix';
  *  exists on the target: throw, replace, or write to `name + '_interp'`. */
 export type ConservativeInterpolateOnConflict = 'error' | 'overwrite' | 'suffix';
 
-/** Partitioning backend: SFC is always available; KaHIP is never compiled
- *  into the WASM build, so `'kahip'` always throws and `'auto'` = `'sfc'`. */
+/** Partitioning backend: SFC is always available; KaHIP is linked only in
+ *  the full artifact, so `'kahip'` throws there outside it and `'auto'`
+ *  resolves to SFC. */
 export type PartitionMethod = 'sfc' | 'kahip' | 'auto';
 
 /** KaHIP preconfiguration (ignored by the SFC method). */
@@ -1704,9 +1744,17 @@ export interface MeshioPlusPlusModule {
 
   /**
    * Whether OpenCASCADE is linked in, so `step` and `iges` read and `fitCad`
-   * runs: true in the full artifact (`{full: true}`), false in the lean one.
+   * has its OpenCASCADE backend: true in the full artifact (`{full: true}`),
+   * false in the lean one (where `fitCad` runs the native backend).
    */
   hasOcct(): boolean;
+
+  /**
+   * Whether the KaHIP kaffpa partitioner is linked in, so `partition` with
+   * `method: 'kahip'` runs: true in the full artifact (`{full: true}`),
+   * false in the lean one.
+   */
+  hasKahip(): boolean;
 
   /** Whether the VTK XML zstd block codec is linked in (the full artifact). */
   hasZstd(): boolean;
@@ -2020,6 +2068,47 @@ export interface MeshioPlusPlusModule {
        maxCells?: number): Mesh;
 
   /**
+   * A regular 2-D grid of quads or triangles at `z = origin[2]`, points x
+   * fastest. `split` (`'zigzag'`, `'up'`, `'down'`, `'center'`) lays out the
+   * triangles; `order: 2` gives `quad8` / `triangle6` cells on the exact
+   * geometry. Side regions `xmin`, `xmax`, `ymin`, `ymax`.
+   * @throws {Error} on a bad count, size, cell type, split or order, or a mesh
+   *   above `maxCells`.
+   */
+  rectangle(dims?: number[] | null, size?: number[] | null, origin?: number[] | null,
+            cellType?: string, split?: string, order?: number, maxCells?: number): Mesh;
+
+  /** A regular 3-D grid of `'hexahedron'`, `'tetra'` (six Kuhn tetrahedra per
+   * cell) or `'wedge'` cells. Side regions `xmin` ... `zmax`. */
+  box(dims?: number[] | null, size?: number[] | null, origin?: number[] | null,
+      cellType?: string, order?: number, maxCells?: number): Mesh;
+
+  /** A disk of `n x n` quads (squircle map) or `n` rings of triangles. Side
+   * region `rim`. */
+  disk(radius?: number, n?: number, center?: number[] | null, cellType?: string,
+       order?: number, maxCells?: number): Mesh;
+
+  /** A latitude / longitude sphere surface, oriented outward; `cellType: 'quad'`
+   * gives quads between the rings and triangle caps. */
+  uvSphere(radius?: number, nu?: number, nv?: number, center?: number[] | null,
+           cellType?: string, order?: number, maxCells?: number): Mesh;
+
+  /** A sphere surface of `20 * 4^subdivisions` triangles, oriented outward. */
+  icosaSphere(radius?: number, subdivisions?: number, center?: number[] | null,
+              order?: number, maxCells?: number): Mesh;
+
+  /** A solid cylinder along z, `'hexahedron'` or `'wedge'` cells. Side regions
+   * `side`, `top`, `bottom`. */
+  cylinder(radius?: number, height?: number, nxy?: number, nz?: number,
+           center?: number[] | null, cellType?: string, order?: number,
+           maxCells?: number): Mesh;
+
+  /** One cell of each requested meshio type in its reference coordinates, side
+   * by side (every supported type when `types` is omitted); `pairs` gives two
+   * cells sharing a facet, for linear types. */
+  referenceCells(types?: string[] | null, pairs?: boolean): Mesh;
+
+  /**
    * Build a regular grid around a mesh. Give exactly one of `resolution` and
    * `cellSize`; `fill` selects the whole bounding box, only the cells a triangle
    * passes through, or only the cells inside the surface.
@@ -2044,6 +2133,51 @@ export interface MeshioPlusPlusModule {
     origin: number[];
     spacing: number[];
     numOccupied: number;
+  };
+
+  /**
+   * Build an octree (a quadtree for a planar `line` skin) around a mesh: leaves
+   * are fine only where the skin is. `balance` keeps neighbours within 2:1;
+   * `fill` is as for `voxelize`. Pass `null` for `rootCells`/`bounds` to take the
+   * defaults.
+   * @throws {Error} on an empty or oversized level range, an unknown
+   *   `balance`/`fill`/`sign`, an open polyline with `fill: 'inside'`, or when
+   *   the tree exceeds `maxCells`.
+   */
+  octree(
+    mesh: Mesh,
+    rootCells?: number[] | null,
+    minLevel?: number,
+    maxLevel?: number,
+    bounds?: number[] | null,
+    padding?: number,
+    paddingRelative?: number,
+    dimension?: number,
+    sampleDistance?: number,
+    balance?: OctreeBalance,
+    fill?: VoxelFill,
+    sign?: SdfSign,
+    attachDistance?: boolean,
+    evenOdd?: boolean,
+    maxCells?: number,
+    watertightCheck?: SdfWatertightCheck,
+    transition?: OctreeTransition,
+    snap?: boolean,
+    surfaceLevel?: number,
+    curvatureThreshold?: number,
+    featureAngle?: number,
+    sizeArray?: string,
+    plane?: PlanarPlane,
+  ): {
+    mesh: Mesh;
+    dimension: number;
+    numLeaves: number;
+    numHanging: number;
+    finestLevel: number;
+    origin: number[];
+    rootSize: number;
+    numSnapped: number;
+    numRefused: number;
   };
 
   /** What is wrong with a surface, in numbers rather than a bare flag. */
@@ -2499,7 +2633,10 @@ export interface MeshioPlusPlusModule {
    * feature edges. The mesh comes back unchanged plus cell data
    * `segment:patch` (-1 off the surface), field data `segment:adjacency`
    * (rows `[a, b, sharedEdges]`) and one cell region per patch,
-   * `<prefix>:<k>`. See doc/segment.md.
+   * `<prefix>:<k>`. `method: 'primitive'` (v17.9.0) ends a patch where the
+   * surface its facets lie on changes, at `tolerance` (relative to the
+   * diagonal), so a fillet comes apart from its tangent planes. See
+   * doc/segment.md.
    * @throws {Error} on an option out of range, an unknown region or a volume block.
    */
   segment(
@@ -2510,6 +2647,8 @@ export interface MeshioPlusPlusModule {
     minPatchCells?: number,
     region?: string,
     prefix?: string,
+    method?: 'angle' | 'primitive',
+    tolerance?: number,
   ): {
     mesh: Mesh;
     numPatches: number;
@@ -2551,10 +2690,12 @@ export interface MeshioPlusPlusModule {
    * output of `segment` then `fitPrimitives`): planes, spheres, cylinders,
    * cones and tori, fillets and blends, threads and freeform B-spline faces,
    * sewn and checked by OpenCASCADE, optionally written as STEP to
-   * `stepPath` on the virtual FS. Needs OpenCASCADE: the full artifact only.
-   * See doc/fit_cad.md.
-   * @throws {Error} in the lean artifact (naming `{full: true}`), on a bad
-   *   option, or on a skin that is not closed.
+   * `stepPath` on the virtual FS. The lean artifact (and `backend: 'native'`)
+   * runs the kernel-free backend instead (v17.9.0): the fitted patches become
+   * analytic STEP faces, the rest coplanar polygons, and `mesh` is the skin
+   * itself. See doc/fit_cad.md.
+   * @throws {Error} with `backend: 'occt'` in the lean artifact (naming
+   *   `{full: true}`), on a bad option, or on a skin that is not closed.
    */
   fitCad(mesh: Mesh, options?: FitCadOptions): FitCadResult;
 
@@ -3045,9 +3186,9 @@ export interface MeshioPlusPlusModule {
    * scalar `cell_data` array of per-cell weights. `ghostLayers > 0` grows
    * each piece by that many shared-node BFS layers of other parts' cells (a
    * halo), tagged `partition:ghost`.
-   * @throws {Error} on `method: 'kahip'` (KaHIP is never part of the WASM
-   *   build; the message names `MESHIOPLUSPLUS_WITH_KAHIP`), `nparts < 1`,
-   *   `ghostLayers < 0`, or a bad weights array.
+   * @throws {Error} on `method: 'kahip'` outside the full artifact (KaHIP
+   *   is linked only there; the message names `MESHIOPLUSPLUS_WITH_KAHIP`),
+   *   `nparts < 1`, `ghostLayers < 0`, or a bad weights array.
    */
   partition(
     mesh: Mesh,
@@ -3290,6 +3431,10 @@ export interface FitCadOptions {
   fillets?: boolean;
   /** Try thread faces, tapered and of varying pitch included (default true). */
   threads?: boolean;
+  /** Merge faces on one surface once the solid is built (default true; v17.9.0). */
+  mergeFaces?: boolean;
+  /** The engine: OpenCASCADE when linked in (`'auto'`, the default), or none (v17.9.0). */
+  backend?: 'auto' | 'occt' | 'native';
 }
 
 /** What {@link MeshioPlusPlusModule.fitCad} built. */
@@ -3333,6 +3478,8 @@ export interface FitCadResult {
   numTaperedThread: number;
   /** Thread flanks whose pitch varies along the axis. */
   numVariablePitchThread: number;
+  /** The engine that built the solid (v17.9.0). */
+  backend: 'occt' | 'native';
   /** The solid's B-rep, for `writeMesh(path, mesh, 'cad_json', {info})`. */
   info: CadJsonInfo;
 }

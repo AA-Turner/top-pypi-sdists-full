@@ -132,14 +132,22 @@ class TestItemSearch:
         min_datetime = datetime(2019, 1, 1, 0, 0, 1, tzinfo=tzutc())
         max_datetime = datetime(2019, 1, 1, 0, 0, 10, tzinfo=tzutc())
         datetime_ = "2019-01-01T00:00:01Z/2019-01-01T00:00:10Z"
-        search = ItemSearch(url=SEARCH_URL, datetime=datetime_, max_items=20)
+        search = ItemSearch(
+            url=SEARCH_URL,
+            datetime=datetime_,
+            collections=["sentinel-2-l2a"],
+            max_items=20,
+        )
         for item in search.items():
             assert item.datetime is not None
             assert (
                 min_datetime <= item.datetime <= (max_datetime + timedelta(seconds=1))
             )
         search = ItemSearch(
-            url=SEARCH_URL, datetime=(min_datetime, max_datetime), max_items=20
+            url=SEARCH_URL,
+            datetime=(min_datetime, max_datetime),
+            collections=["sentinel-2-l2a"],
+            max_items=20,
         )
         new_results = search.items()
         for item in new_results:
@@ -178,6 +186,20 @@ class TestItemSearch:
         intersects_obj = MockGeoObject()
         search = ItemSearch(
             url=SEARCH_URL, intersects=intersects_obj, collections="naip"
+        )
+        new_results = search.items()
+        assert all(isinstance(item, pystac.Item) for item in new_results)
+
+        # Geo-interface object as feature
+        # https://github.com/stac-utils/pystac-client/issues/907#issuecomment-4904791395
+        class MockGeoObject2:
+            @property
+            def __geo_interface__(self) -> dict[str, Any]:
+                return {"type": "Feature", "geometry": intersects_dict}
+
+        intersects_obj2 = MockGeoObject2()
+        search = ItemSearch(
+            url=SEARCH_URL, intersects=intersects_obj2, collections="naip"
         )
         new_results = search.items()
         assert all(isinstance(item, pystac.Item) for item in new_results)

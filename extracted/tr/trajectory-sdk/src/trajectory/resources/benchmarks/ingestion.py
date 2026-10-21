@@ -104,6 +104,9 @@ class Ingestion(APIResource):
     """Allocate
 
     Args:
+      files: At most 1000 files and 1024 KiB with `put`, or 5000 files and 4096 KiB with
+        `post`.
+
       upload_method: `put` returns a signed PUT URL per file. `post` returns one signed form-upload
         policy for the whole batch; uploads are checked against their declarations when
         the submission is verified.

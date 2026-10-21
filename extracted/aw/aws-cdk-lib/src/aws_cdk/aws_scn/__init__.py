@@ -2552,6 +2552,375 @@ class CfnDatasetProps:
         )
 
 
+@jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_scn_c02cfff3.IInstanceRef, _aws_cdk_0cae9daa.ITaggableV2)
+class CfnInstance(
+    _aws_cdk_0cae9daa.CfnResource,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_scn.CfnInstance",
+):
+    '''Resource Type definition for AWS::SCN::Instance.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scn-instance.html
+    :cloudformationResource: AWS::SCN::Instance
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_scn as scn
+        
+        cfn_instance = scn.CfnInstance(self, "MyCfnInstance",
+            instance_description="instanceDescription",
+            instance_name="instanceName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            web_app_dns_domain="webAppDnsDomain"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        instance_description: typing.Optional[builtins.str] = None,
+        instance_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_app_dns_domain: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::SCN::Instance``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param instance_description: The instance description.
+        :param instance_name: The instance name.
+        :param tags: Tags for the instance.
+        :param web_app_dns_domain: The WebApp DNS domain name of the instance.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__2f94b5e1fa431ace011110202f97d152eeb287f05e52e15cec3a23a4f4ab6cbf)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnInstanceProps(
+            instance_description=instance_description,
+            instance_name=instance_name,
+            tags=tags,
+            web_app_dns_domain=web_app_dns_domain,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForInstance")
+    @builtins.classmethod
+    def arn_for_instance(
+        cls,
+        resource: "_aws_scn_c02cfff3.IInstanceRef",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__13c2ec3485c82c598892aaec2cb91731eae978f3b8cdbc4b2c451901eeb01068)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInstance", [resource]))
+
+    @jsii.member(jsii_name="isCfnInstance")
+    @builtins.classmethod
+    def is_cfn_instance(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInstance.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d99c4e0e0d520130dd1a108f49aebd4e5dbc85ab40beb2971e25fc030bc85d50)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstance", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_aws_cdk_0cae9daa.TreeInspector") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__75dc5f808f29b95c7d0868e2ba8a15a8e83183e7c7d5cf6e572dad8c9c8b067e)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__689473d10fbaf3941801ed8e6c9de12a624b6ddf0a4ab77c7f67072f40436fbc)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''The ARN of the instance.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAwsAccountId")
+    def attr_aws_account_id(self) -> builtins.str:
+        '''The AWS account ID that owns the instance.
+
+        :cloudformationAttribute: AwsAccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAwsAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedTime")
+    def attr_created_time(self) -> builtins.str:
+        '''The instance creation timestamp.
+
+        :cloudformationAttribute: CreatedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrInstanceId")
+    def attr_instance_id(self) -> builtins.str:
+        '''The instance identifier.
+
+        :cloudformationAttribute: InstanceId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrInstanceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastModifiedTime")
+    def attr_last_modified_time(self) -> builtins.str:
+        '''The instance last modified timestamp.
+
+        :cloudformationAttribute: LastModifiedTime
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastModifiedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the instance.
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrVersionNumber")
+    def attr_version_number(self) -> "_aws_cdk_0cae9daa.IResolvable":
+        '''The version number of the instance.
+
+        :cloudformationAttribute: VersionNumber
+        '''
+        return typing.cast("_aws_cdk_0cae9daa.IResolvable", jsii.get(self, "attrVersionNumber"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_aws_cdk_0cae9daa.TagManager":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_aws_cdk_0cae9daa.TagManager", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnPropertyNames")
+    def _cfn_property_names(self) -> typing.Mapping[builtins.str, builtins.str]:
+        return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "cfnPropertyNames"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceRef")
+    def instance_ref(self) -> "_aws_scn_c02cfff3.InstanceReference":
+        '''A reference to a Instance resource.'''
+        return typing.cast("_aws_scn_c02cfff3.InstanceReference", jsii.get(self, "instanceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceDescription")
+    def instance_description(self) -> typing.Optional[builtins.str]:
+        '''The instance description.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceDescription"))
+
+    @instance_description.setter
+    def instance_description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d286fd60cf8b3e717d31201ec4314b0b3fcad5bb4a4c054a71ba7cb6e2218d07)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceDescription", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceName")
+    def instance_name(self) -> typing.Optional[builtins.str]:
+        '''The instance name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceName"))
+
+    @instance_name.setter
+    def instance_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__b241ba32bedc1575b46011dd550b439afe4c528f83b0991e511918eda986a329)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the instance.'''
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]],
+    ) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__e0330408a85cea2cdd0c2dc508c4dc61e9406e79d06b25513cd6f3b2778953a8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="webAppDnsDomain")
+    def web_app_dns_domain(self) -> typing.Optional[builtins.str]:
+        '''The WebApp DNS domain name of the instance.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "webAppDnsDomain"))
+
+    @web_app_dns_domain.setter
+    def web_app_dns_domain(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d72f82285a7d4360e76891e889cfa892ba1165895e7408acb2a933a54cdbb63a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "webAppDnsDomain", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_scn.CfnInstanceProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "instance_description": "instanceDescription",
+        "instance_name": "instanceName",
+        "tags": "tags",
+        "web_app_dns_domain": "webAppDnsDomain",
+    },
+)
+class CfnInstanceProps:
+    def __init__(
+        self,
+        *,
+        instance_description: typing.Optional[builtins.str] = None,
+        instance_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]] = None,
+        web_app_dns_domain: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstance``.
+
+        :param instance_description: The instance description.
+        :param instance_name: The instance name.
+        :param tags: Tags for the instance.
+        :param web_app_dns_domain: The WebApp DNS domain name of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scn-instance.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_scn as scn
+            
+            cfn_instance_props = scn.CfnInstanceProps(
+                instance_description="instanceDescription",
+                instance_name="instanceName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                web_app_dns_domain="webAppDnsDomain"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__be04d72e9de978431f829a2fae1451db8cbe2a60cd1b7eb8731815aad77e7b14)
+            check_type(argname="argument instance_description", value=instance_description, expected_type=type_hints["instance_description"])
+            check_type(argname="argument instance_name", value=instance_name, expected_type=type_hints["instance_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument web_app_dns_domain", value=web_app_dns_domain, expected_type=type_hints["web_app_dns_domain"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if instance_description is not None:
+            self._values["instance_description"] = instance_description
+        if instance_name is not None:
+            self._values["instance_name"] = instance_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if web_app_dns_domain is not None:
+            self._values["web_app_dns_domain"] = web_app_dns_domain
+
+    @builtins.property
+    def instance_description(self) -> typing.Optional[builtins.str]:
+        '''The instance description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scn-instance.html#cfn-scn-instance-instancedescription
+        '''
+        result = self._values.get("instance_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_name(self) -> typing.Optional[builtins.str]:
+        '''The instance name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scn-instance.html#cfn-scn-instance-instancename
+        '''
+        result = self._values.get("instance_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]]:
+        '''Tags for the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scn-instance.html#cfn-scn-instance-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_0cae9daa.CfnTag"]], result)
+
+    @builtins.property
+    def web_app_dns_domain(self) -> typing.Optional[builtins.str]:
+        '''The WebApp DNS domain name of the instance.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-scn-instance.html#cfn-scn-instance-webappdnsdomain
+        '''
+        result = self._values.get("web_app_dns_domain")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_aws_cdk_0cae9daa.IInspectable, _aws_scn_c02cfff3.INamespaceRef, _aws_cdk_0cae9daa.ITaggableV2)
 class CfnNamespace(
     _aws_cdk_0cae9daa.CfnResource,
@@ -2892,6 +3261,8 @@ __all__ = [
     "CfnDataIntegrationFlowProps",
     "CfnDataset",
     "CfnDatasetProps",
+    "CfnInstance",
+    "CfnInstanceProps",
     "CfnNamespace",
     "CfnNamespaceProps",
 ]
@@ -3218,6 +3589,76 @@ def _typecheckingstub__299d7f5b18e1bef7e601c53bd182755b210309da5167a84ba8050cb8c
     partition_spec: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataset.PartitionSpecProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     schema: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnDataset.SchemaProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2f94b5e1fa431ace011110202f97d152eeb287f05e52e15cec3a23a4f4ab6cbf(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    instance_description: typing.Optional[builtins.str] = None,
+    instance_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_app_dns_domain: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13c2ec3485c82c598892aaec2cb91731eae978f3b8cdbc4b2c451901eeb01068(
+    resource: _aws_scn_c02cfff3.IInstanceRef,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d99c4e0e0d520130dd1a108f49aebd4e5dbc85ab40beb2971e25fc030bc85d50(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__75dc5f808f29b95c7d0868e2ba8a15a8e83183e7c7d5cf6e572dad8c9c8b067e(
+    inspector: _aws_cdk_0cae9daa.TreeInspector,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__689473d10fbaf3941801ed8e6c9de12a624b6ddf0a4ab77c7f67072f40436fbc(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d286fd60cf8b3e717d31201ec4314b0b3fcad5bb4a4c054a71ba7cb6e2218d07(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b241ba32bedc1575b46011dd550b439afe4c528f83b0991e511918eda986a329(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0330408a85cea2cdd0c2dc508c4dc61e9406e79d06b25513cd6f3b2778953a8(
+    value: typing.Optional[typing.List[_aws_cdk_0cae9daa.CfnTag]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d72f82285a7d4360e76891e889cfa892ba1165895e7408acb2a933a54cdbb63a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be04d72e9de978431f829a2fae1451db8cbe2a60cd1b7eb8731815aad77e7b14(
+    *,
+    instance_description: typing.Optional[builtins.str] = None,
+    instance_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]] = None,
+    web_app_dns_domain: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

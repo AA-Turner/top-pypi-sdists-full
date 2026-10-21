@@ -29,6 +29,7 @@ class SourceClass(str, Enum):
     CLOUD = 'cloud'
     SIEM = 'siem'
     ENDPOINT = 'endpoint'
+    NETWORK = 'network'
     OTEL = 'otel'
     MANUAL = 'manual'
 

@@ -62,6 +62,7 @@ from snowflake.cli._plugins.apps.generate import _generate_app_yml
 from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_SCHEMA,
     DEFINITION_FILENAME,
+    MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE,
     PER_ACCOUNT_CERT_ISSUE_FUNCTION,
     SERVERLESS_COMPUTE_RESOURCE,
     PerAccountCertStatus,
@@ -88,7 +89,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.errno import INSUFFICIENT_PRIVILEGES
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliError, IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -1094,6 +1095,7 @@ def snowflake_app_setup(
     dry_run: bool,
     compute_pool: Optional[str],
     build_eai: Optional[str],
+    capabilities: bool = False,
 ) -> CommandResult:
     """Initialize a Snowflake App Runtime project manifest.
 
@@ -1102,7 +1104,13 @@ def snowflake_app_setup(
     An already-initialized project is left untouched: initialization is skipped
     when either manifest is present. See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
+
+    With *capabilities*, nothing is written; see
+    :func:`_report_account_capabilities`.
     """
+    if capabilities:
+        return _report_account_capabilities(app_name, dry_run, compute_pool, build_eai)
+
     ctx = get_cli_context()
     metrics = ctx.metrics
 
@@ -1315,6 +1323,36 @@ def snowflake_app_setup(
         if dry_run:
             exc.exit_code = 0
         raise
+
+
+def _report_account_capabilities(
+    app_name: Optional[str],
+    dry_run: bool,
+    compute_pool: Optional[str],
+    build_eai: Optional[str],
+) -> CommandResult:
+    """Report whether the account supports each Snowflake App Runtime capability.
+
+    Backs ``snow app setup --capabilities``. It writes no ``app.yml``, so the
+    setup options that only shape that file are rejected.
+    """
+    metrics = get_cli_context().metrics
+    with metrics.span("snowflake_app.setup"):
+        setup_options = {
+            "--app-name": app_name,
+            "--dry-run": True if dry_run else None,
+            "--compute-pool": compute_pool,
+            "--build-eai": build_eai,
+        }
+        set_options = [
+            name for name, value in setup_options.items() if value is not None
+        ]
+        if set_options:
+            raise IncompatibleParametersError(["--capabilities", *set_options])
+
+        with metrics.span("snowflake_app.setup.fetch_capabilities"):
+            capabilities = SnowflakeAppManager().fetch_account_capabilities()
+        return ObjectResult(capabilities)
 
 
 @_utf8_output
@@ -1745,7 +1783,7 @@ def _effective_compute_resource(
     """Return *compute_resource*, dropping ``SERVERLESS`` when the account disallows it.
 
     ``required`` raises when ``SERVERLESS`` was requested but the account
-    parameters are not all enabled. Callers that only observe an existing
+    feature parameter is not enabled. Callers that only observe an existing
     service pass ``required=False`` and treat that request as unset.
     """
     if not _is_cng_compute_resource(compute_resource):
@@ -1755,9 +1793,34 @@ def _effective_compute_resource(
     if required:
         raise CliError("compute_resource SERVERLESS is not enabled for this account.")
     log.debug(
-        "Ignoring compute_resource SERVERLESS; account parameters are not enabled."
+        "Ignoring compute_resource SERVERLESS; "
+        "the account feature parameter is not enabled."
     )
     return None
+
+
+def _ensure_python_runtime_enabled(
+    manager: SnowflakeAppManager,
+    app_def: AppYmlDefinition,
+    compute_resource: Optional[str],
+) -> None:
+    """Raise when *app_def* uses the Python runtime on a compute resource the account does not allow.
+
+    An unset *compute_resource* is checked as ``MANAGED_COMPUTE_POOL``, the
+    backend the server uses by default.
+    """
+    if not app_def.is_python_runtime:
+        return
+    effective = compute_resource or MANAGED_COMPUTE_POOL_COMPUTE_RESOURCE
+    if manager.python_runtime_enabled(effective):
+        return
+    raise CliError(
+        f"The Python runtime is not enabled for compute_resource {effective} in "
+        f"this account. This app uses it because an install, build, run, or dev "
+        f"command in {APP_YML_FILENAME} runs pip, python, or uv. Deploy to a "
+        f"compute_resource that allows the Python runtime, or contact Snowflake "
+        f"support to enable it."
+    )
 
 
 def _requests_event_table_health_monitoring(
@@ -2394,6 +2457,8 @@ def _deploy_from_app_yml(
     else:
         cli_console.step(f"Deploying application service {service_label}.")
 
+    _ensure_python_runtime_enabled(manager, app_def, tgt.compute_resource)
+
     _ensure_app_derived_schema(
         manager,
         database=database,
@@ -2407,8 +2472,8 @@ def _deploy_from_app_yml(
         )
 
     # ``compute_resource`` selects the serverless or SPCS backend and is
-    # write-once. ``SERVERLESS`` is applied only when the account parameters
-    # allow it. When it is unset the server defaults the backend.
+    # write-once. ``SERVERLESS`` is applied only when the account feature
+    # parameter allows it. When it is unset the server defaults the backend.
     compute_resource = _effective_compute_resource(
         manager, tgt.compute_resource, required=True
     )

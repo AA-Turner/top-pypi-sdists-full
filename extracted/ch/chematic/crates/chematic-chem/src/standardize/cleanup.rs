@@ -1,4 +1,6 @@
-//! Bounded RDKit Cleanup-compatible transformations.
+//! RDKit Cleanup-compatible standardization transformations.
+
+mod acid_base;
 
 use std::collections::HashSet;
 
@@ -11,9 +13,9 @@ use crate::hydrogen::remove_hydrogens;
 /// the broader [`super::standardize`] profile.
 ///
 /// The input is stripped of removable explicit hydrogens, metal--ligand bonds
-/// are disconnected with their bond-order charge transfer, and functional
-/// groups are normalized. RDKit's acid/base-priority reionization is not yet
-/// implemented here; molecules requiring that transfer can still differ.
+/// are disconnected with valence-aware charge adjustment, and functional
+/// groups are normalized. The ordered acid/base catalog then moves protons
+/// according to the pinned RDKit Cleanup profile.
 pub fn cleanup(mol: &Molecule) -> Molecule {
     let without_h = remove_hydrogens(mol);
     let disconnected = disconnect_metals_for_cleanup(&without_h);
@@ -32,7 +34,8 @@ pub fn cleanup(mol: &Molecule) -> Molecule {
     } else {
         normalized
     };
-    charge_originally_isolated_metals(&without_h, normalized)
+    let normalized = charge_originally_isolated_metals(&without_h, normalized);
+    acid_base::reionize_for_cleanup(&normalized)
 }
 
 /// RDKit Cleanup charges a bare Li/Na/K atom to +1 and a bare Mg/Ca atom
@@ -149,7 +152,36 @@ fn disconnect_metals_for_cleanup(mol: &Molecule) -> Molecule {
         return clone_molecule(mol);
     }
 
-    rebuild_after_metal_disconnection(mol, atoms, &removed)
+    let cut_metals: HashSet<_> = mol
+        .bonds()
+        .filter(|(bond_idx, _)| removed.contains(bond_idx))
+        .map(|(_, bond)| {
+            if is_metal(mol.atom(bond.atom1).element) {
+                bond.atom1
+            } else {
+                bond.atom2
+            }
+        })
+        .collect();
+    for metal in cut_metals {
+        let idx = metal.0 as usize;
+        let target: u8 = match (atoms[idx].element.atomic_number(), atoms[idx].charge) {
+            (3 | 11 | 19, 0) => 1,
+            (11, 3) => 2,
+            (12 | 20, 0) => 2,
+            (50, 0) => 2,
+            (50, 1) => 3,
+            _ => 0,
+        };
+        let remaining = mol
+            .neighbors(metal)
+            .filter(|(_, bond_idx)| !removed.contains(bond_idx))
+            .map(|(_, bond_idx)| mol.bond(bond_idx).order.order_int())
+            .sum::<u8>();
+        atoms[idx].hydrogen_count = Some(target.saturating_sub(remaining));
+    }
+
+    rebuild_cleanup_graph(mol, atoms, &removed)
 }
 
 /// RDKit 2026.09.1's default MetalNof and MetalNon SMARTS element sets.
@@ -173,7 +205,7 @@ fn transfer_metal_ligand_charge(
 ) {
     use chematic_core::BondOrder;
 
-    let ligand_atom = &atoms[ligand];
+    let ligand_atom = mol.atom(AtomIdx(ligand as u32));
     // Sanitized RDKit regards saturated ammonia-to-metal bonds as dative
     // even when the source SMILES encodes a plain single bond.
     let ammonia_donor = ligand_atom.element.atomic_number() == 7
@@ -181,6 +213,15 @@ fn transfer_metal_ligand_charge(
         && ligand_atom.hydrogen_count == Some(3)
         && mol.degree(AtomIdx(ligand as u32)) == 1;
     let phosphorus_donor = ligand_atom.element.atomic_number() == 15;
+    let copper_nitrile_donor = atoms[metal].element.atomic_number() == 29
+        && ligand_atom.element.atomic_number() == 6
+        && mol
+            .neighbors(AtomIdx(ligand as u32))
+            .any(|(neighbor, adjacent)| {
+                neighbor != AtomIdx(metal as u32)
+                    && mol.atom(neighbor).element.atomic_number() == 7
+                    && mol.bond(adjacent).order == BondOrder::Triple
+            });
     let lithium_carbonyl_donor = atoms[metal].element.atomic_number() == 3
         && ligand_atom.element.atomic_number() == 8
         && ligand_atom.charge == 0
@@ -194,6 +235,18 @@ fn transfer_metal_ligand_charge(
         // Once it is removed, neutral isolated Li has one implicit H.
         atoms[metal].hydrogen_count = Some(1);
     }
+    if bond_order == BondOrder::Dative && atoms[metal].element.atomic_number() == 12 {
+        // RDKit's post-disconnection neutral magnesium is represented as
+        // `[MgH2]`; record the implicit valence explicitly once its dative
+        // oxygen donors have been removed.
+        atoms[metal].hydrogen_count = Some(2);
+    }
+    if copper_nitrile_donor {
+        // RDKit's default disconnector assigns cyanide to `[C-]#N` but keeps
+        // the detached copper atom neutral in this representation.
+        atoms[ligand].charge = atoms[ligand].charge.saturating_sub(1);
+        return;
+    }
     if bond_order == BondOrder::Dative
         || ammonia_donor
         || lithium_carbonyl_donor
@@ -201,12 +254,81 @@ fn transfer_metal_ligand_charge(
     {
         return;
     }
+    assign_valence_aware_metal_charge(mol, atoms, metal, ligand, bond_order);
+}
+
+fn assign_valence_aware_metal_charge(
+    mol: &Molecule,
+    atoms: &mut [chematic_core::Atom],
+    metal: usize,
+    ligand: usize,
+    bond_order: BondOrder,
+) {
+    let ligand_atom = mol.atom(AtomIdx(ligand as u32));
     let order = i8::try_from(bond_order.order_int()).unwrap_or(0);
+    let ligand_idx = AtomIdx(ligand as u32);
+    let cut_metal_bonds = mol
+        .neighbors(ligand_idx)
+        .filter(|(neighbor, _)| is_metal(mol.atom(*neighbor).element))
+        .count();
+    let valences = ligand_atom.element.normal_valences();
+    if cut_metal_bonds == 1 && !valences.is_empty() && order > 0 {
+        // RDKit's MetalDisconnector determines the ligand charge from its
+        // post-cut valence and radical count. A simple charge transfer by bond
+        // order overcharges unsaturated C and initially charged O ligands.
+        let original = mol.atom(ligand_idx);
+        let h = i16::from(implicit_hcount(mol, ligand_idx));
+        let valence_before = h + mol
+            .neighbors(ligand_idx)
+            .map(|(_, bond)| mol.bond(bond).order.order_int() as i16)
+            .sum::<i16>();
+        let radical_before = if original.hydrogen_count.is_some() {
+            (i16::from(valences[0]) + i16::from(original.charge) - valence_before).max(0)
+        } else {
+            0
+        };
+        let valence_after = valence_before + radical_before - i16::from(order);
+        let allowed = valences
+            .iter()
+            .map(|&value| i16::from(value))
+            .find(|&value| value >= valence_after)
+            .unwrap_or_else(|| i16::from(*valences.last().unwrap()));
+        let mut ligand_charge = valence_after.min(allowed) - allowed;
+        let mut lone_electrons = 0;
+        if radical_before % 2 == 1 && ligand_charge < 0 {
+            ligand_charge += 1;
+            lone_electrons = 1;
+        }
+        let total_degree_after = i16::try_from(mol.degree(ligand_idx) - 1).unwrap_or(0) + h;
+        if ligand_charge == -1 && valence_after == total_degree_after + 1 {
+            ligand_charge = 0;
+        }
+        let metal_gain = if ligand_charge == -1
+            && ligand_atom.element.atomic_number() == 6
+            && valence_after == total_degree_after + 2
+        {
+            0
+        } else {
+            (-ligand_charge + lone_electrons).max(0)
+        };
+        atoms[ligand].charge = i8::try_from(ligand_charge).unwrap_or(original.charge);
+        if matches!(ligand_atom.element.atomic_number(), 6 | 7)
+            && ligand_charge == 0
+            && radical_before == 0
+            && ligand_atom.hydrogen_count == Some(0)
+        {
+            atoms[ligand].hydrogen_count = None;
+        }
+        atoms[metal].charge = atoms[metal]
+            .charge
+            .saturating_add(i8::try_from(metal_gain).unwrap_or(0));
+        return;
+    }
     atoms[metal].charge = atoms[metal].charge.saturating_add(order);
     atoms[ligand].charge = atoms[ligand].charge.saturating_sub(order);
 }
 
-fn rebuild_after_metal_disconnection(
+fn rebuild_cleanup_graph(
     mol: &Molecule,
     atoms: Vec<chematic_core::Atom>,
     removed: &HashSet<BondIdx>,
@@ -255,32 +377,102 @@ fn rebuild_after_metal_disconnection(
 #[cfg(test)]
 mod tests {
     use super::cleanup;
-    use chematic_core::Molecule;
+    use chematic_core::{Molecule, implicit_hcount};
     use chematic_smiles::parse;
 
     #[test]
-    fn preserves_charge_for_permanganate_and_copper_cyanide() {
+    fn cleanup_removes_formally_double_bonded_hydrogen_like_rdkit() {
+        for (input, expected) in [
+            ("[H]=C", "C"),
+            ("[H]=C(O)C", "CCO"),
+            (
+                "[H]=C(c1ccc(Cl)cc1)c1cc(N)ccc1N1CCC(C)CC1",
+                "CC1CCN(c2ccc(N)cc2Cc2ccc(Cl)cc2)CC1",
+            ),
+            (
+                "[H]=C(O)[C@H](CC#Cc1ccccc1F)NCP(=O)(O)O",
+                "O=P(O)(O)CN[C@H](CO)CC#Cc1ccccc1F",
+            ),
+        ] {
+            let result = cleanup(&parse(input).unwrap());
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&result).as_deref(),
+                Ok(expected),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn cleanup_preserves_bridgehead_nitrogen_stereo() {
+        let input = "Cn1cc(C2=NC[C@@]3(C[N@@]4CC[C@@H]3C4)O2)c2ccccc21";
+        let cleaned = cleanup(&parse(input).unwrap());
+        assert_eq!(
+            chematic_smiles::rdkit_cleanup_canonical_smiles(&cleaned).as_deref(),
+            Ok(input)
+        );
+    }
+
+    #[test]
+    fn cleanup_recomputes_hydrogens_on_disconnected_metals() {
+        for (input, expected) in [
+            ("O->[Mg](<-O)(<-O)<-O", "O.O.O.O.[MgH2]"),
+            ("C[N]([SnH])C", "C[N-]C.[SnH3+]"),
+        ] {
+            let output = cleanup(&parse(input).unwrap());
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&output).as_deref(),
+                Ok(expected),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn matches_rdkit_metal_charge_repair_for_permanganate_and_copper_cyanide() {
         for (input, expected) in [
             (
                 "O=[Mn](=O)(=O)[O-].[K+]",
-                "[K+].[Mn+7].[O-2].[O-2].[O-2].[O-2]",
+                "[K+].[Mn+8].[O-2].[O-2].[O-2].[O-2]",
             ),
-            ("C(#N)[Cu]", "[C-]#N.[Cu+]"),
+            ("C(#N)[Cu]", "[C-]#N.[Cu]"),
         ] {
             let mol = parse(input).unwrap();
             let cleaned = cleanup(&mol);
-            let total_charge = |mol: &Molecule| {
-                mol.atoms()
-                    .map(|(_, atom)| i32::from(atom.charge))
-                    .sum::<i32>()
-            };
-            assert_eq!(total_charge(&cleaned), total_charge(&mol), "{input}");
+            // RDKit's metal charge repair can change the net formal charge
+            // of an overvalent input; the pinned output is the contract here.
             assert_eq!(
                 chematic_smiles::rdkit_cleanup_canonical_smiles(&cleaned).as_deref(),
                 Ok(expected),
                 "{input}"
             );
         }
+    }
+
+    #[test]
+    fn cleanup_reionizes_only_when_an_existing_anion_can_supply_a_proton() {
+        for (input, expected) in [
+            ("[CH2-]CC(=O)O", "CCC(=O)[O-]"),
+            ("[NH-]C(C)C(=O)O", "CC(N)C(=O)[O-]"),
+            ("[CH2-]CCO", "CCC[O-]"),
+            ("CC(=O)O.CN", "CC(=O)O.CN"),
+        ] {
+            let cleaned = cleanup(&parse(input).unwrap());
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&cleaned).as_deref(),
+                Ok(expected),
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn cleanup_keeps_dative_magnesium_valence_after_disconnection() {
+        let cleaned = cleanup(&parse("O->[Mg](<-O)(<-O)<-O").unwrap());
+        assert_eq!(
+            chematic_smiles::rdkit_cleanup_canonical_smiles(&cleaned).as_deref(),
+            Ok("O.O.O.O.[MgH2]")
+        );
     }
 
     #[test]
@@ -306,6 +498,68 @@ mod tests {
                 chematic_smiles::rdkit_cleanup_canonical_smiles(&cleanup(&cleaned)).as_deref(),
                 Ok(expected),
                 "second Cleanup: {input}"
+            );
+        }
+    }
+
+    #[test]
+    fn transfers_one_acid_proton_to_simple_carbanions_and_alkoxide() {
+        // Expected structures were pinned against RDKit 2026.09.1 Cleanup.
+        for (input, expected) in [
+            ("[CH3-].CC(=O)O", "C.CC(=O)[O-]"),
+            ("[CH2-]C.CC(=O)O", "CC.CC(=O)[O-]"),
+            ("[O-]C.CC(=O)O", "CC(=O)[O-].CO"),
+            ("[O-]c1ccccc1.CC(=O)O", "CC(=O)[O-].Oc1ccccc1"),
+            ("[CH3-].Oc1ccccc1", "C.[O-]c1ccccc1"),
+            ("[CH3-].CCO", "C.CC[O-]"),
+            ("[CH3-].Oc1ccccc1.CCO", "C.CCO.[O-]c1ccccc1"),
+            ("[CH3-].CC(=O)O.Oc1ccccc1", "C.CC(=O)[O-].Oc1ccccc1"),
+            ("[CH3-].O=S(=O)(O)C", "C.CS(=O)(=O)[O-]"),
+            ("[CH3-].Oc1ccccc1.CS(=O)(=O)O", "C.CS(=O)(=O)[O-].Oc1ccccc1"),
+        ] {
+            let before = parse(input).unwrap();
+            let after = cleanup(&before);
+            let charge = |m: &Molecule| {
+                m.atoms()
+                    .map(|(_, atom)| i32::from(atom.charge))
+                    .sum::<i32>()
+            };
+            let hydrogen = |m: &Molecule| {
+                m.atoms()
+                    .map(|(idx, _)| u32::from(implicit_hcount(m, idx)))
+                    .sum::<u32>()
+            };
+            assert_eq!(charge(&after), charge(&before), "{input}");
+            assert_eq!(hydrogen(&after), hydrogen(&before), "{input}");
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&after).as_deref(),
+                Ok(expected),
+                "{input}"
+            );
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&cleanup(&after)).as_deref(),
+                Ok(expected),
+                "second Cleanup: {input}"
+            );
+        }
+    }
+
+    #[test]
+    fn ordered_acid_base_pairs_match_rdkit() {
+        for (input, expected) in [
+            ("[CH3-].O", "O.[CH3-]"),
+            ("[CH3-].OCCO", "C.[O-]CCO"),
+            ("[CH3-].CC(=O)O.CC(=O)O", "C.CC(=O)O.CC(=O)[O-]"),
+            ("[NH2-].CC(=O)O", "CC(=O)O.[NH2-]"),
+            ("CC(=O)[O-].CC(=O)O", "CC(=O)O.CC(=O)[O-]"),
+            ("[CH3-].CCP(C)(=O)O", "CCP(C)(=O)O.[CH3-]"),
+            ("[CH3-].Oc1ccccc1.B(O)(O)C", "C.CB([O-])O.Oc1ccccc1"),
+        ] {
+            let after = cleanup(&parse(input).unwrap());
+            assert_eq!(
+                chematic_smiles::rdkit_cleanup_canonical_smiles(&after).as_deref(),
+                Ok(expected),
+                "{input}"
             );
         }
     }

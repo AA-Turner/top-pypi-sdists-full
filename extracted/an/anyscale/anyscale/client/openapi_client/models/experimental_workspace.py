@@ -60,6 +60,8 @@ class ExperimentalWorkspace(object):
         'priority': 'int',
         'is_imported': 'bool',
         'maximum_uptime_minutes': 'int',
+        'idle_timeout_minutes': 'int',
+        'head_container_image': 'str',
         'state': 'SessionState',
         'integration_details': 'IntegrationDetails',
         'ray_dashboard_url': 'str',
@@ -95,6 +97,8 @@ class ExperimentalWorkspace(object):
         'priority': 'priority',
         'is_imported': 'is_imported',
         'maximum_uptime_minutes': 'maximum_uptime_minutes',
+        'idle_timeout_minutes': 'idle_timeout_minutes',
+        'head_container_image': 'head_container_image',
         'state': 'state',
         'integration_details': 'integration_details',
         'ray_dashboard_url': 'ray_dashboard_url',
@@ -102,7 +106,7 @@ class ExperimentalWorkspace(object):
         'kuberay_details': 'kuberay_details'
     }
 
-    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, kuberay_cr_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, is_imported=False, maximum_uptime_minutes=None, state=None, integration_details=None, ray_dashboard_url=None, vscode_url=None, kuberay_details=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, description=None, project_id=None, cloud_id=None, compute_config_id=None, base_snapshot=None, id=None, created_at=None, creator_id=None, creator_email=None, creator_deleted_at=None, organization_id=None, is_deleted=None, cluster_id=None, kuberay_cr_id=None, environment_id=None, cluster_environment_build_id=None, current_state=None, integration_execution_details_id=None, template_url=None, snapshot_error_at=None, snapshot_state=None, latest_started_at=None, restart_on_env_var_change=True, priority=None, is_imported=False, maximum_uptime_minutes=None, idle_timeout_minutes=None, head_container_image=None, state=None, integration_details=None, ray_dashboard_url=None, vscode_url=None, kuberay_details=None, local_vars_configuration=None):  # noqa: E501
         """ExperimentalWorkspace - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -135,6 +139,8 @@ class ExperimentalWorkspace(object):
         self._priority = None
         self._is_imported = None
         self._maximum_uptime_minutes = None
+        self._idle_timeout_minutes = None
+        self._head_container_image = None
         self._state = None
         self._integration_details = None
         self._ray_dashboard_url = None
@@ -187,6 +193,10 @@ class ExperimentalWorkspace(object):
             self.is_imported = is_imported
         if maximum_uptime_minutes is not None:
             self.maximum_uptime_minutes = maximum_uptime_minutes
+        if idle_timeout_minutes is not None:
+            self.idle_timeout_minutes = idle_timeout_minutes
+        if head_container_image is not None:
+            self.head_container_image = head_container_image
         if state is not None:
             self.state = state
         if integration_details is not None:
@@ -836,6 +846,52 @@ class ExperimentalWorkspace(object):
         """
 
         self._maximum_uptime_minutes = maximum_uptime_minutes
+
+    @property
+    def idle_timeout_minutes(self):
+        """Gets the idle_timeout_minutes of this ExperimentalWorkspace.  # noqa: E501
+
+        How long nothing may happen in the workspace before the platform stops it, in minutes. Set from the `anyscale.com/idle-timeout-minutes` annotation on the backing custom resource, or the platform default when it asks for nothing; 0 means the workspace is never stopped for being idle. KubeRay workspaces only: null on any other workspace, which says nothing about whether it has a timeout.  # noqa: E501
+
+        :return: The idle_timeout_minutes of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: int
+        """
+        return self._idle_timeout_minutes
+
+    @idle_timeout_minutes.setter
+    def idle_timeout_minutes(self, idle_timeout_minutes):
+        """Sets the idle_timeout_minutes of this ExperimentalWorkspace.
+
+        How long nothing may happen in the workspace before the platform stops it, in minutes. Set from the `anyscale.com/idle-timeout-minutes` annotation on the backing custom resource, or the platform default when it asks for nothing; 0 means the workspace is never stopped for being idle. KubeRay workspaces only: null on any other workspace, which says nothing about whether it has a timeout.  # noqa: E501
+
+        :param idle_timeout_minutes: The idle_timeout_minutes of this ExperimentalWorkspace.  # noqa: E501
+        :type: int
+        """
+
+        self._idle_timeout_minutes = idle_timeout_minutes
+
+    @property
+    def head_container_image(self):
+        """Gets the head_container_image of this ExperimentalWorkspace.  # noqa: E501
+
+        The image of the head group's first container, which is the one that runs Ray. Read off the backing custom resource at import: a snapshot, not the live CR, so editing the image in place does not reach it until the CR is imported again. KubeRay workspaces only; null on any other workspace.  # noqa: E501
+
+        :return: The head_container_image of this ExperimentalWorkspace.  # noqa: E501
+        :rtype: str
+        """
+        return self._head_container_image
+
+    @head_container_image.setter
+    def head_container_image(self, head_container_image):
+        """Sets the head_container_image of this ExperimentalWorkspace.
+
+        The image of the head group's first container, which is the one that runs Ray. Read off the backing custom resource at import: a snapshot, not the live CR, so editing the image in place does not reach it until the CR is imported again. KubeRay workspaces only; null on any other workspace.  # noqa: E501
+
+        :param head_container_image: The head_container_image of this ExperimentalWorkspace.  # noqa: E501
+        :type: str
+        """
+
+        self._head_container_image = head_container_image
 
     @property
     def state(self):

@@ -1,9 +1,10 @@
 //! Clone planning: destination and origin entries, and deferred-clone graph traversal.
 
-use crate::bindings::_helpers::analysis::model_reads;
-use crate::bindings::_helpers::compile_driver::python_calls::KeywordArguments;
-use crate::bindings::_helpers::compile_driver::python_calls::keywords;
+use crate::bindings::_helpers::boundary::python_calls::KeywordArguments;
+use crate::bindings::_helpers::boundary::python_calls::keywords;
+use crate::bindings::_helpers::compiled_views::model_reads;
 use crate::bindings::_helpers::graph::project_graph::NativeProjectGraph;
+use crate::bindings::_helpers::model_config::typed_config::{config_node_of, model_values};
 use crate::bindings::_helpers::planner_entries::models::ModelPlanContext;
 use crate::bindings::_helpers::planner_entries::values::{
     native, planner_model, planner_type, string,
@@ -23,22 +24,26 @@ use crate::bindings::_helpers::planner_resolution::orchestration::{Resolution, r
 use crate::bindings::_helpers::planner_selection::selectors::resolve_graph_selection;
 use crate::bindings::_helpers::planner_strategy::strategy::materialization_of;
 use crate::bindings::_helpers::planner_warehouse::source_columns::gather_source_columns;
-use crate::bindings::_helpers::records::construct::new_record;
+use crate::bindings::_helpers::records::construct::{enum_member, new_record};
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::ids::RecordId;
 use pyo3::PyRef;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyResult, Python};
-use pyo3::types::{PyBool, PyDict, PyDictMethods, PyFrozenSet, PySet, PySetMethods, PyTuple};
+use pyo3::types::{PyDict, PyDictMethods, PyFrozenSet, PySet, PySetMethods, PyTuple};
 use pyo3::{pyfunction, wrap_pyfunction};
+use sqlbuild_model_config::config_values::models::ConfigNode;
+
+const ENABLED_KEY: &str = "enabled";
 
 const VIEW_MATERIALIZATION: &str = "view";
 const GRAPH_ARGUMENTS: [&str; 4] = ["selected", "upstream", "is_clonable", "is_view"];
 
 /// Whether a model is explicitly disabled with a boolean `enabled = false`.
 fn disabled_model(model: &Bound<'_, PyAny>) -> PyResult<bool> {
-    let raw = native_field(&native_field(model, "config")?, "values")?
-        .call_method1("get", ("enabled",))?;
-    Ok(raw.is_instance_of::<PyBool>() && !raw.is_truthy()?)
+    Ok(matches!(
+        *config_node_of(&model_values(model)?, ENABLED_KEY)?,
+        ConfigNode::Bool(false)
+    ))
 }
 
 fn tuple_of<'py>(py: Python<'py>, items: Vec<Bound<'py, PyAny>>) -> PyResult<Bound<'py, PyAny>> {
@@ -99,8 +104,55 @@ struct CloneResolution<'py> {
     source_warehouse_columns: Bound<'py, PyAny>,
 }
 
+/// Whether a selected, enabled model is recreated from its SQL rather than copied.
+fn recreated_view(model: &Bound<'_, PyAny>, selected: &Bound<'_, PyAny>) -> PyResult<bool> {
+    Ok(selected.contains(model_reads::model_key(model)?)?
+        && !disabled_model(model)?
+        && materialization_of(model)?.eq(VIEW_MATERIALIZATION)?)
+}
+
+/// The entries of the sources whose columns recreated view and function SQL resolves against.
+fn resolved_source_entries<'py>(
+    (project, plan): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
+    source_project: &Bound<'py, PyAny>,
+) -> PyResult<Bound<'py, PyAny>> {
+    let py = project.py();
+    let selected = native_field(plan, "selected_keys")?;
+    let source_type = enum_member(py, RecordId::CompiledResourceType, "SOURCE")?;
+    let read = PySet::empty(py)?;
+    let mut readers: Vec<Bound<'py, PyAny>> = Vec::new();
+    for model in native_field(project, "models")?.try_iter()? {
+        let model = model?;
+        if recreated_view(&model, &selected)? {
+            readers.push(model);
+        }
+    }
+    for function in native_field(project, "functions")?.try_iter()? {
+        let function = function?;
+        if selected.contains(native_field(&function, "key")?)? {
+            readers.push(function);
+        }
+    }
+    for reader in readers {
+        for dep in native_field(&reader, "deps")?.try_iter()? {
+            let dep = dep?;
+            if native_field(&dep, "resource_type")?.eq(&source_type)? {
+                read.add(native_field(&dep, "name")?)?;
+            }
+        }
+    }
+    let mut entries: Vec<Bound<'py, PyAny>> = Vec::new();
+    for source in native_field(source_project, "sources")?.try_iter()? {
+        let source = source?;
+        if read.contains(native_field(&source, "name")?)? {
+            entries.push(native_field(&source, "source_entry")?);
+        }
+    }
+    tuple_of(py, entries)
+}
+
 fn clone_resolution<'py>(
-    project: &Bound<'py, PyAny>,
+    (project, plan): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
     source_project: &Bound<'py, PyAny>,
     (adapter, connection): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
 ) -> PyResult<CloneResolution<'py>> {
@@ -124,7 +176,12 @@ fn clone_resolution<'py>(
     }
     let source_warehouse_columns = object(
         py,
-        gather_source_columns(source_project, adapter, connection, None)?,
+        gather_source_columns(
+            source_project,
+            adapter,
+            connection,
+            Some(resolved_source_entries((project, plan), source_project)?),
+        )?,
     )?;
     Ok(CloneResolution {
         model_locations,
@@ -169,11 +226,10 @@ fn model_entry<'py>(
 
 fn clone_model_entries<'py>(
     (project, plan): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
-    (adapter, connection): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
-    source_project: &Bound<'py, PyAny>,
+    adapter: &Bound<'py, PyAny>,
+    resolution: &CloneResolution<'py>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = project.py();
-    let resolution = clone_resolution(project, source_project, (adapter, connection))?;
     let selected = native_field(plan, "selected_keys")?;
     let entries = PyDict::new(py);
     for model in native_field(project, "models")?.try_iter()? {
@@ -297,11 +353,10 @@ fn clone_source_entries<'py>(
 
 fn clone_function_entries<'py>(
     (project, plan): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
-    (adapter, connection): (&Bound<'py, PyAny>, &Bound<'py, PyAny>),
-    source_project: &Bound<'py, PyAny>,
+    adapter: &Bound<'py, PyAny>,
+    resolution: &CloneResolution<'py>,
 ) -> PyResult<Bound<'py, PyAny>> {
     let py = project.py();
-    let resolution = clone_resolution(project, source_project, (adapter, connection))?;
     let selected = native_field(plan, "selected_keys")?;
     let entries = PyDict::new(py);
     for function in native_field(project, "functions")?.try_iter()? {
@@ -479,17 +534,14 @@ pub(crate) fn run_clone_planning<'py>(
     let connection = args.value("connection")?;
     let destination_sources = args.value("destination_source_project")?;
     let plan = clone_plan_output(&project, &args.value("select")?, &args.value("exclude")?)?;
-    let models = clone_model_entries(
+    let resolution = clone_resolution(
         (&project, &plan),
-        (&adapter, &connection),
         &destination_sources,
+        (&adapter, &connection),
     )?;
+    let models = clone_model_entries((&project, &plan), &adapter, &resolution)?;
     let seeds = seed_entries(&project, "key", &native_field(&plan, "selected_keys")?)?;
-    let functions = clone_function_entries(
-        (&project, &plan),
-        (&adapter, &connection),
-        &destination_sources,
-    )?;
+    let functions = clone_function_entries((&project, &plan), &adapter, &resolution)?;
     let mut sources = PyTuple::empty(py).into_any();
     if native_field(&destination_sources, "effective_target_name")?
         .eq(native_field(&project, "effective_target_name")?)?

@@ -7,6 +7,7 @@ import hashlib
 import json
 import operator
 import platform
+import shlex
 import shutil
 import stat
 import sys
@@ -18,6 +19,7 @@ from ..core import (
     catalog,
     cohort,
     complete,
+    dialog,
     journal,
     jsonstate,
     lockfile,
@@ -52,19 +54,19 @@ def _cohorts_path():
     return paths.state_dir() / "cohorts.json"
 
 
-def _load_cohorts() -> dict:
-    p = _cohorts_path()
-    if not p.exists():
-        return {}
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-
 def _save_cohorts(cohorts: dict) -> None:
+    """Write ``cohorts.json``, moving a corrupt one aside first.
+
+    `create` over a file with a trailing comma used to read it as empty and
+    write the one new cohort over every existing one, with no warning.
+    """
     paths.ensure_dirs()
-    _cohorts_path().write_text(json.dumps(cohorts, indent=2) + "\n", encoding="utf-8")
+    p = _cohorts_path()
+    if cohort.load(p)[1] is not None:
+        dest = jsonstate.quarantine(p)
+        out.warn("%s was corrupt and has been moved to %s before writing "
+                 "the new file" % (_tilde(p), _tilde(dest)), stream=sys.stderr)
+    p.write_text(json.dumps(cohorts, indent=2) + "\n", encoding="utf-8")
 
 
 def _is_member(user: str, cohort_name: str, percent: int) -> bool:
@@ -89,10 +91,19 @@ def cmd_cohort(argv) -> int:
                    help="comma-separated skill names (repeatable)")
     p.add_argument("--percent", type=int, default=100,
                    help="rollout percentage (default 100)")
+    p.add_argument("-y", "--yes", action="store_true",
+                   help="`delete` without the confirmation prompt")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     args = p.parse_args(argv)
 
-    cohorts = _load_cohorts()
+    cohorts, bad = cohort.load(_cohorts_path())
+    # `create` replaces the file, so a corrupt one is quarantined by the
+    # write; every other action reads cohorts that are not there to read.
+    if bad is not None and args.action != "create":
+        raise BoostError("cohorts are unreadable: %s" % bad,
+                         hint="fix or remove %s — `boost cohort create` "
+                              "moves it aside and starts a new one"
+                              % _tilde(_cohorts_path()))
     user = util.user()
 
     if args.action == "create":
@@ -140,7 +151,8 @@ def cmd_cohort(argv) -> int:
         if args.name not in cohorts:
             raise BoostError("no cohort named %s" % args.name,
                             hint="list cohorts with `boost cohort list`")
-        if not out.confirm("delete cohort %s?" % args.name, quiet=args.json):
+        if not (args.yes or out.confirm("delete cohort %s?" % args.name,
+                                        quiet=args.json)):
             if args.json:
                 print(json.dumps({"name": args.name, "deleted": False,
                                   "cancelled": True}, indent=2))
@@ -186,7 +198,17 @@ def cmd_cohort(argv) -> int:
             for skill in spec["skills"]:
                 # find_any, not installed(): a cohort item installed as a rule
                 # or workflow would otherwise be re-installed on every apply.
-                found = lockfile.find_any(skill)
+                # The lock keys by the bare name, so a `tap:name` member never
+                # matched and every apply after the first re-installed it —
+                # and the "already installed" error aborted the cohort.
+                # A qualifier naming another tap raises there; fall back to
+                # the name as written so that member reports "not found"
+                # instead of aborting every cohort after it.
+                try:
+                    key = store.installed_name(skill)
+                except BoostError:
+                    key = skill
+                found = lockfile.find_any(key)
                 if found is not None:
                     label = (skill if found[0] == "skill"
                              else "%s (%s)" % (skill, found[0]))
@@ -270,15 +292,34 @@ def _profile_path(name: str):
                                   what="profile file name")
 
 
+def _read_profile(path) -> tuple[dict | None, str | None]:
+    """:func:`jsonstate.read_object`, plus a ``skills`` map of objects.
+
+    ``show``/``diff``/``use`` and the ``save`` probe all walk ``skills`` and
+    call ``.get`` on each record, so ``[]``, ``{"skills": 3}`` or a record
+    that is a string crashed them at exit 70 while ``list`` already showed
+    the same file as unreadable. One check, shared, keeps them agreeing.
+    """
+    data, err = jsonstate.read_object(path)
+    if data is not None:
+        bad = jsonstate.object_map_error(data, "skills")
+        if bad is not None:
+            return None, "%s: %s" % (path, bad)
+    return data, err
+
+
 def _load_profile(name: str) -> dict:
     p = _profile_path(name)
-    if not p.exists():
+    data, err = _read_profile(p)
+    if err is not None:
+        raise BoostError("profile %s is unreadable: %s" % (name, err),
+                         hint="replace it with `boost profile save %s`, or "
+                              "remove it with `boost profile delete %s`"
+                              % (name, name))
+    if data is None:
         raise BoostError("no profile named %s" % name,
                         hint="list profiles with `boost profile list`")
-    try:
-        return json.loads(p.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as e:
-        raise BoostError("profile %s is unreadable: %s" % (name, e)) from e
+    return data
 
 
 def _profile_diff(profile: dict):
@@ -316,6 +357,9 @@ def cmd_profile(argv) -> int:
     p.add_argument("name", nargs="?", help="profile name")
     p.add_argument("--prune", action="store_true",
                    help="with `use`: fully uninstall skills not in the profile")
+    p.add_argument("-y", "--yes", action="store_true",
+                   help="`delete` and `use --prune` without the confirmation "
+                        "prompt")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     args = p.parse_args(argv)
 
@@ -325,7 +369,7 @@ def cmd_profile(argv) -> int:
     if args.action == "list":
         profiles: list[dict[str, Any]] = []
         for f in sorted(paths.profiles_dir().glob("*.json")):
-            data, _err = jsonstate.read_object(f)
+            data, _err = _read_profile(f)
             if data is None:
                 # Surfaced rather than skipped: a corrupt profile used to be
                 # invisible here yet still block `profile delete` (it parsed
@@ -364,12 +408,15 @@ def cmd_profile(argv) -> int:
         # to `profile use`, which sidelines it again — the saved state, exactly.
         installed, set_aside = lockfile.split_sidelined(lockfile.installed())
         path = _profile_path(args.name)
-        was = None
-        if path.exists():
-            try:
-                was = len(json.loads(path.read_text(encoding="utf-8")).get("skills", {}))
-            except (json.JSONDecodeError, OSError):
-                was = None   # unreadable old profile: still fine to replace
+        old, bad = _read_profile(path)
+        was = len(old.get("skills", {})) if old is not None else None
+        if bad is not None:
+            # Still fine to replace — but not to destroy: the bad bytes go
+            # aside, the way every other corrupt state file's writer does.
+            dest = jsonstate.quarantine(path)
+            out.warn("%s was corrupt and has been moved to %s before writing "
+                     "the new profile" % (_tilde(path), _tilde(dest)),
+                     stream=sys.stderr)
         profile = {"name": args.name, "saved": util.now_iso(), "user": util.user(),
                    "skills": {n: {"tap": e.get("tap", "local"),
                                   "version": e.get("version", "0.0.0")}
@@ -448,7 +495,8 @@ def cmd_profile(argv) -> int:
         if not path.exists():
             raise BoostError("no profile named %s" % args.name,
                             hint="list profiles with `boost profile list`")
-        if not out.confirm("delete profile %s?" % args.name, quiet=args.json):
+        if not (args.yes or out.confirm("delete profile %s?" % args.name,
+                                        quiet=args.json)):
             if args.json:
                 print(json.dumps({"name": args.name, "deleted": False,
                                   "cancelled": True}, indent=2))
@@ -519,10 +567,10 @@ def cmd_profile(argv) -> int:
         # the same sideline extras get without --prune keeps that claim true
         # either way, without a second prompt. `and` short-circuits, so no
         # prompt is raised when --prune was not asked for.
-        pruned = args.prune and bool(doomed) and out.confirm(
+        pruned = args.prune and bool(doomed) and (args.yes or out.confirm(
             "uninstall %d skill%s not in the profile (%s)?"
             % (len(doomed), _s(len(doomed)), ", ".join(doomed)),
-            quiet=args.json)
+            quiet=args.json))
         if pruned:
             for n in doomed:
                 store.uninstall(n)
@@ -584,8 +632,34 @@ def _parse_boost_url(url: str):
     return verb, arg
 
 
+#: The flag the registered handler passes. Not a bypass: it moves the question
+#: from a terminal (which an OS-launched handler does not have) to a desktop
+#: dialog. Its presence in the script is how `status` tells a handler written
+#: before it existed — one that could only ever cancel.
+_GUI_FLAG = "--gui"
+
+
+def _protocol_confirm(args, question: str, ok_label: str, system: str) -> bool:
+    """Whether the person approved opening ``args.url``.
+
+    ``--gui`` (the handler's mode) asks only through a dialog and honours
+    neither ``-y`` nor ``BOOST_ASSUME_YES``: the URL came from whatever page
+    the person clicked, so the person must be the one who says yes. Without a
+    dialog to show, it installs nothing and names the command that would.
+    """
+    if not args.gui:
+        return bool(args.yes) or out.confirm(question)
+    answer = dialog.ask("A boost:// link asks to %s" % question, ok_label, system)
+    if answer is None:
+        out.warn("no terminal and no dialog tool to ask with — nothing was "
+                 "changed", wrap=True)
+        out.info("to go ahead, run in a terminal: `boost protocol open %s`"
+                 % shlex.quote(args.url), wrap=True)
+    return bool(answer)
+
+
 def cmd_protocol(argv) -> int:
-    """boost protocol [status|register|unregister|open URL]"""
+    """boost protocol [status|register|unregister|open [-y|--gui] URL]"""
     p = cliparse.parser(
         prog="boost protocol",
         description="Manage the boost:// one-click-install handler")
@@ -593,6 +667,12 @@ def cmd_protocol(argv) -> int:
                    choices=["status", "register", "unregister", "open"],
                    help="what to do (default: status)")
     p.add_argument("url", nargs="?", help="a boost:// URL (for `open`)")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("-y", "--yes", action="store_true",
+                      help="`open` without the confirmation prompt")
+    mode.add_argument(_GUI_FLAG, action="store_true",
+                      help="`open` asks in a desktop dialog instead of the "
+                           "terminal (what the registered handler passes)")
     args = p.parse_args(argv)
     system = platform.system()
 
@@ -602,7 +682,9 @@ def cmd_protocol(argv) -> int:
         verb, arg = _parse_boost_url(args.url)
         if verb == "install":
             entry = catalog.resolve_one(arg)
-            if not out.confirm("install %s from %s?" % (entry["name"], entry["tap"])):
+            if not _protocol_confirm(
+                    args, "install %s from %s?" % (entry["name"], entry["tap"]),
+                    "Install", system):
                 out.info("cancelled")
                 return 1
             res = store.install(entry, via="protocol")
@@ -611,7 +693,7 @@ def cmd_protocol(argv) -> int:
                 out.ok("quality score %d/100" % res.score)
             return 0
         # tap
-        if not out.confirm("tap %s?" % arg):
+        if not _protocol_confirm(args, "tap %s?" % arg, "Tap", system):
             out.info("cancelled")
             return 1
         tap = registry.add(arg)
@@ -639,12 +721,21 @@ def cmd_protocol(argv) -> int:
         # is ruled out — `_parse_boost_url` goes through `urlparse`, which
         # strips CR. What is left is simply that the file is wrong, which is
         # reason enough for a one-keyword pin.
+        #
+        # Never -y, never BOOST_ASSUME_YES: any page can open a boost:// link,
+        # so the handler must ask. With no TTY to ask on, --gui asks in a
+        # dialog; the unset keeps an exported BOOST_ASSUME_YES from leaking
+        # in from the session that launched the browser.
         script.write_text("#!/usr/bin/env bash\n"
                           "# boost:// URL handler — invoked with the URL as $1\n"
-                          'exec "%s" protocol open "$1"\n' % shim,
+                          "unset BOOST_ASSUME_YES\n"
+                          'exec "%s" protocol open %s "$1"\n' % (shim, _GUI_FLAG),
                           encoding="utf-8", newline="\n")
         script.chmod(script.stat().st_mode | stat.S_IEXEC)
         out.ok("wrote handler script %s" % _tilde(script))
+        out.info("a boost:// link asks in a desktop dialog before it installs "
+                 "or taps anything; with no dialog it changes nothing",
+                 wrap=True)
         if system == "Darwin":
             out.info("macOS routes URL schemes through app bundles, so one manual step remains:")
             out.info("  1. Automator → New → Application → 'Run Shell Script'")
@@ -658,6 +749,10 @@ def cmd_protocol(argv) -> int:
                                "Exec=%s %%u\nMimeType=x-scheme-handler/boost;\nNoDisplay=true\n"
                                % script, encoding="utf-8")
             out.ok("wrote %s" % _tilde(desktop))
+            if not (shutil.which("zenity") or shutil.which("kdialog")):
+                out.warn("neither zenity nor kdialog found — the handler "
+                         "cannot ask, so a link will change nothing until one "
+                         "is installed", wrap=True)
             if shutil.which("xdg-mime"):
                 import subprocess
                 proc = subprocess.run(["xdg-mime", "default", "boost-protocol.desktop",
@@ -701,6 +796,11 @@ def cmd_protocol(argv) -> int:
     else:
         out.kv("handler", _tilde(_handler_script())
                if _handler_script().exists() else "not registered")
+    if _handler_script().exists() and _GUI_FLAG not in _handler_script().read_text(
+            encoding="utf-8", errors="replace"):
+        out.warn("the handler script predates its confirmation dialog and "
+                 "cancels every link — re-run `boost protocol register`",
+                 wrap=True)
     if system == "Linux":
         out.kv("desktop", _tilde(_desktop_file())
                if _desktop_file().exists() else "not registered")
@@ -776,6 +876,8 @@ def cmd_replay(argv) -> int:
                    help="what to do (default: list; rollback restores skills "
                         "only)")
     p.add_argument("id", nargs="?", help="history entry id (from `boost replay list`)")
+    p.add_argument("-y", "--yes", action="store_true",
+                   help="`rollback` without the confirmation prompt")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     args = p.parse_args(argv)
 
@@ -834,10 +936,11 @@ def cmd_replay(argv) -> int:
         # read it as empty and reinstall each skill over it. Restoring is the
         # snapshot itself becoming the lock; the corrupt bytes stay aside.
         backup = paths.tilde(lockfile.corrupt_backup())
-        if not out.confirm("the lock file is corrupt — make snapshot %s the "
-                           "lock file? It is the lock as it was before the "
-                           "change after it; the newest record stays only in "
-                           "%s" % (args.id, backup), quiet=args.json):
+        if not (args.yes or out.confirm(
+                "the lock file is corrupt — make snapshot %s the lock file? "
+                "It is the lock as it was before the change after it; the "
+                "newest record stays only in %s" % (args.id, backup),
+                quiet=args.json)):
             if args.json:
                 print(json.dumps({"id": args.id, "cancelled": True}, indent=2))
             else:
@@ -943,7 +1046,7 @@ def cmd_replay(argv) -> int:
     if not args.json:
         out.info("rollback to %s will: uninstall %d, install %d, revisit %d version change(s)"
                  % (args.id, len(added), len(restorable), len(changed)))
-    if not out.confirm("proceed?", quiet=args.json):
+    if not (args.yes or out.confirm("proceed?", quiet=args.json)):
         if args.json:
             print(json.dumps({"id": args.id, "cancelled": True}, indent=2))
             return 1
@@ -961,7 +1064,16 @@ def cmd_replay(argv) -> int:
     for n in restorable:  # in snapshot, missing now, resolvable
         want = snap_skills[n]
         entry = resolved[n]
-        res = store.install(entry, force=True)
+        # Restore the row as the snapshot recorded it: its agent scope, then
+        # its version and commit holds — a fresh install carries none of them.
+        res = store.install(entry, force=True,
+                            only_agents=want.get("only_agents") or None)
+        if store.reapply_recorded_holds(n, want) and not args.json:
+            out.warn("%s is commit-pinned at %s, but its tap now serves %s — "
+                     "`boost verify` will flag it"
+                     % (n, str(want.get("commit_pin"))[:12],
+                        str((lockfile.get_skill(n) or {}).get("commit") or "?")[:12]),
+                     wrap=True)
         if str(entry.get("version")) != str(want.get("version")):
             if not args.json:
                 out.warn("restored %s v%s from current tap state (snapshot had v%s)"

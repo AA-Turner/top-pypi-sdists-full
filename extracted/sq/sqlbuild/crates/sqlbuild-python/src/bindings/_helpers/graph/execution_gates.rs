@@ -4,14 +4,14 @@ use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyRes
 use pyo3::types::{PyDict, PyDictMethods, PyList, PyString, PyTuple};
 use pyo3::{pyfunction, wrap_pyfunction};
 
-use crate::bindings::_helpers::analysis::explicit_references::{
-    GateRow, HookRow, native_execution_gate_edges,
-};
 use crate::bindings::_helpers::graph::keys::KeyCache;
 use crate::bindings::_helpers::records::construct::{enum_from_value, record_class};
 use crate::bindings::_helpers::records::fields::field as native_field;
 use crate::bindings::_helpers::records::fields::mapping_get;
 use crate::bindings::_helpers::records::ids::RecordId;
+use crate::bindings::_helpers::references::explicit_references::{
+    GateRow, HookRow, native_execution_gate_edges,
+};
 
 const PATHLIB_MODULE: &str = "pathlib";
 /// The model config keys whose entries are hooks, in lifecycle order.
@@ -39,7 +39,13 @@ fn attached_audit_gate_edges<'py>(
     let cache: KeyCache<'py> = KeyCache::new(py)?;
     let edge_type: Bound<'py, PyAny> = record_class(py, RecordId::AttachedAuditGateEdge)?;
     let mut edges: Vec<Bound<'py, PyAny>> = Vec::with_capacity(gates.len());
-    for (audit_name, target, gated, read) in gates {
+    for GateRow {
+        audit_name,
+        target,
+        gated,
+        read,
+    } in gates
+    {
         edges.push(keyword_call(
             &edge_type,
             &[
@@ -65,7 +71,14 @@ fn hook_read_edges<'py>(
     let edge_type: Bound<'py, PyAny> = record_class(py, RecordId::HookReadEdge)?;
     let path_type: Bound<'py, PyAny> = py.import(PATHLIB_MODULE)?.getattr("Path")?;
     let mut edges: Vec<Bound<'py, PyAny>> = Vec::with_capacity(hooks.len());
-    for (hook_name, gated, read, kind, path) in hooks {
+    for HookRow {
+        hook_name,
+        gated,
+        read,
+        hook_type: kind,
+        path,
+    } in hooks
+    {
         let hook_path: Bound<'py, PyAny> = match path {
             None => py.None().into_bound(py),
             Some(path) => path_type.call1((path,))?,

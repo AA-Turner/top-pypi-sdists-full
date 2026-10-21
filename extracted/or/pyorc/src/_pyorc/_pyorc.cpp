@@ -7,13 +7,20 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(_pyorc, m)
+PYBIND11_MODULE(_pyorc, m, py::mod_gil_not_used())
 {
     m.doc() = "_pyorc c++ extension";
-    m.def("_orc_version", []() -> py::object { return py::cast(ORC_VERSION); });
-    m.def("_protobuf_version", []() -> py::object {
-        return py::cast(
-          google::protobuf::internal::VersionString(GOOGLE_PROTOBUF_VERSION));
+
+    py::object generic_alias = py::module_::import("types").attr("GenericAlias");
+
+    py::object class_getitem = py::reinterpret_steal<py::object>(PyClassMethod_New(
+      py::cpp_function([generic_alias](py::object cls, py::object item) {
+          return generic_alias(cls, item);
+      }).ptr()));
+
+    m.def("_orc_version", []() -> std::string { return ORC_VERSION; });
+    m.def("_protobuf_version", []() -> std::string {
+        return google::protobuf::internal::VersionString(GOOGLE_PROTOBUF_VERSION);
     });
     m.def("_schema_from_string", [](std::string schema) {
         try {
@@ -36,7 +43,7 @@ PYBIND11_MODULE(_pyorc, m)
     py::class_<Stripe>(m, "stripe")
       .def(
         py::init([](Reader& reader, uint64_t num) { return reader.readStripe(num); }),
-        py::keep_alive<0, 2>())
+        py::keep_alive<1, 2>())
       .def("__next__", [](Stripe& s) -> py::object { return s.next(); })
       .def("__iter__", [](Stripe& s) -> Stripe& { return s; })
       .def("__len__", &Stripe::len)
@@ -133,4 +140,8 @@ PYBIND11_MODULE(_pyorc, m)
 #endif
       .def("close", &Writer::close)
       .def_readonly("current_row", &Writer::currentRow);
+
+    m.attr("stripe").attr("__class_getitem__") = class_getitem;
+    m.attr("reader").attr("__class_getitem__") = class_getitem;
+    m.attr("writer").attr("__class_getitem__") = class_getitem;
 }

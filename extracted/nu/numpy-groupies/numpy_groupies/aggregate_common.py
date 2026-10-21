@@ -7,7 +7,7 @@ before numpy is known to be available, and has to work without it.
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import Any, NamedTuple, cast
 
 nan = float("nan")  # nan is just this float
 
@@ -90,7 +90,10 @@ aggregate_common_doc = """
         output the default ``nan`` fills with a nan in *both* parts, so that an
         empty group looks the same in every implementation.  Use
         ``utils.default_fill_value(func, dtype)`` to query the value, or pass
-        your own.  Note that there are some subtle interactions between what is
+        your own.  ``None`` is a value and not a request: it fills the object
+        result of ``array`` and is refused for every other function, since the
+        request for a default is made with ``DEFAULT_FILL_VALUE``.  Note that
+        there are some subtle interactions between what is
         permitted for ``fill_value`` and the input/output ``dtype`` - exceptions
         should be raised in most cases to alert the programmer if issues arise.
     order: default='C'
@@ -152,11 +155,16 @@ funcs_common = [
 ]
 funcs_no_separate_nan = frozenset(["sort", "array", "allnan", "anynan"])
 
+# the functions that collect the values of a group instead of reducing them to
+# one number: their result is a sequence per group, which the comparisons that
+# work on numbers cannot take in one go
+funcs_collecting = frozenset(["array"])
+
 
 class _DefaultFillValue:
     """Sentinel for ``fill_value``, asking for the function specific default."""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "DEFAULT_FILL_VALUE"
 
 
@@ -200,9 +208,10 @@ _default_fill_values = {
 
 def _fill_value_key(func: str | Callable[..., Any]) -> str:
     """Map a function (name, alias or callable) onto a ``_default_fill_values`` key."""
-    try:
-        name = aliasing_py[func]
-    except (KeyError, TypeError):
+    name = resolve_name(func)
+    if name is None:
+        # a custom callable is keyed by the name it carries, which it usually
+        # does not carry at all (a lambda, a bound method of one's own)
         name = getattr(func, "__name__", "")
     if name not in _default_fill_values and str(name).startswith("nan"):
         # nan-variants fill like their plain counterparts
@@ -222,7 +231,7 @@ def _is_inexact_dtype(dtype: Any) -> bool:
 
 def _is_complex_dtype(dtype: Any) -> bool:
     """True for complex numpy dtypes, the complex builtin and complex dtype strings."""
-    kind = getattr(dtype, "kind", None)
+    kind: str | None = getattr(dtype, "kind", None)  # the kind of a numpy dtype is a one letter string
     if kind is not None:  # a numpy dtype
         return kind == "c"
     if isinstance(dtype, str):
@@ -234,14 +243,54 @@ def _is_complex_dtype(dtype: Any) -> bool:
     )
 
 
+def nan_of(dtype: Any) -> Any:
+    """A nan shaped like ``dtype``: a nan in every part it has.
+
+    A plain ``nan`` written into a complex result lands as ``nan+0j``, which
+    states that the part the nan never touched was a zero - and a group that was
+    poisoned by one of its values never stated anything about its parts at all.
+    The default of a function for a complex result takes this shape, and so does
+    the poisoning of a group, for the same reason.
+    """
+    return nan + nan * 1j if _is_complex_dtype(dtype) else nan
+
+
+# the functions whose result is settled by the function and holds no ``None``:
+# everything the table of defaults names, except the one function that returns
+# an object array - a sort returns the values of a group, so it takes their
+# dtype, and a count or a flag holds no ``None`` either
+_no_none_result_functions = frozenset(_default_fill_values) - {"array"}
+
+
+def check_filling_with_none(func: str | Callable[..., Any]) -> None:
+    """Refuse to fill with ``None`` where no result can hold it.
+
+    ``None`` is a value and not a request: the request for the default of a
+    function is made with ``DEFAULT_FILL_VALUE``, and ``None`` is what an object
+    result - the sequence of ``func='array'`` - is filled with, nothing else.  A
+    number, a flag, a count, a position and the values a sort returns cannot hold
+    a ``None``, and the three implementations answered the request three
+    different ways: the numpy one complained about an ``isnan`` of an object, the
+    numba one failed to type a kernel, and the pure python one wrote the ``None``
+    into a column of floats, which turned the result into an object array.
+    """
+    if _fill_value_key(func) in _no_none_result_functions:
+        raise TypeError(
+            "fill_value=None fills an object result, which is what func='array' returns and no other function does (the default of a function is asked for with DEFAULT_FILL_VALUE)"
+        )
+
+
 def resolve_fill_value(func: str | Callable[..., Any], fill_value: Any, dtype: Any) -> Any:
     """Replace the ``DEFAULT_FILL_VALUE`` sentinel with the default of ``func``.
 
-    Anything else than the sentinel is returned untouched.  ``nan`` is only
+    Anything else than the sentinel is returned untouched, except a ``None``: a
+    ``None`` is refused where no result can hold it.  ``nan`` is only
     handed out if ``dtype`` can represent it, otherwise the value falls back to
     ``0`` - changing the output datatype of e.g. an integer ``min`` would be a
     worse surprise than an unspectacular filling value.
     """
+    if fill_value is None:
+        check_filling_with_none(func)
     if fill_value is not DEFAULT_FILL_VALUE:
         return fill_value
     key = _fill_value_key(func)
@@ -264,7 +313,7 @@ def resolve_fill_value(func: str | Callable[..., Any], fill_value: Any, dtype: A
         # a nan of a complex output has to be a nan in both parts - the numpy
         # kernels divide an empty sum by zero and so get nan+nanj for free,
         # and filling with nan+0j would make the backends disagree
-        value = nan + nan * 1j
+        value = nan_of(dtype)
     return list(value) if isinstance(value, list) else value
 
 
@@ -331,41 +380,122 @@ def get_aliasing(*extra: dict[Any, str]) -> dict[Any, str]:
 aliasing_py = get_aliasing()
 
 
-def get_func(
-    func: str | Callable[..., Any], aliasing: dict[Any, Any], implementations: Any
-) -> str | Callable[..., Any]:
-    """Return the key of a found implementation or the func itself"""
-    try:
-        func_str = aliasing[func]
-    except KeyError:
-        if callable(func):
-            return func
-    else:
-        if func_str in implementations:
-            return func_str
-        if func_str.startswith("nan") and func_str[3:] in funcs_no_separate_nan:
-            raise ValueError(f"{func_str[3:]} does not have a nan-version")
-        else:
-            raise NotImplementedError("No such function available")
+def can_name_a_function(obj: Any) -> bool:
+    """Whether ``obj`` can be a key of the alias table, and so can name a function.
+
+    The table is a dict, which asks its keys for a hash, and an object that
+    defines ``__eq__`` without a ``__hash__`` does not have one (a dataclass with
+    ``eq=True`` is the everyday case), as little as a list or a dict has one.
+    Asked of the type in front of the lookup, this is all that is needed to make
+    the lookup itself unable to fail: what cannot be a key names no function,
+    and does not have to be looked up to know that.
+    """
+    return type(obj).__hash__ is not None
+
+
+def resolve_name(func: Any, aliasing: Mapping[Any, str] = aliasing_py) -> str | None:
+    """The canonical name of ``func``, or ``None`` where it names no function.
+
+    Every name and every alias is a key of ``aliasing`` and every key of it is
+    hashable (see ``get_aliasing``, which is the only writer), so this is one
+    lookup that can neither miss nor fail - a func that cannot be a key is not a
+    function anybody knows, and is not asked for one.
+    """
+    return aliasing.get(func) if can_name_a_function(func) else None
+
+
+def missing_impl_error(name: str) -> Exception:
+    """The error for a function that is known but not implemented by this backend."""
+    if name.startswith("nan") and name[3:] in funcs_no_separate_nan:
+        return ValueError(f"{name[3:]} does not have a nan-version")
+    return NotImplementedError("No such function available")
+
+
+def custom_callable(func: Any) -> Callable[..., Any]:
+    """The callable behind a ``func`` that is no key of the resolved dispatch table.
+
+    A miss of that table says all there is to know: ``func`` is not one of the
+    functions anybody knows, so it is either a callable of the caller's own -
+    which needs no hashability to be run, a dataclass instance is the everyday
+    case - or it named nothing at all and says so.  Only the cold path comes
+    here; the hot path is the lookup itself.
+    """
+    if callable(func):
+        return cast(Callable[..., Any], func)
     raise ValueError(f"func {func} is neither a valid function string nor a callable object")
 
 
 def build_dispatch(
-    impl_dict: Mapping[str, Callable[..., Any]], aliasing: Mapping[Any, str]
-) -> dict[Any, tuple[str, Callable[..., Any]]]:
+    op_dict: Mapping[str, Callable[..., Any]], aliasing: Mapping[Any, str]
+) -> dict[Any, tuple[str, Callable[..., Any] | None]]:
     """Fuse an aliasing and an implementation table for single-lookup dispatch.
 
-    Returns a dict mapping every alias (string or callable) onto a
-    ``(canonical name, implementation)`` tuple.  Aliases without an
-    implementation are omitted, so lookups missing there fall through to
-    ``get_func``, which keeps handling custom callables and error reporting.
+    Every alias of every known function is a key, holding a
+    ``(canonical name, implementation)`` tuple, so naming a function is one
+    subscript and a func missing from the table is not a function anybody knows
+    (``custom_callable``).  An alias whose name this backend does not implement
+    holds ``(name, None)``, which the caller reports with ``missing_impl_error``
+    - so the table answers that question too, without a second lookup.
     """
-    dispatch = {}
-    for alias, name in aliasing.items():
-        impl = impl_dict.get(name)
-        if impl is not None:
-            dispatch[alias] = (name, impl)
-    return dispatch
+    return {alias: (name, op_dict.get(name)) for alias, name in aliasing.items()}
+
+
+class Resolved(NamedTuple):
+    """What a func resolved to: the func it names and the operation that does the work.
+
+    The funcname is the canonical name of a known function, or the callable of
+    the caller's own - which is what tells the two apart.  The operation is
+    None where the backend knows the function but does not implement it.
+    """
+
+    funcname: Any
+    op: Callable[..., Any] | None
+
+
+class Registry(dict[Any, Resolved]):
+    """The registry of one backend: the functions it knows and the callables of the caller.
+
+    Every alias of every known function is a key of the table, holding the
+    canonical name and the implementation of this backend - None where the
+    backend does not implement the function.  A func that names no known
+    function is resolved by the custom factory of the backend, which turns a
+    callable of the caller's own into an operation of the same shape.  One
+    lookup therefore answers both kinds of func, and the caller does not have
+    to know which kind it got.
+
+    The lookup is a plain subscript, so that the hot path pays for a dict
+    lookup and nothing else: the factory is reached through ``__missing__``,
+    which the dict calls for a key it does not hold.  A func that cannot be a
+    key of a dict at all - an object that defines ``__eq__`` without
+    ``__hash__`` - is answered by ``custom``, which the caller reaches when
+    the subscript raises.
+    """
+
+    def __init__(
+        self,
+        op_dict: Mapping[str, Callable[..., Any]],
+        aliasing: Mapping[Any, str],
+        custom: Callable[..., Resolved],
+    ) -> None:
+        super().__init__({alias: Resolved(name, op) for alias, (name, op) in build_dispatch(op_dict, aliasing).items()})
+        self._custom_factory = custom
+
+    def __missing__(self, key: Any) -> Resolved:
+        """The operation of a func that names no known function.
+
+        The dict calls this for a key it does not hold, so that a callable of
+        the caller's own is resolved by the same lookup that resolves a name.
+        """
+        return self._custom_factory(key)
+
+    def custom(self, func: Any) -> Resolved:
+        """The operation of a func that the table cannot hold as a key.
+
+        A dict asks its keys for a hash, which an object that defines ``__eq__``
+        without ``__hash__`` does not have - such a func names no known
+        function either, and is answered by the same factory.
+        """
+        return self._custom_factory(func)
 
 
 _forced_float_types = {
@@ -387,6 +517,53 @@ _forced_real_float_types = {
     "sumofsquares",
     "nansumofsquares",
 }
+
+
+def check_boolean(x: Any) -> None:
+    if x not in (0, 1):
+        raise ValueError("Value not boolean")
+
+
+# functions whose result type the function settles rather than taking it from
+# the values aggregated: a boolean answer, a count, a position, and the object
+# array of ``array``.  The python counterpart of each result type is here, where
+# no numpy is imported; the numpy dtypes of them in utils, which also knows how
+# wide a count is on the platform it runs on
+_fixed_result_types: dict[str, type] = {
+    "array": object,
+    "all": bool,
+    "any": bool,
+    "nanall": bool,
+    "nanany": bool,
+    "allnan": bool,
+    "anynan": bool,
+    "len": int,
+    "nanlen": int,
+    "argmax": int,
+    "argmin": int,
+    "nanargmin": int,
+    "nanargmax": int,
+}
+
+
+def check_fixed_fill_value(func: str | Callable[..., Any], fill_value: Any) -> None:
+    """Refuse a ``fill_value`` that the result type of ``func`` cannot hold, for
+    those functions whose result type the function itself settles.
+
+    This is the rule ``check_fill_value`` tells against a numpy dtype, told
+    without one: a boolean answer is filled with 0 or 1 - a nan would pass for
+    ``bool``, which is why the two values are asked for themselves - and a count
+    or a position with whatever turns into an integer, which a nan does not.
+    """
+    target = _fixed_result_types.get(_fill_value_key(func))
+    if target is bool:
+        check_boolean(fill_value)
+    elif target is int:
+        try:
+            int(fill_value)
+        except ValueError:
+            raise ValueError("fill_value must be convertible into an integer")
+
 
 # functions whose result is not complex even for complex input - only these may
 # be asked for a non-complex dtype, everything else would throw the imaginary

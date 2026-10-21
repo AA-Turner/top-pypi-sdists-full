@@ -4,6 +4,8 @@ mod authored_tokens;
 mod batch_lint;
 #[path = "tests/test_comment_formatter.rs"]
 mod comment_formatter;
+#[path = "tests/test_cross_joins.rs"]
+mod cross_joins;
 #[path = "tests/test_empty_fixture_lint.rs"]
 mod empty_fixture_lint;
 #[path = "tests/test_format_corpus.rs"]
@@ -12,6 +14,8 @@ mod format_corpus;
 mod function_call_spacing;
 #[path = "tests/helpers.rs"]
 mod helpers;
+#[path = "tests/test_idempotency_reprint.rs"]
+mod idempotency_reprint;
 #[path = "tests/test_layout_rules.rs"]
 mod layout_rules;
 #[path = "tests/test_line_wrap.rs"]

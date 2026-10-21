@@ -24,10 +24,12 @@ to trust it.
 from __future__ import annotations
 
 import os
+from itertools import chain, starmap
 from pathlib import Path
+from typing import NamedTuple
 
 from ..errors import BoostError
-from . import agents, config, lockfile, paths, projectlock, scopes, util
+from . import agents, catalog, config, lockfile, paths, projectlock, scopes, util
 
 STATUS_OK = "ok"
 STATUS_MODIFIED = "modified"     # on-disk content no longer matches the lock
@@ -37,6 +39,7 @@ STATUS_QUARANTINED = "quarantined"  # artifacts removed on purpose; stash holds 
 STATUS_UNREACHABLE = "unreachable"  # rows exist and boost writes none of the
                                     # agents they name: the item reached nothing
 STATUS_STRANDED = "stranded"  # installed --local into a repo that is gone
+STATUS_OUTDATED = "outdated"  # an agent's copy predates the locked version
 
 ENFORCE_KEY = "security.enforce_digest"
 COMMIT_KEY = "security.enforce_commit"
@@ -95,6 +98,21 @@ def status(name: str, entry: dict | None = None) -> str:
     if self_sourced(name, entry):
         return STATUS_OK
     return STATUS_OK if util.sha256_dir(sdir) == recorded else STATUS_MODIFIED
+
+
+def skill_modified(name: str, entry: dict | None) -> bool:
+    """Whether installed skill ``name`` has drifted from its locked digest.
+
+    The one test both doctors ask, so the CLI and the MCP surface cannot
+    disagree about it again: ``boost_doctor`` once checked rules and
+    workflows only, and called a hand-edited skill "healthy" while ``boost
+    doctor`` flagged it on the same machine. A quarantined skill is not
+    asked — quarantine is its own report — and :func:`status` already keeps
+    a self-sourced skill, a missing store dir and an unlocked row out.
+    """
+    if not entry or entry.get("quarantined"):
+        return False
+    return status(name, entry) == STATUS_MODIFIED
 
 
 def reaches_no_agent(kind: str | None, entry: dict) -> bool:
@@ -203,6 +221,7 @@ def materialized_status(name: str, entry: dict,
     if reaches_no_agent(kind, entry):
         return STATUS_UNREACHABLE
     unlocked = False
+    outdated = False
     for m in entry.get("materializations") or []:
         # A row naming an agent boost no longer writes is a record, not an
         # artifact: nothing wrote that file and nothing ever will, so reading
@@ -231,6 +250,13 @@ def materialized_status(name: str, entry: dict,
             unlocked = True
         elif hashlib.sha256(content.encode("utf-8")).hexdigest() != recorded:
             return STATUS_MODIFIED
+        # Carried past an upgrade that did not write this agent (it was
+        # disabled, say): the file is intact and hashes to its own digest,
+        # which is the old version's. After MODIFIED, so a hand edit is
+        # still named as one rather than overwritten as merely behind.
+        outdated = outdated or bool(m.get("stale"))
+    if outdated:
+        return STATUS_OUTDATED
     return STATUS_UNLOCKED if unlocked else STATUS_OK
 
 
@@ -288,18 +314,60 @@ def project_status(entry: dict, base) -> str:
     into the repo, recorded (relative, committable) in the project lock with one
     ``sha256`` taken at install. The check re-derives each materialization path
     under ``base`` (refusing any that escapes, via
-    :func:`scopes.resolve_in_base`), hashes the first that is present, and
-    compares. Vendored third-party skills are exactly the ones a review should
-    watch — they arrive by PR and run on every teammate's machine — so ``doctor``
-    and ``verify`` need to see drift here the same way they do at user scope.
+    :func:`scopes.resolve_in_base`) and hashes **every** copy that is present.
+    Vendored third-party skills are exactly the ones a review should watch —
+    they arrive by PR and run on every teammate's machine — so ``doctor`` and
+    ``verify`` need to see drift here the same way they do at user scope.
+
+    Every row, not the first present one: each agent loads its own copy, so an
+    edit to ``.cursor/skills/x`` is what Cursor runs however intact the Claude
+    copy is, and hashing only the first let that edit through as ``OK``. A
+    modified copy outranks a missing one — `boost update` asks this before
+    overwriting, and a deleted sibling must not hide an edit from it. A row
+    that is gone (or whose path escapes ``base``) is ``MISSING``, the same
+    rows `boost sync` (:func:`store.project_sync_plan`) re-materializes, so
+    doctor, verify, heal and sync agree about one state.
     """
     recorded = entry.get("sha256")
-    present = project_skill_dir(entry, base)
-    if present is None:
+    rows = project_missing_rows(entry, base)
+    present = project_skill_dirs(entry, base)
+    if not present:
+        return STATUS_MISSING
+    if recorded and any(util.sha256_dir(p) != recorded for p in present):
+        return STATUS_MODIFIED
+    if rows:
         return STATUS_MISSING
     if not recorded:
         return STATUS_UNLOCKED
-    return STATUS_OK if util.sha256_dir(present) == recorded else STATUS_MODIFIED
+    return STATUS_OK
+
+
+def project_skill_dirs(entry: dict, base) -> list[Path]:
+    """Every materialized copy of a project skill that is on disk, in row order.
+
+    A row whose path escapes ``base`` is never answered
+    (:func:`scopes.resolve_in_base`).
+    """
+    found = []
+    for m in entry.get("materializations") or []:
+        path = scopes.resolve_in_base(base, m.get("path"))
+        if path is not None and path.is_dir():
+            found.append(path)
+    return found
+
+
+def project_missing_rows(entry: dict, base) -> list[str]:
+    """The recorded paths of a project skill with no copy on disk.
+
+    The rows :func:`store.project_sync_plan` calls missing: gone, not a
+    directory, or escaping ``base`` (which no repair will write either).
+    """
+    rows = []
+    for m in entry.get("materializations") or []:
+        path = scopes.resolve_in_base(base, m.get("path"))
+        if path is None or not path.is_dir():
+            rows.append(str(m.get("path")))
+    return rows
 
 
 def project_skill_dir(entry: dict, base) -> Path | None:
@@ -308,13 +376,12 @@ def project_skill_dir(entry: dict, base) -> Path | None:
     Each row's path is re-derived under ``base`` through
     :func:`scopes.resolve_in_base`, so a committed path that escapes the repo
     is never answered. A project skill is a real directory per agent, all
-    written from one source, so the first present one stands for the install.
+    written from one source, so for *reading* it (info, pkg) the first present
+    one stands for the install; *judging* it is :func:`project_status`'s, which
+    hashes every copy.
     """
-    for m in entry.get("materializations") or []:
-        path = scopes.resolve_in_base(base, m.get("path"))
-        if path is not None and path.is_dir():
-            return path
-    return None
+    dirs = project_skill_dirs(entry, base)
+    return dirs[0] if dirs else None
 
 
 def project_redirected(entry: dict, base) -> list[str]:
@@ -376,6 +443,136 @@ def installed_skill_rows() -> list[tuple[str, dict, str, Path | None]]:
     return sorted(rows, key=lambda r: (r[0], r[2] != scopes.SCOPE_USER))
 
 
+def find_installed(name: str) -> tuple[str, dict, Path | None] | None:
+    """``(kind, entry, base)`` for an installed item, or None.
+
+    ``name`` may be tap-qualified: the locks are keyed by the bare name, so it
+    is split first and the qualifier is held against the installed record
+    (:func:`catalog.for_tap`), exactly as ``boost info`` does. The user lock
+    answers first (``base`` None); a skill installed ``--local`` into the
+    current project answers next, with that project's ``base``. Asking only
+    the user lock with the unsplit name is what had ``boost_info`` say
+    "installed: no" for ``tap:name`` and for every project skill.
+    """
+    qualifier, bare = catalog.split_name(name)
+    found = lockfile.find_any(bare)
+    if found is not None:
+        entry = catalog.for_tap(found[1], qualifier)
+        if entry is not None:
+            return found[0], entry, None
+    base, project = project_skills()
+    entry = catalog.for_tap(project.get(bare), qualifier)
+    if entry is not None:
+        return "skill", entry, base
+    return None
+
+
+class InstalledSkill(NamedTuple):
+    """One installed skill row, with where its content lives.
+
+    ``base`` is None for a user-scope row and the repo for a project one;
+    ``dir`` is the copy a reader should open — the canonical store directory
+    for user scope, the first materialized copy (:func:`project_skill_dir`)
+    for project scope — or None when that copy is not on disk. A reader that
+    took ``store.skill_store_dir(name)`` for a project row looked in
+    ``~/.agents/skills``, found nothing, and called a skill ``boost list``
+    shows "not installed".
+    """
+
+    name: str
+    entry: dict
+    scope: str
+    base: Path | None
+    dir: Path | None
+
+    @property
+    def is_project(self) -> bool:
+        """True for a row from the current project's lock."""
+        return self.scope == scopes.SCOPE_PROJECT
+
+
+def _skill_row(name: str, entry: dict, scope: str,
+               base: Path | None) -> InstalledSkill:
+    if scope == scopes.SCOPE_PROJECT:
+        d = project_skill_dir(entry, base)
+    else:
+        sd = paths.store_dir() / name
+        d = sd if util.is_safe_component(name) and sd.is_dir() else None
+    return InstalledSkill(name, entry, scope, base, d)
+
+
+def installed_skills() -> list[InstalledSkill]:
+    """:func:`installed_skill_rows`, each row carrying its content ``dir``.
+
+    The walk a reader over "every installed skill" uses — ``policy check``,
+    ``audit``, ``conflict``, ``count`` — so a ``--local`` install is checked
+    from the copy in the repo rather than skipped. A name in both scopes is
+    two rows: they are two installs, and either can be the blocked one.
+    """
+    return list(starmap(_skill_row, installed_skill_rows()))
+
+
+def resolve_skill(name: str) -> InstalledSkill | None:
+    """The installed *skill* ``name`` names, user scope first, else None.
+
+    ``name`` may be tap-qualified; a qualifier is held against the installed
+    record (:func:`catalog.for_tap`), so ``other:x`` does not answer with an
+    ``x`` installed from elsewhere. Only the lock's skills sections answer —
+    a rule or workflow of the same name is the caller's own question
+    (:func:`lockfile.find_any`). The user lock answers first, as everywhere
+    a bare name resolves; a skill installed ``--local`` into the current
+    project answers next, which is the row ``boost list`` shows under
+    "project skills".
+    """
+    qualifier, bare = catalog.split_name(name)
+    entry = catalog.for_tap(lockfile.get_skill(bare), qualifier)
+    if entry is not None:
+        return _skill_row(bare, entry, scopes.SCOPE_USER, None)
+    base, project = project_skills()
+    entry = catalog.for_tap(project.get(bare), qualifier)
+    if entry is not None:
+        return _skill_row(bare, entry, scopes.SCOPE_PROJECT, base)
+    return None
+
+
+def refuse_project_scope(row: InstalledSkill, command: str) -> None:
+    """Raise the truth for a user-scope-only ``command`` given a project row.
+
+    Some commands act on what only a user-scope install has — the canonical
+    store, the agent symlinks. For a project row the honest answer is which
+    scope it is in, not "not installed" beside a ``boost list`` that shows
+    it, and never a ``boost install`` hint that would add a second, user-scope
+    copy. A user row returns without raising.
+    """
+    if not row.is_project:
+        return
+    raise BoostError(
+        "%s is installed at project scope (%s) — %s applies to user-scope "
+        "skills" % (row.name, paths.tilde(row.base), command),
+        hint="see it with `boost list --local`", wrap=True)
+
+
+def refuse_project_only(name: str, command: str) -> None:
+    """:func:`refuse_project_scope` for ``name``, if it resolves to a project row.
+
+    Call it where a user-lock lookup has just missed and the next line says
+    "not installed": a name only the current project holds gets the scope
+    answer instead, and any other miss returns for the caller to report.
+    """
+    row = resolve_skill(name)
+    if row is not None:
+        refuse_project_scope(row, command)
+
+
+def installed_names() -> set[str]:
+    """Every installed name, all three kinds, user lock and current project.
+
+    One read of each lock, for a caller marking many names at once.
+    """
+    names = set(chain.from_iterable(lockfile.all_installed().values()))
+    return names | set(project_skills()[1])
+
+
 def commit_status(name: str, entry: dict | None = None) -> str | None:
     """Compare the installed commit against a commit pin, if one is set.
 
@@ -411,6 +608,7 @@ _VERIFY_ROLE_BY_STATUS = {
     STATUS_OK: "success", STATUS_MODIFIED: "warn", STATUS_MISSING: "danger",
     STATUS_UNLOCKED: "warn", STATUS_QUARANTINED: "muted",
     STATUS_UNREACHABLE: "warn", STATUS_STRANDED: "warn",
+    STATUS_OUTDATED: "warn",
 }
 
 
@@ -432,6 +630,25 @@ def verification_role(status: str, passed: bool) -> str:
 def enforcement_enabled() -> bool:
     """True when digest enforcement is switched on in config (default False)."""
     return bool(config.get(ENFORCE_KEY, False))
+
+
+def enforce_row(row: InstalledSkill) -> None:
+    """:func:`enforce` for an :class:`InstalledSkill` of either scope.
+
+    A user row is :func:`enforce` exactly. A project row has no store copy to
+    hash, so it is judged the way ``verify`` judges it (:func:`project_status`):
+    with enforcement on, a copy that drifted from the project lock's digest is
+    refused the same as a drifted store copy would be.
+    """
+    if not row.is_project:
+        enforce(row.name, row.entry)
+        return
+    if (enforcement_enabled()
+            and project_status(row.entry, row.base) == STATUS_MODIFIED):
+        raise BoostError(
+            "%s has been modified since install — its content no longer "
+            "matches the project lock file" % row.name,
+            hint="inspect with `boost verify %s`" % row.name, wrap=True)
 
 
 def commit_enforcement_enabled() -> bool:

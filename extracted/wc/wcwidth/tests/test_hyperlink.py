@@ -26,6 +26,12 @@ def test_hyperlinkparams_parse_valid(seq, url, params, term):
     'not an escape',
     '\x1b[31m',
     '',
+    '\x1b]8;;https://example.com\x07text',
+    '\x1b]8;;https://example.com\x07\n',
+    '\x1b]8;;https://example.com\x07\x1b[31m',
+    '\x1b]8;;https://example.com\x1b\\text',
+    '\x1b]8;;https://example.com\x1b\\\n',
+    '\x1b]8;;https://example.com\x1b\\\x1b[31m',
 ])
 def test_hyperlinkparams_parse_invalid(seq):
     """Parse an invalid/non-OSC-8 sequence returns None."""

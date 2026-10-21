@@ -402,36 +402,6 @@ def tracking_plugin_name(source: str | None = None) -> str:
     return DAEMON_PLUGIN_NAME if daemon else TRACKING_PLUGIN_NAME
 
 
-def cloud_agent_here():
-    """The cloud agent (registry family `cloud`) this process runs inside, from
-    its registry `detect_env` marker; None elsewhere.
-
-    Not part of `agent_source()`: that is the SETUP target, and a cloud agent
-    installs nothing. This is what reports (`probe doctor`) use to describe the
-    machine they are on instead of a local agent that is not there."""
-    from probe.harness import FAMILY_CLOUD, get_registry
-
-    # The registry's own precedence (first row whose marker is set): a Claude
-    # Code or Codex session started from a Capy shell carries Capy's variable
-    # too, and is that local agent, not Capy.
-    harness = get_registry().detect({name: value.strip() for name, value in os.environ.items()})
-    return harness if harness is not None and harness.family == FAMILY_CLOUD else None
-
-
-def cloud_agent_refusal(command: str) -> str | None:
-    """Why `command` cannot run here, when this is a cloud agent's machine
-    (Capy): it gives the shell no session id and runs no Probe daemon. None
-    anywhere else, so callers keep their usual message."""
-    agent = cloud_agent_here()
-    if agent is None:
-        return None
-    return (
-        f"`{command}` does not work inside {agent.label}: it gives this machine no session id "
-        "and runs no Probe daemon. Search the team's work with the Probe MCP `search` tool, "
-        "and record work with the `probe` CLI."
-    )
-
-
 def agent_source() -> str:
     """Setup target: explicit override, then the coding-agent environment.
 
@@ -663,21 +633,28 @@ def revoke_capture_device(source: str | None = None, *, timeout: float = 5.0) ->
     resolved = resolved_capture_credential(source)
     if resolved is None:
         return None
-    token, base_url = resolved
-    request = urllib.request.Request(
-        f"{base_url}/agent-tap/revoke",
-        data=json.dumps({"reason": "uninstall"}).encode("utf-8"),
-        headers={"Content-Type": "application/json", "User-Agent": "probe-capture-off/1"},
-        method="POST",
-    )
-    request.add_unredirected_header("Authorization", f"Bearer {token}")
+    return revoke_capture_token(*resolved, timeout=timeout)
+
+
+def revoke_capture_token(token: str, base_url: str, *, timeout: float = 5.0) -> bool | None:
+    """`revoke_capture_device`'s server call for a token already in hand.
+    Same answers, and it never raises either."""
     try:
+        request = urllib.request.Request(
+            f"{base_url}/agent-tap/revoke",
+            data=json.dumps({"reason": "uninstall"}).encode("utf-8"),
+            headers={"Content-Type": "application/json", "User-Agent": "probe-capture-off/1"},
+            method="POST",
+        )
+        request.add_unredirected_header("Authorization", f"Bearer {token}")
         with _credential_opener().open(request, timeout=timeout) as response:
             return response.status == 200
     except urllib.error.HTTPError as exc:
         # 401 is the documented benign case: already revoked, or unknown.
         return False if exc.code in {401, 403, 404} else None
-    except (urllib.error.URLError, TimeoutError, OSError):
+    # ValueError: a base URL with no scheme or a bad port (http.client.InvalidURL);
+    # HTTPException: a malformed answer (a proxy's BadStatusLine).
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError, http.client.HTTPException):
         return None
 
 
@@ -1175,8 +1152,8 @@ def installed_plugins(*, source: str | None = None, local: bool = False) -> Plug
 
     `local` reads the record the agent's own `plugin list` reads instead of
     running it (`probe status` without --refresh): Claude Code's install ledger,
-    Codex's config.toml (`_local_plugins`). pi, Kimi Code and a cloud agent
-    are file reads either way.
+    Codex's config.toml (`_local_plugins`). pi and Kimi Code are file reads
+    either way.
 
     ``verified=False`` when its CLI is absent (normal on a GPU pod and never
     an error) or the query could not complete.
@@ -1206,14 +1183,6 @@ def installed_plugins(*, source: str | None = None, local: bool = False) -> Plug
     which is the wrong failure mode for a check this cheap to get wrong.
     """
     selected = source or agent_source()
-    from probe.cli import cloud_agents
-
-    if cloud_agents.is_cloud(selected):
-        # No plugin and no plugin CLI (Capy): its capture "plugin" is the
-        # connection this machine syncs, and Probe inside the agent's own
-        # settings is not something this machine can see -- so never verified.
-        connected = cloud_agents.module(selected).connected_here()
-        return PluginState(names=frozenset({TAP_PLUGIN_NAME} if connected else ()), verified=False)
     if selected == "pi":
         # One package carries both halves. Capture rides on the entry; tracking
         # too unless the entry switches it off (`probeTracking: false`). Read as

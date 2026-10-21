@@ -454,7 +454,7 @@ class TestDoctor:
             wf = boost("install", "ship-it").out.replace("\n    ", " ")
             doc = boost("doctor", expect=1).out.replace("\n    ", " ")
             heal = boost("heal", expect=1).out.replace("\n    ", " ")
-            synced = boost("sync").out.replace("\n    ", " ")
+            synced = boost("sync", expect=1).out.replace("\n    ", " ")
         finally:
             for d in dirs:
                 d.chmod(0o700)
@@ -674,7 +674,7 @@ class TestDoctor:
     def test_a_corrupt_lock_leaves_sync_non_destructive(self, boost, installed):
         link = paths.home() / ".claude/skills" / "brainstorming"
         paths.lockfile_path().write_text("{oops", encoding="utf-8")
-        r = boost("sync")
+        r = boost("sync", expect=1)
         assert "removed stale link" not in r.out
         assert ("the lock file is corrupt, so sync records nothing"
                 in " ".join((r.out + r.err).split()))
@@ -1435,22 +1435,25 @@ class TestDrift:
         assert "boost update" in r.out
         data = json.loads(boost("drift", "--json").out)
         assert data == {"skills": [{"name": "brainstorming", "kind": "skill",
-                                    "status": "upstream-moved",
+                                    "scope": "user", "status": "upstream-moved",
                                     "hint": "boost update"}]}
 
     def test_source_missing_after_untap_hints_retap_not_update(self, boost,
+                                                                tapped,
                                                                 installed):
         # `boost update` only refreshes configured taps — once the tap is
         # gone, it's a guaranteed no-op. The only remedy that can actually
-        # restore the source is re-tapping it.
+        # restore the source is re-tapping it, and from its recorded path:
+        # `boost tap fixture-tap` (the name) cannot parse.
         boost("untap", "fixture-tap")
         r = boost("drift")
         assert "source-missing" in r.out
-        assert "boost tap fixture-tap" in r.out
+        assert "boost tap fixture-tap" not in r.out
+        want = "boost tap %s" % str(tapped.resolve())
         data = json.loads(boost("drift", "--json").out)
         assert data == {"skills": [{"name": "brainstorming", "kind": "skill",
-                                    "status": "source-missing",
-                                    "hint": "boost tap fixture-tap"}]}
+                                    "scope": "user", "status": "source-missing",
+                                    "hint": want}]}
 
     def test_no_lock_file_but_nothing_ever_installed_rc0(self, boost, tapped):
         r = boost("drift")
@@ -1597,6 +1600,18 @@ class TestQuarantine:
         assert entry["quarantined"] is False
         assert entry["agents"] == ["claude-code", "windsurf", "cursor",
                                    "antigravity"]
+
+    def test_focus_on_a_quarantined_skill_hints_a_command_that_runs(
+            self, boost, installed):
+        # The hint used to be a bare `boost quarantine`, which errors with
+        # "specify a skill to quarantine". The hint must be the release.
+        boost("quarantine", "brainstorming")
+        r = boost("focus", "brainstorming", expect=1)
+        assert "brainstorming is quarantined" in r.err
+        assert ("release it first with `boost quarantine --release "
+                "brainstorming`") in r.err
+        boost("quarantine", "--release", "brainstorming")
+        boost("focus", "brainstorming")
 
     def test_doctor_separates_active_from_quarantined_skills(self, boost, tapped):
         boost("install", "brainstorming")
@@ -2463,9 +2478,13 @@ class TestStateFilesThatAreNotUtf8:
     """One bad byte in a file boost keeps for itself is a corrupt file, never
     a traceback: each of these took a command down at exit 70."""
 
-    def test_a_policy_file_reads_as_defaults(self, boost, tapped):
+    def test_a_policy_file_fails_closed_not_a_crash(self, boost, tapped):
+        # A refusal naming the file (rc 1), not exit 70 — and not an install
+        # either: a policy boost cannot read may hold a blocklist.
         paths.policy_path().write_bytes(b"\xff\xfe")
-        boost("install", "brainstorming")
+        r = boost("install", "brainstorming", expect=1)
+        assert ("policy blocks installing brainstorming: %s: not valid UTF-8"
+                % paths.policy_path()) in " ".join(r.err.split())
 
     @pytest.mark.parametrize("which", ["tap", "index"])
     def test_a_search_cache_is_rebuilt(self, boost, tapped, which):
@@ -2825,7 +2844,7 @@ class TestAnInstallPastSomethingInTheWay:
         blocked = "brainstorming → claude-code (~/.claude/skills in the way)"
         # sync listed the link as missing, link_agents skipped it, and sync
         # printed "everything in sync".
-        r = boost("sync")
+        r = boost("sync", expect=1)
         sync = self._flat(r.out + r.err)
         assert blocked in sync
         assert "everything in sync" not in sync
@@ -2875,7 +2894,7 @@ class TestARulePastSomethingInTheWay:
                 "is in the way — `boost sync` writes it once it is moved" in doc)
         heal = self._flat(boost("heal", "--dry-run", expect=1).out)
         assert heal.count("move ~/.cursor aside") == 1
-        sync = self._flat(boost("sync").out)
+        sync = self._flat(boost("sync", expect=1).out)
         assert "move ~/.cursor aside, then re-run `boost sync`" in sync
         assert "everything in sync" not in sync
         assert "re-materialized" not in sync
@@ -2918,8 +2937,8 @@ class TestSyncSaysWhyARuleWasNotRematerialized:
         # no install error to report: sync claims no repair and names the dir.
         rule_gone.chmod(0o500)
         try:
-            text = self._flat(boost("sync").out)
-            actions = json.loads(boost("sync", "--json").out)["actions"]
+            text = self._flat(boost("sync", expect=1).out)
+            actions = json.loads(boost("sync", "--json", expect=1).out)["actions"]
         finally:
             rule_gone.chmod(0o700)
         assert ("agent dir ~/.cursor/rules is not writable — `chmod u+w "

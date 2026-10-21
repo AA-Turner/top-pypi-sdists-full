@@ -1,7 +1,8 @@
 [project]
 name = "sqruff" 
-version = "0.41.0"
+version = "0.42.0"
 description = "A SQL linter written in rust." 
+readme = "README.md"
 requires-python = ">=3.10" 
 
 [project.optional-dependencies]
@@ -33,7 +34,7 @@ requires = ["maturin==1.14.1"]
 build-backend = "maturin" 
 
 [tool.maturin]
-module-name = "sqruff._lib_name"
+module-name = "sqruff._sqruff"
 features = ["pyo3/extension-module"]
 manifest-path = "crates/cli-python/Cargo.toml"
 python-source = "python"

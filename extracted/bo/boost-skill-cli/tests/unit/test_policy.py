@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from boost_cli.core import config, paths, policy, typedvalue
+from boost_cli.core import config, jsonstate, paths, policy, typedvalue
 
 GOOD_ENTRY = {"name": "brainstorming", "tap": "acme/skills",
               "description": "Structured ideation", "version": "1.4.0"}
@@ -85,6 +85,24 @@ class TestCheckInstall:
             "skill 'brainstorming' is on the blocklist"]
         assert policy.check_install(
             {**GOOD_ENTRY, "name": "other"}, 0) == []
+
+    def test_blocked_skills_tap_qualified(self, sandbox):
+        # `install` takes `tap:name`; a blocklist entry written that way used
+        # to be stored with a check mark and never match.
+        set_policy(blocked_skills=["acme/skills:brainstorming"])
+        assert policy.check_install(GOOD_ENTRY, 0) == [
+            "skill 'brainstorming' is on the blocklist"]
+        assert policy.check_install(
+            {**GOOD_ENTRY, "tap": "other/tap"}, 0) == []
+
+    def test_is_blocked(self):
+        assert policy.is_blocked("x", "fx", ["x"]) is True
+        assert policy.is_blocked("x", "fx", ["fx:x"]) is True
+        assert policy.is_blocked("x", "gx", ["fx:x"]) is False
+        assert policy.is_blocked("x", "fx", ["fx:y", "y"]) is False
+        assert policy.is_blocked("x", None, [":x"]) is False
+        assert policy.is_blocked("x", "", [":x"]) is False
+        assert policy.is_blocked("x", "fx", None) is False
 
     def test_blocked_taps(self, sandbox):
         set_policy(blocked_taps=["acme/skills"])
@@ -302,6 +320,28 @@ class TestCheckTapSigning:
         clone.mkdir()
         assert policy.check_tap_signing(clone) == []
 
+    def test_corrupt_policy_refuses_the_tap(self, sandbox, tmp_path):
+        p = paths.policy_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text('{"require_signed_taps": true', encoding="utf-8")
+        clone = tmp_path / "c"
+        clone.mkdir()
+        err = jsonstate.read_object(p)[1]
+        assert policy.check_tap_signing(clone) == [
+            "%s — boost cannot read the policy, so it will not tap until the "
+            "file is repaired" % err]
+
+    def test_corrupt_policy_tap_honours_enforce_switch(self, sandbox, tmp_path):
+        p = paths.policy_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text('{"require_signed_taps": true', encoding="utf-8")
+        cfg = config.load()
+        cfg["policy_enforce"] = False
+        config.save(cfg)
+        clone = tmp_path / "c"
+        clone.mkdir()
+        assert policy.check_tap_signing(clone) == []
+
     def test_required_but_unsigned_violates(self, sandbox, tmp_path):
         set_policy(require_signed_taps=True)
         clone = tmp_path / "c"
@@ -390,6 +430,64 @@ class TestParseValue:
         assert policy.parse_value("blocked_skills", "a,b") == ["a", "b"]
 
 
+class TestRanges:
+    """The type alone let `policy set min_quality_score 500` and `max_skills -1`
+    through with rc 0; the next audit or install then failed against a limit
+    nothing could meet."""
+
+    @pytest.mark.parametrize("raw", ["0", "100", "60"])
+    def test_a_score_inside_0_to_100_is_taken(self, sandbox, raw):
+        assert policy.parse_value("min_quality_score", raw) == int(raw)
+
+    @pytest.mark.parametrize("raw", ["-1", "101", "500", "-5"])
+    def test_a_score_outside_0_to_100_is_refused(self, sandbox, raw):
+        with pytest.raises(typedvalue.ValueTypeError) as e:
+            policy.parse_value("min_quality_score", raw)
+        assert e.value.key == "min_quality_score"
+        assert e.value.raw == raw
+        assert e.value.spec == typedvalue.INT
+        assert e.value.expected == "a whole number from 0 to 100"
+        assert str(e.value) == ("min_quality_score expects a whole number "
+                                "from 0 to 100, got %r" % raw)
+
+    @pytest.mark.parametrize("raw, want", [("0", 0), ("1", 1), ("99999", 99999),
+                                           ("null", None)])
+    def test_a_cap_of_zero_or_more_or_null_is_taken(self, sandbox, raw, want):
+        assert policy.parse_value("max_skills", raw) == want
+
+    def test_a_negative_cap_is_refused(self, sandbox):
+        with pytest.raises(typedvalue.ValueTypeError) as e:
+            policy.parse_value("max_skills", "-1")
+        assert e.value.expected == ("a whole number of 0 or more, "
+                                    "or null for no limit")
+
+    def test_an_unbounded_key_is_untouched(self, sandbox):
+        assert policy.parse_value("pin_only", "no") is False
+        assert policy.parse_value("blocked_skills", "-1") == ["-1"]
+
+    def test_a_stored_out_of_range_value_falls_back_and_is_named(self, sandbox):
+        write_policy_json({"min_quality_score": 500, "max_skills": -1})
+        pol = policy.load()
+        assert pol["min_quality_score"] == 0
+        assert pol["max_skills"] is None
+        assert policy.check_install(GOOD_ENTRY, 3) == []
+        assert sorted(policy.invalid_values()) == [
+            ("max_skills", -1, "a whole number of 0 or more, or null for no limit"),
+            ("min_quality_score", 500, "a whole number from 0 to 100")]
+
+    def test_a_stored_string_out_of_range_is_refused_too(self, sandbox):
+        write_policy_json({"min_quality_score": "101"})
+        assert policy.load()["min_quality_score"] == 0
+        assert policy.invalid_values() == [
+            ("min_quality_score", "101", "a whole number from 0 to 100")]
+
+    def test_stored_bounds_themselves_are_kept(self, sandbox):
+        write_policy_json({"min_quality_score": 100, "max_skills": 0})
+        pol = policy.load()
+        assert (pol["min_quality_score"], pol["max_skills"]) == (100, 0)
+        assert policy.invalid_values() == []
+
+
 class TestLoadCoercesStoredValues:
     def test_a_string_boolean_written_by_hand_is_read_as_the_boolean(self, sandbox):
         write_policy_json({"pin_only": "no"})
@@ -447,3 +545,94 @@ class TestInvalidValues:
     def test_unknown_keys_are_not_reported_as_invalid(self, sandbox):
         write_policy_json({"rogue": "anything"})
         assert policy.invalid_values() == []
+
+
+TRUNCATED = '{"blocked_skills": ["tdd-workflow"]'
+TRAILING_COMMA = '{"blocked_skills": ["tdd-workflow"], "allowed_taps": ["fx"],}'
+
+
+def _corrupt(raw: str):
+    paths.ensure_dirs()
+    p = paths.policy_path()
+    p.write_text(raw, encoding="utf-8")
+    return p
+
+
+def _err(capsys) -> str:
+    return " ".join(capsys.readouterr().err.split())
+
+
+class TestCorruptPolicy:
+    """A policy.json that does not parse is not "no policy": fail closed."""
+
+    @pytest.mark.parametrize("raw", [TRUNCATED, TRAILING_COMMA])
+    def test_check_names_the_parse_error(self, sandbox, raw):
+        p = _corrupt(raw)
+        err = policy.check()
+        assert err is not None
+        assert err.startswith("%s: invalid JSON (" % p)
+
+    def test_check_is_none_when_missing_or_valid(self, sandbox):
+        assert policy.check() is None
+        set_policy(pin_only=True)
+        assert policy.check() is None
+        assert policy.corrupt_violation() is None
+
+    @pytest.mark.parametrize("raw", [TRUNCATED, TRAILING_COMMA])
+    def test_install_is_refused(self, sandbox, raw):
+        _corrupt(raw)
+        assert policy.check_install(GOOD_ENTRY, 0) == [
+            "%s — boost cannot read the policy, so it will not install until "
+            "the file is repaired" % policy.check()]
+
+    def test_policy_enforce_false_still_bypasses(self, sandbox):
+        cfg = config.load()
+        cfg["policy_enforce"] = False
+        config.save(cfg)
+        _corrupt(TRUNCATED)
+        assert policy.check_install(GOOD_ENTRY, 0) == []
+        # The violation itself does not depend on the switch.
+        assert policy.corrupt_violation() is not None
+
+    def test_load_warns_once_per_process(self, sandbox, capsys):
+        p = _corrupt(TRUNCATED)
+        assert policy.load() == policy.DEFAULTS
+        policy.load()
+        policy.invalid_values()
+        err = _err(capsys)
+        assert err.count("reading the policy as defaults") == 1
+        assert ("%s: invalid JSON" % p) in err
+        assert ("installs are refused until it is repaired, and the next "
+                "`boost policy set` moves it aside to policy.json.corrupt") in err
+
+    def test_a_valid_file_does_not_warn(self, sandbox, capsys):
+        set_policy(pin_only=True)
+        policy.load()
+        assert capsys.readouterr().err == ""
+
+    def test_save_quarantines_the_corrupt_file(self, sandbox, capsys):
+        p = _corrupt(TRAILING_COMMA)
+        policy.save({"require_description": True})
+        assert (p.parent / "policy.json.corrupt").read_text(
+            encoding="utf-8") == TRAILING_COMMA
+        assert json.loads(p.read_text(encoding="utf-8"))[
+            "require_description"] is True
+        assert ("%s was corrupt and has been moved to %s before writing the "
+                "new policy" % (p, p.parent / "policy.json.corrupt")) \
+            in _err(capsys)
+
+    def test_save_never_overwrites_an_earlier_quarantine(self, sandbox):
+        p = _corrupt(TRUNCATED)
+        policy.save({})
+        _corrupt(TRAILING_COMMA)
+        policy.save({})
+        assert (p.parent / "policy.json.corrupt").read_text(
+            encoding="utf-8") == TRUNCATED
+        assert (p.parent / "policy.json.corrupt.2").read_text(
+            encoding="utf-8") == TRAILING_COMMA
+
+    def test_save_over_a_valid_file_quarantines_nothing(self, sandbox):
+        set_policy(pin_only=True)
+        set_policy(pin_only=False)
+        assert sorted(q.name for q in paths.policy_path().parent.iterdir()
+                      if q.name.startswith("policy")) == ["policy.json"]

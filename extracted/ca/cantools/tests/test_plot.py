@@ -396,6 +396,99 @@ BREMSE_33(
             self.assertEqual(stdout.getvalue(), expected_output)
             self.assertListEqual(plt.mock_calls, expected_calls)
 
+    def test_plot_cantools_decode_l(self):
+        argv = ['cantools', 'plot', self.DBC_FILE]
+        plotted_frames = """\
+(1609395080.446193) vcan0 00000343#B504CB04AE04BC04
+(1609395081.447989) vcan0 00000343#7B047B046204A504 T
+"""
+        # 'candump -l' input piped through 'cantools decode' and 'cantools decode --single-line'.
+        decoded = """\
+(1609395080.446193) vcan0 00000343#B504CB04AE04BC04 ::
+BREMSE_33(
+    whlspeed_FL: 18.828125 m/s,
+    whlspeed_FR: 19.171875 m/s,
+    whlspeed_RL: 18.71875 m/s,
+    whlspeed_RR: 18.9375 m/s
+)
+(1609395080.946193) vcan0 00000123#00 :: Unknown frame id 291 (0x123)
+(1609395081.447989) vcan0 00000343#7B047B046204A504 T ::
+BREMSE_33(
+    whlspeed_FL: 17.921875 m/s,
+    whlspeed_FR: 17.921875 m/s,
+    whlspeed_RL: 17.53125 m/s,
+    whlspeed_RR: 18.578125 m/s
+)
+"""
+        decoded_single_line = """\
+(1609395080.446193) vcan0 00000343#B504CB04AE04BC04 :: BREMSE_33(whlspeed_FL: 18.828125 m/s, whlspeed_FR: 19.171875 m/s, whlspeed_RL: 18.71875 m/s, whlspeed_RR: 18.9375 m/s)
+(1609395080.946193) vcan0 00000123#00 :: Unknown frame id 291 (0x123)
+(1609395081.447989) vcan0 00000343#7B047B046204A504 T :: BREMSE_33(whlspeed_FL: 17.921875 m/s, whlspeed_FR: 17.921875 m/s, whlspeed_RL: 17.53125 m/s, whlspeed_RR: 18.578125 m/s)
+"""
+
+        xs = self.parse_time(plotted_frames, self.parse_absolute_seconds)
+        expected_calls = [
+            mock.call.subplot(1,1,1, sharex=None),
+            mock.call.subplot().plot(xs, [18.828125, 17.921875], '', label='BREMSE_33.whlspeed_FL [m/s]'),
+            mock.call.subplot().plot(xs, [19.171875, 17.921875], '', label='BREMSE_33.whlspeed_FR [m/s]'),
+            mock.call.subplot().plot(xs, [18.71875, 17.53125], '', label='BREMSE_33.whlspeed_RL [m/s]'),
+            mock.call.subplot().plot(xs, [18.9375, 18.578125], '', label='BREMSE_33.whlspeed_RR [m/s]'),
+            mock.call.subplot().set_xlabel(self.XLABEL_l % self.parse_start_time(xs[0])),
+            mock.call.show(),
+        ]
+        expected_output = "Unknown frame id 291 (0x123)\n"
+
+        for name, input_data in (('decode', decoded), ('decode --single-line', decoded_single_line)):
+            with self.subTest(name):
+                stdout = StringIO()
+                with mock.patch('sys.stdin', StringIO(input_data)), mock.patch('sys.stdout', stdout), mock.patch('sys.argv', argv), PyplotMock() as plt:
+                    cantools._main()
+                    self.assertEqual(stdout.getvalue(), expected_output)
+                    self.assertListEqual(plt.mock_calls, expected_calls)
+
+    def test_plot_cantools_decode_choices(self):
+        argv = ['cantools', 'plot', '--no-units', self.DBC_FILE_CHOICES, 'Foo:|']
+        # 'cantools decode' writes a decoded choice as its name, not as a number.
+        input_data = """\
+  vcan0  00000000   [8]  01 00 00 00 00 00 00 00 ::
+Foo(
+    Foo: #%=*\xe4'
+)
+  vcan0  00000000   [8]  FB 00 00 00 00 00 00 00 ::
+Foo(
+    Foo: A negative value
+)
+  vcan0  00000000   [8]  06 00 00 00 00 00 00 00 ::
+Foo(
+    Foo: reserved
+)
+"""
+
+        db = cantools.database.load_file(self.DBC_FILE_CHOICES)
+        choices = db.get_message_by_name("Foo").get_signal_by_name("Foo").choices
+
+        xs = [1, 2, 3]
+        ys = [choices[y] for y in (1, -5, 6)]
+
+        subplots = [SubplotMock()]
+        plt = PyplotMock()
+        plt.subplot.side_effect = subplots
+        expected_calls = [
+            mock.call.subplot(1,1,1, sharex=None),
+            mock.call.show(),
+        ]
+        expected_subplot_calls = [
+            mock.call.stem(xs, ys, '', label='Foo.Foo'),
+            mock.call.set_xlabel(self.XLABEL_LINE_NUMBER),
+        ]
+
+        stdout = StringIO()
+        with mock.patch('sys.stdin', StringIO(input_data)), mock.patch('sys.stdout', stdout), mock.patch('sys.argv', argv), plt:
+            cantools._main()
+            self.assertEqual(stdout.getvalue(), "")
+            self.assertListEqual(plt.mock_calls, expected_calls)
+            self.assertListEqual(subplots[0].mock_calls, expected_subplot_calls)
+
 
     # ------- test different file formats -------
 

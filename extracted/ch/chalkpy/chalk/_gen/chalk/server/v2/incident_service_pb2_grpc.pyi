@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v2.incident_service_pb2 import (
     CloseIncidentRequest,
     CloseIncidentResponse,
+    DeleteIncidentRequest,
+    DeleteIncidentResponse,
     GetIncidentRequest,
     GetIncidentResponse,
     ListIncidentsRequest,
@@ -37,6 +39,14 @@ class IncidentServiceStub:
         CloseIncidentResponse,
     ]
     """Resolves an open incident ahead of its monitor doing so, notifying alert channels the same way."""
+    DeleteIncident: UnaryUnaryMultiCallable[
+        DeleteIncidentRequest,
+        DeleteIncidentResponse,
+    ]
+    """Deletes an incident by archiving it: ListIncidents omits it unless include_archived is set,
+    and GetIncident still returns it. An open incident is resolved first, notifying alert
+    channels the way CloseIncident does. Deleting an archived incident keeps its archived_at.
+    """
 
 class IncidentServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -58,5 +68,15 @@ class IncidentServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CloseIncidentResponse:
         """Resolves an open incident ahead of its monitor doing so, notifying alert channels the same way."""
+    @abstractmethod
+    def DeleteIncident(
+        self,
+        request: DeleteIncidentRequest,
+        context: ServicerContext,
+    ) -> DeleteIncidentResponse:
+        """Deletes an incident by archiving it: ListIncidents omits it unless include_archived is set,
+        and GetIncident still returns it. An open incident is resolved first, notifying alert
+        channels the way CloseIncident does. Deleting an archived incident keeps its archived_at.
+        """
 
 def add_IncidentServiceServicer_to_server(servicer: IncidentServiceServicer, server: Server) -> None: ...

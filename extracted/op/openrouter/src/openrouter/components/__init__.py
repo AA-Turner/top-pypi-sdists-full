@@ -1460,9 +1460,9 @@ if TYPE_CHECKING:
         CreateBYOKKeyResponse,
         CreateBYOKKeyResponseTypedDict,
     )
-    from .createenduserrequest import (
-        CreateEndUserRequest,
-        CreateEndUserRequestTypedDict,
+    from .createexternaluserrequest import (
+        CreateExternalUserRequest,
+        CreateExternalUserRequestTypedDict,
     )
     from .createguardrailrequest import (
         CreateGuardrailRequest,
@@ -1753,14 +1753,17 @@ if TYPE_CHECKING:
     from .endpointinfo import EndpointInfo, EndpointInfoTypedDict
     from .endpointsmetadata import EndpointsMetadata, EndpointsMetadataTypedDict
     from .endpointstatus import EndpointStatus
-    from .enduser import EndUser, EndUserTypedDict
-    from .enduserresponse import EndUserResponse, EndUserResponseTypedDict
     from .enumcapability import (
         EnumCapability,
         EnumCapabilityType,
         EnumCapabilityTypedDict,
     )
     from .errorevent import ErrorEvent, ErrorEventType, ErrorEventTypedDict
+    from .externaluser import ExternalUser, ExternalUserTypedDict
+    from .externaluserresponse import (
+        ExternalUserResponse,
+        ExternalUserResponseTypedDict,
+    )
     from .failabletoolcallstatus import FailableToolCallStatus
     from .filecitation import FileCitation, FileCitationType, FileCitationTypedDict
     from .filedeleteresponse import (
@@ -2353,6 +2356,24 @@ if TYPE_CHECKING:
         InternChatUserMessageRole,
         InternChatUserMessageTypedDict,
     )
+    from .internconnection import (
+        Account,
+        AccountTypedDict,
+        InternConnection,
+        InternConnectionScope,
+        InternConnectionStatus,
+        InternConnectionStatusTypedDict,
+        InternConnectionTypedDict,
+        Kind,
+        OffReason,
+        Server,
+        ServerTypedDict,
+        StateEnum,
+    )
+    from .internconnectionlist import (
+        InternConnectionList,
+        InternConnectionListTypedDict,
+    )
     from .interndaemonaccess import InternDaemonAccess, InternDaemonAccessTypedDict
     from .interninvokeacceptedresponse import (
         InternInvokeAcceptedResponse,
@@ -2411,9 +2432,9 @@ if TYPE_CHECKING:
         ListEndpointsResponse,
         ListEndpointsResponseTypedDict,
     )
-    from .listendusersresponse import (
-        ListEndUsersResponse,
-        ListEndUsersResponseTypedDict,
+    from .listexternalusersresponse import (
+        ListExternalUsersResponse,
+        ListExternalUsersResponseTypedDict,
     )
     from .listguardrailsresponse import (
         ListGuardrailsResponse,
@@ -4277,9 +4298,9 @@ if TYPE_CHECKING:
         UpdateBYOKKeyResponse,
         UpdateBYOKKeyResponseTypedDict,
     )
-    from .updateenduserrequest import (
-        UpdateEndUserRequest,
-        UpdateEndUserRequestTypedDict,
+    from .updateexternaluserrequest import (
+        UpdateExternalUserRequest,
+        UpdateExternalUserRequestTypedDict,
     )
     from .updateguardrailrequest import (
         UpdateGuardrailRequest,
@@ -4497,6 +4518,8 @@ __all__ = [
     "AABenchmarkEntryTypedDict",
     "APIErrorType",
     "APIType",
+    "Account",
+    "AccountTypedDict",
     "ActionEnum",
     "ActivityItem",
     "ActivityItemTypedDict",
@@ -5488,8 +5511,8 @@ __all__ = [
     "CreateBYOKKeyRequestTypedDict",
     "CreateBYOKKeyResponse",
     "CreateBYOKKeyResponseTypedDict",
-    "CreateEndUserRequest",
-    "CreateEndUserRequestTypedDict",
+    "CreateExternalUserRequest",
+    "CreateExternalUserRequestTypedDict",
     "CreateGuardrailRequest",
     "CreateGuardrailRequestTypedDict",
     "CreateGuardrailResponse",
@@ -5680,10 +5703,6 @@ __all__ = [
     "EmbeddingTypedDict",
     "Embeddings",
     "EmbeddingsTypedDict",
-    "EndUser",
-    "EndUserResponse",
-    "EndUserResponseTypedDict",
-    "EndUserTypedDict",
     "Endpoint",
     "EndpointInfo",
     "EndpointInfoTypedDict",
@@ -5700,6 +5719,10 @@ __all__ = [
     "ErrorEvent",
     "ErrorEventType",
     "ErrorEventTypedDict",
+    "ExternalUser",
+    "ExternalUserResponse",
+    "ExternalUserResponseTypedDict",
+    "ExternalUserTypedDict",
     "FailableToolCallStatus",
     "FailedModel",
     "FailedModelTypedDict",
@@ -6125,6 +6148,13 @@ __all__ = [
     "InternChatUserMessage",
     "InternChatUserMessageRole",
     "InternChatUserMessageTypedDict",
+    "InternConnection",
+    "InternConnectionList",
+    "InternConnectionListTypedDict",
+    "InternConnectionScope",
+    "InternConnectionStatus",
+    "InternConnectionStatusTypedDict",
+    "InternConnectionTypedDict",
     "InternDaemonAccess",
     "InternDaemonAccessTypedDict",
     "InternInvokeAcceptedResponse",
@@ -6163,6 +6193,7 @@ __all__ = [
     "KeyBudgetScope",
     "KeyBudgetTypedDict",
     "KeyTypedDict",
+    "Kind",
     "Kty",
     "LegacyChatContentVideo",
     "LegacyChatContentVideoInput",
@@ -6177,10 +6208,10 @@ __all__ = [
     "LegendTypedDict",
     "ListBYOKKeysResponse",
     "ListBYOKKeysResponseTypedDict",
-    "ListEndUsersResponse",
-    "ListEndUsersResponseTypedDict",
     "ListEndpointsResponse",
     "ListEndpointsResponseTypedDict",
+    "ListExternalUsersResponse",
+    "ListExternalUsersResponseTypedDict",
     "ListGuardrailsResponse",
     "ListGuardrailsResponseTypedDict",
     "ListKeyAssignmentsResponse",
@@ -6533,6 +6564,7 @@ __all__ = [
     "ObservabilityWebhookDestinationMethod",
     "ObservabilityWebhookDestinationType",
     "ObservabilityWebhookDestinationTypedDict",
+    "OffReason",
     "OnError",
     "OpenAIFile",
     "OpenAIFileDeleted",
@@ -7202,6 +7234,7 @@ __all__ = [
     "SearchSurface",
     "Security",
     "SecurityTypedDict",
+    "Server",
     "ServerTool",
     "ServerToolDetails",
     "ServerToolDetailsStatus",
@@ -7228,6 +7261,7 @@ __all__ = [
     "ServerToolTypedDict",
     "ServerToolUseDetails",
     "ServerToolUseDetailsTypedDict",
+    "ServerTypedDict",
     "ServiceUnavailableResponseErrorData",
     "ServiceUnavailableResponseErrorDataTypedDict",
     "SessionCostItem",
@@ -7301,6 +7335,7 @@ __all__ = [
     "Stance",
     "StanceTypedDict",
     "State",
+    "StateEnum",
     "StateTypedDict",
     "StopServerToolsWhenCondition",
     "StopServerToolsWhenConditionTypedDict",
@@ -7618,8 +7653,8 @@ __all__ = [
     "UpdateBYOKKeyRequestTypedDict",
     "UpdateBYOKKeyResponse",
     "UpdateBYOKKeyResponseTypedDict",
-    "UpdateEndUserRequest",
-    "UpdateEndUserRequestTypedDict",
+    "UpdateExternalUserRequest",
+    "UpdateExternalUserRequestTypedDict",
     "UpdateGuardrailRequest",
     "UpdateGuardrailRequestTypedDict",
     "UpdateGuardrailResponse",
@@ -8812,8 +8847,8 @@ _dynamic_imports: dict[str, str] = {
     "CreateBYOKKeyRequestTypedDict": ".createbyokkeyrequest",
     "CreateBYOKKeyResponse": ".createbyokkeyresponse",
     "CreateBYOKKeyResponseTypedDict": ".createbyokkeyresponse",
-    "CreateEndUserRequest": ".createenduserrequest",
-    "CreateEndUserRequestTypedDict": ".createenduserrequest",
+    "CreateExternalUserRequest": ".createexternaluserrequest",
+    "CreateExternalUserRequestTypedDict": ".createexternaluserrequest",
     "CreateGuardrailRequest": ".createguardrailrequest",
     "CreateGuardrailRequestTypedDict": ".createguardrailrequest",
     "CreateGuardrailResponse": ".createguardrailresponse",
@@ -9019,16 +9054,16 @@ _dynamic_imports: dict[str, str] = {
     "EndpointsMetadata": ".endpointsmetadata",
     "EndpointsMetadataTypedDict": ".endpointsmetadata",
     "EndpointStatus": ".endpointstatus",
-    "EndUser": ".enduser",
-    "EndUserTypedDict": ".enduser",
-    "EndUserResponse": ".enduserresponse",
-    "EndUserResponseTypedDict": ".enduserresponse",
     "EnumCapability": ".enumcapability",
     "EnumCapabilityType": ".enumcapability",
     "EnumCapabilityTypedDict": ".enumcapability",
     "ErrorEvent": ".errorevent",
     "ErrorEventType": ".errorevent",
     "ErrorEventTypedDict": ".errorevent",
+    "ExternalUser": ".externaluser",
+    "ExternalUserTypedDict": ".externaluser",
+    "ExternalUserResponse": ".externaluserresponse",
+    "ExternalUserResponseTypedDict": ".externaluserresponse",
     "FailableToolCallStatus": ".failabletoolcallstatus",
     "FileCitation": ".filecitation",
     "FileCitationType": ".filecitation",
@@ -9461,6 +9496,20 @@ _dynamic_imports: dict[str, str] = {
     "InternChatUserMessage": ".internchatusermessage",
     "InternChatUserMessageRole": ".internchatusermessage",
     "InternChatUserMessageTypedDict": ".internchatusermessage",
+    "Account": ".internconnection",
+    "AccountTypedDict": ".internconnection",
+    "InternConnection": ".internconnection",
+    "InternConnectionScope": ".internconnection",
+    "InternConnectionStatus": ".internconnection",
+    "InternConnectionStatusTypedDict": ".internconnection",
+    "InternConnectionTypedDict": ".internconnection",
+    "Kind": ".internconnection",
+    "OffReason": ".internconnection",
+    "Server": ".internconnection",
+    "ServerTypedDict": ".internconnection",
+    "StateEnum": ".internconnection",
+    "InternConnectionList": ".internconnectionlist",
+    "InternConnectionListTypedDict": ".internconnectionlist",
     "InternDaemonAccess": ".interndaemonaccess",
     "InternDaemonAccessTypedDict": ".interndaemonaccess",
     "InternInvokeAcceptedResponse": ".interninvokeacceptedresponse",
@@ -9503,8 +9552,8 @@ _dynamic_imports: dict[str, str] = {
     "ArchitectureTypedDict": ".listendpointsresponse",
     "ListEndpointsResponse": ".listendpointsresponse",
     "ListEndpointsResponseTypedDict": ".listendpointsresponse",
-    "ListEndUsersResponse": ".listendusersresponse",
-    "ListEndUsersResponseTypedDict": ".listendusersresponse",
+    "ListExternalUsersResponse": ".listexternalusersresponse",
+    "ListExternalUsersResponseTypedDict": ".listexternalusersresponse",
     "ListGuardrailsResponse": ".listguardrailsresponse",
     "ListGuardrailsResponseTypedDict": ".listguardrailsresponse",
     "ListKeyAssignmentsResponse": ".listkeyassignmentsresponse",
@@ -10908,8 +10957,8 @@ _dynamic_imports: dict[str, str] = {
     "UpdateBYOKKeyRequestTypedDict": ".updatebyokkeyrequest",
     "UpdateBYOKKeyResponse": ".updatebyokkeyresponse",
     "UpdateBYOKKeyResponseTypedDict": ".updatebyokkeyresponse",
-    "UpdateEndUserRequest": ".updateenduserrequest",
-    "UpdateEndUserRequestTypedDict": ".updateenduserrequest",
+    "UpdateExternalUserRequest": ".updateexternaluserrequest",
+    "UpdateExternalUserRequestTypedDict": ".updateexternaluserrequest",
     "UpdateGuardrailRequest": ".updateguardrailrequest",
     "UpdateGuardrailRequestTypedDict": ".updateguardrailrequest",
     "UpdateGuardrailResponse": ".updateguardrailresponse",

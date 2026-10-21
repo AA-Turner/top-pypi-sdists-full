@@ -21,7 +21,7 @@ import inspect
 import warnings
 from contextvars import ContextVar
 from functools import cached_property, wraps
-from typing import Any, Callable, Literal, Optional, Union, cast
+from typing import Any, Callable, Literal, Optional, TypeVar, Union, cast
 
 from deprecate._dispatch import (
     _build_call_plan,
@@ -60,6 +60,9 @@ from deprecate.utils import _get_signature, _unwrap_descriptor_target
 # A synchronous recursive chain (same task/stack) shares one set — correct for cycle detection.
 # Lives here (not in _dispatch) because only the ``wrapped_fn`` closures below read/write it.
 _cycle_detection: ContextVar[Optional[set[int]]] = ContextVar("_cycle_detection", default=None)
+
+#: Decorated source type: preserve callable/descriptor signatures while rejecting non-callable values statically.
+_SourceT = TypeVar("_SourceT", bound=Union[Callable[..., Any], classmethod, staticmethod, property, cached_property])
 
 
 def _packing_descriptor(  # noqa: C901 — property-path guards (fget/fset/fdel validation + TypeError raises) are one coherent story; splitting further adds indirection without reducing real complexity
@@ -200,7 +203,9 @@ def deprecated_callable(  # noqa: C901
     update_docstring: bool = False,
     docstring_style: Literal["auto", "rst", "mkdocs", "markdown"] = "auto",
     template_mgs: Optional[str] = None,
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    *,
+    as_exception: Optional[bool] = None,
+) -> Callable[[_SourceT], _SourceT]:
     """Decorate a function/method with warning message and forward calls to target — the strict callable form.
 
     This is the canonical callable-only implementation.  It behaves like :func:`deprecated` for functions,
@@ -283,6 +288,19 @@ def deprecated_callable(  # noqa: C901
         template_mgs: Deprecated alias for ``message_template`` (renamed in ``v0.12``; the old spelling was a
             typo). Supplying it emits a :class:`FutureWarning` and its value is used as ``message_template``;
             supplying both raises :class:`TypeError`. Removed in ``v1.0``.
+        as_exception: Promote this deprecation from a warning to a raised
+            :class:`~deprecate._fatal.DeprecatedError` — the warn/raise/delete lifecycle step before the symbol
+            goes away. The raised message is the same text the warning would have carried, the replacement
+            target is never invoked, and the source body never runs (so ``TargetMode.NOTIFY`` and
+            ``TargetMode.ARGS_REMAP`` stop instead of falling through). A fatal deprecation ignores
+            ``num_warns`` and raises on **every** call, and ``stream=None`` silences only the message, never
+            the raise; ``skip_if`` still suppresses it entirely. ``None`` (default) defers to the process-wide
+            ``deprecate.AS_EXCEPTIONS`` switch (seeded from the ``DEPRECATE_AS_EXCEPTIONS`` environment
+            variable); ``True`` is always fatal; ``False`` means "not fatal by default" and still yields to a
+            ``True`` global, so a consumer's strict run cannot be opted out of by an upstream wrapper.
+            Python's own ``-W error::FutureWarning`` is the alternative when you want *every* library's
+            ``FutureWarning`` to raise; this flag is scoped to pyDeprecate's own deprecations and also works
+            when ``stream`` is not a warnings function (e.g. :func:`logging.warning`).
 
     Returns:
         Decorator function that wraps the source function/method.
@@ -299,6 +317,7 @@ def deprecated_callable(  # noqa: C901
         TypeError: If the source is a class method and target is a method on a *different* class (cross-class
             method forwarding detected at decoration time via ``__qualname__`` comparison). Skipped silently
             when the target's qualname prefix names a class absent from the target's module globals.
+
         TypeError: If skip_if is a callable that doesn't return a bool.
         TypeError: If arguments in args_mapping don't exist in target function and target doesn't accept **kwargs.
 
@@ -470,6 +489,7 @@ def deprecated_callable(  # noqa: C901
             misconfigured=misconfigured,
             docstring_style=normalized_docstring_style,
             message_template=message_template,
+            as_exception=as_exception,
             target_positional_only=_target_positional_only,
             target_positional_only_order=_target_positional_only_order,
             source_positional_only=_source_positional_only,
@@ -618,4 +638,6 @@ def deprecated_callable(  # noqa: C901
 
         return wrapped_fn
 
-    return packing
+    # ``packing`` also takes private ``_stacklevel``/``_is_static`` arguments the front door passes; the public
+    # contract is the identity signature above.
+    return cast(Callable[[_SourceT], _SourceT], packing)

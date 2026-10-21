@@ -1,4 +1,4 @@
-# Copyright (c) 2012-2025, Mark Peek <mark@peek.org>
+# Copyright (c) 2012-2026, Mark Peek <mark@peek.org>
 # All rights reserved.
 #
 # See LICENSE file for full license.
@@ -8,6 +8,19 @@
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
 from .validators import boolean, double, integer
+
+
+class AWSManagedView(AWSObject):
+    """
+    `AWSManagedView <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-awsmanagedview.html>`__
+    """
+
+    resource_type = "AWS::Connect::AWSManagedView"
+
+    props: PropsDictType = {
+        "InstanceId": (str, False),
+        "ViewId": (str, False),
+    }
 
 
 class AgentStatus(AWSObject):
@@ -350,6 +363,17 @@ class EvaluationFormItemEnablementConfiguration(AWSProperty):
     }
 
 
+class EvaluationFormMetricConfiguration(AWSProperty):
+    """
+    `EvaluationFormMetricConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformmetricconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MetricName": (str, True),
+        "MetricType": (str, True),
+    }
+
+
 class EvaluationFormScoreThreshold(AWSProperty):
     """
     `EvaluationFormScoreThreshold <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-evaluationform-evaluationformscorethreshold.html>`__
@@ -629,6 +653,7 @@ class EvaluationFormQuestion(AWSProperty):
     props: PropsDictType = {
         "Enablement": (EvaluationFormItemEnablementConfiguration, False),
         "Instructions": (str, False),
+        "MetricConfiguration": (EvaluationFormMetricConfiguration, False),
         "NotApplicableEnabled": (boolean, False),
         "QuestionType": (str, True),
         "QuestionTypeProperties": (EvaluationFormQuestionTypeProperties, False),
@@ -748,6 +773,7 @@ class EvaluationForm(AWSObject):
     resource_type = "AWS::Connect::EvaluationForm"
 
     props: PropsDictType = {
+        "AIVersion": (str, False),
         "AutoEvaluationConfiguration": (AutoEvaluationConfiguration, False),
         "Description": (str, False),
         "InstanceArn": (str, True),
@@ -1002,6 +1028,9 @@ class IntegrationAssociation(AWSObject):
         "InstanceId": (str, True),
         "IntegrationArn": (str, True),
         "IntegrationType": (str, True),
+        "SourceApplicationName": (str, False),
+        "SourceApplicationUrl": (str, False),
+        "SourceType": (str, False),
         "Tags": (Tags, False),
     }
 
@@ -1097,7 +1126,7 @@ class Metric(AWSObject):
 
 class NotificationContent(AWSProperty):
     """
-    `NotificationContent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-notification-notificationcontent.html>`__
+    `NotificationContent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-notificationcontent.html>`__
     """
 
     props: PropsDictType = {
@@ -1486,6 +1515,30 @@ class EventBridgeAction(AWSProperty):
     }
 
 
+class InAppNotificationRecipientType(AWSProperty):
+    """
+    `InAppNotificationRecipientType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-inappnotificationrecipienttype.html>`__
+    """
+
+    props: PropsDictType = {
+        "UserArns": ([str], False),
+        "UserTags": (dict, False),
+    }
+
+
+class SendInAppNotificationAction(AWSProperty):
+    """
+    `SendInAppNotificationAction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-sendinappnotificationaction.html>`__
+    """
+
+    props: PropsDictType = {
+        "Content": (NotificationContent, True),
+        "Exclusion": (InAppNotificationRecipientType, False),
+        "Priority": (str, False),
+        "Recipient": (InAppNotificationRecipientType, True),
+    }
+
+
 class NotificationRecipientType(AWSProperty):
     """
     `NotificationRecipientType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-rule-notificationrecipienttype.html>`__
@@ -1567,6 +1620,7 @@ class Actions(AWSProperty):
         "CreateCaseActions": ([CreateCaseAction], False),
         "EndAssociatedTasksActions": (Tags, False),
         "EventBridgeActions": ([EventBridgeAction], False),
+        "SendInAppNotificationActions": ([SendInAppNotificationAction], False),
         "SendNotificationActions": ([SendNotificationAction], False),
         "SubmitAutoEvaluationActions": ([SubmitAutoEvaluationAction], False),
         "TaskActions": ([TaskAction], False),
@@ -1856,6 +1910,21 @@ class TrafficDistributionGroup(AWSObject):
     }
 
 
+class UseCase(AWSObject):
+    """
+    `UseCase <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-usecase.html>`__
+    """
+
+    resource_type = "AWS::Connect::UseCase"
+
+    props: PropsDictType = {
+        "InstanceId": (str, True),
+        "IntegrationAssociationId": (str, True),
+        "Tags": (Tags, False),
+        "UseCaseType": (str, True),
+    }
+
+
 class AfterContactWorkConfig(AWSProperty):
     """
     `AfterContactWorkConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfig.html>`__
@@ -2122,6 +2191,22 @@ class ViewVersion(AWSObject):
         "VersionDescription": (str, False),
         "ViewArn": (str, True),
         "ViewContentSha256": (str, False),
+    }
+
+
+class Vocabulary(AWSObject):
+    """
+    `Vocabulary <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-vocabulary.html>`__
+    """
+
+    resource_type = "AWS::Connect::Vocabulary"
+
+    props: PropsDictType = {
+        "Content": (str, True),
+        "InstanceId": (str, True),
+        "LanguageCode": (str, True),
+        "Tags": (Tags, False),
+        "VocabularyName": (str, True),
     }
 
 

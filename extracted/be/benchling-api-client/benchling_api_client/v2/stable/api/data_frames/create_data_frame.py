@@ -95,7 +95,7 @@ def sync(
     Data frames can be created from `.csv` files, and only 1 `.csv` file can currently be uploaded.
 
     A successful data frame upload requires 3 calls in serial:
-    1. [Create a data frame](#/Data%20Frames/createDataFrame), this endpoint, specifying the files to upload. This
+    1. [Create a data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame), this endpoint, specifying the files to upload. This
        returns a `manifest` containing S3 `PUT` URLs corresponding to the files that will be uploaded for
        the 2nd call and a data frame ID for the 3rd call.
     2. Upload the data frame `.csv` content to S3. Add `x-amz-server-side-encryption: AES256` to the request
@@ -103,7 +103,7 @@ def sync(
        ```bash
        curl -H \"x-amz-server-side-encryption: AES256\" -X PUT -T <LOCAL_FILE> -L <S3_PUT_URL>
        ```
-    3. [Update the data frame](#/Data%20Frames/patchDataFrame) to mark as `IN_PROGRESS` to start a [long-running task](#/Tasks/getTask)
+    3. [Update the data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/patch-data-frame) to mark as `IN_PROGRESS` to start a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
       to process and validate the data frame.
         - For more details on how we process and validate data frames, [click here](https://docs.benchling.com/docs/datasets-ingestion-reference).
 
@@ -145,7 +145,7 @@ async def asyncio(
     Data frames can be created from `.csv` files, and only 1 `.csv` file can currently be uploaded.
 
     A successful data frame upload requires 3 calls in serial:
-    1. [Create a data frame](#/Data%20Frames/createDataFrame), this endpoint, specifying the files to upload. This
+    1. [Create a data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/create-data-frame), this endpoint, specifying the files to upload. This
        returns a `manifest` containing S3 `PUT` URLs corresponding to the files that will be uploaded for
        the 2nd call and a data frame ID for the 3rd call.
     2. Upload the data frame `.csv` content to S3. Add `x-amz-server-side-encryption: AES256` to the request
@@ -153,7 +153,7 @@ async def asyncio(
        ```bash
        curl -H \"x-amz-server-side-encryption: AES256\" -X PUT -T <LOCAL_FILE> -L <S3_PUT_URL>
        ```
-    3. [Update the data frame](#/Data%20Frames/patchDataFrame) to mark as `IN_PROGRESS` to start a [long-running task](#/Tasks/getTask)
+    3. [Update the data frame](https://docs.benchling.com/docs/api/v2/benchling-api/data-frames/patch-data-frame) to mark as `IN_PROGRESS` to start a [long-running task](https://docs.benchling.com/docs/api/v2/benchling-api/tasks/get-task)
       to process and validate the data frame.
         - For more details on how we process and validate data frames, [click here](https://docs.benchling.com/docs/datasets-ingestion-reference).
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: abx-plugins
-Version: 1.13.449
+Version: 1.13.474
 Summary: ArchiveBox-compatible plugin suite (hooks, configs, binaries manifests)
 Project-URL: Homepage, https://plugins.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abx-plugins
@@ -21,7 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
 Requires-Dist: abxbus==2.5.77
-Requires-Dist: abxpkg==1.13.56
+Requires-Dist: abxpkg==1.13.58
 Requires-Dist: imagesize>=2.0.0
 Requires-Dist: rich-click>=1.9.7
 Requires-Dist: uv>=0.8.22
@@ -107,6 +107,11 @@ screenshot of the plugin's expanded settings on Add URLs (see `mobilesize`).
 Set `"enabled": true` to include an optional plugin in the default capture.
 Ordinary plugins need no recipe.
 
+The yt-dlp example uses a public HTML video demo so its gallery does not depend on
+YouTube allowing anonymous CI downloads. TLSNotary uses the small Example Domain
+response so the gallery can show a complete verified proof within its normal
+response-size budget. Both still require real successful captures.
+
 Recipes travel in the plugin package. Neither website needs a plugin allowlist,
 and adding an example requires no workflow changes or separate screenshot job.
 
@@ -122,7 +127,7 @@ environment variables or shell commands. Sonic reads snapshot metadata from
 
 - `SNAP_DIR` - base snapshot directory (default: `.`)
 - `CRAWL_DIR` - base crawl directory (default: `.`)
-- `TMP_DIR` - local runtime storage for disposable files (defaults to the host runtime's temporary directory); live screencast frames stay here, with only explicitly retained frames saved under `CRAWL_DIR` on shutdown
+- `TMP_DIR` - local runtime storage for disposable files (defaults to the host runtime's temporary directory); live screencast frames stay here, with each snapshot isolated by its `SNAP_DIR`, and only explicitly retained frames saved under `SNAP_DIR/chrome_screencast` on shutdown
 - `ABXPKG_LIB_DIR` - binaries/tools root (default: `~/.config/abx/lib`)
 - `PERSONAS_DIR` - persona profiles root (default: `~/.config/abx/personas`)
 - `ACTIVE_PERSONA` - persona name (default: `Default`)

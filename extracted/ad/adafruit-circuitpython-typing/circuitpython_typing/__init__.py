@@ -11,7 +11,7 @@ Types needed for type annotation that are not in `typing`
 * Author(s): Alec Delaney, Dan Halbert, Randy Hudson
 """
 
-__version__ = "1.12.3"
+__version__ = "1.13.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_Typing.git"
 
 import array
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     import audiocore
     import audiomixer
     import audiomp3
+    import mipicsi
     import rgbmatrix
     import synthio
     import ulab
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
     from alarm.time import TimeAlarm
     from ulab.numpy import ndarray
 
+from .camera import CameraSensor
 
 # Lists below are alphabetized.
 
@@ -42,8 +44,10 @@ __all__ = [
     "AudioSample",
     "BlockDevice",
     "ByteStream",
+    "CameraSensor",
     "FrameBuffer",
     "ReadableBuffer",
+    "VideoSource",
     "WriteableBuffer",
 ]
 
@@ -126,6 +130,12 @@ You can play these back with `audioio.AudioOut`, `audiobusio.I2SOut` or `audiopw
 
 FrameBuffer: TypeAlias = Union["rgbmatrix.RGBMatrix"]
 """Classes that implement the framebuffer protocol."""
+
+VideoSource: TypeAlias = Union["mipicsi.Camera"]
+"""Classes that implement the videosource protocol. ``videocore.VideoBuffer``
+streams frames from these into a framebuffer. The protocol is driven
+entirely by the VideoBuffer through internal methods; there is no
+direct Python API for the stream itself."""
 
 Alarm: TypeAlias = Union["alarm.pin.PinAlarm", "alarm.time.TimeAlarm"]
 """Classes that implement alarms for sleeping and asynchronous notification.

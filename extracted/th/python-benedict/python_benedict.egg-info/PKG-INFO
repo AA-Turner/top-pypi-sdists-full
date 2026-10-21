@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-benedict
-Version: 0.40.0
+Version: 0.40.1
 Summary: python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously.
 Author-email: Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>

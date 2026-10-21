@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from schemathesis.core.failures import Failure, FailureGroup
 from schemathesis.core.rate_limit import (
@@ -10,9 +10,12 @@ from schemathesis.core.rate_limit import (
     RATE_LIMIT_AUTO_REPORT_THRESHOLD,
     parse_retry_after,
 )
+from schemathesis.engine import events
 
 if TYPE_CHECKING:
     from schemathesis.core.transport import Response
+    from schemathesis.engine.context import EngineContext
+    from schemathesis.generation.case import Case
 
 
 def _get_retry_after(response: Response) -> str:
@@ -22,7 +25,7 @@ def _get_retry_after(response: Response) -> str:
     return value or ""
 
 
-def call_with_retry(
+def _call_with_retry(
     *,
     call_fn: Callable[[], Response],
     auto_mode: bool,
@@ -52,35 +55,70 @@ def call_with_retry(
     return rate_limited, response
 
 
-def call_and_validate_with_retry(
+def send_tracked(
+    ctx: EngineContext,
+    case: Case,
     *,
-    call_fn: Callable[[], Response],
-    validate_fn: Callable[[Response], None],
-    auto_mode: bool,
-    on_delay: Callable[[float, int], None],
-) -> Response:
-    """Call and validate an API response, retrying on 429 + Retry-After.
+    transport_kwargs: dict[str, Any],
+    emit: Callable[[events.EngineEvent], None],
+    send: Callable[[], Response] | None = None,
+    after_response: Callable[[Response], None] | None = None,
+) -> tuple[list[Response], Response]:
+    """Send a request the outage tracker remembers, waiting out rate limits when configured.
 
-    All 429 responses are validated through the normal check pipeline.
-    Failures from 429s are merged with failures from the final response.
+    `send` defaults to `case.call(**transport_kwargs)`; `after_response` runs on every answered attempt,
+    including each retried 429.
+    Returns (rate_limited_responses, final_response).
     """
-    rate_limited, final = call_with_retry(call_fn=call_fn, auto_mode=auto_mode, on_delay=on_delay)
-    pending_failures: list[Failure] = []
+    call = send or (lambda: case.call(**transport_kwargs))
 
+    def call_fn() -> Response:
+        response = ctx.server.track(case, call, transport_kwargs=transport_kwargs)
+        if after_response is not None:
+            after_response(response)
+        return response
+
+    def on_delay(delay: float, retries_left: int) -> None:
+        emit(events.RateLimitRetry(operation=case.operation.label, delay=delay, retries_left=retries_left))
+
+    return _call_with_retry(
+        call_fn=call_fn,
+        auto_mode=ctx.config.rate_limit_for(operation=case.operation) == "auto",
+        on_delay=on_delay,
+    )
+
+
+def validate_with_rate_limited(
+    rate_limited: list[Response],
+    final: Response,
+    validate_fn: Callable[[Response], None],
+    record_response: Callable[[Response], None],
+) -> Response:
+    """Validate every 429 received before the final response, then the final one.
+
+    Failures from 429s are merged with failures from the final response, and the first failing 429
+    is recorded as the case's response so reports show the response the failure came from.
+    """
+    pending_failures: list[Failure] = []
+    failing: Response | None = None
     for response in rate_limited:
         try:
             validate_fn(response)
         except FailureGroup as exc:
             pending_failures.extend(f for f in exc.exceptions if isinstance(f, Failure))
+            if failing is None:
+                failing = response
 
     try:
         validate_fn(final)
     except FailureGroup as exc:
-        if pending_failures:
+        if failing is not None:
+            record_response(failing)
             final_failures = [f for f in exc.exceptions if isinstance(f, Failure)]
             raise FailureGroup(pending_failures + final_failures) from None
         raise
 
-    if pending_failures:
+    if failing is not None:
+        record_response(failing)
         raise FailureGroup(pending_failures)
     return final

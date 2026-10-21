@@ -208,6 +208,10 @@ class StreamUsageAccountant:
     This accountant dedupes by ``message.id`` so each turn contributes its
     streamed usage at most once. When a ``result`` event is recorded, its
     final usage and ``total_cost_usd`` replace the streamed estimates.
+
+    A resumed (``--continue``) session's ``total_cost_usd`` includes the cost
+    of every earlier invocation; ``record_cost_baseline`` takes that restored
+    amount so ``cost_usd`` covers this invocation only.
     """
 
     def __init__(self, *, cost_fn, authoritative_streamed_cost: bool = False):
@@ -232,6 +236,31 @@ class StreamUsageAccountant:
         self._result_cache_read_tokens: int | None = None
         self._result_cache_creation_tokens: int | None = None
         self._result_cost_usd: float | None = None
+        self._cost_baseline_usd: float | None = None
+        self._cost_baseline_recorded = False
+        self._cost_baseline_unknown = False
+
+    @property
+    def needs_cost_baseline(self) -> bool:
+        return not self._cost_baseline_recorded
+
+    def record_cost_baseline(self, restored_cost_usd: float | None) -> None:
+        """Record the session cost the CLI restored before this invocation ran.
+
+        Only the first call counts: a retry with ``--continue`` inside the same
+        invocation restores the earlier attempts' cost too, which belongs here.
+        """
+        if self._cost_baseline_recorded:
+            return
+        self._cost_baseline_recorded = True
+        self._cost_baseline_usd = restored_cost_usd
+
+    def mark_cost_baseline_unknown(self) -> None:
+        """The restored cost couldn't be read: report the streamed per-turn cost."""
+        if self._cost_baseline_recorded:
+            return
+        self._cost_baseline_recorded = True
+        self._cost_baseline_unknown = True
 
     def record_assistant(self, event: dict[str, Any]) -> None:
         message = event.get("message") or {}
@@ -308,11 +337,23 @@ class StreamUsageAccountant:
         return self._streamed_cache_creation_tokens
 
     @property
+    def _invocation_result_cost_usd(self) -> float | None:
+        total = self._result_cost_usd
+        baseline = self._cost_baseline_usd
+        if self._cost_baseline_unknown:
+            return None
+        if total is None or baseline is None or total < baseline:
+            # A total below the baseline means the CLI didn't restore it.
+            return total
+        return total - baseline
+
+    @property
     def cost_usd(self) -> float:
         if self._authoritative_streamed_cost:
             return self._streamed_cost_usd
-        if self._result_cost_usd is not None:
-            return self._result_cost_usd
+        invocation_cost = self._invocation_result_cost_usd
+        if invocation_cost is not None:
+            return invocation_cost
         return self._streamed_cost_usd
 
     def record_resolved_usage(
@@ -347,11 +388,14 @@ class StreamUsageAccountant:
         """Set ATIF token attributes on the root span from best-known totals."""
         if self.cost_usd > 0:
             root_span.set_attribute("atif.agent.cost_usd", self.cost_usd)
-        if self._authoritative_streamed_cost and self._result_cost_usd:
+        if self._result_cost_usd is not None:
+            root_span.set_attribute("atif.agent.cost_cumulative_usd", self._result_cost_usd)
+        invocation_estimate = self._invocation_result_cost_usd
+        if self._authoritative_streamed_cost and invocation_estimate:
             # Keep the CLI's list-price estimate visible without letting it
             # masquerade as the billed total: the root cost above stays equal
             # to the sum of per-step billed cost attributes.
-            root_span.set_attribute("atif.agent.cost_estimate_usd", self._result_cost_usd)
+            root_span.set_attribute("atif.agent.cost_estimate_usd", invocation_estimate)
         if self.prompt_tokens > 0:
             root_span.set_attribute("atif.agent.prompt_tokens", self.prompt_tokens)
         if self.output_tokens > 0:

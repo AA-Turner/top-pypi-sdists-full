@@ -6048,6 +6048,15 @@ class CfnInstanceFleetConfig(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrInstanceFleetId")
+    def attr_instance_fleet_id(self) -> builtins.str:
+        '''The unique identifier for instance fleet for specific cluster.
+
+        :cloudformationAttribute: InstanceFleetId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrInstanceFleetId"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))

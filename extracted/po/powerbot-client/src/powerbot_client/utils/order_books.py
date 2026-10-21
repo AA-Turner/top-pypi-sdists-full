@@ -1,5 +1,7 @@
+import csv
+import io
 from collections import Counter
-from typing import Dict, List, Tuple, Union
+from typing import IO, Dict, Iterable, List, Optional, Tuple, Union
 
 
 def reconstruct_order_book(
@@ -159,3 +161,75 @@ def reconstruct_order_book(
         previous_revision_number = current_revision_number
 
     return book
+
+
+def reconstruct_order_book_from_bulk_csv(
+    orders_csv: IO[bytes],
+    contract_ids: Optional[Iterable[str]] = None,
+    with_best_prices: bool = True,
+) -> Dict[str, Dict[Tuple[str, int], Dict[str, Dict[str, Dict[str, Union[str, float, int]]]]]]:
+    """Reconstruct order books from an order CSV of the historic bulk export.
+
+        :param orders_csv: Order CSV opened from the bulk export zip (see example).
+        :param contract_ids: Only reconstruct these contracts. Reconstructs all contracts of the CSV if None.
+        :param with_best_prices: Whether to include the best bid and ask prices in each order book snapshot.
+
+    :return: Reconstructed order book per contract ID.
+
+    Example:
+        >>> import urllib.request
+        >>> import zipfile
+        >>> from datetime import date
+
+        >>> from powerbot_client import ApiClient, Configuration, HistoricDataApi
+        >>> from powerbot_client.utils import reconstruct_order_book_from_bulk_csv
+
+        >>> client = ApiClient(Configuration(api_key={"api_key_security": "YOUR_API_KEY"}, host="YOUR_HOST_URL"))
+        >>> export = HistoricDataApi(client).get_bulk_exports(
+        >>>     exchange="epex", delivery_area="10YDE-RWENET---I", date=date(2024, 12, 30), format="CSV", orders=True
+        >>> )
+        >>> urllib.request.urlretrieve(export.orders_url, "orders.zip")
+
+        >>> with zipfile.ZipFile("orders.zip") as orders_zip:
+        >>>     # one CSV per delivery period, e.g. "2024-12-30T12_00_00+01_00 2024-12-30T12_15_00+01_00.csv"
+        >>>     for name in orders_zip.namelist():
+        >>>         with orders_zip.open(name) as orders_csv:
+        >>>             order_books = reconstruct_order_book_from_bulk_csv(orders_csv)
+    """
+    text_stream = io.TextIOWrapper(orders_csv, newline="", encoding="utf-8")
+    try:
+        revisions_by_contract = _read_bulk_order_revisions(text_stream, contract_ids)
+    finally:
+        text_stream.detach()
+
+    return {contract_id: reconstruct_order_book(revisions, with_best_prices) for contract_id, revisions in revisions_by_contract.items()}
+
+
+def _read_bulk_order_revisions(
+    text_stream: IO[str], contract_ids: Optional[Iterable[str]] = None
+) -> Dict[str, List[Dict[str, Union[str, int, List[Dict[str, Union[str, float, int]]]]]]]:
+    """Group the rows of a bulk export order CSV into order book revisions per contract, as expected by `reconstruct_order_book`.
+
+    Rows are exported ordered by time and revision, so all rows of a revision of one contract are consecutive within that contract.
+    Grouping by consecutive revision numbers instead of by revision number keeps revisions apart, if the revision number of a contract
+    resets (e.g. after an exchange backend restart).
+    """
+    contract_ids = set(contract_ids) if contract_ids is not None else None
+    revisions_by_contract = {}
+
+    for row in csv.DictReader(text_stream):
+        contract_id = row["contract_id"]
+        if contract_ids is not None and contract_id not in contract_ids:
+            continue
+
+        revision_number = int(row["revision"])
+        revisions = revisions_by_contract.setdefault(contract_id, [])
+        if not revisions or revisions[-1]["revision_number"] != revision_number:
+            revisions.append({"revision_number": revision_number, "time": row["time"], "buy_orders": [], "sell_orders": []})
+        # like the API, a revision's time is the time of its last order update (rows of a revision can differ by a few milliseconds)
+        revisions[-1]["time"] = row["time"]
+
+        order = {**row, "revision": revision_number, "price": float(row["price"]), "quantity": float(row["quantity"])}
+        revisions[-1]["buy_orders" if row["side"] == "BUY" else "sell_orders"].append(order)
+
+    return revisions_by_contract

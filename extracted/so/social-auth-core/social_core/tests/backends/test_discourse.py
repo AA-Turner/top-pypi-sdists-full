@@ -1,13 +1,18 @@
 import hashlib
 import hmac
-from base64 import b64encode
+from base64 import b64decode, b64encode
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
 import responses
 
-from social_core.exceptions import AuthException, AuthInputError, AuthResponseError
+from social_core.exceptions import (
+    AuthException,
+    AuthInputError,
+    AuthResponseError,
+    AuthSessionError,
+)
 from social_core.pipeline import DEFAULT_AUTH_PIPELINE
 
 from .base import BaseBackendTest
@@ -32,11 +37,13 @@ class DiscourseTest(BaseBackendTest):
         start = self.backend.start()
         start_url = start.url
         return_url = self.backend.redirect_uri
+        start_params = parse_qs(urlparse(start_url).query)
+        started_payload = parse_qs(b64decode(start_params["sso"][0]).decode())
         payload = {
             "external_id": "42",
             "email": "user@example.com",
             "username": "beepboop",
-            "nonce": "6YRje7xlXhpyeJ6qtvBeTUjHkXo1UCTQmCrzN8GXfja3AoAFk2CieDRYgSqMYi4W",
+            "nonce": started_payload["nonce"][0],
             "return_sso_url": "http://myapp.com/",
         }
         if groups is not None:
@@ -66,6 +73,110 @@ class DiscourseTest(BaseBackendTest):
         self.strategy.set_request_data(query_values, self.backend)
 
         return self.backend.complete()
+
+    def prepare_signed_callback(self, nonce: str) -> None:
+        payload = urlencode(
+            {"nonce": nonce, "external_id": "42", "username": "beepboop"}
+        )
+        sso = b64encode(payload.encode()).decode()
+        sig = hmac.new(TEST_KEY.encode(), sso.encode(), hashlib.sha256).hexdigest()
+        self.strategy.set_request_data({"sso": sso, "sig": sig}, self.backend)
+
+    def session_nonce(self) -> str:
+        nonce = self.strategy.session_get("discourse_nonce")
+        assert isinstance(nonce, str)
+        return nonce
+
+    def test_start_binds_nonce_to_session(self) -> None:
+        self.strategy.set_settings(
+            {"SERVER_URL": "http://example.com", "SECRET": TEST_KEY}
+        )
+        start_url = self.backend.start().url
+        sso = parse_qs(urlparse(start_url).query)["sso"][0]
+        nonce = parse_qs(b64decode(sso).decode())["nonce"][0]
+        self.assertEqual(self.strategy.session_get("discourse_nonce"), nonce)
+
+    def test_complete_rejects_foreign_session(self) -> None:
+        self.strategy.set_settings(
+            {"SERVER_URL": "http://example.com", "SECRET": TEST_KEY}
+        )
+        self.backend.start()
+        nonce = self.session_nonce()
+        self.prepare_signed_callback(nonce)
+
+        self.strategy.session_set("discourse_nonce", "different-login")
+        with self.assertRaises(AuthSessionError) as caught:
+            self.backend.complete()
+        self.assertEqual(caught.exception.code, "state_mismatch")
+        self.assertEqual(
+            self.strategy.session_get("discourse_nonce"), "different-login"
+        )
+
+        self.strategy.session_set("discourse_nonce", nonce)
+        self.assertEqual(self.backend.complete().username, "beepboop")
+
+    def test_complete_rejects_missing_session(self) -> None:
+        self.strategy.set_settings(
+            {"SERVER_URL": "http://example.com", "SECRET": TEST_KEY}
+        )
+        self.backend.start()
+        self.prepare_signed_callback(self.session_nonce())
+        self.strategy.session_pop("discourse_nonce")
+        with self.assertRaises(AuthSessionError) as caught:
+            self.backend.complete()
+        self.assertEqual(caught.exception.code, "session_context_missing")
+
+    def test_complete_rejects_missing_callback_nonce(self) -> None:
+        self.strategy.set_settings(
+            {"SERVER_URL": "http://example.com", "SECRET": TEST_KEY}
+        )
+        self.backend.start()
+        self.prepare_signed_callback("")
+        with self.assertRaises(AuthSessionError) as caught:
+            self.backend.complete()
+        self.assertEqual(caught.exception.code, "state_mismatch")
+
+    def test_complete_rejects_missing_stored_nonce(self) -> None:
+        self.strategy.set_settings(
+            {"SERVER_URL": "http://example.com", "SECRET": TEST_KEY}
+        )
+        self.backend.start()
+        nonce = self.session_nonce()
+        self.prepare_signed_callback(nonce)
+        nonce_obj = self.backend.get_nonce(nonce)
+        assert nonce_obj is not None
+        self.backend.delete_nonce(nonce_obj)
+
+        with self.assertRaises(AuthResponseError) as caught:
+            self.backend.complete()
+        self.assertEqual(caught.exception.code, "nonce_mismatch")
+        self.assertEqual(self.session_nonce(), nonce)
+
+    def test_new_start_replaces_session_nonce(self) -> None:
+        self.strategy.set_settings(
+            {"SERVER_URL": "http://example.com", "SECRET": TEST_KEY}
+        )
+        self.backend.start()
+        old_nonce = self.session_nonce()
+        self.backend.start()
+        self.assertNotEqual(self.session_nonce(), old_nonce)
+        self.prepare_signed_callback(old_nonce)
+
+        with self.assertRaises(AuthSessionError) as caught:
+            self.backend.complete()
+        self.assertEqual(caught.exception.code, "state_mismatch")
+
+    def test_complete_rejects_replay(self) -> None:
+        self.strategy.set_settings(
+            {"SERVER_URL": "http://example.com", "SECRET": TEST_KEY}
+        )
+        self.backend.start()
+        self.prepare_signed_callback(self.session_nonce())
+        self.assertEqual(self.backend.complete().username, "beepboop")
+        self.assertIsNone(self.strategy.session_get("discourse_nonce"))
+        with self.assertRaises(AuthSessionError) as caught:
+            self.backend.complete()
+        self.assertEqual(caught.exception.code, "session_context_missing")
 
     def test_login(self) -> None:
         """

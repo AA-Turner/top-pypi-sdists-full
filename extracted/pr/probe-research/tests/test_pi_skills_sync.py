@@ -39,10 +39,6 @@ from tests.held_for_plugin_release import HELD_NEW_SKILLS, HELD_SKILLS, REASON
 _ROOT = Path(__file__).resolve().parent.parent
 
 _CANONICAL = _ROOT / "skills"
-#: Skills only the Capy bundle ships (profiles.json "capy"): the public mirror
-#: renders them under capy/skills/, and no pi package carries them.
-_PROFILES = json.loads((_CANONICAL / "profiles.json").read_text())
-_CAPY_ONLY = set(_PROFILES["capy"]) - set(_PROFILES["full"])
 _PI_PLUGIN = _ROOT / "plugins" / "probe-research-pi" / "skills"
 _PI_PACKAGE_JSON = _ROOT / "plugins" / "probe-research-pi" / "package.json"
 
@@ -112,7 +108,7 @@ def test_every_canonical_skill_is_covered_by_this_guard() -> None:
     package.json's "pi.skills", AND to `_SYNCED` here — otherwise it is
     silently missing from the pi package while every parametrized case
     above still passes."""
-    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - _CAPY_ONLY - HELD_NEW_SKILLS
+    on_disk = {path.name for path in _CANONICAL.iterdir() if path.is_dir()} - HELD_NEW_SKILLS
     covered = set(_SYNCED)
     assert on_disk == covered, (
         f"skills/ holds {sorted(on_disk)} but this guard covers {sorted(covered)}; "

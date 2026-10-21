@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: django-tree-queries
-Version: 0.26.1
+Version: 0.27.0
 Summary: Tree queries with explicit opt-in, without configurability
 Project-URL: Homepage, https://github.com/matthiask/django-tree-queries/
 Author-email: Matthias Kestenholz <mk@feinheit.ch>
@@ -13,21 +13,20 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Provides-Extra: admin
-Requires-Dist: django-js-asset; extra == 'admin'
+Requires-Dist: django-js-asset>=4; extra == 'admin'
 Provides-Extra: tests
 Requires-Dist: coverage; extra == 'tests'
-Requires-Dist: django-js-asset; extra == 'tests'
+Requires-Dist: django-js-asset>=4; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
 Requires-Dist: pytest-cov; extra == 'tests'
 Requires-Dist: pytest-django; extra == 'tests'
@@ -46,7 +45,7 @@ table expressions. Supports PostgreSQL, sqlite3 (3.8.3 or higher) and
 MariaDB (10.2.2 or higher) and MySQL (8.0 or higher, if running without
 ``ONLY_FULL_GROUP_BY``).
 
-Supports Django 3.2 or better, Python 3.8 or better. See the GitHub actions
+Supports Django 4.2 or better, Python 3.10 or better. See the GitHub actions
 build for more details.
 
 Features and limitations

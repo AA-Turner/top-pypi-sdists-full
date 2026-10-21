@@ -40,6 +40,8 @@ class EffectivePrincipalSummary(object):
         'email': 'str',
         'resource_type': 'RoleBindingResourceType',
         'resource_id': 'str',
+        'resource_name': 'str',
+        'parent_cloud_name': 'str',
         'source': 'EffectiveBindingSource'
     }
 
@@ -51,10 +53,12 @@ class EffectivePrincipalSummary(object):
         'email': 'email',
         'resource_type': 'resource_type',
         'resource_id': 'resource_id',
+        'resource_name': 'resource_name',
+        'parent_cloud_name': 'parent_cloud_name',
         'source': 'source'
     }
 
-    def __init__(self, id=None, principal_type=None, principal_id=None, name=None, email=None, resource_type=None, resource_id=None, source=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, principal_type=None, principal_id=None, name=None, email=None, resource_type=None, resource_id=None, resource_name=None, parent_cloud_name=None, source=None, local_vars_configuration=None):  # noqa: E501
         """EffectivePrincipalSummary - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -67,6 +71,8 @@ class EffectivePrincipalSummary(object):
         self._email = None
         self._resource_type = None
         self._resource_id = None
+        self._resource_name = None
+        self._parent_cloud_name = None
         self._source = None
         self.discriminator = None
 
@@ -79,6 +85,10 @@ class EffectivePrincipalSummary(object):
             self.email = email
         self.resource_type = resource_type
         self.resource_id = resource_id
+        if resource_name is not None:
+            self.resource_name = resource_name
+        if parent_cloud_name is not None:
+            self.parent_cloud_name = parent_cloud_name
         self.source = source
 
     @property
@@ -243,6 +253,52 @@ class EffectivePrincipalSummary(object):
             raise ValueError("Invalid value for `resource_id`, must not be `None`")  # noqa: E501
 
         self._resource_id = resource_id
+
+    @property
+    def resource_name(self):
+        """Gets the resource_name of this EffectivePrincipalSummary.  # noqa: E501
+
+        The name of the resource the binding is held on, or its id when the name is empty. Absent when the resource is not live.  # noqa: E501
+
+        :return: The resource_name of this EffectivePrincipalSummary.  # noqa: E501
+        :rtype: str
+        """
+        return self._resource_name
+
+    @resource_name.setter
+    def resource_name(self, resource_name):
+        """Sets the resource_name of this EffectivePrincipalSummary.
+
+        The name of the resource the binding is held on, or its id when the name is empty. Absent when the resource is not live.  # noqa: E501
+
+        :param resource_name: The resource_name of this EffectivePrincipalSummary.  # noqa: E501
+        :type: str
+        """
+
+        self._resource_name = resource_name
+
+    @property
+    def parent_cloud_name(self):
+        """Gets the parent_cloud_name of this EffectivePrincipalSummary.  # noqa: E501
+
+        For a binding held on a project, the name of the cloud the project sits in, or the cloud's id when that name is empty. Absent for a project in no cloud.  # noqa: E501
+
+        :return: The parent_cloud_name of this EffectivePrincipalSummary.  # noqa: E501
+        :rtype: str
+        """
+        return self._parent_cloud_name
+
+    @parent_cloud_name.setter
+    def parent_cloud_name(self, parent_cloud_name):
+        """Sets the parent_cloud_name of this EffectivePrincipalSummary.
+
+        For a binding held on a project, the name of the cloud the project sits in, or the cloud's id when that name is empty. Absent for a project in no cloud.  # noqa: E501
+
+        :param parent_cloud_name: The parent_cloud_name of this EffectivePrincipalSummary.  # noqa: E501
+        :type: str
+        """
+
+        self._parent_cloud_name = parent_cloud_name
 
     @property
     def source(self):

@@ -61,6 +61,31 @@ def own_names(intent: dict) -> set[str]:
     return {scrub_string(intent["artifact_name"]), intent["artifact_name"]}
 
 
+def delivers_approved_bytes(intent: dict, receipt: dict) -> bool:
+    """True when the receipt's bytes are the approved file's, or its redaction.
+
+    Uploads are redacted before they are hashed (`secret_gate.prepare_upload`),
+    so an approved file with a credential-shaped span lands under the redacted
+    digest and size. The journal stages a request that names an
+    `expected_content_hash` (`backfill_delivery.enqueue` always sets the
+    approved hash) only when the source or the snapshot matches it, and stamps
+    the source digest of that same read on the receipt as `source_content_hash`.
+    Every such receipt carries the stamp, so one without it predates the stamp
+    (CLI 0.281.0 and before); its request was held to the same check, so it is
+    accepted as the approved file redacted.
+    """
+    from ..sdk.journal import DELIVERY_SCHEMA
+
+    if (receipt.get("content_hash") == intent["content_hash"]
+            and receipt.get("size_bytes") == intent["size_bytes"]):
+        return True
+    if intent["mode"] != "upload":
+        return False
+    if "source_content_hash" in receipt:
+        return receipt["source_content_hash"] == intent["content_hash"]
+    return receipt.get("schema") == DELIVERY_SCHEMA and bool(receipt.get("request_digest"))
+
+
 class CoverageError(ValueError):
     """Unverified scope, corrupt state, or a conflicting import owner."""
 
@@ -713,8 +738,7 @@ class Coverage:
                 or not receipt.get("artifact_id") or receipt.get("anchor") != "project"
                 or receipt.get("anchor_id") != intent["project_id"]
                 or receipt.get("name") not in own_names(intent)
-                or receipt.get("content_hash") != intent["content_hash"]
-                or receipt.get("size_bytes") != intent["size_bytes"]
+                or not delivers_approved_bytes(intent, receipt)
                 or bool(receipt.get("is_reference")) != expected_ref
                 or (expected_ref and receipt.get("uri") != intent["uri"])):
             raise CoverageError("Delivery receipt does not match the approved file, bytes and destination.")

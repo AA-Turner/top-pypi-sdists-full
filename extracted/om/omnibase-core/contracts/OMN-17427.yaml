@@ -159,6 +159,21 @@ requirements:
         statement: "AC19: ModelDelegationRequest accepts task_type brief_drafting and its JSON schema
           enum is exactly the canonical sixteen classes. -- falsifier: uv run pytest tests/unit/models/delegation/wire/test_delegation_wire_models.py
           -q -k canonical"
+  - id: req-omn17427-context-compaction-wire
+    statement: The delegation wire request admits the context_compaction task class, so the model-written
+      section of a compaction package is deliverable once the Market task-class contract declares it.
+    acceptance:
+      - id: AC38
+        statement: "AC38: ModelDelegationRequest accepts task_type context_compaction and its JSON schema
+          enum is exactly the canonical twenty-one classes. -- falsifier: uv run pytest tests/unit/models/delegation/wire/test_delegation_wire_models.py
+          -q -k canonical"
+  - id: req-omn17427-lazy-node-exports
+    statement: Importing the work-ledger runtime does not initialize unrelated base node implementations.
+    acceptance:
+      - id: AC39
+        statement: "AC39: A fresh interpreter imports the ledger runtime without loading the four base
+          node implementation modules; every public node package export retains its concrete identity
+          and is cached on access, and unknown exports raise AttributeError."
   - id: req-omn17427-evidence-comment-wire
     statement: The delegation wire request admits the evidence_comment task class, so a request for a
       done-evidence comment draft is deliverable once the Market task-class contract declares it.
@@ -203,8 +218,9 @@ requirements:
     acceptance:
       - id: AC23
         statement: "AC23: The four unused prose guides and two unused evidence logs are absent and README.md
-          has three to five lines including the public knowledge_base link; machine-read handshakes, changelog,
-          templates and fixtures remain available."
+          opens with a three-to-five-line signpost including the public knowledge_base link, ahead of
+          any release notes the release train retains; machine-read handshakes, changelog, templates and
+          fixtures remain available."
   - id: req-omn17427-sweep-excludes-propagate-placeholder
     statement: CI Summary's external sweep excludes the skipped placeholder row propagate-config.yml posts
       on a path-matched pull request, with a dated, ticketed, expiring exclusion.
@@ -295,6 +311,58 @@ requirements:
           or https scheme, host or explicit port raises CONFIGURATION_ERROR. -- falsifier: uv run pytest
           tests/integration/examples/demo/handlers/support_assistant/test_handler_integration.py -q -k
           TestLocalEndpointConfiguration"
+  - id: req-omn17427-dev-red-cascade-uv-index-and-harvest-sweep
+    statement: A dependency cascade leg resolves the released version without re-locking the downstream
+      project in its movable guard and waits only on uv's own missing-version answer, and CI Summary's
+      external sweep admits the skipped Harvest shadow records row on pushed heads.
+    acceptance:
+      - id: AC38
+        statement: "AC38: The cascade movable guard runs check_dep_provenance.py with uv run --no-project
+          --with packaging, never a project-aware uv run. -- falsifier: uv run pytest tests/scripts/test_dependency_cascade_uv_index_omn17427.py
+          -q -k movable_check_runs_outside_the_downstream_project"
+      - id: AC39
+        statement: "AC39: The lockfile upgrade requests the exact released version and retries only while
+          uv answers no version of the package at that version, up to a bounded total, then fails with
+          CASCADE-UV-INDEX-WAIT-TIMEOUT. -- falsifier: uv run pytest tests/scripts/test_dependency_cascade_uv_index_omn17427.py
+          -q -k 'wrapped_uv_index_errors or times_out_within_bound'"
+      - id: AC40
+        statement: "AC40: Any other uv lock failure exits at once with uv's status, and a successful lock
+          with no file change sets SKIP=true. -- falsifier: uv run pytest tests/scripts/test_dependency_cascade_uv_index_omn17427.py
+          -q -k 'unrelated_uv_failure or without_changes'"
+      - id: AC41
+        statement: "AC41: The external sweep exclusion registry carries Harvest shadow records, whose
+          skipped row passes CI Summary while an unregistered red still fails it. -- falsifier: uv run
+          pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -k TestExternalSweepExclusions"
+  - id: req-omn17427-cascade-private-git-source-token
+    statement: A dependency cascade leg whose downstream repo locks a private OmniNode git source gets
+      a read-only app token scoped to those private sources for its lockfile upgrade, and a leg with only
+      public git sources gets no token.
+    acceptance:
+      - id: AC42
+        statement: "AC42: The find step collects OmniNode git sources from pyproject.toml and uv.lock,
+          skips the downstream repo itself and plain project URLs, probes each anonymously outside the
+          checkout, and outputs only the private ones. -- falsifier: uv run pytest tests/scripts/test_dependency_cascade_private_git_source_omn17427.py
+          -q -k 'find_private or only_public or no_git_sources'"
+      - id: AC43
+        statement: "AC43: The private-source token is minted with contents read only, for the found repos
+          only, and only when one was found, and the lockfile upgrade step receives it. -- falsifier:
+          uv run pytest tests/scripts/test_dependency_cascade_private_git_source_omn17427.py -q -k token_wiring"
+      - id: AC44
+        statement: "AC44: The lockfile upgrade sends the token only to the found repos' URLs, masks the
+          header and never prints the token, and sets no header when no token is given. -- falsifier:
+          uv run pytest tests/scripts/test_dependency_cascade_private_git_source_omn17427.py -q -k lock_auth_is_scoped"
+  - id: req-omn17427-terminal-subscriptions-join-concurrently
+    statement: RuntimeLocal subscribes to every declared terminal topic concurrently, so a Kafka delegation
+      pays one consumer-group join before it publishes instead of one join per terminal.
+    acceptance:
+      - id: AC45
+        statement: "AC45: The declared terminal subscriptions are in flight together, in declared order
+          with distinct group ids, and the run still completes on its success terminal. -- falsifier:
+          uv run pytest tests/unit/runtime/test_runtime_local_failure_terminal.py -q -k test_terminal_subscriptions_join_concurrently"
+      - id: AC46
+        statement: "AC46: A first declared terminal that cannot be subscribed still fails the run at once,
+          and leaves no later terminal subscription bound. -- falsifier: uv run pytest tests/unit/runtime/test_runtime_local_failure_terminal.py
+          -q -k test_a_fatal_first_terminal_leaves_no_extra_terminal_bound"
 evidence_requirements:
   - kind: tests
     description: "The caller-evidence job exempts an OCC writer app version bump using the pinned producer
@@ -376,6 +444,20 @@ evidence_requirements:
     description: The demo integration test's endpoint configuration tests run without a local LLM server.
     command: uv run pytest tests/integration/examples/demo/handlers/support_assistant/test_handler_integration.py
       -q -k TestLocalEndpointConfiguration
+  - kind: tests
+    description: "The cascade movable guard runs outside the downstream project, the lockfile upgrade
+      waits only on uv's missing-version answer, and CI Summary admits the skipped Harvest shadow records
+      row."
+    command: "uv run pytest tests/scripts/test_dependency_cascade_uv_index_omn17427.py tests/unit/scripts/ci/test_ci_summary_gate.py
+      -q -k 'omn17427 or uv_index or movable or unrelated or without_changes or TestExternalSweepExclusions'"
+  - kind: tests
+    description: "A cascade leg locking a private OmniNode git source gets a read-only token scoped to
+      that source for its lockfile upgrade; a leg with only public git sources gets none."
+    command: "uv run pytest tests/scripts/test_dependency_cascade_private_git_source_omn17427.py -q"
+  - kind: tests
+    description: "RuntimeLocal joins the declared terminal subscriptions concurrently, and a fatal first
+      terminal leaves no later terminal bound."
+    command: uv run pytest tests/unit/runtime/test_runtime_local_failure_terminal.py -q
 emergency_bypass:
   enabled: false
   justification: ''
@@ -641,6 +723,29 @@ dod_evidence:
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC19
+  - id: dod-omn-17427-context-compaction-wire
+    description: "The delegation wire request admits the context_compaction task class and its schema
+      enum is the canonical twenty-one."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/models/delegation/wire/test_delegation_wire_models.py -q
+          -k canonical -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC38
+  - id: dod-omn-17427-deploy-hosted-lazy-node-exports
+    description: Hosted library startup probe imports the work-ledger runtime in a fresh interpreter and
+      refuses eager base node imports, changed export identities or missing attribute errors.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/nodes/test_lazy_node_exports.py -q -o addopts=''
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC39
   - id: dod-omn-17427-evidence-comment-wire
     description: "The delegation wire request admits the evidence_comment task class and its schema enum
       is the canonical twenty."
@@ -690,23 +795,26 @@ dod_evidence:
     binds_ac:
       - AC22
   - id: dod-omn-17427-remove-repository-prose
-    description: The unused prose guides and evidence logs are absent and the root README links to the
-      public knowledge base.
+    description: The unused prose guides and evidence logs are absent and the root README opens with a
+      short signpost linking the public knowledge base, ahead of any release notes the release train retains.
     source: manual
     execution_scope: hosted_and_local
     checks:
       - check_type: command
         check_value: >-
-          uv run python -c 'from pathlib import Path; removed=[".github/CODE_OF_CONDUCT.md", ".github/CONTRIBUTING.md",
-          "SECURITY.md", "tests/fixtures/README.md", ".onex_state/evidence/OMN-13132/deterministic-ir-evidence.txt",
+          uv run python -c 'from pathlib import Path; from itertools import takewhile; removed=[".github/CODE_OF_CONDUCT.md",
+          ".github/CONTRIBUTING.md", "SECURITY.md", "tests/fixtures/README.md", ".onex_state/evidence/OMN-13132/deterministic-ir-evidence.txt",
           ".onex_state/evidence/deterministic-ir/deterministic-ir-evidence.txt"]; assert all(not Path(p).exists()
-          for p in removed); lines=Path("README.md").read_text().splitlines(); assert 3 <= len(lines)
-          <= 5; assert "https://github.com/OmniNode-ai/knowledge_base" in "\n".join(lines); print("documentation
-          removal and README checks passed")'
+          for p in removed); lines=Path("README.md").read_text().splitlines(); signpost=list(takewhile(lambda
+          line: not line.startswith("## "), lines)); assert 3 <= len(signpost) <= 5; assert "https://github.com/OmniNode-ai/knowledge_base"
+          in "\n".join(signpost); print("documentation removal and README checks passed")'
         cwd: ${OMNI_HOME}/omnibase_core
       - check_type: test_passes
         check_value: uv run pytest tests/unit/nodes/node_markdown_links_check_compute/test_parity_markdown_links_golden.py
           -q -o addopts='' -k test_parity_markdown_links_repository_golden
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: test_passes
+        check_value: uv run pytest tests/ci/test_readme_signpost_omn17427.py -n 0 -q -o addopts=''
         cwd: ${OMNI_HOME}/omnibase_core
     binds_ac:
       - AC23
@@ -819,3 +927,60 @@ dod_evidence:
     binds_ac:
       - AC34
       - AC35
+  - id: dod-omn17427-cascade-uv-index-harvest-sweep
+    description: "The cascade movable guard runs outside the downstream project; the lockfile upgrade
+      requests the exact released version and retries only on uv's missing-version answer; CI Summary's
+      external sweep admits the skipped Harvest shadow records row."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/scripts/test_dependency_cascade_uv_index_omn17427.py -q -p no:randomly
+          --no-cov
+        cwd: ${OMNI_HOME}/omnibase_core
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/scripts/ci/test_ci_summary_gate.py -q -p no:randomly --no-cov
+          -k TestExternalSweepExclusions
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC38
+      - AC39
+      - AC40
+      - AC41
+  - id: dod-omn17427-cascade-private-git-source-token
+    description: "A cascade leg locking a private OmniNode git source gets a read-only token scoped to
+      that source for its lockfile upgrade; a leg with only public git sources gets none."
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/scripts/test_dependency_cascade_private_git_source_omn17427.py
+          -q -p no:randomly --no-cov
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC42
+      - AC43
+      - AC44
+  - id: dod-omn17427-terminal-subscribe-concurrently
+    description: Hosted library deploy probe for RuntimeLocal. The checked-out runtime must start all
+      terminal subscriptions together, retain distinct group ids and complete on the success terminal.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/runtime/test_runtime_local_failure_terminal.py -q -o addopts=''
+          -k test_terminal_subscriptions_join_concurrently
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC45
+  - id: dod-omn17427-terminal-subscribe-cleanup
+    description: A fatal first terminal subscription leaves no later terminal bound.
+    source: manual
+    execution_scope: hosted_and_local
+    checks:
+      - check_type: test_passes
+        check_value: uv run pytest tests/unit/runtime/test_runtime_local_failure_terminal.py -q -o addopts=''
+          -k test_a_fatal_first_terminal_leaves_no_extra_terminal_bound
+        cwd: ${OMNI_HOME}/omnibase_core
+    binds_ac:
+      - AC46

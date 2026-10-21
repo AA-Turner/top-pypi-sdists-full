@@ -29,7 +29,7 @@ use rustc_hash::FxHashSet;
 use tokio::io::{AsyncRead, BufReader};
 use tokio_tar::ArchiveBuilder;
 use tokio_util::compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt};
-use tracing::warn;
+use tracing::{debug, warn};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -128,16 +128,23 @@ pub async fn extract_archive(path: impl AsRef<Path>) -> Result<PathBuf, Error> {
     let path = path.as_ref();
     let ext = ArchiveExtension::from_path(path)?;
     let extract_dir = path.with_file_name("extract");
+
+    debug!(path = %path.display(), "Extracting archive");
+
     fs_err::tokio::create_dir_all(&extract_dir).await?;
 
     let file = fs_err::tokio::File::open(path).await?;
     unpack(file, ext, &extract_dir).await?;
 
-    match strip_component(&extract_dir) {
-        Ok(top_level) => Ok(top_level),
-        Err(Error::NonSingularArchive(_)) => Ok(extract_dir),
-        Err(err) => Err(err),
-    }
+    let extracted = match strip_component(&extract_dir) {
+        Ok(top_level) => top_level,
+        Err(Error::NonSingularArchive(_)) => extract_dir,
+        Err(err) => return Err(err),
+    };
+
+    debug!(target = %extracted.display(), "Extracted archive");
+
+    Ok(extracted)
 }
 
 /// Unpack a `.zip` archive into the target directory, without requiring `Seek`.
@@ -266,46 +273,42 @@ pub async fn unzip<R: AsyncRead + Unpin>(reader: R, target: impl AsRef<Path>) ->
 /// Unpack a `.tar.gz` archive into the target directory, without requiring `Seek`.
 ///
 /// This is useful for unpacking files as they're being downloaded.
-pub async fn untar_gz<R: AsyncRead + Unpin>(
+pub async fn untar_gz<R: AsyncRead + Unpin + Send>(
     reader: R,
     target: impl AsRef<Path>,
 ) -> Result<(), Error> {
     let reader = BufReader::with_capacity(DEFAULT_BUF_SIZE, reader);
-    let reader = GzipDecoder::new(reader);
-
-    let mut archive = ArchiveBuilder::new(reader)
-        .set_preserve_mtime(true)
-        .set_preserve_permissions(true)
-        .set_allow_external_symlinks(false)
-        .build();
-
-    archive.unpack(target.as_ref()).await?;
-    Ok(())
+    let mut reader = GzipDecoder::new(reader);
+    untar(&mut reader, target.as_ref()).await
 }
 
 /// Unpack a `.tar.xz` archive into the target directory, without requiring `Seek`.
 ///
 /// This is useful for unpacking files as they're being downloaded.
-pub async fn untar_xz<R: AsyncRead + Unpin>(
+pub async fn untar_xz<R: AsyncRead + Unpin + Send>(
     reader: R,
     target: impl AsRef<Path>,
 ) -> Result<(), Error> {
     let reader = BufReader::with_capacity(DEFAULT_BUF_SIZE, reader);
-    let reader = XzDecoder::new(reader);
+    let mut reader = XzDecoder::new(reader);
+    untar(&mut reader, target.as_ref()).await
+}
 
+// Erase the decoder type so tar extraction code is shared across compression formats.
+async fn untar(reader: &mut (dyn AsyncRead + Unpin + Send), target: &Path) -> Result<(), Error> {
     let mut archive = ArchiveBuilder::new(reader)
         .set_preserve_mtime(true)
         .set_preserve_permissions(true)
         .set_allow_external_symlinks(false)
         .build();
 
-    archive.unpack(target.as_ref()).await?;
+    archive.unpack(target).await?;
     Ok(())
 }
 
 /// Unpack a `.zip`, `.tar.gz`, `.tar.bz2`, `.tar.zst`, or `.tar.xz` archive into the target directory,
 /// without requiring `Seek`.
-pub async fn unpack<R: AsyncRead + Unpin>(
+pub async fn unpack<R: AsyncRead + Unpin + Send>(
     reader: R,
     ext: ArchiveExtension,
     target: impl AsRef<Path>,

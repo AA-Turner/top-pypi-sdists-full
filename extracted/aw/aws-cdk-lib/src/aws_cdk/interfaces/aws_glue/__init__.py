@@ -2716,13 +2716,25 @@ class TableOptimizerReference:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_glue.TableReference",
     jsii_struct_bases=[],
-    name_mapping={"table_id": "tableId"},
+    name_mapping={
+        "catalog_id": "catalogId",
+        "database_name": "databaseName",
+        "table_name": "tableName",
+    },
 )
 class TableReference:
-    def __init__(self, *, table_id: builtins.str) -> None:
+    def __init__(
+        self,
+        *,
+        catalog_id: builtins.str,
+        database_name: builtins.str,
+        table_name: builtins.str,
+    ) -> None:
         '''A reference to a Table resource.
 
-        :param table_id: The Id of the Table resource.
+        :param catalog_id: The CatalogId of the Table resource.
+        :param database_name: The DatabaseName of the Table resource.
+        :param table_name: The Name of the Table resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -2733,21 +2745,41 @@ class TableReference:
             from aws_cdk.interfaces import aws_glue as interfaces_glue
             
             table_reference = interfaces_glue.TableReference(
-                table_id="tableId"
+                catalog_id="catalogId",
+                database_name="databaseName",
+                table_name="tableName"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d91e1bc0dff8ee618900793d998bcf5ed91fd48153fcbcc02d63186fa2219535)
-            check_type(argname="argument table_id", value=table_id, expected_type=type_hints["table_id"])
+            check_type(argname="argument catalog_id", value=catalog_id, expected_type=type_hints["catalog_id"])
+            check_type(argname="argument database_name", value=database_name, expected_type=type_hints["database_name"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "table_id": table_id,
+            "catalog_id": catalog_id,
+            "database_name": database_name,
+            "table_name": table_name,
         }
 
     @builtins.property
-    def table_id(self) -> builtins.str:
-        '''The Id of the Table resource.'''
-        result = self._values.get("table_id")
-        assert result is not None, "Required property 'table_id' is missing"
+    def catalog_id(self) -> builtins.str:
+        '''The CatalogId of the Table resource.'''
+        result = self._values.get("catalog_id")
+        assert result is not None, "Required property 'catalog_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def database_name(self) -> builtins.str:
+        '''The DatabaseName of the Table resource.'''
+        result = self._values.get("database_name")
+        assert result is not None, "Required property 'database_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def table_name(self) -> builtins.str:
+        '''The Name of the Table resource.'''
+        result = self._values.get("table_name")
+        assert result is not None, "Required property 'table_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -3202,7 +3234,9 @@ def _typecheckingstub__36d18932d532cd2df3f2355353c78a3d21a028fa0d2181f51b94ae7c9
 
 def _typecheckingstub__d91e1bc0dff8ee618900793d998bcf5ed91fd48153fcbcc02d63186fa2219535(
     *,
-    table_id: builtins.str,
+    catalog_id: builtins.str,
+    database_name: builtins.str,
+    table_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

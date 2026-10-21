@@ -226,6 +226,53 @@ class _ILicenseAssetRuleSetRefProxy(
 typing.cast(typing.Any, ILicenseAssetRuleSetRef).__jsii_proxy_class__ = lambda : _ILicenseAssetRuleSetRefProxy
 
 
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.ILicenseConfigurationRef"
+)
+class ILicenseConfigurationRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a LicenseConfiguration.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseConfigurationRef")
+    def license_configuration_ref(self) -> "LicenseConfigurationReference":
+        '''(experimental) A reference to a LicenseConfiguration resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ILicenseConfigurationRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a LicenseConfiguration.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_licensemanager.ILicenseConfigurationRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="licenseConfigurationRef")
+    def license_configuration_ref(self) -> "LicenseConfigurationReference":
+        '''(experimental) A reference to a LicenseConfiguration resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("LicenseConfigurationReference", jsii.get(self, "licenseConfigurationRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ILicenseConfigurationRef).__jsii_proxy_class__ = lambda : _ILicenseConfigurationRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.ILicenseRef")
 class ILicenseRef(
     _constructs_77d1e7e8.IConstruct,
@@ -269,6 +316,53 @@ class _ILicenseRefProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, ILicenseRef).__jsii_proxy_class__ = lambda : _ILicenseRefProxy
+
+
+@jsii.interface(
+    jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.IReportGeneratorRef"
+)
+class IReportGeneratorRef(
+    _constructs_77d1e7e8.IConstruct,
+    _interfaces_8ca7e747.IEnvironmentAware,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReportGenerator.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="reportGeneratorRef")
+    def report_generator_ref(self) -> "ReportGeneratorReference":
+        '''(experimental) A reference to a ReportGenerator resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IReportGeneratorRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_interfaces_8ca7e747.IEnvironmentAware), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ReportGenerator.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_licensemanager.IReportGeneratorRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="reportGeneratorRef")
+    def report_generator_ref(self) -> "ReportGeneratorReference":
+        '''(experimental) A reference to a ReportGenerator resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ReportGeneratorReference", jsii.get(self, "reportGeneratorRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IReportGeneratorRef).__jsii_proxy_class__ = lambda : _IReportGeneratorRefProxy
 
 
 @jsii.data_type(
@@ -370,6 +464,55 @@ class LicenseAssetRuleSetReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.LicenseConfigurationReference",
+    jsii_struct_bases=[],
+    name_mapping={"license_configuration_arn": "licenseConfigurationArn"},
+)
+class LicenseConfigurationReference:
+    def __init__(self, *, license_configuration_arn: builtins.str) -> None:
+        '''A reference to a LicenseConfiguration resource.
+
+        :param license_configuration_arn: The LicenseConfigurationArn of the LicenseConfiguration resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_licensemanager as interfaces_licensemanager
+            
+            license_configuration_reference = interfaces_licensemanager.LicenseConfigurationReference(
+                license_configuration_arn="licenseConfigurationArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__0f28c222d5cac97bec6450c390f3ba8ecbd7b72c027e4beb5851db041edc12e8)
+            check_type(argname="argument license_configuration_arn", value=license_configuration_arn, expected_type=type_hints["license_configuration_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "license_configuration_arn": license_configuration_arn,
+        }
+
+    @builtins.property
+    def license_configuration_arn(self) -> builtins.str:
+        '''The LicenseConfigurationArn of the LicenseConfiguration resource.'''
+        result = self._values.get("license_configuration_arn")
+        assert result is not None, "Required property 'license_configuration_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LicenseConfigurationReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.LicenseReference",
     jsii_struct_bases=[],
     name_mapping={"license_arn": "licenseArn"},
@@ -418,15 +561,68 @@ class LicenseReference:
         )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_licensemanager.ReportGeneratorReference",
+    jsii_struct_bases=[],
+    name_mapping={"report_generator_arn": "reportGeneratorArn"},
+)
+class ReportGeneratorReference:
+    def __init__(self, *, report_generator_arn: builtins.str) -> None:
+        '''A reference to a ReportGenerator resource.
+
+        :param report_generator_arn: The Arn of the ReportGenerator resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_licensemanager as interfaces_licensemanager
+            
+            report_generator_reference = interfaces_licensemanager.ReportGeneratorReference(
+                report_generator_arn="reportGeneratorArn"
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c9d910704290ea048066cf3416b52eeab32f401db132f595b2abb33279a4ace1)
+            check_type(argname="argument report_generator_arn", value=report_generator_arn, expected_type=type_hints["report_generator_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "report_generator_arn": report_generator_arn,
+        }
+
+    @builtins.property
+    def report_generator_arn(self) -> builtins.str:
+        '''The Arn of the ReportGenerator resource.'''
+        result = self._values.get("report_generator_arn")
+        assert result is not None, "Required property 'report_generator_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ReportGeneratorReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "GrantReference",
     "IGrantRef",
     "ILicenseAssetGroupRef",
     "ILicenseAssetRuleSetRef",
+    "ILicenseConfigurationRef",
     "ILicenseRef",
+    "IReportGeneratorRef",
     "LicenseAssetGroupReference",
     "LicenseAssetRuleSetReference",
+    "LicenseConfigurationReference",
     "LicenseReference",
+    "ReportGeneratorReference",
 ]
 
 publication.publish()
@@ -452,6 +648,13 @@ def _typecheckingstub__db24271a3c7b0124bc790d44c59879c5714dc1da35ad778acfa7f8588
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0f28c222d5cac97bec6450c390f3ba8ecbd7b72c027e4beb5851db041edc12e8(
+    *,
+    license_configuration_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0ce44a0b5c8ac0b1ac5b4c7e7e57091674992170e45de59a47767d1279342850(
     *,
     license_arn: builtins.str,
@@ -459,5 +662,12 @@ def _typecheckingstub__0ce44a0b5c8ac0b1ac5b4c7e7e57091674992170e45de59a47767d127
     """Type checking stubs"""
     pass
 
-for cls in [IGrantRef, ILicenseAssetGroupRef, ILicenseAssetRuleSetRef, ILicenseRef]:
+def _typecheckingstub__c9d910704290ea048066cf3416b52eeab32f401db132f595b2abb33279a4ace1(
+    *,
+    report_generator_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+for cls in [IGrantRef, ILicenseAssetGroupRef, ILicenseAssetRuleSetRef, ILicenseConfigurationRef, ILicenseRef, IReportGeneratorRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

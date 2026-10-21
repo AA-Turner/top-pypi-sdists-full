@@ -4,15 +4,14 @@ from typing import Annotated
 
 import pytest
 import requests
-from fastapi import FastAPI, HTTPException, Security, status
+from fastapi import FastAPI, Header, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from flask import jsonify, redirect, request
 from hypothesis import Phase, given, settings
 
 import schemathesis
-from schemathesis.checks import CheckContext
-from schemathesis.config import ChecksConfig
 from schemathesis.core.failures import FailureGroup
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.engine import Status
 from schemathesis.engine.events import ScenarioFinished
@@ -20,8 +19,18 @@ from schemathesis.engine.run import PhaseName
 from schemathesis.python.asgi import ASGIClient
 from schemathesis.schemas import BaseSchema
 from schemathesis.specs.openapi._auth_retry import build_retry_transport_kwargs
+from schemathesis.specs.openapi.adapter.security import SecurityParameter
 from schemathesis.specs.openapi.checks import AuthKind, IgnoredAuth, _contains_auth, ignored_auth, remove_auth
-from test.utils import EventStream, run_given
+from test.utils import EventStream, check_context, run_given
+
+
+def api_key(name, location):
+    return SecurityParameter(
+        name=name,
+        location=ParameterLocation(location),
+        scheme_type="apiKey",
+        definition={"name": name, "in": location},
+    )
 
 
 def run(schema, **config):
@@ -195,139 +204,91 @@ def test_validate_response_probes_the_server_that_answered(ctx, app_runner, enfo
 
 
 @pytest.mark.parametrize(
-    ("check_context", "request_kwargs", "parameters", "expected"),
+    ("context", "request_kwargs", "parameters", "expected"),
     [
         (
-            CheckContext(
-                override=None,
-                auth=None,
-                headers=None,
-                config=ChecksConfig(),
-                transport_kwargs=None,
-                response_checks=None,
-            ),
+            check_context(),
             {"url": "https://example.com", "headers": {"A": "V"}},
-            [{"name": "A", "in": "header"}],
+            [api_key("A", "header")],
             AuthKind.GENERATED,
         ),
         (
-            CheckContext(
-                override=None,
-                auth=None,
-                headers={"Foo": "Bar"},
-                config=ChecksConfig(),
-                transport_kwargs=None,
-                response_checks=None,
-            ),
+            check_context(headers={"Foo": "Bar"}),
             {"url": "https://example.com", "headers": {"A": "V"}},
-            [{"name": "A", "in": "header"}],
+            [api_key("A", "header")],
             AuthKind.GENERATED,
         ),
         (
-            CheckContext(
-                override=None,
-                auth=None,
-                headers={"A": "V"},
-                config=ChecksConfig(),
-                transport_kwargs=None,
-                response_checks=None,
-            ),
+            check_context(headers={"A": "V"}),
             {"url": "https://example.com", "headers": {"A": "V"}},
-            [{"name": "A", "in": "header"}],
+            [api_key("A", "header")],
             AuthKind.EXPLICIT,
         ),
         (
-            CheckContext(
-                override=None, auth=None, headers={}, config=ChecksConfig(), transport_kwargs=None, response_checks=None
-            ),
+            check_context(headers={}),
             {"url": "https://example.com", "headers": {"A": "V"}},
-            [{"name": "B", "in": "header"}],
+            [api_key("B", "header")],
             None,
         ),
         (
-            CheckContext(
-                override=None, auth=None, headers={}, config=ChecksConfig(), transport_kwargs=None, response_checks=None
-            ),
+            check_context(headers={}),
             {"url": "https://example.com?A=V"},
-            [{"name": "A", "in": "query"}],
+            [api_key("A", "query")],
             AuthKind.GENERATED,
         ),
         (
-            CheckContext(
-                override=None, auth=None, headers={}, config=ChecksConfig(), transport_kwargs=None, response_checks=None
-            ),
+            check_context(headers={}),
             {"url": "https://example.com?A=V"},
-            [{"name": "B", "in": "query"}],
+            [api_key("B", "query")],
             None,
         ),
         (
-            CheckContext(
-                override=None, auth=None, headers={}, config=ChecksConfig(), transport_kwargs=None, response_checks=None
-            ),
+            check_context(headers={}),
             {"url": "https://example.com", "cookies": {"A": "V"}},
-            [{"name": "A", "in": "cookie"}],
+            [api_key("A", "cookie")],
             AuthKind.GENERATED,
         ),
         (
-            CheckContext(
-                override=None,
-                auth=None,
-                headers={"Cookie": "A=v;"},
-                config=ChecksConfig(),
-                transport_kwargs=None,
-                response_checks=None,
-            ),
+            check_context(headers={"Cookie": "A=v;"}),
             {"url": "https://example.com", "cookies": {"A": "V"}},
-            [{"name": "A", "in": "cookie"}],
+            [api_key("A", "cookie")],
             AuthKind.EXPLICIT,
         ),
         (
-            CheckContext(
-                override=None,
-                auth=None,
-                headers={"Cookie": "B=v;"},
-                config=ChecksConfig(),
-                transport_kwargs=None,
-                response_checks=None,
-            ),
+            check_context(headers={"Cookie": "B=v;"}),
             {"url": "https://example.com", "cookies": {"A": "V"}},
-            [{"name": "A", "in": "cookie"}],
+            [api_key("A", "cookie")],
             AuthKind.GENERATED,
         ),
         (
-            CheckContext(
-                override=None, auth=None, headers={}, config=ChecksConfig(), transport_kwargs=None, response_checks=None
-            ),
+            check_context(headers={}),
             {"url": "https://example.com", "cookies": {"A": "V"}},
-            [{"name": "B", "in": "cookie"}],
+            [api_key("B", "cookie")],
             None,
         ),
         # A generated value containing `; $` makes the outgoing `Cookie` header unparsable by the stdlib parser.
         (
-            CheckContext(
-                override=None, auth=None, headers={}, config=ChecksConfig(), transport_kwargs=None, response_checks=None
-            ),
+            check_context(headers={}),
             {"url": "https://example.com", "cookies": {"A": "a; $=b"}},
-            [{"name": "A", "in": "cookie"}],
+            [api_key("A", "cookie")],
             AuthKind.GENERATED,
         ),
     ],
 )
-def test_contains_auth(check_context, request_kwargs, parameters, expected, response_factory, case_factory):
+def test_contains_auth(context, request_kwargs, parameters, expected, response_factory, case_factory):
     response = response_factory.requests()
     response.request = requests.Request("GET", **request_kwargs).prepare()
     assert (
-        _contains_auth(check_context, case_factory(), Response.from_requests(response, verify=True), parameters)
-        == expected
+        _contains_auth(context, case_factory(), Response.from_requests(response, verify=True), parameters) == expected
     )
 
 
 @pytest.mark.parametrize(
     ("key", "parameters"),
     [
-        ("headers", [{"name": "A", "in": "header"}]),
-        ("query", [{"name": "A", "in": "query"}]),
-        ("cookies", [{"name": "A", "in": "cookie"}]),
+        ("headers", [api_key("A", "header")]),
+        ("query", [api_key("A", "query")]),
+        ("cookies", [api_key("A", "cookie")]),
     ],
 )
 def test_remove_auth_from_case(ctx, key, parameters):
@@ -354,7 +315,7 @@ def test_remove_auth_strips_cookie_from_headers(ctx, case_factory, cookie_header
     api = ctx.openapi.apps.success()
     schema = schemathesis.openapi.from_url(api.schema_url)
     case = case_factory(operation=schema["/api/success"]["GET"], headers={"Cookie": cookie_header})
-    result = remove_auth(case, [{"name": param_name, "in": "cookie"}])
+    result = remove_auth(case, [api_key(param_name, "cookie")])
     assert result.headers.get("Cookie") == expected_cookie_header
 
 
@@ -369,9 +330,7 @@ def test_remove_auth_strips_cookie_from_headers(ctx, case_factory, cookie_header
     ids=["only-param", "mixed", "lowercase", "unparsable"],
 )
 def test_retry_transport_kwargs_strip_auth_cookie_from_headers(headers, expected):
-    assert build_retry_transport_kwargs({"headers": headers}, [{"name": "sid", "in": "cookie"}]) == {
-        "headers": expected
-    }
+    assert build_retry_transport_kwargs({"headers": headers}, [api_key("sid", "cookie")]) == {"headers": expected}
 
 
 @pytest.mark.parametrize("ignores_auth", [True, False])
@@ -490,6 +449,23 @@ def test_server_error_without_auth_is_reported():
     assert str(exc.value.exceptions[0]) == (
         "Unexpected response to a request without authentication\n\n"
         "Expected 401 or 403, got `500 Internal Server Error` for `GET /`"
+    )
+
+
+# A probe missing another required header gets a validation error instead of an auth verdict.
+def test_invalid_auth_probe_keeps_other_headers():
+    app = FastAPI()
+    api_key = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+    @app.get("/", responses={200: {"model": {}}, 401: {"model": {}}})
+    def root(x_tenant: Annotated[str, Header()], credentials: Annotated[str | None, Security(api_key)]):
+        if credentials != "valid":
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
+        return {"tenant": x_tenant}
+
+    schema = schemathesis.openapi.from_asgi("/openapi.json", app)
+    schema["/"]["GET"].Case(headers={"x-tenant": "acme"}).call_and_validate(
+        session=ASGIClient(app), headers={"X-API-Key": "valid"}, checks=[ignored_auth]
     )
 
 

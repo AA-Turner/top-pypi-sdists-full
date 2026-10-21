@@ -9,7 +9,7 @@ from enum import Enum
 import json
 import os
 import sys
-from typing import Dict, IO, NoReturn, Optional, Type, TypedDict
+from typing import Any, Dict, IO, NoReturn, Optional, Type, TypedDict
 
 import click
 import urllib3
@@ -266,6 +266,46 @@ def from_http_status(status: Optional[int], message: str) -> AnyscaleError:
     return error_class_for_http_status(status)(message)
 
 
+def _api_exception_message(exc: Any) -> str:
+    """Return the server's error text, or the status and reason when the body has none."""
+    message = server_error_text(exc.body) or f"API Exception ({exc.status})\nReason: {exc.reason}"
+    headers = getattr(exc, "headers", None)
+    trace_id = headers.get("x-trace-id") if headers else None
+    # The backend replaces every 500 body with a generic message, so the trace ID is all support can look up.
+    if trace_id and exc.status is not None and exc.status >= 500:
+        message += f" (trace ID: {trace_id})"
+    return message
+
+
+def server_error_text(body: Any) -> Optional[str]:
+    """Return the readable text from an API error body, if it has one."""
+    try:
+        error = json.loads(body)["error"]
+    except (TypeError, ValueError, KeyError):
+        return None
+    if not isinstance(error, dict):
+        return None
+    # A 422 puts its readable text in "message" and a list of field errors in "detail".
+    for key in ("detail", "message"):
+        text = error.get(key)
+        if isinstance(text, str) and text:
+            return text
+    return None
+
+
+def _connection_error_message(exc: BaseException) -> str:
+    """Name the unreachable host, since urllib3's own message for it is long and hard to read."""
+    # Other retry failures, like SSL errors, keep urllib3's own message.
+    if (
+        isinstance(exc, urllib3.exceptions.MaxRetryError)
+        and isinstance(exc.reason, urllib3.exceptions.ConnectTimeoutError)
+        and exc.pool is not None
+    ):
+        pool = exc.pool
+        return f"Could not reach the Anyscale API at {pool.scheme}://{pool.host}:{pool.port}."
+    return str(exc) or exc.__class__.__name__
+
+
 def from_unexpected_exception(exc: BaseException) -> AnyscaleError:
     """Convert an exception that no command handled into an AnyscaleError."""
     if isinstance(exc, AnyscaleError):
@@ -282,7 +322,7 @@ def from_unexpected_exception(exc: BaseException) -> AnyscaleError:
     )
 
     if isinstance(exc, (InternalApiException, ExternalApiException)):
-        return from_http_status(exc.status, f"API Exception ({exc.status})\nReason: {exc.reason}")
+        return from_http_status(exc.status, _api_exception_message(exc))
 
     # TimeoutError must come before OSError, because it is a subclass.
     if isinstance(exc, TimeoutError):
@@ -304,7 +344,7 @@ def from_unexpected_exception(exc: BaseException) -> AnyscaleError:
         return UserError(str(exc) or exc.__class__.__name__)
 
     if isinstance(exc, (OSError, urllib3.exceptions.HTTPError)):
-        return ApiConnectionError(str(exc) or exc.__class__.__name__)
+        return ApiConnectionError(_connection_error_message(exc))
 
     detail = str(exc) or exc.__class__.__name__
     return AnyscaleError(f"An unexpected error occurred: {detail}\n{_DEBUG_HINT}")

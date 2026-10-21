@@ -9,7 +9,7 @@ import importlib
 import importlib.util
 from typing import TYPE_CHECKING
 
-__version__ = "3.1.2"
+__version__ = "3.1.3"
 
 # Common utilities are internal - not exported as public API
 # Use agenticstar_platform.common for internal SDK development only

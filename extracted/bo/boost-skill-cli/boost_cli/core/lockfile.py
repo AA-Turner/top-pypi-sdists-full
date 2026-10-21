@@ -6,17 +6,21 @@ Every write snapshots the previous version into ~/.boost/state/lock-history/
 so `boost replay` can show history and roll back.
 
 Skill entry schema (v3):
-  version, tap, source_dir, commit, sha256,
+  version, tap, tap_url, source_dir, commit, sha256,
   installed_at, updated_at, pinned, quarantined, agents[], tags[]
   (+ source_url on a `boost import`: the git URL, or "" for a local path; when
   set, source_dir is the skill's directory inside that repo)
+  (tap_url is the tap's own URL or local path at install time, absent on
+  entries written before it was recorded: `drift` re-taps from it)
 """
 from __future__ import annotations
 
 import json
 import shutil
 import sys
-from contextlib import suppress
+import threading
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from typing import NamedTuple
 
 from ..errors import BoostError
@@ -41,6 +45,62 @@ ROLLBACK_HINT = ("`boost replay rollback <id>` restores the lock as it was "
 # of the same name — matching the order `store.uninstall` already established.
 SECTIONS: tuple[tuple[str, str], ...] = (
     ("skill", "skills"), ("rule", "rules"), ("workflow", "workflows"))
+
+
+# Held across every read-modify-write of the lock (see :func:`mutate`).
+# Re-entrant within one process — `write` takes it, and so does `mutate`,
+# which calls `write` — while `util.file_lock` excludes other processes.
+_HELD = threading.RLock()
+_depth = 0
+
+
+def guard_path():
+    """The sidecar :func:`mutate` locks: beside the lock file, never it."""
+    p = paths.lockfile_path()
+    return p.with_name(p.name + ".lock")
+
+
+@contextmanager
+def exclusive() -> Iterator[None]:
+    """Hold the lock file against every other boost process for the body.
+
+    Each mutation used to `read()` the whole lock, change one row and
+    `write()` it back with nothing between processes: run `boost install a`
+    and `boost pin b` at once and the second write replaced the first, so
+    one command reported "lock updated" for a row that was never kept.
+    Atomic writes stop a torn file, not a lost update.
+    """
+    global _depth
+    with _HELD:
+        if _depth:
+            _depth += 1
+            try:
+                yield
+            finally:
+                _depth -= 1
+            return
+        with util.file_lock(guard_path(), what="the lock file", strict=False):
+            _depth = 1
+            try:
+                yield
+            finally:
+                _depth = 0
+
+
+def mutate(fn: Callable[[dict], bool | None]) -> bool:
+    """Apply ``fn`` to a fresh read of the lock and persist it, atomically.
+
+    The read happens *inside* :func:`exclusive`, so ``fn`` sees every write
+    another process finished before it. ``fn`` returning False means "nothing
+    changed" and skips the write; anything else writes. Returns whether it
+    wrote. An exception from ``fn`` writes nothing and releases the lock.
+    """
+    with exclusive():
+        lock = read()
+        if fn(lock) is False:
+            return False
+        write(lock)
+        return True
 
 
 def _skeleton() -> dict:
@@ -136,11 +196,12 @@ def restore(hist_id: str) -> dict:
     """
     snapshot = history_read(hist_id)
     p = paths.lockfile_path()
-    if p.exists() and jsonstate.read_object(p)[1] is not None:
-        with suppress(OSError):
-            shutil.copy(p, corrupt_backup(p))
-    src = paths.lock_history_dir() / ("lock-%s.json" % hist_id)
-    util.atomic_write_text(p, src.read_text(encoding="utf-8"))
+    with exclusive():
+        if p.exists() and jsonstate.read_object(p)[1] is not None:
+            with suppress(OSError):
+                shutil.copy(p, corrupt_backup(p))
+        src = paths.lock_history_dir() / ("lock-%s.json" % hist_id)
+        util.atomic_write_text(p, src.read_text(encoding="utf-8"))
     return snapshot
 
 
@@ -261,13 +322,15 @@ def write(lock: dict) -> None:
     A corrupt lock is the exception: it raises (:func:`refuse_corrupt`)
     rather than being replaced by a lock built on :func:`read`'s skeleton.
     """
-    refuse_corrupt()
-    p = paths.lockfile_path()          # atomic_write_text makes the store
-    if p.exists():
-        _snapshot(p)
-    lock["version"] = SCHEMA_VERSION
-    lock["updated"] = util.now_iso()
-    util.atomic_write_text(p, json.dumps(lock, indent=2, sort_keys=True) + "\n")
+    with exclusive():
+        refuse_corrupt()
+        p = paths.lockfile_path()      # atomic_write_text makes the store
+        if p.exists():
+            _snapshot(p)
+        lock["version"] = SCHEMA_VERSION
+        lock["updated"] = util.now_iso()
+        util.atomic_write_text(
+            p, json.dumps(lock, indent=2, sort_keys=True) + "\n")
 
 
 def _snapshot(p) -> None:
@@ -316,9 +379,22 @@ def get_skill(name: str) -> dict | None:
 
 def set_skill(name: str, entry: dict) -> None:
     """Insert or replace the lock entry for skill ``name`` and persist."""
-    lock = read()
-    lock["skills"][name] = entry
-    write(lock)
+    _put("skills", name, entry)
+
+
+def _put(section: str, name: str, entry: dict) -> None:
+    def put(lock: dict) -> None:
+        lock[section][name] = entry
+    mutate(put)
+
+
+def _drop(section: str, name: str) -> bool:
+    def drop(lock: dict) -> bool:
+        if name not in lock[section]:
+            return False
+        del lock[section][name]
+        return True
+    return mutate(drop)
 
 
 def apply_tag_mods(tags: list[str], mods: list[str]) -> tuple[list[str], bool]:
@@ -352,12 +428,7 @@ def apply_tag_mods(tags: list[str], mods: list[str]) -> tuple[list[str], bool]:
 
 def remove_skill(name: str) -> bool:
     """Drop skill ``name`` from the lock; return True if it was present."""
-    lock = read()
-    if name in lock["skills"]:
-        del lock["skills"][name]
-        write(lock)
-        return True
-    return False
+    return _drop("skills", name)
 
 
 def installed() -> dict:
@@ -385,19 +456,12 @@ def get_rule(name: str) -> dict | None:
 
 def set_rule(name: str, entry: dict) -> None:
     """Insert or replace the lock entry for rule ``name`` and persist."""
-    lock = read()
-    lock["rules"][name] = entry
-    write(lock)
+    _put("rules", name, entry)
 
 
 def remove_rule(name: str) -> bool:
     """Drop rule ``name`` from the lock; return True if it was present."""
-    lock = read()
-    if name in lock["rules"]:
-        del lock["rules"][name]
-        write(lock)
-        return True
-    return False
+    return _drop("rules", name)
 
 
 def installed_rules() -> dict:
@@ -412,19 +476,12 @@ def get_workflow(name: str) -> dict | None:
 
 def set_workflow(name: str, entry: dict) -> None:
     """Insert or replace the lock entry for workflow ``name`` and persist."""
-    lock = read()
-    lock["workflows"][name] = entry
-    write(lock)
+    _put("workflows", name, entry)
 
 
 def remove_workflow(name: str) -> bool:
     """Drop workflow ``name`` from the lock; return True if it was present."""
-    lock = read()
-    if name in lock["workflows"]:
-        del lock["workflows"][name]
-        write(lock)
-        return True
-    return False
+    return _drop("workflows", name)
 
 
 def installed_workflows() -> dict:
@@ -446,8 +503,10 @@ def portable(lock: dict) -> dict:
     projected = json.loads(json.dumps(lock))
     for _kind, section in SECTIONS:
         for entry in projected.get(section, {}).values():
-            for m in entry.get("materializations") or []:
-                if "path" in m:
+            # A workflow's ``foreign`` rows name a path under $HOME too.
+            for m in (*(entry.get("materializations") or ()),
+                      *(entry.get("foreign") or ())):
+                if isinstance(m, dict) and "path" in m:
                     m["path"] = paths.tilde(m["path"])
     return projected
 
@@ -503,9 +562,7 @@ def set_entry(kind: str, name: str, entry: dict) -> None:
     section = dict(SECTIONS).get(kind)
     if section is None:
         raise ValueError("unknown lock kind %r" % kind)
-    lock = read()
-    lock[section][name] = entry
-    write(lock)
+    _put(section, name, entry)
 
 
 def all_installed() -> dict[str, dict]:
@@ -545,7 +602,8 @@ def history_read(hist_id: str) -> dict:
     """Return the parsed lock snapshot for history entry ``hist_id``.
 
     Raises BoostError (with a `boost replay` hint) if no such entry, or if
-    the entry exists but is not a JSON object.
+    the entry exists but is not a JSON object whose sections are maps of
+    records.
     """
     from ..errors import BoostError
     p = paths.lock_history_dir() / ("lock-%s.json" % hist_id)
@@ -556,4 +614,14 @@ def history_read(hist_id: str) -> dict:
     if data is None:
         raise BoostError("no lock history entry %s" % hist_id,
                          hint="list entries with `boost replay`")
+    # `replay show` and `rollback` call `.get` on every record of every
+    # section; a section that is not a map of objects is refused here, before
+    # either acts, rather than dropped — a snapshot read as holding no skills
+    # would have rollback uninstall every skill installed now.
+    for _kind, section in SECTIONS:
+        bad = jsonstate.object_map_error(data, section)
+        if bad is not None:
+            raise BoostError("lock history entry %s is unreadable: %s: %s"
+                             % (hist_id, p, bad),
+                             hint="list other entries with `boost replay`")
     return data

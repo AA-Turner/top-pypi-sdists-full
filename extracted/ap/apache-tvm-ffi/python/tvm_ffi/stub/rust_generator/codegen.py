@@ -28,10 +28,11 @@ the verdict of :mod:`tvm_ffi.stub.layout`:
 - *opaque*: the struct embeds only its parent, and each field is read through
   the C ABI getter. Nothing allocates it.
 
-A field without a Rust mirror (``Optional<Any>``, ``Union``, ``void*``, ...)
-makes the type opaque and is read as ``Any``; an ``opaque`` directive vetoes a
-reproducible layout; a scalar width named by a directive is checked against the
-reflected field size. A builtin parent (``ffi.IntEnum``, say) has no
+A field without a Rust mirror (``Optional<Any>``, ``Union``, ``void*``, an
+``ffi.*`` type the default ``ty-map`` does not list, ...) makes the type opaque
+and is read as ``Any``; an ``opaque`` directive vetoes a reproducible layout; a
+scalar width named by a directive is checked against the reflected field size.
+A builtin parent (``ffi.IntEnum``, say) has no
 ``<Leaf>Obj`` in the crate: the import section defines a header-only stand-in
 per builtin ancestor so ``derive(Object)`` computes the registry's
 ``TYPE_DEPTH``, and everything under such a parent stays opaque (``no-mirror``).
@@ -61,7 +62,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Container
+    from collections.abc import Container, Iterable
     from pathlib import Path
 
     from ..file_utils import CodeBlock
@@ -70,12 +71,24 @@ if TYPE_CHECKING:
 
 
 def _call_lines(open_: str, items: list[str], close: str) -> list[str]:
-    """``open_ + items + close`` on one line, or one item per line when it would overflow."""
+    """``open_ + items + close`` on one line, or wrapped the way rustfmt does when it would overflow.
+
+    A ``let`` first moves its call to the next line; anything else, and a call that
+    still does not fit, takes one item per line.
+    """
     line = f"{open_}{', '.join(items)}{close}"
     if len(line) <= C_RUST.RUST_MAX_WIDTH:
         return [line]
     indent = open_[: len(open_) - len(open_.lstrip())]
-    return [open_, *[f"{indent}    {item}," for item in items], f"{indent}{close}"]
+    let, eq, call = open_.partition(" = ")
+    moved = f"{indent}    {call}{', '.join(items)}{close}"
+    if eq and len(moved) <= C_RUST.RUST_MAX_WIDTH:
+        return [f"{let} =", moved]
+    return [
+        open_.rstrip(),
+        *[f"{indent}    {item}," for item in items],
+        f"{indent}{close.lstrip()}",
+    ]
 
 
 def _check_width(target: str, field: NamedTypeSchema, rust_type: str, width: int) -> None:
@@ -85,6 +98,13 @@ def _check_width(target: str, field: NamedTypeSchema, rust_type: str, width: int
             f"Directive on `{target}` maps a {field.size}-byte field to `{rust_type}` "
             f"({width} bytes)"
         )
+
+
+def _allow_non_snake_case(idents: Iterable[str]) -> list[str]:
+    """``#[allow(non_snake_case)]`` when rustc would warn on one of the Rust ``idents``."""
+    if any(ident.removeprefix("r#") != ident.removeprefix("r#").lower() for ident in idents):
+        return ["#[allow(non_snake_case)]"]
+    return []
 
 
 @dataclasses.dataclass
@@ -126,15 +146,29 @@ class _ObjectRenderer:
 
         A ``ty-map`` entry for the type key the schema was parsed from wins over the origin.
         """
-        mapped = self.ty_map.get(type_key) if type_key is not None else None
-        if mapped is None:
-            mapped = self.ty_map.get(origin)
+        key = type_key if type_key in self.ty_map else origin
+        mapped = self.ty_map.get(key)
         if mapped is None:
             if "." not in origin or origin.startswith("ctypes."):
                 return None
-            self._provider(origin)  # the crate or this run; a key nobody provides is recorded
-            mapped = self._generated_type_path(origin)
-        return imports.record(mapped)
+            if self._provider(origin) == "crate":  # a key nobody provides is recorded
+                return None  # an `ffi.*` key off the default `ty-map`: no crate type, read as `Any`
+            return imports.record(self._generated_type_path(origin))
+        return self._record_mapped(key, mapped, imports)
+
+    def _record_mapped(self, type_key: str, path: str, imports: RustImports) -> str:
+        """Record the ``ty-map`` target of ``type_key``; one in this file's own module is in scope.
+
+        A hand-written binding next to the generated ones (``ir.Op -> crate::ir::Op``
+        in ``ir``) must not import itself.
+        """
+        module, _, name = path.rpartition("::")
+        own = "::".join(self.mod_segments)
+        if type_key.rpartition(".")[0] == ".".join(self.mod_segments) and module.endswith(
+            f"::{own}"
+        ):
+            return name
+        return imports.record(path)
 
     def _ty_render(self, origin: str, type_key: str | None = None) -> str | None:
         return self._resolve(origin, self.imports, type_key)
@@ -179,7 +213,7 @@ class _ObjectRenderer:
         if parent is not None:
             provider = self._provider(parent)
             if provider == "mapped":
-                return self.imports.record(self.ty_map[parent] + "Obj"), True
+                return self._record_mapped(parent, self.ty_map[parent] + "Obj", self.imports), True
             if provider != "crate":  # generated in this run, or missing (reported after the body)
                 return self.imports.record(self._generated_type_path(parent) + "Obj"), True
         chain = [key for key in self.info.ancestors if key != C_RUST.RUST_ROOT_TYPE_KEY]
@@ -288,10 +322,12 @@ class _ObjectRenderer:
         target = f"{self.type_key}.{field.name}"
         name = rust_ident(field.name)
         getter = f'FieldGetter::new(Self::type_index(), "{field.name}")?'
+        allow = _allow_non_snake_case([name])
 
         enum = directives.enums.get(target)
         if enum is not None:
             return [
+                *allow,
                 f"pub fn {name}(&self) -> Result<{enum.name}> {{",
                 f"    let raw: i64 = {getter}.get(self)?;",
                 f"    {enum.name}::try_from(raw)",
@@ -300,18 +336,26 @@ class _ObjectRenderer:
         override = directives.field_types.get(target)
         if override is not None:
             rust_type = self.imports.record(override) if "::" in override else override
+        elif field.origin == "Any":
+            rust_type = None  # `FieldGetter::get` does not take the infallible `Any` -> `Any`
         else:
             rust_type = render_rust_type(field, self._ty_render)
         if rust_type is None:
             any_type = self.imports.record("tvm_ffi::Any")
             return [
+                *allow,
                 f"pub fn {name}(&self) -> Result<{any_type}> {{",
                 f"    {getter}.get_any(self)",
                 "}",
             ]
         if target in directives.nullable and not rust_type.startswith("Option<"):
             rust_type = f"Option<{rust_type}>"
-        return [f"pub fn {name}(&self) -> Result<{rust_type}> {{", f"    {getter}.get(self)", "}"]
+        return [
+            *allow,
+            f"pub fn {name}(&self) -> Result<{rust_type}> {{",
+            f"    {getter}.get(self)",
+            "}",
+        ]
 
     def _enum_lines(self, spec: EnumSpec) -> list[str]:
         """Render the open integer newtype an ``enum`` directive declares."""
@@ -361,7 +405,7 @@ class _ObjectRenderer:
         for key in self.info.ancestors:
             provider = self._provider(key)
             if provider == "mapped":
-                targets.append(self.imports.record(self.ty_map[key]))
+                targets.append(self._record_mapped(key, self.ty_map[key], self.imports))
             elif provider != "crate":
                 targets.append(self.imports.record(self._generated_type_path(key)))
         for view in self.imports.directives.upcasts.get(self.type_key, []):
@@ -394,6 +438,7 @@ class _ObjectRenderer:
             members.append(f"    pub {rust_ident(field.name)}: {mirror},")
         return [
             f"/// Complete: {verdict.detail}.",
+            *_allow_non_snake_case(rust_ident(f.name) for f in self.info.fields),
             *header,
             *members,
             "}",
@@ -436,15 +481,16 @@ class _ObjectRenderer:
         return self.imports.record(override) if "::" in override else override
 
     def _fn_lines(
-        self, head: str, params: list[tuple[str, str]], call: tuple[str, list[str]], result: str
+        self, head: str, params: list[tuple[str, str]], call: tuple[str, list[str]], init: list[str]
     ) -> list[str]:
-        """Render ``<head>(<params>) -> Self { let <call>; <result> }`` inside an ``impl`` block."""
+        """Render ``<head>(<params>) -> Self { let <call>; Self { <init> } }`` in an ``impl`` block."""
         plist = [f"{rust_ident(name)}: {rust_type}" for name, rust_type in params]
         binding, args = call
         return [
+            *[f"    {line}" for line in _allow_non_snake_case(rust_ident(n) for n, _ in params)],
             *_call_lines(f"    {head}(", plist, ") -> Self {"),
             *_call_lines(f"        let {binding}(", args, ");"),
-            f"        {result}",
+            *_call_lines("        Self { ", init, " }"),
             "    }",
         ]
 
@@ -472,7 +518,7 @@ class _ObjectRenderer:
                     "pub(crate) fn new",
                     params,
                     (f"base = {base}::new", to_parent),
-                    f"Self {{ {', '.join(['base', *own])} }}",
+                    ["base", *own],
                 ),
                 "}",
             ]
@@ -486,7 +532,7 @@ class _ObjectRenderer:
                     "pub fn from_complete_fields" if custom else "pub fn new",
                     params,
                     (f"obj = {self.obj_struct}::new", forward),
-                    "Self { base: ObjectArc::new(obj) }",
+                    ["base: ObjectArc::new(obj)"],
                 ),
                 "}",
             ]
@@ -495,6 +541,7 @@ class _ObjectRenderer:
 
     def body(self) -> list[str]:
         """Build the Rust source lines for the object."""
+        self.imports.reserved.update((self.leaf, self.obj_struct))
         verdict = self.classify()
         # Derive macros are spelled by full path: their leaves collide with `Object` / `ObjectRef`.
         self.imports.record("std::ops::Deref")

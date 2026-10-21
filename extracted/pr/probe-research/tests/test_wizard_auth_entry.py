@@ -914,3 +914,46 @@ def test_staying_signed_in_on_the_confirmation_page_goes_back_to_the_menu(entry,
     assert result.exit_code == 0, result.output
     assert len(menus) == 2, "the menu came back after the page"
     assert load_context().get("token") == "saved-api"
+
+
+@pytest.mark.parametrize("recorder, companion", [("daemon", True), ("agent", False), (None, False)])
+def test_desktop_code_includes_daemon_grant_only_when_explicitly_selected(entry, monkeypatch, recorder, companion):
+    monkeypatch.setattr(setup, "interactive", lambda: False)
+    monkeypatch.setattr(bootstrap, "ensure_persistent_install", lambda **_: SimpleNamespace(
+        message="", installed=False, already_persistent=True,
+    ))
+    argv = ["wizard", "ABCD234567", "--action", "configure", "--agent", "claude", "--yes", "--json"]
+    if recorder is not None:
+        argv += ["--who-records", recorder]
+    result = CliRunner().invoke(main.app, argv)
+    assert result.exit_code == 0, result.output
+    applied = [kwargs for event, kwargs in entry if event == "apply"]
+    assert len(applied) == 1
+    assert applied[0]["install_code"] == "ABCD234567"
+    assert (setup.COMPANION_GRANT in applied[0]["authorization_needs"]) is companion
+    assert "ABCD234567" not in result.output
+
+
+def test_daemon_key_from_install_code_is_saved_and_reused_without_another_approval(entry, monkeypatch):
+    from probe.sdk import device
+    from probe.cli import companion, daemon_cli
+
+    calls = []
+    def mint(base_url, **kwargs):
+        calls.append(kwargs)
+        return {"grants": [
+            {"grant": "api", "token": "account-token"},
+            {"grant": setup.COMPANION_GRANT, "token": "scoped-daemon-token"},
+        ]}
+    monkeypatch.setattr(device, "device_authorize", mint)
+    monkeypatch.setattr(setup, "sync_codex_mcp_token", lambda: [])
+    setup.authorize(["api", setup.COMPANION_GRANT], base_url="https://api.test", install_code="ABCD234567")
+    stored = load_context()
+    assert stored["token"] == "account-token"
+    assert stored["companion_token"] == "scoped-daemon-token"
+    monkeypatch.setattr(main, "_authorize_companion", lambda *a, **kw: pytest.fail("must reuse the scoped credential"))
+    monkeypatch.setattr(daemon_cli, "ai_libraries", lambda: True)
+    assert companion.provision_daemon("https://api.test") == []
+    assert len(calls) == 1
+    assert calls[0]["install_code"] == "ABCD234567"
+    assert "ABCD234567" not in str(stored)

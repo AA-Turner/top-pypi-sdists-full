@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.5.1
+Version: 0.5.1.1
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0

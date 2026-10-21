@@ -8,8 +8,8 @@ from torch import nn
 
 from training.args import OptimArgs, TrainArgs
 from training.checkpointing import EMA
-from training.modules.samplers import LSD
-from training.scripts.shrink_checkpoint import select_layers, shrink
+from training.modules.samplers import LSD, Drifting
+from training.scripts.shrink_checkpoint import low_rank_text_table, select_layers, shrink
 from training.train_utils import lr_at
 
 
@@ -65,6 +65,20 @@ class TestSelectLayers:
         # renumbering must preserve which teacher layer each slot came from
         assert out["transformer.layers.3.w"].item() == 21.0
         assert "out_eos.weight" in out, "non-backbone tensors are copied unchanged"
+
+    def test_low_rank_table_recuts_an_already_low_rank_table(self):
+        torch.manual_seed(0)
+        embed, proj = torch.randn(50, 8), torch.randn(16, 8)  # rank-8 table for d_model 16
+        dst = {
+            "conditioner.embed.weight": torch.zeros(50, 4),
+            "conditioner.proj.weight": torch.zeros(16, 4),
+        }
+        out = low_rank_text_table(
+            {"conditioner.embed.weight": embed, "conditioner.proj.weight": proj}, dst
+        )
+        e4 = out["conditioner.embed.weight"] @ out["conditioner.proj.weight"].T
+        u, s, vh = torch.linalg.svd(embed @ proj.T, full_matrices=False)
+        assert torch.allclose(e4, (u[:, :4] * s[:4]) @ vh[:4], atol=1e-4)
 
 
 class TestEMA:
@@ -132,3 +146,28 @@ class TestDistillProb:
         for _ in range(30):
             _, met, _ = m.loss(self._v, torch.randn(2, 4), torch.randn(2, 4))
             assert "flow_distill" in met
+
+
+class TestDrifting:
+    def _head(self) -> nn.Module:
+        torch.manual_seed(0)
+        return nn.Sequential(nn.Linear(4, 16), nn.GELU(), nn.Linear(16, 4))
+
+    def test_learned_temperature_gets_a_gradient(self):
+        m, head = Drifting(temp=1.0, num_neg=8), self._head()
+        loss, _, _ = m.loss(head, torch.randn(6, 4), torch.randn(6, 4))
+        loss.mean().backward()
+        assert m.temp.grad is not None and m.temp.grad.abs().item() > 0
+
+    def test_fixed_temperature_keeps_the_resumed_value(self):
+        """temp_loss_weight 0 (the fine-tune) freezes the temperature but keeps the
+        parameter, so a stage-1 checkpoint that learned it loads as-is."""
+        learned = Drifting(temp=10.0).state_dict()
+        learned["temp"] = torch.tensor([0.05])
+        m = Drifting(temp_loss_weight=0.0)
+        m.load_state_dict(learned)
+        assert not m.temp.requires_grad and m.temp.item() == pytest.approx(0.05)
+
+    def test_decode_is_the_head_output(self):
+        head, x_0 = self._head(), torch.randn(3, 4)
+        assert torch.equal(Drifting().decode(head, x_0), head(x_0))
