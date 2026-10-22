@@ -151,7 +151,7 @@ class GoogleTranslator(BaseTranslator):
     """Translates between unified format and Google Gemini API"""
 
     #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
-    TURN_CONTEXT_AFTER_CACHE_LINE = True
+    PROVIDER = "google"
 
     from google.genai import types
 

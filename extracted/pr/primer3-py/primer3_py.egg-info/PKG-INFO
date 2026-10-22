@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: primer3-py
-Version: 2.3.1
+Version: 2.4.0
 Summary: Simple primer design and analysis
 Author-email: Ben Pruitt <bpruittvt@gmail.com>, Nick Conway <a.grinner@gmail.com>
 License: GPL-2.0-or-later
@@ -9,18 +9,18 @@ Project-URL: Documentation, http://libnano.github.io/primer3-py
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS

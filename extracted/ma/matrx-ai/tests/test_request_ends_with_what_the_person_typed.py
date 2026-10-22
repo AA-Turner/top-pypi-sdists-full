@@ -26,6 +26,7 @@ import pytest
 from xai_sdk.proto import chat_pb2
 
 from matrx_ai.config import MessageList, TextContent, UnifiedConfig, UnifiedMessage
+from matrx_ai.config.send_boundary import order_for_wire
 from matrx_ai.config.typed_text_last import (
     TURN_CONTEXT_MARK,
     place_before_typed_text,
@@ -58,9 +59,15 @@ def _config(history: list[UnifiedMessage], *, typed: str | None, context: bool =
     return config
 
 
-def _build(module: str, cls: str, wire_format: str, config: UnifiedConfig) -> Any:
+def _build(
+    module: str, cls: str, wire_format: str, config: UnifiedConfig, capabilities: dict[str, Any] | None = None
+) -> Any:
+    """Render ``config`` the way a real send does: the send boundary orders the person's turn
+    ONCE (``send_boundary.order_for_wire`` → ``SendPrep``), the translator renders its list."""
+    profile = make_profile(model_name="m", wire_format=wire_format, capabilities=capabilities)
+    prep = order_for_wire(config, profile)
     translator = getattr(importlib.import_module(module), cls)()
-    return translator.build_request(config, make_profile(model_name="m", wire_format=wire_format))
+    return translator.build_request(prep.wire_config if prep.wire_config is not None else config, profile)
 
 
 def _tail_text(cls: str, request: Any) -> str:

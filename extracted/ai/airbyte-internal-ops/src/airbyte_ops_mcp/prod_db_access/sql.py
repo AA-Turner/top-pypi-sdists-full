@@ -1816,6 +1816,53 @@ SELECT_FAILED_SYNC_ATTEMPTS_FOR_DESTINATION_CONNECTOR = sqlalchemy.text(
     _FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR_SQL.format(connection_column="destination_id")
 )
 
+# Mirrors platform RolloutActorFinder.getSyncInfoForPinnedActors + JobsRepository.findLatestJobPerScope:
+# latest `sync` job per connection created since the rollout's created_at; the connection only
+# counts if that latest job ran on the RC version; origin = first failure of the latest attempt.
+_LATEST_RC_COUNTERPART_FAILURES_SQL = """
+    SELECT
+         connection.{actor_column}::text AS actor_id,
+         connection.id::text AS connection_id,
+         latest_job.id AS job_id,
+         latest_attempt.failure_origin
+    FROM connection
+    JOIN LATERAL (
+        SELECT jobs.id, jobs.status, jobs.config->'sync' AS sync_config
+        FROM jobs
+        WHERE jobs.scope = connection.id::text
+          AND jobs.config_type = 'sync'
+          AND jobs.created_at >= :created_at_start
+        ORDER BY jobs.created_at DESC
+        LIMIT 1
+    ) AS latest_job ON true
+    JOIN LATERAL (
+        SELECT attempts.failure_summary->'failures'->0->>'failureOrigin' AS failure_origin
+        FROM attempts
+        WHERE attempts.job_id = latest_job.id
+        ORDER BY attempts.attempt_number DESC
+        LIMIT 1
+    ) AS latest_attempt ON true
+    WHERE connection.{actor_column} = ANY(CAST(:actor_ids AS uuid[]))
+      AND latest_job.status = 'failed'
+      AND (latest_job.sync_config->>'{version_field}')::uuid = CAST(:rc_version_id AS uuid)
+      AND latest_attempt.failure_origin = :excluded_origin
+    """
+
+SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_DESTINATION_ROLLOUT = sqlalchemy.text(
+    _LATEST_RC_COUNTERPART_FAILURES_SQL.format(
+        actor_column="destination_id", version_field="destinationDefinitionVersionId"
+    )
+)
+
+SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_SOURCE_ROLLOUT = sqlalchemy.text(
+    _LATEST_RC_COUNTERPART_FAILURES_SQL.format(
+        actor_column="source_id", version_field="sourceDefinitionVersionId"
+    )
+)
+# Parameters: actor_ids (list[str] of failing actor UUIDs), rc_version_id (str),
+# created_at_start (rollout.created_at, tz-aware UTC), excluded_origin ("source" for a destination
+# rollout, "destination" for a source rollout).
+
 # =============================================================================
 # Dataplane and Workspace Queries
 # =============================================================================

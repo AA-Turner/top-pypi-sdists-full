@@ -5,20 +5,21 @@ import time
 import httpx
 from pydantic import ValidationError
 
-from ..config import get_orchestra_api_key, load_orchestra_dbt_settings
+from ..config import get_orchestra_api_key
 from ..logger import log_error, log_info, log_warn
 from ..models import StateApiModel
 from ..state_errors import StateLoadError
-from ..state_filters import apply_integration_account_filter
 from .logging import log_state_loaded, log_state_saved
 
 _SAVE_ATTEMPTS = 3
 
 
 class HttpStateBackend:
+    def __init__(self, orchestra_env: str) -> None:
+        self._orchestra_env = orchestra_env
+
     def _base_api_url(self) -> str:
-        env_name = load_orchestra_dbt_settings().orchestra_env
-        return f"https://{env_name}.getorchestra.io/api/engine/public"
+        return f"https://{self._orchestra_env}.getorchestra.io/api/engine/public"
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -49,7 +50,6 @@ class HttpStateBackend:
 
         try:
             state = StateApiModel.model_validate(response.json())
-            apply_integration_account_filter(state)
             log_state_loaded("http", state)
             return state
         except (ValidationError, ValueError) as e:

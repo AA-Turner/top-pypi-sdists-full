@@ -1,7 +1,9 @@
+from pathlib import Path
+
 from .asset_external_id import generate_asset_external_id
 from .build_after import parse_freshness_config
 from .checksum import calculate_checksum
-from .config import load_orchestra_dbt_settings, resolve_state_backend_config
+from .config import OrchestraDbtSettings
 from .logger import log_warn
 from .models import (
     Edge,
@@ -13,6 +15,7 @@ from .models import (
     SourceNode,
     StateApiModel,
 )
+from .state_backends import resolve_state_backend_config
 from .state_types import StateBackendKind
 from .utils import load_json
 
@@ -59,17 +62,20 @@ def calculate_freshness_on_node(
 def construct_dag(
     source_freshness: SourceFreshness,
     state: StateApiModel,
+    settings: OrchestraDbtSettings,
+    project_dir: Path,
+    target_dir: Path,
+    packages_install_path: Path,
     manifest_override: str | None = None,
 ) -> ParsedDag:
-    manifest = load_json(manifest_override or "target/manifest.json")
+    manifest = load_json(manifest_override or target_dir / "manifest.json")
 
     nodes: dict[str, Node] = {}
     edges: list[Edge] = []
 
     project_name_from_manifest = manifest["metadata"]["project_name"]
-    settings = load_orchestra_dbt_settings()
     integration_account_id = settings.integration_account_id
-    state_backend_kind = resolve_state_backend_config().kind
+    state_backend_kind = resolve_state_backend_config(settings).kind
     if not integration_account_id and state_backend_kind == StateBackendKind.HTTP:
         log_warn(
             "No integration account ID found. Will use node ID as the asset external ID."
@@ -101,7 +107,9 @@ def construct_dag(
                 )
                 depends_on_nodes = node.get("depends_on", {}).get("nodes", [])
                 if from_external_package:
-                    file_path = f"dbt_packages/{node['package_name']}/{dbt_path}"
+                    file_path = str(
+                        packages_install_path / node["package_name"] / dbt_path
+                    )
                 else:
                     file_path = dbt_path
 
@@ -109,7 +117,8 @@ def construct_dag(
                 checksum: str | None = calculate_checksum(
                     resource_type,
                     node_checksum=str(node["checksum"]["checksum"]),
-                    file_path=file_path,
+                    file_path=str(project_dir / file_path),
+                    raw_code=str(node["raw_code"]),
                 )
                 if not checksum:
                     track_state = False
@@ -147,6 +156,7 @@ def construct_dag(
                         else None
                     ),
                     relation_name=relation_name,
+                    patch_path=node.get("patch_path"),
                 )
 
                 for dep in depends_on_nodes:

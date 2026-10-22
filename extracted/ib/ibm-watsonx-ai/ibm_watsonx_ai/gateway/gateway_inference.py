@@ -1556,13 +1556,13 @@ class GatewayInference(WMLResource):
         )
 
     def get_details(self) -> dict | list[dict]:
-        """Get the details of the model(s) registered under the current model ID.
+        """Get the details of the model(s) registered under the current model ID / alias.
 
         Calls :meth:`~ibm_watsonx_ai.gateway.Models.get_details` and filters the
-        results to entries whose ``id`` matches ``self._model``.
+        results to entries whose ``id`` or ``alias`` matches ``self._model``.
 
         :return: a single model detail dict when exactly one match is found,
-            or a list of dicts when multiple providers expose the same model ID
+            or a list of dicts when multiple providers expose the same model ID / alias
         :rtype: dict | list[dict]
 
         **Example:**
@@ -1573,7 +1573,9 @@ class GatewayInference(WMLResource):
 
         """
         all_models = self._gateway.models.get_details()
-        matches = [m for m in all_models["data"] if m["id"] == self._model]
+        matches = [
+            m for m in all_models["data"] if self._model in {m["id"], m.get("alias")}
+        ]
 
         if len(matches) == 1:
             return matches[0]

@@ -2,12 +2,12 @@
 import os.path
 import subprocess
 import sys
-from imgui_bundle import immapp, imgui, imgui_md
+from imgui_bundle import immapp, imgui, rich_md
 from imgui_bundle.demos_python import demo_utils
 
 
-def demo_gui():
-    imgui_md.render_unindented(
+def gui():
+    rich_md.render(
         """
     # imgui_tex_inspect
     [imgui_tex_inspect](https://github.com/andyborrell/imgui_tex_inspect) is a texture inspector tool for Dear ImGui
@@ -47,7 +47,7 @@ def demo_gui():
 
 def main():
     immapp.run(
-        demo_gui, window_size=(1000, 800), with_markdown=True, with_tex_inspect=True
+        gui, window_size=(1000, 800), with_markdown=True, with_tex_inspect=True
     )
 
 

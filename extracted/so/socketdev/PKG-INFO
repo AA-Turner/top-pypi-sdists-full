@@ -1,6 +1,6 @@
-Metadata-Version: 2.5
+Metadata-Version: 2.4
 Name: socketdev
-Version: 3.6.0
+Version: 3.6.1
 Summary: Socket Security Python SDK
 Project-URL: Homepage, https://github.com/SocketDev/socket-sdk-python
 Author-email: Douglas Coburn <douglas@socket.dev>
@@ -35,22 +35,28 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
-Requires-Dist: requests<3,>=2.32.5
+Requires-Python: >=3.10
+Requires-Dist: certifi>=2026.10.19
+Requires-Dist: requests<3,>=2.33.0
 Requires-Dist: typing-extensions<5,>=4.12.2
 Provides-Extra: dev
-Requires-Dist: hatch>=1.14.0; extra == 'dev'
+Requires-Dist: hatch>=1.18.1; extra == 'dev'
 Requires-Dist: hatchling>=1.27.0; extra == 'dev'
 Requires-Dist: ruff>=0.3.0; extra == 'dev'
 Requires-Dist: twine>=4.0.0; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: pytest-cov>=4.0.0; extra == 'test'
-Requires-Dist: pytest>=7.0.0; extra == 'test'
+Requires-Dist: pytest>=9.0.3; extra == 'test'
 Description-Content-Type: text/x-rst
 
 
 socketdev
 #########
+
+Supported Python versions
+-------------------------
+
+This SDK supports Python 3.10 and newer.
 
 Purpose
 -------

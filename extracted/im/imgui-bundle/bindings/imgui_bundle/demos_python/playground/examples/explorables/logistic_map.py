@@ -1,16 +1,18 @@
 r"""Logistic Map
 ============
 
-One line — $x_{n+1} = r\,x_n\,(1-x_n)$ — and an entire universe of behaviour.
-As **r** climbs, a steady population doubles into a 2-cycle, a 4-cycle, an
-8-cycle… then shatters into **chaos**, threaded with sudden windows of order.
+A very simple equation, and yet it can lead to wildly different behaviors, up to chaos. The [logistic
+map](https://en.wikipedia.org/wiki/Logistic_map), `x(n+1) = r * x(n) * (1 - x(n))`, models for example the
+*growth of a population with limited resources*. Depending on r, it is stable, periodic (in 2-cycles,
+4-cycles, etc), or chaotic. Let's explore this.
 
-Drag **r** or click the diagram to jump there. **Scroll to zoom** the
-bifurcation diagram — the same branching returns at every scale.
+**Try this**
+* Drag **r** or click the diagram to set its value
+* Scroll to zoom into the bifurcation diagram: each fork splits again in the same way, however far you zoom
 """
 
 import numpy as np
-from imgui_bundle import imgui, implot, immapp, hello_imgui, imgui_md, imgui_toggle, icons_fontawesome_4
+from imgui_bundle import imgui, implot, immapp, hello_imgui, rich_md, imgui_toggle, icons_fontawesome_4
 from imgui_bundle import ImVec2, ImVec4
 from typing import Tuple, Optional
 import time
@@ -200,6 +202,7 @@ FA_PLAY = icons_fontawesome_4.ICON_FA_PLAY
 FA_PAUSE = icons_fontawesome_4.ICON_FA_PAUSE
 FA_UNDO = icons_fontawesome_4.ICON_FA_UNDO
 FA_INFO = icons_fontawesome_4.ICON_FA_INFO_CIRCLE
+NARROW_WIDTH_EM = 44  # Under this width (in em, a phone), the diagrams go above the controls
 
 ACCENT = ImVec4(1.0, 0.85, 0.25, 1.0)
 MARKER = ImVec4(1.0, 1.0, 1.0, 0.85)
@@ -213,7 +216,7 @@ A deceptively simple recurrence:
 $x_{n+1} = r\,x_n\,(1 - x_n)$
 
 Each $x_n$ is a number between 0 and 1, and $r$ is a growth parameter
-between 0 and 4. Feed a value back into the formula over and over — the
+between 0 and 4. Feed a value back into the formula over and over: the
 long-term fate of the sequence depends entirely on $r$.
 
 ## What it models
@@ -221,8 +224,8 @@ long-term fate of the sequence depends entirely on $r$.
 Read $x_n$ as a **population**, measured as a fraction of the most the
 environment can sustain. The formula balances two opposing forces:
 
-- $r\,x_n$ — **growth**: more individuals now means more next season.
-- $(1 - x_n)$ — **crowding**: as the habitat fills, competition for food
+- $r\,x_n$, **growth**: more individuals now means more next season.
+- $(1 - x_n)$, **crowding**: as the habitat fills, competition for food
   and space throttles further growth.
 
 It is the discrete-time cousin of Verhulst's **logistic equation**,
@@ -235,26 +238,26 @@ notion of unbounded exponential growth.
 For over a century this was a quiet ecological model. Then in **1976** the
 physicist-ecologist **Robert May**, in a celebrated *Nature* paper, showed
 that the one-line equation hides staggering complexity: as $r$ rises it
-**period-doubles** — 1, then 2, 4, 8 cycles — and then tips into **chaos**.
+**period-doubles** (1, then 2, 4, 8 cycles), and then tips into **chaos**.
 
 Soon after, **Mitchell Feigenbaum** found that the doublings shrink by a
 fixed ratio, the universal constant $\delta \approx 4.6692$, which appears
-in *any* system taking this route to chaos — from dripping taps to driven
+in *any* system taking this route to chaos, from dripping taps to driven
 circuits. A toy population model turned out to obey a universal law.
 
 ## Reading the diagram
 
-- $r < 1$ — the population dies out.
-- $1 < r < 3$ — it settles to a single steady value.
-- $r = 3$ — the first split: a stable 2-cycle.
-- $r \approx 3.5699$ — the doublings accumulate: the **onset of chaos**.
-- beyond — chaos, shot through with sudden **windows of order**, most
+- $r < 1$: the population dies out.
+- $1 < r < 3$: it settles to a single steady value.
+- $r = 3$: the first split, a stable 2-cycle.
+- $r \approx 3.5699$: the doublings accumulate, the **onset of chaos**.
+- beyond: chaos, shot through with sudden **windows of order**, most
   vividly the period-3 window near $r \approx 3.8284$. *(A 1975 theorem of
   Li and Yorke proved that period three implies chaos.)*
 
 The **Lyapunov exponent** $\lambda$ beneath the diagram measures this:
 $\lambda < 0$ where orbits settle, $\lambda > 0$ where nearby trajectories
-separate exponentially — the fingerprint of chaos.
+separate exponentially: the fingerprint of chaos.
 
 ## Why it endures
 
@@ -266,16 +269,16 @@ the limits of prediction itself.
 
 ## Further reading
 
-- Robert May (1976), [*Simple mathematical models with very complicated dynamics*](https://doi.org/10.1038/261459a0) — the *Nature* review that revealed the chaos hiding in this one-line equation.
-- Li & Yorke (1975), [*Period Three Implies Chaos*](https://doi.org/10.2307/2318254) — the paper that gave the field its name.
-- [Feigenbaum constants](https://en.wikipedia.org/wiki/Feigenbaum_constants) — the universality that ties this cascade to dripping taps, circuits, and beyond.
-- [The logistic map](https://en.wikipedia.org/wiki/Logistic_map) — a fuller tour of the map and its bifurcations.
+- Robert May (1976), [*Simple mathematical models with very complicated dynamics*](https://doi.org/10.1038/261459a0): the *Nature* review that revealed the chaos hiding in this one-line equation.
+- Li & Yorke (1975), [*Period Three Implies Chaos*](https://doi.org/10.2307/2318254): the paper that gave the field its name.
+- [Feigenbaum constants](https://en.wikipedia.org/wiki/Feigenbaum_constants): the universality that ties this cascade to dripping taps, circuits, and beyond.
+- [The logistic map](https://en.wikipedia.org/wiki/Logistic_map): a fuller tour of the map and its bifurcations.
 - Veritasium (2020), [This equation will change how you see the world (the logistic map)](https://www.youtube.com/watch?v=ovJcsL7vyrk) (YouTube Video)
 """
 
 
 TIPS_MD = r"""Click a button to jump there, then watch the **cobweb** redraw
-and the **Lyapunov** strip respond. The zoom presets recompute fresh detail —
+and the **Lyapunov** strip respond. The zoom presets recompute fresh detail:
 use **Reset view** to pull back out."""
 
 
@@ -296,6 +299,7 @@ def draw_cobweb(state: AppState, size: ImVec2):
             implot.plot_line("orbit", cx, cy, spec=implot.Spec(line_weight=2.0, line_color=ACCENT))
             implot.plot_scatter("##now", np.array([cx[-1]]), np.array([cy[-1]]), spec=implot.Spec(line_color=ImVec4(1, 1, 1, 1)))
         implot.end_plot()
+        hello_imgui.set_item_is_live(not state.paused)  # the cobweb redraws itself, unless paused
 
 
 def draw_bifurcation(state: AppState, size: ImVec2):
@@ -354,20 +358,10 @@ def draw_lyapunov(state: AppState, size: ImVec2):
         implot.end_plot()
 
 
-def gui(state: AppState):
-    state.maybe_recompute()
-    state.tick()
-    state.refresh_analysis()
-
+def gui_controls(state: AppState):
+    """The buttons, the parameters, the cobweb and the options of the bifurcation diagram"""
     em = hello_imgui.em_size()
     btn = ImVec2(em * 2.5, em * 2.0)
-    imgui.push_style_var(imgui.StyleVar_.frame_rounding, em * 0.5)
-
-    # ---- Controls + cobweb (left column) ---------------------------------
-    imgui.begin_child("controls", ImVec2(em * 24, 0))
-
-    imgui_md.render(__doc__)
-    imgui.separator()
 
     if imgui.button(FA_PAUSE if not state.paused else FA_PLAY, btn):
         state.paused = not state.paused
@@ -380,15 +374,15 @@ def gui(state: AppState):
     if imgui.is_item_hovered():
         imgui.set_tooltip("Background & history")
 
-    if imgui.button("Things to try", ImVec2(-1, 0)):
+    if imgui.button("Famous values of r", ImVec2(-1, 0)):
         state.show_tips = not state.show_tips
 
     imgui.separator_text("Parameter")
-    imgui.set_next_item_width(em * 22)
+    imgui.set_next_item_width(-em * 2)
     ch_r, r = imgui.slider_float("r", state.r, R_MIN, R_MAX, "%.5f")
     if ch_r:
         state.set_r(r)
-    imgui.set_next_item_width(em * 22)
+    imgui.set_next_item_width(-em * 2)
     ch_x, x0 = imgui.slider_float("x0", state.x0, 0.0, 1.0, "%.3f")
     if ch_x:
         state.set_x0(x0)
@@ -414,34 +408,58 @@ def gui(state: AppState):
         state.force_view = DEF_VIEW
     imgui.text_disabled("scroll = zoom · drag = pan · click = pick r")
 
-    imgui.pop_style_var()
-    imgui.end_child()
 
-    imgui.same_line()
-
-    # ---- Bifurcation + Lyapunov (right column) ---------------------------
-    imgui.begin_child("viz", ImVec2(0, 0))
+def gui_diagrams(state: AppState, size: ImVec2):
+    """The bifurcation diagram above the Lyapunov exponent, in a child window of the given size"""
+    imgui.begin_child("viz", size)
     avail = imgui.get_content_region_avail()
     draw_bifurcation(state, ImVec2(-1, avail.y * 0.68))
     draw_lyapunov(state, ImVec2(-1, 0))
     imgui.end_child()
 
+
+def gui(state: AppState):
+    state.maybe_recompute()
+    state.tick()
+    state.refresh_analysis()
+
+    em = hello_imgui.em_size()
+    imgui.push_style_var(imgui.StyleVar_.frame_rounding, em * 0.5)
+
+    if imgui.get_content_region_avail().x >= NARROW_WIDTH_EM * em:
+        # ---- Controls + cobweb (left column), Bifurcation + Lyapunov (right column)
+        imgui.begin_child("controls", ImVec2(em * 24, 0))
+        rich_md.render(__doc__)
+        imgui.separator()
+        gui_controls(state)
+        imgui.end_child()
+        imgui.same_line()
+        gui_diagrams(state, ImVec2(0, 0))
+    else:
+        # A narrow screen (a phone): the text, the diagrams, then the controls, in a page that scrolls
+        rich_md.render(__doc__)
+        width = imgui.get_content_region_avail().x
+        gui_diagrams(state, ImVec2(width, width * 1.2))
+        gui_controls(state)
+
+    imgui.pop_style_var()
+
     # ---- Hideable background panel ---------------------------------------
     if state.show_about:
         imgui.set_next_window_size(ImVec2(em * 34, em * 40), imgui.Cond_.appearing)
-        expanded, opened = imgui.begin("About — the Logistic Map", True)
+        expanded, opened = imgui.begin("About the logistic map", True)
         state.show_about = bool(opened)
         if expanded:
-            imgui_md.render(ABOUT_MD)
+            rich_md.render(ABOUT_MD)
         imgui.end()
 
     # ---- Hideable "things to try" panel ----------------------------------
     if state.show_tips:
         imgui.set_next_window_size(ImVec2(em * 25, em * 30), imgui.Cond_.appearing)
-        expanded, opened = imgui.begin("Things to try", True)
+        expanded, opened = imgui.begin("Famous values of r", True)
         state.show_tips = bool(opened)
         if expanded:
-            imgui_md.render(TIPS_MD)
+            rich_md.render(TIPS_MD)
 
             imgui.separator_text("Pick a value of r")
             if imgui.button("Stable fixed point  ·  r = 2.8", ImVec2(-1, 0)):
@@ -481,7 +499,6 @@ def main():
         with_implot=True,
         with_markdown=True,
         with_latex=True,
-        fps_idle=0,
         ini_disable=True,
     )
 

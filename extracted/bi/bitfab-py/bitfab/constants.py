@@ -17,6 +17,9 @@ try:
 except PackageNotFoundError:
     __version__ = "unknown"
 
+STREAM_RESULT_KEY = "stream_result"
+INTEGRATION_FIXTURES_KEY = "integration_fixtures"
+
 _replay_context: ContextVar[dict[str, Any] | None] = ContextVar(
     "bitfab_replay_context", default=None
 )

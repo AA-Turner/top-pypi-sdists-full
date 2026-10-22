@@ -35,6 +35,8 @@ from matrx_ai.tools.implementations.kind_shared import (
     COMPONENT_BANNED_MEMBER_ACCESS,
     COMPONENT_BANNED_MEMBER_CALLS,
     COMPONENT_BANNED_SYNTAX,
+    COMPONENT_BANNED_BARE_CALLS,
+    COMPONENT_BANNED_WINDOW_CALLS,
     component_globals_lint,
     component_import_lint,
 )
@@ -66,6 +68,29 @@ def test_banned_global_lists_are_byte_identical_to_the_canonical_json() -> None:
     assert list(COMPONENT_BANNED_MEMBER_CALLS) == canonical["bannedMemberCalls"]
     assert list(COMPONENT_BANNED_COMPUTED_ACCESS) == canonical["bannedComputedAccess"]
     assert list(COMPONENT_BANNED_SYNTAX) == canonical["bannedSyntax"]
+    assert list(COMPONENT_BANNED_WINDOW_CALLS) == canonical["bannedWindowCalls"]
+    assert list(COMPONENT_BANNED_BARE_CALLS) == canonical["bannedBareCalls"]
+
+
+def test_dialog_calls_are_refused_with_a_sentence_pointing_to_the_kit() -> None:
+    for snippet in (
+        'alert("hi");',
+        'if (confirm("Sure?")) go();',
+        'const v = prompt("Name");',
+        'window.open("https://example.com");',
+        "window.print();",
+        "self . print ( );",
+    ):
+        refusal = component_globals_lint(f"export default function C() {{ {snippet} return null; }}")
+        assert refusal is not None, snippet
+        assert 'runAction("print")' in refusal
+    for honest in (
+        '<KindActionButton label="Go" confirm="Uses credits." />',
+        "dialog.open(); menu.print();",
+        "const confirm = useConfirm(); confirm();",
+        "function prompt(x) { return x; } prompt(1);",
+    ):
+        assert component_globals_lint(f"export default function C() {{ {honest} return null; }}") is None, honest
 
 
 def test_globals_lint_refuses_the_exfiltration_class() -> None:

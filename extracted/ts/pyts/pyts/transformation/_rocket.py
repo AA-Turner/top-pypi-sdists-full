@@ -3,7 +3,7 @@
 # Author: Johann Faouzi <johann.faouzi@gmail.com>
 # License: BSD-3-Clause
 
-from typing import Self
+from typing import Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -187,8 +187,13 @@ def apply_one_kernel_one_sample(
             x_conv[i] += weight[j] * x_pad[i + (j * dilation)]
     x_conv += bias
 
-    # Return the features: maximum and proportion of positive values
-    return np.max(x_conv), np.mean(x_conv > 0)
+    # Return the features: maximum and proportion of positive values. The
+    # njit signatures above compile this to a (float64, float64) tuple, but
+    # ``np.mean`` is typed to return a generic ``np.floating`` rather than
+    # the specific ``np.float64`` subtype. ``typing.cast`` cannot be used
+    # here (this function is numba-compiled in nopython mode, which cannot
+    # resolve the ``cast`` global), so the mismatch is suppressed instead.
+    return np.max(x_conv), np.mean(x_conv > 0)  # pyrefly: ignore[bad-return]
 
 
 @njit(
@@ -260,7 +265,8 @@ class ROCKET(BaseEstimator, UnivariateTransformerMixin):
         Number of kernels.
 
     kernel_sizes : array-like (default = (7, 9, 11))
-        The possible sizes of the kernels.
+        The possible sizes of the kernels. They must be greater than or equal
+        to 2.
 
     random_state : None, int or RandomState instance (default = None)
         The seed of the pseudo random number generator to use when shuffling
@@ -328,7 +334,7 @@ class ROCKET(BaseEstimator, UnivariateTransformerMixin):
         self : object
 
         """
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         _n_samples, n_timestamps = X.shape
 
         kernel_sizes, seed = self._check_params(n_timestamps)
@@ -360,8 +366,19 @@ class ROCKET(BaseEstimator, UnivariateTransformerMixin):
             Extracted features from the kernels.
 
         """
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         check_is_fitted(self, ['weights_', 'length_', 'bias_', 'dilation_', 'padding_'])
+        # A dilated kernel spans ``(length - 1) * dilation + 1`` timestamps,
+        # minus twice its padding. Longer series are fine, but a series shorter
+        # than that leaves no position for the convolution.
+        min_n_timestamps = int(
+            np.max((self.length_ - 1) * self.dilation_ + 1 - 2 * self.padding_)
+        )
+        if X.shape[1] < min_n_timestamps:
+            raise ValueError(
+                "The kernels learned during `fit` require time series with at "
+                f"least {min_n_timestamps} timestamps (got {X.shape[1]})."
+            )
         X_new = apply_all_kernels(
             X,
             self.weights_,
@@ -375,6 +392,10 @@ class ROCKET(BaseEstimator, UnivariateTransformerMixin):
     def _check_params(self, n_timestamps: int) -> tuple[npt.NDArray[np.int64], int]:
         if not isinstance(self.n_kernels, (int, np.integer)):
             raise TypeError(f"'n_kernels' must be an integer (got {self.n_kernels}).")
+        if not self.n_kernels >= 1:
+            raise ValueError(
+                f"'n_kernels' must be a positive integer (got {self.n_kernels})."
+            )
 
         if not isinstance(self.kernel_sizes, (list, tuple, np.ndarray)):
             raise TypeError(
@@ -387,10 +408,13 @@ class ROCKET(BaseEstimator, UnivariateTransformerMixin):
             dtype=np.int64,
             accept_large_sparse=False,
         )
-        if not np.all(1 <= kernel_sizes):
+        if not np.all(2 <= kernel_sizes):
+            # Mean-centering the single weight of a length-1 kernel makes it
+            # zero and its dilation range is undefined, so every sample would
+            # get the same, constant features.
             raise ValueError(
                 "All the values in 'kernel_sizes' must be "
-                f"greater than or equal to 1 ({kernel_sizes.min()} < 1)."
+                f"greater than or equal to 2 ({kernel_sizes.min()} < 2)."
             )
         if not np.all(kernel_sizes <= n_timestamps):
             raise ValueError(

@@ -2,8 +2,7 @@
 """
 OpenTelemetry tracing for rollout / reward processors.
 
-Enable tracing (install OpenTelemetry, e.g.
-``pip install 'dashscope[agentic_rl_tracing]'``):
+OpenTelemetry ships with the SDK; enable tracing with:
 
 - ``ENABLE_TRAJECTORY=true``
 
@@ -752,8 +751,8 @@ def trace_processor_process(
     if not _OTEL_AVAILABLE:
         logger.warning(
             "ENABLE_TRAJECTORY is set but "
-            "OpenTelemetry is not installed. Install with: "
-            "pip install 'dashscope[agentic_rl_tracing]'",
+            "OpenTelemetry is not installed. Reinstall the SDK with: "
+            "pip install -U dashscope",
         )
         return processor.process(input_data)
 
@@ -796,8 +795,8 @@ async def async_trace_processor_process(
     if not _OTEL_AVAILABLE:
         logger.warning(
             "ENABLE_TRAJECTORY is set but "
-            "OpenTelemetry is not installed. Install with: "
-            "pip install 'dashscope[agentic_rl_tracing]'",
+            "OpenTelemetry is not installed. Reinstall the SDK with: "
+            "pip install -U dashscope",
         )
         return await processor.process(input_data)
 

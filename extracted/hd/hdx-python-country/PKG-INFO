@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hdx-python-country
-Version: 4.2.3
+Version: 4.2.4
 Summary: HDX Python country code and exchange rate (fx) utilities
 Project-URL: Homepage, https://github.com/OCHA-DAP/hdx-python-country
 Project-URL: Repository, https://github.com/OCHA-DAP/hdx-python-country
@@ -27,7 +27,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: hdx-python-utilities<5,>=4.2.1
+Requires-Dist: hdx-python-utilities<5,>=4.2.3
 Requires-Dist: tenacity
 Provides-Extra: docs
 Requires-Dist: mkapi; extra == 'docs'
@@ -55,7 +55,7 @@ fuzzy matching for English look up that can handle abbreviations in country name
 Dem. for Democratic and Rep. for Republic.
 
 Mapping administration level names from a source to a given base set is also handled
-including phonetic fuzzy name matching.
+including fuzzy name matching.
 
 It also provides foreign exchange rates and conversion from amounts in local
 currency to USD and vice-versa. The conversion relies on Yahoo Finance, falling

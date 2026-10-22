@@ -4,6 +4,7 @@ Pure Python tests: runs offline without torch or checkpoint downloads.
 
 Run: python tests/test_option_stability.py
 """
+import json
 import os
 import sys
 
@@ -373,6 +374,175 @@ with _test_warnings.catch_warnings(record=True) as _warn_records:
     hook_bogus.on_predict_start(ctx_bogus)
     check("normalization/bogus falls back to sequential", hook_bogus._plans[ctx_bogus.run_id]["ask"]["layout"], "sequential")
     check_true("normalization/bogus emits warning", any("unknown option_layout" in str(w.message) for w in _warn_records))
+
+
+# 7. Issue #1285: Preserve option labels when renaming choices without descriptions
+q_dict_none = {"type": "choice", "instructions": "Action?", "criteria": {"approve": None, "reject": None}}
+vq_none_rel, back_none_rel = OptionStabilityHook._variant_question(q_dict_none, ["approve", "reject"], relabel=True)
+check("issue1285/none_desc relabel preserves labels as descriptions", vq_none_rel["criteria"], {"A": "approve", "B": "reject"})
+check("issue1285/none_desc back map", back_none_rel, {"A": "approve", "B": "reject"})
+
+vq_none_ord, back_none_ord = OptionStabilityHook._variant_question(q_dict_none, ["reject", "approve"], relabel=False)
+check("issue1285/none_desc reorder preserves original keys and values", vq_none_ord["criteria"], {"reject": None, "approve": None})
+check("issue1285/none_desc reorder back map", back_none_ord, {"reject": "reject", "approve": "approve"})
+
+q_dict_empty = {"type": "choice", "instructions": "Action?", "criteria": {"approve": "", "reject": ""}}
+vq_empty_rel, _ = OptionStabilityHook._variant_question(q_dict_empty, ["approve", "reject"], relabel=True)
+check("issue1285/empty_str relabel preserves labels as descriptions", vq_empty_rel["criteria"], {"A": "approve", "B": "reject"})
+
+q_dict_ws = {"type": "choice", "instructions": "Action?", "criteria": {"approve": "   ", "reject": "  "}}
+vq_ws_rel, _ = OptionStabilityHook._variant_question(q_dict_ws, ["approve", "reject"], relabel=True)
+check("issue1285/whitespace relabel preserves labels as descriptions", vq_ws_rel["criteria"], {"A": "approve", "B": "reject"})
+
+q_list = {"type": "choice", "instructions": "Action?", "criteria": ["approve", "reject"]}
+vq_list_rel, _ = OptionStabilityHook._variant_question(q_list, ["approve", "reject"], relabel=True)
+check("issue1285/list and dict forms produce identical rename criteria", vq_none_rel["criteria"], vq_list_rel["criteria"])
+
+q_mixed = {"type": "choice", "instructions": "Action?", "criteria": {"approve": "Confirm order", "reject": None}}
+vq_mixed_rel, _ = OptionStabilityHook._variant_question(q_mixed, ["approve", "reject"], relabel=True)
+check("issue1285/mixed keeps text description and fills missing with label", vq_mixed_rel["criteria"], {"A": "Confirm order", "B": "reject"})
+
+q_falsy = {"type": "choice", "instructions": "Action?", "criteria": {"level_0": 0, "flag": False}}
+vq_falsy_rel, _ = OptionStabilityHook._variant_question(q_falsy, ["level_0", "flag"], relabel=True)
+check("issue1285/falsy numeric and boolean descriptions preserved", vq_falsy_rel["criteria"], {"A": 0, "B": False})
+
+# End-to-end hook execution with undescribed dict criteria (#1285)
+ctx_undescribed = PredictContext(
+    states=["Please confirm my invoice"],
+    questions={"action": {"type": "choice", "instructions": "Choose action", "criteria": {"approve": None, "reject": None}}},
+)
+hook_undescribed = OptionStabilityHook(accept=0.77, escalate=0.61, seed="undescribed-test")
+hook_undescribed.on_predict_start(ctx_undescribed)
+
+# Original question criteria must remain untouched
+check("issue1285/e2e original question criteria unchanged", ctx_undescribed.questions["action"]["criteria"], {"approve": None, "reject": None})
+# Injected rename variant questions have original labels as descriptions
+rename_variants = [q for k, q in ctx_undescribed.questions.items() if k.startswith("action::rel") and list(q["criteria"].keys())[0] == "A"]
+check_true("issue1285/e2e rename variants present", len(rename_variants) > 0)
+for rv in rename_variants:
+    check("issue1285/e2e rename variant preserves option semantic text", set(rv["criteria"].values()), {"approve", "reject"})
+
+# Simulate inference response and verify back-mapping restores original labels
+sim_answers = {}
+for qk, qv in ctx_undescribed.questions.items():
+    crit = qv["criteria"]
+    # Model chooses option representing "approve"
+    chosen_key = [k for k, v in crit.items() if (v == "approve" or k == "approve")][0]
+    other_key = [k for k in crit if k != chosen_key][0]
+    sim_answers[qk] = {
+        "type": "choice",
+        "choice": chosen_key,
+        "probabilities": {chosen_key: 0.9, other_key: 0.1},
+        "confidence": 0.8,
+        "answer_confidence": 0.9,
+    }
+
+ctx_undescribed.results = [{"model": "fake", "answers": sim_answers, "usage": {}}]
+hook_undescribed.on_predict_end(ctx_undescribed)
+
+ans_e2e = ctx_undescribed.results[0]["answers"]["action"]
+check("issue1285/e2e decoded choice is approve", ans_e2e["choice"], "approve")
+check("issue1285/e2e distinct choices is approve", ans_e2e["reliability"]["distinct_choices"], ["approve"])
+check("issue1285/e2e stability is 1.0", ans_e2e["reliability"]["stability"], 1.0)
+check("issue1285/e2e decision is ACCEPT", ans_e2e["reliability"]["decision"], "ACCEPT")
+
+# Parity check: list criteria vs dict-with-None criteria generate matching variants
+ctx_list_parity = PredictContext(
+    states=["Please confirm my invoice"],
+    questions={"action": {"type": "choice", "instructions": "Choose action", "criteria": ["approve", "reject"]}},
+)
+hook_list_parity = OptionStabilityHook(accept=0.77, escalate=0.61, seed="undescribed-test")
+hook_list_parity.on_predict_start(ctx_list_parity)
+check("issue1285/parity injected variant count matches", len(ctx_undescribed.questions), len(ctx_list_parity.questions))
+for (k1, q1), (k2, q2) in zip(sorted(ctx_undescribed.questions.items()), sorted(ctx_list_parity.questions.items())):
+    if k1.startswith("action::rel"):
+        c1, c2 = q1["criteria"], q2["criteria"]
+        if isinstance(c1, dict) and isinstance(c2, dict):
+            check("issue1285/parity rename criteria match %s" % k1, c1, c2)
+        else:
+            # Reorder probe: dict keys match list entries exactly
+            check("issue1285/parity reorder ordering matches %s" % k1, list(c1.keys()), list(c2))
+hook_list_parity.on_error(ctx_list_parity)
+
+
+# --------------------------------------------------------------- calibration precision and replay
+def precision_report(supports, accept=None, escalate=None):
+    """Use real hook aggregation over simulated per-variant model probabilities."""
+    precision_hook = OptionStabilityHook(accept=accept, escalate=escalate, variants="fast")
+    precision_ctx = PredictContext(states=["Keep the request"], questions={
+        "action": {"type": "choice", "instructions": "Which action?",
+                   "criteria": {"keep": "keep request", "defer": "defer request"}},
+    })
+    precision_hook.on_predict_start(precision_ctx)
+    assert len(precision_ctx.questions) == len(supports) == 3
+    answers = {}
+    for (qid, question), support in zip(precision_ctx.questions.items(), supports):
+        target = next(k for k, value in question["criteria"].items() if value == "keep request")
+        other = next(k for k in question["criteria"] if k != target)
+        answers[qid] = {"type": "choice", "choice": target if support >= 0.5 else other,
+                        "probabilities": {target: support, other: 1.0 - support}}
+    precision_ctx.results = [{"answers": answers, "usage": {}}]
+    precision_hook.on_predict_end(precision_ctx)
+    return precision_ctx.results[0]["answers"]["action"]["reliability"]
+
+
+# The individual probabilities have four decimal places; their mean generally does not.
+# A saved report must reproduce the live decision without changing caller-supplied cuts.
+for name, supports, accept, escalate, expected in (
+    ("accept round-up", [0.7999, 0.8, 0.8], 0.8, 0.6, "VERIFY"),
+    ("escalate round-up", [0.5999, 0.6, 0.6], 0.8, 0.6, "ESCALATE"),
+    ("precise caller cut", [0.8001, 0.8, 0.8], 0.80002, 0.6, "ACCEPT"),
+    ("uncalibrated", [0.7999, 0.8, 0.8], None, None, None),
+):
+    report = precision_report(supports, accept, escalate)
+    restored = json.loads(json.dumps(report))
+    check("precision/%s live decision" % name, report["decision"], expected)
+    check("precision/%s reports the gated mean" % name, report["soft_stability"], sum(supports) / 3)
+    check("precision/%s JSON replay" % name,
+          decide_reliability(restored["soft_stability"], accept, escalate), expected)
+
+# Fit from persisted reports, then replay the exact same model outputs. The lower two
+# scores round to the same four-place value, but each is a distinct possible cutoff.
+calibration_supports = [
+    [0.8, 0.6, 0.7],
+    [0.8, 0.6, 0.7001],
+    [0.8, 0.6, 0.7002],
+]
+saved_reports = json.loads(json.dumps([precision_report(row) for row in calibration_supports]))
+saved_scores = [report["soft_stability"] for report in saved_reports]
+fitted = calibrate_reliability(saved_scores, [False, False, True],
+                              target_accuracy=1.0, max_escalate_accuracy=0.0)
+fitted = json.loads(json.dumps(fitted))
+check("precision/fitted accept is the observed upper mean", fitted[0], sum(calibration_supports[2]) / 3)
+check("precision/fitted escalate is the observed middle mean", fitted[1], sum(calibration_supports[1]) / 3)
+check("precision/JSON fit and hook replay preserve all three bands",
+      [precision_report(row, *fitted)["decision"] for row in calibration_supports],
+      ["ESCALATE", "VERIFY", "ACCEPT"])
+check("precision/escalate boundary is exclusive",
+      decide_reliability(fitted[1], *fitted), "VERIFY")
+check("precision/accept boundary is inclusive",
+      decide_reliability(fitted[0], *fitted), "ACCEPT")
+
+# Rounding a sole candidate up can leave no retained row; rounding nearby candidates
+# down can merge a wrong row into a group that has a valid perfect-accuracy cutoff.
+for name, values, labels, expected_cut in (
+    ("round-up retains a lone correct row", [0.80006], [True], 0.80006),
+    ("round-down keeps nearby scores separable", [0.80001, 0.80002], [False, True], 0.80002),
+):
+    accept, escalate = calibrate_reliability(values, labels, target_accuracy=1.0)
+    check("precision/calibrate %s" % name, accept, expected_cut)
+    accepted = [ok for value, ok in zip(values, labels)
+                if decide_reliability(value, accept, escalate) == "ACCEPT"]
+    check("precision/calibrate %s retained group" % name, accepted, [True])
+
+check("precision/exact ties cannot be split",
+      calibrate_reliability([0.8, 0.8], [False, True], target_accuracy=1.0), (1.01, 0.0))
+check("precision/duplicate scores enter as a whole group",
+      calibrate_reliability([0.8, 0.8], [False, True], target_accuracy=0.5), (0.8, 0.0))
+check("precision/zero and one retain their boundary cuts",
+      calibrate_reliability([0.0, 1.0], [False, True], target_accuracy=1.0), (1.0, 0.0))
+check("precision/zero is accepted at a zero cutoff", decide_reliability(0.0, 0.0, 0.0), "ACCEPT")
+check("precision/sentinel accepts no probability", decide_reliability(1.0, 1.01, 0.0), "VERIFY")
 
 
 # --------------------------------------------------------------- report

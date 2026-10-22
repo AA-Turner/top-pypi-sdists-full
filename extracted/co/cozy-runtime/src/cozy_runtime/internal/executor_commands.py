@@ -1,8 +1,7 @@
-"""The worker's commands to its executor, decoded once where the executor reads them.
+"""The machine's commands to its executor, decoded once where the executor reads them.
 
-Each struct is the canonical-JSON frame `seam.py` carries, tagged by `cmd`. An omitted
-field is its default, so an executor pinned to an older Runtime reads the same bytes, and
-a field a newer worker adds is ignored.
+Each struct is the canonical-JSON frame `seam.py` carries, tagged by `cmd`; an omitted field
+is its default.
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ from msgspec import UNSET, UnsetType
 
 from cozy_runtime.author._assets import FileState, GrantedInput, InputMetadata
 from cozy_runtime.author._services import MAX_OUTPUT_BYTES
+from cozy_runtime.internal.attention import Choice
 from cozy_runtime.internal.canonical import Json
 
 _MANIFEST = Annotated[str, msgspec.Meta(pattern="^sha256:[0-9a-f]{64}$")]
@@ -24,6 +24,27 @@ type Custody = Literal["canonical", "local"]
 
 class Command(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True, tag_field="cmd"):
     """One worker command; `cmd` names it."""
+
+
+class TensorFSOptions(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
+    """Ordinary endpoint settings and an already supplied bearer credential."""
+
+    endpoint: str
+    token: str | None = None
+    #: when `token` expires (0: unknown)
+    expires_unix_ms: int = 0
+    ca_der: str | None = None
+
+    def __repr__(self) -> str:
+        return f"TensorFSOptions(endpoint={self.endpoint!r}, token=<redacted>)"
+
+
+class Supplied(msgspec.Struct, frozen=True, kw_only=True):
+    """A signer's bearer for one endpoint, read off the seam in order (`Mux`): a `bearer` frame
+    (TensorD's newer one, unanswered) or what a Load or Invoke carries."""
+
+    actor: str = ""
+    tensorfs: TensorFSOptions | None = None
 
 
 class Hello(Command, frozen=True, kw_only=True, tag="hello"):
@@ -39,23 +60,15 @@ class Probe(Command, frozen=True, kw_only=True, tag="probe"):
     collect: bool = False
 
 
-class Residency(Command, frozen=True, kw_only=True, tag="residency"):
-    pass
-
-
-class Warm(Command, frozen=True, kw_only=True, tag="warm"):
-    """An older worker's startup warm. Never sent now; answered so that worker still runs."""
-
-
 class Join(Command, frozen=True, kw_only=True, tag="join"):
     port: int
     backend: str = "nccl"
-    #: A budget cell memfd follows this command: the follower's own (`RANK_CELLS`).
-    cell: bool = False
+    #: The follower's GPU ledger memfd and eventfd follow this command: it claims its row there.
+    ledger: bool = False
     #: A socket follows: a byte on it aborts this follower's collectives (`RankGroup.interrupt`).
     abort: bool = False
-    #: The group forms again after a call ran out of memory: device bytes to give back first.
-    room: int = -1
+    #: The group forms again after a call ended short of memory (`mirror.mirror_component`).
+    again: bool = False
     #: The NCCL route rank 0 chose from the group's measured links; set before joining.
     nccl: dict[str, str] = {}
     #: Every GPU then times NCCL against its copy engines (`copy_engine.calibrate`).
@@ -71,79 +84,27 @@ class Fork(Command, frozen=True, kw_only=True, tag="fork"):
     environment: dict[str, str]
 
 
-class DescribeInstalled(Command, frozen=True, kw_only=True, tag="describe_installed"):
-    distribution: str
-    output: str
-    application: str = ""
-
-
-class Vacate(Command, frozen=True, kw_only=True, tag="vacate"):
-    residents: bool = True
-    #: the group ranks that give their weights back; empty is every rank
-    ranks: tuple[int, ...] = ()
-
-
-class Restore(Command, frozen=True, kw_only=True, tag="restore"):
-    names: tuple[str, ...] = ()
-
-
-class Budget(Command, frozen=True, kw_only=True, tag="budget"):
-    """This executor's weight-plane budgets (`weight_plane/1`). Lowering unmaps at once."""
-
-    #: -1 is no grant: each stage derives its own from what the driver has free
-    vram_bytes: int
-    #: -1 leaves the pinned host tier's budget as it is
-    pinned_bytes: int = -1
-    #: The process's device cap (`PROCESS_CAP`); -1 lifts it, unset leaves it as it is
-    cap_bytes: int | UnsetType = UNSET
-    #: Per GPU of a group, its own process cap (index = rank, `RANK_CELLS`); a rank past the
-    #: end takes `cap_bytes`.
-    rank_caps: tuple[int, ...] = ()
-    #: Physical free bytes the owner keeps on the GPU (`PROCESS_CAP`); unset leaves it
-    floor_bytes: int | UnsetType = UNSET
-
-
-#: An executor capability: a group's followers obey their own GPU's cap and budget cell: the
-#: owner's `Start.rank_cells` and the `rank_caps` of `Load`, `Budget` and `Invoke`.
-RANK_CELLS = "rank_cells/1"
-
-#: An executor capability: it holds its whole device footprint (CUDA context, torch's reserved
-#: bytes, the plane's maps) inside `cap_bytes`, every plane budget and torch's allocator with it.
-PROCESS_CAP = "process_cap/1"
-
-
-class Share(Command, frozen=True, kw_only=True, tag="share"):
-    """Offer the machine every GPU region this executor filled and has not shared yet
-    (`weights.attach/1`): they outlive the process and other executors attach them."""
-
-
-class Revoke(Command, frozen=True, kw_only=True, tag="revoke"):
-    """Stop using the shared GPU memory of one layout (`weights.revoke/1`), or of only its
-    `regions` (`weights.trim/1`): finish queued work, unmap, release, then answer; later uses
-    fill a private copy."""
-
-    layout: str
-    generation: int = 0
-    regions: tuple[int, ...] = ()
-
-
 class Map(Command, frozen=True, kw_only=True, tag="map"):
-    """Map one loaded construction's weights onto the GPU now, inside `cap_bytes`, as its
-    first stages would (`MAP`): nothing runs, and they stay mapped as after a call."""
+    """TensorD's warming: one loaded construction's models at `level` (`Memory.load`): `gpu`
+    is warm and fills free room now, `ram` leaves its resident pages idle."""
 
     construction: str
-    #: The process's device cap (`PROCESS_CAP`); -1 lifts it
-    cap_bytes: int = -1
-    #: Physical free bytes the owner keeps on the GPU; unset leaves it
-    floor_bytes: int | UnsetType = UNSET
-
-
-#: An executor capability: it maps a loaded construction ahead of a request (`Map`).
-MAP = "weights.map/1"
+    level: Literal["gpu", "ram"] = "gpu"
 
 
 class Unload(Command, frozen=True, kw_only=True, tag="unload"):
     construction: str
+
+
+class KeepWeights(Command, frozen=True, kw_only=True, tag="keep_weights"):
+    construction: str
+
+
+class RequestMemory(Command, frozen=True, kw_only=True, tag="request_memory"):
+    construction: str
+    request_id: str
+    phase: Literal["begin", "plan", "end"]
+    steps: tuple[tuple[str, ...], ...] = ()
 
 
 class Activate(Command, frozen=True, kw_only=True, tag="activate"):
@@ -154,12 +115,23 @@ class Activate(Command, frozen=True, kw_only=True, tag="activate"):
 
 
 class Attention(Command, frozen=True, kw_only=True, tag="attention"):
-    """A follower's attention: adopt rank 0's kernels, hold a `pin`, or restore (neither)."""
+    """A follower's attention: install rank 0's whole selection (`adopt`), hold a `pin`, or
+    restore (neither)."""
 
     construction: str = ""
     pin: str | UnsetType = UNSET
     model_key: str | None = None
-    adopt: dict[str, str] | UnsetType = UNSET
+    adopt: Choice | UnsetType = UNSET
+
+
+class Kernels(Command, frozen=True, kw_only=True, tag="kernels"):
+    """A follower's deferred kernel installs (`Plan.when_ready`) at rank 0's boundary: which
+    of `sets` this GPU has built, or, with `install`, install those rank 0 installed."""
+
+    construction: str = ""
+    model_key: str | None = None
+    sets: tuple[str, ...] = ()
+    install: bool = False
 
 
 class Release(msgspec.Struct, frozen=True, kw_only=True):
@@ -183,12 +155,9 @@ class CallInterface(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=Tru
 
     module: str
     export: str
-    interface_digest: str = ""
     interface_document: Json = None
     interface_path: str = ""
     native_effect: bool = False
-    request_fields: tuple[str, ...] | None = None
-    unavailable: str = ""
     builtin: str = ""
     self_call: bool = msgspec.field(default=False, name="self")
 
@@ -209,14 +178,14 @@ class Start(Command, frozen=True, kw_only=True, tag="start"):
     sequence_parallel_degree: int = 1
     application: str = ""
     package_interface: str = ""
-    #: Import torch, the Runtime and the package and stop: no device is touched. Sent only to
-    #: an executor whose hello lists `import_only`; an older one would ignore it and start.
+    #: Import torch, the Runtime and the package and stop: no device is touched.
     import_only: bool = False
-    #: Absent from an older Worker: the executor keeps its in-memory tier at its default.
+    #: Absent: the executor keeps its in-memory tier at its default.
     memo: MemoSettings | None = None
-    #: The owner keeps one budget cell per GPU of a group (`RANK_CELLS`): rank 0 creates each
-    #: follower's at formation, hands it to its owner (`BudgetCell.rank`) and to the follower.
-    rank_cells: bool = False
+    #: Its GPUs' ledgers follow the frame, a memfd and an eventfd per GPU in `devices` order
+    #: (memory-varena §5.6): rank 0 claims its row in the first and hands follower r the r-th.
+    ledgers: int = 0
+    memory_mode: Literal["shared", "dedicated"] = "shared"
     #: The callables its attempts may call: their proxies are installed before the package is
     #: imported, and every attempt gets the call broker over them.
     call_interfaces: tuple[CallInterface, ...] = ()
@@ -240,8 +209,7 @@ class Adapter(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
 class Binding(Release, frozen=True, kw_only=True):
     """One model's construction: its class, where its weights are, and how to fill them.
 
-    A weightless binding names only its release and an empty `model_class`. Every field is
-    written, defaults included: executors of older Runtimes index them directly.
+    A weightless binding names only its release and an empty `model_class`.
     """
 
     model_class: str = ""
@@ -263,11 +231,6 @@ class Binding(Release, frozen=True, kw_only=True):
     package: str = ""
     model: str = ""
     adapters: tuple[Adapter, ...] = ()
-    #: The read ring of executors before the weight plane; they index these directly.
-    window_bytes: int = 4 << 20
-    slots: int = 16
-    readers: int = 16
-    inflight: int = 8
 
     def parameter_names(self) -> tuple[str, ...]:
         """Every declared name for this shared construction, its primary first."""
@@ -278,14 +241,8 @@ class Binding(Release, frozen=True, kw_only=True):
         )
 
 
-class Budgets(msgspec.Struct, frozen=True, kw_only=True):
-    # Older executors read the wire key `declared_weight_bytes`; 0.18.69 and earlier index it.
-    logical_weight_bytes: int = msgspec.field(default=0, name="declared_weight_bytes")
-
-
 class ModelLoad(msgspec.Struct, frozen=True, kw_only=True):
     binding: Binding
-    budgets: Budgets = Budgets()
 
 
 class GroupHardware(msgspec.Struct, frozen=True, kw_only=True):
@@ -295,65 +252,32 @@ class GroupHardware(msgspec.Struct, frozen=True, kw_only=True):
     devices: tuple[str, ...]
 
 
-#: An executor capability: it applies `Load.pinned_bytes` before its weights register.
-LOAD_PINNED = "load_pinned/1"
 #: An executor capability: `Load.attention_pin` is the request's pin, whose kernel build it
 #: imports first; the construction itself still selects automatically.
 LOAD_ATTENTION_PIN = "attention.load_pin/1"
-#: An executor capability: it adopts the machine's sealed host layouts (`Load.sealed_tiers`).
-SEALED_TIERS = "host_tiers.sealed/1"
-#: An executor capability: it adopts a sealed host layout its machine is still filling, using
-#: each region once Ready; machines give other executors complete layouts only.
-SEALED_FILLING = "host_tiers.filling/1"
-#: An executor capability: it reads the holes of a layout staged in part from the object files
-#: its machine hands over, so the machine stages only the regions it streams.
-SEALED_STAGED = "host_tiers.staged/1"
 
 
 class Load(Command, frozen=True, kw_only=True, tag="load"):
-    """Ask Runtime to construct models and register their weight layouts from supplied data.
-    TensorD supplies source/buffer access and budgets; Runtime performs device operations
-    through TensorFS. The command names one model (`binding`) or several (`models`)."""
+    """Ask Runtime to construct models and register their weights with its memory, read through
+    TensorFS. The command names one model (`binding`) or several (`models`)."""
 
     construction: str
+    tensorfs: TensorFSOptions | None = None
+    #: the signer whose bearer `tensorfs` carries
+    actor: str = ""
     devices: str = ""
-    authorized_device_limit_bytes: int | UnsetType = UNSET
     sequence_parallel_degree: int = 1
     #: the pin of the request this executor loads for (`LOAD_ATTENTION_PIN`)
     attention_pin: str = ""
-    #: The one-model form. Executors before the typed commands index both keys directly, so a
-    #: worker always writes them for one model; a many-model load writes neither.
+    #: The one-model form; a many-model load names `models`.
     binding: Binding | UnsetType = UNSET
-    budgets: Budgets | UnsetType = UNSET
     models: tuple[ModelLoad, ...] | UnsetType = UNSET
     #: A follower's half: rank 0's hardware plan and, in a many-model load, which model.
     group: GroupHardware | UnsetType = UNSET
     model_key: str | UnsetType = UNSET
-    #: The pinned host tier's budget (`LOAD_PINNED`), applied before any weight set registers,
-    #: so a fill never pins past it; -1: none, the executor sizes its tier from the host.
-    pinned_bytes: int = -1
-    #: TensorD retains exported GPU allocation handles (`weights.attach/1`); Runtime's
-    #: plane attaches/maps those regions (`DeviceTier`). Older peers may omit this.
-    device_weights: bool = False
-    #: TensorD prepares/retains sealed CPU layouts (`SEALED_TIERS`). Runtime adopts the
-    #: buffer read-only (`SealedTier`); a managed executor has no implicit Store fallback.
-    sealed_tiers: bool = False
-    #: TensorD supplies actual header/model-asset bytes (`ModelSource`). Required for new
-    #: model-bearing construction; weightless loads need no model-source access.
-    model_sources: bool = False
-    #: TensorD stages shared CPU layouts in part and supplies read-only object files
-    #: (`SealedStage`, `ObjectFiles`). Runtime's plane uses them for unstaged regions.
-    staged_tiers: bool = False
-    #: The process's device cap for the load (`PROCESS_CAP`); unset: none given
-    cap_bytes: int | UnsetType = UNSET
-    #: Per GPU of a group, its own cap for the load (index = rank, `RANK_CELLS`)
-    rank_caps: tuple[int, ...] = ()
 
     def single(self) -> ModelLoad:
-        return ModelLoad(
-            binding=Binding() if isinstance(self.binding, UnsetType) else self.binding,
-            budgets=Budgets() if isinstance(self.budgets, UnsetType) else self.budgets,
-        )
+        return ModelLoad(binding=Binding() if isinstance(self.binding, UnsetType) else self.binding)
 
     def rows(self) -> tuple[ModelLoad, ...]:
         return (self.single(),) if isinstance(self.models, UnsetType) else self.models
@@ -400,6 +324,7 @@ class PrepareRequest(_Attempt, frozen=True, kw_only=True, tag="prepare_request")
 
 class Invoke(_Attempt, frozen=True, kw_only=True, tag="invoke"):
     entrypoint: str
+    tensorfs: TensorFSOptions | None = None
     spool: str
     deadline_s: float | None
     inputs: dict[str, InputFile] = {}
@@ -411,53 +336,28 @@ class Invoke(_Attempt, frozen=True, kw_only=True, tag="invoke"):
     construction: str = ""
     attention_kernel: str = ""
     bits: int = 0  # as `PrepareRequest.bits`
-    #: The weight plane's device budget for this attempt; -1: the executor derives it.
-    plane_budget_bytes: int = -1
-    #: The process's device cap for this attempt (`PROCESS_CAP`); -1: none
-    cap_bytes: int = -1
-    #: Per GPU of a group, its own cap for this attempt (index = rank, `RANK_CELLS`)
-    rank_caps: tuple[int, ...] = ()
-    #: Physical free bytes the owner keeps on the GPU; -1: only a display's own floor
-    floor_bytes: int = -1
-    #: Activation growth per stage method the owner measured for this request's shape in
-    #: earlier processes: a floor under this executor's own estimates, never a cap
-    activation_bytes: dict[str, int] = {}
-    #: Per stage method, the most room torch had when an entry of it squeezed in an earlier
-    #: process at this request's shape (`Weights.squeezed`): its entries are given more
-    squeezed_bytes: dict[str, int] = {}
-    #: The owner's Degree 2 for this attempt (`weights.attach/1`): True keeps GPU weights
-    #: with the machine (attached, and offered at each stage's exit), False keeps them private
-    #: (they stream); unset leaves the executor's current setting.
-    device_weights: bool | UnsetType = UNSET
-    #: Read only by executors before the weight plane.
-    placement: str = "all_resident"
-    headroom_bytes: int = 0
-    scope_headroom_bytes: dict[str, int] = {}
-    measured_scopes: tuple[str, ...] = ()
-    #: Each `Weights[M]` parameter's checkpoint, read through the owner's source channel.
+    #: Each `Weights[M]` parameter's checkpoint, opened directly through TensorFS.
     sources: dict[str, _MANIFEST] = {}
     #: The weights outputs this attempt may write, and each one's granted new bytes.
     weights: dict[str, int] = {}
+    destination: str = ""
+    actor: str = ""
+    operation: str = ""
 
 
 type KnownCommand = (
     Hello
     | Shutdown
     | Probe
-    | Residency
-    | Warm
     | Join
     | Fork
-    | DescribeInstalled
-    | Vacate
-    | Restore
-    | Budget
-    | Share
-    | Revoke
     | Map
     | Unload
+    | KeepWeights
+    | RequestMemory
     | Activate
     | Attention
+    | Kernels
     | Start
     | Load
     | PrepareRequest

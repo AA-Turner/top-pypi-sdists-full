@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-googleanalytics
-Version: 0.5
+Version: 0.6
 Summary: Sphinx extension googleanalytics
 Author-email: Domen Kozar <domen@dev.si>
 Maintainer-email: Jelmer Vernooĳ <jelmer@jelmer.uk>

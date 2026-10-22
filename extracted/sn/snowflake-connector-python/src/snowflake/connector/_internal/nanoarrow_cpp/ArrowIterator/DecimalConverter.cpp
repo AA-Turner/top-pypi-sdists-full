@@ -1,6 +1,7 @@
 #include "DecimalConverter.hpp"
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "Python/Common.hpp"
@@ -12,12 +13,14 @@ DecimalBaseConverter::DecimalBaseConverter() : m_pyDecimalConstructor(initPyDeci
 
 py::UniqueRef& DecimalBaseConverter::initPyDecimalConstructor() {
   static py::UniqueRef pyDecimalConstructor;
-  if (pyDecimalConstructor.empty()) {
+  // The empty check races when the GIL does not serialize this init.
+  static std::once_flag onceFlag;
+  std::call_once(onceFlag, []() {
     py::UniqueRef decimalModule;
     py::importPythonModule("decimal", decimalModule);
     py::importFromModule(decimalModule, "Decimal", pyDecimalConstructor);
     Py_XINCREF(pyDecimalConstructor.get());
-  }
+  });
 
   return pyDecimalConstructor;
 }

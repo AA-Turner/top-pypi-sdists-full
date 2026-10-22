@@ -629,13 +629,17 @@ def _arr_fsb(values, *, params) -> pa.Array:
     return pa.array(values, type=pa.binary(params["width"]))
 
 def _arr_uuid_lo_hi(values, *, params) -> pa.Array:
+    # The column carries the `arrow.uuid` extension label, which requires
+    # canonical RFC-4122 storage. Let the uuid library produce the bytes so
+    # the harness makes no byte-order choice of its own; the client swaps
+    # to QWP wire order internally.
     payload: List[Optional[bytes]] = []
     for v in values:
         if v is None:
             payload.append(None)
         else:
             lo, hi = v
-            payload.append(lo.to_bytes(8, "little") + hi.to_bytes(8, "little"))
+            payload.append(uuid.UUID(int=(hi << 64) | lo).bytes)
     return pa.array(payload, type=pa.binary(16))
 
 def _arr_timestamp(values, *, params) -> pa.Array:
@@ -821,21 +825,11 @@ def _cmp_ipv4_sentinel(a, e, *, params):
     return int(a) == int(e)
 
 
-def _cmp_geohash_sentinel(a, e, *, params):
-    bits = params["bits"]
-    storage_w = 8 if bits <= 7 else 16 if bits <= 15 else 32 if bits <= 32 else 64
-    storage_sentinel = (1 << storage_w) - 1
-    def _is_null(v):
-        if v is None:
-            return True
-        try:
-            return int(v) == storage_sentinel
-        except (TypeError, ValueError):
-            return False
-    if _is_null(a) and _is_null(e):
-        return True
+def _cmp_geohash(a, e, *, params):
+    # Byte-aligned GEOHASH ingress uses an explicit validity bitmap, so the
+    # maximum value is distinct from the all-ones no-bitmap null sentinel.
     if a is None or e is None:
-        return False
+        return a is None and e is None
     return int(a) == int(e)
 
 def _is_null_or_nan(v):
@@ -1102,6 +1096,11 @@ def _md_none(p):
 def _md_char(p):
     return {b"questdb.column_type": b"char"}
 
+def _md_long256(p):
+    # LONG256 has no Arrow extension type; without this claim a
+    # FixedSizeBinary(32) column is opaque bytes and lands as BINARY.
+    return {b"questdb.column_type": b"long256"}
+
 def _md_ipv4(p):
     return {b"questdb.column_type": b"ipv4"}
 
@@ -1134,7 +1133,7 @@ def _make_geohash_spec(bits: int) -> KindSpec:
         value_generator=_vg_geohash,
         arrow_array_builder=_arr_geohash_int,
         ilp_setter=_set_geohash,
-        compare_fn=_cmp_geohash_sentinel,
+        compare_fn=_cmp_geohash,
         params={"bits": bits, "arrow_dtype": arrow_dtype},
     )
 
@@ -1226,7 +1225,7 @@ def _build_kind_registry() -> Dict[str, KindSpec]:
     )
     reg["long256"] = KindSpec(
         "long256", "LONG256",
-        _ty_fsb32, _md_none,
+        _ty_fsb32, _md_long256,
         _vg_fixed_bytes(32), _arr_fsb, _set_long256,
         compare_fn=_cmp_uuid_bytes,
         params={"width": 32},

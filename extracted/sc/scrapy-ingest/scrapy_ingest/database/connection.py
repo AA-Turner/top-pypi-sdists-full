@@ -52,6 +52,16 @@ class DBConnection:
         return cls._instance
 
     @classmethod
+    def open(cls, db_url: Optional[str] = None) -> "DBConnection":
+        """Independent connection (safe for multi-threaded dashboard reads)."""
+        conn = object.__new__(cls)
+        conn._db_url = db_url
+        conn._connection = None
+        conn._dialect = "postgres"
+        conn._initialize_connection()
+        return conn
+
+    @classmethod
     def reset_singleton(cls):
         if cls._instance is not None:
             try:
@@ -150,7 +160,7 @@ class DBConnection:
             return val.isoformat(sep=" ", timespec="seconds")
 
         sqlite3.register_adapter(datetime, _adapt_datetime)
-        conn = sqlite3.connect(str(path), timeout=30.0, isolation_level="DEFERRED")
+        conn = sqlite3.connect(str(path), timeout=30.0, check_same_thread=False)
         conn.execute("PRAGMA foreign_keys = ON")
         # DELETE journal: single ingest.db file (no -wal / -shm). Fine for typical crawls.
         conn.execute("PRAGMA journal_mode = DELETE")

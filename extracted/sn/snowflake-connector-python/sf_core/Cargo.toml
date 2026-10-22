@@ -186,7 +186,11 @@ glob = "0.3.3"
 rustls = { version = "0.23.20", features = ["aws_lc_rs"] }
 rustls-pemfile = "2.2.0"
 rustls-native-certs = "0.8"
-webpki-roots = "1.0.2"
+# Exact pin. The crates.io 0.103.16 crate requires aws-lc-rs ^1.18; the
+# workspace patch supplies 0.103.13 plus that release's distrusted-SPKI check
+# without that requirement. See sf_core/third_party/rustls-webpki.
+rustls-webpki = "=0.103.16"
+webpki-roots = "1.0.10"
 thiserror = "1.0.69"
 # Pin AWS-LC FIPS 3.6.0. Update this pin together with
 # EXPECTED_FIPS_MODULE_VERSION in tls::fips_tests.

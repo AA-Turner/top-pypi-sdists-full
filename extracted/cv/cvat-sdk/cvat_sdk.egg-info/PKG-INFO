@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cvat_sdk
-Version: 2.79.0
+Version: 2.80.0
 Summary: Software Development Kit for CVAT
 Author-email: "CVAT.ai Corporation" <support@cvat.ai>
 License-Expression: MIT
@@ -8,14 +8,13 @@ Project-URL: homepage, https://github.com/cvat-ai/cvat
 Keywords: OpenAPI,OpenAPI-Generator,CVAT
 Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: attrs>=21.4.0
 Requires-Dist: packaging>=21.3
 Requires-Dist: Pillow>=10.3.0
 Requires-Dist: platformdirs>=2.1.0
 Requires-Dist: tqdm>=4.64.0
-Requires-Dist: typing_extensions>=4.2.0
 Requires-Dist: python_dateutil>=2.5.3
 Requires-Dist: urllib3>=1.25.3
 Provides-Extra: masks

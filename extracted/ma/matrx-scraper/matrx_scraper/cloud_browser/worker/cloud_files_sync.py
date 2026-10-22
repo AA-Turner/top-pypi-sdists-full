@@ -347,9 +347,14 @@ class CloudFilesSync:
         self._refused: dict[str, tuple[Any, str]] = {}
         #: Cloud rows that failed to apply; retried next pull (the cursor moved on).
         self._retry_rows: dict[str, dict[str, Any]] = {}
-        #: When each recent delete was sent (monotonic seconds), for the window cap.
+        #: When each recent delete was sent (epoch seconds), for the window cap.
+        #: Persisted: a worker restart never resets the window (review 3 D4).
         self._recent_deletes: list[float] = []
-        self._clock = time.monotonic
+        self._clock = time.time
+        #: Held files a restore could not bring back (review 3 D1): they stay held
+        #: and are retried; they never become a cloud delete unless the person
+        #: confirms that exact hold. Persisted.
+        self._unrestored: set[str] = set()
         #: Work in flight, for the machine's activity reading (never stop mid-transfer).
         self.pending_uploads = 0
         self.transfers = 0
@@ -370,6 +375,8 @@ class CloudFilesSync:
         self.initial_done = bool(data.get("initial_done"))
         self.halt = data.get("halt") or None
         self._retry_rows = {r["file_path"]: r for r in (data.get("retry") or []) if r.get("file_path")}
+        self._recent_deletes = [float(t) for t in (data.get("recent_deletes") or [])]
+        self._unrestored = set(data.get("unrestored") or [])
         for rel, raw in (data.get("files") or {}).items():
             self.entries[rel] = Entry(**{k: v for k, v in raw.items() if k in Entry.__dataclass_fields__})
 
@@ -379,6 +386,8 @@ class CloudFilesSync:
             "initial_done": self.initial_done,
             "halt": self.halt,
             "retry": list(self._retry_rows.values()),
+            "recent_deletes": list(self._recent_deletes),
+            "unrestored": sorted(self._unrestored),
             "files": {rel: dict(e.__dict__) for rel, e in sorted(self.entries.items())},
         }
 
@@ -849,8 +858,14 @@ class CloudFilesSync:
     def _gate_deletes(self, missing: list[str], known: dict[str, Entry]) -> tuple[list[str], dict[str, Any] | None]:
         """Which local deletes may reach the cloud this pass, and why the rest are held."""
         now_missing = set(missing)
-        seen_twice = sorted(now_missing & self._missing_last)
+        both = now_missing & self._missing_last
         self._missing_last = now_missing
+        # A file a restore could not bring back is never a delete candidate: only
+        # the person's confirmation of that exact hold lets it through (D1).
+        self._unrestored -= {r for r in both if r in self._confirmed_deletes}
+        self._unrestored &= now_missing  # back on disk (or gone from the cloud): done
+        pending = sorted(self._unrestored)
+        seen_twice = sorted(both - self._unrestored)
         if not seen_twice and now_missing and self.halt:
             # A new process after a hold: keep holding while it re-confirms.
             return [], {k: v for k, v in self.halt.items() if k != "since"}
@@ -858,8 +873,9 @@ class CloudFilesSync:
         candidates = [r for r in seen_twice if r not in self._confirmed_deletes]
         self._confirmed_deletes &= now_missing
         def hold(reason: str, sample: list[str], **extra: Any) -> dict[str, Any]:
-            return {"reason": reason, "held": len(candidates), "sample": sample[:5],
-                    "paths": candidates, "hold_id": hold_id_for(candidates), **extra}
+            paths = candidates + pending
+            return {"reason": reason, "held": len(paths), "sample": sample[:5],
+                    "paths": paths, "hold_id": hold_id_for(paths), **extra}
 
         unhealthy = [r for r in candidates if not self._folder_is_healthy(r, known)]
         if unhealthy:
@@ -871,6 +887,11 @@ class CloudFilesSync:
             # Dripped a few per pass: still more than the cap inside the window.
             return confirmed, hold("mass_delete", candidates, cap=cap,
                                    window_seconds=self.knobs.delete_window_seconds)
+        if pending:
+            # The allowed ones go now; the files a restore could not bring back stay held.
+            return confirmed + candidates, {
+                "reason": "restore_failed", "held": len(pending), "sample": pending[:5],
+                "paths": pending, "hold_id": hold_id_for(pending)}
         return confirmed + candidates, None
 
     def _deletes_in_window(self) -> int:
@@ -905,8 +926,12 @@ class CloudFilesSync:
 
     async def _restore(self, paths: list[str], *, auto: bool = False) -> int:
         """Bring the held files back from the cloud (copy or placeholder, by the
-        usual rule) and clear the hold. One file that fails is listed, not fatal."""
+        usual rule). One file that fails is listed, not fatal, and STAYS HELD
+        (``restore_failed``): it is retried every pass and never becomes a cloud
+        delete without the person (review 3 D1). The hold clears only when every
+        held file is back."""
         restored = 0
+        failed: list[str] = []
         for rel in paths:
             entry = self.entries.get(rel)
             try:
@@ -921,16 +946,24 @@ class CloudFilesSync:
                 placed.remote_checksum, placed.remote_size = entry.remote_checksum, entry.remote_size
                 placed.remote_updated = entry.remote_updated
                 restored += 1
+                self._unskip(rel, "could not restore")
             except (BridgeError, OSError, ValueError) as exc:
                 self._skip(rel, f"could not restore: {exc}")
+                failed.append(rel)
             self._missing_last.discard(rel)
         self.stats.restored += restored
         if auto:
             self.stats.auto_restored += restored
-        logger.warning("cloud files: held deletes resolved by RESTORE (%s files%s)",
-                       restored, ", automatically" if auto else "")
-        self.halt = None
+        logger.warning("cloud files: held deletes resolved by RESTORE (%s files%s, %s still held)",
+                       restored, ", automatically" if auto else "", len(failed))
+        self._unrestored = (self._unrestored - set(paths)) | set(failed)
         self._confirmed_deletes.clear()
+        if failed:
+            since = (self.halt or {}).get("since") or self._now().isoformat()
+            self.halt = {"reason": "restore_failed", "held": len(failed), "sample": failed[:5],
+                         "paths": failed, "hold_id": hold_id_for(failed), "since": since}
+        else:
+            self.halt = None
         await self.asave()
         return restored
 
@@ -1058,9 +1091,10 @@ class CloudFilesSync:
             self._set_halt(held)
             if self.halt != before:
                 await self.asave()
-            if self.halt and self._restore_due():
+            if self.halt and (self._restore_due() or self._unrestored):
                 # Nobody answered within the window: the folder gets the files
                 # back. Never a permanent disagreement, never a silent delete.
+                # A restore that failed for some files retries them every pass.
                 await self._restore(self._held_paths(), auto=True)
             self.stats.last_push_at = self._now().isoformat()
 
@@ -1110,7 +1144,10 @@ class CloudFilesSync:
 
 @dataclass
 class MachineFilesSession:
-    """The machine token, renewed at half-life through the bridge, kept in the home."""
+    """The machine token, renewed at half-life through the bridge, kept ONLY in this
+    process's memory: the home is the agent's home (same uid, sudo), so a token
+    written there is one an agent can read and delete cloud files with (review 3
+    D2). A ``session.json`` an older image left there is removed at start."""
 
     bridge: HttpBridge
     state_dir: Path
@@ -1125,13 +1162,13 @@ class MachineFilesSession:
         claims = token_claims(self.bridge.token)
         self.expires_at = float(claims.get("exp") or 0)
         self.organization_id = claims.get("org")
-        try:
-            stored = json.loads(self._file.read_text())
-            if float(stored.get("expires_at") or 0) > self.expires_at:
-                self.bridge.token = stored["token"]
-                self.expires_at = float(stored["expires_at"])
-        except (OSError, ValueError, KeyError):
-            pass
+        for stale in (self._file, self._file.with_suffix(".tmp")):
+            try:
+                stale.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                logger.error("cloud files: could not remove the old token file %s: %s", stale, exc)
 
     async def renew(self, *, force: bool = False) -> None:
         claims = token_claims(self.bridge.token)
@@ -1150,11 +1187,6 @@ class MachineFilesSession:
         self.bridge.token = answer["token"]
         self.expires_at = float(answer.get("expires_at") or token_claims(answer["token"]).get("exp") or 0)
         self.organization_id = answer.get("organization_id") or self.organization_id
-        self.state_dir.mkdir(parents=True, exist_ok=True)
-        tmp = self._file.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"token": self.bridge.token, "expires_at": self.expires_at}))
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, self._file)
         if self.sync is not None:
             self.sync.knobs = SyncKnobs.from_mapping(answer.get("knobs"))
             self.sync.knobs_loaded = True

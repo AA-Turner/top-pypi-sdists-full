@@ -1,13 +1,14 @@
 """
 Minimal WebGL fragment shader as the application background.
 
-**Pyodide only.** This demo uses Python's `js` interop to call the browser's
-WebGL2 API directly. There is no equivalent on desktop, where you would
-use PyOpenGL instead. To write a *single* source file that runs on both
-desktop (PyOpenGL) and Pyodide (WebGL2), see the companion example
-`webgl_background_shader.py` — it wraps a small adapter class around the
-WebGL2 context to expose a PyOpenGL-shaped API, so the rest of the demo
-body can be identical for both targets.
+The [Mandelbrot set](https://en.wikipedia.org/wiki/Mandelbrot_set), drawn by a fragment shader behind the GUI.
+**Pyodide only:** this demo calls the browser's
+[WebGL2](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API) API directly, through Python's `js`
+interop. On desktop, you would use PyOpenGL instead.
+
+To run the same source file on both desktop and Pyodide, see the companion
+example `webgl_background_shader.py`: it wraps the WebGL2 context in a small
+adapter with a PyOpenGL-like API.
 
 ## The shader
 
@@ -20,7 +21,7 @@ iteration
 $$z_{n+1} = z_n^{\\,2} + c, \\quad z_0 = 0$$
 
 stays bounded as $n \\to \\infty$. In practice the orbit either stays
-inside the disk $|z| \\le 2$ forever, or escapes to infinity — and the
+inside the disk $|z| \\le 2$ forever, or escapes to infinity, and the
 escape can be detected by the test $|z_n|^2 > 4$. We color each pixel by
 the iteration index $n$ at which it first escapes, with points that
 survive `MAX_ITER` steps drawn dark (likely inside the set).
@@ -39,7 +40,7 @@ WebGL spec guarantees that repeated `getContext("webgl2")` calls return
 the same context, so we share hello_imgui's GL state and framebuffer.
 No copies, no readback.
 """
-from imgui_bundle import hello_imgui, imgui, immapp, imgui_md
+from imgui_bundle import hello_imgui, imgui, immapp, rich_md
 from js import document, Float32Array  # type: ignore
 
 
@@ -170,19 +171,27 @@ def _docs_window():
     global _show_docs
     if not _show_docs:
         return
-    imgui.set_next_window_size(hello_imgui.em_to_vec2(48, 32), imgui.Cond_.first_use_ever)
+    # Centered, and at most the size of the screen (a phone)
+    viewport = imgui.get_main_viewport()
+    size = imgui.ImVec2(min(hello_imgui.em_size(48), viewport.work_size.x),
+                        min(hello_imgui.em_size(32), viewport.work_size.y))
+    imgui.set_next_window_pos(viewport.get_work_center(), imgui.Cond_.first_use_ever, imgui.ImVec2(0.5, 0.5))
+    imgui.set_next_window_size(size, imgui.Cond_.first_use_ever)
     expanded, _show_docs = imgui.begin("About this demo", _show_docs)  # type: ignore
     if expanded:
-        imgui_md.render_unindented(__doc__ or "")
+        rich_md.render(__doc__ or "")
     imgui.end()
 
 
 def gui():
     global _show_docs
     imgui.set_next_window_pos(hello_imgui.em_to_vec2(2.0, 2.0), imgui.Cond_.appearing)
+    # 26 em wide, at most the width of the screen (a phone); its height fits the content (0)
+    width = min(hello_imgui.em_size(26), imgui.get_main_viewport().work_size.x - hello_imgui.em_size(4))
+    imgui.set_next_window_size(imgui.ImVec2(width, 0), imgui.Cond_.appearing)
     imgui.begin("Minimal Mandelbrot")
-    imgui.text("Animated Mandelbrot zoom rendered as the app background.")
-    imgui.text("Pyodide WebGL2 + hello_imgui custom_background callback.")
+    imgui.text_wrapped("Animated Mandelbrot zoom rendered as the app background. "
+                       "Pyodide WebGL2 + hello_imgui custom_background callback.")
     _, _show_docs = imgui.checkbox("Show docs", _show_docs)
     imgui.text(f"FPS: {hello_imgui.frame_rate():.1f}")
     imgui.end()

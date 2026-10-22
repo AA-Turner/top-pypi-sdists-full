@@ -184,8 +184,6 @@ from types_boto3_es.client import ElasticsearchServiceClient
 from types_boto3_eventbridgev2.client import EventBridgeV2Client
 from types_boto3_events.client import EventBridgeClient
 from types_boto3_evs.client import EVSClient
-from types_boto3_finspace.client import FinspaceClient
-from types_boto3_finspace_data.client import FinSpaceDataClient
 from types_boto3_firehose.client import FirehoseClient
 from types_boto3_fis.client import FISClient
 from types_boto3_fms.client import FMSClient
@@ -452,7 +450,6 @@ from types_boto3_textract.client import TextractClient
 from types_boto3_timestream_influxdb.client import TimestreamInfluxDBClient
 from types_boto3_timestream_query.client import TimestreamQueryClient
 from types_boto3_timestream_write.client import TimestreamWriteClient
-from types_boto3_tnb.client import TelcoNetworkBuilderClient
 from types_boto3_transcribe.client import TranscribeServiceClient
 from types_boto3_transfer.client import TransferClient
 from types_boto3_translate.client import TranslateClient
@@ -3517,44 +3514,6 @@ class Session:
     ) -> EVSClient:
         """
         Create client for EVS service.
-        """
-
-    @overload
-    def client(
-        self,
-        service_name: Literal["finspace"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: Config | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> FinspaceClient:
-        """
-        Create client for Finspace service.
-        """
-
-    @overload
-    def client(
-        self,
-        service_name: Literal["finspace-data"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: Config | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> FinSpaceDataClient:
-        """
-        Create client for FinSpaceData service.
         """
 
     @overload
@@ -8362,25 +8321,6 @@ class Session:
     ) -> TimestreamWriteClient:
         """
         Create client for TimestreamWrite service.
-        """
-
-    @overload
-    def client(
-        self,
-        service_name: Literal["tnb"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: Config | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> TelcoNetworkBuilderClient:
-        """
-        Create client for TelcoNetworkBuilder service.
         """
 
     @overload

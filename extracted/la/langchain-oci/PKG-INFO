@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-oci
-Version: 0.3.2
+Version: 0.4.0
 Summary: An integration package connecting OCI and LangChain
 License-Expression: UPL-1.0
 License-File: LICENSE
@@ -14,7 +14,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: deepagents
 Requires-Dist: aiohttp (>=3.12.14)
-Requires-Dist: deepagents (>=0.6.1) ; (python_version >= "3.11" and python_version < "3.14") and (extra == "deepagents")
+Requires-Dist: deepagents (>=0.7.0) ; (python_version >= "3.11" and python_version < "3.14") and (extra == "deepagents")
 Requires-Dist: langchain (>=0.3.20,<1.0.0) ; python_version < "3.10"
 Requires-Dist: langchain (>=1.0.0,<2.0.0) ; python_version >= "3.10"
 Requires-Dist: langchain-core (>=0.3.78,<1.0.0) ; python_version < "3.10"
@@ -25,9 +25,10 @@ Requires-Dist: langchain-oracledb (>=1.3.0) ; extra == "deepagents"
 Requires-Dist: langgraph (>=0.2.0,<2.0.0)
 Requires-Dist: langgraph-oracledb (>=1.0.1) ; (python_version >= "3.10") and (extra == "deepagents")
 Requires-Dist: numpy (>=1.24)
-Requires-Dist: oci (>=2.173.0)
+Requires-Dist: oci (>=2.173.0) ; python_version < "3.10"
+Requires-Dist: oci (>=2.185.0) ; python_version >= "3.10"
 Requires-Dist: oci-openai (>=1.0.0)
-Requires-Dist: openai (>=2.6.1)
+Requires-Dist: openai (>=2.6.1,<3)
 Requires-Dist: opensearch-py (>=2.4.0) ; extra == "deepagents"
 Requires-Dist: pydantic (>=2,<3)
 Project-URL: Repository, https://github.com/oracle/langchain-oracle
@@ -287,14 +288,14 @@ text_vector = embeddings.embed_query("a photo of a cat")
 <sub>**Note:** Image embeddings require a multimodal model. Use `IMAGE_EMBEDDING_MODELS` to check supported models.</sub>
 
 ### 3c. Rerank Documents
-`OCIGenAIRerank` is a document compressor backed by OCI GenAI rerank models (e.g. `cohere.rerank-v3.5`, `cohere.rerank-v4.0-fast`, `cohere.rerank-v4.0-pro`). Use it standalone via `rerank()`/`arerank()` or plug it into a `ContextualCompressionRetriever`.
+`OCIGenAIRerank` is a document compressor backed by OCI GenAI rerank models (e.g. `cohere.rerank-v4.0-fast`, `cohere.rerank-v4.0-pro`). Use it standalone via `rerank()`/`arerank()` or plug it into a `ContextualCompressionRetriever`.
 
 ```python
 from langchain.retrievers import ContextualCompressionRetriever
 from langchain_oci import OCIGenAIRerank
 
 reranker = OCIGenAIRerank(
-    model_id="cohere.rerank-v3.5",
+    model_id="cohere.rerank-v4.0-fast",
     service_endpoint="https://inference.generativeai.us-chicago-1.oci.oraclecloud.com",
     compartment_id="ocid1.compartment.oc1..xxxxx",
     top_n=3,

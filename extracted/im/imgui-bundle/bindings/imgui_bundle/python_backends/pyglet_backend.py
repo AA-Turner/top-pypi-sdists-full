@@ -17,14 +17,14 @@ class PygletMixin(object):
     _gui_time = None
 
     MOUSE_CURSORS = {
-        imgui.MouseCursor_.arrow.value: Window.CURSOR_DEFAULT,
-        imgui.MouseCursor_.text_input.value: Window.CURSOR_TEXT,
-        imgui.MouseCursor_.resize_all.value: Window.CURSOR_SIZE,
-        imgui.MouseCursor_.resize_ns.value: Window.CURSOR_SIZE_UP_DOWN,
-        imgui.MouseCursor_.resize_ew.value: Window.CURSOR_SIZE_LEFT_RIGHT,
-        imgui.MouseCursor_.resize_nesw.value: Window.CURSOR_SIZE_DOWN_LEFT,
-        imgui.MouseCursor_.resize_nwse.value: Window.CURSOR_SIZE_DOWN_RIGHT,
-        imgui.MouseCursor_.hand.value: Window.CURSOR_HAND,
+        imgui.MouseCursor_.arrow: Window.CURSOR_DEFAULT,
+        imgui.MouseCursor_.text_input: Window.CURSOR_TEXT,
+        imgui.MouseCursor_.resize_all: Window.CURSOR_SIZE,
+        imgui.MouseCursor_.resize_ns: Window.CURSOR_SIZE_UP_DOWN,
+        imgui.MouseCursor_.resize_ew: Window.CURSOR_SIZE_LEFT_RIGHT,
+        imgui.MouseCursor_.resize_nesw: Window.CURSOR_SIZE_DOWN_LEFT,
+        imgui.MouseCursor_.resize_nwse: Window.CURSOR_SIZE_DOWN_RIGHT,
+        imgui.MouseCursor_.hand: Window.CURSOR_HAND,
     }
 
     def __init__(self):
@@ -166,22 +166,19 @@ class PygletMixin(object):
     def _set_pixel_ratio(self, window):
         window_size = window.get_size()
         self.io.display_size = window_size
-        # It is conceivable that the pyglet version will not be solely
-        # determinant of whether we use the fixed or programmable, so do some
-        # minor introspection here to check.
-        if hasattr(window, "get_viewport_size"):
-            viewport_size = window.get_viewport_size()
-            self.io.display_framebuffer_scale = compute_fb_scale(
-                window_size, viewport_size
-            )
-        elif hasattr(window, "get_pixel_ratio"):
-            self.io.display_framebuffer_scale = (
-                window.get_pixel_ratio(),
-                window.get_pixel_ratio(),
-            )
-        else:
-            # Default to 1.0 in this unlikely circumstance
-            self.io.display_fb_scale = (1.0, 1.0)
+        # Note: do not use window.scale (or get_pixel_ratio()): this is the DPI scale, and the window size
+        # may already be in pixels (e.g. with pyglet.options.dpi_scaling = "platform" on macOS)
+        self.io.display_framebuffer_scale = compute_fb_scale(window_size, window.get_framebuffer_size())
+
+    def _init_clipboard(self, window):
+        def get_clipboard_text(_ctx: imgui.internal.Context) -> str:
+            return window.get_clipboard_text()
+
+        def set_clipboard_text(_ctx: imgui.internal.Context, text: str) -> None:
+            window.set_clipboard_text(text)
+
+        imgui.get_platform_io().platform_get_clipboard_text_fn = get_clipboard_text
+        imgui.get_platform_io().platform_set_clipboard_text_fn = set_clipboard_text
 
     def _attach_callbacks(self, window):
         self._window = window
@@ -198,7 +195,7 @@ class PygletMixin(object):
         )
 
     def _handle_mouse_cursor(self):
-        if self.io.config_flags & imgui.ConfigFlags_.no_mouse_cursor_change.value:
+        if self.io.config_flags & imgui.ConfigFlags_.no_mouse_cursor_change:
             return
 
         mouse_cursor = imgui.get_mouse_cursor()
@@ -260,11 +257,11 @@ class PygletMixin(object):
         self._on_mouse_button(button, True)
         self.on_mouse_motion(x, y, dx, dy)
 
-    def on_mouse_scroll(self, x, y, mods, scroll):
-        self.io.add_mouse_wheel_event(0, -scroll)
+    def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
+        self.io.add_mouse_wheel_event(scroll_x, scroll_y)
 
     def on_resize(self, width, height):
-        self.io.display_size = width, height
+        self._set_pixel_ratio(self._window)
 
     def process_inputs(self):
         io = imgui.get_io()
@@ -284,6 +281,7 @@ class PygletProgrammablePipelineRenderer(PygletMixin, ProgrammablePipelineRender
     def __init__(self, window, attach_callbacks=True):
         super(PygletProgrammablePipelineRenderer, self).__init__()
         self._set_pixel_ratio(window)
+        self._init_clipboard(window)
         if attach_callbacks:
             self._attach_callbacks(window)
 

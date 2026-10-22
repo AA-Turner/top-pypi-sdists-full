@@ -46,14 +46,27 @@ class RuleRemoval:
 
 
 @dataclass(frozen=True, slots=True)
+class Provenance:
+    consumer_base_sha: str
+    catalog_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class Budget:
+    counts: dict[str, int]
+    provenance: Provenance | None
+
+
+@dataclass(frozen=True, slots=True)
 class _LoadedBaseline:
     text: str
     entries: list[object]
     fingerprints: dict[str, int]
+    provenance: Provenance | None
 
 
 def changed_line_scope(root: Path, *, staged: bool) -> ChangedLineScope | None:
-    base = os.environ.get("SARJ_STANDARDS_BASE", "").strip()  # ruff: ignore[banned-api]
+    base = os.environ.get("SARJ_STANDARDS_BASE", "").strip()  # ruff: ignore[banned-api] -- the Standards launcher reads its baseline-selection environment before consumer settings exist.
     if not staged and not base:
         return None
     if not staged and _GIT_SHA.fullmatch(base) is None:
@@ -73,13 +86,13 @@ def changed_line_scope(root: Path, *, staged: bool) -> ChangedLineScope | None:
         "--no-ext-diff",
         "--no-textconv",
     )
-    names = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
+    names = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- pass the fixed executable as an argv sequence with shell execution disabled.
         (*common, "--name-only", "-z", "--"),
         cwd=root,
         check=False,
         capture_output=True,
     )
-    patch = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true]
+    patch = subprocess.run(  # ruff: ignore[subprocess-without-shell-equals-true] -- pass the fixed executable as an argv sequence with shell execution disabled.
         (*common, "--unified=0", "--no-color", "--src-prefix=a/", "--dst-prefix=b/", "--"),
         cwd=root,
         check=False,
@@ -186,6 +199,22 @@ def load(
     ).fingerprints
 
 
+def load_budget(
+    path: Path,
+    *,
+    require_v2: bool = False,
+    expected_bundle_version: str | None = None,
+    expected_catalog_digest: str | None = None,
+) -> Budget:
+    document = _load_document(
+        path,
+        require_v2=require_v2,
+        expected_bundle_version=expected_bundle_version,
+        expected_catalog_digest=expected_catalog_digest,
+    )
+    return Budget(document.fingerprints, document.provenance)
+
+
 def _load_document(
     path: Path,
     *,
@@ -213,8 +242,10 @@ def _load_document(
     if require_v2 and schema_version != SCHEMA_VERSION:
         msg = "diagnostic baseline must use schemaVersion 2; run `code-standards baseline update`"
         raise ValueError(msg)
+    origin = None
     if schema_version == SCHEMA_VERSION:
         provenance = _validate_provenance(root.get("provenance"))
+        origin = Provenance(provenance["consumerBaseSha"], provenance["catalogDigest"])
         if expected_bundle_version is not None and provenance["bundleVersion"] != expected_bundle_version:
             msg = "diagnostic baseline bundle version does not match the executing Standards bundle"
             raise ValueError(msg)
@@ -225,7 +256,7 @@ def _load_document(
     if not is_object_list(entries):
         msg = "diagnostic baseline diagnostics must be a list"
         raise TypeError(msg)
-    return _LoadedBaseline(text, entries, _baseline_fingerprints(entries))
+    return _LoadedBaseline(text, entries, _baseline_fingerprints(entries), origin)
 
 
 def _read_baseline_text(path: Path) -> str:
@@ -426,7 +457,7 @@ def _validate_provenance(value: object) -> dict[str, str]:
 
 
 def repository_base_sha(root: Path) -> str:
-    explicit = os.environ.get("SARJ_STANDARDS_BASE", "").strip()  # ruff: ignore[banned-api]
+    explicit = os.environ.get("SARJ_STANDARDS_BASE", "").strip()  # ruff: ignore[banned-api] -- the Standards launcher reads its baseline-selection environment before consumer settings exist.
     if _GIT_SHA.fullmatch(explicit) is not None:
         return explicit
     git = shutil.which("git")

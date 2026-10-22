@@ -5,6 +5,7 @@ from collections import namedtuple
 import numpy as np
 from scipy import sparse
 
+from findiff.backend import get_namespace, is_array
 from findiff.compact import CompactScheme
 from findiff.findiff import build_differentiator
 from findiff.grids import GridAxis, make_grid
@@ -157,7 +158,8 @@ class Expression(ABC):
         # Restore operator to its original accuracy
         self.set_accuracy(original_acc)
 
-        error = np.abs(result_low - result_high)
+        xp = get_namespace(result_low)
+        error = xp.abs(result_low - result_high)
         return ErrorEstimate(result_low, error, result_high)
 
     def _has_compact_scheme(self):
@@ -330,21 +332,21 @@ class FieldOperator(Expression):
         self.value = value
 
     def __str__(self):
-        if isinstance(self.value, np.ndarray):
+        if is_array(self.value):
             return "f(x)"
         return str(self.value)
 
     def __call__(self, f, *args, **kwargs):
-        if isinstance(f, (numbers.Number, np.ndarray)):
+        if isinstance(f, numbers.Number) or is_array(f):
             return self.value * f
         return self.value * super().__call__(f, *args, **kwargs)
 
     def matrix(self, shape):
-        if isinstance(self.value, np.ndarray):
-            diag_values = self.value.reshape(-1)
+        if is_array(self.value):
+            diag_values = np.asarray(self.value).reshape(-1)
             return sparse.diags(diag_values)
         elif isinstance(self.value, numbers.Number):
-            siz = np.prod(shape)
+            siz = int(np.prod(shape))
             return sparse.diags(self.value * np.ones(siz))
 
 
@@ -390,9 +392,9 @@ class BinaryOperation(Expression):
 
 class Add(BinaryOperation):
     def __init__(self, left, right):
-        if isinstance(left, (numbers.Number, np.ndarray)):
+        if isinstance(left, numbers.Number) or is_array(left):
             left = FieldOperator(left)
-        if isinstance(right, (numbers.Number, np.ndarray)):
+        if isinstance(right, numbers.Number) or is_array(right):
             right = FieldOperator(right)
         super().__init__()
         self.children = [left, right]
@@ -409,9 +411,9 @@ class Add(BinaryOperation):
 
 class Mul(BinaryOperation):
     def __init__(self, left, right):
-        if isinstance(left, (numbers.Number, np.ndarray)):
+        if isinstance(left, numbers.Number) or is_array(left):
             left = FieldOperator(left)
-        if isinstance(right, (numbers.Number, np.ndarray)):
+        if isinstance(right, numbers.Number) or is_array(right):
             right = FieldOperator(right)
         super().__init__()
         self.children = [left, right]
@@ -436,7 +438,8 @@ class Diff(Expression):
 
     DEFAULT_ACC = 2
 
-    def __init__(self, dim, axis: GridAxis = None, acc=DEFAULT_ACC, scheme=None):
+    def __init__(self, dim, axis: GridAxis = None, acc=DEFAULT_ACC, scheme=None,
+                 boundary="one-sided"):
         """Initializes a Diff instance.
 
         Parameters
@@ -450,6 +453,12 @@ class Diff(Expression):
         scheme: CompactScheme or None
             Allows to activate the compact (implicit) finite difference scheme (see documentation
             for CompactScheme). If None, standard explicit finite differences will be used.
+        boundary: str
+            How points near a non-periodic boundary are treated: ``"one-sided"``
+            (default) uses one-sided stencils of accuracy order `acc`;
+            ``"centered"`` uses the widest centered stencil that fits, which is
+            less accurate near the boundary but keeps time-dependent problems
+            stable for high `acc`.
         """
         super().__init__()
 
@@ -459,6 +468,7 @@ class Diff(Expression):
         self._order = 1
         self._differentiator = None
         self.scheme = scheme
+        self.boundary = boundary
 
     def set_grid(self, grid):
         super().set_grid(grid)
@@ -513,7 +523,7 @@ class Diff(Expression):
     def differentiator(self):
         if self._differentiator is None:
             self._differentiator = build_differentiator(
-                self.order, self.axis, self.acc, self.scheme
+                self.order, self.axis, self.acc, self.scheme, self.boundary
             )
         return self._differentiator
 
@@ -525,18 +535,18 @@ class Diff(Expression):
         new_order = self.order * power
 
         if self.scheme:
-            new_scheme = CompactScheme.from_accuracy(
-                self.scheme.get_accuracy(self.order), new_order, len(self.scheme.left)
-            )
+            new_scheme = self.scheme.for_deriv(new_order)
         else:
             new_scheme = None
-        new_diff = Diff(self.dim, self.axis, acc=self.acc, scheme=new_scheme)
+        new_diff = Diff(self.dim, self.axis, acc=self.acc, scheme=new_scheme,
+                        boundary=self.boundary)
         new_diff._order = new_order
         return new_diff
 
     def __mul__(self, other):
         if isinstance(other, Diff) and self.dim == other.dim:
-            new_diff = Diff(self.dim, self.axis, acc=self.acc, scheme=self.scheme)
+            new_diff = Diff(self.dim, self.axis, acc=self.acc, scheme=self.scheme,
+                            boundary=self.boundary)
             new_diff._order += other.order
             return new_diff
         return super().__mul__(other)

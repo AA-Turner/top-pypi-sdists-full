@@ -3,6 +3,18 @@ set -euo pipefail
 
 # Cloud Computer root step, then the ordinary browser-worker entrypoint.
 #
+# FIRST, before anything starts: the machine files token (cloud_files:write) leaves
+# the environment. Every process that inherits an environment variable exposes it
+# in /proc/<pid>/environ, and agents run as the desktop user (with sudo), so the
+# token goes to a file only the worker takes (once, then deletes) and nothing
+# started here or later inherits it (review 3 D2; cloud_computer_launch.py).
+if [[ "$(id -u)" == "0" && -n "${MATRX_CLOUD_FILES_TOKEN:-}" ]]; then
+  install -d -m 0700 -o browser-worker -g browser-worker /run/cloud-computer-files
+  ( umask 077; printf '%s' "${MATRX_CLOUD_FILES_TOKEN}" > /run/cloud-computer-files/token )
+  chown browser-worker:browser-worker /run/cloud-computer-files/token
+fi
+unset MATRX_CLOUD_FILES_TOKEN
+#
 # The person's home (/home/browser-worker) is their own EFS access point. The
 # Chrome profile root lives INSIDE that home, so one access point carries home
 # and browser data and no machine ever mounts the shared browser-profiles volume.

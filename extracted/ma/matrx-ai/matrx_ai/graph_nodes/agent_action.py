@@ -108,6 +108,19 @@ class AgentStartConfig(BaseModel):
             "Leave unset unless 'nothing found' is a real answer here."
         ),
     )
+    # THE PER-STEP OPT-OUT of the frozen ``<org_catalog>`` intro (~5k tokens of org and scope
+    # ids) the host puts in a first turn's system prompt. Default True = today's behaviour for
+    # every existing step. A step whose job never reasons about the person's organizations
+    # (the Agent Studio build writers — the pipeline's ``run_mandate`` path never carried it)
+    # turns it off HERE, on the step that means it; nothing is removed engine-wide.
+    include_org_catalog: bool = Field(
+        default=True,
+        description=(
+            "Add the organization and scope catalog to this step's system prompt. Turn off "
+            "for a step that never needs to know the person's organizations; it saves about "
+            "5,000 tokens a call."
+        ),
+    )
 
 
 class AgentRunCommonInput(BaseModel):
@@ -876,6 +889,7 @@ def build_agent_request(
     top_config_overrides: dict[str, Any] | None = None,
     declared_variables: list[str] | None = None,
     variable_sources: dict[str, Literal["default", "connected", "custom"]] | None = None,
+    include_org_catalog: bool = True,
 ) -> Any:
     """Build the host ``AgentStartRequest`` for one workflow agent step.
 
@@ -987,6 +1001,10 @@ def build_agent_request(
     step_mandate_key = getattr(inputs, "mandate_key", None)
     if step_mandate_key:
         request._mandate_key = step_mandate_key
+    # The step's per-node opt-out of the org-catalog intro (``AgentStartConfig.include_org_catalog``),
+    # carried on the request's private channel; the host's ``prepare_agent_run`` reads it.
+    if not include_org_catalog:
+        request._include_org_catalog = False
     return request
 
 
@@ -1293,6 +1311,7 @@ async def agent_start(
         # the declaration a broadcast agent_result is projected onto.
         declared_variables=list(getattr(config, "exposed_variables", None) or []),
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
+        include_org_catalog=getattr(config, "include_org_catalog", True),
     )
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 

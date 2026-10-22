@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 from torch import Tensor
 
+from .tensor import _tensor_to_numpy
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +39,9 @@ def semantic_search_faiss(
     3. The corpus is quantized, i.e. the corpus precision is not float32
     Only if these conditions are true, will we search for `top_k * rescore_multiplier` samples and then rescore to only
     keep `top_k`.
+
+    Scalar-quantized candidates are dequantized before rescoring. Use the same `ranges` or
+    `calibration_embeddings` that were used to quantize the corpus.
 
     Args:
         query_embeddings: Embeddings of the query sentences. Ideally not
@@ -89,6 +94,7 @@ def semantic_search_faiss(
             "ubinary".
 
     The list of search results is in the format: [[{"corpus_id": int, "score": float}, ...], ...]
+    Each query yields at most `top_k` results, and fewer when the index holds fewer matches.
     The time taken for the search is a float value.
     """
     import faiss
@@ -106,7 +112,7 @@ def semantic_search_faiss(
             if exact:
                 corpus_index = faiss.IndexFlatIP(corpus_embeddings.shape[1])
             else:
-                corpus_index = faiss.IndexHNSWFlat(corpus_embeddings.shape[1], 16)
+                corpus_index = faiss.IndexHNSWFlat(corpus_embeddings.shape[1], 16, faiss.METRIC_INNER_PRODUCT)
 
         elif corpus_precision == "ubinary":
             if exact:
@@ -133,6 +139,8 @@ def semantic_search_faiss(
                     'and pass `corpus_precision="..."` to `semantic_search_faiss`.'
                 )
 
+        if rescore_embeddings is not None and corpus_precision == "uint8" and ranges is None:
+            ranges = _get_quantization_ranges(query_embeddings, corpus_precision, calibration_embeddings)
         query_embeddings = quantize_embeddings(
             query_embeddings,
             precision=corpus_precision,
@@ -162,18 +170,23 @@ def semantic_search_faiss(
                 for query_indices in indices
             ]
         )
-        # If the corpus precision is binary, we need to unpack the bits
+        # `np.packbits` padded the embedding dimension up to a whole byte, so trim those bits back off
         if corpus_precision == "ubinary":
-            top_k_embeddings = np.unpackbits(top_k_embeddings, axis=-1).astype(int)
-        else:
-            top_k_embeddings = top_k_embeddings.astype(int)
+            top_k_embeddings = np.unpackbits(top_k_embeddings, axis=-1)[..., : rescore_embeddings.shape[-1]]
+        top_k_embeddings = top_k_embeddings.astype(int)
+        if corpus_precision == "uint8":
+            top_k_embeddings = _dequantize_embeddings(
+                top_k_embeddings,
+                corpus_precision,
+                ranges,
+            )
 
         # rescore_embeddings: [num_queries, embedding_dim]
         # top_k_embeddings: [num_queries, top_k, embedding_dim]
         # updated_scores: [num_queries, top_k]
         # We use einsum to calculate the dot product between the query and the top_k embeddings, equivalent to looping
         # over the queries and calculating 'rescore_embeddings[i] @ top_k_embeddings[i].T'
-        rescored_scores = np.einsum("ij,ikj->ik", rescore_embeddings, top_k_embeddings)
+        rescored_scores = np.einsum("ij,ikj->ik", rescore_embeddings, top_k_embeddings).astype(np.float64, copy=False)
         # Disqualify the padding slots so their placeholder scores cannot outrank real candidates
         rescored_scores[indices == -1] = -np.inf
         rescored_indices = np.argsort(-rescored_scores)[:, :top_k]
@@ -221,6 +234,9 @@ def semantic_search_usearch(
     3. The corpus is quantized, i.e. the corpus precision is not float32
     Only if these conditions are true, will we search for `top_k * rescore_multiplier` samples and then rescore to only
     keep `top_k`.
+
+    Scalar-quantized candidates are dequantized before rescoring. Use the same `ranges` or
+    `calibration_embeddings` that were used to quantize the corpus.
 
     Args:
         query_embeddings: Embeddings of the query sentences. Ideally not
@@ -273,6 +289,7 @@ def semantic_search_usearch(
             "ubinary", or "binary".
 
     The list of search results is in the format: [[{"corpus_id": int, "score": float}, ...], ...]
+    Each query yields at most `top_k` results, and fewer when the index holds fewer matches.
     The time taken for the search is a float value.
     """
     from usearch.compiled import ScalarKind
@@ -299,18 +316,15 @@ def semantic_search_usearch(
                 metric="ip",
                 dtype="i8",
             )
-        elif corpus_precision == "binary":
-            corpus_index = Index(
-                ndim=corpus_embeddings.shape[1],
-                metric="hamming",
-                dtype="i8",
-            )
-        elif corpus_precision == "ubinary":
+        elif corpus_precision in ("binary", "ubinary"):
             corpus_index = Index(
                 ndim=corpus_embeddings.shape[1] * 8,
                 metric="hamming",
                 dtype="b1",
             )
+            if corpus_precision == "binary":
+                # A b1 index reads raw bytes, so undo the -128 offset that `quantize_embeddings` applied
+                corpus_embeddings = corpus_embeddings.view(np.uint8) ^ 0x80
         corpus_index.add(np.arange(len(corpus_embeddings)), corpus_embeddings)
 
     # If rescoring is enabled and the query embeddings are in float32, we need to quantize them
@@ -330,6 +344,8 @@ def semantic_search_usearch(
                     'and pass `corpus_precision="..."` to `semantic_search_usearch`.'
                 )
 
+        if rescore_embeddings is not None and corpus_precision == "int8" and ranges is None:
+            ranges = _get_quantization_ranges(query_embeddings, corpus_precision, calibration_embeddings)
         query_embeddings = quantize_embeddings(
             query_embeddings,
             precision=corpus_precision,
@@ -343,6 +359,8 @@ def semantic_search_usearch(
 
     # Perform the search using the usearch index
     start_t = time.time()
+    if corpus_precision == "binary":
+        query_embeddings = query_embeddings.view(np.uint8) ^ 0x80
     matches = corpus_index.search(query_embeddings, count=k, exact=exact)
     scores = matches.distances
     indices = matches.keys
@@ -352,31 +370,54 @@ def semantic_search_usearch(
     if indices.ndim < 2:
         indices = np.atleast_2d(indices)
 
+    # usearch pads short result sets and reports the real match count in `counts`, so validity is
+    # tracked beside the keys rather than in them. A single query returns `Matches`, which has neither.
+    counts = np.reshape(getattr(matches, "counts", indices.shape[1]), (-1, 1))
+    valid = np.arange(indices.shape[1]) < counts
+
     # If rescoring is enabled, we need to rescore the results using the rescore_embeddings
-    if rescore_embeddings is not None:
-        top_k_embeddings = np.array([corpus_index.get(query_indices) for query_indices in indices])
-        # If the corpus precision is binary, we need to unpack the bits
+    if rescore_embeddings is not None and valid.any():
+        # get() has no key for the padding slots, so look up any real key there as a placeholder and
+        # disqualify its score below
+        safe_indices = np.where(valid, indices, indices[valid][0])
+        top_k_embeddings = np.array([corpus_index.get(query_indices) for query_indices in safe_indices])
         if corpus_precision in ("ubinary", "binary"):
-            top_k_embeddings = np.unpackbits(top_k_embeddings.astype(np.uint8), axis=-1)
+            # `np.packbits` padded the embedding dimension up to a whole byte, so trim those bits back off
+            top_k_embeddings = np.unpackbits(top_k_embeddings.astype(np.uint8), axis=-1)[
+                ..., : rescore_embeddings.shape[-1]
+            ]
         top_k_embeddings = top_k_embeddings.astype(int)
+        if corpus_precision == "int8":
+            top_k_embeddings = _dequantize_embeddings(
+                top_k_embeddings,
+                corpus_precision,
+                ranges,
+            )
 
         # rescore_embeddings: [num_queries, embedding_dim]
         # top_k_embeddings: [num_queries, top_k, embedding_dim]
         # updated_scores: [num_queries, top_k]
         # We use einsum to calculate the dot product between the query and the top_k embeddings, equivalent to looping
         # over the queries and calculating 'rescore_embeddings[i] @ top_k_embeddings[i].T'
-        rescored_scores = np.einsum("ij,ikj->ik", rescore_embeddings, top_k_embeddings)
+        rescored_scores = np.einsum("ij,ikj->ik", rescore_embeddings, top_k_embeddings).astype(np.float64, copy=False)
+        # Disqualify the padding slots so their placeholder scores cannot outrank real candidates
+        rescored_scores[~valid] = -np.inf
+        query_ids = np.arange(len(query_embeddings))[:, None]
         rescored_indices = np.argsort(-rescored_scores)[:, :top_k]
-        indices = indices[np.arange(len(query_embeddings))[:, None], rescored_indices]
-        scores = rescored_scores[np.arange(len(query_embeddings))[:, None], rescored_indices]
+        indices = indices[query_ids, rescored_indices]
+        scores = rescored_scores[query_ids, rescored_indices]
+        valid = valid[query_ids, rescored_indices]
 
     delta_t = time.time() - start_t
 
+    # Drop the padding slots (marked invalid above) so short result sets don't surface duplicated corpus
+    # entries with meaningless (NaN or -inf) scores.
     outputs = (
         [
             [
                 {"corpus_id": int(neighbor), "score": float(score)}
-                for score, neighbor in zip(scores[query_id], indices[query_id])
+                for score, neighbor, is_valid in zip(scores[query_id], indices[query_id], valid[query_id])
+                if is_valid
             ]
             for query_id in range(len(query_embeddings))
         ],
@@ -385,6 +426,44 @@ def semantic_search_usearch(
     if output_index:
         outputs = (*outputs, corpus_index)
     return outputs
+
+
+def _get_quantization_ranges(
+    embeddings: np.ndarray,
+    precision: Literal["int8", "uint8"],
+    calibration_embeddings: np.ndarray | None,
+) -> np.ndarray:
+    if calibration_embeddings is None:
+        if embeddings.ndim == 1 or embeddings.shape[0] == 1:
+            raise ValueError(
+                f"Cannot compute {precision} quantization ranges from a single embedding. "
+                "Call `quantize_embeddings` with `ranges` or `calibration_embeddings` "
+                "from a representative set of embeddings instead."
+            )
+        if embeddings.shape[0] < 100:
+            logger.warning(
+                f"Computing {precision} quantization buckets based on {len(embeddings)} embeddings."
+                f" {precision} quantization is more stable with `ranges` calculated from more embeddings "
+                "or a `calibration_embeddings` that can be used to calculate the buckets."
+            )
+        calibration_embeddings = embeddings
+    return np.vstack((np.min(calibration_embeddings, axis=0), np.max(calibration_embeddings, axis=0)))
+
+
+def _dequantize_embeddings(
+    embeddings: np.ndarray,
+    precision: Literal["int8", "uint8"],
+    ranges: np.ndarray,
+) -> np.ndarray:
+    """Restore scalar-quantized candidates to the coordinate system of the float query."""
+    ranges = ranges.astype(np.float32, copy=False)
+    steps = (ranges[1] - ranges[0]) / 255
+    steps = np.where(steps == 0, 1, steps)
+    # Convert before undoing the signed offset to avoid overflowing int8.
+    embeddings = embeddings.astype(np.float64)
+    if precision == "int8":
+        embeddings += 128
+    return embeddings * steps + ranges[0]
 
 
 def quantize_embeddings(
@@ -398,8 +477,8 @@ def quantize_embeddings(
     speed of similarity search. The supported precisions are "float32", "int8", "uint8", "binary", and "ubinary".
 
     Args:
-        embeddings: Unquantized (e.g. float) embeddings with to quantize
-            to a given precision
+        embeddings: Unquantized (e.g. float) embeddings to quantize
+            to a given precision.
         precision: The precision to convert to. Options are "float32",
             "int8", "uint8", "binary", "ubinary".
         ranges (Optional[np.ndarray]): Ranges for quantization of
@@ -419,22 +498,26 @@ def quantize_embeddings(
     Returns:
         Quantized embeddings with the specified precision. For a list of multi-vector matrices (variable-length
         ``(num_tokens, dim)`` arrays), returns a list of quantized matrices with shared per-dimension buckets.
+
+    Raises:
+        ValueError: If int8 or uint8 ranges would have to be inferred from a single embedding without
+            explicit `ranges` or `calibration_embeddings`.
     """
     if isinstance(embeddings, Tensor):
-        embeddings = embeddings.cpu().numpy()
+        embeddings = _tensor_to_numpy(embeddings)
     elif isinstance(embeddings, list):
         if not embeddings:
-            # Nothing to quantize: preserve the (empty) list shape.
             return []
         if isinstance(embeddings[0], Tensor):
-            embeddings = [embedding.cpu().numpy() for embedding in embeddings]
-        # Multi-vector input: a list of (num_tokens, dim) matrices (possibly ragged, one per text). Quantize
-        # each matrix separately to preserve the variable-length structure, but share the per-dimension
-        # buckets across all matrices (from `ranges` / `calibration_embeddings`, else all tokens together) so
-        # values quantize consistently across matrices.
+            embeddings = [_tensor_to_numpy(embedding) for embedding in embeddings]
         if isinstance(embeddings[0], np.ndarray) and embeddings[0].ndim == 2:
-            if precision.endswith("int8") and ranges is None and calibration_embeddings is None:
-                calibration_embeddings = np.concatenate(embeddings, axis=0)
+            # Calibrate once so all documents use the same ranges.
+            if precision.endswith("int8") and ranges is None:
+                calibration_data = (
+                    np.concatenate(embeddings, axis=0) if calibration_embeddings is None else calibration_embeddings
+                )
+                if len(calibration_data):
+                    ranges = _get_quantization_ranges(calibration_data, precision, calibration_embeddings)
             return [
                 quantize_embeddings(
                     matrix, precision=precision, ranges=ranges, calibration_embeddings=calibration_embeddings
@@ -460,18 +543,10 @@ def quantize_embeddings(
     if precision.endswith("int8"):
         # Either use the 1. provided ranges, 2. the calibration dataset or 3. the provided embeddings
         if ranges is None:
-            if calibration_embeddings is not None:
-                ranges = np.vstack((np.min(calibration_embeddings, axis=0), np.max(calibration_embeddings, axis=0)))
-            else:
-                if embeddings.shape[0] < 100:
-                    logger.warning(
-                        f"Computing {precision} quantization buckets based on {len(embeddings)} embedding{'s' if len(embeddings) != 1 else ''}."
-                        f" {precision} quantization is more stable with `ranges` calculated from more embeddings "
-                        "or a `calibration_embeddings` that can be used to calculate the buckets."
-                    )
-                ranges = np.vstack((np.min(embeddings, axis=0), np.max(embeddings, axis=0)))
+            ranges = _get_quantization_ranges(embeddings, precision, calibration_embeddings)
+        ranges = ranges.astype(np.float32, copy=False)
         starts = ranges[0, :]
-        steps = (ranges[1, :] - ranges[0, :]) / 255
+        steps = (ranges[1, :] - starts) / 255
         steps = np.where(steps == 0, 1, steps)
 
         q_vals = np.clip(np.floor((embeddings - starts) / steps), 0, 255)
@@ -481,9 +556,9 @@ def quantize_embeddings(
             return (q_vals - 128).astype(np.int8)
 
     if precision == "binary":
-        return (np.packbits(embeddings > 0, axis=-1).reshape(embeddings.shape[0], -1) - 128).astype(np.int8)
+        return (np.packbits(embeddings > 0, axis=-1) - 128).astype(np.int8)
 
     if precision == "ubinary":
-        return np.packbits(embeddings > 0, axis=-1).reshape(embeddings.shape[0], -1)
+        return np.packbits(embeddings > 0, axis=-1)
 
     raise ValueError(f"Precision {precision!r} is not supported")

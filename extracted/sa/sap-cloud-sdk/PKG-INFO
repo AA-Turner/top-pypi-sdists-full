@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sap-cloud-sdk
-Version: 0.61.0
+Version: 0.62.0
 Summary: SAP Cloud SDK for Python
 Author-email: SAP SE <ospo@sap.com>
 License-Expression: Apache-2.0
@@ -10,7 +10,7 @@ Requires-Dist: cryptography<51,>=48.0.1
 Requires-Dist: grpcio<2,>=1.60.0
 Requires-Dist: hatchling~=1.27.0
 Requires-Dist: httpx<1,>=0.27.0
-Requires-Dist: mcp<2,>=1.1.0
+Requires-Dist: mcp<3,>=1.1.0
 Requires-Dist: minio<7.2.21,>=7.2.16
 Requires-Dist: opentelemetry-api~=1.44.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-grpc~=1.44.0

@@ -100,18 +100,13 @@ __all__ = ("HealthLakeClient",)
 
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
-    AgentMessageOutOfContextException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
-    ConversationNotFoundException: type[BotocoreClientError]
     FailedDependencyException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
-    NotImplementedOperationException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
-    UnauthorizedException: type[BotocoreClientError]
-    UnsupportedMIMETypeException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
 class HealthLakeClient(BaseClient):

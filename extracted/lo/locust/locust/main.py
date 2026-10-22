@@ -109,8 +109,14 @@ def merge_locustfiles_content(
         for _shape_class in shape_classes:
             shape_class_name = type(_shape_class).__name__
             if shape_class_name in available_shape_classes.keys():
-                sys.stderr.write(f"Duplicate shape classes: {shape_class_name}\n")
-                sys.exit(1)
+                previous_path = inspect.getfile(type(available_shape_classes[shape_class_name]))
+                new_path = inspect.getfile(type(_shape_class))
+                if previous_path == new_path:
+                    # The same shape class was defined in two locustfiles but one probably imported the other, so we just ignore it
+                    continue
+                else:
+                    sys.stderr.write(f"Duplicate shape classes: {shape_class_name}\n")
+                    sys.exit(1)
 
             available_shape_classes[shape_class_name] = _shape_class
 
@@ -428,10 +434,8 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
             logger.debug("--run-time specified for a worker node will be ignored.")
 
     if options.csv_prefix:
-        base_csv_file = os.path.basename(options.csv_prefix)
-        base_csv_dir = options.csv_prefix[: -len(base_csv_file)]
-        if not os.path.exists(base_csv_dir) and len(base_csv_dir) != 0:
-            os.makedirs(base_csv_dir)
+        if base_csv_dir := os.path.dirname(options.csv_prefix):
+            os.makedirs(base_csv_dir, exist_ok=True)
         stats_csv_writer = stats.StatsCSVFileWriter(
             environment, stats.PERCENTILES_TO_REPORT, options.csv_prefix, options.stats_history_enabled
         )
@@ -654,6 +658,8 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
         if options.json:
             stats.print_stats_json(runner.stats)
         if options.json_file:
+            if json_dir := os.path.dirname(options.json_file):
+                os.makedirs(json_dir, exist_ok=True)
             stats.save_stats_json(runner.stats, options.json_file)
         elif not isinstance(runner, locust.runners.WorkerRunner):
             stats.print_stats(runner.stats, current=False)
@@ -673,6 +679,8 @@ See https://github.com/locustio/locust/wiki/Installation#increasing-maximum-numb
         html_report = get_html_report(environment, show_download_link=False)
         process_html_filename(options)
         logger.debug("Writing html report to file: %s", options.html_file)
+        if html_dir := os.path.dirname(options.html_file):
+            os.makedirs(html_dir, exist_ok=True)
         with open(options.html_file, "w", encoding="utf-8") as file:
             file.write(html_report)
 

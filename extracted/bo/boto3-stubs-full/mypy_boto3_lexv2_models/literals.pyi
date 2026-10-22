@@ -220,7 +220,7 @@ AnalyticsUtteranceFilterNameType = Literal[
 ]
 AnalyticsUtteranceMetricNameType = Literal["Count", "Detected", "Missed", "UtteranceTimestamp"]
 AnalyticsUtteranceSortByNameType = Literal["UtteranceTimestamp"]
-AssistedNluModeType = Literal["Fallback", "Primary"]
+AssistedNluModeType = Literal["DialogManager", "Fallback", "Primary"]
 AssociatedTranscriptFilterNameType = Literal["IntentId", "SlotTypeId"]
 AudioFillerTypeType = Literal[
     "MELODY_CHIPPER_CHIME",
@@ -528,8 +528,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -783,7 +781,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

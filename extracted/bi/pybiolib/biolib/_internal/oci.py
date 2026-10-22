@@ -5,7 +5,7 @@ import urllib.parse
 import urllib.request
 
 from biolib import utils
-from biolib._internal.http_client import HttpClient, HttpError
+from biolib._shared.http_client import HttpClient, HttpError
 from biolib._shared.types.typing import Any, Dict, List
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger

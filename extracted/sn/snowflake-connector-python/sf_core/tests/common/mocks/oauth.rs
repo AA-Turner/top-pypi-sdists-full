@@ -160,6 +160,23 @@ pub fn snowflake_login_success_oauth(expected_token: &str) -> Mock {
         })))
 }
 
+/// Snowflake login returns `390309`: the connection username is not the user
+/// tied to the access token. This is not a refresh trigger.
+pub fn snowflake_login_oauth_username_mismatch_390309() -> Mock {
+    Mock::given(method("POST"))
+        .and(path_regex(r"^/session/v1/login-request$"))
+        .and(body_partial_json(json!({
+            "data": {
+                "AUTHENTICATOR": "OAUTH"
+            }
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "success": false,
+            "code": "390309",
+            "message": "The user you were trying to authenticate as differs from the user tied to the access token."
+        })))
+}
+
 /// Snowflake login returns `390303` (`OAUTH_ACCESS_TOKEN_INVALID`).
 /// Mirrors the cross-driver eviction trigger — drivers
 /// remove the cached access token and replay the login.

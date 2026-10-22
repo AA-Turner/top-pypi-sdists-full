@@ -110,6 +110,8 @@ CPCMX_SOLVENTS: frozenset[Solvent] = frozenset(
     }
 )
 
+ENERGY_ONLY_SOLVENT_MODELS: frozenset[SolventModel] = frozenset({SolventModel.CPCMX, SolventModel.COSMORS})
+
 SOLVENT_MODEL_SOLVENTS: dict[SolventModel, frozenset[Solvent]] = {
     SolventModel.ALPB: ALPB_SOLVENTS,
     SolventModel.CPCMX: CPCMX_SOLVENTS,

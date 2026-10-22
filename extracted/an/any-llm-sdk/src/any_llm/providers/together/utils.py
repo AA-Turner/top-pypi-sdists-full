@@ -15,7 +15,6 @@ from any_llm.types.completion import (
     ChoiceDeltaToolCall,
     ChoiceDeltaToolCallFunction,
     ChunkChoice,
-    CompletionUsage,
     CreateEmbeddingResponse,
     Embedding,
     Reasoning,
@@ -24,6 +23,7 @@ from any_llm.types.completion import (
 from any_llm.types.model import Model
 from any_llm.types.rerank import RerankResponse, RerankResult, RerankUsage
 from any_llm.utils.reasoning import normalize_reasoning_from_provider_fields_and_xml_tags
+from any_llm.utils.usage import completion_usage_from_dict
 
 if TYPE_CHECKING:
     from together.types import BatchJob as TogetherBatchJob
@@ -107,11 +107,7 @@ def _create_openai_chunk_from_together_chunk(together_chunk: TogetherChatComplet
 
     usage = None
     if together_chunk.usage:
-        usage = CompletionUsage(
-            prompt_tokens=together_chunk.usage.prompt_tokens or 0,
-            completion_tokens=together_chunk.usage.completion_tokens or 0,
-            total_tokens=together_chunk.usage.total_tokens or 0,
-        )
+        usage = completion_usage_from_dict(together_chunk.usage.model_dump())
 
     return ChatCompletionChunk(
         id=together_chunk.id or f"chatcmpl-{uuid.uuid4()}",
@@ -150,12 +146,7 @@ def _convert_together_response_to_chat_completion(response_data: dict[str, Any],
 
     usage = None
     if response_data.get("usage"):
-        u = response_data["usage"]
-        usage = CompletionUsage(
-            prompt_tokens=u.get("prompt_tokens", 0),
-            completion_tokens=u.get("completion_tokens", 0),
-            total_tokens=u.get("total_tokens", 0),
-        )
+        usage = completion_usage_from_dict(response_data["usage"])
 
     return ChatCompletion(
         id=response_data.get("id", ""),

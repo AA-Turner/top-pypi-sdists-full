@@ -7,7 +7,9 @@ A read is marked FAILED only on a strong signal (owner-approved design, 2026-10-
 * the target answered HTTP status >= 400;
 * nothing came back at all (empty body), or the fetch itself failed;
 * a JavaScript app shell: almost no text plus app-shell markers;
-* a sign-in wall: a short page whose title or text asks the reader to log in.
+* a sign-in wall: a short page whose title or text asks the reader to log in;
+* a soft 404: a page that SAYS it does not exist (title or opening words: "Page not found", "404",
+  "This page doesn't exist", an Instagram / LinkedIn not-found shell) while answering HTTP 200.
 
 **A short page alone is NOT a failure.** Real 404-style stubs, paywall teasers, a one-line answer,
 an Instagram caption — retrying those with a paid reader wastes the person's points (scrape history
@@ -16,6 +18,7 @@ an Instagram caption — retrying those with a paid reader wastes the person's p
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass
 
 from matrx_scraper.scraper import (
@@ -31,6 +34,7 @@ HTTP_ERROR = "http_error"
 EMPTY = "empty"
 JS_SHELL = "js_shell"
 SIGN_IN_WALL = "sign_in_wall"
+NOT_FOUND = "not_found"
 FETCH_ERROR = "fetch_error"
 
 #: Words a person or an agent reads for each reason (no vendor, no jargon).
@@ -40,6 +44,7 @@ REASON_WORDS = {
     EMPTY: "the page came back empty",
     JS_SHELL: "the page needs a full browser to show its content",
     SIGN_IN_WALL: "the page asks the reader to sign in",
+    NOT_FOUND: "the site says this page does not exist",
     FETCH_ERROR: "the page could not be reached",
 }
 
@@ -62,6 +67,36 @@ MISSING_EVERYWHERE = frozenset({404, 410})
 #: Unrendered shells and wait screens whose whole text is one of these (short pages only).
 _SHELL_ONLY_MARKERS = ("watch unknown video",)
 _WAIT_SCREEN_MARKERS = ("we are optimizing your request", "please wait while we process your request")
+#: A soft 404 is judged only on a page this short: a long article ABOUT "page not found" errors is an article.
+SOFT_404_MAX_CHARS = 5000
+#: How far into the text a not-found phrase must appear to count (the page's opening words).
+_SOFT_404_LEAD_CHARS = 300
+_SOFT_404_PHRASES = (
+    "page not found",
+    "page can't be found",
+    "page cannot be found",
+    "page could not be found",
+    "page isn't available",
+    "page is not available",
+    "page doesn't exist",
+    "page does not exist",
+    "page no longer exists",
+    "this content isn't available",
+    "this content is not available",
+    "requested page could not be found",
+    "requested url was not found",
+    "we couldn't find that page",
+    "we can't find the page",
+    "404 not found",
+    "404 error",
+    "error 404",
+    "http 404",
+    "http error 404",
+)
+#: A title that IS the error ("404", "Not Found", "Error 404 ...") rather than merely containing a phrase.
+_SOFT_404_TITLE_LEAD = re.compile(
+    r"^(oops[!,.]?\s*)?((error\s*)?(404|410)|(page\s*)?not found)(?![a-z0-9])(?!\s+(ways|tips|things|reasons|best|facts|tricks|ideas))"
+)
 _SIGN_IN_HEADINGS = ("# sign in", "# log in", "# login")
 _SHELL_HTML_MARKERS = (
     '<div id="root"></div>',
@@ -85,6 +120,8 @@ _SIGN_IN_MARKERS = (
     "sign up to see",
     "log in to see",
     "sign in to view",
+    "sign in to see",
+    "join now to see",
     "log in to view",
     "join to view",
     "sign in to your account",
@@ -113,6 +150,22 @@ def _fail(reason: str, signal: str, chars: int, *, coverable: bool = True) -> Re
     words = REASON_WORDS[reason]
     return ReadVerdict(failed=True, reason=reason, detail=f"{words} ({signal})" if signal else words, text_chars=chars,
                        coverable=coverable)
+
+
+def _soft_404(lowered_title: str, lowered_body: str, chars: int) -> str | None:
+    """The signal that a short page says it does not exist, or ``None``."""
+    if chars > SOFT_404_MAX_CHARS:
+        return None
+    title = lowered_title.replace("\u2019", "'")
+    lead = lowered_body[:_SOFT_404_LEAD_CHARS].replace("\u2019", "'")
+    if title:
+        if _SOFT_404_TITLE_LEAD.match(title):
+            return f"title {title[:60]}"
+        found = next((p for p in _SOFT_404_PHRASES if p in title), None)
+        if found:
+            return f"title says {found}"
+    found = next((p for p in _SOFT_404_PHRASES if p in lead), None)
+    return f"page says {found}" if found else None
 
 
 def judge_read(
@@ -150,6 +203,11 @@ def judge_read(
         return _fail(FETCH_ERROR, "", chars)
     if not body:
         return _fail(EMPTY, "no text", 0)
+
+    # 3b. A soft 404: the page says it does not exist, whatever the status said.
+    missing = _soft_404(lowered_title, lowered, chars)
+    if missing:
+        return _fail(NOT_FOUND, missing, chars)
 
     # 4. An unrendered JavaScript app: almost no text AND an app-shell marker.
     if chars <= JS_SHELL_TEXT_CHARS:
@@ -191,6 +249,7 @@ __all__ = [
     "HTTP_ERROR",
     "JS_SHELL",
     "MISSING_EVERYWHERE",
+    "NOT_FOUND",
     "REASON_WORDS",
     "ReadVerdict",
     "SIGN_IN_WALL",

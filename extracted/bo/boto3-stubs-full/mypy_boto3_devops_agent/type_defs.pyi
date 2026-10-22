@@ -237,6 +237,9 @@ __all__ = (
     "MCPServerSigV4ConfigurationTypeDef",
     "MCPServerSigV4ServiceDetailsTypeDef",
     "MCPToolDetailTypeDef",
+    "MSTeamsChannelTypeDef",
+    "MSTeamsConfigurationTypeDef",
+    "MSTeamsTransmissionTargetTypeDef",
     "MessageTypeDef",
     "MonthlyRecurrenceTypeDef",
     "NetworkAccessConfigurationTypeDef",
@@ -910,6 +913,10 @@ class MCPServerSigV4AuthorizationConfigTypeDef(TypedDict):
     mcpRoleArn: NotRequired[str]
     customHeaders: NotRequired[Mapping[str, str]]
 
+class MSTeamsChannelTypeDef(TypedDict):
+    channelName: str
+    channelId: str
+
 class UserMessageBlockTypeDef(TypedDict):
     text: NotRequired[str]
     toolResult: NotRequired[dict[str, Any]]
@@ -1532,6 +1539,10 @@ class MCPServerSigV4ServiceDetailsTypeDef(TypedDict):
     authorizationConfig: MCPServerSigV4AuthorizationConfigTypeDef
     description: NotRequired[str]
 
+class MSTeamsTransmissionTargetTypeDef(TypedDict):
+    opsOncallTarget: NotRequired[MSTeamsChannelTypeDef]
+    opsSRETarget: NotRequired[MSTeamsChannelTypeDef]
+
 class MessageTypeDef(TypedDict):
     userMessage: NotRequired[list[UserMessageBlockTypeDef]]
     assistantMessage: NotRequired[list[AssistantMessageBlockTypeDef]]
@@ -1732,6 +1743,11 @@ class MCPServerDetailsTypeDef(TypedDict):
     authorizationConfig: MCPServerAuthorizationConfigTypeDef
     description: NotRequired[str]
 
+class MSTeamsConfigurationTypeDef(TypedDict):
+    teamId: str
+    teamName: str
+    transmissionTarget: MSTeamsTransmissionTargetTypeDef
+
 class PendingMessageTypeDef(TypedDict):
     messageId: str
     message: MessageTypeDef
@@ -1916,6 +1932,7 @@ class ServiceConfigurationOutputTypeDef(TypedDict):
     mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationOutputTypeDef]
     remoteagent: NotRequired[dict[str, Any]]
     remoteagentsigv4: NotRequired[dict[str, Any]]
+    msteams: NotRequired[MSTeamsConfigurationTypeDef]
     releaseManagement: NotRequired[ReleaseManagementConfigurationTypeDef]
 
 class ServiceConfigurationTypeDef(TypedDict):
@@ -1938,6 +1955,7 @@ class ServiceConfigurationTypeDef(TypedDict):
     mcpserversigv4: NotRequired[MCPServerSigV4ConfigurationTypeDef]
     remoteagent: NotRequired[Mapping[str, Any]]
     remoteagentsigv4: NotRequired[Mapping[str, Any]]
+    msteams: NotRequired[MSTeamsConfigurationTypeDef]
     releaseManagement: NotRequired[ReleaseManagementConfigurationTypeDef]
 
 AssetContentTypeDef = TypedDict(

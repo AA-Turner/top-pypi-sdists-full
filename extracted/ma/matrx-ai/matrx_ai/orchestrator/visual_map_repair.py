@@ -1,0 +1,878 @@
+"""THE VISUAL-MAP REPAIR LOOP — a diagram the model writes is checked, repaired and stamped by the server.
+
+Owner's words: common-docs ``systems/content/visual-maps/VISION.md`` ("iteratively get the diagram to
+actually display properly"; "specialists, not one AI"). Plan: common-docs
+``projects/legible-diagrams/PLAN.md`` item L4.
+
+When a run is about to finish and its final answer carries a ``visual_map`` value
+(``{"__kind": "visual_map", "type", "spec", ...}``), ``visual_map_gate`` runs this loop BEFORE the turn
+is persisted:
+
+1. **validate** the spec with the diagram engine (host seam, quality from the knob);
+2. errors → hand the diagnostics to a **repair** call point. The host runs the
+   ``visual_maps.diagram_repair`` mandate when an agent is bound to it; when none is, the AUTHORING
+   model itself gets the diagnostics as a host-written turn in a muted child call and answers with a
+   corrected spec. Every call point invocation is captured as a Provision window by the host;
+3. stop at the first of: no errors · the round knob (default 4) · errors did not fall for the stall
+   knob's number of rounds (default 2) · a repair answer that holds no readable spec;
+4. the LAST round calls **deliver** on the best spec seen (render, headless inspection, screenshot,
+   ``render_inspection`` row); every earlier round is saved as a diagnostics-only row;
+5. the ``visual_maps.diagram_review`` call point (an image-reading agent) may ADD findings — it can
+   never mark a diagram verified; unbound, it is skipped and the round log says so;
+6. the server STAMPS ``verified``, ``issues``, ``receipt``, ``inspection_id`` and the stamped value
+   replaces the draft in the durable turn text. A model's own values for those four are neutralised at
+   parse time by the kind corrector registered below — never trusted.
+
+Never silent: the stream carries ``visual_map_checking`` when the check starts and
+``visual_map_checked`` (with the stamped value and the round log) when it ends, plus a
+``visual_map_unverified`` warning whenever the final value is not verified.
+
+matrx-ai never imports the host. Everything that needs the database, the diagram service or the mandate
+registry arrives through ONE seam: ``configure_ext(visual_map_delivery=...)`` (``VisualMapDelivery``).
+Unconfigured → the gate does nothing and says so once in the log.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextvars
+import copy
+import hashlib
+import json
+import logging
+from collections.abc import Awaitable, Callable
+from dataclasses import asdict, dataclass, field
+from typing import Any, Protocol
+from uuid import uuid4
+
+logger = logging.getLogger(__name__)
+
+VISUAL_MAP_KIND = "visual_map"
+#: The engine's ten diagram types (``@ai-matrx/diagrams`` ``DiagramType``).
+DIAGRAM_TYPES: tuple[str, ...] = (
+    "architecture",
+    "workflow",
+    "sequence",
+    "dataflow",
+    "lifecycle",
+    "erd",
+    "class",
+    "tree",
+    "timeline",
+    "waterfall",
+)
+#: The four fields only the server writes.
+STAMP_FIELDS: tuple[str, ...] = ("verified", "issues", "receipt", "inspection_id")
+
+HOOK_KEY = "visual_map_delivery"
+#: AppContext.metadata flag on the muted child call that repairs a diagram; the gate never runs there.
+REPAIR_CHILD_KEY = "visual_map_repair_child"
+REPAIR_MANDATE_KEY = "visual_maps.diagram_repair"
+REVIEW_MANDATE_KEY = "visual_maps.diagram_review"
+
+#: Stream codes (InfoPayload / WarningPayload ``code``) — the chat renderer's contract.
+CHECKING_CODE = "visual_map_checking"
+CHECKED_CODE = "visual_map_checked"
+UNVERIFIED_CODE = "visual_map_unverified"
+
+#: Knob keys the host resolves (feature ``content.visual_maps``).
+KNOB_MAX_ROUNDS = "repair_max_rounds"
+KNOB_STALL_ROUNDS = "repair_stall_rounds"
+KNOB_QUALITY = "quality"
+
+
+@dataclass(frozen=True)
+class RepairKnobs:
+    max_rounds: int
+    stall_rounds: int
+    quality: str
+
+
+#: The package's standalone defaults — used ONLY for a key the host's knob rows did not answer
+#: (deploy order, or a host without the rows); every such use is named in the round log. The rows
+#: (aidream ``content.visual_maps``) govern.
+DECLARED_KNOBS = RepairKnobs(max_rounds=4, stall_rounds=2, quality="showcase")
+
+
+def knobs_from(values: dict[str, Any] | None) -> tuple[RepairKnobs, list[str]]:
+    """The effective knobs from the host's answer, and the keys that fell back to the declared default."""
+    values = values or {}
+    missing: list[str] = []
+
+    def _int(key: str, default: int, floor: int) -> int:
+        raw = values.get(key)
+        try:
+            return max(floor, int(raw))
+        except (TypeError, ValueError):
+            missing.append(key)
+            return default
+
+    max_rounds = _int(KNOB_MAX_ROUNDS, DECLARED_KNOBS.max_rounds, 1)
+    stall_rounds = _int(KNOB_STALL_ROUNDS, DECLARED_KNOBS.stall_rounds, 1)
+    quality = values.get(KNOB_QUALITY)
+    if not isinstance(quality, str) or not quality.strip():
+        missing.append(KNOB_QUALITY)
+        quality = DECLARED_KNOBS.quality
+    return RepairKnobs(max_rounds, stall_rounds, quality.strip()), missing
+
+
+def error_count(diagnostics: Any) -> int:
+    return sum(1 for d in diagnostics or [] if isinstance(d, dict) and d.get("severity") == "error")
+
+
+def stop_reason(counts: list[int], knobs: RepairKnobs) -> str | None:
+    """Why the loop stops after the round whose error count is ``counts[-1]``, or None to repair again.
+
+    * ``clean`` — no errors left.
+    * ``max_rounds`` — the round knob is spent.
+    * ``stalled`` — the last ``stall_rounds`` rounds set no new low (errors did not fall).
+    """
+    if not counts:
+        return None
+    if counts[-1] == 0:
+        return "clean"
+    if len(counts) >= knobs.max_rounds:
+        return "max_rounds"
+    if len(counts) > knobs.stall_rounds:
+        before = min(counts[: -knobs.stall_rounds])
+        if min(counts[-knobs.stall_rounds :]) >= before:
+            return "stalled"
+    return None
+
+
+@dataclass
+class RoundRecord:
+    round: int
+    stage: str  # "validate" | "deliver"
+    error_count: int
+    warning_count: int
+    diagnostics: list[dict[str, Any]] = field(default_factory=list)
+    spec_sha256: str = ""
+    repaired_by: str | None = None  # "agent" | "authoring_model" | None
+    repair_snapshot_id: str | None = None
+    persisted_id: str | None = None
+    note: str | None = None
+
+    def summary(self) -> dict[str, Any]:
+        out = asdict(self)
+        out.pop("diagnostics", None)
+        return out
+
+
+@dataclass
+class RepairOutcome:
+    value: dict[str, Any]
+    rounds: list[RoundRecord]
+    stop_reason: str
+    notes: list[str] = field(default_factory=list)
+    review: dict[str, Any] | None = None
+
+    @property
+    def verified(self) -> bool:
+        return bool(self.value.get("verified"))
+
+    def log(self) -> dict[str, Any]:
+        return {
+            "stop_reason": self.stop_reason,
+            "rounds": [r.summary() for r in self.rounds],
+            "error_counts": [r.error_count for r in self.rounds if r.stage == "validate"],
+            "notes": list(self.notes),
+            "review": self.review,
+        }
+
+
+@dataclass
+class CallPointResult:
+    """What the host's call point answered. ``bound`` False = no agent is bound to the mandate."""
+
+    bound: bool
+    value: Any = None
+    snapshot_id: str | None = None
+    note: str | None = None
+
+
+class VisualMapDelivery(Protocol):
+    """The host seam (``configure_ext(visual_map_delivery=...)``). Every method must never raise for a
+    bad spec or a down service; a raise is caught by the loop and reported, never swallowed."""
+
+    async def read_knobs(self, *, organization_id: str | None, user_id: str | None) -> dict[str, Any]: ...
+
+    async def validate(self, type: str, spec: dict[str, Any], *, quality: str) -> dict[str, Any]: ...
+
+    async def deliver(
+        self, type: str, spec: dict[str, Any], *, organization_id: str | None, subject_ref: str,
+        round: int, quality: str,
+    ) -> dict[str, Any]: ...
+
+    async def persist_round(
+        self, *, organization_id: str | None, subject_ref: str, round: int, spec: dict[str, Any],
+        diagnostics: list[dict[str, Any]],
+    ) -> str | None: ...
+
+    async def repair(self, provision: dict[str, Any], *, organization_id: str | None) -> CallPointResult: ...
+
+    async def review(self, provision: dict[str, Any], *, organization_id: str | None) -> CallPointResult: ...
+
+    # Optional: the type's authoring card (essential schema rules + one real example) as text. A host
+    # without it leaves the repair notice to the diagnostics alone.
+    async def authoring_card(self, type: str) -> str | None: ...
+
+
+FallbackRepair = Callable[[dict[str, Any]], Awaitable[Any]]
+
+
+def spec_sha(spec: Any) -> str:
+    return hashlib.sha256(json.dumps(spec, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def coerce_visual_map(obj: Any, default_type: str) -> tuple[str, dict[str, Any]] | None:
+    """(type, spec) from a repair answer: a visual_map value, ``{type, spec}``, a bare spec, or text holding one."""
+    if isinstance(obj, str):
+        found = find_visual_maps(obj)
+        if found:
+            return coerce_visual_map(found[-1][2], default_type)
+        try:
+            obj = json.loads(obj.strip())
+        except (ValueError, TypeError):
+            return None
+    if not isinstance(obj, dict):
+        return None
+    if isinstance(obj.get("spec"), dict):
+        t = obj.get("type") or obj["spec"].get("diagram_type") or default_type
+        return (t, obj["spec"]) if t in DIAGRAM_TYPES else None
+    if "diagram_type" in obj or "schema_version" in obj:
+        t = obj.get("diagram_type") or default_type
+        return (t, obj) if t in DIAGRAM_TYPES else None
+    return None
+
+
+def find_visual_maps(text: str) -> list[tuple[int, int, dict[str, Any]]]:
+    """Every complete ``visual_map`` object in ``text`` as (start, end, value), in document order.
+
+    Uses the block detector's ONE region finder (balanced JSON objects declaring ``__kind``, in any
+    container — fence, artifact body, bare)."""
+    if not isinstance(text, str) or VISUAL_MAP_KIND not in text:
+        return []
+    from matrx_ai.processing.blocks.block_detector import _embedded_kind_json_regions
+
+    out: list[tuple[int, int, dict[str, Any]]] = []
+    for start, end, kind in _embedded_kind_json_regions(text):
+        if kind != VISUAL_MAP_KIND:
+            continue
+        try:
+            value = json.loads(text[start:end])
+        except (ValueError, TypeError):
+            continue
+        if isinstance(value, dict):
+            out.append((start, end, value))
+    return out
+
+
+def _compact_diagnostics(diagnostics: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    keep = ("code", "severity", "message", "subject", "evidence", "supportedFixes")
+    return [{k: d.get(k) for k in keep if k in d} for d in diagnostics if isinstance(d, dict)]
+
+
+def _one_line(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, separators=(", ", ": "), default=str)
+
+
+def _diagnostic_lines(n: int, d: dict[str, Any]) -> list[str]:
+    lines = [f"{n}. [{d.get('code') or 'unknown'}] {d.get('message') or ''}".rstrip()]
+    if d.get("subject"):
+        lines.append(f"   where: {_one_line(d['subject'])}")
+    if d.get("evidence"):
+        lines.append(f"   evidence: {_one_line(d['evidence'])}")
+    fixes = [f for f in d.get("supportedFixes") or [] if isinstance(f, str) and f]
+    pins = [p.get("path") for p in (d.get("evidence") or {}).get("conflictingPins") or []
+            if isinstance(p, dict) and p.get("path")]
+    if not fixes and pins:
+        # The engine names the hand-set geometry that conflicts but offers no fix: deleting the pin lets
+        # the engine route it (2026-10-21 S6: Haiku re-pinned channelX three rounds running).
+        fixes = [f"delete {', '.join(pins)} and let the engine route it"]
+    if fixes:
+        lines.append(f"   supported fixes: {'; '.join(fixes)}")
+    return lines
+
+
+def _diag_key(d: dict[str, Any]) -> str:
+    return _one_line([d.get("code"), d.get("message")])
+
+
+def repair_notice(provision: dict[str, Any]) -> str:
+    """The host-written turn the authoring model reads when it repairs its own diagram.
+
+    Every error diagnostic goes in whole (code, message, subject, evidence, supportedFixes — never
+    truncated), the model is told to change ONLY what they name, the earlier rounds' counts show whether
+    its last change helped, and the type's authoring card (the engine's rules + a real example) is
+    attached so a schema error can be fixed from the schema, not guessed (2026-10-21: the old notice
+    said "never add coordinates" while the sequence schema requires ``y``; the model oscillated)."""
+    diags = [d for d in provision.get("diagnostics") or [] if isinstance(d, dict)]
+    errors = [d for d in diags if d.get("severity") == "error"]
+    warnings = len(diags) - len(errors)
+    parts = [
+        "SYSTEM NOTICE (not from the user): the diagram engine checked the visual_map you just wrote "
+        f"(round {provision.get('round')} of at most {provision.get('max_rounds')}) and found "
+        f"{len(errors)} error(s)" + (f" and {warnings} warning(s), which you may leave" if warnings else "") + ".",
+        "Fix every error below. Change ONLY the fields they name, using the supported fixes listed with "
+        "each; keep every other part of your spec exactly as you wrote it. Keep the same diagram type and "
+        "meaning. Where an error names a required field or a number, write exactly what the rules below allow. "
+        "Prefer deleting hand-set geometry (via, channelX/channelY, labelDx/labelDy, bias, pos) over adding "
+        "more: the engine routes and places what you leave out.",
+    ]
+    prior = [r for r in provision.get("prior_rounds") or [] if isinstance(r, dict) and r.get("stage") == "validate"]
+    if prior:
+        history = "; ".join(f"round {r.get('round')}: {r.get('error_count')} errors" for r in prior)
+        current = f"round {provision.get('round')}: {len(errors)} errors"
+        stuck = prior[-1].get("error_count") is not None and len(errors) >= int(prior[-1]["error_count"])
+        parts.append(
+            f"Earlier rounds: {history}; now {current}."
+            + (" Your last change did not reduce the errors: read the rules below and do something different." if stuck else "")
+        )
+    before = {_diag_key(d) for d in provision.get("previous_errors") or [] if isinstance(d, dict)}
+    caused = [d for d in errors if before and _diag_key(d) not in before]
+    if caused:
+        parts.append(
+            f"{len(caused)} of these errors are NEW this round (marked NEW): your last change caused them. "
+            "When you move one item, keep the spacing the diagnostics name from its neighbours; if there "
+            "is no room, move every later item by the same amount instead of squeezing one."
+        )
+    lines = [f"Errors ({len(errors)}):"]
+    for n, d in enumerate(errors, 1):
+        block = _diagnostic_lines(n, d)
+        if caused and d in caused:
+            block[0] = block[0].replace(f"{n}. ", f"{n}. NEW ", 1)
+        lines += block
+    parts.append("\n".join(lines))
+    card = provision.get("authoring_card")
+    if isinstance(card, str) and card.strip():
+        parts.append(card.strip())
+    parts.append(
+        'Answer with ONLY the corrected value: {"__kind": "visual_map", "type": ..., "spec": {...}, '
+        '"verified": false, "issues": 0}. No prose.'
+    )
+    return "\n\n".join(parts)
+
+
+async def run_repair_loop(
+    value: dict[str, Any],
+    *,
+    delivery: VisualMapDelivery,
+    knobs: RepairKnobs,
+    organization_id: str | None,
+    subject_ref: str,
+    user_request: str,
+    fallback_repair: FallbackRepair | None,
+) -> RepairOutcome:
+    """Validate → repair → … → deliver → review → stamp. Never raises (a failure is an unverified, stated value)."""
+    type_ = value.get("type") if value.get("type") in DIAGRAM_TYPES else None
+    spec = value.get("spec") if isinstance(value.get("spec"), dict) else None
+    rounds: list[RoundRecord] = []
+    notes: list[str] = []
+    if type_ is None or spec is None:
+        notes.append("the value has no known diagram type or no spec object; nothing could be checked")
+        return RepairOutcome(_stamp(value, type_, spec, None, False, 0), rounds, "unreadable", notes)
+
+    counts: list[int] = []
+    delivered_by_sha: dict[str, dict[str, Any]] = {}  # a spec is rendered + measured at most once
+    best: tuple[int, str, dict[str, Any], int] | None = None  # (errors, type, spec, round)
+    reason = "clean"
+    unavailable = False
+    try:
+        for n in range(1, knobs.max_rounds + 1):
+            checked = await delivery.validate(type_, spec, quality=knobs.quality)
+            if not isinstance(checked, dict) or checked.get("unavailable"):
+                unavailable = True
+                reason = "unavailable"
+                notes.append("the diagram service could not be reached; the layout was not checked")
+                break
+            diags = [d for d in checked.get("diagnostics") or [] if isinstance(d, dict)]
+            errors = error_count(diags)
+            measured_note: str | None = None
+            if errors == 0:
+                # The validator is clean: render and MEASURE it now. A clipped label or an overlap only
+                # shows in the measured render (2026-10-21 S1: validate [1, 0], delivered with 4 issues
+                # and no round left to repair them), so measured defects drive the next repair.
+                delivered = await _deliver_once(delivery, delivered_by_sha, type_, spec, organization_id,
+                                                subject_ref, n, knobs.quality, notes)
+                if not delivered.get("unavailable") and not delivered.get("verified"):
+                    measured = [d for d in delivered.get("diagnostics") or []
+                                if isinstance(d, dict) and d.get("severity") == "error"]
+                    measured += [d for d in delivered.get("measured_diagnostics") or [] if isinstance(d, dict)]
+                    if measured:
+                        diags = measured
+                        errors = len(measured)
+                        measured_note = "the spec validated clean; these errors were measured in the rendered diagram"
+            counts.append(errors)
+            sha = spec_sha(spec)
+            rec = RoundRecord(
+                round=n, stage="validate", error_count=errors,
+                warning_count=sum(1 for d in diags if d.get("severity") == "warning"),
+                diagnostics=diags, spec_sha256=sha, note=measured_note,
+            )
+            rounds.append(rec)
+            if best is None or errors <= best[0]:
+                best = (errors, type_, spec, n)
+            stop = stop_reason(counts, knobs)
+            if stop:
+                reason = stop
+                break
+            if sha in delivered_by_sha:
+                rec.persisted_id = delivered_by_sha[sha].get("inspection_id")
+            else:
+                rec.persisted_id = await delivery.persist_round(
+                    organization_id=organization_id, subject_ref=subject_ref, round=n, spec=spec,
+                    diagnostics=diags,
+                )
+            provision = {
+                "user_request": user_request,
+                "diagram_type": type_,
+                "spec": spec,
+                "diagnostics": diags,
+                "error_count": errors,
+                "measurements": None,
+                "receipt": None,
+                "round": n,
+                "max_rounds": knobs.max_rounds,
+                "quality": knobs.quality,
+                "prior_rounds": [r.summary() for r in rounds[:-1]],
+                "subject_ref": subject_ref,
+                "authoring_card": await _authoring_card(delivery, type_),
+                "previous_errors": [d for d in rounds[-2].diagnostics if d.get("severity") == "error"]
+                if len(rounds) > 1 else [],
+            }
+            answer = await delivery.repair(provision, organization_id=organization_id)
+            rec.repair_snapshot_id = answer.snapshot_id
+            if answer.bound:
+                rec.repaired_by = "agent"
+                repaired = answer.value
+            elif fallback_repair is not None:
+                rec.repaired_by = "authoring_model"
+                repaired = await fallback_repair(provision)
+            else:
+                rec.note = "no agent bound to the repair call point and no authoring model to fall back on"
+                reason = "no_repairer"
+                break
+            parsed = coerce_visual_map(repaired, type_)
+            if parsed is None:
+                rec.note = "the repair answer held no readable spec"
+                reason = "repair_unreadable"
+                break
+            type_, spec = parsed
+        else:  # pragma: no cover — the range ends only through max_rounds, which breaks above
+            reason = "max_rounds"
+    except Exception as exc:  # noqa: BLE001 — a check failure is stated on the value, never raised
+        logger.exception("[visual_map] repair loop failed")
+        notes.append(f"the layout check failed: {exc}")
+        reason = "failed"
+
+    if unavailable or best is None:
+        return RepairOutcome(
+            _stamp(value, type_, spec, None, False, counts[-1] if counts else 0), rounds, reason, notes
+        )
+
+    errors, d_type, d_spec, d_round = best
+    deliver_round = rounds[-1].round if rounds else 1
+    if d_round != deliver_round:
+        notes.append(f"round {d_round} had the fewest errors ({errors}); its spec is the one delivered")
+    delivered = await _deliver_once(delivery, delivered_by_sha, d_type, d_spec, organization_id, subject_ref,
+                                    deliver_round, knobs.quality, notes)
+    d_diags = [d for d in delivered.get("diagnostics") or [] if isinstance(d, dict)]
+    rounds.append(
+        RoundRecord(
+            round=deliver_round, stage="deliver",
+            error_count=int(delivered["issues"]) if isinstance(delivered.get("issues"), (int, float))
+            else (error_count(d_diags) if d_diags else errors),
+            warning_count=sum(1 for d in d_diags if d.get("severity") == "warning"),
+            diagnostics=d_diags, spec_sha256=spec_sha(d_spec),
+            persisted_id=delivered.get("inspection_id"),
+            note="the diagram service could not be reached at delivery" if delivered.get("unavailable") else None,
+        )
+    )
+    if delivered.get("unavailable"):
+        notes.append("delivery could not reach the diagram service; the layout was not measured")
+        return RepairOutcome(_stamp(value, d_type, d_spec, None, False, errors), rounds, reason, notes)
+
+    verified = bool(delivered.get("verified"))
+    issues = delivered.get("issues")
+    issues = int(issues) if isinstance(issues, (int, float)) else errors
+
+    review_log: dict[str, Any] | None = None
+    shot = delivered.get("screenshot_file_id")
+    if shot:
+        try:
+            reviewed = await delivery.review(
+                {
+                    "screenshot_file_id": shot,
+                    "spec": d_spec,
+                    "diagram_type": d_type,
+                    "user_request": user_request,
+                    "measurements": delivered.get("measurements"),
+                    "diagnostics": d_diags,
+                    "receipt": delivered.get("receipt"),
+                    "inspection_id": delivered.get("inspection_id"),
+                    "round": deliver_round,
+                    "subject_ref": subject_ref,
+                },
+                organization_id=organization_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[visual_map] review failed")
+            reviewed = CallPointResult(bound=False, note=f"review failed: {exc}")
+        if reviewed.bound:
+            findings = _findings(reviewed.value)
+            issues += len(findings)
+            if any(f.get("severity") == "error" for f in findings):
+                verified = False  # review may fail a diagram; it can NEVER pass one
+            review_log = {"bound": True, "findings": findings, "snapshot_id": reviewed.snapshot_id}
+        else:
+            review_log = {
+                "bound": False,
+                "snapshot_id": reviewed.snapshot_id,
+                "note": reviewed.note or f"review skipped: no agent is bound to {REVIEW_MANDATE_KEY}",
+            }
+            notes.append(review_log["note"])
+    else:
+        notes.append("review skipped: delivery returned no screenshot")
+
+    stamped = _stamp(value, d_type, d_spec, delivered, verified, issues)
+    return RepairOutcome(stamped, rounds, reason, notes, review_log)
+
+
+async def _deliver_once(
+    delivery: VisualMapDelivery, cache: dict[str, dict[str, Any]], type_: str, spec: dict[str, Any],
+    organization_id: str | None, subject_ref: str, round_: int, quality: str, notes: list[str],
+) -> dict[str, Any]:
+    """Render + measure + record one spec (once per distinct spec). Never raises."""
+    sha = spec_sha(spec)
+    if sha in cache:
+        return cache[sha]
+    try:
+        delivered = await delivery.deliver(
+            type_, spec, organization_id=organization_id, subject_ref=subject_ref, round=round_, quality=quality,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("[visual_map] deliver failed")
+        delivered = {"ok": False, "verified": False, "unavailable": True}
+        notes.append(f"delivery failed: {exc}")
+    delivered = delivered if isinstance(delivered, dict) else {"verified": False, "unavailable": True}
+    if not delivered.get("unavailable"):
+        cache[sha] = delivered
+    return delivered
+
+
+async def _authoring_card(delivery: VisualMapDelivery, type_: str) -> str | None:
+    """The host's card for this type (the engine's rules + one real example), or None if it has none."""
+    reader = getattr(delivery, "authoring_card", None)
+    if reader is None:
+        return None
+    try:
+        card = await reader(type_)
+    except Exception:  # noqa: BLE001 — a missing card never stops a repair; the notice still goes
+        logger.exception("[visual_map] authoring card for %s could not be read", type_)
+        return None
+    return card if isinstance(card, str) and card.strip() else None
+
+
+def _findings(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, dict):
+        value = value.get("findings")
+    return [f for f in value or [] if isinstance(f, dict)]
+
+
+def _stamp(
+    value: dict[str, Any], type_: str | None, spec: dict[str, Any] | None,
+    delivered: dict[str, Any] | None, verified: bool, issues: int,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {"__kind": VISUAL_MAP_KIND, "type": type_ or value.get("type"), "spec": spec}
+    if spec is None:
+        out["spec"] = value.get("spec")
+    if delivered and isinstance(delivered.get("receipt"), dict):
+        out["receipt"] = delivered["receipt"]
+    if delivered and delivered.get("inspection_id"):
+        out["inspection_id"] = str(delivered["inspection_id"])
+    out["verified"] = bool(verified)
+    out["issues"] = max(0, int(issues or 0))
+    return out
+
+
+# ── Server stamps are the only stamps ──────────────────────────────────────────
+
+_stamped: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
+    "visual_map_server_stamps", default=frozenset()
+)
+
+
+def _value_sha(value: dict[str, Any]) -> str:
+    return hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def mark_server_stamped(value: dict[str, Any]) -> None:
+    _stamped.set(_stamped.get() | {_value_sha(value)})
+
+
+def neutralize_model_stamps(value: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
+    """Kind corrector: a ``visual_map`` the SERVER did not stamp carries no verdict of its own."""
+    if _value_sha(value) in _stamped.get():
+        return value, []
+    claimed = (
+        value.get("verified") is True
+        or value.get("receipt") is not None
+        or value.get("inspection_id") is not None
+        or value.get("issues") not in (None, 0)
+    )
+    if not claimed:
+        return value, []
+    out = {k: v for k, v in value.items() if k not in ("receipt", "inspection_id")}
+    out["verified"] = False
+    out["issues"] = 0
+    return out, [
+        "visual_map: the model's own verified/issues/receipt values were removed — only the server "
+        "stamps them after checking the layout"
+    ]
+
+
+def register_visual_map_corrector() -> None:
+    from matrx_ai.processing.blocks.kind_correctors import register_kind_corrector
+
+    register_kind_corrector(VISUAL_MAP_KIND, neutralize_model_stamps)
+
+
+register_visual_map_corrector()
+
+
+# ── The executor seam ──────────────────────────────────────────────────────────
+
+
+def _inside_repair_child() -> bool:
+    try:
+        from matrx_connect.context.app_context import try_get_app_context
+
+        ctx = try_get_app_context()
+        return bool(ctx is not None and (getattr(ctx, "metadata", None) or {}).get(REPAIR_CHILD_KEY))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _host_delivery() -> VisualMapDelivery | None:
+    from matrx_ai._ext import get_visual_map_delivery
+
+    return get_visual_map_delivery()
+
+
+def _last_person_text(messages: Any) -> str:
+    from matrx_ai.config.message_config import HOST_AUTHORED_BY
+
+    items = messages.to_list() if hasattr(messages, "to_list") else list(messages or [])
+    for message in reversed(items):
+        role = getattr(message, "role", None) or (message.get("role") if isinstance(message, dict) else None)
+        if role != "user":
+            continue
+        meta = getattr(message, "metadata", None) or {}
+        if isinstance(meta, dict) and meta.get("authored_by") == HOST_AUTHORED_BY:
+            continue
+        content = getattr(message, "content", None) or []
+        texts = [getattr(c, "text", None) for c in content]
+        text = "\n".join(t for t in texts if isinstance(t, str) and t)
+        if text:
+            return text
+    return ""
+
+
+def _assistant_text_parts(current_request: Any, final_response: Any) -> list[Any]:
+    parts: list[Any] = []
+    seen: set[int] = set()
+    config = getattr(current_request, "config", None)
+    message = config.messages.get_last_by_role("assistant") if config is not None else None
+    candidates = list(getattr(message, "content", None) or []) if message is not None else []
+    for msg in getattr(final_response, "messages", None) or []:
+        if getattr(msg, "role", None) == "assistant":
+            candidates.extend(getattr(msg, "content", None) or [])
+    for content in candidates:
+        if id(content) in seen or getattr(content, "type", None) != "text":
+            continue
+        seen.add(id(content))
+        if isinstance(getattr(content, "text", None), str):
+            parts.append(content)
+    return parts
+
+
+def _render_like(original: str, value: dict[str, Any]) -> str:
+    if "\n" in original.strip():
+        return json.dumps(value, ensure_ascii=False, indent=2)
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+#: A repair round rewrites the whole spec from named diagnostics: it needs room to write it, not to think.
+#: 2026-10-21 live: a Haiku 5.5 child at the run's 8,000-token limit spent all of it thinking about 36
+#: diagnostics and wrote nothing ("repair_unreadable" at round 1).
+REPAIR_REASONING_EFFORT = "low"
+REPAIR_MIN_OUTPUT_TOKENS = 16000
+
+
+def _repair_budget(config: Any) -> None:
+    """Low reasoning effort and at least ``REPAIR_MIN_OUTPUT_TOKENS`` of output for the repair child."""
+    config.reasoning_effort = REPAIR_REASONING_EFFORT
+    for name in ("thinking_budget", "thinking_level"):
+        if hasattr(config, name):
+            setattr(config, name, None)
+    current = getattr(config, "max_output_tokens", None)
+    config.max_output_tokens = max(int(current or 0), REPAIR_MIN_OUTPUT_TOKENS)
+
+
+def authoring_model_repairer(current_request: Any) -> FallbackRepair:
+    """The authoring model repairs its own diagram: a muted child call on a copy of this turn's
+    conversation plus one host-written turn holding the diagnostics. The child shares the parent's
+    request id (its cost rolls up to the same user request) and is persisted as a sub-conversation, so
+    every repair round is a replayable record."""
+
+    async def _repair(provision: dict[str, Any]) -> Any:
+        from matrx_connect.context.app_context import get_app_context, set_app_context
+        from matrx_connect.emitters import SilentEmitter
+
+        from matrx_ai.config.message_config import (
+            MessageList,
+            UnifiedMessage,
+            host_authored_user_turn,
+        )
+        from matrx_ai.config.unified_content import TextContent
+        from matrx_ai.orchestrator.executor import _assistant_text_from_response, execute_ai_request
+
+        # A clean three-turn transcript, never the run's raw history: that history can hold tool
+        # calls and results (a skill load, a lookup) that this tool-less child may not replay.
+        drawn = {"__kind": VISUAL_MAP_KIND, "type": provision.get("diagram_type"),
+                 "spec": provision.get("spec"), "verified": False, "issues": 0}
+        config = copy.deepcopy(current_request.config)
+        config.messages = MessageList([
+            UnifiedMessage(role="user", content=[TextContent(text=provision.get("user_request") or "Draw the diagram.")]),
+            UnifiedMessage(role="assistant", content=[TextContent(text=json.dumps(drawn, ensure_ascii=False))]),
+            host_authored_user_turn(repair_notice(provision), reason="visual_map_repair"),
+        ])
+        config.tools = []
+        config.custom_tools = []
+        config.tool_choice = None
+        _repair_budget(config)
+        child_id = str(uuid4())
+
+        async def _run() -> Any:
+            parent = get_app_context()
+            child = parent.fork_for_child_agent(child_id)
+            set_app_context(child.with_overrides(
+                emitter=SilentEmitter(),
+                # The child's answer IS a visual_map: the gate must not check it again inside the
+                # child (that recursion re-ran the whole loop per repair round, 2026-10-21 live run).
+                metadata={**dict(child.metadata or {}), REPAIR_CHILD_KEY: True},
+            ))
+            completed = await execute_ai_request(
+                config,
+                max_iterations=1,
+                metadata={"visual_map_repair_round": provision.get("round")},
+                conversation_id=child_id,
+                store=True,
+                mandate_key=REPAIR_MANDATE_KEY,
+            )
+            return _assistant_text_from_response(getattr(completed, "final_response", None))
+
+        # A task copies the context, so the child context never leaks into the parent turn.
+        return await asyncio.create_task(_run())
+
+    return _repair
+
+
+async def visual_map_gate(current_request: Any, final_response: Any, exec_ctx: Any) -> list[RepairOutcome]:
+    """Check, repair and stamp every ``visual_map`` in this finishing turn's text. Never raises."""
+    try:
+        if _inside_repair_child():
+            return []
+        parts = _assistant_text_parts(current_request, final_response)
+        if not any(find_visual_maps(p.text) for p in parts):
+            return []
+        delivery = _host_delivery()
+        emitter = getattr(exec_ctx, "emitter", None)
+        if delivery is None:
+            logger.warning("[visual_map] a visual_map was emitted but no host delivery seam is configured")
+            await _warn(emitter, "The diagram's layout could not be checked on this server.", {"configured": False})
+            return []
+        from matrx_ai.context.app_context import get_app_context
+
+        ctx = get_app_context()
+        org_id = getattr(ctx, "organization_id", None) or None
+        user_id = getattr(ctx, "user_id", None) or None
+        request_id = getattr(ctx, "request_id", None) or getattr(current_request, "request_id", None) or ""
+        try:
+            knob_values = await delivery.read_knobs(organization_id=org_id, user_id=user_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[visual_map] knob read failed: %s", exc)
+            knob_values = {}
+        knobs, missing = knobs_from(knob_values)
+        user_request = _last_person_text(current_request.config.messages)
+        fallback = authoring_model_repairer(current_request)
+
+        outcomes: list[RepairOutcome] = []
+        index = 0
+        for part in parts:
+            found = find_visual_maps(part.text)
+            if not found:
+                continue
+            text = part.text
+            for start, end, value in reversed(found):  # right to left keeps earlier offsets valid
+                subject_ref = f"request:{request_id}#{index}"
+                index += 1
+                await _info(emitter, CHECKING_CODE, "Checking the diagram's layout", {
+                    "subject_ref": subject_ref, "max_rounds": knobs.max_rounds, "quality": knobs.quality,
+                })
+                outcome = await run_repair_loop(
+                    value, delivery=delivery, knobs=knobs, organization_id=org_id,
+                    subject_ref=subject_ref, user_request=user_request, fallback_repair=fallback,
+                )
+                if missing:
+                    outcome.notes.append(f"knob row(s) missing, declared default used: {', '.join(missing)}")
+                mark_server_stamped(outcome.value)
+                text = text[:start] + _render_like(text[start:end], outcome.value) + text[end:]
+                outcomes.append(outcome)
+                await _info(emitter, CHECKED_CODE, "Diagram layout checked", {
+                    "subject_ref": subject_ref, "value": outcome.value, "log": outcome.log(),
+                })
+                if not outcome.verified:
+                    issues = outcome.value.get("issues", 0)
+                    checked = any(r.stage == "validate" for r in outcome.rounds)
+                    await _warn(
+                        emitter,
+                        f"Layout not verified · {issues} issues" if checked else "Layout not checked",
+                        {"subject_ref": subject_ref, "issues": issues, "checked": checked, "log": outcome.log()},
+                    )
+            part.text = text
+            meta = getattr(part, "metadata", None)
+            if isinstance(meta, dict):
+                meta["visualMapChecks"] = [o.log() for o in outcomes]
+        return outcomes
+    except Exception as exc:  # noqa: BLE001 — the turn is never lost to its diagram check
+        logger.exception("[visual_map] gate failed: %s", exc)
+        return []
+
+
+async def _info(emitter: Any, code: str, message: str, metadata: dict[str, Any]) -> None:
+    if emitter is None:
+        return
+    from matrx_connect.context.events import InfoPayload
+
+    try:
+        await emitter.send_info(InfoPayload(code=code, system_message=message, user_message="", metadata=metadata))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[visual_map] could not emit %s: %s", code, exc)
+
+
+async def _warn(emitter: Any, message: str, metadata: dict[str, Any]) -> None:
+    if emitter is None:
+        return
+    from matrx_connect.context.events import WarningPayload
+
+    try:
+        await emitter.send_warning(
+            WarningPayload(
+                code=UNVERIFIED_CODE, system_message=message, user_message=message,
+                level="low", recoverable=True, metadata=metadata,
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[visual_map] could not emit warning: %s", exc)

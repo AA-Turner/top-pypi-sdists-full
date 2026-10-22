@@ -43,6 +43,7 @@ from matrx_ai.processing.blocks.gfm_table_lines import (
     table_container_indent,
     table_starts_at,
 )
+from matrx_ai.processing.blocks.html_elements import html_element_is_markup, html_opener_is_markup, html_root_of
 from matrx_ai.processing.blocks.kind_catalog import is_registered_kind
 from matrx_ai.processing.blocks.tree_line import MIN_TREE_LINES, is_tree_line
 
@@ -1336,7 +1337,8 @@ def _generic_xml_opening(source: str) -> tuple[int, str, bool, bool] | None:
     if is_page_break_line(source):
         return None
     tag = _read_xml_tag(source.lstrip(), 0)
-    if not tag or tag[2] or _is_html_or_known_tag(tag[1]):
+    # HTML markup (html_elements.py) is never a generic container (twin of ``opensHtmlMarkup``).
+    if not tag or tag[2] or _is_html_or_known_tag(tag[1]) or html_opener_is_markup(source.lstrip()):
         return None
     return tag
 
@@ -1357,7 +1359,7 @@ def _unclosed_generic_xml_opening(source: str) -> bool:
     if is_page_break_line(source):
         return False
     prefix = re.match(r"^<([A-Za-z_][\w.:-]*)(?=\s|/|$)", source.lstrip())
-    if not prefix or _is_html_or_known_tag(prefix[1]):
+    if not prefix or _is_html_or_known_tag(prefix[1]) or html_opener_is_markup(source.lstrip()):
         return False
     quote = None
     for char in source.lstrip()[prefix.end() :]:
@@ -1818,6 +1820,69 @@ ALLOWED_RAW_HTML_TAGS: frozenset[str] = frozenset(
 )
 
 
+_HTML_OPEN_RE = re.compile(r"<html", re.IGNORECASE)
+_HTML_ROOT_TAG_RE = re.compile(r"<(html)(?=[\s>])", re.IGNORECASE)
+
+
+def extract_html_root_block(start_index: int, lines: list[str]) -> tuple[str, ExtractionResult] | None:
+    """THE ORDER, step 2 (twin of the TS splitter ``extractHtmlRootBlock``): real HTML at the start of
+    a line, after code fences and before any Matrx or custom XML tag. A document or a non-allow-list
+    element is an ``html`` block and ``<svg>`` an ``svg`` block — the blocks a fenced html / svg makes.
+    A document or svg that has not closed owns the rest (still arriving, like an open fence); any
+    other element that never closes stays text (GFM). Returns (kind, extraction)."""
+    index = start_index
+    while index < len(lines):
+        opened = lines[index].lstrip()
+        if opened:
+            if not opened.startswith("<") or is_page_break_line(opened):
+                return None
+            root = html_root_of(opened, ALLOWED_RAW_HTML_TAGS)
+            if root is None:
+                return None
+            break
+        index += 1
+    else:
+        return None
+    kind, root_tag = root
+    source = "\n".join(normalize_line(line) for line in lines[start_index:])
+    root_start = len(source) - len(source.lstrip())
+    if kind == "document" and not _HTML_OPEN_RE.match(source, root_start):
+        # A doctype names no element: the root is the first <html> after it, as written.
+        found = _HTML_ROOT_TAG_RE.search(source, root_start)
+        if found:
+            root_tag = found[1]
+    depth = 0
+    for _start, end, tag in _xml_regions(source):
+        if not tag:
+            continue
+        _end, name, closing, self_closing = tag
+        if name != root_tag:
+            continue
+        depth += -1 if closing else (0 if self_closing else 1)
+        if depth == 0:
+            content = source[root_start:end].strip()
+            # A bare HTML-named wrapper around plain words is not markup: it stays a section.
+            if kind == "fragment" and not html_element_is_markup(content):
+                return None
+            line_index = start_index + source.count("\n", 0, end)
+            line_end = source.find("\n", end)
+            remainder = source[end : len(source) if line_end == -1 else line_end].strip()
+            if remainder:
+                lines.insert(line_index + 1, remainder)
+            return kind, ExtractionResult(
+                content=content,
+                next_index=line_index + 1,
+                metadata={"isComplete": True, "rawHtml": True},
+            )
+    if kind == "fragment":
+        return None
+    return kind, ExtractionResult(
+        content=source.strip(),
+        next_index=len(lines),
+        metadata={"isComplete": False, "rawHtml": True},
+    )
+
+
 def extract_unrecognized_xml_block(start_index: int, lines: list[str]) -> ExtractionResult | None:
     # A generic XML container must OPEN the remaining source: its first non-whitespace
     # character is "<" or there is no container. Asked BEFORE joining every remaining line —
@@ -1835,7 +1900,7 @@ def extract_unrecognized_xml_block(start_index: int, lines: list[str]) -> Extrac
             if not opened.startswith("<") or opened.startswith("</"):
                 return None
             name = _XML_NAME_RE.match(opened, 1)
-            if name is None or _is_html_or_known_tag(name.group()):
+            if name is None or _is_html_or_known_tag(name.group()) or html_opener_is_markup(opened):
                 return None
             break
         index += 1
@@ -2433,6 +2498,27 @@ def _split_lines(
             i = extraction.next_index
             continue
 
+        # 3-html. THE ORDER (html_elements.py): real HTML before any Matrx or custom XML tag — a
+        #     document or non-allow-list element is an html block, <svg> an svg block, exactly the
+        #     blocks a fenced html / svg makes (twin of the TS splitter step 3-html).
+        html_root = extract_html_root_block(i, lines)
+        if html_root is not None:
+            html_kind, html_extraction = html_root
+            if current_text and not current_text.strip():
+                current_text += "\n"
+            flush_text()
+            html_type = "svg" if html_kind == "svg" else "html"
+            blocks.append(
+                DetectedBlock(
+                    type=html_type,
+                    content=html_extraction.content,
+                    language=html_type,
+                    metadata=html_extraction.metadata,
+                )
+            )
+            i = html_extraction.next_index
+            continue
+
         # 3a. Attribute-bearing XML tag block at line start (e.g. <decision prompt="...">)
         attr_xml = detect_attribute_xml_block(processed_line)
         if attr_xml:
@@ -2491,7 +2577,8 @@ def _split_lines(
         # An incomplete generic XML root retains ownership through final recovery —
         # except an HTML BLOCK tag (div, section, …) that never closes: GFM ends that
         # HTML block at the first blank line, so it stays in the text and the prose
-        # after it stays prose (verify-RC-B4 round 9; twin of the TS splitter).
+        # after it stays prose (verify-RC-B4 round 9; twin of the TS splitter). HTML
+        # markup openers are refused inside the two checks (html_elements.py).
         if not is_html_block_tag_name(_leading_tag_name(processed_line)) and (
             _generic_xml_opening(processed_line) or _unclosed_generic_xml_opening(processed_line)
         ):
@@ -2993,9 +3080,13 @@ class IncrementalBlockSplitter:
             self._checkpoint is None or best.line_index > self._checkpoint.line_index
         ):
             self._recovered.extend(
-                _recover_embedded_kind_json_blocks(best.blocks[self._recovered_count : best.block_count])
+                _recover_terminal_incomplete_kind_json(
+                    _recover_embedded_kind_json_blocks(best.blocks[self._recovered_count : best.block_count])
+                )
             )
             self._recovered_count = best.block_count
             self._checkpoint = best
             self._checkpoint_furthest = best_furthest
-        return self._recovered + _recover_embedded_kind_json_blocks(blocks[self._recovered_count :])
+        return self._recovered + _recover_terminal_incomplete_kind_json(
+            _recover_embedded_kind_json_blocks(blocks[self._recovered_count :])
+        )

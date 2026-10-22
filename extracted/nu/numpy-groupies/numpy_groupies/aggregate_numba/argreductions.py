@@ -1,6 +1,6 @@
 """Index-returning reductions: argmax and argmin."""
 
-import typing
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -14,7 +14,7 @@ from numpy_groupies.aggregate_numba.compose import (
 from numpy_groupies.aggregate_numba.jit import njit_stable
 
 
-def _argmax_driver_factory(nan_variant: bool) -> typing.Any:
+def _argmax_driver_factory(nan_variant: bool) -> Any:
     # Neither of the two bodies reaches build_kernel: the per-element update
     # call of the composed driver costs more than these bodies save (measured
     # 1.06ms against 0.60ms on numba 0.68), so the loop lives here - but in a
@@ -113,6 +113,7 @@ def _argmax_driver_factory(nan_variant: bool) -> typing.Any:
         aux_dtype: np.dtype,
         fill_value: float,
         ddof: int,
+        q: float,
     ) -> npt.NDArray[np.number]:
         # once this resolved, every index is within [0, size) - the loop does
         # not need an upper bounds check (negative ones are flagged and raised
@@ -136,7 +137,7 @@ argmax = build_custom_kernel(
 )
 
 
-def _argmin_driver_factory(nan_variant: bool) -> typing.Any:
+def _argmin_driver_factory(nan_variant: bool) -> Any:
     # split loop/driver and body forms as in _argmax_driver_factory
     if nan_variant:
 
@@ -213,6 +214,7 @@ def _argmin_driver_factory(nan_variant: bool) -> typing.Any:
         aux_dtype: np.dtype,
         fill_value: float,
         ddof: int,
+        q: float,
     ) -> npt.NDArray[np.number]:
         size = output_size(group_idx, size_arg)
         out = np.full(size, fill_value, out_dtype)

@@ -1,9 +1,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use sqlbuild_analysis::assembly::analysis_session::models::DynamicFamily;
 use sqlbuild_cache::project_reuse::types::ImageSections;
 use sqlbuild_config::models::ConfigValue;
 use sqlbuild_rules::models::{EvaluateRequest, RetainedRows};
 
+use crate::bindings::_helpers::cli::failure_cause::{FailureCause, report_failure_cause};
 use crate::bindings::_helpers::compile_context::delta::BaseRules;
 use crate::bindings::_helpers::compile_context::delta::ModelCoverage;
 use crate::bindings::_helpers::compile_context::delta::PendingRules;
@@ -67,6 +69,17 @@ pub(crate) fn image() -> ProjectImage {
             dependency_ordered: true,
             cyclic: false,
             legacy_models: strings(&["customers"]),
+            families: vec![(
+                "order_pivot".to_owned(),
+                vec![DynamicFamily {
+                    name: "category_amounts".to_owned(),
+                    pivot_column: "category".to_owned(),
+                    value_column: "amount".to_owned(),
+                    aggregate: "MAX".to_owned(),
+                    data_type: "DOUBLE".to_owned(),
+                    name_pattern: Some("^amount_".to_owned()),
+                }],
+            )],
         },
         fact_digests: vec![(strings(&["model", "orders"]), "fact-digest".to_owned())],
         model_subjects: Some(vec![
@@ -113,6 +126,10 @@ pub(crate) fn image() -> ProjectImage {
             "models/orders.sql".to_owned(),
             pairs(&[("description", "0123")]),
         )]),
+        audit_references: BTreeMap::from([(
+            "models/orders.sql".to_owned(),
+            strings(&["order_quality"]),
+        )]),
         rules: Some(ImageRules::Retained(RetainedRows {
             request_json: request,
             rows: RULE_ROWS.to_vec(),
@@ -146,6 +163,7 @@ pub(crate) fn facts(image: &ProjectImage) -> String {
                 &image.lint_model_keys,
                 &image.lint_file_keys,
                 &image.header_keys,
+                &image.audit_references,
             ),
         )
     )
@@ -245,4 +263,25 @@ pub(crate) fn order(models: &[(&str, &[&str])]) -> Vec<(String, Vec<String>)> {
         .iter()
         .map(|(name, upstream)| ((*name).to_owned(), strings(upstream)))
         .collect()
+}
+
+/// A connection failure's cause, as `sqb debug` reports it.
+pub(crate) fn connection_cause() -> FailureCause {
+    FailureCause {
+        error_type: "ConnectionError".to_owned(),
+        error_code: "C980".to_owned(),
+        message: "connection test: refused".to_owned(),
+    }
+}
+
+/// Report the cause on the calling thread, as the running invocation does.
+pub(crate) fn report_here() {
+    report_failure_cause(connection_cause());
+}
+
+/// Report the cause on another thread, as a concurrent invocation does.
+pub(crate) fn report_elsewhere() {
+    std::thread::spawn(report_here)
+        .join()
+        .expect("the reporting thread finishes");
 }

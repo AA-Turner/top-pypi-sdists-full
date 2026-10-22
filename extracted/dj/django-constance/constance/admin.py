@@ -9,7 +9,11 @@ from django import get_version
 from django.apps import apps
 from django.contrib import admin
 from django.contrib import messages
+from django.contrib.admin.models import CHANGE
+from django.contrib.admin.models import LogEntry
 from django.contrib.admin.options import csrf_protect_m
+from django.contrib.admin.views.main import PAGE_VAR
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
@@ -38,6 +42,15 @@ class ConstanceAdmin(admin.ModelAdmin):
         return [
             path("", self.admin_site.admin_view(self.changelist_view), name=f"{info}_changelist"),
             path("", self.admin_site.admin_view(self.changelist_view), name=f"{info}_add"),
+            # Redirect <object_id>/change/ to the changelist so that "Recent actions" links in the admin index
+            # point somewhere useful.  The relative "../../" resolves to the constance changelist because the
+            # full path is <app>/<model>/<object_id>/change/ and two levels up lands on <app>/<model>/.
+            path(
+                "<path:object_id>/change/",
+                self.admin_site.admin_view(lambda request, object_id: HttpResponseRedirect("../../")),
+                name=f"{info}_change",
+            ),
+            path("history/", self.admin_site.admin_view(self.history_view), name=f"{info}_history"),
         ]
 
     def get_config_value(self, name, options, form, initial):
@@ -94,7 +107,9 @@ class ConstanceAdmin(admin.ModelAdmin):
         if request.method == "POST" and request.user.has_perm("constance.change_config"):
             form = form_cls(data=request.POST, files=request.FILES, initial=initial, request=request)
             if form.is_valid():
-                form.save()
+                changed_fields = form.save()
+                if changed_fields:
+                    self._log_config_change(request, changed_fields)
                 messages.add_message(request, messages.SUCCESS, _("Live settings updated successfully."))
                 return HttpResponseRedirect(".")
             messages.add_message(request, messages.ERROR, _("Failed to update live settings."))
@@ -155,11 +170,73 @@ class ConstanceAdmin(admin.ModelAdmin):
         request.current_app = self.admin_site.name
         return TemplateResponse(request, self.change_list_template, context)
 
+    def history_view(self, request, object_id=None, extra_context=None):
+        """Display the change history for constance config values."""
+        if not self.has_view_or_change_permission(request):
+            raise PermissionDenied
+
+        ct = ContentType.objects.get_for_model(self.model)
+        action_list = (
+            LogEntry.objects.filter(
+                content_type=ct,
+                object_id="Config",
+            )
+            .select_related()
+            .order_by("-action_time")
+        )
+
+        paginator = self.get_paginator(request, action_list, 100)
+        page_number = request.GET.get(PAGE_VAR, 1)
+        page_obj = paginator.get_page(page_number)
+        page_range = paginator.get_elided_page_range(page_obj.number)
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": _("Change history: %s") % self.model._meta.verbose_name_plural.capitalize(),
+            "action_list": page_obj,
+            "page_range": page_range,
+            "page_var": PAGE_VAR,
+            "pagination_required": paginator.count > 100,
+            "opts": self.model._meta,
+            "app_label": "constance",
+            **(extra_context or {}),
+        }
+
+        request.current_app = self.admin_site.name
+        return TemplateResponse(
+            request,
+            "admin/constance/config_history.html",
+            context,
+        )
+
+    def _log_config_change(self, request, changed_fields):
+        """
+        Create a Django admin LogEntry recording which config fields were changed.
+
+        Uses the standard Django JSON change_message format so that
+        LogEntry.get_change_message() can interpret it correctly.
+        """
+        ct = ContentType.objects.get_for_model(self.model)
+        change_message = json.dumps([{"changed": {"fields": changed_fields}}])
+        LogEntry.objects.create(
+            user_id=request.user.pk,
+            content_type_id=ct.pk,
+            object_id="Config",
+            object_repr="Config",
+            action_flag=CHANGE,
+            change_message=change_message,
+        )
+
     def has_add_permission(self, *args, **kwargs):
         return False
 
     def has_delete_permission(self, *args, **kwargs):
         return False
+
+    def has_view_permission(self, request, obj=None):
+        if settings.SUPERUSER_ONLY:
+            return request.user.is_superuser
+        return super().has_view_permission(request, obj)
 
     def has_change_permission(self, request, obj=None):
         if settings.SUPERUSER_ONLY:

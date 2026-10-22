@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry_cli
-Version: 3.8.0
+Version: 3.8.1
 Summary: A command line utility to work with Sentry.
 Home-page: https://github.com/getsentry/sentry-cli
 Author: Sentry
@@ -28,7 +28,7 @@ Dynamic: license-file
 > [!IMPORTANT]
 > This repository is no longer under active development, as our [new CLI](https://cli.sentry.dev/) will soon be replacing this one.
 >
-> We are therefore no longer accepting feature requests for this repo. Also, we will generally only fix bugs in this repo when there is a concrete reason preventing adoption of the new CLI. Please raise new issues in the new CLI's repository, instead.
+> We are therefore no longer accepting feature requests for this repo. Also, we will generally only fix bugs in this repo when there is a concrete reason preventing adoption of the new CLI. Please raise new issues in the [`getsentry/toolkit` monorepo](https://github.com/getsentry/toolkit/issues/new), whose [`packages/cli`](https://github.com/getsentry/toolkit/tree/main/packages/cli) directory contains the new CLI.
 
 # Sentry CLI
 

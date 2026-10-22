@@ -870,6 +870,36 @@ def _attach_interrupted_tool_turn(
         return current_request
 
 
+#: Tool rounds left when the run is told its ceiling is near (once per run). Not a
+#: limit — the ceiling itself is the caller's / the knob's — only how early the
+#: heads-up lands so the model can commit what it has while it still has tools.
+CEILING_WARNING_ROUNDS = 2
+
+
+def _ceiling_approaching_notice(max_iterations: int, rounds_left: int) -> str:
+    """The one-time heads-up a few rounds before the iteration ceiling."""
+    return (
+        f"⚠️ SYSTEM NOTICE (not from the user): this run may take {max_iterations} tool "
+        f"rounds and you have {rounds_left} left. After that your tools are switched off "
+        "and you get one final response to report your result. Use the rounds you have "
+        "to save or commit what is done; do not start anything new you cannot finish."
+    )
+
+
+def _ceiling_wrap_up_notice(max_iterations: int) -> str:
+    """The directive for the ceiling's one tool-less wrap-up turn."""
+    return (
+        f"⚠️ SYSTEM NOTICE (not from the user): you have reached this run's limit of "
+        f"{max_iterations} tool rounds. ALL TOOLS ARE NOW DISABLED — do not attempt any "
+        "tool call.\n\n"
+        "Write your final response now, as your result:\n"
+        "  • what you finished (with the concrete outcome: files, commits, values);\n"
+        "  • what is left undone;\n"
+        "  • exactly where you stopped and the next step, so the work can be continued.\n\n"
+        "Say plainly that you stopped at the step limit and did not finish."
+    )
+
+
 async def _exit_with_loop_guard(
     *,
     exec_ctx: Any,
@@ -1363,6 +1393,86 @@ def _drop_blank_turn_for_continuation(current_request: Any, state: Any) -> bool:
     return True
 
 
+def _strip_text_tool_calls_from_turn(current_request: Any, response: Any) -> bool:
+    """Remove tool-call markup from this turn's assistant TEXT, in place.
+
+    Cleans both the turn's message in the request history and the response the
+    loop hands to persistence (``_apply_ledger_truth_to_turn_text`` targets the
+    same pair), so neither the stored row nor a rebuild sent back to the provider
+    carries markup as prose. True when anything was removed. Never raises.
+    """
+    from matrx_ai.orchestrator.text_tool_calls import (
+        has_text_tool_markup,
+        strip_text_tool_markup,
+    )
+
+    try:
+        targets: list[Any] = []
+        last = current_request.config.messages.get_last_by_role("assistant")
+        if last is not None:
+            targets.extend(getattr(last, "content", None) or [])
+        messages = getattr(response, "messages", None) or []
+        if isinstance(messages, UnifiedMessage):
+            messages = [messages]
+        for message in messages:
+            if getattr(message, "role", None) == "assistant":
+                targets.extend(getattr(message, "content", None) or [])
+        changed = False
+        seen: set[int] = set()
+        for content in targets:
+            if id(content) in seen or not isinstance(content, TextContent):
+                continue
+            seen.add(id(content))
+            if has_text_tool_markup(content.text):
+                content.text = strip_text_tool_markup(content.text)
+                changed = True
+        return changed
+    except Exception as exc:  # noqa: BLE001 — a cleaner never takes down the run
+        vcprint(
+            f"[text_tool_calls] could not clean this turn's text ({type(exc).__name__}: {exc}); "
+            "tool-call markup may be stored as prose.",
+            color="red",
+        )
+        return False
+
+
+def _turn_text_is_blank(message: Any) -> bool:
+    return not any(
+        isinstance(c, TextContent) and c.text.strip()
+        for c in (getattr(message, "content", None) or [])
+    ) and not any(
+        not isinstance(c, (TextContent, ThinkingContent))
+        for c in (getattr(message, "content", None) or [])
+    )
+
+
+def _append_turn_note(current_request: Any, response: Any, note: str) -> None:
+    """Add ``note`` after the turn's text — in history and in the response."""
+
+    def add(message: Any, done: set[int]) -> None:
+        texts = [c for c in (message.content or []) if isinstance(c, TextContent)]
+        if texts and id(texts[-1]) in done:
+            return
+        if texts:
+            block = texts[-1]
+            block.text = f"{block.text}\n\n{note}" if block.text.strip() else note
+        else:
+            block = TextContent(text=note)
+            message.content.append(block)
+        done.add(id(block))
+
+    done: set[int] = set()
+    last = current_request.config.messages.get_last_by_role("assistant")
+    if last is not None:
+        add(last, done)
+    messages = getattr(response, "messages", None) or []
+    if isinstance(messages, UnifiedMessage):
+        messages = [messages]
+    for message in messages:
+        if getattr(message, "role", None) == "assistant" and message is not last:
+            add(message, done)
+
+
 def _response_has_client_delegated_call(
     response: UnifiedResponse,
     client_tools: frozenset[str] | None,
@@ -1520,7 +1630,16 @@ async def _flush_assistant_message_mid_loop(
         if trigger_msg is not None:
             _t_role = getattr(trigger_msg, "role", None)
             _t_role_str = _t_role.value if hasattr(_t_role, "value") else _t_role
-            if _t_role_str != "user":
+            # A RESUMED turn's trigger is the TOOL message built from the answered call; its row
+            # was RESERVED (pending, empty) at turn start (F17). When this turn parks again on a
+            # person (a second ``ask_person``) the loop suspends and the end-of-loop persist
+            # never reaches that row, so the reservation was left empty and swept to
+            # ``abandoned`` (census 2026-10-21 #11). Fill it here, with the answer it carries.
+            _tool_row_reserved = _t_role_str == "tool" and bool(
+                reserved_messages.get(trigger_position)
+                or reserved_messages.get(str(trigger_position))
+            )
+            if _t_role_str != "user" and not _tool_row_reserved:
                 trigger_msg = None
         if trigger_msg is not None:
             user_reserved_id = reserved_messages.get(trigger_position) or reserved_messages.get(
@@ -1531,7 +1650,22 @@ async def _flush_assistant_message_mid_loop(
                 user_role = user_storage.get("role", "user")
                 if hasattr(user_role, "value"):
                     user_role = user_role.value
-                user_content = validate_message_content(user_storage.get("content", []))
+                if user_role == "tool" and user_reserved_id:
+                    # A tool row stores POINTER blocks (call id, size, preview), never the raw
+                    # result — the same funnel the end-of-loop persist uses, which also stamps
+                    # the cx_tool_call rows with this message id. The raw ``tool_result`` block
+                    # fails ``ToolResultPart`` (extra ``content``), which left the row empty.
+                    from matrx_ai.db.persistence import _backfill_tool_message
+
+                    user_content = validate_message_content(
+                        await _backfill_tool_message(
+                            {"content": list(getattr(trigger_msg, "content", None) or [])},
+                            user_reserved_id,
+                            exec_ctx.conversation_id,
+                        )
+                    )
+                else:
+                    user_content = validate_message_content(user_storage.get("content", []))
                 pristine_user_content = user_storage.get("user_content")
                 if pristine_user_content is not None:
                     pristine_user_content = validate_message_content(pristine_user_content)
@@ -2167,7 +2301,9 @@ def _required_member_gate(
     action = decide_required_member_action(
         report,
         already_intervened=state.required_member_intervened,
-        loop_guard_intervened=state.loop_guard_intervened,
+        # The ceiling's wrap-up turn has no tools either: forcing a member call
+        # there would fight the ceiling exactly as it would the loop guard.
+        loop_guard_intervened=state.loop_guard_intervened or state.ceiling_wrap_up,
         is_workflow_step=is_workflow,
     )
     return action, report, is_workflow
@@ -2242,7 +2378,7 @@ async def _change_claim_gate(
     action = decide_change_claim_action(
         report,
         corrections_used=state.change_claim_corrections,
-        loop_guard_intervened=state.loop_guard_intervened,
+        loop_guard_intervened=state.loop_guard_intervened or state.ceiling_wrap_up,
     )
     return action, report
 
@@ -2865,6 +3001,20 @@ async def _finalize_and_persist(
     # Mandate-candidate runs expose what containment decided on EVERY exit
     # (completed, failed, stopped): the executor lane records these on the pair.
     from matrx_ai.tools.candidate_containment import candidate_outcome
+
+    # A sub-agent run (forked by another agent or a tool) is resumed by its CALLER,
+    # never by a person typing "continue" in its conversation — so a limit stop
+    # settles terminal-with-reason there, not "paused" (requests.py
+    # PERSON_RESUMES_STATUSES). Stamped from the forked context's own lineage.
+    from matrx_connect.context.app_context import try_get_app_context as _try_get_ctx
+
+    _finalize_ctx = _try_get_ctx()
+    if (
+        _finalize_ctx is not None
+        and getattr(_finalize_ctx, "is_internal_agent", False) is True
+        and getattr(_finalize_ctx, "parent_conversation_id", None)
+    ):
+        metadata = {**metadata, CompletedRequest.CALLER_RESUMES_KEY: True}
 
     _candidate = candidate_outcome()
     if _candidate is not None:
@@ -5370,7 +5520,9 @@ async def _execute_until_complete_inner(
     # (docs/cx_chat/TURN_BOUNDARY_INBOX.md).
     _interrupt_fence = len(current_request.config.messages)
 
-    while iteration < max_iterations:
+    while iteration < max_iterations or (state.ceiling_wrap_up and iteration <= max_iterations):
+        # (The second clause is the ceiling's ONE wrap-up turn — tools off, the
+        # model writes its result — see _ceiling_wrap_up_notice.)
         # THREE independent stop layers, polled at every iteration boundary:
         # 1) the in-process RequestControlRegistry (instant, this process only);
         # 2) the runtime-spine control row (durable + cross-process: POST /cancel
@@ -5579,6 +5731,12 @@ async def _execute_until_complete_inner(
                         _new_ctx = await drain_pending(current_request.config, _app_ctx)
                         if _new_ctx is not _app_ctx:
                             set_app_context(_new_ctx)
+                    if state.ceiling_wrap_up:
+                        # The ceiling's wrap-up turn is tool-less no matter what
+                        # the drain just loaded: a queued tool add from the last
+                        # round must not hand the model a tool past its ceiling.
+                        current_request.config.tools = []
+                        current_request.config.custom_tools = []
                     chat_timing_mark(
                         "structured_inputs_resolved",
                         "structured inputs + drain_pending complete",
@@ -7161,6 +7319,38 @@ async def _execute_until_complete_inner(
             state.required_member_forced_pending = False
             state.required_member_saved_tools = None
 
+        # The ceiling's wrap-up turn offered NO tools, yet the model answered with
+        # tool calls (a provider that ignores an empty tool list, or a mock).
+        # Dispatch reads response.tool_calls, never config.tools, so without this
+        # the call would RUN past the ceiling. Keep the turn, run nothing, and
+        # end through the ceiling's backstop exit (which pairs the calls with
+        # skipped results so the conversation stays resumable).
+        if state is not None and state.ceiling_wrap_up and _response_has_tool_calls(response):
+            current_timing.end_time = time.time()
+            current_request.add_timing(current_timing)
+            current_request = AIMatrixRequest.add_response(
+                original_request=current_request, response=response, tool_results=None
+            )
+            state.current_request = current_request
+            return await _exit_with_loop_guard(
+                exec_ctx=exec_ctx,
+                state=state,
+                current_request=current_request,
+                response=response,
+                health=evaluate_loop_health(current_request.tool_call_history),
+                iteration=iteration,
+                trigger_position=trigger_position,
+                pre_execution_message_count=pre_execution_message_count,
+                debug=debug,
+                status="max_iterations_exceeded",
+                code="max_iterations_exceeded",
+                user_message=(
+                    f"Stopped after {max_iterations} iterations to avoid a runaway loop. "
+                    "Reply with 'continue' or new guidance to resume."
+                ),
+                extra_metadata={"max_iterations": max_iterations, "ceiling_wrap_up": True},
+            )
+
         # Process tool calls
         try:
             # Until add_response below carries it, this turn's tool_use exists
@@ -7258,6 +7448,65 @@ async def _execute_until_complete_inner(
                 # guarantee survives the terminal exit).
                 current_request = state.current_request or current_request
                 continue
+
+            # ── A TOOL CALL WRITTEN AS TEXT ──────────────────────────────
+            # The model typed its call into the reply (``<invoke name=…>``,
+            # ``<tool_call>``…) and the provider reported none, so nothing ran.
+            # The markup leaves the turn's text before anything stores it; the
+            # model gets ONE more turn with a host notice (never the person's
+            # message); a second time ends with a visible note. Text already
+            # streamed cannot be unsent, so the stream is TOLD (a warning event)
+            # rather than pretending it never happened.
+            if (
+                tool_results is None
+                and not pending_call_ids
+                and state is not None
+                and _strip_text_tool_calls_from_turn(current_request, response)
+            ):
+                from matrx_ai.orchestrator.text_tool_calls import (
+                    TEXT_TOOL_CALL_CODE,
+                    TEXT_TOOL_CALL_NOTE,
+                    TEXT_TOOL_CALL_NOTICE,
+                )
+
+                reask = state.text_tool_call_reasks < 1 and not state.ceiling_wrap_up
+                await exec_ctx.emitter.send_warning(
+                    WarningPayload(
+                        code=TEXT_TOOL_CALL_CODE,
+                        system_message=(
+                            f"Model '{current_request.config.model}' wrote a tool call as text "
+                            f"in iteration {iteration} and made no real call; the markup was "
+                            "removed from the stored answer"
+                            + ("; asking it once to use the tool interface." if reask else
+                               "; it did so again, so the run ends with a note.")
+                        ),
+                        user_message=(
+                            "A step was written as text instead of run — asking the assistant to redo it."
+                            if reask
+                            else "A step was written as text, so it did not run."
+                        ),
+                        level="medium",
+                        recoverable=reask,
+                        metadata={
+                            "model": current_request.config.model,
+                            "iteration": iteration,
+                            "markup_removed": True,
+                            "reask": reask,
+                        },
+                    )
+                )
+                if reask:
+                    state.text_tool_call_reasks += 1
+                    messages = current_request.config.messages
+                    last = messages.get_last_by_role("assistant")
+                    if last is not None and messages[-1] is last and _turn_text_is_blank(last):
+                        messages.pop()
+                    messages.append(
+                        host_authored_user_turn(TEXT_TOOL_CALL_NOTICE, reason="text_tool_call")
+                    )
+                    await exec_ctx.emitter.send_phase("processing")
+                    continue  # one re-ask; a second text call ends with the note
+                _append_turn_note(current_request, response, TEXT_TOOL_CALL_NOTE)
 
             terminal_problem = (
                 _terminal_response_problem(response)
@@ -7712,6 +7961,16 @@ async def _execute_until_complete_inner(
                         color="yellow",
                     )
 
+                # ── THE VISUAL-MAP REPAIR LOOP (legible-diagrams L4) ──────
+                # A final answer carrying a ``visual_map`` is validated by the
+                # diagram engine, repaired (bound agent, else this model in a
+                # muted child call), delivered and STAMPED by the server, and the
+                # stamped value replaces the draft in the durable text BEFORE
+                # _finalize_and_persist. No visual_map → nothing runs. Never raises.
+                from matrx_ai.orchestrator.visual_map_repair import visual_map_gate
+
+                await visual_map_gate(current_request, response, exec_ctx)
+
                 # Final UI clear — guarantees the frontend leaves any
                 # "Planning next steps…" / in-progress indicator before we
                 # persist and the stream closes.  Safe to double-emit: the
@@ -7760,6 +8019,21 @@ async def _execute_until_complete_inner(
                 # Required-member terminal pause (C-26): the orchestrator still
                 # refused its required member after the forced turn. A distinct,
                 # resumable status — this run NEVER records a clean 'completed'.
+                # The ceiling's wrap-up turn: the model wrote its result with
+                # tools off, but the JOB did not finish inside the ceiling. It is
+                # recorded as the ceiling stop it is (never a clean 'completed'),
+                # carrying the same reason sentence as the backstop exit.
+                if state is not None and state.ceiling_wrap_up:
+                    _completion_meta.update(
+                        _loop_guard_meta(
+                            status="max_iterations_exceeded",
+                            health=None,
+                            evidence=None,
+                        )
+                    )
+                    _completion_meta["status"] = "max_iterations_exceeded"
+                    _completion_meta["max_iterations"] = max_iterations
+                    _completion_meta["ceiling_wrap_up"] = True
                 if _rm_action == "pause":
                     from matrx_ai.orchestrator.required_members import (
                         REQUIRED_MEMBER_SKIPPED_STATUS,
@@ -7802,6 +8076,53 @@ async def _execute_until_complete_inner(
             #   3. If we already intervened and it's STILL stuck → hard graceful
             #      exit (belt-and-suspenders; normally unreachable since tools are
             #      gone on the tool-less turn).
+            # THE ITERATION CEILING NEVER ENDS ON A TOOL CALL (2026-10-21). The
+            # tool round that just ran was the last one this run may take: switch
+            # every tool off and give the model ONE more turn to write its result
+            # (one iteration past the ceiling — metered like every other call).
+            # Before this, the loop just fell out here and the run's last turn
+            # was a bare tool call: a background helper's caller got raw
+            # tool-call JSON as its "answer" (2026-10-21 audit, 2 helpers parked).
+            if iteration >= max_iterations and not state.ceiling_wrap_up:
+                state.ceiling_wrap_up = True
+                current_request.config.tools = []
+                current_request.config.custom_tools = []
+                current_request.config.messages.append(
+                    host_authored_user_turn(
+                        _ceiling_wrap_up_notice(max_iterations), reason="iteration_ceiling_wrap_up"
+                    )
+                )
+                await exec_ctx.emitter.send_warning(
+                    WarningPayload(
+                        code="iteration_ceiling_wrap_up",
+                        system_message=(
+                            f"Iteration ceiling reached ({max_iterations}); tools disabled for "
+                            "one final turn so the model writes its result."
+                        ),
+                        user_message="",
+                        level="low",
+                        recoverable=True,
+                        metadata={
+                            "iteration": iteration,
+                            "max_iterations": max_iterations,
+                            "tools_disabled": True,
+                        },
+                    )
+                )
+                continue
+            if (
+                not state.ceiling_warned
+                and max_iterations > CEILING_WARNING_ROUNDS + 1
+                and max_iterations - iteration == CEILING_WARNING_ROUNDS
+            ):
+                state.ceiling_warned = True
+                current_request.config.messages.append(
+                    host_authored_user_turn(
+                        _ceiling_approaching_notice(max_iterations, CEILING_WARNING_ROUNDS),
+                        reason="iteration_ceiling_approaching",
+                    )
+                )
+
             from matrx_ai.orchestrator.loop_guard import load_loop_guard_thresholds
 
             # THE CEILINGS ARE SETTINGS NOW (2026-09-20). Resolved ONCE per run

@@ -37,9 +37,7 @@ def main() -> None:
             executor._prepare_first(
                 Load(
                     construction="model",
-                    model_sources=True,
                     devices=os.environ.get("CUDA_VISIBLE_DEVICES", ""),
-                    authorized_device_limit_bytes=1 << 30,
                     binding=Binding(model_class="Model", model_parameter_name="model"),
                 )
             )
@@ -67,9 +65,7 @@ def main() -> None:
         reply = executor._prepare_first(
             Load(
                 construction="model",
-                model_sources=True,
                 devices=os.environ.get("CUDA_VISIBLE_DEVICES", ""),
-                authorized_device_limit_bytes=1 << 30,
                 binding=Binding(model_class="Model", model_parameter_name="model"),
             )
         )

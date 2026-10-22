@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: firecrawl
-Version: 4.53.2
+Version: 4.53.3
 Summary: Python SDK for Firecrawl, the context API for AI agents: search, scrape, parse, crawl, map, and interact with the web, run Agent and Monitor jobs, and search scientific papers (PubMed, bioRxiv, medRxiv, arXiv)
 Home-page: https://github.com/firecrawl/firecrawl
 Author: Firecrawl
@@ -39,6 +39,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: httpx
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: python-dotenv
 Requires-Dist: websockets
 Requires-Dist: nest-asyncio

@@ -1,14 +1,19 @@
-# An example of using Dear ImGui with SDL2 using a *full python* backend.
-# This mode is inspired from [pyimgui](https://github.com/pyimgui/pyimgui) backends, and is still experimental.
-#
-# See full python backends implementations here:
-# https://github.com/pthom/imgui_bundle/tree/main/bindings/imgui_bundle/python_backends
+"""
+Dear ImGui in an SDL2 window, with a pure Python backend.
 
-# You will need to install sdl2:
-#    pip install pysdl2 pysdl2-dll
+Add ImGui to your own [SDL2](https://www.libsdl.org) app: you write the event loop, and a Python backend does the
+rest. It uses PySDL2; the backend passes the events to ImGui and draws it with PyOpenGL. Shows the ImGui demo, and a
+window with markdown and a formula. Needs `pip install imgui-bundle[sdl2,opengl] pysdl2-dll`.
+
+`pysdl2-dll` brings the SDL2 library itself. See [Pure Python
+backends](https://imgui-bundle.pages.dev/doc/python/pure-python-backend/). Unlike `immapp.run()`, there is no Hello
+ImGui here: no DPI handling, themes or assets. This backend is adapted from
+[pyimgui](https://github.com/pyimgui/pyimgui)'s, and is still experimental. All the backends:
+[python_backends](https://github.com/pthom/imgui_bundle/tree/main/bindings/imgui_bundle/python_backends).
+"""
 
 # ruff: noqa: F403, F405
-from imgui_bundle import imgui
+from imgui_bundle import imgui, rich_md
 from imgui_bundle.python_backends.sdl2_backend import SDL2Renderer
 import OpenGL.GL as gl  # pip install PyOpenGL
 from sdl2 import *  # type: ignore
@@ -28,6 +33,9 @@ def main():
     window, gl_context = impl_pysdl2_init()
     imgui.create_context()
     impl = SDL2Renderer(window)
+    md_options = rich_md.MarkdownOptions()
+    md_options.with_latex = True  # LaTeX formulas ($...$ and $$...$$)
+    rich_md.create_context(md_options)  # the markdown fonts load at the first render
 
     show_custom_window = True
 
@@ -62,6 +70,17 @@ def main():
             imgui.set_next_window_size((400, 400))
             is_expand, show_custom_window = imgui.begin("Custom window", True)
             if is_expand:
+                rich_md.render(r"""
+                # Hello, World
+                Here is some *markdown* text, and a formula: $e^{i\pi} + 1 = 0$
+
+                ![](images/world.png)
+
+                ```python
+                print("code blocks too")
+                ```
+                """)
+
                 imgui.text("Example Text")
                 if imgui.button("Hello"):
                     print("World")
@@ -86,6 +105,7 @@ def main():
         impl.render(imgui.get_draw_data())
         SDL_GL_SwapWindow(window)
 
+    rich_md.destroy_context()
     impl.shutdown()
     SDL_GL_DeleteContext(gl_context)
     SDL_DestroyWindow(window)

@@ -98,6 +98,11 @@ async def _apply_message_flags(wire_config: Any, config: Any, profile: Any, wire
         wire_list._turn_context_blocks = dict(getattr(messages, "_turn_context_blocks", {}) or {})
         if plan.convert_instruction:
             wire_list.attach_turn_context(plan.convert_instruction, slot=CONVERT_PREFILL_SLOT)
+            # The send boundary already placed this turn's block before the typed text; the
+            # converted instruction joins that block where it stands (never after her words).
+            from matrx_ai.config.typed_text_last import refresh_host_turn
+
+            wire_list._messages = refresh_host_turn(wire_list._messages, wire_list.render_turn_context())
         wire_config.messages = wire_list
     if plan.notes:
         vcprint("\n".join(plan.notes), "[message flags]", color="yellow")

@@ -156,8 +156,9 @@ def cargo_build():
     # the released 2.x wheels: the knob is off by default at runtime and must
     # be explicitly set in the conf string, so compiling it in is safe.
     features = ['confstr-ffi', 'arrow', 'insecure-skip-verify']
+    ffi_cargo_args = cargo_args + ['--locked']
     subprocess.check_call(
-        cargo_args + ['--features', ','.join(features)],
+        ffi_cargo_args + ['--features', ','.join(features)],
         cwd=str(PROJ_ROOT / 'c-questdb-client' / 'questdb-rs-ffi'),
         env=env)
 
@@ -184,7 +185,7 @@ def readme():
 
 setup(
     name='questdb',
-    version='5.0.0',
+    version='6.0.0',
     platforms=['any'],
     python_requires='>=3.10',
     install_requires=['numpy>=1.21.0'],

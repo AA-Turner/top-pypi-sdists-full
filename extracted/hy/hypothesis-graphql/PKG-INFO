@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hypothesis-graphql
-Version: 0.13.4
+Version: 0.13.5
 Summary: Hypothesis strategies for GraphQL queries
 Project-URL: Changelog, https://github.com/Stranger6667/hypothesis-graphql/blob/master/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/Stranger6667/hypothesis-graphql
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Testing
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: graphql-core<3.4.0,>=3.1.0
 Requires-Dist: hypothesis<7.0,>=6.84.3

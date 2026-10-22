@@ -30,7 +30,7 @@ class GenericOpenAITranslator(BaseTranslator):
     """Translates between unified format and any OpenAI-compatible API."""
 
     #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
-    TURN_CONTEXT_AFTER_CACHE_LINE = True
+    PROVIDER = "generic_openai"
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)

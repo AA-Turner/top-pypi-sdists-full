@@ -46,6 +46,7 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedMessage,
 )
+from matrx_ai.config.send_boundary import order_for_wire
 from matrx_ai.testing.profile_factory import make_profile
 
 SYSTEM = "You are a careful assistant. " * 40
@@ -76,9 +77,15 @@ def _turn(history: list[UnifiedMessage], live_date: str) -> UnifiedConfig:
     return config
 
 
-def _build(module: str, cls: str, wire_format: str, config: UnifiedConfig) -> Any:
+def _build(
+    module: str, cls: str, wire_format: str, config: UnifiedConfig, capabilities: dict[str, Any] | None = None
+) -> Any:
+    """Render ``config`` the way a real send does: the send boundary orders the person's turn
+    ONCE (``send_boundary.order_for_wire`` → ``SendPrep``), the translator renders its list."""
+    profile = make_profile(model_name="m", wire_format=wire_format, capabilities=capabilities)
+    prep = order_for_wire(config, profile)
     translator = getattr(importlib.import_module(module), cls)()
-    return translator.build_request(config, make_profile(model_name="m", wire_format=wire_format))
+    return translator.build_request(prep.wire_config if prep.wire_config is not None else config, profile)
 
 
 def _system_text(cls: str, request: Any) -> str:
@@ -210,11 +217,8 @@ def test_a_strict_alternation_model_gets_the_documented_fallback(
     """Only a model the CATALOG declares ``strict_role_alternation`` (probe-proven to
     reject user, user) gets the fallback: the end of the system message. Her
     message stays exactly her words and no second user turn is added."""
-    translator = getattr(importlib.import_module(module), cls)()
     history = [_msg("user", "q1"), _msg("assistant", "a1"), _msg("user", "HER WORDS")]
-    request = translator.build_request(
-        _turn(history, "09:00"), make_profile(model_name="m", wire_format=wire_format, capabilities=STRICT)
-    )
+    request = _build(module, cls, wire_format, _turn(history, "09:00"), capabilities=STRICT)
     roles = [m["role"] for m in request["messages"]]
     assert roles == ["system", "user", "assistant", "user"], roles
     assert _system_text(cls, request).rstrip().endswith("</turn_context>")

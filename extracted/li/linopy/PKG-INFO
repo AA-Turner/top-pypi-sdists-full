@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.10.0
+Version: 0.10.1
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
 Maintainer-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>, Felix Bumann <dev@fxbumann.de>

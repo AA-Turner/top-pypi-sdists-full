@@ -7,10 +7,11 @@ mod get_status {
         use tombi_test_lib::project_root_path;
 
         use super::*;
-        use std::path::PathBuf;
+        use std::{path::PathBuf, str::FromStr};
 
         fn fixture_path() -> PathBuf {
-            project_root_path().join("crates/tombi-lsp/tests/fixtures/issue-1548-schema-toml-version")
+            project_root_path()
+                .join("crates/tombi-lsp/tests/fixtures/issue-1548-schema-toml-version")
         }
 
         test_get_status!(
@@ -56,6 +57,59 @@ mod get_status {
                 source: tombi_lsp::handler::TomlVersionSource::Schema,
             });
         );
+
+        test_get_status!(
+            #[tokio::test]
+            async fn selected_schema_keeps_priority_after_rebuild_and_cache_refresh(
+                SourcePath(fixture_path().join("schema-toml-version/test.toml")),
+                ConfigPath(fixture_path().join("schema-toml-version/tombi.toml")),
+                UseTestCacheHome,
+            ) -> Ok(Expected {
+                toml_version: tombi_config::TomlVersion::V1_1_0,
+                source: tombi_lsp::handler::TomlVersionSource::Schema,
+                schema: tombi_schema_store::SchemaUri::from_str("tombi://www.schemastore.org/tombi.json")?,
+            });
+            AfterOpen(|backend, source_path, document_uri| {
+                use std::str::FromStr;
+                use tombi_schema_store::{AssociateSchemaOptions, SchemaUri};
+
+                let selected_schema = SchemaUri::from_str("tombi://www.schemastore.org/tombi.json")?;
+                let file_match = [source_path.to_string_lossy().into_owned()];
+                for schema_uri in [
+                    SchemaUri::from_str("tombi://www.schemastore.org/cargo.json")?,
+                    selected_schema.clone(),
+                ] {
+                    backend
+                        .config_manager
+                        .associate_schema(
+                            &schema_uri,
+                            &file_match,
+                            &AssociateSchemaOptions {
+                                force: true,
+                                ..Default::default()
+                            },
+                        )
+                        .await;
+                }
+
+                let config_path = source_path.parent().unwrap().join("tombi.toml");
+                let config = serde_tombi::config::try_from_path(&config_path)?.unwrap();
+                backend
+                    .config_manager
+                    .update_config_with_path(config, &config_path)
+                    .await?;
+                let status = tombi_lsp::handler::handle_get_status(
+                    backend,
+                    tower_lsp_server::gen_lsp_types::TextDocumentIdentifier {
+                        uri: document_uri.clone(),
+                    },
+                )
+                .await?;
+                assert_eq!(status.schema.map(|schema| schema.uri), Some(selected_schema.clone()));
+
+                assert!(backend.config_manager.refresh_cache().await?);
+            });
+        );
     }
 
     mod associate_schema_updates_status {
@@ -64,11 +118,14 @@ mod get_status {
         use tombi_schema_store::{AssociateSchemaOptions, SchemaUri};
         use tower_lsp_server::{
             LspService,
-            gen_lsp_types::{DidOpenTextDocumentParams, TextDocumentIdentifier, TextDocumentItem, Uri},
+            gen_lsp_types::{
+                DidOpenTextDocumentParams, TextDocumentIdentifier, TextDocumentItem, Uri,
+            },
         };
 
         #[tokio::test]
-        async fn returns_associated_schema_after_selection() -> Result<(), Box<dyn std::error::Error>> {
+        async fn returns_associated_schema_after_selection()
+        -> Result<(), Box<dyn std::error::Error>> {
             use tombi_lsp::{
                 Backend,
                 handler::{handle_did_open, handle_get_status},
@@ -115,7 +172,8 @@ mod get_status {
                 )
                 .await;
 
-            let status = handle_get_status(backend, TextDocumentIdentifier { uri: uri.clone() }).await?;
+            let status =
+                handle_get_status(backend, TextDocumentIdentifier { uri: uri.clone() }).await?;
 
             assert_eq!(
                 status.schema.as_ref().map(|schema| schema.uri.clone()),
@@ -133,20 +191,26 @@ mod get_status {
         use tower_lsp_server::LspService;
 
         #[tokio::test]
-        async fn applies_strict_and_keeps_associated_schema() -> Result<(), Box<dyn std::error::Error>> {
+        async fn applies_strict_and_keeps_associated_schema()
+        -> Result<(), Box<dyn std::error::Error>> {
             use tombi_lsp::Backend;
 
             tombi_test_lib::init_log();
 
             let temp_dir = tempfile::tempdir()?;
-            std::fs::write(temp_dir.path().join("tombi.toml"), "toml-version = \"v1.0.0\"\n")?;
+            std::fs::write(
+                temp_dir.path().join("tombi.toml"),
+                "toml-version = \"v1.0.0\"\n",
+            )?;
             let source_path = temp_dir.path().join("source.toml");
             std::fs::write(&source_path, "answer = 42\n")?;
 
             let (service, _) = LspService::new(|client| Backend::new(client, &Default::default()));
             let config_manager = &service.inner().config_manager;
 
-            let config_schema_store = config_manager.config_schema_store_for_file(&source_path).await;
+            let config_schema_store = config_manager
+                .config_schema_store_for_file(&source_path)
+                .await;
             let config_path = config_schema_store
                 .config_path
                 .clone()
@@ -172,13 +236,18 @@ mod get_status {
                 strict: Some(false.into()),
                 ..Default::default()
             });
-            config_manager.update_config_with_path(config, &config_path).await?;
+            config_manager
+                .update_config_with_path(config, &config_path)
+                .await?;
 
             let schema_store = config_manager
                 .config_schema_store_for_file(&source_path)
                 .await
                 .schema_store;
-            assert_eq!(schema_store.strict().map(|strict| strict.value()), Some(false));
+            assert_eq!(
+                schema_store.strict().map(|strict| strict.value()),
+                Some(false)
+            );
             assert!(
                 schema_store
                     .list_schemas()
@@ -196,7 +265,8 @@ mod get_status {
 macro_rules! test_get_status {
     (#[tokio::test] async fn $name:ident(
         $($arg:expr),+ $(,)?
-    ) -> Ok(Expected { toml_version: $expected_version:expr, source: $expected_source:expr $(,)? });) => {
+    ) -> Ok(Expected { toml_version: $expected_version:expr, source: $expected_source:expr $(, schema: $expected_schema:expr)? $(,)? });
+    $(AfterOpen(|$backend:ident, $source_path:ident, $document_uri:ident| $after_open:block);)?) => {
         #[tokio::test]
         async fn $name() -> Result<(), Box<dyn std::error::Error>> {
             use tombi_lsp::Backend;
@@ -218,6 +288,7 @@ macro_rules! test_get_status {
                 source_text: Option<String>,
                 config_file_path: Option<std::path::PathBuf>,
                 backend_options: tombi_lsp::backend::Options,
+                use_test_cache_home: bool,
             }
 
             #[allow(unused)]
@@ -252,6 +323,14 @@ macro_rules! test_get_status {
                 }
             }
 
+            struct UseTestCacheHome;
+
+            impl ApplyTestArg for UseTestCacheHome {
+                fn apply(self, args: &mut TestArgs) {
+                    args.use_test_cache_home = true;
+                }
+            }
+
             impl ApplyTestArg for tombi_lsp::backend::Options {
                 fn apply(self, args: &mut TestArgs) {
                     args.backend_options = self;
@@ -261,6 +340,8 @@ macro_rules! test_get_status {
             #[allow(unused_mut)]
             let mut args = TestArgs::default();
             $(ApplyTestArg::apply($arg, &mut args);)*
+
+            let _cache_home = args.use_test_cache_home.then(tombi_test_lib::TestCacheHome::new);
 
             let (service, _) = LspService::new(|client| {
                 Backend::new(client, &args.backend_options)
@@ -310,6 +391,13 @@ macro_rules! test_get_status {
             )
             .await;
 
+            $(
+                let $backend = backend;
+                let $source_path = source_path;
+                let $document_uri = &toml_file_url;
+                $after_open
+            )?
+
             // Get status
             let status = handle_get_status(
                 backend,
@@ -339,6 +427,13 @@ macro_rules! test_get_status {
                 $expected_source,
                 status.source,
             );
+
+            $(
+                assert_eq!(
+                    status.schema.map(|schema| schema.uri),
+                    Some($expected_schema),
+                );
+            )?
 
             Ok(())
         }

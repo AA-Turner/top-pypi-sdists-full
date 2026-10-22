@@ -1,6 +1,7 @@
 """
 Module for managing and validating crawler settings.
 """
+
 from urllib.parse import quote_plus
 
 from .sqlite_path import default_sqlite_url
@@ -142,7 +143,9 @@ class Settings:
 
     @property
     def ingest_batch_size(self):
-        return self.crawler_settings.getint("INGEST_BATCH_SIZE", self.DEFAULT_BATCH_SIZE)
+        return self.crawler_settings.getint(
+            "INGEST_BATCH_SIZE", self.DEFAULT_BATCH_SIZE
+        )
 
     @property
     def ingest_flush_interval(self):

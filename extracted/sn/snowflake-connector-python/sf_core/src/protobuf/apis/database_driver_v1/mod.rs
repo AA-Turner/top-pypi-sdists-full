@@ -1279,7 +1279,9 @@ impl DatabaseDriver for DatabaseDriverImpl {
         // client still uses the linked module with default trust. Proxy env
         // vars are honored, but an explicit `PROXY` connection parameter can't
         // be: this RPC has no `conn_handle` to read it from (SNOW-2912540).
-        let client = crate::tls::client::default_verified_client_builder()
+        let roots = self.driver.root_store_provider.clone();
+        let client = crate::tls::client::default_verified_client_builder(&roots)
+            .await
             .and_then(|builder| builder.build().context(crate::tls::error::ClientBuildSnafu))
             .context(crate::rest::snowflake::workload_identity::CryptoProviderSnafu)
             .context(WorkloadIdentityAttestationSnafu)
@@ -1289,7 +1291,7 @@ impl DatabaseDriver for DatabaseDriverImpl {
         // thing that can end the call short of the endpoint answering. The OIDC
         // provider makes no request and so has nothing to observe.
         let create = async {
-            workload_identity::create_attestation(&client, None, &config)
+            workload_identity::create_attestation(&client, None, &config, roots)
                 .await
                 .context(WorkloadIdentityAttestationSnafu)
         };

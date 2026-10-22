@@ -160,8 +160,8 @@ pub(super) struct DeclarationMovesTestCase {
     pub(super) description: &'static str,
     /// Files on disk below the project.
     pub(super) on_disk: &'static [(&'static str, &'static str)],
-    /// `(source, destination)` of the moved model.
-    pub(super) paths: (&'static str, &'static str),
+    /// `(source, destination)` of each moved model.
+    pub(super) moves: &'static [(&'static str, &'static str)],
     pub(super) placement: DeclarationPlacement,
     pub(super) expected_moves: &'static [(&'static str, &'static str)],
     /// `path:line reason` of each blocker.
@@ -216,4 +216,23 @@ pub(super) struct HeaderPartsTestCase {
     pub(super) contents: &'static str,
     pub(super) expected_edits: &'static [&'static str],
     pub(super) expected_manual: &'static [&'static str],
+}
+
+pub(super) struct FollowedUnitTestTestCase {
+    pub(super) description: &'static str,
+    pub(super) request: RefactorRequest,
+    /// Declarations the scope host reports as resolving differently from any destination.
+    pub(super) rebound: &'static [&'static str],
+    /// Each `original -> path` test file change with its replacements, sorted by path.
+    pub(super) expected_changes: Vec<(String, Vec<String>)>,
+    /// Each `path: reason` note of a test file kept in its folder.
+    pub(super) expected_notes: &'static [&'static str],
+}
+
+/// Several moves planned together, and their blockers and file moves.
+pub(super) struct BatchPlanTestCase {
+    pub(super) description: &'static str,
+    pub(super) requests: Vec<RefactorRequest>,
+    pub(super) expected_blocking: &'static [&'static str],
+    pub(super) expected_moves: &'static [&'static str],
 }

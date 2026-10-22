@@ -9,6 +9,7 @@ pub mod revocation;
 pub mod test_helpers;
 pub mod x509_utils;
 
+pub(crate) use client::RootStoreSnapshot;
 pub use client::{
     RootStoreProvider, create_tls_client_with_config, create_tls_client_with_proxy,
     create_tls_client_with_proxy_and_timeouts,

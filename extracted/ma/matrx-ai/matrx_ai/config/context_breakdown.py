@@ -65,6 +65,21 @@ def _tool_family(name: str) -> str:
     return "system_tools"
 
 
+def _declaration_name(declaration: Any) -> str:
+    """The tool name a declaration carries. A declaration that is not a dict (a bare name, a
+    pydantic model, an SDK object) is read for the same fields and never raises."""
+    if isinstance(declaration, str):
+        return declaration
+    if isinstance(declaration, dict):
+        function = declaration.get("function")
+        inner = function.get("name") if isinstance(function, dict) else None
+        return str(declaration.get("name") or inner or "")
+    function = getattr(declaration, "function", None)
+    return str(
+        getattr(declaration, "name", None) or getattr(function, "name", None) or ""
+    )
+
+
 def _tool_definitions(config: Any) -> list[tuple[str, int]]:
     """(name, chars) for every tool definition this call declares."""
     out: list[tuple[str, int]] = []
@@ -72,9 +87,10 @@ def _tool_definitions(config: Any) -> list[tuple[str, int]]:
     if isinstance(declared, dict) and declared:
         # The stabilized per-provider declarations ARE what goes on the wire.
         decls = next(iter(declared.values())) or []
+        if isinstance(decls, (str, dict)):
+            decls = [decls]
         for d in decls:
-            name = str((d or {}).get("name") or ((d or {}).get("function") or {}).get("name") or "")
-            out.append((name, _chars(d)))
+            out.append((_declaration_name(d), _chars(d)))
         if out:
             return out
     try:

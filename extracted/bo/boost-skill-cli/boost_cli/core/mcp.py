@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 from ..errors import BoostError
 
@@ -308,7 +308,8 @@ def instructions(*, ai_available: bool) -> str:
                              gate, _INSTRUCTIONS_TAIL)
 
 
-def hit_line(entry: dict, *, installed: bool = False) -> str:
+def hit_line(entry: dict, *, installed: bool = False,
+             path: str | None = None) -> str:
     """One search hit rendered for an agent: name, kind, description, tap.
 
     The kind marker is the load-bearing part. ``boost_install``'s description
@@ -338,14 +339,38 @@ def hit_line(entry: dict, *, installed: bool = False) -> str:
     hit marked "not installed" that ``boost_install <name>`` then resolves to
     the item already in the lock. One notion of identity per reply, plus the
     field that resolves it, beats two that contradict each other.
+
+    ``path`` is set only when the hit's tap ships its name more than once.
+    Those copies resolve by name+tap to an ambiguity error, so the line names
+    the ``path`` argument boost_read, boost_info and boost_install take to
+    pick one — the only way to reach either copy over this surface.
     """
     kind = entry.get("kind") or "skill"
     marker = "" if kind == "skill" else " [%s]" % kind
     if installed:
         marker += " [installed]"
-    return "%s%s — %s (%s)" % (entry.get("name", "?"), marker,
+    line = "%s%s — %s (%s)" % (entry.get("name", "?"), marker,
                                entry.get("description", ""),
                                entry.get("tap", "?"))
+    return line + (" [path: %s]" % path if path else "")
+
+
+def str_arg(args: Mapping, key: str) -> str | None:
+    """``args[key]`` when it is a string, None when absent; else refuse.
+
+    Every tool's inputSchema says its fields are strings, and the handlers
+    used to ``str()`` whatever arrived: ``{"name": null}`` looked up a skill
+    called ``'None'`` and a list query was searched as its own repr. A
+    schema-violating value is the caller's mistake, so it is named — the
+    same treatment ``handle_request`` gives a non-object ``arguments``.
+    """
+    val = args.get(key)
+    if val is None and key not in args:
+        return None
+    if not isinstance(val, str):
+        raise BoostError("invalid argument: \"%s\" must be a string, got %s"
+                         % (key, "null" if val is None else type(val).__name__))
+    return val
 
 
 # `boost_read`'s budget, and it is a measured number rather than a round one.
@@ -554,7 +579,7 @@ def echo(text: str, *, limit: int = QUERY_ECHO_CHARS) -> str:
 
 
 def no_results(query: str, *, tapped: int,
-               dropped: Sequence[str] = ()) -> str:
+               dropped: Sequence[str] = (), ignored: bool = False) -> str:
     """The reply for a search that returned nothing.
 
     THREE different situations wore one sentence. On a configured machine
@@ -576,7 +601,11 @@ def no_results(query: str, *, tapped: int,
     happened and the rule, so a retry is possible. The setup branch still wins:
     an untapped machine could not have matched anything either way.
 
-    Both echoing branches are bounded by :func:`echo` — see
+    ``ignored`` is the fourth: the query held only stopwords and punctuation
+    (``rag.ignored_by_design``), which ``dropped`` leaves out on purpose, so
+    `the and of` used to read as a genuine miss.
+
+    Every echoing branch is bounded by :func:`echo` — see
     :data:`QUERY_ECHO_CHARS` for why the one reply an agent hits repeatedly
     must not cost it in proportion to what it typed.
     """
@@ -587,6 +616,10 @@ def no_results(query: str, *, tapped: int,
         return ("%s did not reach the index, so nothing was searched — a term "
                 "needs 2 or more ASCII letters or digits. Retry with a "
                 "plain-word description of the task." % shown)
+    if tapped > 0 and ignored:
+        return ("%r holds only common words and punctuation, which the index "
+                "ignores, so nothing was searched. Retry with a plain-word "
+                "description of the task." % echo(query))
     if tapped > 0:
         return "no skills match %r" % echo(query)
     # Addressed to the user via the agent, and naming ONE command. Telling an

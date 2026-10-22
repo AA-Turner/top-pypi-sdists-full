@@ -1,9 +1,18 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
+"""Widgets: knobs, toggles, spinners and more
+
+Knobs, toggle switches, spinners, a command palette, a dock-like cool bar: widgets beyond Dear ImGui's own. They come
+from the libraries in the bundle: [imgui-knobs](https://github.com/altschuler/imgui-knobs),
+[imgui_toggle](https://github.com/cmdwtf/imgui_toggle), [imspinner](https://github.com/dalerank/imspinner),
+[imgui-command-palette](https://github.com/hnOsmium0001/imgui-command-palette) and ImCoolBar. Also file dialogs: the
+native ones ([portable-file-dialogs](https://github.com/samhocevar/portable-file-dialogs)), and
+[ImFileDialog](https://github.com/pthom/ImFileDialog), drawn with ImGui.
+"""
 from typing import List
 from imgui_bundle import (
     imgui,
     hello_imgui,
-    imgui_md,
+    rich_md,
     imgui_toggle,
     ImVec2,
     immapp,
@@ -27,7 +36,7 @@ def demo_knobs():
     static = demo_knobs
     from imgui_bundle import imgui_knobs
 
-    imgui_md.render(
+    rich_md.render(
         """
 # Knobs
   [imgui-knobs](https://github.com/altschuler/imgui-knobs) provides knobs for ImGui."""
@@ -122,7 +131,7 @@ def demo_spinner():
     static = demo_spinner
     from imgui_bundle import imspinner
 
-    imgui_md.render(
+    rich_md.render(
         """
 # Spinners
   [imspinner](https://github.com/dalerank/imspinner) provides spinners for ImGui."""
@@ -172,7 +181,7 @@ def demo_spinner():
 @immapp.static(flag=True)
 def demo_toggle():
     static = demo_toggle
-    imgui_md.render_unindented(
+    rich_md.render(
         """
         # Toggle Switch
           [imgui_toggle](https://github.com/cmdwtf/imgui_toggle) provides toggle switches for ImGui."""
@@ -182,7 +191,7 @@ def demo_toggle():
     imgui.same_line()
 
     _changed, static.flag = imgui_toggle.toggle(
-        "Animated Toggle", static.flag, imgui_toggle.ToggleFlags_.animated.value
+        "Animated Toggle", static.flag, imgui_toggle.ToggleFlags_.animated
     )
     imgui.same_line()
 
@@ -222,11 +231,12 @@ def demo_portable_file_dialogs():
 
 
     imgui.push_id("pfd")
-    imgui_md.render_unindented(
+    rich_md.render(
         """
         # Portable File Dialogs
          [portable-file-dialogs](https://github.com/samhocevar/portable-file-dialogs) provides file dialogs
          as well as notifications and messages. They will use the native dialogs and notifications on each platform.
+         **On the desktop only**: in a browser, they do nothing.
     """
     )
 
@@ -316,7 +326,7 @@ def demo_imfile_dialog():
     if not has_submodule("im_file_dialog"):
         return
     from imgui_bundle import im_file_dialog as ifd
-    imgui_md.render_unindented(
+    rich_md.render(
         """
         # ImFileDialog
          [ImFileDialog](https://github.com/pthom/ImFileDialog.git) provides file dialogs for ImGui.
@@ -426,7 +436,7 @@ def demo_command_palette():
         init_command_palette()
         static.was_inited = True
 
-    imgui_md.render_unindented(
+    rich_md.render(
         """
         # Command Palette
         [imgui-command-palette](https://github.com/hnOsmium0001/imgui-command-palette.git) provides a Sublime Text or VSCode style command palette in ImGui
@@ -443,7 +453,10 @@ def demo_command_palette():
         )
 
     imgui.new_line()
-    imgui.text("Press Ctrl+Shift+P to bring up the command palette")
+    if imgui.button("Open the command palette"):  # a touch screen has no keyboard shortcut
+        static.show_command_palette = True
+    imgui.same_line()
+    imgui.text("or press Ctrl+Shift+P")
     imgui.new_line()
     imgui.text(f"{static.counter=}")
 
@@ -468,7 +481,7 @@ def demo_cool_bar():
         return clicked
 
     button_labels = ["A", "B", "C", "D", "E", "F"]
-    imgui_md.render_unindented(
+    rich_md.render(
         """
         # ImCoolBar
         ImCoolBar provides a dock-like Cool bar for Dear ImGui
@@ -476,22 +489,24 @@ def demo_cool_bar():
     )
 
     cool_bar_settings = im_cool_bar.ImCoolBarSettings()
-    cool_bar_settings.anchor = ImVec2(
-        0.5, 0.07
-    )  #  position in the window (ratio of window size)
     cool_bar_settings.mode = im_cool_bar.ImCoolBarFlags_.horizontal
-    if im_cool_bar.begin_cool_bar("##CoolBarMain", cool_bar_settings):
+    # The bar is a window of its own, placed in the viewport: its anchor is a ratio of the viewport's free space.
+    # Here, it goes where the cursor is, in the space kept for it below, and scrolls with the page
+    viewport = imgui.get_main_viewport()
+    bar_height = cool_bar_settings.normal_size + 2 * imgui.get_style().window_padding.y
+    bar_top = imgui.get_cursor_screen_pos().y - viewport.pos.y
+    cool_bar_settings.anchor = ImVec2(0.5, bar_top / (viewport.size.y - bar_height))
+    if imgui.is_rect_visible(ImVec2(1, bar_height)) and im_cool_bar.begin_cool_bar("##CoolBarMain", cool_bar_settings):
         for label in button_labels:
             if im_cool_bar.cool_bar_item():
                 if show_cool_bar_button(label):
                     print(f"Clicked {label}")
         im_cool_bar.end_cool_bar()
 
-    imgui.new_line()
-    imgui.new_line()
+    imgui.dummy(ImVec2(0, bar_height))
 
 
-def demo_gui():
+def gui():
     demo_cool_bar()
     demo_toggle()
     demo_spinner()
@@ -504,4 +519,4 @@ def demo_gui():
 
 
 if __name__ == "__main__":
-    immapp.run(demo_gui, with_markdown=True, window_size=(1000, 1000))
+    immapp.run(gui, with_markdown=True, window_size=(1000, 1000))

@@ -47,40 +47,34 @@ pub(super) fn next_delay_ms(current: f64, backoff: &BackoffConfig) -> f64 {
     next.min(backoff.cap.as_millis() as f64)
 }
 
-pub(super) fn build_azure_client(stage_info: &StageInfo) -> Result<reqwest::Client, TlsError> {
-    crate::tls::client::configure_storage_client_builder(
-        reqwest::Client::builder().timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS)),
-        &stage_info.tls_config,
-        Some(&stage_info.proxy_config),
-        stage_info.crl_manager.clone(),
-        stage_info.root_store_provider.clone(),
-    )?
-    .http1_only()
-    .build()
-    .context(ClientBuildSnafu)
-}
-
-pub(super) fn build_gcs_client(stage_info: &StageInfo) -> Result<reqwest::Client, TlsError> {
-    crate::tls::client::configure_storage_client_builder(
-        reqwest::Client::builder().timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS)),
-        &stage_info.tls_config,
-        Some(&stage_info.proxy_config),
-        stage_info.crl_manager.clone(),
-        stage_info.root_store_provider.clone(),
-    )?
-    .http1_only()
-    .build()
-    .context(ClientBuildSnafu)
-}
-
-pub(super) fn shared_or_build_client(
-    shared: Option<&reqwest::Client>,
-    build: impl FnOnce() -> Result<reqwest::Client, TlsError>,
+pub(super) async fn build_azure_client(
+    stage_info: &StageInfo,
 ) -> Result<reqwest::Client, TlsError> {
-    match shared {
-        Some(client) => Ok(client.clone()),
-        None => build(),
-    }
+    crate::tls::client::configure_storage_client_builder_prepared(
+        reqwest::Client::builder().timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS)),
+        &stage_info.tls_config,
+        Some(&stage_info.proxy_config),
+        stage_info.crl_manager.clone(),
+        stage_info.root_store_provider.clone(),
+    )
+    .await?
+    .http1_only()
+    .build()
+    .context(ClientBuildSnafu)
+}
+
+pub(super) async fn build_gcs_client(stage_info: &StageInfo) -> Result<reqwest::Client, TlsError> {
+    crate::tls::client::configure_storage_client_builder_prepared(
+        reqwest::Client::builder().timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS)),
+        &stage_info.tls_config,
+        Some(&stage_info.proxy_config),
+        stage_info.crl_manager.clone(),
+        stage_info.root_store_provider.clone(),
+    )
+    .await?
+    .http1_only()
+    .build()
+    .context(ClientBuildSnafu)
 }
 
 pub(crate) enum StorageHttp {
@@ -90,22 +84,23 @@ pub(crate) enum StorageHttp {
 }
 
 impl StorageHttp {
-    pub(crate) fn for_stage(stage_info: &StageInfo) -> Result<Self, TlsError> {
+    pub(crate) async fn for_stage(stage_info: &StageInfo) -> Result<Self, TlsError> {
         Ok(match stage_info.location_type {
-            LocationType::Azure => Self::Azure(build_azure_client(stage_info)?),
-            LocationType::Gcs => Self::Gcs(build_gcs_client(stage_info)?),
+            LocationType::Azure => Self::Azure(build_azure_client(stage_info).await?),
+            LocationType::Gcs => Self::Gcs(build_gcs_client(stage_info).await?),
             // The sole producer of an `S3` slot, and so the sole reason
             // `AwsSdkReqwestClient::from_shared` is sound -- see the doc on
             // `into_shared`. Keep it that way: a second producer that skips
             // this constructor would put an unconstrained client on the SDK
             // transport without the type system objecting.
             LocationType::S3 => Self::S3(
-                crate::tls::aws_http_client::AwsSdkReqwestClient::build(
+                crate::tls::aws_http_client::AwsSdkReqwestClient::build_prepared(
                     &stage_info.tls_config,
                     Some(&stage_info.proxy_config),
                     stage_info.crl_manager.clone(),
                     stage_info.root_store_provider.clone(),
-                )?
+                )
+                .await?
                 .into_shared(),
             ),
         })

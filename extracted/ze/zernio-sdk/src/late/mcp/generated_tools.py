@@ -888,6 +888,7 @@ def register_generated_tools(mcp, _get_client):
             "redditads",
             "whopads",
             "hubspot",
+            "webflow",
         ]
         | None = None,
         status: Literal["healthy", "warning", "error"] | None = None,
@@ -4378,6 +4379,87 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get ad account billing",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_accounts_get_ad_account_billing(
+        account_id: str, ad_account_id: str | None = None
+    ) -> str:
+        """Get ad account billing
+
+        Reads the payments accounts a Google Ads account can be billed to, plus its billing setups and account budgets.
+
+        Payments accounts come from Google's PaymentsAccountService, read as the manager above the customer: they are the monthly invoicing (consolidated billing) accounts of that manager. An empty `paymentsAccounts` means the manager has no monthly invoicing, so billing cannot be set up through the API and has to be added in Google Ads. Billing setups and account budgets are read live from Google with their status. Results are cached for 10 minutes and dropped on every setup through Zernio.
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google Ads customer id, digits only. Defaults to the connection's selected customer."""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.get_ad_account_billing(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set up ad account billing (monthly invoicing)",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def ad_accounts_set_up_ad_account_billing(
+        account_id: str,
+        ad_account_id: str,
+        payments_account_id: str,
+        spending_limit: float | None = None,
+        budget_name: str = "Zernio account budget",
+        purchase_order_number: str | None = None,
+        validate_only: bool = False,
+    ) -> str:
+        """Set up ad account billing (monthly invoicing)
+
+        Bills a Google Ads account to a monthly invoicing payments account of a manager above it, and proposes its account budget, so the account can serve without anyone opening Google Ads.
+
+        Monthly invoicing only. Google's API cannot add a card or other payment method, so `paymentsAccountId` must be one of the manager's monthly invoicing (consolidated billing) payments accounts listed by GET /v1/ads/accounts/billing. A manager without monthly invoicing has none, and billing has to be added in Google Ads instead.
+
+        Creates a billing setup (Google's BillingSetupService) that starts now on that payments account, then an account budget proposal that starts now and never ends: unlimited by default, or capped at `spendingLimit` in the account currency. Google reviews the budget offline, usually within an hour; until then the setup reads `APPROVED_HELD` and ads do not serve. A customer whose current billing setup already has a budget is refused with 409, and so is one billed to another payments ...
+
+        Platforms: google
+
+        Args:
+            account_id: Google ads SocialAccount id. (required)
+            ad_account_id: Google Ads customer id to bill, digits only. (required)
+            payments_account_id: Monthly invoicing payments account from GET /v1/ads/accounts/billing. (required)
+            spending_limit: Account budget cap in the account currency. Omit for an unlimited budget.
+            budget_name
+            purchase_order_number: Printed on the invoice. No effect on delivery.
+            validate_only"""
+        client = _get_client()
+        try:
+            response = client.ad_accounts.set_up_ad_account_billing(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                payments_account_id=payments_account_id,
+                spending_limit=spending_limit,
+                budget_name=budget_name,
+                purchase_order_number=purchase_order_number,
+                validate_only=validate_only,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List user access invitations",
             readOnlyHint=True,
             destructiveHint=False,
@@ -7661,7 +7743,7 @@ def register_generated_tools(mcp, _get_client):
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
-            account_id: Account ID. Sibling-expanded to its linked posting↔ads pair. (required)
+            account_id: Account ID. Sibling-expanded to its linked posting↔ads pair. An id that does not exist or sits on a profile the API key cannot reach answers 404 (code: account_not_found). (required)
             ad_account_id: Optional platform-native ad account ID (e.g. Meta `act_…`, TikTok advertiser ID). Use when the connection wraps multiple platform ad accounts and the chart should show one only. Note: rows ingested before 2026-05-13 don't carry this column; the recurring 7-day re-sync repopulates them naturally.
             from_date: Inclusive start of metrics range (YYYY-MM-DD). Defaults to 90 days ago.
             to_date: Inclusive end of metrics range (YYYY-MM-DD). Defaults to today. Max 730-day range.
@@ -8254,6 +8336,42 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Review status of each creative in a TikTok Smart+ ad",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_campaigns_get_tik_tok_smart_plus_ad_review(ad_id: str) -> str:
+        """Review status of each creative in a TikTok Smart+ ad
+
+        Shows which Spark post, video or carousel of an Upgraded Smart+ ad TikTok approved or rejected, with every rejection reason, keyed by the TikTok post id for a Spark post.
+
+        Reads TikTok's `/smart_plus/ad/review_info/` live (read-only, works on a paused ad) for the
+        Smart+ ad that holds `adId`, and returns the ad-level verdict plus one entry per creative.
+        `adId` may be the Smart+ ad itself or any creative of it synced as its own ad: Zernio finds
+        the Smart+ ad in the ad's ad group through `/smart_plus/ad/get/`, and uses the ad group's only
+        Smart+ ad when no creative list names the ad.
+
+        `materialType`, `tiktokItemId`, `videoId`, `name` and `operationStatus` come from the Smart+
+        ad's `creative_list`. TikTok leaves out of that list the creatives it added on its own
+        (creator content, authorized TikTok posts, Creative Library content) and lists each image of a
+        carousel under its own material id, so those entries come back with the review verdict and
+        null descriptive fields. TikTok returns no ...
+
+        Platforms: tiktok
+
+        Args:
+            ad_id: Zernio ad id (24-char hex) or the TikTok ad id: the Smart+ ad id or the ad id of one of its creatives. (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_campaigns.get_tik_tok_smart_plus_ad_review(ad_id=ad_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List campaign negative lists",
             readOnlyHint=True,
             destructiveHint=False,
@@ -8533,8 +8651,24 @@ def register_generated_tools(mcp, _get_client):
                 tracking: Meta only, except `pixelId`, which also picks the Reddit pixel of the new ad group (`promotedObject.pixelId` wins when both are sent). Tracking specs (pixel, URL tags). Object with keys: pixelId (string); urlTags (list of objects with keys key, value) - URL parameters appended to the ad link, rendered as `key=value` pairs joined with `&`. Meta dynamic macros ({{ad.id}}, {{campaign.id}}, {{placement}}, ...) ...
                 special_ad_categories: Meta only. Required for housing, employment, credit, or political ads.
                 special_ad_category_country: Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires specialAdCategories to be set (400 otherwise).
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
-                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs for regionalRegulatedCategories. Values are numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary / universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses Ads Manager defaults when configured.
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV, MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Verified identity IDs of the beneficiary and payer for each declared
+        regionalRegulatedCategories value. Meta may require them on ad sets created through
+        the API even when a default beneficiary and payer are set in Ads Manager advertising
+        settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+        The value is the Verified identity ID (Meta Business Settings > Verified identities),
+        not a Page or Business ID, and beneficiary and payer may be the same ID.
+        Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+        australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+        taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+        TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+        SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+        AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+        advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+        (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+        ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+        Ignored when adSetId adds the ad to an existing ad set.
                 link_url: Website URL for non-messaging CTA buttons. Send it with `callToAction`. Omit for messaging boosts.
 
         **Meta**: adds a top-level `call_to_action` to the post-reference creative.
@@ -9248,7 +9382,7 @@ def register_generated_tools(mcp, _get_client):
                 catalog_format: Meta catalog template creatives only (goal `catalog_sales`, goal `traffic` with `promotedObject.productSetId`, or `adSetId` with `promotedObject.productSetId`); a 400 otherwise. Sent as `object_story_spec.template_data.format_option`. `force_single_link` is never sent with it (Meta rejects the pair, subcode 1443051). `single_image` also sends `format_transformation_spec` with `carousel` and `da_collection` set to `data_source: ["none"]`, so Meta keeps the single image instead of turning it into a carousel or collection. `carousel_images_single_item` also sends `template_data.multi_share_end_card: false`, which Meta requires for that format (subcode 1443167). Omit it to let Meta pick the format.
                 multi_advertiser: Meta only. Multi-advertiser ads: whether Meta may show this ad alongside other advertisers' in one unit. Meta auto-enrols since Aug 2024, so send OPT_OUT to leave. It is a top-level creative field, NOT a `creativeFeatures` key, and Meta rejects it there.
                 ai_disclosure: Meta only. Meta's "Ad includes media created or edited with AI" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision.
-                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
+                validate_only: Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. When Meta cannot dry-run the nested tree (code 2, or an unknown-error code 1 on an OFFSITE_CONVERSIONS ad set nested in a new campaign, which Meta returns for some website-conversion ad sets that it then creates normally), the campaign and creative are validated on their own and the adSet and ad nodes come back unverified with the reason. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI's own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.
                 budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error.
                 budget_type: Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget. Reddit Ads: the ad group's daily or lifetime spend goal; lifetime needs `endDate`.
                 status: Publish state of the created entities, on every platform. Omitted or ACTIVE publishes live (default, back-compat); PAUSED pauses only the TOP-MOST object this call creates and switches everything below it on, so one resume of that object brings the new tree live and nothing that already existed is touched: a new campaign is held paused with its ad set and ad on; with `existingCampaignId` the new ad set is held paused with its ad on; with `adSetId` the new ad itself is paused. `campaignStatus: ACTIVE` with `status: PAUSED` moves the pause down to the new ad set. `campaignStatus`, `adSetStatus` and `adStatus` set one level each and always win for that level; `status: PAUSED` adds a hold of its own only when none of them is PAUSED. To create every object paused, send all three as PAUSED. LinkedIn: a held campaign group is PAUSED with its campaign and creative ACTIVE; a new campaign in an existing group stays DRAFT; a held creative (with `adSetId`) is created DRAFT, as LinkedIn refuses PAUSED until its review is APPROVED. X has no per-ad switch, so its lowest level is the line item. Google Performance Max and Demand Gen accept PAUSED only (the campaign is created paused).
@@ -9450,13 +9584,26 @@ def register_generated_tools(mcp, _get_client):
         specialAdCategories to be set (400 otherwise). Ignored when joining an existing campaign via
         existingCampaignId (the existing campaign's category/country already governs it).
                 regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries.
-        Known values: BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL,
-        AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV. Meta rejects the ad set without this when
+        Known values: AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV,
+        MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL. Meta rejects the ad set without this when
         the targeting geo includes the corresponding country.
-                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs for regionalRegulatedCategories. Values are
-        numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary /
-        universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses
-        Ads Manager defaults when configured.
+                regional_regulation_identities: Meta only. Verified identity IDs of the beneficiary and payer for each declared
+        regionalRegulatedCategories value. Meta may require them on ad sets created through
+        the API even when a default beneficiary and payer are set in Ads Manager advertising
+        settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+        The value is the Verified identity ID (Meta Business Settings > Verified identities),
+        not a Page or Business ID, and beneficiary and payer may be the same ID.
+        Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+        australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+        taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+        TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+        SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+        AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+        advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+        (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+        ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+        Ignored when adSetId adds the ad to an existing ad set.
                 end_date: Required for lifetime budgets. Read like `startDate` (account timezone on Meta, TikTok, X, Pinterest, OpenAI and Reddit; whole account-local days on Google; UTC on LinkedIn), and a date-only end runs to 23:59:59 local.
                 start_date: Ad-set start time (ISO 8601, e.g. "2026-06-10T09:00:00Z"), mapped to the ad set's
         start (Meta `start_time`, TikTok ad group `schedule_start_time`, LinkedIn / Pinterest / X
@@ -11456,6 +11603,7 @@ def register_generated_tools(mcp, _get_client):
         ] = "city",
         country_code: str | None = None,
         ad_account_id: str | None = None,
+        locale: str | None = None,
         limit: int = 25,
     ) -> str:
         """Search targeting options
@@ -11486,6 +11634,7 @@ def register_generated_tools(mcp, _get_client):
             geo_type: Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`.
             country_code: ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search.
             ad_account_id: TikTok only: the advertiser to search as, when the connection holds several. Each TikTok advertiser has its own targetable regions and catalogs. Defaults to the connection's first advertiser; an advertiser the connection does not hold returns 400.
+            locale: Meta only: the language Meta matches `q` against and names results and `path` in, as language_TERRITORY (e.g. `pl_PL`, `en_US`). Applies to `geo`, `interest`, `interestSuggestion`, `behavior`, `workPosition`, `workEmployer` and `workIndustry`. Without it, `behavior` and `workIndustry` use `en_US` and the other searches use the language of the Facebook user who connected the account. `income` always uses `en_US`. Ignored on other platforms.
             limit: Maximum results to return."""
         client = _get_client()
         try:
@@ -11496,6 +11645,7 @@ def register_generated_tools(mcp, _get_client):
                 geo_type=geo_type,
                 country_code=country_code,
                 ad_account_id=ad_account_id,
+                locale=locale,
                 limit=limit,
             )
             return _format_response(response)
@@ -13288,16 +13438,18 @@ def register_generated_tools(mcp, _get_client):
 
         Lists blogs on the connected account. Shopify returns its store blogs
         with cursor pagination. A WordPress or Wix account represents one site
-        and always returns exactly that one blog with `nextCursor: null`.
+        and always returns exactly that one blog with `nextCursor: null`. A
+        Webflow site returns each CMS collection that has a rich text field
+        (its blog id is the collection id), with `nextCursor: null`.
 
         `limit` is 1-50 (default 20). Treat `nextCursor` as opaque; pass it
         unchanged on the next request. Supported on Shopify (`shopify`),
-        WordPress (`wordpress`) and Wix (`wix`).
+        WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`).
 
-        Platforms: shopify, wordpress, wix
+        Platforms: shopify, wordpress, wix, webflow
 
         Args:
-            account_id: Connected Shopify, WordPress or Wix account id. (required)
+            account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             limit: Page size (1-50).
             cursor: Opaque cursor from a previous response. Omit for the first page."""
         client = _get_client()
@@ -13359,10 +13511,10 @@ def register_generated_tools(mcp, _get_client):
         WordPress.com numeric site id, or `1` for a self-hosted WordPress or a
         Wix site. That `1` is scoped to its connected account.
 
-        Platforms: shopify, wordpress, wix
+        Platforms: shopify, wordpress, wix, webflow
 
         Args:
-            account_id: Connected Shopify, WordPress or Wix account id. (required)
+            account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             blog_id: Platform-native blog/site id returned by the list operation. (required)"""
         client = _get_client()
         try:
@@ -13455,15 +13607,16 @@ def register_generated_tools(mcp, _get_client):
         default 20) and the `cursor` from a previous response's `nextCursor`;
         `nextCursor` is null when there are no more pages. Treat cursors as
         opaque and pass them unchanged. Supported on Shopify (`shopify`),
-        WordPress (`wordpress`) and Wix (`wix`). WordPress and Wix results
+        WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`). WordPress and Wix results
         include `status` and include `publishDate` only for scheduled
         (`future`) posts. Wix lists return `bodyHtml: null`; get the article
-        for its body.
+        for its body. Webflow results report `status` as `publish` or
+        `draft` only.
 
-        Platforms: shopify, wordpress, wix
+        Platforms: shopify, wordpress, wix, webflow
 
         Args:
-            account_id: Connected Shopify, WordPress or Wix account id. (required)
+            account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             blog_id: Platform-native blog/site id returned by the list operation. (required)
             limit: Page size (1-50).
             cursor: Opaque cursor from a previous response. Omit for the first page."""
@@ -13497,13 +13650,14 @@ def register_generated_tools(mcp, _get_client):
         seo: dict[str, Any] | None = None,
         is_published: bool | None = None,
         publish_date: str | None = None,
+        field_data: dict[str, Any] | None = None,
     ) -> str:
         """Create a blog article
 
         Creates an article on the blog. Publishing behavior:
 
-        - WordPress and Wix default to a draft when both publishing fields are
-          omitted.
+        - WordPress, Wix and Webflow default to a draft when both publishing
+          fields are omitted.
         - `isPublished: false` keeps the article as a draft and takes priority
           over a future `publishDate`.
         - A future `publishDate` schedules publication natively on the
@@ -13514,18 +13668,16 @@ def register_generated_tools(mcp, _get_client):
         - `seo.title` / `seo.description` map to Shopify's global `title_tag`
           and `description_tag` metafields (the fields Shopify themes read for
           the page title and meta description), and on Wix to the post's SEO
-          title and meta description. WordPress rejects `seo`; SEO plugin and
-          custom-field writes are not supported.
-        - Wix stores rich content: `bodyHtml` is converted on write (each
-          top-level HTML element must fit 30,000 characters), and images in
-          the body are imported into the site's Media Manager.
+          title and meta description. WordPress and Webflow reject `seo`; SEO
+          plugin and custom-field writes are not supported.
+        - Webflow has no scheduling API: a future `publishDate` returns 400
+          unless `isPublished: false` keeps a draft. Fields map to the
+          collection's own fields by type and slug (the body to ...
 
-        Supported on ...
-
-        Platforms: shopify, wordpress, wix
+        Platforms: shopify, wordpress, wix, webflow
 
         Args:
-            account_id: Connected Shopify, WordPress or Wix account id. (required)
+            account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             blog_id: Platform-native blog/site id returned by the list operation. (required)
             title: (required)
             body_html: Article body as HTML.
@@ -13536,7 +13688,8 @@ def register_generated_tools(mcp, _get_client):
             image: Featured image from a public URL. WordPress downloads it into the media library and Wix imports it into the Media Manager; JPEG, PNG, GIF and WebP are accepted up to 10 MB. Object with keys: url (string, required); altText (string)
             seo: Shopify and Wix. Search-engine overrides: Shopify global title_tag and description_tag metafields, Wix post SEO title and meta description. WordPress rejects this field. Object with keys: title (string); description (string)
             is_published: Set false for a draft or true to publish. On WordPress and Wix false takes priority over a future publishDate; omission with no date defaults to draft.
-            publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform."""
+            publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.
+            field_data: Webflow only. The collection's own fields that the Blogs API does not map, keyed by field slug, in Webflow's value format (a Reference is an item id, an Image is { url, alt }). Required by collections with required fields of their own; a create that leaves one empty answers 400 listing them. A slug the API already fills (name, slug, body, summary, image, tags, author, date) or one the collection lacks answers 400. Other platforms answer 400."""
         client = _get_client()
         try:
             response = client.blogs.create_blog_article(
@@ -13552,6 +13705,7 @@ def register_generated_tools(mcp, _get_client):
                 seo=seo,
                 is_published=is_published,
                 publish_date=publish_date,
+                field_data=field_data,
             )
             return _format_response(response)
         except Exception as e:
@@ -13571,16 +13725,16 @@ def register_generated_tools(mcp, _get_client):
         Fetches a single article. An article addressed through a blog it does
         not belong to is a 404 (code blog_article_not_found).
 
-        Supported on Shopify (`shopify`), WordPress (`wordpress`) and Wix (`wix`). WordPress
+        Supported on Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`). WordPress
         returns its native `status`; `publishedAt` is present only for a
         published post and `publishDate` only for a scheduled post.
 
-        Platforms: shopify, wordpress, wix
+        Platforms: shopify, wordpress, wix, webflow
 
         Args:
-            account_id: Connected Shopify, WordPress or Wix account id. (required)
+            account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             blog_id: Platform-native blog/site id returned by the list operation. (required)
-            article_id: Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix. Other formats return 400. (required)"""
+            article_id: Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix, a 24-character hex item id on Webflow. Other formats return 400. (required)"""
         client = _get_client()
         try:
             response = client.blogs.get_blog_article(
@@ -13612,6 +13766,7 @@ def register_generated_tools(mcp, _get_client):
         seo: dict[str, Any] | None = None,
         is_published: bool | None = None,
         publish_date: str | None = None,
+        field_data: dict[str, Any] | None = None,
     ) -> str:
         """Update a blog article
 
@@ -13624,16 +13779,18 @@ def register_generated_tools(mcp, _get_client):
         Omitting both fields preserves the current WordPress or Wix status. Omitting
         `image` preserves the current featured image; removal is not supported.
         WordPress rejects `seo` and does not support SEO-plugin/custom-field,
-        category, or custom-post-type writes.
+        category, or custom-post-type writes. On Webflow, an edit to a
+        published item goes live immediately, `isPublished: false` unpublishes
+        it, and a future `publishDate` returns 400.
 
-        Supported on Shopify (`shopify`), WordPress (`wordpress`) and Wix (`wix`).
+        Supported on Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`).
 
-        Platforms: shopify, wordpress, wix
+        Platforms: shopify, wordpress, wix, webflow
 
         Args:
-            account_id: Connected Shopify, WordPress or Wix account id. (required)
+            account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             blog_id: Platform-native blog/site id returned by the list operation. (required)
-            article_id: Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix. Other formats return 400. (required)
+            article_id: Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix, a 24-character hex item id on Webflow. Other formats return 400. (required)
             title
             body_html: Article body as HTML.
             handle: URL slug of the article.
@@ -13643,7 +13800,8 @@ def register_generated_tools(mcp, _get_client):
             image: Featured image from a public URL. WordPress downloads it into the media library and Wix imports it into the Media Manager; JPEG, PNG, GIF and WebP are accepted up to 10 MB. Omit to preserve it; null removal is not supported. Object with keys: url (string, required); altText (string)
             seo: Shopify and Wix. Search-engine overrides: Shopify global title_tag and description_tag metafields, Wix post SEO title and meta description. WordPress rejects this field. Object with keys: title (string); description (string)
             is_published: Set false to move to draft or true to publish. On WordPress and Wix false takes priority over a future publishDate; omission preserves status unless publishDate is sent (edits to a published Wix post go live).
-            publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform."""
+            publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.
+            field_data: Webflow only. The collection's own fields that the Blogs API does not map, keyed by field slug, in Webflow's value format (a Reference is an item id, an Image is { url, alt }). Required by collections with required fields of their own; a create that leaves one empty answers 400 listing them. A slug the API already fills (name, slug, body, summary, image, tags, author, date) or one the collection lacks answers 400. Other platforms answer 400."""
         client = _get_client()
         try:
             response = client.blogs.update_blog_article(
@@ -13660,6 +13818,7 @@ def register_generated_tools(mcp, _get_client):
                 seo=seo,
                 is_published=is_published,
                 publish_date=publish_date,
+                field_data=field_data,
             )
             return _format_response(response)
         except Exception as e:
@@ -13681,16 +13840,17 @@ def register_generated_tools(mcp, _get_client):
         Deletes the article. The delete happens on the platform and is
         permanent; Zernio stores nothing to restore it from. On WordPress the
         post is force-deleted, while uploaded attachments and tags remain in
-        the site's media library and taxonomy.
+        the site's media library and taxonomy. On Webflow the item is
+        unpublished from the live site, then deleted from the collection.
 
-        Supported on Shopify (`shopify`), WordPress (`wordpress`) and Wix (`wix`).
+        Supported on Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`).
 
-        Platforms: shopify, wordpress, wix
+        Platforms: shopify, wordpress, wix, webflow
 
         Args:
-            account_id: Connected Shopify, WordPress or Wix account id. (required)
+            account_id: Connected Shopify, WordPress, Wix or Webflow account id. (required)
             blog_id: Platform-native blog/site id returned by the list operation. (required)
-            article_id: Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix. Other formats return 400. (required)"""
+            article_id: Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix, a 24-character hex item id on Webflow. Other formats return 400. (required)"""
         client = _get_client()
         try:
             response = client.blogs.delete_blog_article(
@@ -20078,8 +20238,8 @@ def register_generated_tools(mcp, _get_client):
         open. Skin it with `brandName`, `primaryColor` and `language` below.
                 brand_name: Your product name, for the two branded pages. With `signup=hosted` (WhatsApp) it replaces Zernio in the page title ("Connect your WhatsApp number to <brandName>"). With `welcome=true` it fills the heading ("<brandName> wants to connect to your <platform>"); without it the screen shows Zernio and the Zernio mark. Both pages keep a Zernio mark: they are co-branded, not white-label. Trimmed; 1 to 60 characters. Rejected with 400 `INVALID_FIELD_VALUE` without `signup=hosted` or `welcome=true`. Sealed into the page link at issue time, so editing the URL cannot change it.
                 primary_color: Hex colour (`#RRGGBB`) for the primary button on the hosted WhatsApp signup page (`signup=hosted`) or the welcome screen (`welcome=true`). Validated server-side; anything else is a 400 `INVALID_FIELD_VALUE`. Rejected without one of the two.
-                welcome: Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button fills for about a second and then sends the user on to the platform's own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio's own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform's authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.
-                welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine` and `consentLine` (up to 200 each), `buttonLabel` (up to 30, the label on that button); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor`, `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
+                welcome: Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button reads Connecting for about a second and then sends the user on to the platform's own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio's own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform's authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.
+                welcome_theme: Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine`, `consentLine` and `statusLine` (up to 200 each, `statusLine` being the line above the button), `buttonLabel` (up to 30, the label of the link the button becomes if the redirect stalls); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor` (the button), `accentColor` (the header gradient, built as a scale of that colour, and the icons), `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.
                 logo_url: Welcome screen only (`welcome=true`): https URL of your logo, shown in a square tile, so use a square image. Without it the tile shows the first letter of `brandName`, or the Zernio mark when there is no `brandName` either. Rejected with 400 `INVALID_FIELD_VALUE` when the welcome screen is not shown.
                 language: Hosted signup page only (`signup=hosted`, WhatsApp): language of the page and its follow-along guide. Explainer videos stay in English. Default `en`. Rejected without `signup=hosted`."""
         client = _get_client()
@@ -20524,6 +20684,74 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.connect.get_wix_connect_url(
                 profile_id=profile_id, redirect_url=redirect_url
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Webflow OAuth URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_webflow_connect_url(
+        profile_id: str, redirect_url: str | None = None
+    ) -> str:
+        """Get Webflow OAuth URL
+
+        Returns Webflow's consent URL for the Zernio Webflow app. The user picks
+        exactly one site there; Webflow then returns the browser to Zernio's
+        internal callback, which connects that site and redirects to
+        `redirect_url` (or the dashboard when omitted). Picking several sites
+        connects none and redirects with `error=webflow_pick_one_site`.
+        Connecting a site already connected with a site token upgrades the same
+        account. Only an OAuth connection can install tracking tags on the site
+        (`installTrackingTagOnStore`); blogs work with either. The token does not
+        expire.
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+        client = _get_client()
+        try:
+            response = client.connect.get_webflow_connect_url(
+                profile_id=profile_id, redirect_url=redirect_url
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect Webflow with a site API token",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_webflow_with_site_token(profile_id: str, site_token: str) -> str:
+        """Connect Webflow with a site API token
+
+        Connects one Webflow site using a site API token, created in the
+        site's Site settings > Apps & integrations > API access with Sites
+        read-only and CMS read and write access. Zernio checks the token's
+        scopes, reads its site, and stores the token encrypted. Webflow is a
+        connect-only blog platform: each CMS collection with a rich text field
+        is a blog in the Blogs API (`/v1/accounts/{accountId}/blogs`); it does
+        not support social posts, inbox, analytics or ads. Publishing an
+        article needs a site that has been published once. Reconnecting the
+        same site and profile updates the connection in place.
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            site_token: Webflow site API token with Sites read and CMS read and write access. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.connect_webflow_with_site_token(
+                profile_id=profile_id, site_token=site_token
             )
             return _format_response(response)
         except Exception as e:
@@ -26313,6 +26541,46 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="List the posts an Instagram account is tagged in",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def instagram_list_instagram_tagged_media(
+        account_id: str, limit: int = 25, cursor: str | None = None
+    ) -> str:
+        """List the posts an Instagram account is tagged in
+
+        Returns the media where other Instagram users photo-tagged the connected
+        account, newest first. Private media is never returned.
+
+        Cursor-paginated: pass `nextCursor` from the previous response as
+        `cursor` to read the next page. `nextCursor` is null when there are no
+        more pages. Meta does not say whether a page is the last one, so the
+        final page can come back empty with `nextCursor` null.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        does not give Instagram Login access to tagging, so accounts connected
+        with classic Instagram Login receive a 400
+        (`instagram_tagged_media_requires_facebook_login`) and must be
+        reconnected choosing the Facebook option.
+
+        Args:
+            account_id: The ID of a connected Instagram account (Facebook Login). (required)
+            limit: Page size.
+            cursor: The `nextCursor` of the previous page."""
+        client = _get_client()
+        try:
+            response = client.instagram.list_instagram_tagged_media(
+                account_id=account_id, limit=limit, cursor=cursor
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get Instagram story insights",
             readOnlyHint=True,
             destructiveHint=False,
@@ -26440,6 +26708,50 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Update a lead's status",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def lead_gen_update_lead(
+        id: str,
+        status: Literal[
+            "new", "contacted", "unreachable", "qualified", "converted", "disqualified"
+        ],
+        value: float | None = None,
+        currency: str | None = None,
+        account_id: str | None = None,
+    ) -> str:
+        """Update a lead's status
+
+        Sets the status of a Meta lead (and optionally its value) so you can track it from lead to sale.
+
+        `{id}` is the Zernio lead id (`id` on `GET /v1/ads/leads`, `leadId` on `GET /v1/ads/lead-forms/{formId}/leads`) or the Meta `leadgenId` together with `accountId` in the body. Requires the Ads add-on.
+
+        Platforms: meta
+
+        Args:
+            id: Zernio lead id, or the Meta leadgenId (then accountId is required). (required)
+            status: (required)
+            value: Deal value; requires currency.
+            currency: ISO 4217 code.
+            account_id: Required when `{id}` is a Meta leadgenId: the facebook or metaads account that received the lead."""
+        client = _get_client()
+        try:
+            response = client.lead_gen.update_lead(
+                id=id,
+                status=status,
+                value=value,
+                currency=currency,
+                account_id=account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List lead forms",
             readOnlyHint=True,
             destructiveHint=False,
@@ -26523,7 +26835,7 @@ def register_generated_tools(mcp, _get_client):
             thank_you_button_type: Deprecated: use platformSpecificData.thankYouButtonType.
             thank_you_website_url: Deprecated: use platformSpecificData.thankYouWebsiteUrl.
             is_optimized_for_quality: Deprecated: use platformSpecificData.isOptimizedForQuality.
-            platform_specific_data: Form content; the shape is selected by the accountId's platform. Unknown fields are a 400 (strict-parsed). Object with keys: questions (list of objects with keys type, key, label, options, inline_context, required); privacyPolicyLinkText (string); followUpActionUrl (string); locale (string); thankYouTitle (string); thankYouBody (string); thankYouButtonText (string); thankYouButtonType (string); thankYouWebsiteUrl (string); thankYouEnableMessenger (boolean) - Adds a 'Continue in Messenger' option to the thank-you page (Meta thank_you_page.enable_messenger), so the lead can carry on chatting with the Page. Set ...; isOptimizedForQuality (boolean) - Set true for a higher-intent form (adds a review step before submit).; isPhoneSmsVerifyEnabled (boolean) - Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE ...; blockDisplayForNonTargetedViewer (boolean); questionPageCustomHeadline (string); contextCard (object with keys title, content, style, buttonText, coverPhoto)"""
+            platform_specific_data: Form content; the shape is selected by the accountId's platform. Unknown fields are a 400 (strict-parsed). Object with keys: questions (list of objects with keys type, key, label, options, inline_context, required); privacyPolicyLinkText (string); followUpActionUrl (string); locale (string); thankYouTitle (string); thankYouBody (string); thankYouButtonText (string); thankYouButtonType (string); thankYouWebsiteUrl (string); thankYouEnableMessenger (boolean) - Adds a 'Continue in Messenger' option to the thank-you page (Meta thank_you_page.enable_messenger), so the lead can carry on chatting with the Page. Set ...; isOptimizedForQuality (boolean) - Set true for a higher-intent form (adds a review step before submit).; isPhoneSmsVerifyEnabled (boolean) - Requires the lead to verify their phone number over SMS before the form submits (Meta is_phone_sms_verify_enabled). Only meaningful on a form with a PHONE ...; blockDisplayForNonTargetedViewer (boolean); questionPageCustomHeadline (string); contextCard (object with keys title, content, style, buttonText, coverPhoto); customDisclaimer (object with keys title, body, checkboxes) - Consent section with checkboxes (Meta custom_disclaimer). Each lead's answers come back on the lead, and a lead_received workflow only messages leads that ..."""
         client = _get_client()
         try:
             response = client.lead_gen.create_lead_form(
@@ -26871,6 +27183,51 @@ def register_generated_tools(mcp, _get_client):
             response = client.media.get_media_presigned_url(
                 filename=filename, content_type=content_type, size=size
             )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Prepare media for a platform",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def media_prepare_media(
+        url: str,
+        target: Literal[
+            "instagram",
+            "instagram_story",
+            "facebook",
+            "facebook_reel",
+            "facebook_story",
+            "threads",
+            "tiktok",
+            "linkedin",
+            "twitter",
+            "bluesky",
+            "pinterest",
+            "reddit",
+            "snapchat",
+            "telegram",
+            "googlebusiness",
+            "youtube_thumbnail",
+        ],
+    ) -> str:
+        """Prepare media for a platform
+
+        Turn any image or video into a version the target platform accepts, using the same per-platform processing Zernio runs before publishing. Each team can prepare up to 60 files per hour; past that the endpoint answers 429 with `retryAfterSeconds`.
+
+        What each target does to a video: `instagram`, `facebook_reel` re-encode to H.264 Main 4.1, 30 fps, 1080 wide (HDR sources only get the size step, so they are not flattened to SDR). `instagram_story` re-encodes a video over 100MB to fit 60 seconds and 100MB. `facebook_story` reframes anything wider than 9:16 onto a 1080x1920 canvas with a blurred background (Facebook otherwise publishes such stories with 0 seconds of video and no error). `threads` re-encodes to the conservative H.264 Baseline profile Threads processes reliably. `bluesky` re-encodes to 1080 wide and at most 180 seconds, then compresses under 50MB if the result is still larger. `telegram` compresses to 50MB and moves the index to the start of the file. The other targets ...
+
+        Args:
+            url: Public http(s) URL of the image or video. (required)
+            target: Where the media will be published. `twitter`, `googlebusiness` and `youtube_thumbnail` take images only; `facebook_reel` takes videos only. (required)"""
+        client = _get_client()
+        try:
+            response = client.media.prepare_media(url=url, target=target)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -27337,6 +27694,8 @@ def register_generated_tools(mcp, _get_client):
         | None = None,
         contact_card: bool | None = None,
         channel: Literal["imessage", "sms", "rcs", "whatsapp"] | None = None,
+        shared_media_id: str | None = None,
+        sticker: Literal["like_heart"] | None = None,
         quick_replies: list[dict[str, Any]] | None = None,
         buttons: list[dict[str, Any]] | None = None,
         template: dict[str, Any] | None = None,
@@ -27393,6 +27752,8 @@ def register_generated_tools(mcp, _get_client):
                 effect: iMessage only (JSON body only). Apple screen/bubble animation played when the message arrives. Rejected with 400 on other platforms.
                 contact_card: iMessage only (JSON body only). When `true`, attaches the sender's contact card (vCard) so the recipient can save the sender. Counts as message content on its own, so `message` becomes optional.
                 channel: iMessage only (JSON body only). Overrides the delivery channel for this one send; the provider otherwise picks it automatically. The sender must carry the matching add-on (SMS, RCS or WhatsApp), or the send fails. Not a default to set on every request. Rejected with 400 on other platforms.
+                shared_media_id: Instagram only (JSON body only). Shares one of the account's own published posts in the DM, by its Instagram media id (the `id` returned by the media endpoints, not a permalink). Meta only accepts media the account owns. Sent on its own: cannot be combined with `message`, attachments, `quickReplies`, `buttons`, `template` or `sticker` (400). `messageTag: HUMAN_AGENT` is allowed. Rejected with 400 on other platforms. Works on accounts connected with Instagram Login and with Facebook Login.
+                sticker: Instagram only (JSON body only). Sends a sticker instead of text; `like_heart` is the heart sticker. Sent on its own: cannot be combined with `message`, attachments, `quickReplies`, `buttons`, `template` or `sharedMediaId` (400). `messageTag: HUMAN_AGENT` is allowed. Rejected with 400 on other platforms.
                 quick_replies: Quick reply buttons. Mutually exclusive with buttons. Max 13 items. Each item is an object with keys: title (string, required) - Button label (max 20 chars); payload (string, required) - Payload sent back on tap; imageUrl (string) - Optional icon URL (Meta only)
                 buttons: Action buttons. Mutually exclusive with quickReplies. Max 3 items. Instagram / Facebook: also mutually exclusive with `template`. A Meta message carries one body shape, so sending both is a 400 rather than a silent drop of the buttons. The buttons and `message` render as Meta's button_template (one bubble with the text and the buttons below it), so `message` must be 640 characters or less when buttons are attached (400 otherwise). WhatsApp: buttons always render as interactive reply buttons. Only `title` and `payload` are used; `type`, `url`, and `phone` are ignored (WhatsApp has no URL/phone button in this field; use the `interactive` field with `type: cta_url` for a link button). `payload` becomes the button reply ID delivered on the `message.received` webhook when the user taps. To send a simple reply-button message, provide `title` + `payload` and set `type: postback`, e.g. `{ "type": "postback", "title": "Yes", "payload": "yes" }`. Combine `buttons` with `attachmentUrl` and `attachmentType` `image`, `video`, or `file` to render one WhatsApp message with a media header, body text, and reply buttons. Audio is not a supported interactive header and returns 400 when combined with buttons. Each item is an object with keys: type (one of: url, postback, phone; required) - Button type. phone is Facebook only. Ignored on WhatsApp (buttons always render as reply buttons).; title (string, required) - Button label (max 20 chars); url (string) - URL for url-type buttons (Facebook/Instagram only); payload (string) - Payload for postback-type buttons. On WhatsApp, this is the reply ID returned on the message.received webhook when the button is tapped.; phone (string) - Phone number for phone-type buttons (Facebook only)
                 template: Platform-dependent template payload. Ignored on Telegram. Instagram / Facebook: a generic template (carousel). Set `type: generic` and provide up to 10 `elements`, each with a `title` (required) and optional `subtitle`, `imageUrl`, and `buttons`. Mutually exclusive with the top-level `buttons` field (sending both is a 400); put the card's buttons on its `elements` instead. On Facebook, `imageAspectRatio` (`horizontal`, the default, or `square`) sets how Messenger renders the element images; Instagram has no such setting and rejects it. WhatsApp: sends an approved WhatsApp template message, the only message type WhatsApp accepts when the 24-hour customer-service window is closed. Provide exactly one element carrying the template reference: `{ "elements": [{ "name": "order_update", "language": "en_US", "components": [...] }] }` (`type` is ignored on WhatsApp). `components` is optional and is forwarded unchanged as the `template.components` array of Meta's Cloud API send payload; use it to fill body/header variables and button parameters, e.g. `[{ "type": "body", "parameters": [{ "type": "text", "text": "John" }] }]`. Templates with media headers (image, video, document) must include the header component with its media link here at send time. To send a template to a phone number with no existing conversation, or to have media headers filled in automatically from the template definition, use the create-conversation endpoint (POST /v1/inbox/conversations) instead. Object with keys: type (one of: generic) - Template type. Required for Instagram/Facebook generic templates; ignored on WhatsApp.; imageAspectRatio (one of: horizontal, square) - Facebook only. Aspect ratio Messenger renders element images at: horizontal (1.91:1, default) or square (1:1). A 400 on Instagram.; elements (list of objects with keys title, subtitle, imageUrl, buttons, name, language, components)
@@ -27419,6 +27780,8 @@ def register_generated_tools(mcp, _get_client):
                 effect=effect,
                 contact_card=contact_card,
                 channel=channel,
+                shared_media_id=shared_media_id,
+                sticker=sticker,
                 quick_replies=quick_replies,
                 buttons=buttons,
                 template=template,
@@ -28151,18 +28514,24 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
-                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs required alongside regionalRegulatedCategories.
-        Values are numeric IDs from the advertiser's Meta verification/authorization setup.
-        Keys depend on the declared category: BRAZIL_REGULATION and THAILAND_UNIVERSAL use
-        universal_beneficiary / universal_payer; SINGAPORE_UNIVERSAL uses
-        singapore_universal_beneficiary / singapore_universal_payer; TAIWAN_UNIVERSAL uses
-        taiwan_universal_beneficiary / taiwan_universal_payer; TAIWAN_FINSERV uses
-        taiwan_finserv_beneficiary / taiwan_finserv_payer; AUSTRALIA_FINSERV uses
-        australia_finserv_beneficiary / australia_finserv_payer; INDIA_FINSERV uses
-        india_finserv_beneficiary / india_finserv_payer.
-        Both beneficiary and payer must be included. If omitted and the advertiser has
-        set defaults in Meta Ads Manager advertising settings, Meta auto-fills them.
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV, MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Verified identity IDs of the beneficiary and payer for each declared
+        regionalRegulatedCategories value. Meta may require them on ad sets created through
+        the API even when a default beneficiary and payer are set in Ads Manager advertising
+        settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+        The value is the Verified identity ID (Meta Business Settings > Verified identities),
+        not a Page or Business ID, and beneficiary and payer may be the same ID.
+        Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+        australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+        taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+        TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+        SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+        AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+        advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+        (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+        ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+        Ignored when adSetId adds the ad to an existing ad set.
                 destination: Where the conversation opens when the ad is tapped. Set this OR `destinations`, not both.
                 destinations: Two or three messaging apps on ONE ad set, like Ads Manager's "all messaging apps": the ad set gets Meta's combined destination_type (e.g. MESSAGING_INSTAGRAM_DIRECT_MESSENGER_WHATSAPP) and the creative one CTA per app, so Meta opens the app each viewer is likeliest to answer from. WhatsApp in the list still needs the Page paired with a WhatsApp Business number. With `adSetId`, the existing ad set must already use that combined destination_type. Set this OR `destination`, not both.
                 placement_assets: A different image or video per placement on one messaging ad, e.g. a 4:5 image on Feed and a 9:16 image on Stories/Reels. Replaces top-level `imageUrl` / `video` (sending either alongside is a 400); `headline` and `body` stay required as the default copy. The CTA, `welcomeMessage` and `whatsappPhoneNumber` apply to every placement. Works on the single-creative shape and on attach (`adSetId`). Single `destination` only: Meta cannot combine per-placement media with `destinations` (it drops the placement rules from a multi-destination creative, or refuses more than one call to action per placement rule with error 1885878), so that combination is a 400. Also a 400 with `creatives[]`, `platformPostId`, `existingPostId` or `objectStoryId`, and on POST /v1/ads/call. Object with keys: defaultImageUrl (string) - Image mode. Catch-all image for any placement no rule matches. Required in image mode (Meta mandates a default rule).; defaultVideoUrl (string) - Video mode. Catch-all video for any placement no rule matches. Required in video mode.; defaultThumbnailUrl (string) - Video mode (optional). Poster image for the default video; Meta auto-generates one when omitted.; rules (list of objects with keys imageUrl, videoUrl, thumbnailUrl, headline, body, description, placements, required) - One entry per placement group you want to pin a specific asset to.
@@ -28570,18 +28939,24 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
-                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs required alongside regionalRegulatedCategories.
-        Values are numeric IDs from the advertiser's Meta verification/authorization setup.
-        Keys depend on the declared category: BRAZIL_REGULATION and THAILAND_UNIVERSAL use
-        universal_beneficiary / universal_payer; SINGAPORE_UNIVERSAL uses
-        singapore_universal_beneficiary / singapore_universal_payer; TAIWAN_UNIVERSAL uses
-        taiwan_universal_beneficiary / taiwan_universal_payer; TAIWAN_FINSERV uses
-        taiwan_finserv_beneficiary / taiwan_finserv_payer; AUSTRALIA_FINSERV uses
-        australia_finserv_beneficiary / australia_finserv_payer; INDIA_FINSERV uses
-        india_finserv_beneficiary / india_finserv_payer.
-        Both beneficiary and payer must be included. If omitted and the advertiser has
-        set defaults in Meta Ads Manager advertising settings, Meta auto-fills them.
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV, MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Verified identity IDs of the beneficiary and payer for each declared
+        regionalRegulatedCategories value. Meta may require them on ad sets created through
+        the API even when a default beneficiary and payer are set in Ads Manager advertising
+        settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+        The value is the Verified identity ID (Meta Business Settings > Verified identities),
+        not a Page or Business ID, and beneficiary and payer may be the same ID.
+        Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+        australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+        taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+        TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+        SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+        AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+        advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+        (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+        ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+        Ignored when adSetId adds the ad to an existing ad set.
                 phone_number: E.164 number the CALL_NOW CTA dials (e.g. +34600111222). (required)
                 link_url: Website shown as the creative's link. Required: Meta rejects tel: as link_data.link; the phone number rides only the CTA. (required)"""
         client = _get_client()
@@ -28982,18 +29357,24 @@ def register_generated_tools(mcp, _get_client):
         (for example, an agency paying for a client's ads). Same rules as
         `dsaBeneficiary`: required for EU targeting unless the ad account has
         a default payor.
-                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.
-                regional_regulation_identities: Meta only. Beneficiary/payer entity IDs required alongside regionalRegulatedCategories.
-        Values are numeric IDs from the advertiser's Meta verification/authorization setup.
-        Keys depend on the declared category: BRAZIL_REGULATION and THAILAND_UNIVERSAL use
-        universal_beneficiary / universal_payer; SINGAPORE_UNIVERSAL uses
-        singapore_universal_beneficiary / singapore_universal_payer; TAIWAN_UNIVERSAL uses
-        taiwan_universal_beneficiary / taiwan_universal_payer; TAIWAN_FINSERV uses
-        taiwan_finserv_beneficiary / taiwan_finserv_payer; AUSTRALIA_FINSERV uses
-        australia_finserv_beneficiary / australia_finserv_payer; INDIA_FINSERV uses
-        india_finserv_beneficiary / india_finserv_payer.
-        Both beneficiary and payer must be included. If omitted and the advertiser has
-        set defaults in Meta Ads Manager advertising settings, Meta auto-fills them."""
+                regional_regulated_categories: Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV, MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL). Forwarded to the ad set.
+                regional_regulation_identities: Meta only. Verified identity IDs of the beneficiary and payer for each declared
+        regionalRegulatedCategories value. Meta may require them on ad sets created through
+        the API even when a default beneficiary and payer are set in Ads Manager advertising
+        settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+        The value is the Verified identity ID (Meta Business Settings > Verified identities),
+        not a Page or Business ID, and beneficiary and payer may be the same ID.
+        Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+        australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+        taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+        TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+        SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+        AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+        universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+        advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+        (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+        ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+        Ignored when adSetId adds the ad to an existing ad set."""
         client = _get_client()
         try:
             response = client.messaging_ads.create_ctwa_ad(
@@ -30279,6 +30660,7 @@ def register_generated_tools(mcp, _get_client):
         source: Literal["zernio", "external"] = "zernio",
         status: Literal[
             "draft",
+            "pending_approval",
             "scheduled",
             "publishing",
             "published",
@@ -30374,6 +30756,7 @@ def register_generated_tools(mcp, _get_client):
         scheduled_for: str | None = None,
         publish_now: bool = False,
         is_draft: bool = False,
+        requires_approval: bool = False,
         dry_run: bool = False,
         timezone: str | None = None,
         tags: list[str] | None = None,
@@ -30420,6 +30803,7 @@ def register_generated_tools(mcp, _get_client):
                 scheduled_for: When to publish. Required unless `publishNow` is true, `queuedFromProfile` is set, or the post is a draft. An ISO 8601 value with a `Z` or offset (`2026-01-15T10:00:00Z`, `2026-01-15T11:00:00+01:00`) is taken as-is; a value without one (`2026-01-15T10:00:00` or `2026-01-15 10:00`) is read as local time in `timezone`. A value already in the past is published synchronously in the same request. Ignored when `publishNow` is true.
                 publish_now: Publish to every platform synchronously in this request instead of scheduling; the response then carries each platform result and `platformPostUrl`, with HTTP 207 when some platforms failed. Takes precedence over `scheduledFor`; ignored when `isDraft` is true.
                 is_draft: When true, saves the post as a draft. When none of scheduledFor, publishNow, or queuedFromProfile are provided, the post defaults to draft automatically.
+                requires_approval: When true, saves the post as pending_approval instead of scheduled. Needs scheduledFor, at the root or on every platform; cannot be combined with isDraft, publishNow, queuedFromProfile or queueId. The post publishes only after POST /v1/posts/{postId}/review approves it; approving after the scheduled time publishes within a couple of minutes.
                 dry_run: TikTok only. Preview whether each `tiktok` entry in `platforms` could publish right now under the TikTok Direct Post daily limits, without creating, scheduling or publishing anything: no post is persisted and no upload slot is claimed, so it can be repeated freely. The request still goes through auth, the payment gate and body validation, then returns HTTP 200 with `{ dryRun: true, canPublish, tiktok: [...] }` instead of 201. Only `tiktok` entries are evaluated; other platforms in the body are ignored, and a body with no `tiktok` entry is rejected with 400 `invalid_field_value` on `platforms`. An entry with `platformSpecificData.tiktokSettings.draft: true` (Creator Inbox upload) is not subject to the limit and always reports `canPublish: true`. Accounts connected through the TikTok for Business app do not go through these limits at all and also always report `canPublish: true`, so on those accounts a dry run confirms the request is well-formed rather than gating it.
                 timezone: IANA timezone (`Europe/Madrid`, `America/New_York`) used to interpret a `scheduledFor` (root or per-platform) that carries no `Z` or offset, and stored on the post. Has no effect on values that already carry one. When omitted, the post takes its profile's `timezone` (the queue's profile for a queued post, else the profile its accounts share), and UTC when there is none or the accounts sit on profiles with different timezones. An unknown name returns 400 when `scheduledFor` is set.
                 tags: Tags/keywords. YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates auto-removed.
@@ -30444,6 +30828,7 @@ def register_generated_tools(mcp, _get_client):
                 scheduled_for=scheduled_for,
                 publish_now=publish_now,
                 is_draft=is_draft,
+                requires_approval=requires_approval,
                 dry_run=dry_run,
                 timezone=timezone,
                 tags=tags,
@@ -30500,6 +30885,7 @@ def register_generated_tools(mcp, _get_client):
         scheduled_for: str | None = None,
         publish_now: bool = False,
         is_draft: bool | None = None,
+        requires_approval: bool | None = None,
         timezone: str | None = None,
         visibility: Literal["public", "private", "unlisted"] | None = None,
         tags: list[str] | None = None,
@@ -30530,10 +30916,11 @@ def register_generated_tools(mcp, _get_client):
             title: Stored on the post for reference/display only. This field is NOT used as the video title when publishing. To set a YouTube video title, use platformSpecificData.title on the youtube platform target (falls back to the first line of content when omitted).
             content
             media_items: Each item is an object with keys: type (one of: image, video, gif, document); url (string) - A media item with a null, missing or empty url is dropped.; title (string) - Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.; altText (string) - Accessibility alternative text for an image, applied on every platform that supports it: Instagram (feed images only, not Reels/Stories), Facebook, Threads, X ...; filename (string); size (integer) - Optional file size in bytes; mimeType (string) - Optional MIME type (e.g. image/jpeg, video/mp4); thumbnail (string) - Optional custom thumbnail/cover image URL for videos. Supported for Facebook video posts, Facebook Reels, regular video uploads, and LinkedIn video posts. Max ...; instagramThumbnail (string) - Custom cover image URL for Instagram Reels. Can also be set via platformSpecificData.instagramThumbnail or platformSpecificData.reelCover. Resolution order: ...; subtitles (list of objects with keys url, language) - Subtitle (closed caption) files for a video item, in SRT or WebVTT. Each language may appear once per video. Sent to YouTube, Facebook videos, LinkedIn, X and ...; tiktokProcessed (boolean) - Internal flag indicating the image was resized for TikTok
-            platforms: Target platforms and accounts for this post. Each item must include platform and accountId. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override.; customMedia (list of objects with keys type, url, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override.; platformSpecificData (object) - A <platform>Settings namespace (e.g. facebookSettings, tiktokSettings) omitted from the request is preserved from the stored post. Sending the key replaces ...
+            platforms: Target platforms and accounts for this post. Each item must include platform and accountId. Each item is an object with keys: platform (string, required); accountId (string, required); customContent (string) - Platform-specific text override.; customMedia (list of objects with keys type, url, title, altText, filename, size, mimeType, thumbnail, instagramThumbnail, subtitles, tiktokProcessed); scheduledFor (string) - Optional per-platform scheduled time override. It is kept when a top-level scheduledFor is also sent, except a date sent back unchanged that matched the post ...; platformSpecificData (object) - A <platform>Settings namespace (e.g. facebookSettings, tiktokSettings) omitted from the request is preserved from the stored post. Sending the key replaces ...
             scheduled_for
             publish_now
             is_draft: When omitted, the post keeps its current draft status. Send `false` to promote a draft to scheduled (combined with `scheduledFor`, `publishNow`, or a queue).
+            requires_approval: Send true on a draft to submit it for approval: it becomes pending_approval and publishes only after POST /v1/posts/{postId}/review approves it. Cannot be combined with isDraft, publishNow, queuedFromProfile or queueId. Returns 409 when the post is not a draft.
             timezone
             visibility
             tags
@@ -30557,6 +30944,7 @@ def register_generated_tools(mcp, _get_client):
                 scheduled_for=scheduled_for,
                 publish_now=publish_now,
                 is_draft=is_draft,
+                requires_approval=requires_approval,
                 timezone=timezone,
                 visibility=visibility,
                 tags=tags,
@@ -30626,6 +31014,32 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.posts.bulk_upload_posts(dry_run=dry_run)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Approve or reject a post",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def posts_review_post(post_id: str, decision: Literal["approve", "reject"]) -> str:
+        """Approve or reject a post
+
+        Approves or rejects a post saved with `requiresApproval: true` (status `pending_approval`).
+        `approve` schedules the post for its `scheduledFor` and fires the `post.scheduled` webhook. When that time has already passed, the post publishes within a couple of minutes.
+        `reject` returns the post to `draft`.
+        Returns 409 when the post is not `pending_approval`.
+
+        Args:
+            post_id: (required)
+            decision: approve schedules the post; reject returns it to draft. (required)"""
+        client = _get_client()
+        try:
+            response = client.posts.review_post(post_id=post_id, decision=decision)
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -34359,7 +34773,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Install on a Shopify store or WordPress site",
+            title="Install on a Shopify, WordPress, Wix or Webflow site",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -34373,9 +34787,9 @@ def register_generated_tools(mcp, _get_client):
         sidebar_id: str | None = None,
         verify_homepage: bool = True,
     ) -> str:
-        """Install on a Shopify store or WordPress site
+        """Install on a Shopify, WordPress, Wix or Webflow site
 
-        Installs a pixel on a connected Shopify store or WordPress site, so store visits and purchases are reported without editing the theme.
+        Installs a pixel on a connected Shopify store or WordPress, Wix or Webflow site, so store visits and purchases are reported without editing the theme.
 
         Puts the Meta pixel on a connected Shopify store's storefront and checkout through
         Zernio's Shopify web pixel (a Shopify app pixel, no theme edits). The store then sends
@@ -34387,16 +34801,14 @@ def register_generated_tools(mcp, _get_client):
         Idempotent: a store runs one Zernio web pixel holding one tag per platform, so calling
         it again updates the install, installing a different tag of the same platform replaces
         the previous one (reported in `replacedTagId`), and other platforms' tags are kept.
-        Events respect the store's customer privacy settings (marketing consent).
+        Events respect the store's customer privacy settings (marketing consent). ...
 
-        `accountId` is the Meta ...
-
-        Platforms: meta, tiktok, google, x, openai, linkedin, pinterest, whop, shopify, wordpress
+        Platforms: meta, tiktok, google, x, openai, linkedin, pinterest, whop, shopify, wordpress, wix, webflow
 
         Args:
             account_id: (required)
             tag_id: Tag id (`TrackingTag.id`). (required)
-            store_account_id: The connected Shopify (`shopify`) or WordPress (`wordpress`) account id. (required)
+            store_account_id: The connected Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) or Webflow (`webflow`) account id. (required)
             ad_account_id: Scopes the tag lookup on platforms whose tag ids live inside an ad account. Ignored elsewhere.
             sidebar_id: WordPress only: widget area to use (see `install.preflight.sidebars` from GET). Defaults to a footer area.
             verify_homepage: WordPress only: fetch the homepage afterwards and report `homepageCheck`."""
@@ -34430,7 +34842,7 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Get store install status
 
-        Shows whether a tracking tag is live on your Shopify store or WordPress site, and whether a WordPress install would be blocked.
+        Shows whether a tracking tag is installed on your Shopify store or WordPress, Wix or Webflow site, and whether a WordPress install would be blocked.
 
         Whether this tag is the one the Shopify store fires for its platform. `installedTagId`
         names the tag of that platform the store currently fires, which can be a different tag,
@@ -34443,12 +34855,12 @@ def register_generated_tools(mcp, _get_client):
         multisite admin who is not a Super Admin still strips the script, which POST detects.
         `tags` lists every Zernio widget on the site (all platforms, with `active`).
 
-        Platforms: meta, tiktok, google, x, openai, linkedin, pinterest, shopify, wordpress
+        Platforms: meta, tiktok, google, x, openai, linkedin, pinterest, shopify, wordpress, wix, webflow
 
         Args:
             account_id: (required)
             tag_id: Tag id (`TrackingTag.id`). (required)
-            store_account_id: The connected Shopify or WordPress account id. (required)
+            store_account_id: The connected Shopify, WordPress, Wix or Webflow account id. (required)
             ad_account_id: Scopes the tag lookup on platforms whose tag ids live inside an ad account."""
         client = _get_client()
         try:
@@ -34464,7 +34876,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Remove from a Shopify store or WordPress site",
+            title="Remove from a Shopify, WordPress, Wix or Webflow site",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
@@ -34476,24 +34888,26 @@ def register_generated_tools(mcp, _get_client):
         store_account_id: str,
         ad_account_id: str | None = None,
     ) -> str:
-        """Remove from a Shopify store or WordPress site
+        """Remove from a Shopify, WordPress, Wix or Webflow site
 
-        Removes a tracking tag from your Shopify store or WordPress site, leaving other platforms' tags and hand-added pixel code in place.
+        Removes a tracking tag from your Shopify store or WordPress, Wix or Webflow site, leaving other platforms' tags and hand-added pixel code in place.
 
         Idempotent: nothing installed returns 200 with
         `installed: false`. If the store fires a different tag of the same platform, nothing is
         removed and the call answers 409 `invalid_resource_state`. Shopify: other platforms'
-        tags stay; the web pixel itself is deleted once no tag remains.
+        tags stay; the web pixel itself is deleted once no tag remains. Wix works the same way,
+        and the site's Zernio script is disabled once no tag remains. Webflow too: the Zernio
+        script leaves the site's custom code once no tag remains, live after the next publish.
 
         WordPress: deletes every widget Zernio created for this pixel and reports how many in
         `removed` (0 when nothing was installed). Pixel code added by hand is left alone.
 
-        Platforms: meta, tiktok, google, x, openai, linkedin, pinterest, shopify, wordpress
+        Platforms: meta, tiktok, google, x, openai, linkedin, pinterest, shopify, wordpress, wix, webflow
 
         Args:
             account_id: (required)
             tag_id: Tag id (`TrackingTag.id`). (required)
-            store_account_id: The connected Shopify or WordPress account id. (required)
+            store_account_id: The connected Shopify, WordPress, Wix or Webflow account id. (required)
             ad_account_id: Scopes the tag lookup on platforms whose tag ids live inside an ad account."""
         client = _get_client()
         try:

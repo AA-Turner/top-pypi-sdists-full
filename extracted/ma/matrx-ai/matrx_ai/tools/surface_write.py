@@ -405,7 +405,7 @@ NOT_SURFACE_WRITES: dict[str, str] = {
            "kind_activate", "rulebook:retire_rule", "rulebook:retire_rules",
            "topical_map:retire"),
     **_not(_EXTERNAL, *(f"cloud_browser:{a}" for a in (
-        "click", "close", "dismiss_handoff", "get_element", "list_local_devices", "list_profiles", "navigate",
+        "click", "close", "create_profile", "dismiss_handoff", "get_element", "list_local_devices", "list_profiles", "navigate",
         "screenshot", "scroll", "select_option", "start_local", "type_text", "wait_for")),
            "notify_me:send", "send_text", "send_secure_link", "ask_person",
            "agent", "send_message", "agent_call", "mandate_call", "staff_escalate", "credential_login:attempt", "credential_login:auto",

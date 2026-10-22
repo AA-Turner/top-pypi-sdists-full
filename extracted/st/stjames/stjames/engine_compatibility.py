@@ -228,7 +228,19 @@ ENGINE_NO_OPEN_SHELL: frozenset[Engine] = frozenset(
     {
         Engine.AIMNET2,
         Engine.EGRET,
-        Engine.ORB,
+    }
+)
+
+# Materials and crystal models that are not conditioned on total charge or spin.
+METHODS_NO_CHARGE_OR_SPIN: frozenset[Method] = frozenset(
+    {
+        Method.ORB_V3_CONSERVATIVE_INF_OMAT,
+        Method.UMA_S_OMAT,
+        Method.UMA_S_1_2_OMAT,
+        Method.UMA_M_OMAT,
+        Method.UMA_S_OMC,
+        Method.UMA_S_1_2_OMC,
+        Method.UMA_M_OMC,
     }
 )
 
@@ -260,6 +272,24 @@ _ENGINE_SOLVENT_MODELS: dict[Engine, frozenset[SolventModel]] = {
 ENGINE_SOLVENT_MODELS: dict[Engine, frozenset[SolventModel]] = {
     engine: _ENGINE_SOLVENT_MODELS.get(engine, frozenset()) | {SolventModel.ANYSOLV} for engine in Engine
 }
+
+
+def supports_open_shell(method: Method, engine: Engine) -> bool:
+    """Return whether a method/engine combination can model open-shell species.
+
+    Args:
+        method: computational method
+        engine: compute engine
+
+    Examples:
+    >>> supports_open_shell(Method.ORB_V3_CONSERVATIVE_OMOL, Engine.ORB)
+    True
+    >>> supports_open_shell(Method.ORB_V3_CONSERVATIVE_INF_OMAT, Engine.ORB)
+    False
+    >>> supports_open_shell(Method.AIMNET2_WB97MD3, Engine.AIMNET2)
+    False
+    """
+    return engine not in ENGINE_NO_OPEN_SHELL and method not in METHODS_NO_CHARGE_OR_SPIN
 
 
 def get_supported_corrections(method: Method, engine: Engine) -> frozenset[Correction]:

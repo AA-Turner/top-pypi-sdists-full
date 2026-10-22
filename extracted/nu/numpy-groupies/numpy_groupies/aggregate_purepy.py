@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 import math
 import numbers
@@ -5,24 +7,23 @@ import operator
 from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
-from numpy_groupies.aggregate_common import (
+from numpy_groupies.common import (
     DEFAULT_FILL_VALUE,
-    EXACT_FLOAT64_INTEGER_LIMIT,
-    INT64_DEVIATION_LIMIT,
+    FuncName,
     Registry,
     Resolved,
     aggregate_common_doc,
     check_complex_dtype,
     check_fixed_fill_value,
+    check_integer_mean_overflow,
+    check_integer_variance_span_overflow,
     custom_callable,
     funcs_no_separate_nan,
     is_scalar_input,
     missing_impl_error,
-    raise_integer_mean_overflow,
-    raise_integer_variance_span_overflow,
     resolve_fill_value,
 )
-from numpy_groupies.aggregate_common import (
+from numpy_groupies.common import (
     aliasing_py as aliasing,
 )
 
@@ -30,7 +31,7 @@ if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
 
-    from numpy_groupies.utils import AValue, RavelOrder
+    from numpy_groupies.utils_np import AFillValue, AScalar, AValue, RavelOrder
 
 
 # min, max, all, any - builtin
@@ -45,6 +46,23 @@ def _sum(x: Sequence[Any]) -> Any:
     if all(isinstance(val, numbers.Integral) for val in x):
         return sum(int(val) for val in x)
     return sum(x)
+
+
+def _nunique(x: Sequence[Any]) -> int:
+    """The number of distinct values of the group.
+
+    The values that are equal count once, and the nans count once among
+    themselves: a nan in either part of a complex value is a nan, and the
+    nans of a group are one value of their own.
+    """
+    distinct: set[Any] = set()
+    nans = 0
+    for val in x:
+        if val != val:  # val != val - np.isnan does not cover ints and objects
+            nans = 1
+        else:
+            distinct.add(val)
+    return len(distinct) + nans
 
 
 def _last(x: Sequence[Any]) -> Any:
@@ -87,6 +105,52 @@ def _median(x: Sequence[Any]) -> Any:
         # to float before dividing, so do the same here
         return (float(lo) + float(hi)) / 2
     return (lo + hi) / 2
+
+
+def _skew(x: Sequence[Any]) -> Any:
+    """The skewness of the values of one group.
+
+    The third central moment over the second one to the three-halves power,
+    corrected for the size of the group the way pandas corrects it: fewer
+    than three values have no skewness, and a group whose values are all the
+    same has none either - its spread is zero, and the answer is zero too.
+    """
+    if any(isinstance(val, complex) for val in x):
+        raise TypeError("the skewness and the kurtosis are not defined for complex values")
+    n = len(x)
+    if n < 3:
+        return float("nan")
+    values = [float(val) for val in x]
+    mean = sum(values) / n
+    devs = [val - mean for val in values]
+    s2 = sum(dev * dev for dev in devs)
+    if s2 == 0:
+        return 0.0
+    s3 = sum(dev**3 for dev in devs)
+    return n * math.sqrt(n - 1) / (n - 2) * s3 / s2**1.5
+
+
+def _kurt(x: Sequence[Any]) -> Any:
+    """The excess kurtosis of the values of one group.
+
+    The fourth central moment over the square of the second one, minus the
+    three of a normal distribution, corrected for the size of the group the
+    way pandas corrects it: fewer than four values have no kurtosis, and a
+    group whose values are all the same has none either.
+    """
+    if any(isinstance(val, complex) for val in x):
+        raise TypeError("the skewness and the kurtosis are not defined for complex values")
+    n = len(x)
+    if n < 4:
+        return float("nan")
+    values = [float(val) for val in x]
+    mean = sum(values) / n
+    devs = [val - mean for val in values]
+    s2 = sum(dev * dev for dev in devs)
+    if s2 == 0:
+        return 0.0
+    s4 = sum(dev**4 for dev in devs)
+    return n * (n + 1) * (n - 1) * s4 / ((n - 2) * (n - 3) * s2**2) - 3 * (n - 1) ** 2 / ((n - 2) * (n - 3))
 
 
 def _trapezoid(x: Sequence[Any], dx: float = 1.0) -> float:
@@ -202,6 +266,21 @@ def _propagate_nan(reduction: Callable[[Sequence[Any]], Any]) -> Callable[[Seque
     return reduction_with_nan
 
 
+def _quantile(x: Sequence[Any], **kwargs: Any) -> Any:
+    """The quantile is not implemented by the pure python backend.
+
+    The quantile is an order statistic over the values of a group - the same
+    kind of operation the median is, and the median is implemented here.  The
+    quantile needs the same machinery, though: the two values it interpolates
+    between have to be picked out of the sorted group.  The numpy and the
+    numba implementations do that; this one does not, and says so instead of
+    answering something else.
+    """
+    raise NotImplementedError("the quantile is not implemented by the pure python backend")
+
+
+# the reductions hand out a scalar, the sorting and the collecting function a
+# sequence - hence Any
 _op_dict: dict[str, Callable[..., Any]] = {
     "min": _propagate_nan(min),
     "max": _propagate_nan(max),
@@ -213,9 +292,13 @@ _op_dict: dict[str, Callable[..., Any]] = {
     "any": any,
     "mean": _mean,
     "median": _median,
+    "quantile": _quantile,
+    "percentile": _quantile,
     "trapezoid": _trapezoid,
     "std": _std,
     "var": _var,
+    "skew": _propagate_nan(_skew),
+    "kurt": _propagate_nan(_kurt),
     "anynan": _anynan,
     "allnan": _allnan,
     "sort": _sort,
@@ -223,6 +306,7 @@ _op_dict: dict[str, Callable[..., Any]] = {
     "argmax": _argmax,
     "argmin": _argmin,
     "len": len,
+    "nunique": _nunique,
 }
 _op_dict.update(("nan" + k, v) for k, v in list(_op_dict.items()) if k not in funcs_no_separate_nan)
 
@@ -257,7 +341,7 @@ def _a_dtype(a: Sequence[Any]) -> type:
     return dtype
 
 
-def _check_integer_precision(a: Sequence[Any], func: Callable[..., Any]) -> None:
+def _check_integer_precision(a: Sequence[Any], func: Callable[..., AScalar]) -> None:
     """The backend-uniform overflow gates for integer mean/var/std.
 
     Python ints could compute these exactly, but every backend has to refuse
@@ -269,21 +353,19 @@ def _check_integer_precision(a: Sequence[Any], func: Callable[..., Any]) -> None
     low = min(values)
     high = max(values)
     if func is _mean:
-        bound = max(high, -low)
-        if len(values) * bound > EXACT_FLOAT64_INTEGER_LIMIT:
-            raise_integer_mean_overflow(len(values), bound)
-    elif high - low > INT64_DEVIATION_LIMIT:
-        raise_integer_variance_span_overflow(low, high)
+        check_integer_mean_overflow(len(values), max(high, -low))
+    else:
+        check_integer_variance_span_overflow(low, high)
 
 
 def aggregate(
-    group_idx: "npt.NDArray[np.integer]",
-    a: "AValue",
-    func: str | Callable[..., Any] = "sum",
+    group_idx: npt.NDArray[np.integer],
+    a: AValue,
+    func: FuncName | Callable[..., AScalar] = "sum",
     size: int | None = None,
-    fill_value: Any = DEFAULT_FILL_VALUE,
-    order: "RavelOrder" = "C",
-    dtype: "npt.DTypeLike | None" = None,
+    fill_value: AFillValue = DEFAULT_FILL_VALUE,
+    order: RavelOrder = "C",
+    dtype: npt.DTypeLike | None = None,
     axis: int | None = None,
     **kwargs: Any,
 ) -> list[Any]:

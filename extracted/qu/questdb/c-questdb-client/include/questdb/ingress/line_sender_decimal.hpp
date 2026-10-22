@@ -56,7 +56,8 @@ class decimal_str_view
 {
 public:
     decimal_str_view(const char* buf, size_t len)
-        : buf{buf}, len{len}
+        : buf{buf}
+        , len{len}
     {
     }
 
@@ -126,6 +127,9 @@ inline decimal_str_view operator""_decimal(const char* buf, size_t len)
  * - A scale (number of decimal places)
  * - An unscaled value (mantissa) encoded as bytes in two's complement
  * big-endian format
+ *
+ * The chunk methods column_chunk::column_decimal128 and
+ * column_chunk::column_decimal256 instead require little-endian bytes.
  *
  * # Example
  *

@@ -2,9 +2,9 @@ from datetime import datetime, timezone
 from json.decoder import JSONDecodeError
 from urllib.parse import urlencode, urljoin
 
-from biolib._internal.http_client import HttpClient, HttpResponse
 from biolib._internal.utils.auth import decode_jwt_without_checking_signature
 from biolib._internal.utils.package_version import get_package_version
+from biolib._shared.http_client import HttpClient, HttpResponse
 from biolib._shared.types.typing import Dict, Optional, TypedDict, Union, cast
 from biolib.biolib_api_client import BiolibApiClient as DeprecatedApiClient
 from biolib.biolib_errors import BioLibError

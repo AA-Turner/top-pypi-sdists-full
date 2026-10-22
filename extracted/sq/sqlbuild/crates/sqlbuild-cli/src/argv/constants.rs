@@ -63,7 +63,7 @@ pub(crate) const INT_CONVERTER: &str = "int";
 pub(crate) const PATH_CONVERTER: &str = "Path";
 
 /// Every `CliNamespace` attribute with a default, in declaration order.
-pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 174] = [
+pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 177] = [
     ("command", NamespaceDefault::None),
     ("project_dir", NamespaceDefault::None),
     ("dbt_project_dir", NamespaceDefault::None),
@@ -221,6 +221,7 @@ pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 174] = [
     ("recall_max_cell_bytes", NamespaceDefault::None),
     ("recall_state", NamespaceDefault::Bool(false)),
     ("recall_relation", NamespaceDefault::None),
+    ("recall_ddl", NamespaceDefault::Bool(false)),
     ("recall_invocation", NamespaceDefault::Text("last")),
     ("recall_stream", NamespaceDefault::Text("combined")),
     ("recall_tail", NamespaceDefault::None),
@@ -252,5 +253,7 @@ pub(crate) const CLI_NAMESPACE_DEFAULTS: [(&str, NamespaceDefault); 174] = [
     ("refactor_target", NamespaceDefault::None),
     ("refactor_new_name", NamespaceDefault::None),
     ("refactor_destination", NamespaceDefault::None),
+    ("refactor_more_moves", NamespaceDefault::EmptyList),
+    ("refactor_from_file", NamespaceDefault::None),
     ("refactor_cascade", NamespaceDefault::Bool(false)),
 ];

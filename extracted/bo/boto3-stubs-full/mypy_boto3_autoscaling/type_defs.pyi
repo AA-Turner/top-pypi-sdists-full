@@ -64,6 +64,7 @@ else:
 __all__ = (
     "AcceleratorCountRequestTypeDef",
     "AcceleratorTotalMemoryMiBRequestTypeDef",
+    "AccountSettingTypeDef",
     "ActivitiesTypeTypeDef",
     "ActivityTypeDef",
     "ActivityTypeTypeDef",
@@ -115,6 +116,8 @@ __all__ = (
     "DeleteTagsTypeTypeDef",
     "DeleteWarmPoolTypeTypeDef",
     "DescribeAccountLimitsAnswerTypeDef",
+    "DescribeAccountSettingsAnswerTypeDef",
+    "DescribeAccountSettingsTypeTypeDef",
     "DescribeAdjustmentTypesAnswerTypeDef",
     "DescribeAutoScalingInstancesTypePaginateTypeDef",
     "DescribeAutoScalingInstancesTypeTypeDef",
@@ -244,6 +247,7 @@ __all__ = (
     "PredictiveScalingPredefinedScalingMetricTypeDef",
     "ProcessTypeTypeDef",
     "ProcessesTypeTypeDef",
+    "PutAccountSettingTypeTypeDef",
     "PutLifecycleHookTypeTypeDef",
     "PutNotificationConfigurationTypeTypeDef",
     "PutScalingPolicyTypeTypeDef",
@@ -298,6 +302,14 @@ class AcceleratorCountRequestTypeDef(TypedDict):
 class AcceleratorTotalMemoryMiBRequestTypeDef(TypedDict):
     Min: NotRequired[int]
     Max: NotRequired[int]
+
+class AccountSettingTypeDef(TypedDict):
+    Name: NotRequired[str]
+    Value: NotRequired[str]
+    EnforcementType: NotRequired[str]
+    EnforcementDate: NotRequired[datetime]
+    DefaultValue: NotRequired[str]
+    EnforcedValue: NotRequired[str]
 
 class ActivityTypeDef(TypedDict):
     ActivityId: str
@@ -495,6 +507,11 @@ class DeleteScheduledActionTypeTypeDef(TypedDict):
 class DeleteWarmPoolTypeTypeDef(TypedDict):
     AutoScalingGroupName: str
     ForceDelete: NotRequired[bool]
+
+class DescribeAccountSettingsTypeTypeDef(TypedDict):
+    Name: NotRequired[str]
+    NextToken: NotRequired[str]
+    MaxRecords: NotRequired[int]
 
 class DescribeAutoScalingInstancesTypeTypeDef(TypedDict):
     InstanceIds: NotRequired[Sequence[str]]
@@ -721,6 +738,10 @@ class PredictiveScalingPredefinedScalingMetricTypeDef(TypedDict):
 class ProcessTypeTypeDef(TypedDict):
     ProcessName: str
 
+class PutAccountSettingTypeTypeDef(TypedDict):
+    Name: str
+    Value: str
+
 class PutLifecycleHookTypeTypeDef(TypedDict):
     LifecycleHookName: str
     AutoScalingGroupName: str
@@ -812,6 +833,11 @@ class DescribeAccountLimitsAnswerTypeDef(TypedDict):
     NumberOfAutoScalingGroups: int
     NumberOfLaunchConfigurations: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeAccountSettingsAnswerTypeDef(TypedDict):
+    Settings: list[AccountSettingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class DescribeAutoScalingNotificationTypesAnswerTypeDef(TypedDict):
     AutoScalingNotificationTypes: list[str]

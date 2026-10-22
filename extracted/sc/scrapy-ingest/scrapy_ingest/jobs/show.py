@@ -5,22 +5,24 @@ from contextlib import contextmanager
 from ..exceptions import ConfigurationError, IngestConnectionError
 from ..utils.console import format_table
 
-_KEYS, _LABELS = zip(*(
-    ("job_id", "job"),
-    ("spider_name", "spider"),
-    ("status", "status"),
-    ("finish_reason", "reason"),
-    ("started_at", "started"),
-    ("finished_at", "finished"),
-    ("requests_count", "requests"),
-    ("success_requests", "ok"),
-    ("failed_requests", "failed"),
-    ("items_count", "items"),
-    ("logs_count", "logs"),
-    ("errors_count", "errors"),
-    ("elapsed_seconds", "elapsed"),
-    ("items_per_min", "rate"),
-))
+_KEYS, _LABELS = zip(
+    *(
+        ("job_id", "job"),
+        ("spider_name", "spider"),
+        ("status", "status"),
+        ("finish_reason", "reason"),
+        ("started_at", "started"),
+        ("finished_at", "finished"),
+        ("requests_count", "requests"),
+        ("success_requests", "ok"),
+        ("failed_requests", "failed"),
+        ("items_count", "items"),
+        ("logs_count", "logs"),
+        ("errors_count", "errors"),
+        ("elapsed_seconds", "elapsed"),
+        ("items_per_min", "rate"),
+    )
+)
 
 _LIST_KEYS = (
     "job_id",
@@ -33,7 +35,17 @@ _LIST_KEYS = (
     "failed_requests",
     "errors_count",
 )
-_LIST_LABELS = ("job", "spider", "status", "started", "finished", "items", "requests", "failed", "errors")
+_LIST_LABELS = (
+    "job",
+    "spider",
+    "status",
+    "started",
+    "finished",
+    "items",
+    "requests",
+    "failed",
+    "errors",
+)
 
 
 def _fmt(key, val):
@@ -71,10 +83,9 @@ def _require_destination(settings):
 
 
 def _fetchall(db, sql, params=()):
-    from ..database.connection import DatabaseConnection
-
-    if isinstance(db, DatabaseConnection):
-        return db.fetchall(sql, params)
+    fetchall = getattr(db, "fetchall", None)
+    if callable(fetchall):
+        return fetchall(sql, params)
     with db.cursor() as cur:
         cur.execute(sql, params)
         return cur.fetchall()
@@ -147,7 +158,9 @@ def fetch_jobs_search(client, settings, *, limit=50, status=None, spider=None):
 def format_job_show(job):
     """Format one job as a Field | Value table."""
     rows = [(label, _fmt(key, job.get(key))) for key, label in zip(_KEYS, _LABELS)]
-    return "\n".join(("[scrapy-ingest] job summary", format_table(("Field", "Value"), rows)))
+    return "\n".join(
+        ("[scrapy-ingest] job summary", format_table(("Field", "Value"), rows))
+    )
 
 
 def format_jobs_list(jobs):

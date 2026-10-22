@@ -7,7 +7,7 @@ from pathlib import Path
 
 from matrx_scraper.cloud_browser.streaming.supervisor import SelkiesSupervisor
 from matrx_scraper.cloud_browser.worker.auth import Es256WorkerTokenVerifier
-from matrx_scraper.cloud_browser.worker.cloud_computer_launch import CloudComputerLaunch
+from matrx_scraper.cloud_browser.worker.cloud_computer_launch import launch_from_environment
 from matrx_scraper.cloud_browser.worker.http_app import create_worker_app
 from matrx_scraper.cloud_browser.worker.runtime import BrowserWorker
 
@@ -51,12 +51,10 @@ def build_app():
     # The Cloud Computer image sets MATRX_CLOUD_COMPUTER=1; its launch carries the
     # machine files token + bridge URL. Read here, once, and passed down.
     cloud_computer = None
+    # The token is taken once and kept only in this process's memory, which is then
+    # closed to the agent's processes (same uid): cloud_computer_launch, review 3 D2.
     if os.environ.get("MATRX_CLOUD_COMPUTER") == "1":
-        cloud_computer = CloudComputerLaunch(
-            files_token=os.environ.get("MATRX_CLOUD_FILES_TOKEN", ""),
-            files_url=os.environ.get("MATRX_CLOUD_FILES_URL", ""),
-            process_env=dict(os.environ),
-        )
+        cloud_computer = launch_from_environment(os.environ)
     return create_worker_app(
         worker,
         stream=SelkiesSupervisor(enable_clipboard=clipboard, keep_warm=keep_warm),

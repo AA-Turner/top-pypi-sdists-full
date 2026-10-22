@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, Self
 
-from pydantic import AfterValidator, AliasChoices, Field, NonNegativeFloat, NonNegativeInt, PositiveFloat, PositiveInt, model_validator
+from pydantic import AfterValidator, AliasChoices, BaseModel, Field, NonNegativeFloat, NonNegativeInt, PositiveFloat, PositiveInt, model_validator
 
 from ..base import Base, UniqueList, round_float
 from ..method import FFMethod, Method, ProteinForceField, WaterForceField
@@ -129,55 +129,45 @@ class Binder(Base):
         return self
 
 
-class ProteinMDSettingsMixin(Base):
-    """Mix-in for various settings used in running protein MD.
+class ProteinMDSimulationSettings(BaseModel):
+    """Shared force fields, simulation controls, and sampling parameters for protein MD.
 
     Attributes:
-        small_molecule_ff: forcefield used for small molecules
-        protein_ff: forcefield used for proteins
-        water_ff: forcefield used for water and ions
-        equilibration_time_ns: how long to equilibrate trajectories for, in ns
-        simulation_time_ns: how long to run trajectories for, in ns
-        temperature: temperature, in K
-        pressure_atm: pressure, in atm
-        langevin_timescale_ps: timescale for the Langevin integrator, in ps⁻¹
-        random_seed: seed for OpenMM modeller setup, Langevin dynamics, the barostat, and initial velocities;
-            `None` uses automatic seeds
-        timestep_fs: timestep, in femtoseconds
+        small_molecule_ff: force field used for small molecules
+        protein_ff: force field used for proteins
+        water_ff: force field used for water and ions
+        equilibration_time_ns: equilibration duration per trajectory, in ns
+        simulation_time_ns: production duration per trajectory, in ns
+        temperature: thermostat temperature, in K
+        pressure_atm: barostat pressure, in atm
+        langevin_timescale_ps: Langevin friction coefficient, in ps⁻¹
+        random_seed: seed for system preparation, dynamics, barostat, and velocities
+        timestep_fs: integration timestep, in fs
         hydrogen_mass: mass of hydrogen atoms, in amu
-        constrain_hydrogens: use SHAKE to freeze bonds to hydrogen when true
-        nonbonded_cutoff: nonbonded cutoff for particle-mesh Ewald, in Å
-        ionic_strength_M: ionic strength of the solution, in M (molar)
-        water_buffer: amount of water to add around the protein, in Å
-        frame_save_interval_ps: how often to save frames to the trajectory, in ps
-        clustering: clustering method and parameters; `None` disables clustering
-        analysis_interval_ps: interval between frames at which to compute expensive per-frame
-            quantities (SASA, polar SASA), in ps; `None` disables those analyses
+        constrain_hydrogens: constrain bonds to hydrogen with SHAKE
+        nonbonded_cutoff: particle-mesh Ewald cutoff, in Å
+        ionic_strength_M: salt concentration, in M
+        water_buffer: solvent padding around the protein, in Å
+        frame_save_interval_ps: interval between saved frames, in ps
+        analysis_interval_ps: interval between analyzed frames, in ps; `None` uses the workflow's analysis policy
     """
 
     small_molecule_ff: FFMethod = Method.OFF_SAGE_2_3_0
     protein_ff: ProteinForceField = ProteinForceField.FF14SB
     water_ff: WaterForceField = WaterForceField.TIP3P
-
     equilibration_time_ns: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 0.5
     simulation_time_ns: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 10
-
     temperature: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 300
     pressure_atm: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 1.0
     langevin_timescale_ps: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 1.0
     random_seed: Annotated[PositiveInt, Field(strict=True, le=2147483647)] | None = None
-
     timestep_fs: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 4
     hydrogen_mass: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 3
     constrain_hydrogens: bool = True
     nonbonded_cutoff: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 8.0
-
     ionic_strength_M: Annotated[NonNegativeFloat, AfterValidator(round_float(3))] = 0.0
     water_buffer: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 8.0
-
     frame_save_interval_ps: Annotated[PositiveFloat, AfterValidator(round_float(1))] = 10.0
-
-    clustering: TrajectoryClustering | None = None
     analysis_interval_ps: PositiveFloat | None = None
 
     @model_validator(mode="after")
@@ -187,6 +177,19 @@ class ProteinMDSettingsMixin(Base):
         if interval_fs % self.timestep_fs != 0:
             raise ValueError(f"frame_save_interval_ps ({self.frame_save_interval_ps} ps) must be an integer multiple of timestep_fs ({self.timestep_fs} fs)")
         return self
+
+
+class ProteinMDSettingsMixin(Base, ProteinMDSimulationSettings):
+    """Configure protein trajectory analysis.
+
+    Inherits simulation and integration controls from `ProteinMDSimulationSettings`.
+    Setting `analysis_interval_ps=None` disables SASA and polar SASA analyses.
+
+    Attributes:
+        clustering: trajectory clustering method and parameters
+    """
+
+    clustering: TrajectoryClustering | None = None
 
 
 class ProteinMolecularDynamicsWorkflow(ProteinMDSettingsMixin, ProteinStructureWorkflow):

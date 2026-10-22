@@ -3,7 +3,7 @@
 # Author: Johann Faouzi <johann.faouzi@gmail.com>
 # License: BSD-3-Clause
 
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -154,9 +154,12 @@ class MultipleCoefficientBinning(BaseEstimator, UnivariateTransformerMixin):
             if y is None:
                 raise ValueError("y cannot be None if strategy='entropy'.")
             X, y = check_X_y(X, y, dtype=np.float64)
+            X = cast(npt.NDArray[np.float64], X)
+            y = cast(npt.NDArray[Any], y)
             check_classification_targets(y)
         else:
-            X = check_array(X, dtype=np.float64)
+            X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
+            y = cast(npt.NDArray[Any] | None, y)
         n_samples, n_timestamps = X.shape
         self._n_timestamps_fit = n_timestamps
         self._alphabet = self._check_params(n_samples)
@@ -181,7 +184,7 @@ class MultipleCoefficientBinning(BaseEstimator, UnivariateTransformerMixin):
 
         """
         check_is_fitted(self, 'bin_edges_')
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         self._check_consistent_lengths(X)
         indices = _digitize(X, self.bin_edges_)
         if isinstance(self._alphabet, str):
@@ -204,7 +207,7 @@ class MultipleCoefficientBinning(BaseEstimator, UnivariateTransformerMixin):
             )
         if not (
             (self.alphabet is None)
-            or (self.alphabet == 'ordinal')
+            or (isinstance(self.alphabet, str) and self.alphabet == 'ordinal')
             or (isinstance(self.alphabet, (list, tuple, np.ndarray)))
         ):
             raise TypeError(
@@ -213,7 +216,7 @@ class MultipleCoefficientBinning(BaseEstimator, UnivariateTransformerMixin):
             )
         if self.alphabet is None:
             alphabet = np.array([chr(i) for i in range(97, 97 + self.n_bins)])
-        elif self.alphabet == 'ordinal':
+        elif isinstance(self.alphabet, str) and self.alphabet == 'ordinal':
             alphabet = 'ordinal'
         else:
             alphabet = check_array(self.alphabet, ensure_2d=False, dtype=None)
@@ -254,7 +257,7 @@ class MultipleCoefficientBinning(BaseEstimator, UnivariateTransformerMixin):
             bins_edges = np.percentile(
                 X, np.linspace(0, 100, self.n_bins + 1)[1:-1], axis=0
             ).T
-            if np.any(np.diff(bins_edges, axis=0) == 0):
+            if np.any(np.diff(bins_edges, axis=1) == 0):
                 raise ValueError(
                     "At least two consecutive quantiles are equal. "
                     "Consider trying with a smaller number of bins or "

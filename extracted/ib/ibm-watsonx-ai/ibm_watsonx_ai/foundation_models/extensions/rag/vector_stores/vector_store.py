@@ -80,28 +80,37 @@ class VectorStore(BaseVectorStore):
 
         from ibm_watsonx_ai import APIClient
         from ibm_watsonx_ai.foundation_models.extensions.rag import VectorStore
-        from ibm_watsonx_ai.foundation_models.embeddings import SentenceTransformerEmbeddings
+        from ibm_watsonx_ai.foundation_models.embeddings import Embeddings
+        from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingModels
 
         api_client = APIClient(credentials)
 
-         embedding = Embeddings(
-                 model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
-                 api_client=api_client
-                 )
+        embedding = Embeddings(
+            model_id=EmbeddingModels.SLATE_125M_ENGLISH_RTRVR_V2,
+            api_client=api_client,
+        )
 
         vector_store = VectorStore(
-                api_client,
-                connection_id='***',
-                index_name='my_test_index',
-                embeddings=embedding
-            )
+            api_client,
+            connection_id="***",
+            index_name="my_test_index",
+            embeddings=embedding,
+        )
 
-        vector_store.add_documents([
-            {'content': 'document one content', 'metadata':{'url':'ibm.com'}},
-            {'content': 'document two content', 'metadata':{'url':'ibm.com'}}
-        ])
+        vector_store.add_documents(
+            [
+                {
+                    "content": "document one content",
+                    "metadata": {"url": "ibm.com"},
+                },
+                {
+                    "content": "document two content",
+                    "metadata": {"url": "ibm.com"},
+                },
+            ]
+        )
 
-        vector_store.search('one', k=1)
+        vector_store.search("one", k=1)
 
     .. note::
         Optionally, like in LangChain, it is possible to use direct credentials to connect to Elastic Cloud.

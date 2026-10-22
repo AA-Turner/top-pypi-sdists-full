@@ -123,7 +123,7 @@ class TestFnMatch:
         ['*(?|.)abc', '.abc', True, fnmatch.E],
         ['*(?|*)abc', '.abc', True, fnmatch.E],
         ['!(test)', '.abc', True, fnmatch.E],
-        ['!(test)', '..', True, fnmatch.E],
+        ['!(test)', '..', False, fnmatch.E],
         ['+([a.])', '.a', True, fnmatch.E],
         ['+([a.])', 'a.', True, fnmatch.E],
         ['+([a.])', 'a..', True, fnmatch.E],
@@ -158,6 +158,16 @@ class TestFnMatch:
         # Negation list followed by extended list
         ['!(2)_@(foo|bar)', '1_foo', True, fnmatch.E],
         ['!(!(2|3))_@(foo|bar)', '2_foo', True, fnmatch.E],
+
+        # Negation list followed by extended list that contains another extended list
+        ['!(2)_@(foo|*(bar))', '1_foo', True, fnmatch.E],
+        ['!(2)_@(foo|*(bar))', '2_foo', False, fnmatch.E],
+        ['!(2)_@(foo|!(bar))', '1_foo', True, fnmatch.E],
+
+        # A star directly before an extended star list does not swallow the list
+        ['**(a|b)b', 'b', True, fnmatch.E],
+        ['a**(b)', 'a', True, fnmatch.E],
+        ['a**(b)', 'abb', True, fnmatch.E],
 
         # Nested extended list reduction cases
         ['!(!(2|3))_@(foo|bar)', '2_foo', True, fnmatch.E],
@@ -930,6 +940,23 @@ class TestExtendedCases(unittest.TestCase):
             print(f"{pat1} <=> {pat2}")
             raise
 
+    def test_atomic_stars_with_extended_groups(self):
+        """Test that atomic stars do not cause lost matches or broken expressions with extended groups."""
+
+        flags = fnmatch.E
+
+        for pattern, name in (
+            ('*@(abcd|b)*c*', 'abcd'),
+            ('*?(ab)*b*', 'ab'),
+            ('*+(ab|a)*b*', 'ab'),
+            ('*!(a)*b*c/d', 'xbyc/d'),
+            ('*!(a)b*c/d', 'xbyc/d'),
+        ):
+            with self.subTest(pattern=pattern, name=name):
+                self.assertTrue(fnmatch.fnmatch(name, pattern, flags=flags))
+
+        self.assertFalse(fnmatch.fnmatch('abcd', '*@(abcd|b)*e*', flags=flags))
+
     def test_and(self):
         """Test reduction of the `@` group and other groups."""
 
@@ -1137,3 +1164,74 @@ class TestPrecompile(unittest.TestCase):
         m5 = copy.copy(m1)
         self.assertTrue(m1 == m5)
         self.assertTrue(m5 in {m1})
+
+
+@pytest.mark.parametrize('pattern', ['?(a)*', '*(a)?hidden', '@(a|)[.]hidden', '+(a|)*'])
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('capture', [False, True])
+@pytest.mark.parametrize('dotmatch', [False, True])
+def test_optional_group_wildcard_dotmatch(pattern, as_bytes, capture, dotmatch):
+    """Wildcards still need `DOTMATCH` when an earlier group consumes no text."""
+
+    flags = fnmatch.EXTMATCH | fnmatch.FORCEUNIX
+    if capture:
+        flags |= fnmatch.CAPTURE
+    if dotmatch:
+        flags |= fnmatch.DOTMATCH
+    hidden, visible = '.hidden', 'a.hidden'
+    if as_bytes:
+        pattern, hidden, visible = pattern.encode(), hidden.encode(), visible.encode()
+
+    assert fnmatch.fnmatch(hidden, pattern, flags=flags) is dotmatch
+    assert fnmatch.fnmatch(visible, pattern, flags=flags)
+
+
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('capture', [False, True])
+def test_optional_group_literal_dot(as_bytes, capture):
+    """A literal dot after an empty group continues to match hidden names."""
+
+    flags = fnmatch.EXTMATCH | fnmatch.FORCEUNIX
+    if capture:
+        flags |= fnmatch.CAPTURE
+    pattern, hidden, visible = '?(a).hidden', '.hidden', 'a.hidden'
+    if as_bytes:
+        pattern, hidden, visible = pattern.encode(), hidden.encode(), visible.encode()
+
+    assert fnmatch.fnmatch(hidden, pattern, flags=flags)
+    assert fnmatch.fnmatch(visible, pattern, flags=flags)
+
+
+class NoTruthIterable:
+    """Model collections such as `numpy` arrays without importing `numpy`."""
+
+    def __init__(self, names):
+        """Store the filenames to iterate over."""
+
+        self.names = names
+
+    def __iter__(self):
+        """Iterate over filenames without testing the collection's truth value."""
+
+        return iter(self.names)
+
+    def __bool__(self):
+        """Reject truth testing, as array collections do."""
+
+        raise ValueError('The truth value of this collection is ambiguous')
+
+
+@pytest.mark.parametrize('precompiled', [False, True], ids=['direct', 'compiled'])
+@pytest.mark.parametrize('names, expected', [
+    ([], []),
+    (['keep.txt', 'skip.txt', 'readme.md'], ['keep.txt'])
+], ids=['empty', 'nonempty'])
+def test_filter_iterable_without_truth_value(precompiled, names, expected):
+    """Filter names and exclusions using iteration alone."""
+
+    values = NoTruthIterable(names)
+    if precompiled:
+        actual = fnmatch.compile('*.txt', exclude='skip.txt').filter(values)
+    else:
+        actual = fnmatch.filter(values, '*.txt', exclude='skip.txt')
+    assert actual == expected

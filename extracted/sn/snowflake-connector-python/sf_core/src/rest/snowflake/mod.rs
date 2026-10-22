@@ -133,6 +133,17 @@ const MASTER_TOKEN_TERMINAL_CODES: [i32; 3] = [
 pub(crate) fn is_unrecoverable_session(code: i32) -> bool {
     matches!(code, SESSION_GONE | SESSION_CLOSED)
 }
+/// Whether `err` is an ordinary failed query or heartbeat whose GS code means
+/// the session cannot be recovered. Those answers have no `RestError` variant
+/// of their own.
+pub(crate) fn reports_session_gone(err: &RestError) -> bool {
+    let code = match err {
+        RestError::QueryFailed { code, .. } => *code,
+        RestError::Heartbeat { code, .. } => Some(*code),
+        _ => return false,
+    };
+    code.is_some_and(is_unrecoverable_session)
+}
 /// GS error code returned when the OAuth access token presented at login is
 /// invalid. Treated cross-driver as a signal to evict the cached access
 /// token and replay the OAuth flow.
@@ -487,6 +498,7 @@ pub fn user_agent(client_info: &ClientInfo) -> String {
 }
 
 fn base_auth_request_data(login_parameters: &LoginParameters) -> AuthRequestData {
+    let libc = crate::telemetry::environment::detect_libc();
     AuthRequestData {
         account_name: login_parameters.account_name.clone(),
         client_app_id: login_parameters.client_info.client_app_id.clone(),
@@ -498,7 +510,6 @@ fn base_auth_request_data(login_parameters: &LoginParameters) -> AuthRequestData
             application: login_parameters.client_info.application.clone(),
             os: login_parameters.client_info.os.clone(),
             os_version: login_parameters.client_info.os_version.clone(),
-            ocsp_mode: login_parameters.client_info.ocsp_mode.clone(),
             cert_revocation_check_mode: match login_parameters.client_info.crl_config.check_mode {
                 CertRevocationCheckMode::Disabled => "DISABLED",
                 CertRevocationCheckMode::Enabled => "ENABLED",
@@ -514,6 +525,8 @@ fn base_auth_request_data(login_parameters: &LoginParameters) -> AuthRequestData
             core_version: env!("CARGO_PKG_VERSION").to_string(),
             is_fips: crate::tls::tls_provider_is_fips(),
             application_path: login_parameters.client_info.application_path.clone(),
+            libc_family: libc.family,
+            libc_version: libc.version,
         },
         spcs_token: login_parameters.spcs_token.clone(),
         ..Default::default()
@@ -973,7 +986,7 @@ pub async fn auth_request_data(
                         &tls_config,
                         Some(&login_parameters.client_info.proxy_config),
                         crl_manager,
-                        roots,
+                        roots.clone(),
                     )
                     .await
                     .context(WifSdkHttpClientSnafu)?,
@@ -982,7 +995,7 @@ pub async fn auth_request_data(
                 None
             };
             let attestation =
-                workload_identity::create_attestation(client, aws_sdk_http.as_ref(), cfg)
+                workload_identity::create_attestation(client, aws_sdk_http.as_ref(), cfg, roots)
                     .await
                     .context(WorkloadIdentityAttestationSnafu)?;
             data.authenticator = Some(authenticator::WORKLOAD_IDENTITY.to_string());
@@ -4350,7 +4363,7 @@ mod tests {
         assert_eq!(data.password.as_ref().unwrap().reveal(), "testpass");
         assert!(
             data.authenticator.is_none(),
-            "Password auth should NOT include AUTHENTICATOR field (matching old driver behavior)"
+            "Password auth should NOT include the AUTHENTICATOR field (matching old JDBC, Python, and ODBC driver behavior; the old Node.js driver sends SNOWFLAKE)"
         );
     }
 
@@ -4540,6 +4553,31 @@ mod tests {
             json["CLIENT_ENVIRONMENT"]["APPLICATION_PATH"],
             "/home/user/app.py"
         );
+    }
+
+    #[test]
+    fn auth_request_sends_libc_on_linux_only() {
+        let login_params = test_login_params();
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let client = reqwest::Client::new();
+        let data = rt
+            .block_on(auth_request_data(
+                &client,
+                &login_params,
+                None,
+                None,
+                None,
+                &RetryPolicy::default(),
+                None,
+                crate::crl::CrlManager::new(),
+                crate::tls::RootStoreProvider::new(),
+            ))
+            .unwrap();
+        let json = serde_json::to_value(&data).unwrap();
+        let env = &json["CLIENT_ENVIRONMENT"];
+        let libc = crate::telemetry::environment::detect_libc();
+        assert_eq!(env["LIBC_FAMILY"].as_str(), libc.family.as_deref());
+        assert_eq!(env["LIBC_VERSION"].as_str(), libc.version.as_deref());
     }
 
     #[test]

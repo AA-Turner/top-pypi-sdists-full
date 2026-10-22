@@ -23,8 +23,7 @@ def _convert_to_openai_message(
     message: Union[ChatCompletionMessage, BaseMessage, dict],
 ) -> ChatCompletionMessage:
     if not isinstance(message, BaseMessage):
-        if not isinstance(message, dict):
-            message = dict(message)
+        message = dict(message)
         if message.get("role") in ["ai", "assistant"] and message.get("tool_calls"):
             message["tool_calls"] = [
                 {**tool_call, "id": tool_call.get("id", "")}
@@ -92,7 +91,11 @@ def _is_trajectory_superset(
     reference_outputs: list[ChatCompletionMessage],
     tool_args_match_mode: ToolArgsMatchMode,
     tool_args_match_overrides: Optional[ToolArgsMatchOverrides] = None,
+    swapped: bool = False,
 ):
+    # Set `swapped` when the caller passes the reference trajectory as `outputs`
+    # and the model trajectory as `reference_outputs`, so tool args matchers
+    # still receive the model's args first and the reference's args second.
     output_tool_calls = _extract_tool_calls(outputs)
     reference_tool_calls = _extract_tool_calls(reference_outputs)
 
@@ -122,7 +125,11 @@ def _is_trajectory_superset(
             )
 
             out_args = out_call["args"]
-            if matcher(out_args, ref_args):
+            if swapped:
+                is_match = matcher(ref_args, out_args)
+            else:
+                is_match = matcher(out_args, ref_args)
+            if is_match:
                 matched_reference_calls.add(out_idx)
                 found_match = True
                 break
@@ -172,21 +179,27 @@ def _get_matcher_for_comparison_mode(
 
 
 def _get_partial_matcher_on_keys(keys: list[str]) -> Callable[[dict, dict], bool]:
+    missing = object()
+
     def get_nested_value(d: dict, key_path: str):
         current = d
         for part in key_path.split("."):
-            if not isinstance(current, dict):
-                return None
-            current = current.get(part)  # type: ignore
-            if current is None:
-                return None
+            if not isinstance(current, dict) or part not in current:
+                return missing
+            current = current[part]  # type: ignore
         return current
 
     def matcher(output_call: dict, reference_call: dict) -> bool:
-        return all(
-            get_nested_value(output_call, key) == get_nested_value(reference_call, key)
-            for key in keys
-        )
+        for key in keys:
+            output_value = get_nested_value(output_call, key)
+            reference_value = get_nested_value(reference_call, key)
+            if (
+                output_value is missing
+                or reference_value is missing
+                or output_value != reference_value
+            ):
+                return False
+        return True
 
     return matcher
 

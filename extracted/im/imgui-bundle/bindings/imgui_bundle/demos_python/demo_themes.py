@@ -6,11 +6,11 @@ In order to apply a theme, you can use:
 
 """
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
-from imgui_bundle import immapp, hello_imgui, imgui, imgui_md
+from imgui_bundle import immapp, hello_imgui, imgui, rich_md
 
 
-def demo_gui():
-    imgui_md.render_unindented(
+def gui():
+    rich_md.render(
         """
         # Theming
         HelloImGui adds support for advanced theming to ImGui. Select the menu View/Theme/Theme tweak window to explore all the themes and their customization.
@@ -24,4 +24,4 @@ def demo_gui():
 
 
 if __name__ == "__main__":
-    immapp.run(demo_gui, window_size=(1000, 800), with_markdown=True)
+    immapp.run(gui, window_size=(1000, 800), with_markdown=True)

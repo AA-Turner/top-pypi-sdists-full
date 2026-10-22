@@ -1,11 +1,17 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
+"""Logger: a log window for your app
+
+A log window for your app, with four levels: debug, info, warning and error. Call `hello_imgui.log()` anywhere, and
+show the window with `hello_imgui.log_gui()`. Its colors follow the theme. Adapted from
+[ImGuiAl](https://github.com/leiradel/ImGuiAl).
+"""
 import random
-from imgui_bundle import imgui, hello_imgui, imgui_md, immapp
+from imgui_bundle import imgui, hello_imgui, rich_md, immapp
 
 
 @immapp.static(idx_fortune=0, added_logs=False)
-def demo_gui():
-    static = demo_gui
+def gui():
+    static = gui
     fortunes = [
         "If at first you don't succeed, skydiving is not for you.",
         "You will be a winner today. Pick a fight.",
@@ -43,7 +49,7 @@ def demo_gui():
         add_logs()
         static.added_logs = True
 
-    imgui_md.render_unindented(
+    rich_md.render(
         """
         # Graphical logger for ImGui
         This logger is adapted from [ImGuiAl](https://github.com/leiradel/ImGuiAl)
@@ -62,7 +68,7 @@ def demo_gui():
 
 
 def main():
-    immapp.run(demo_gui, "Log", with_markdown=True)
+    immapp.run(gui, "Log", with_markdown=True)
 
 
 if __name__ == "__main__":

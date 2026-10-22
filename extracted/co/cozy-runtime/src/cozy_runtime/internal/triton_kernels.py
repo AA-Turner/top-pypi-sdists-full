@@ -19,7 +19,7 @@ import hashlib
 from collections.abc import Callable
 from importlib import import_module
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import msgspec
 from msgspec import Struct
@@ -33,11 +33,12 @@ from cozy_runtime.author.kernels import (
     entry_key,
     readable,
 )
-from cozy_runtime.internal import kernel_cache, kernel_compile
+from cozy_runtime.internal import kernel_cache, kernel_compile, nvfp4_linear, tools
 
 try:
     import torch
     import triton
+    from tensorfs.varena import cuts
     from triton.backends.compiler import BaseBackend, GPUTarget
     from triton.backends.nvidia import driver as _cuda_driver
     from triton.compiler import ASTSource
@@ -181,11 +182,18 @@ def _store() -> kernel_cache.Store:
     return store
 
 
+def _submit(store: kernel_cache.Store, found: kernel_compile.Job) -> kernel_compile.State:
+    """`kernel_compile.submit`; a set not built while Triton has no C compiler is absent."""
+    if kernel_compile.status(store, found).state == "ready" or tools.triton():
+        return kernel_compile.submit(store, found)
+    raise KernelsUnavailable("kernels_absent", f"{found.key.kernel}: cc not found")
+
+
 def expect(kernels: TritonKernels, arch: int) -> str:
     """Submit `kernels`' build for `arch` without waiting, before any device exists: the
     state's line. Keyed in the process that will load it (its Triton and cache directory)."""
     try:
-        return kernel_compile.submit(_store(), job(kernels, arch)).line()
+        return _submit(_store(), job(kernels, arch)).line()
     except KernelsUnavailable as exc:
         return f"{exc.code}: {exc}"
 
@@ -214,7 +222,9 @@ class _Launcher:
             operands = list(args)
             for i, value in zip(at, real, strict=True):
                 operands[i] = value
-            found[grid](*operands)
+            # out of memory, a launch did not run: it runs again with room made (12586)
+            device = cast("torch.Tensor", real[0]).device if real else torch.device("cuda")
+            cuts.launch(device, kernel.__name__, lambda: found[grid](*operands))
 
 
 #: Loaded sets by (name, device index).
@@ -235,6 +245,7 @@ def load(kernels: TritonKernels, *, device: object) -> Launch:
     major, minor = torch.cuda.get_device_capability(index)
     arch, store = major * 10 + minor, _store()
     found = job(kernels, arch)
+    _submit(store, found)
     state = kernel_compile.wait(store, found, kernels.name)
     if state.state != "ready":
         raise KernelsUnavailable("kernels_failed", f"{kernels.name} sm{arch}: {state.line()}")
@@ -274,8 +285,11 @@ def ready(kernels: TritonKernels, *, device: object) -> Launch | None:
     if torch.cuda.is_current_stream_capturing():  # a load would end the graph being recorded
         return None
     major, minor = torch.cuda.get_device_capability(target.index or 0)
-    if kernel_compile.submit(_store(), job(kernels, major * 10 + minor)).state == "compiling":
+    if _submit(_store(), job(kernels, major * 10 + minor)).state == "compiling":
         return None
     launch = load(kernels, device=device)
     LANDED[0] += 1
     return launch
+
+
+nvfp4_linear.READY[:] = [ready]

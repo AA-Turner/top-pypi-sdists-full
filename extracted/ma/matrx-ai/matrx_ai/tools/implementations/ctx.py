@@ -292,10 +292,31 @@ def _slice_value(obj: Any, content_str: str, slice_content: str) -> Any:
     ``ToolResult.output`` gate then rejects the result as a stringified dict and
     the whole call fails: 4 live ``matrx_validation_gate`` FAILs on ``context``.
     """
-    raw = getattr(obj, "content", None)
-    if isinstance(raw, dict | list) and slice_content == content_str:
+    if slice_content != content_str:
+        return slice_content
+    return _whole_value_native(getattr(obj, "content", None), content_str)
+
+
+def _whole_value_native(raw: Any, content_str: str) -> Any:
+    """The whole value as a native container whenever it is one.
+
+    A context value can arrive as its JSON TEXT (a value delivered through a
+    binding's context slot — the Studio's ``studio_workspace`` on 2026-10-21 —
+    reaches the manifest already serialized). Returning that text trips the
+    ``ToolResult.output`` gate, so every ``get`` cost the model a failed call.
+    A complete JSON object/array is decoded; anything else stays text.
+    """
+    if isinstance(raw, dict | list):
         return raw
-    return slice_content
+    text = content_str.strip()
+    if len(text) >= 2 and text[0] in "{[" and text[-1] in "}]":
+        try:
+            parsed = json.loads(text)
+        except (TypeError, ValueError):
+            return content_str
+        if isinstance(parsed, dict | list):
+            return parsed
+    return content_str
 
 
 async def default_source_read(
@@ -927,7 +948,7 @@ async def _ctx_get_body(
                     },
                     output_self_capped=True,
                 )
-            content_value: Any = raw if isinstance(raw, dict | list) else content_str
+            content_value: Any = _whole_value_native(raw, content_str)
             return ToolResult(
                 success=True,
                 output={

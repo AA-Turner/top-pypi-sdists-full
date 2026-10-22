@@ -24,6 +24,8 @@ else:
 
 logger = logging.getLogger(__name__)
 
+_LLM_SPAN_DATA_TYPES = frozenset({"generation", "response"})
+
 
 class ActiveSpanContext(TypedDict):
     trace_id: str
@@ -188,7 +190,12 @@ class BitfabOpenAITracingProcessor(TracingProcessor):
             trace_id = mapping["trace_id"] if mapping else span.trace_id
             self._http_client.trace_completion.start(trace_id, span.span_id)
             if mapping is not None and self._should_record():
-                entry = subtree.enter_framework_span(mapping["trace_id"], span.span_id)
+                entry = subtree.enter_framework_span(
+                    mapping["trace_id"],
+                    span.span_id,
+                    records_llm_call=getattr(span.span_data, "type", None)
+                    in _LLM_SPAN_DATA_TYPES,
+                )
                 if entry is not None:
                     self._subtree_entries[span.span_id] = entry
 

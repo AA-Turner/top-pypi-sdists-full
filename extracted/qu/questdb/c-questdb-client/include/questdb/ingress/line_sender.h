@@ -87,7 +87,8 @@ typedef enum line_sender_error_code
     /** The host, port, or interface was incorrect. */
     line_sender_error_could_not_resolve_addr = 0,
 
-    /** Called methods in the wrong order. E.g. `symbol` after `column`. */
+    /** Called methods in the wrong order, such as writing a symbol after a
+     * non-symbol column on an ILP buffer or calling `at` before any column. */
     line_sender_error_invalid_api_call = 1,
 
     /** A network error connecting or flushing data out. */
@@ -129,14 +130,14 @@ typedef enum line_sender_error_code
     /** QWP/WebSocket server rejection or terminal protocol violation. */
     line_sender_error_server_rejection = 14,
 
-    /** Arrow column whose kind cannot be persisted (e.g.
-     *  `FixedSizeBinary(16)` without `arrow.uuid` extension metadata;
-     *  `ARRAY(LONG, N-D)` is egress-only; nested-list leaf must be
-     *  `Float64`). `arrow` feature only. */
+    /** An Arrow column cannot be written to QuestDB because its type is not
+     *  supported for ingestion.
+     *  `arrow` feature only. */
     line_sender_error_arrow_unsupported_column_kind = 15,
 
-    /** RecordBatch failed client-side structural validation
-     *  (column count, name encoding, C Data Interface contract).
+    /** Arrow data is invalid or conflicts with its metadata or overrides. For
+     *  example, a UUID claim requires 16-byte values and a LONG256 claim
+     *  requires 32-byte values.
      *  `arrow` feature only. */
     line_sender_error_arrow_ingest = 16,
 
@@ -167,7 +168,11 @@ typedef enum line_sender_error_code
     /** HTTP-upgrade or WebSocket handshake failure. */
     line_sender_error_handshake_error = 20,
 
-    /** Server returned an unsupported QWP version, encoding, or capability. */
+    /** Server returned an unsupported QWP version, encoding, or capability.
+     *  Also raised client-side, before anything is written, when a query
+     *  carries a per-query timeout and the server does not advertise
+     *  `CAP_QUERY_TIMEOUT` (see `qwp_reader_query_set_timeout_ms`); the
+     *  connection is untouched by that refusal. */
     line_sender_error_unsupported_server = 21,
 
     /** Wire-format violation: bad magic, truncated frame, unknown
@@ -196,7 +201,8 @@ typedef enum line_sender_error_code
     /** Server-reported QWP `LIMIT_EXCEEDED` (status `0x0B`). */
     line_sender_error_server_limit_exceeded = 29,
 
-    /** Query was cancelled (locally or via server `CANCELLED` status `0x0A`). */
+    /** Query was cancelled (locally or via server `CANCELLED` status `0x0A`).
+     */
     line_sender_error_cancelled = 30,
 
     /** Mid-query failover was eligible but a batch had already been delivered
@@ -231,6 +237,81 @@ typedef enum line_sender_error_code
      *  socket drop) so a caller can tell "resend from source" apart from
      *  "reconnect and retry" by code, without matching on the message text. */
     line_sender_error_store_resend_required = 36,
+
+    /** The QWP/WebSocket connection-scoped symbol dictionary is full: interning
+     *  another distinct symbol would exceed its entry-count cap (2,000,000,
+     *  matching the server's ingress ceiling) or its cumulative UTF-8 heap cap
+     *  (256 MiB). The failing frame is rejected before any byte reaches the
+     * wire and the buffer is rolled back, so *that flush* loses nothing and
+     * chunks referencing only already-interned symbols keep flushing — but
+     * retrying a *new* symbol on the same sender can never succeed. A full
+     * dictionary RETIRES the connection on return: a pooled sender is dropped
+     * rather than recycled (the next borrow gets a fresh, empty-dictionary
+     * connection, not the same full one) and its earlier frames are drained /
+     * committed best-effort on the way out. So the simplest recovery is to
+     * return the sender as usual and borrow a fresh one. If those earlier
+     * frames must not be lost, drain or commit them AND check first:
+     *
+     *    - Pooled row sender: a plain `questdb_db_return_sender` now retires
+     * (does NOT recycle) a full-dictionary connection and drains its queue
+     *      best-effort within `close_flush_timeout`; the next borrow is fresh.
+     * Call `qwp_sender_wait` first if the queued frames must not be lost. With
+     *      `sf_dir` configured they persist in the slot, but so does the
+     *      dictionary, and the next borrower re-seeds from that slot's
+     * side-file at the same size unless the slot drained first, so wait there
+     * too.
+     *    - Pooled direct sender: a plain `questdb_db_return_direct_sender`
+     * retires the connection and commits the deferred tail best-effort. Its
+     * flushes are deferred, so for a CHECKED guarantee call
+     * `qwp_direct_sender_commit` (or a waited flush) and confirm it succeeded
+     * before the return. Do NOT use `questdb_db_drop_direct_sender` on a full
+     * dictionary: it force-drops and skips the best-effort commit, discarding
+     * the tail.
+     *    - Standalone direct sender: `qwp_direct_sender_free` commits the
+     * deferred tail best-effort; call `qwp_direct_sender_commit` and CHECK IT
+     * SUCCEEDED first for a guarantee, then `qwp_direct_sender_free`, then
+     * re-open.
+     *    - Standalone row sender (`line_sender_from_conf` / `_from_env` /
+     *      `line_sender_build` on a
+     *      `ws://` or `wss://` address, flushed with `line_sender_flush*`):
+     *      `line_sender_qwpws_close_drain` and CHECK IT SUCCEEDED, then
+     *      `line_sender_close` and re-open. This is the MOST lossy flavour on a
+     *      bare close, not the least: `line_sender_close` does not flush, and
+     *      nothing drains the QWP/WebSocket queue on the way out, so every
+     *      published-but-unacked frame is discarded with no wait. The drain is
+     *      bounded by `close_flush_timeout`.
+     *
+     *  See the symbol-column preamble in `qwp_sender.h`. Distinct from
+     *  `line_sender_error_invalid_api_call` so callers can recognise it without
+     *  matching on the message text.
+     *
+     *  One exception to "that flush loses nothing", and it matters for resends:
+     *  a chunk too large for a single frame is split into several frames,
+     *  published as it goes, so earlier frames can already be durably queued
+     *  (store-and-forward is at-least-once) when a later frame hits the cap.
+     *  The error is then delivery-unknown rather than known-not-delivered -
+     *  check `line_sender_error_in_doubt` before resending, or the rows the
+     *  queued prefix already carried are duplicated.
+     */
+    line_sender_error_symbol_dict_full = 37,
+
+    /** The query ran past the timeout it carried: server-reported QWP
+     *  `QUERY_TIMEOUT` (status `0x0E`), produced only for a request that
+     *  supplied `timeout_ms` (see `qwp_reader_query_set_timeout_ms`). A
+     *  timeout requested against a server that does not advertise
+     *  `CAP_QUERY_TIMEOUT` is refused with
+     *  `line_sender_error_unsupported_server` instead, so retrying a timeout
+     *  with a larger budget cannot loop against a server that ignores it.
+     *
+     *  Per-query, not per-connection: the connection stays open and
+     *  authenticated, so the next query runs on it without reconnecting.
+     *
+     *  DO NOT RETRY A WRITE ON THIS ERROR. A statement that completes past
+     *  its timeout is reported as `EXEC_DONE` with its row count rather than
+     *  as a timeout, precisely so a retrying client cannot apply it twice;
+     *  and a DDL / INSERT / UPDATE that timed out waiting for the table
+     *  writer may still be applied by that writer afterwards. */
+    line_sender_error_query_timeout = 38,
 } line_sender_error_code;
 
 /**
@@ -246,7 +327,8 @@ typedef line_sender_error_code questdb_error_code;
 /* Neutral names for the unified error-code constants. The underlying
  * `line_sender_error_code` enum and its enumerators are retained because they
  * shipped before the client-wide error vocabulary was introduced. */
-#define questdb_error_could_not_resolve_addr line_sender_error_could_not_resolve_addr
+#define questdb_error_could_not_resolve_addr                                   \
+    line_sender_error_could_not_resolve_addr
 #define questdb_error_invalid_api_call line_sender_error_invalid_api_call
 #define questdb_error_socket_error line_sender_error_socket_error
 #define questdb_error_invalid_utf8 line_sender_error_invalid_utf8
@@ -258,10 +340,12 @@ typedef line_sender_error_code questdb_error_code;
 #define questdb_error_server_flush_error line_sender_error_server_flush_error
 #define questdb_error_config_error line_sender_error_config_error
 #define questdb_error_array_error line_sender_error_array_error
-#define questdb_error_protocol_version_error line_sender_error_protocol_version_error
+#define questdb_error_protocol_version_error                                   \
+    line_sender_error_protocol_version_error
 #define questdb_error_invalid_decimal line_sender_error_invalid_decimal
 #define questdb_error_server_rejection line_sender_error_server_rejection
-#define questdb_error_arrow_unsupported_column_kind line_sender_error_arrow_unsupported_column_kind
+#define questdb_error_arrow_unsupported_column_kind                            \
+    line_sender_error_arrow_unsupported_column_kind
 #define questdb_error_arrow_ingest line_sender_error_arrow_ingest
 #define questdb_error_failover_retry line_sender_error_failover_retry
 #define questdb_error_role_mismatch line_sender_error_role_mismatch
@@ -270,19 +354,27 @@ typedef line_sender_error_code questdb_error_code;
 #define questdb_error_unsupported_server line_sender_error_unsupported_server
 #define questdb_error_protocol_error line_sender_error_protocol_error
 #define questdb_error_invalid_bind line_sender_error_invalid_bind
-#define questdb_error_server_schema_mismatch line_sender_error_server_schema_mismatch
+#define questdb_error_server_schema_mismatch                                   \
+    line_sender_error_server_schema_mismatch
 #define questdb_error_server_parse_error line_sender_error_server_parse_error
-#define questdb_error_server_internal_error line_sender_error_server_internal_error
-#define questdb_error_server_security_error line_sender_error_server_security_error
+#define questdb_error_server_internal_error                                    \
+    line_sender_error_server_internal_error
+#define questdb_error_server_security_error                                    \
+    line_sender_error_server_security_error
 #define questdb_error_limit_exceeded line_sender_error_limit_exceeded
-#define questdb_error_server_limit_exceeded line_sender_error_server_limit_exceeded
+#define questdb_error_server_limit_exceeded                                    \
+    line_sender_error_server_limit_exceeded
 #define questdb_error_cancelled line_sender_error_cancelled
-#define questdb_error_failover_would_duplicate line_sender_error_failover_would_duplicate
+#define questdb_error_failover_would_duplicate                                 \
+    line_sender_error_failover_would_duplicate
 #define questdb_error_schema_drift line_sender_error_schema_drift
 #define questdb_error_no_schema line_sender_error_no_schema
 #define questdb_error_arrow_export line_sender_error_arrow_export
 #define questdb_error_batch_too_large line_sender_error_batch_too_large
-#define questdb_error_store_resend_required line_sender_error_store_resend_required
+#define questdb_error_store_resend_required                                    \
+    line_sender_error_store_resend_required
+#define questdb_error_symbol_dict_full line_sender_error_symbol_dict_full
+#define questdb_error_query_timeout line_sender_error_query_timeout
 
 /** The protocol used to connect with. */
 typedef enum line_sender_protocol
@@ -380,9 +472,15 @@ questdb_error_code questdb_error_get_code(const questdb_error*);
 QUESTDB_CLIENT_API
 const char* questdb_error_msg(const questdb_error*, size_t* len_out);
 
-/** Whether the failed operation may already have delivered its input. A true
- *  result means replay can duplicate data unless the application has its own
- *  deduplication guarantee. NULL-safe: a NULL input returns false. */
+/**
+ * Whether the failed operation may already have delivered its input. A true
+ * result means replay can duplicate data unless the application has its own
+ * deduplication guarantee.
+ *
+ * For a low-level flush, this does not track earlier independent flushes.
+ *
+ * NULL-safe: a NULL input returns false.
+ */
 QUESTDB_CLIENT_API
 bool questdb_error_in_doubt(const questdb_error*);
 
@@ -407,6 +505,8 @@ const char* line_sender_error_msg(const line_sender_error*, size_t* len_out);
  * input's bytes may already have reached the server even though the call
  * returned an error (e.g. a socket write that failed mid-frame, or a
  * post-publish ACK wait that failed).
+ *
+ * For a low-level flush, this does not track earlier independent flushes.
  *
  * Independent of `line_sender_error_get_code`: a delivery-unknown failure
  * typically reports `line_sender_error_failover_retry`, yet that code alone
@@ -668,9 +768,7 @@ line_sender_buffer* line_sender_buffer_clone(
  */
 QUESTDB_CLIENT_API
 bool line_sender_buffer_reserve(
-    line_sender_buffer* buffer,
-    size_t additional,
-    line_sender_error** err_out);
+    line_sender_buffer* buffer, size_t additional, line_sender_error** err_out);
 
 /**
  * Get the current buffer capacity.
@@ -714,8 +812,7 @@ bool line_sender_buffer_rewind_to_bookmark(
  */
 QUESTDB_CLIENT_API
 void line_sender_buffer_clear_bookmark(
-    line_sender_buffer* buffer,
-    line_sender_bookmark bookmark);
+    line_sender_buffer* buffer, line_sender_bookmark bookmark);
 
 /**
  * Mark a rewind point.
@@ -750,7 +847,8 @@ void line_sender_buffer_clear_marker(line_sender_buffer* buffer);
 
 /**
  * Remove all accumulated data and prepare the buffer for new lines.
- * This does not affect the buffer's capacity.
+ * This does not affect the buffer's capacity. Any stored rewind point
+ * (marker or bookmark) is discarded.
  */
 QUESTDB_CLIENT_API
 void line_sender_buffer_clear(line_sender_buffer* buffer);
@@ -758,9 +856,12 @@ void line_sender_buffer_clear(line_sender_buffer* buffer);
 /**
  * The current encoded size of the buffered data.
  *
- * For ILP buffers this is the exact pending byte length. For QWP buffers this
- * is a buffered size hint, not the exact size of an eventual UDP datagram or
- * WebSocket replay frame.
+ * For ILP buffers this is the exact pending byte length. For QWP/UDP buffers
+ * this is a buffered size hint, not the exact size of an eventual datagram.
+ * For QWP/WebSocket buffers it is at least the size of the frame that
+ * flushing the buffer encodes, unless store-and-forward has fallen back to
+ * sending full symbol dictionaries because its symbol side-file could not be
+ * opened or rolled back.
  */
 QUESTDB_CLIENT_API
 size_t line_sender_buffer_size(const line_sender_buffer* buffer);
@@ -809,7 +910,22 @@ bool line_sender_buffer_table(
 
 /**
  * Record a symbol value for the given column.
- * Make sure you record all the symbol columns before any other column type.
+ * For ILP buffers, record all symbol columns before any other column type.
+ * QWP buffers allow symbol and non-symbol columns in any order before the
+ * designated timestamp.
+ *
+ * When the buffer is flushed over QWP/WebSocket — `qwp_sender_flush_buffer*` on
+ * a pooled sender, or `line_sender_flush*` on a `line_sender` opened against a
+ * `ws://` / `wss://` address — every distinct symbol recorded here is interned
+ * into the *same* connection-scoped dictionary the chunk API uses: capped at
+ * 2,000,000 entries and 256 MiB of UTF-8 across the whole connection, not per
+ * buffer or per flush. Exceeding it fails the flush with
+ * `line_sender_error_symbol_dict_full`; that code's own documentation lists
+ * what each sender flavour must call to retire the connection — including this
+ * one, whose remedy is `line_sender_qwpws_close_drain` then
+ * `line_sender_close`, in that order, because `line_sender_close` alone drains
+ * nothing. See also the symbol-column preamble in `qwp_sender.h`. ILP
+ * (TCP/HTTP) and QWP/UDP flushes carry no such dictionary and are unaffected.
  *
  * @param[in] buffer Line buffer object.
  * @param[in] name Column name.
@@ -937,10 +1053,10 @@ bool line_sender_buffer_column_str(
 /**
  * Record a decimal string value for the given column.
  *
- * When specifying a decimal as a string, use a '.' to separate the whole from the
- * fractional parts. For example, "12.20".
- * Infinity is encoded as "+Infinity" or "-Infinity", while NaN as "NaN".
- * Note that Infinity and NaN values decay to nulls when stored in the database.
+ * When specifying a decimal as a string, use a '.' to separate the whole from
+ * the fractional parts. For example, "12.20". Infinity is encoded as
+ * "+Infinity" or "-Infinity", while NaN as "NaN". Note that Infinity and NaN
+ * values decay to nulls when stored in the database.
  *
  * @param[in] buffer Line buffer object.
  * @param[in] name Column name.
@@ -952,12 +1068,16 @@ QUESTDB_CLIENT_API
 bool line_sender_buffer_column_dec_str(
     line_sender_buffer* buffer,
     line_sender_column_name name,
-    const char *value,
+    const char* value,
     size_t value_len,
     line_sender_error** err_out);
 
 /**
  * Record a decimal value for the given column.
+ *
+ * This row API accepts big-endian mantissas; the chunk APIs
+ * qwp_chunk_column_decimal128 and qwp_chunk_column_decimal256 require
+ * little-endian bytes.
  *
  * @param[in] buffer Line buffer object.
  * @param[in] name Column name.
@@ -987,7 +1107,7 @@ QUESTDB_CLIENT_API
 bool line_sender_buffer_column_dec64_str(
     line_sender_buffer* buffer,
     line_sender_column_name name,
-    const char *value,
+    const char* value,
     size_t value_len,
     line_sender_error** err_out);
 
@@ -1018,7 +1138,7 @@ QUESTDB_CLIENT_API
 bool line_sender_buffer_column_dec128_str(
     line_sender_buffer* buffer,
     line_sender_column_name name,
-    const char *value,
+    const char* value,
     size_t value_len,
     line_sender_error** err_out);
 
@@ -1038,6 +1158,8 @@ bool line_sender_buffer_column_dec128(
  * Record a UUID column value. QWP-only.
  *
  * The wire encoding writes `lo` (8 bytes LE) followed by `hi` (8 bytes LE).
+ * For canonical RFC-4122 bytes, use `qwp_chunk_column_uuid` instead of
+ * splitting the bytes into `lo` and `hi`.
  */
 QUESTDB_CLIENT_API
 bool line_sender_buffer_column_uuid(
@@ -1067,10 +1189,6 @@ bool line_sender_buffer_column_long256(
  *   `addr = ((uint32_t)a << 24) | (b << 16) | (c << 8) | d`
  * The encoder writes `addr.to_le_bytes()` so the wire bytes appear as
  * `[d, c, b, a]`.
- *
- * IPv4 (`0x18`) is part of the QWP v1 spec. Server-side ingest does not
- * currently implement this wire type; batches using it will be rejected
- * with a descriptive error. This may change in future server releases.
  */
 QUESTDB_CLIENT_API
 bool line_sender_buffer_column_ipv4(
@@ -1101,10 +1219,6 @@ bool line_sender_buffer_column_char(
 
 /**
  * Record a BINARY column value (opaque byte sequence). QWP-only.
- *
- * BINARY (`0x17`) is part of the QWP v1 spec. Server-side ingest does not
- * currently implement this wire type; batches using it will be rejected
- * with a descriptive error. This may change in future server releases.
  */
 QUESTDB_CLIENT_API
 bool line_sender_buffer_column_binary(
@@ -1117,7 +1231,13 @@ bool line_sender_buffer_column_binary(
 /**
  * Record a GEOHASH column value. QWP-only.
  *
- * `precision_bits` must be in `1..=60` and is pinned per column.
+ * `precision_bits` must be in `1..=60` and is pinned per column. `bits` is a
+ * raw pattern and is not checked to be less than `2^precision_bits`.
+ * Supplying the wrong precision or a pattern with bits set above it can
+ * succeed and store a different GEOHASH or NULL. Only the low
+ * `ceil(precision_bits / 8)` bytes are encoded; the exact result is
+ * unspecified. This is a semantic data-integrity risk, not a memory-safety
+ * risk for an otherwise valid call. The caller must validate `bits`.
  */
 QUESTDB_CLIENT_API
 bool line_sender_buffer_column_geohash(
@@ -1155,7 +1275,8 @@ bool line_sender_buffer_column_i64_arr_c_major(
     line_sender_error** err_out);
 
 /**
- * Record a multidimensional array of `int64` values with byte strides. QWP-only.
+ * Record a multidimensional array of `int64` values with byte strides.
+ * QWP-only.
  *
  * LONG_ARRAY (`0x12`) is part of the QWP v1 spec. Server-side ingest does
  * not currently implement this wire type; batches using it will be rejected
@@ -1176,7 +1297,8 @@ bool line_sender_buffer_column_i64_arr_byte_strides(
     line_sender_error** err_out);
 
 /**
- * Record a multidimensional array of `int64` values with element strides. QWP-only.
+ * Record a multidimensional array of `int64` values with element strides.
+ * QWP-only.
  *
  * LONG_ARRAY (`0x12`) is part of the QWP v1 spec. Server-side ingest does
  * not currently implement this wire type; batches using it will be rejected
@@ -1463,8 +1585,7 @@ typedef struct line_sender_qwpws_error_view
  * callback call. The callback must not call methods on the same sender.
  */
 typedef void (*line_sender_qwpws_error_cb)(
-    void* user_data,
-    const line_sender_qwpws_error_view* event);
+    void* user_data, const line_sender_qwpws_error_view* event);
 
 /**
  * Accumulates parameters for a new `line_sender` object.
@@ -1989,9 +2110,7 @@ bool line_sender_qwpws_flush_and_keep_and_get_fsn(
  */
 QUESTDB_CLIENT_API
 bool line_sender_qwpws_drive_once(
-    line_sender* sender,
-    bool* progressed_out,
-    line_sender_error** err_out);
+    line_sender* sender, bool* progressed_out, line_sender_error** err_out);
 
 /**
  * Return the highest QWP/WebSocket frame sequence number published locally, or
@@ -2077,8 +2196,7 @@ line_sender_qwpws_error_view line_sender_qwpws_error_get_view(
  */
 QUESTDB_CLIENT_API
 bool line_sender_error_qwpws_get_view(
-    const line_sender_error* error,
-    line_sender_qwpws_error_view* view_out);
+    const line_sender_error* error, line_sender_qwpws_error_view* view_out);
 
 /**
  * Free an owned QWP/WebSocket diagnostic. Passing NULL is a no-op.
@@ -2102,6 +2220,22 @@ bool line_sender_qwpws_errors_dropped(
     line_sender_error** err_out);
 
 /**
+ * Return the current hard per-frame cap of a QWP/WebSocket sender: the
+ * smallest of `max_buf_size`, the server's advertised `X-QWP-Max-Batch-Size`
+ * and the store-and-forward segment payload capacity. A flush whose encoded
+ * frame exceeds it fails with `line_sender_error_batch_too_large` and
+ * publishes nothing. `*server_cap_known_out` is true when the current
+ * connection advertised `X-QWP-Max-Batch-Size`, whether or not that value is
+ * the binding limit. The value can change after reconnect.
+ */
+QUESTDB_CLIENT_API
+bool line_sender_qwpws_effective_frame_cap(
+    const line_sender* sender,
+    size_t* cap_out,
+    bool* server_cap_known_out,
+    line_sender_error** err_out);
+
+/**
  * Stop accepting new QWP/WebSocket publications and wait for already-published
  * frames to resolve. The timeout is configured with the QWP/WebSocket
  * `close_flush_timeout_millis` config key; the default is 5000 ms, and values
@@ -2110,8 +2244,7 @@ bool line_sender_qwpws_errors_dropped(
  */
 QUESTDB_CLIENT_API
 bool line_sender_qwpws_close_drain(
-    line_sender* sender,
-    line_sender_error** err_out);
+    line_sender* sender, line_sender_error** err_out);
 
 /**
  * Send the given buffer of rows to the QuestDB server, clearing the buffer.
@@ -2262,8 +2395,7 @@ typedef struct questdb_connection_event
  * The `event` pointer and every string it references are valid only for
  * the duration of the call. Must not unwind. */
 typedef void (*questdb_connection_event_cb)(
-    void* user_data,
-    const questdb_connection_event* event);
+    void* user_data, const questdb_connection_event* event);
 
 /** Register a connection lifecycle listener on the sender being built.
  * Events are delivered on a dedicated dispatcher thread through a bounded

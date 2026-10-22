@@ -10,19 +10,36 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "imgui-bundle"
-version = "1.92.900"  # Based on ImGui 1.92.9b - Remember to mirror changes on line 3 of main CMakeLists! Version = ImGui patch × 100 + bundle release. (hardcoded pyodide wheel filenames must be updated too: find them with the rg command in docs/book/devel_docs/cloudflare_deploy.md.)
+version = "1.93.0"  # Based on ImGui 1.93.0 (docking branch) - Remember to mirror changes on line 3 of main CMakeLists! Version = ImGui patch × 100 + bundle release. (hardcoded pyodide wheel filenames must be updated too: find them with the rg command in docs/book/devel_docs/cloudflare_deploy.md.)
 
-description="Dear ImGui Bundle: From expressive code to powerful GUIs in no time. A fast, feature-rich, cross-platform toolkit for C++ and Python."
+description="Dear ImGui for Python and C++, batteries included: real-time GUIs, plots and live data, on the desktop and in the browser, with no server."
 readme = "bindings/imgui_bundle/Readme_pypi.md"
 authors = [ { name = "Pascal Thomet", email = "pthomet@gmail.com" } ]
 requires-python = ">=3.10"
+keywords = ["imgui", "dear-imgui", "gui", "immediate-mode", "real-time", "live-data", "visualization", "plotting", "scientific", "dashboard", "creative-coding", "generative-art", "pyodide", "webassembly", "jupyter", "node-editor", "markdown"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
     "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Artistic Software",
+    "Topic :: Education",
+    "Environment :: WebAssembly :: Emscripten",
+    "Framework :: Jupyter",
     "Typing :: Typed",
     "Operating System :: OS Independent",
+    "Programming Language :: C++",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 
 dependencies = []
@@ -41,7 +58,7 @@ glfw = ["glfw"]
 sdl2 = ["PySDL2"]
 sdl3 = ["PySDL3"]
 wgpu = ["wgpu", "rendercanvas"]
-pyglet = ["pyglet"]
+pyglet = ["pyglet>=2.0.10"]  # 2.0.10: clipboard API
 all_backends = [
     "PyOpenGL",
     "glfw",
@@ -49,7 +66,7 @@ all_backends = [
     "PySDL3",
     "wgpu",
     "rendercanvas",
-    "pyglet",
+    "pyglet>=2.0.10",
     "pygame",
 ]
 # full installation
@@ -79,9 +96,8 @@ full = [
     "PySDL3",
     "wgpu",
     "rendercanvas",
-    "pyglet",
+    "pyglet>=2.0.10",
     "pygame",
-    "PyGLM",
 ]
 # For development and testing
 # pyte/websockets: let CI run the imgui_terminal tests and type-check the widget
@@ -91,10 +107,13 @@ test = ["pytest", "pytest-asyncio", "mypy", "pyte", "websockets"]
 
 [project.urls]
 Homepage = "https://imgui-bundle.pages.dev/"
-Documentation = "https://imgui-bundle.pages.dev/"
+Documentation = "https://imgui-bundle.pages.dev/doc/"
 Repository = "https://github.com/pthom/imgui_bundle"
 Issues = "https://github.com/pthom/imgui_bundle/issues"
 Changelog = "https://github.com/pthom/imgui_bundle/blob/main/CHANGELOG.md"
+Playground = "https://imgui-bundle.pages.dev/playground/"
+"Guide for AI assistants" = "https://imgui-bundle.pages.dev/llms.txt"
+FAQ = "https://github.com/pthom/imgui_bundle/issues?q=is%3Aissue+label%3AFAQ"
 
 [project.scripts]
 demo_imgui_bundle="imgui_bundle.demos_python.demo_imgui_bundle:main"
@@ -208,9 +227,16 @@ disable_error_code = ["attr-defined", "no-untyped-def"]
 module = ["OpenGL.*", "glfw.*", "glm"]
 ignore_missing_imports = true
 
-# paramiko (imgui_terminal SSH demo) is untyped
+# paramiko (imgui_terminal SSH demo) is untyped; miniaudio and edge_tts (the narrator's voice) and the plotting
+# libraries of the demos are optional, absent on CI; playwright comes from a throwaway environment (api_pictures.py)
 [[tool.mypy.overrides]]
-module = ["paramiko"]
+module = ["paramiko", "miniaudio", "edge_tts", "seaborn", "cartopy.*", "playwright.*"]
+ignore_missing_imports = true
+
+# tiny_nn, julia_points, grok_train, narrator: sibling modules of the neural_spiral, julia_map and grokking explorables
+# (imported from their folder, not on mypy's path)
+[[tool.mypy.overrides]]
+module = ["tiny_nn", "julia_points", "grok_train", "narrator"]
 ignore_missing_imports = true
 
 #####################################
@@ -220,7 +246,7 @@ ignore_missing_imports = true
 build-verbosity = 1
 
 # Target python versions:
-build = ["cp311-*", "cp312-*", "cp313-*", "cp314-*"]
+build = ["cp311-*", "cp312-*", "cp313-*", "cp314-*", "cp315-*"]
 
 # Tests : we ignore the python GUI tests here, as they require a display
 # (note: those tests are run in the pip.yml GitHub actions workflows)
@@ -313,11 +339,10 @@ repair-wheel-command = ""
 #        CMAKE_ARGS="-DIMGUI_BUNDLE_WITH_IMMVISION=OFF" pip install -v .
 #    or
 #        CMAKE_ARGS="-DIMGUI_BUNDLE_WITH_IMMVISION=OFF" python -m build --wheel
-#    Note: immvision no longer requires OpenCV. It works fully without it.
-#    OpenCV support is optional (behind IMMVISION_HAS_OPENCV).
+#    Note: immvision does not use OpenCV (the python bindings never link it).
 #
 # 2. to disable hello_imgui (to avoid the windowing dependencies)
 #   Pass -DIMGUI_BUNDLE_WITH_HELLO_IMGUI=OFF, e.g.:
 #        CMAKE_ARGS="-DIMGUI_BUNDLE_WITH_HELLO_IMGUI=OFF" pip install -v .
 #   If you disable hello_imgui, several dependent modules will be auto-disabled:
-#     immapp, imgui_md, im_file_dialog, imgui_tex_inspect, immvision, imgui_test_engine, and the glfw backend.
+#     immapp, rich_md, im_file_dialog, imgui_tex_inspect, immvision, imgui_test_engine, and the glfw backend.

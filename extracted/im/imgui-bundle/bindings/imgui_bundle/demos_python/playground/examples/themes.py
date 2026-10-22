@@ -1,6 +1,7 @@
 """# Theming
 
-Dear ImGui Bundle supports theming at two levels:
+Pick a complete look for your app, then fine-tune its colors, rounding and spacing. The complete
+looks come from [Hello ImGui](https://github.com/pthom/hello_imgui).
 
 **Hello ImGui themes** provide complete, pre-designed looks. Apply one with a single line:
 ```python
@@ -8,7 +9,11 @@ hello_imgui.apply_theme(hello_imgui.ImGuiTheme_.darcula)  # or apply_tweaked_the
 ```
 **Tweaks** let you fine-tune colors, rounding, spacing, and other style variables.
 """
-from imgui_bundle import imgui, immapp, hello_imgui, imgui_md, ImVec2
+from imgui_bundle import imgui, immapp, hello_imgui, rich_md, ImVec2
+
+NARROW_WIDTH_EM = 40  # Under this width (in em, a phone), the theme selector opens in a window of its own
+
+_show_theme_window = False  # on a narrow screen: the theme selector's window is open
 
 
 def gui_select_theme() -> None:
@@ -62,7 +67,7 @@ def gui_preview_theme_with_widgets() -> None:
         imgui.text("Tree content")
         imgui.tree_pop()
 
-    imgui_md.render_unindented(r"""
+    rich_md.render(r"""
 #### Markdown examples
 |          |                                                                  |
 |----------|-------------------------------------------------------------------------|
@@ -89,20 +94,36 @@ def gui_layout() -> None:
         - on the left, the theme selector
         - on the right, a widget collection to preview the theme
     """
+    global _show_theme_window
+    narrow = imgui.get_content_region_avail().x < hello_imgui.em_size(NARROW_WIDTH_EM)
+
     # Documentation panel
-    immapp.render_markdown_doc_panel(__doc__, height_em=14)
+    immapp.render_markdown_doc_panel(__doc__, height_em=8 if narrow else 14)
 
-    avail = imgui.get_content_region_avail()
-
-    # Left: theme selector / tweak panel (resizable)
-    left_w = avail.x * 0.5  # initial width
-    imgui.begin_child("##theme_tweak", size=(left_w, 0),
-        child_flags=imgui.ChildFlags_.resize_x)
-    gui_select_theme()
-    imgui.end_child()
-
-    # Make sure our two panels are horizontally side by side
-    imgui.same_line()
+    if narrow:
+        # A narrow screen (a phone): the theme selector opens in a window of its own, over the preview
+        if imgui.button("Choose a theme"):
+            _show_theme_window = True
+        if _show_theme_window:
+            viewport = imgui.get_main_viewport()
+            imgui.set_next_window_pos(viewport.get_work_center(), imgui.Cond_.appearing, ImVec2(0.5, 0.5))
+            imgui.set_next_window_size(ImVec2(viewport.work_size.x * 0.95, viewport.work_size.y * 0.85),
+                                       imgui.Cond_.appearing)
+            expanded, opened = imgui.begin("Choose a theme", _show_theme_window)
+            _show_theme_window = bool(opened)  # its close button
+            if expanded:
+                gui_select_theme()
+            imgui.end()
+    else:
+        # Left: theme selector / tweak panel (resizable)
+        avail = imgui.get_content_region_avail()
+        left_w = avail.x * 0.5  # initial width
+        imgui.begin_child("##theme_tweak", size=(left_w, 0),
+            child_flags=imgui.ChildFlags_.resize_x)
+        gui_select_theme()
+        imgui.end_child()
+        # Make sure our two panels are horizontally side by side
+        imgui.same_line()
 
     # Right: preview with widgets
     imgui.begin_child("##preview")

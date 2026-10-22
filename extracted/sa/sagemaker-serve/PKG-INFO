@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sagemaker-serve
-Version: 1.26.0
+Version: 1.27.0
 Summary: SageMaker Serve package for model serving and deployment
 Author: Amazon Web Services
 License:                                  Apache License
@@ -215,24 +215,41 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: sagemaker-core>=2.26.0
-Requires-Dist: sagemaker-train>=1.26.0
+Requires-Dist: sagemaker-core>=2.27.0
+Requires-Dist: sagemaker-train>=1.27.0
 Requires-Dist: boto3<2.0,>=1.42.2
 Requires-Dist: botocore<2.0,>=1.35.75
 Requires-Dist: deepdiff
-Requires-Dist: mlflow
 Requires-Dist: sagemaker_schema_inference_artifacts
-Requires-Dist: pytest
 Requires-Dist: tqdm
 Requires-Dist: psutil
-Requires-Dist: tritonclient[http]
-Requires-Dist: onnx
-Requires-Dist: onnxruntime
-Requires-Dist: torch>=2.0.0
+Provides-Extra: torch
+Requires-Dist: torch>=2.0.0; extra == "torch"
+Provides-Extra: onnx
+Requires-Dist: onnx; extra == "onnx"
+Requires-Dist: onnxruntime; extra == "onnx"
+Provides-Extra: triton
+Requires-Dist: tritonclient[http]; extra == "triton"
+Requires-Dist: onnx; extra == "triton"
+Requires-Dist: onnxruntime; extra == "triton"
+Requires-Dist: torch>=2.0.0; extra == "triton"
+Provides-Extra: mlflow
+Requires-Dist: mlflow; extra == "mlflow"
+Provides-Extra: all
+Requires-Dist: mlflow; extra == "all"
+Requires-Dist: onnx; extra == "all"
+Requires-Dist: onnxruntime; extra == "all"
+Requires-Dist: torch>=2.0.0; extra == "all"
+Requires-Dist: tritonclient[http]; extra == "all"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: mock; extra == "test"
+Requires-Dist: mlflow; extra == "test"
+Requires-Dist: onnx; extra == "test"
+Requires-Dist: onnxruntime; extra == "test"
+Requires-Dist: torch>=2.0.0; extra == "test"
+Requires-Dist: tritonclient[http]; extra == "test"
 Provides-Extra: dev
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"

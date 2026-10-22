@@ -89,6 +89,10 @@ pub struct WrapperPresets {
     /// adopted as handed over: telemetry is sent without a session id, and a gone
     /// session surfaces on the first real request. Only Node.js sets this false, for `deserializeConnection`.
     pub validate_session_token: bool,
+    /// Value of `use_proxy_env` when the caller and any connection profile leave it
+    /// unset. Python and Node.js read `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`.
+    /// JDBC, ODBC, and the shared default do not.
+    pub use_proxy_env_default: bool,
 }
 
 impl Default for WrapperPresets {
@@ -115,6 +119,7 @@ impl Default for WrapperPresets {
             honor_scoped_temp_bind_stage: false,
             serialize_session_operations: false,
             validate_session_token: true,
+            use_proxy_env_default: false,
         }
     }
 }
@@ -125,6 +130,7 @@ impl WrapperPresets {
         Self {
             optimistic_alter_session_param_cache: true,
             honor_scoped_temp_bind_stage: true,
+            use_proxy_env_default: true,
             ..Self::default()
         }
     }
@@ -144,6 +150,7 @@ impl WrapperPresets {
             honor_scoped_temp_bind_stage: false,
             serialize_session_operations: true,
             validate_session_token: true,
+            use_proxy_env_default: false,
         }
     }
 
@@ -167,6 +174,7 @@ impl WrapperPresets {
             put_get_resultset_flavor: PutGetResultsetFlavor::NodeJs,
             put_compress_level_default: 6,
             validate_session_token: false,
+            use_proxy_env_default: true,
             ..Self::default()
         }
     }
@@ -263,6 +271,7 @@ impl DatabaseDriverV1 {
             None => XpSlot::from_env(providers.xp_backend),
         });
         crate::xp_backend::registry::install_c_registration_target(Arc::clone(&xp_slot));
+        let root_store_provider = providers.root_store_provider.unwrap_or_default();
         Self {
             databases: HandleManager::new(),
             connections: HandleManager::new(),
@@ -275,14 +284,16 @@ impl DatabaseDriverV1 {
                 .map(once_cell::sync::OnceCell::from)
                 .unwrap_or_default(),
             fs: providers.fs.unwrap_or_else(|| Arc::new(RealFs)),
-            platform_detector: PlatformDetector::new(DetectionConfig::default()),
+            platform_detector: PlatformDetector::new(DetectionConfig::new(
+                root_store_provider.clone(),
+            )),
             log_manager: providers.log_manager,
             wrapper_presets: providers.wrapper_presets,
             prompt_locks: providers
                 .prompt_locks
                 .unwrap_or_else(|| Arc::new(std::sync::Mutex::new(HashMap::new()))),
             crl_manager: providers.crl_manager.unwrap_or_default(),
-            root_store_provider: providers.root_store_provider.unwrap_or_default(),
+            root_store_provider,
             xp_slot,
         }
     }
@@ -429,6 +440,23 @@ mod tests {
     use super::*;
     use crate::xp_backend::TestBackend;
 
+    #[test]
+    fn platform_detector_reuses_the_injected_root_store_provider() {
+        let roots = RootStoreProvider::new();
+        let driver = DatabaseDriverV1::with_providers(DriverProviders {
+            root_store_provider: Some(roots.clone()),
+            ..Default::default()
+        });
+        assert!(
+            roots.ptr_eq(&driver.root_store_provider),
+            "the driver keeps the injected root-store provider"
+        );
+        assert!(
+            roots.ptr_eq(driver.platform_detector.root_store_provider()),
+            "platform detection uses the driver's root-store provider"
+        );
+    }
+
     #[tokio::test]
     async fn platform_detection_stays_idle_without_a_log_manager() {
         let driver = DatabaseDriverV1::new();
@@ -571,7 +599,10 @@ mod tests {
         );
 
         let owned = DatabaseDriverV1::new();
-        let cache = owned.crl_manager.cache(memory_crl_config()).expect("cache");
+        let cache = owned
+            .crl_manager
+            .cache(memory_crl_config(), &owned.root_store_provider.snapshot())
+            .expect("cache");
         cache.wait_for_scheduler(true);
         drop(owned);
         cache.wait_for_scheduler(false);
@@ -594,7 +625,10 @@ mod tests {
         );
         let shared_cache = injected_left
             .crl_manager
-            .cache(memory_crl_config())
+            .cache(
+                memory_crl_config(),
+                &injected_left.root_store_provider.snapshot(),
+            )
             .expect("shared cache");
         shared_cache.wait_for_scheduler(true);
         drop(injected_left);
@@ -667,6 +701,15 @@ mod tests {
             WrapperPresets::nodejs().configuration_flavor,
             Wrapper::NodeJs
         );
+    }
+
+    #[test]
+    fn use_proxy_env_default_follows_wrapper() {
+        assert!(WrapperPresets::python().use_proxy_env_default);
+        assert!(WrapperPresets::nodejs().use_proxy_env_default);
+        assert!(!WrapperPresets::jdbc().use_proxy_env_default);
+        assert!(!WrapperPresets::odbc().use_proxy_env_default);
+        assert!(!WrapperPresets::default().use_proxy_env_default);
     }
 
     #[test]

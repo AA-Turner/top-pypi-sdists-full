@@ -1,14 +1,23 @@
+"""ImmVision: an image processing pipeline, tuned live
+
+A Sobel filter on a photo: change the blur, the derivative's order and its orientation, and the result updates at
+once. The original and the filtered image share a zoom key, so they pan and zoom together; the options panel of the
+filtered image applies colormaps. A button downloads a random photo. The processing is OpenCV's
+(`pip install imgui-bundle[imgproc]`), the display ImmVision's.
+"""
 import numpy as np
-from typing import Any
+from typing import Any, Optional
 from numpy.typing import NDArray
 from enum import Enum
 import cv2
 import math
 
-from imgui_bundle import imgui, immvision, immapp, imgui_md
-from imgui_bundle.demos_python import demo_utils
+from imgui_bundle import imgui, immvision, immapp, rich_md, hello_imgui, register_demos_assets_folder
 
-immvision.use_rgb_color_order()
+register_demos_assets_folder()
+
+RANDOM_PHOTO_URL = "https://picsum.photos/640/480"  # a different photo at each download
+NARROW_WIDTH_EM = 46  # Under this width (in em, a phone), the controls and the images go one under the other
 
 ImageRgb = NDArray[np.uint8]
 ImageFloat = NDArray[np.floating[Any]]
@@ -29,7 +38,7 @@ class SobelParams:
 
 def compute_sobel(image: ImageRgb, params: SobelParams) -> ImageFloat:
     """Our image processing pipeline"""
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
     img_float = gray / 255.0
     blurred = cv2.GaussianBlur(
         img_float, (0, 0), sigmaX=params.blur_size, sigmaY=params.blur_size  # type: ignore
@@ -49,7 +58,15 @@ def compute_sobel(image: ImageRgb, params: SobelParams) -> ImageFloat:
     return r  # type: ignore
 
 
-def gui_sobel_params(params: SobelParams) -> bool:
+def next_controls(narrow: bool):
+    """Between two groups of controls: a separator on the same line, or a new line on a narrow screen"""
+    if not narrow:
+        imgui.same_line()
+        imgui.text(" | ")
+        imgui.same_line()
+
+
+def gui_sobel_params(params: SobelParams, narrow: bool) -> bool:
     """A GUI to edit the parameters for our image processing pipeline"""
     changed = False
 
@@ -58,9 +75,7 @@ def gui_sobel_params(params: SobelParams) -> bool:
     c, params.blur_size = imgui.slider_float("Blur size", params.blur_size, 0.5, 10)
     if c:
         changed = True
-    imgui.same_line()
-    imgui.text(" | ")
-    imgui.same_line()
+    next_controls(narrow)
 
     # Deriv order
     imgui.text("Deriv order")
@@ -71,10 +86,9 @@ def gui_sobel_params(params: SobelParams) -> bool:
         )
         if c:
             changed = True
-        imgui.same_line()
-
-    imgui.text(" | ")
-    imgui.same_line()
+        if deriv_order < 4:
+            imgui.same_line()
+    next_controls(narrow)
 
     imgui.text("Orientation")
     imgui.same_line()
@@ -107,46 +121,88 @@ class AppState:
     immvision_params_sobel: immvision.ImageParams
 
     def __init__(self, image_file: str):
-        self.image = demo_utils.imread_demo(image_file)
+        # In RGB: ImmVision's default order (OpenCV reads BGR)
+        self.image = cv2.cvtColor(cv2.imread(image_file), cv2.COLOR_BGR2RGB)  # type: ignore[arg-type, assignment]
         self.sobel_params = SobelParams()
         self.image_sobel = compute_sobel(self.image, self.sobel_params)
+        self.download: Optional[immapp.Download] = None  # the download of a random photo, in the background
 
         self.immvision_params = immvision.ImageParams()
-        self.immvision_params.image_display_size = (int(immapp.em_size(22)), 0)
         self.immvision_params.zoom_key = "z"
 
         self.immvision_params_sobel = immvision.ImageParams()
-        self.immvision_params_sobel.image_display_size = (int(immapp.em_size(22)), 0)
         self.immvision_params_sobel.zoom_key = "z"
         self.immvision_params_sobel.show_options_panel = True
+        self.was_narrow: Optional[bool] = None  # the layout of the last frame
+
+    def fit_layout(self, narrow: bool):
+        """The images side by side, 22 em wide; on a narrow screen (a phone), half the window's width each, and the
+        options of the filtered image in a window of their own. Set when the layout changes only: the user may resize
+        the images in between."""
+        if narrow == self.was_narrow:
+            return
+        self.was_narrow = narrow
+        half_width = (imgui.get_content_region_avail().x - imgui.get_style().item_spacing.x) / 2
+        size = (int(half_width - imgui.get_frame_height()), 0) if narrow else (int(immapp.em_size(22)), 0)
+        self.immvision_params.image_display_size = size
+        self.immvision_params_sobel.image_display_size = size
+        self.immvision_params_sobel.show_options_in_tooltip = narrow
+
+
+def take_downloaded_photo(state: AppState) -> bool:
+    """Makes the downloaded photo the image, once its download is done (a failure keeps the image as is)"""
+    if state.download is None or not state.download.done:
+        return False
+    download, state.download = state.download, None
+    if download.error:
+        return False
+    decoded = cv2.imdecode(np.frombuffer(download.data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if decoded is None:
+        return False
+    state.image = cv2.cvtColor(decoded, cv2.COLOR_BGR2RGB)  # type: ignore[assignment]
+    return True
 
 
 # Our GUI function
 #    (which instantiates a static app state at startup)
 @immapp.static(app_state=None)
-def demo_gui():
-    static = demo_gui
+def gui():
+    static = gui
 
     if static.app_state is None:
-        static.app_state = AppState(demo_utils.demos_assets_folder() + "/images/house.jpg")
+        static.app_state = AppState(hello_imgui.asset_file_full_path("images/house.jpg"))
 
-    imgui_md.render_unindented(
+    # Open at first, it folds to its first paragraph as soon as the user touches the controls or the images
+    intro_options = rich_md.FoldingTextOptions()
+    intro_options.fold_on_click_elsewhere = True
+    rich_md.render_folding(
+        "intro",
         """
-        This example shows a example of image processing (sobel filter) where you can adjust the params and see their effect in real time.
+        An image processing pipeline (a Sobel filter): adjust its parameters, and see their effect in real time.
 
         * Pan and zoom the image with the mouse and the mouse wheel
         * Apply Colormaps to the filtered image in the options tab.
-        """
+        """,
+        intro_options,
     )
     imgui.separator()
 
-    changed = gui_sobel_params(static.app_state.sobel_params)
-    if changed:
+    narrow = imgui.get_content_region_avail().x < immapp.em_size(NARROW_WIDTH_EM)
+    changed = gui_sobel_params(static.app_state.sobel_params, narrow)
+    if not narrow:
+        imgui.same_line(spacing=immapp.em_size(3))
+    if imgui.button("Random photo"):
+        # The download runs in the background (the GUI stays responsive): take_downloaded_photo() takes its result
+        static.app_state.download = immapp.start_download(RANDOM_PHOTO_URL)
+    new_image = take_downloaded_photo(static.app_state)
+    if changed or new_image:
         static.app_state.image_sobel = compute_sobel(
             static.app_state.image, static.app_state.sobel_params
         )
-    static.app_state.immvision_params_sobel.refresh_image = changed
+    static.app_state.immvision_params.refresh_image = new_image
+    static.app_state.immvision_params_sobel.refresh_image = changed or new_image
 
+    static.app_state.fit_layout(narrow)
     immvision.image(
         "Original", static.app_state.image, static.app_state.immvision_params
     )
@@ -157,7 +213,7 @@ def demo_gui():
 
 
 def main():
-    immapp.run_with_markdown(demo_gui, window_size=(1000, 1000))
+    immapp.run_with_markdown(gui, window_size=(1000, 1000))
 
 
 # The main entry point will run our GUI function

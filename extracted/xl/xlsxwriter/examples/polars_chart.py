@@ -5,7 +5,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 import polars as pl
@@ -25,7 +25,7 @@ with xlsxwriter.Workbook("polars_chart.xlsx") as workbook:
     chart = workbook.add_chart({"type": "column"})
 
     # Get the dimensions of the dataframe.
-    (max_row, max_col) = df.shape
+    max_row, max_col = df.shape
 
     # Configure the series of the chart from the dataframe data.
     chart.add_series({"values": ["Sheet1", 1, max_col - 1, max_row, max_col - 1]})

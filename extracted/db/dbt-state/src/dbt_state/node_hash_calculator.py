@@ -44,32 +44,35 @@ def _calculate_hash(*args: object) -> str:
 # Reserved key; cannot clash with a real dbt config key.
 _RUNTIME_VARS_KEY = "__runtime_vars__"
 _VAR_FUNCTIONS = frozenset({"var", "env_var"})
+_JINJA_MARKERS = ("{{", "{%", "{#")
+
+
+def _find_var_calls(source: str) -> t.Iterator[t.Tuple[str, str]]:
+    """Yield `(function, name)` for each `var()` / `env_var()` call with a literal name.
+
+    Sources that fail to parse yield nothing, and calls with a dynamic name are ignored.
+    """
+    try:
+        ast = get_environment().parse(source)
+    except jinja2.TemplateSyntaxError:
+        return
+    for call in ast.find_all(jinja_nodes.Call):
+        func = call.node
+        if not isinstance(func, jinja_nodes.Name) or func.name not in _VAR_FUNCTIONS:
+            continue
+        if call.args and isinstance(call.args[0], jinja_nodes.Const):
+            name = call.args[0].value
+            if isinstance(name, str):
+                yield func.name, name
 
 
 def _extract_var_calls(sources: t.Iterable[str]) -> t.Tuple[t.Set[str], t.Set[str]]:
-    """Return the literal names passed to `var()` and `env_var()` in the Jinja sources.
-
-    Sources that fail to parse are skipped, and calls with a dynamic name are ignored.
-    """
-    var_names: t.Set[str] = set()
-    env_var_names: t.Set[str] = set()
-    env = get_environment()
+    """Return the literal names passed to `var()` and `env_var()` in the Jinja sources."""
+    names: t.Dict[str, t.Set[str]] = {"var": set(), "env_var": set()}
     for source in sources:
-        try:
-            ast = env.parse(source)
-        except jinja2.TemplateSyntaxError:
-            continue
-        for call in ast.find_all(jinja_nodes.Call):
-            func = call.node
-            if not isinstance(func, jinja_nodes.Name) or func.name not in _VAR_FUNCTIONS:
-                continue
-            if not call.args or not isinstance(call.args[0], jinja_nodes.Const):
-                continue
-            name = call.args[0].value
-            if not isinstance(name, str):
-                continue
-            (var_names if func.name == "var" else env_var_names).add(name)
-    return var_names, env_var_names
+        for func, name in _find_var_calls(source):
+            names[func].add(name)
+    return names["var"], names["env_var"]
 
 
 class NodeHashCalculator(ABC):
@@ -162,6 +165,22 @@ class NodeHashCalculator(ABC):
             return None
 
         run_var = RuntimeVar(context={}, config=self._config, node=self.node)
+        # dbt renders string var values at call time, so follow var()/env_var() calls inside them.
+        # Env var values are not rendered by dbt Core, so they are not scanned.
+        # Names are queued only on first insertion, which also terminates cycles.
+        queue = deque(sorted(var_names))
+        while queue:
+            name = queue.popleft()
+            if not run_var.has_var(name):
+                continue
+            raw = run_var._merged[name]  # noqa: SLF001
+            if isinstance(raw, str) and any(m in raw for m in _JINJA_MARKERS):
+                for func, found in _find_var_calls(raw):
+                    if func == "env_var":
+                        env_var_names.add(found)
+                    elif found not in var_names:
+                        var_names.add(found)
+                        queue.append(found)
         vars_values = {
             name: run_var._merged[name]  # noqa: SLF001
             for name in sorted(var_names)

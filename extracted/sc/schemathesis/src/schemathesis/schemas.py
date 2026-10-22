@@ -69,11 +69,10 @@ if TYPE_CHECKING:
     from schemathesis.core.error_feedback import ErrorFeedbackStore
     from schemathesis.core.error_feedback.store import Observation
     from schemathesis.core.schema_analysis import SchemaWarning
-    from schemathesis.core.spec import AuthFlow, Scheduler
+    from schemathesis.core.spec import AuthFlow
     from schemathesis.engine.link_calibration import LinkCalibrationState
     from schemathesis.engine.observations import Observations
     from schemathesis.engine.recorder import ScenarioRecorder
-    from schemathesis.engine.run import Phase
     from schemathesis.generation.hypothesis.reporting import FilterCaseTracker, SlowParameter, UnsatisfiableParameter
     from schemathesis.generation.stateful.state_machine import APIStateMachine, StepInput
     from schemathesis.python._constants.pool import ConstantsPool
@@ -148,7 +147,7 @@ class BaseSchema(Mapping):
         # Generated credentials that only some of the accepted security requirements need.
         return []
 
-    def _security_auth_providers(self) -> Iterator[AuthProvider]:
+    def security_auth_providers(self) -> Iterator[AuthProvider]:
         # Auth providers bound to declared security schemes. Only OpenAPI has them.
         return iter(())
 
@@ -319,17 +318,17 @@ class BaseSchema(Mapping):
         if self.config.base_url:
             path = urlsplit(self.config.base_url).path
         else:
-            path = self._get_base_path()
+            path = self.declared_base_path()
         if not path.endswith("/"):
             path += "/"
         return path
 
     @abstractmethod
-    def _get_base_path(self) -> str:
+    def declared_base_path(self) -> str:
         raise NotImplementedError
 
     def _build_base_url(self) -> str:
-        path = self._get_base_path()
+        path = self.declared_base_path()
         parts = urlsplit(self.location or "")[:2] + (path, "", "")
         return urlunsplit(parts)
 
@@ -523,7 +522,7 @@ class BaseSchema(Mapping):
         raise NotImplementedError
 
     @abstractmethod
-    def _build_state_machine(
+    def build_state_machine(
         self,
         *,
         feedback: FeedbackSources,
@@ -601,15 +600,9 @@ class BaseSchema(Mapping):
         for location in list(meta._dirty):
             meta.clear_dirty(location)
 
-    def get_unit_scheduler(
-        self,
-        operations: list[Result[APIOperation, InvalidSchema]],
-        phase: Phase,
-    ) -> Scheduler:
-        """Return the scheduler that decides operation execution order in the unit phase."""
-        from schemathesis.engine.run.unit._pool import DefaultScheduler
-
-        return DefaultScheduler(operations=operations)
+    def get_operation_layers(self, operations: list[APIOperation]) -> list[list[APIOperation]]:
+        """Partition operations into layers that dispatch in order; no layers keeps the given order."""
+        return []
 
     def apply_stateful_inference(self, observations: Observations | None) -> StatefulInference:
         """Discover spec-specific stateful transitions; return the counts available."""

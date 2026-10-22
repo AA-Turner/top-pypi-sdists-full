@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Zope
-Version: 6.2
+Version: 6.3
 Summary: Zope application server / web framework
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -17,17 +17,16 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Application
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: AccessControl
@@ -42,7 +41,7 @@ Requires-Dist: PasteDeploy
 Requires-Dist: Persistence
 Requires-Dist: RestrictedPython
 Requires-Dist: ZConfig
-Requires-Dist: ZODB
+Requires-Dist: ZODB>=6.4.dev0
 Requires-Dist: multipart
 Requires-Dist: transaction
 Requires-Dist: waitress
@@ -110,7 +109,7 @@ Dynamic: license-file
         :target: https://pypi.org/project/Zope/
         :alt: Supported Python versions
 
-.. |nbsp| unicode:: 0xA0 
+.. |nbsp| unicode:: 0xA0
         :trim:
 
 |nbsp|
@@ -157,6 +156,18 @@ The change log for Zope 4 is at
 https://github.com/zopefoundation/Zope/blob/4.x/CHANGES.rst.
 The change log for Zope 5 is at
 https://github.com/zopefoundation/Zope/blob/5.x/CHANGES.rst.
+
+
+6.3 (2026-10-22)
+----------------
+
+- Update to newest compatible versions of dependencies.
+  This includes dependency updates to mitigate the eMudhra Intermediate CA
+  compromise (see https://emudhra.we-have-a-problem.com/)
+
+- Add support for Python 3.15.
+
+- Drop support for Python 3.10.
 
 
 6.2 (2026-08-05)

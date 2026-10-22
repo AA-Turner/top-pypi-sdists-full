@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalk-remote-call-python
-Version: 1.10.5
+Version: 1.10.6
 Summary: Chalk remote call Python runtime interface client
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -35,7 +35,7 @@ Requires-Dist: grpcio-tools>=1.60.0; extra == "dev"
 Provides-Extra: tracing
 Requires-Dist: opentelemetry-api>=1.20.0; extra == "tracing"
 Requires-Dist: opentelemetry-sdk>=1.20.0; extra == "tracing"
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.20.0; extra == "tracing"
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.35.0; extra == "tracing"
 
 # chalk-remote-call-python
 

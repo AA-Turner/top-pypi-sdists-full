@@ -282,6 +282,21 @@ def _read_prior_local(filepath: Path) -> str | None:
     return decode_prior(filepath.read_bytes())
 
 
+def _utf8_size(text: str | None) -> int | None:
+    """Byte size of ``text`` as UTF-8 — None when the text is not known.
+
+    Receipt sizes are byte counts (what ``stat`` reports), never ``len(str)``
+    character counts, and never a fabricated 0 when the side was not read.
+    """
+    return None if text is None else len(text.encode("utf-8"))
+
+
+def _daemon_size(data: dict[str, Any]) -> int | None:
+    """The resulting file size the daemon's stat-like reply carries, if any."""
+    size = data.get("size") if isinstance(data, dict) else None
+    return size if isinstance(size, int) and not isinstance(size, bool) else None
+
+
 def _showable(text: str | None) -> str | None:
     """A sandbox read decodes lossily; a replacement char means binary — skip the receipt."""
     if text is None or "\ufffd" in text:
@@ -487,16 +502,23 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 encoding="utf8",
                 create_parents=parsed.create_dirs,
             )
+            new_size = _daemon_size(stat)
+            if new_size is None:
+                new_size = _utf8_size(content)
             await emit_fs_changed(
                 action="modified",
                 path=sandbox_path,
-                metadata={"size": stat.get("size"), "tool": "fs_write"},
+                metadata={"size": new_size, "tool": "fs_write"},
             )
             return with_file_surface_write(
                 ToolResult(
                     success=True,
                     output=FileWriteResult(
-                        path=sandbox_path, size=stat.get("size"), stat=stat
+                        path=sandbox_path,
+                        bytes_written=_utf8_size(parsed.content),
+                        mode="append" if parsed.append else "write",
+                        size=new_size,
+                        stat=stat,
                     ).model_dump(mode="json"),
                     started_at=started_at,
                     completed_at=time.time(),
@@ -541,7 +563,7 @@ async def fs_write(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 success=True,
                 output=FileWriteResult(
                     path=parsed.path,
-                    bytes_written=len(parsed.content.encode()),
+                    bytes_written=_utf8_size(parsed.content),
                     mode="append" if parsed.append else "write",
                 ).model_dump(mode="json"),
                 started_at=started_at,
@@ -1038,8 +1060,8 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                             FileEditApplied(**s) for s in (applied or data.get("edits_applied", []))
                         ],
                         edits_failed=[],
-                        size_before=int(data.get("size_before", 0) or 0),
-                        size_after=int(data.get("size_after", 0) or 0),
+                        size_before=_utf8_size(before),
+                        size_after=_utf8_size(after) if after is not None else _daemon_size(data),
                     ).model_dump(mode="json"),
                     started_at=started_at,
                     completed_at=time.time(),
@@ -1101,7 +1123,7 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             action="created" if not existed else "modified",
             path=str(filepath),
             metadata={
-                "size": len(content),
+                "size": _utf8_size(content),
                 "edits_applied": len(applied_summaries),
                 "edits_failed": 0,
                 "mtime": filepath.stat().st_mtime,
@@ -1116,8 +1138,8 @@ async def fs_patch(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     created=not existed,
                     edits_applied=[FileEditApplied(**s) for s in applied_summaries],
                     edits_failed=[],
-                    size_before=len(original_content),
-                    size_after=len(content),
+                    size_before=_utf8_size(original_content),
+                    size_after=_utf8_size(content),
                 ).model_dump(mode="json"),
                 started_at=started_at,
                 completed_at=time.time(),
@@ -1214,8 +1236,8 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                         path=sandbox_path,
                         old_str_count=count or int(data.get("old_str_count", 0) or 0),
                         replaced=replaced or int(data.get("replaced", 0) or 0),
-                        size_before=int(data.get("size_before", 0) or 0),
-                        size_after=int(data.get("size_after", 0) or 0),
+                        size_before=_utf8_size(before),
+                        size_after=_utf8_size(after) if after is not None else _daemon_size(data),
                     ).model_dump(mode="json"),
                     started_at=started_at,
                     completed_at=time.time(),
@@ -1268,7 +1290,7 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             action="modified",
             path=str(filepath),
             metadata={
-                "size": len(new_content),
+                "size": _utf8_size(new_content),
                 "tool": "fs_edit",
                 "replaced": replaced,
                 "mtime": filepath.stat().st_mtime,
@@ -1281,8 +1303,8 @@ async def fs_edit(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                     path=parsed.path,
                     old_str_count=count,
                     replaced=replaced,
-                    size_before=len(content),
-                    size_after=len(new_content),
+                    size_before=_utf8_size(content),
+                    size_after=_utf8_size(new_content),
                 ).model_dump(mode="json"),
                 started_at=started_at,
                 completed_at=time.time(),

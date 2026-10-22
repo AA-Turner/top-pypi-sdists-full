@@ -10,7 +10,7 @@ Covers:
 
 import numpy as np
 import pytest
-from numpy.testing import assert_array_almost_equal
+from numpy.testing import assert_allclose, assert_array_almost_equal
 
 from findiff import Diff
 from findiff.coefs import (
@@ -33,11 +33,11 @@ class TestBatchedCoefficients:
             expected = coefficients_non_uni(deriv=1, acc=2, coords=x, idx=i)
             if i < result["num_bndry"]:
                 actual_coefs = result["forward"]["coefficients"][i]
-                actual_offsets = result["forward"]["offsets"]
+                actual_offsets = result["forward"]["offsets"][i]
             elif i >= len(x) - result["num_bndry"]:
                 j = i - (len(x) - result["num_bndry"])
                 actual_coefs = result["backward"]["coefficients"][j]
-                actual_offsets = result["backward"]["offsets"]
+                actual_offsets = result["backward"]["offsets"][j]
             else:
                 j = i - result["num_bndry"]
                 actual_coefs = result["center"]["coefficients"][j]
@@ -81,7 +81,7 @@ class TestBatchedCoefficients:
             else:
                 j = i - result["num_bndry"]
                 actual = result["center"]["coefficients"][j]
-            assert_array_almost_equal(actual, expected["coefficients"], decimal=10)
+            assert_allclose(actual, expected["coefficients"], rtol=1e-12, atol=1e-12)
 
     def test_batched_result_structure(self):
         """Result dict has the expected keys and array shapes."""
@@ -101,15 +101,17 @@ class TestBatchedCoefficients:
         assert result["center"]["coefficients"].shape[0] == len(x) - 2 * num_bndry
 
     def test_batched_even_derivative(self):
-        """Even derivatives have forward/backward stencils wider than central."""
+        """Even-derivative central stencils get no symmetry bonus on a
+        non-uniform grid, so they carry deriv+acc points (one more than the
+        one-sided schemes) to reach order acc."""
         x = np.linspace(0, 5, 20)
         result = calc_coefs_non_uni_batched(deriv=2, acc=2, coords=x)
 
         central_size = result["center"]["coefficients"].shape[1]
         forward_size = result["forward"]["coefficients"].shape[1]
 
-        # For even derivatives, forward/backward have one more point
-        assert forward_size == central_size + 1
+        assert central_size == forward_size + 1
+        assert central_size >= 2 + 2  # deriv + acc points needed for order acc
 
     def test_batched_invalid_inputs(self):
         """Invalid deriv/acc raise ValueError."""
@@ -312,8 +314,9 @@ class TestStoredCoefficients:
 
         # Stencil sizes
         assert len(diff.center["offsets"]) == diff.center["coefficients"].shape[1]
-        assert len(diff.forward["offsets"]) == diff.forward["coefficients"].shape[1]
-        assert len(diff.backward["offsets"]) == diff.backward["coefficients"].shape[1]
+        # points near the boundary have one row of offsets each
+        assert diff.forward["offsets"].shape == diff.forward["coefficients"].shape
+        assert diff.backward["offsets"].shape == diff.backward["coefficients"].shape
 
 
 class TestApplyNonuniWeightsEdgeCases:

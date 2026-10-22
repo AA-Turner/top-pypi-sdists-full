@@ -410,6 +410,9 @@ class PageInspection:
     dom_selector_found: bool | None = None
     screenshots: list[CapturedScreenshot] = field(default_factory=list)
     screenshot_failures: list[ScreenshotCaptureFailure] = field(default_factory=list)
+    # The caller's measure_script result (primary navigation only); null when none was asked for or it failed.
+    measurements: Any = None
+    measure_error: str | None = None
 
 
 # Cookie / consent banners cover the top of a homepage picture and say nothing about the brand. They are HIDDEN
@@ -1066,6 +1069,8 @@ class PlaywrightBrowserPool:
         hard_budget_seconds: float = INSPECT_HARD_BUDGET_SECONDS,
         exact: ExactCaptureSpec | None = None,
         pictures_only: bool = False,
+        measure_script: str | None = None,
+        measure_timeout_ms: int = 15_000,
     ) -> PageInspection:
         """Navigate and report what the BROWSER saw — errors, DOM probes, shots.
 
@@ -1179,6 +1184,14 @@ class PlaywrightBrowserPool:
                                 primary["dom_selector_found"] = (
                                     await page.locator(expect_selector).count()
                                 ) > 0
+                            if measure_script is not None:
+                                # Before the screenshots: a script may AWAIT the page's own ready
+                                # signal, so the pictures show the finished render.
+                                from matrx_scraper.inline_inspect import run_measure_script
+
+                                primary["measurements"], primary["measure_error"] = await run_measure_script(
+                                    page, measure_script, timeout_ms=measure_timeout_ms
+                                )
 
                         if isinstance(profile, ExactCaptureSpec):
                             try:
@@ -1241,6 +1254,8 @@ class PlaywrightBrowserPool:
             dom_selector_found=primary.get("dom_selector_found"),
             screenshots=ordered,
             screenshot_failures=screenshot_failures,
+            measurements=primary.get("measurements"),
+            measure_error=primary.get("measure_error"),
         )
 
     async def inspect_inline(

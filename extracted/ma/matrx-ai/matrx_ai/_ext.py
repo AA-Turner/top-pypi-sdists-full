@@ -565,6 +565,10 @@ def get_spine_call_meter() -> Any:
 #     run finishes: status "completed"/"failed", meters carrying the run's
 #     final quantities ({"usd", "input_tokens", "output_tokens"}). The host
 #     implementation detaches its writes; nothing blocks the run.
+#   * A settle that sets ``accepts_usage_history = True`` is also handed
+#     ``usage_history=[TokenUsage, ...]`` (every billed call of the run). That
+#     is how a host that meters calls LIVE (via ``spine_call_meter``) onto the
+#     run's own record settles only the calls that did not land live.
 #   * Best-effort at every step: a tracker/settle failure never affects the
 #     agent run. Unconfigured → no-op; matrx-ai stays standalone.
 
@@ -1034,3 +1038,22 @@ _GUEST_MINT_CHALLENGE_KEY = "guest_mint_challenge"
 def get_guest_mint_challenge() -> Any:
     """Return the host-injected new-guest challenge, or None when unset."""
     return _registry.get(_GUEST_MINT_CHALLENGE_KEY)
+
+
+# ---------------------------------------------------------------------------
+# Visual-map delivery (the diagram repair loop's host seam, 2026-10-21)
+# ---------------------------------------------------------------------------
+#
+# A finishing turn that carries a ``visual_map`` value is checked, repaired and stamped by
+# ``matrx_ai.orchestrator.visual_map_repair`` before it is persisted. Everything that needs the
+# diagram service, the database, the knob rows or the mandate registry is the host's, injected
+# as ONE object implementing ``visual_map_repair.VisualMapDelivery`` (read_knobs, validate,
+# deliver, persist_round, repair, review). Unconfigured -> None: the gate does nothing to the
+# value and warns the stream that the layout could not be checked.
+
+_VISUAL_MAP_DELIVERY_KEY = "visual_map_delivery"
+
+
+def get_visual_map_delivery() -> Any:
+    """Return the host-injected visual-map delivery seam, or None when unset."""
+    return _registry.get(_VISUAL_MAP_DELIVERY_KEY)

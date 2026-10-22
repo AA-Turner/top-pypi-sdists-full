@@ -59,9 +59,11 @@ def db_client_application_name(postgres_url, application_name, monkeypatch):
 
 
 class FakeHandler(object):
-    def open_reader_for(self, url: "URL", extras: dict) -> Reader: ...
+    def open_reader_for(self, url: "URL", extras: dict) -> Reader:
+        raise NotImplementedError
 
-    def open_writer_for(self, url: "URL", extras: dict) -> Writer: ...
+    def open_writer_for(self, url: "URL", extras: dict) -> Writer:
+        raise NotImplementedError
 
 
 @pytest.fixture

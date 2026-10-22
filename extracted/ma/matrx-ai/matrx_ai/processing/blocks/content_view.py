@@ -166,7 +166,13 @@ def content_from_text(text: str) -> list[dict[str, Any]]:
         if isinstance(raw, str) and raw.strip():
             data = block.get("data")
             language = (data or {}).get("language") if isinstance(data, dict) else None
-            if block.get("type") == "code":
+            metadata = block.get("metadata")
+            if isinstance(metadata, dict) and metadata.get("genericXmlContainer"):
+                # An XML tag the model wrapped content in (``<foo>…</foo>``) IS its own
+                # source: re-fencing it as ```xml turned a section into quoted source
+                # (review 5 G2; the chat twin is reconstructBlockMarkdown).
+                prose.append(raw)
+            elif block.get("type") == "code":
                 prose.append(f"```{language or ''}\n{raw}\n```")
             elif _is_json_document(raw):
                 prose.append(f"```{language or 'json'}\n{raw}\n```")

@@ -1,7 +1,8 @@
 """Code for Shapelet transform algorithm."""
 
+import warnings
 from itertools import chain
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -511,7 +512,7 @@ class ShapeletTransform(BaseEstimator, UnivariateTransformerMixin):
 
         """
         check_is_fitted(self, ['shapelets_', 'indices_', 'scores_'])
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         return self._transform(X)
 
     # This overrides UnivariateTransformerMixin.fit_transform with a fully
@@ -708,6 +709,12 @@ class ShapeletTransform(BaseEstimator, UnivariateTransformerMixin):
                         "to n_timestamps."
                     )
 
+        # ``_extract_all_shapelets`` is only compiled for int64 window sizes
+        # and steps. Integer inputs keep their original dtype above (e.g.
+        # an int32 array, or a plain list on platforms whose default integer
+        # is 32-bit), so they are converted here.
+        window_sizes = window_sizes.astype(np.int64, copy=False)
+        window_steps = window_steps.astype(np.int64, copy=False)
         return n_shapelets, window_sizes, window_steps, n_jobs, rng
 
     def _fit_one_time_series(
@@ -744,7 +751,15 @@ class ShapeletTransform(BaseEstimator, UnivariateTransformerMixin):
                 X_dist, y, discrete_features=False, random_state=rng
             )
         else:
-            scores, _ = f_classif(X_dist, y)
+            # A shapelet whose distance is the same for every sample gets an
+            # undefined (NaN) F-score, which the selection below would sort
+            # above every real score. Such a shapelet carries no information
+            # about the classes, so it is given the lowest possible score.
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', 'Features .* are constant')
+                warnings.filterwarnings('ignore', 'invalid value', RuntimeWarning)
+                scores, _ = f_classif(X_dist, y)
+            scores = np.nan_to_num(scores, nan=0.0)
 
         # Flatten the list of 2D arrays into an array of 1D arrays
         shapelets = [list(shapelet) for shapelet in shapelets]

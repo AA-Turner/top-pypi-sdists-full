@@ -1147,7 +1147,15 @@ def build_cli_parser() -> argparse.ArgumentParser:
     # file when the switch is turned off, so that was the incident's shape
     # (QA Q1, UX U2, review R1-5). Every hard guard (live claim/lease, armed
     # wake, unread mail, the 10 most recent) applies whatever the flags.
-    sessions_subparsers = sessions_parser.add_subparsers(dest="sessions_command")
+    # THE METAVAR OMITS THE THREE DEFERRED VERBS (round 1, U2). Registering a
+    # subparser puts its name in argparse's choices metavar, so omitting its
+    # `help=` hides the description but still advertises the verb. This list is
+    # the VISIBLE set; `hold`/`holds`/`unhold` remain callable and are documented
+    # in `guides/configuration/GUIDE.md`. They are added below, after the other
+    # visible commands, and a new visible command must be added here too.
+    sessions_subparsers = sessions_parser.add_subparsers(
+        dest="sessions_command", metavar="{cleanup,reclaim,resume,move,sync}"
+    )
     cleanup_parser = sessions_subparsers.add_parser(
         "cleanup",
         help=_sh.cleanup().envelope(locale=help_locale)["text"],
@@ -1391,6 +1399,19 @@ def build_cli_parser() -> argparse.ArgumentParser:
         action="store_true",
         help=(_sh.move_queue().envelope(locale=help_locale)["text"]),
     )
+    # THE ROLE-DEFINITION GATE'S OPT-OUT (LOH-9 S2). A conversation with session
+    # roles refuses a move by default because v1 does not carry them; this flag is
+    # the explicit "move it anyway, stash the definitions on this device" — never
+    # silent, because the move's receipt and its refusal name the count and path.
+    #
+    # NO `help=` STRING, DELIBERATELY. Every key in ``cli.sessions_help`` is
+    # already recorded as missing for four ACTIVE locales (es/hi/ru/vi); a new
+    # English key would GROW that coverage allowance, which the shrink-only gate
+    # forbids, and translating the 48-key namespace for four locales is a review
+    # wave of its own. The flag is still listed by argparse and its consequences
+    # are stated by the refusal and the receipt, so the gap is the one-line
+    # description only (disclosed in the LOH-9 S2 PR).
+    move_parser.add_argument("--drop-session-roles", action="store_true")
     move_parser.add_argument(
         "--cancel-queued",
         metavar="SESSION",
@@ -1449,6 +1470,44 @@ def build_cli_parser() -> argparse.ArgumentParser:
     sync_parser.add_argument(
         "--json", action="store_true", help=_sh.json().envelope(locale=help_locale)["text"]
     )
+
+    # `lop sessions hold|holds|unhold`: the operator's VALUE HOLDS. A hold is
+    # the one removal refusal that is not a policy question — an argument that
+    # this conversation is evidence, or is itself the source of truth, so no
+    # age/count/byte limit and no content pass may take it. Recorded in
+    # <config>/sessions/.session-holds.json and read fail-closed by every
+    # remover; releasing one writes a `hold-release` row to the cleanup log,
+    # which is the explicit decision an auditor needs.
+    #
+    # HELP IS DEFERRED, NOT DROPPED (2026-10-20). New visible help copy needs a
+    # translation wave into every active locale plus an independent audit; the
+    # i18n gate refuses brand-new English in an active locale by design
+    # (`check.py`'s allowance-growth rule), and a coder must not translate and
+    # audit their own contribution. Until that wave lands the three commands
+    # are hidden from `lop sessions --help` the way `resume-click` is: their
+    # SUBPARSERS omit `help=`. On a subparser `help=argparse.SUPPRESS` is not
+    # the hide idiom (argparse renders the sentinel verbatim); on an ARGUMENT
+    # it would hide the argument itself — from the usage line and the options
+    # list alike — which is NOT wanted here: the argument NAMES must stay
+    # visible so `lop sessions hold --help` still shows `session`, `--reason`
+    # and `--kind` (round 1, U2). Their descriptions are what the translation
+    # wave will add. Command-local syntax is also documented in the "Value
+    # holds and the store audit" section of `guides/configuration/GUIDE.md`;
+    # the handlers and `session/cleanup.py`'s holds block carry the semantics
+    # for a code reader. Follow-up: one help-tranche key per argument/command.
+    hold_parser = sessions_subparsers.add_parser("hold", parents=[parent_parser])
+    hold_parser.add_argument("session")
+    hold_parser.add_argument("--reason", required=True)
+    hold_parser.add_argument(
+        "--kind",
+        choices=("evidence", "source-of-truth", "operator"),
+        default="operator",
+    )
+    holds_parser = sessions_subparsers.add_parser("holds", parents=[parent_parser])
+    holds_parser.add_argument("--json", action="store_true")
+    unhold_parser = sessions_subparsers.add_parser("unhold", parents=[parent_parser])
+    unhold_parser.add_argument("session")
+    unhold_parser.add_argument("--reason", required=True)
 
     # The kill switch (design §12): end a session from outside it. Top-level
     # like `lop sessions` and `lop send` — the coherence triple is "what is
@@ -5983,6 +6042,12 @@ _REMOTE_ROW_FILL: dict[str, Any] = {
     "subagents_running": None,
     "subagents_queued": None,
     "last_activity_s": None,
+    # THE EXIT RECORD'S THREE READINGS. A remote catalogue row does not carry
+    # them, so the fill keeps the merged list ONE shape: absent is null, exactly
+    # as this table treats every other fact a peer cannot report.
+    "stopped_at_s": None,
+    "stop_reason": "",
+    "stop_requested": None,
     "completion_kind": "",
     "completion_reason": "",
     "leaving": "",
@@ -6416,7 +6481,7 @@ def _carry_lines(result: dict[str, Any]) -> list[str]:
     if not isinstance(carry, dict):
         return []
     lines: list[str] = []
-    for key in ("running_notice", "notice", "monitors_notice"):
+    for key in ("running_notice", "notice", "monitors_notice", "session_roles_notice"):
         text = carry.get(key)
         if isinstance(text, str) and text:
             lines.append(text)
@@ -6463,36 +6528,66 @@ def _sessions_move_words(
         # pre-safe-point reading).
         queue = result["queue"]
         phase = str(result.get("phase") or queue.get("phase") or "queued")
+        # A queued DROP still owes the user its stash promise (QA round 2): the
+        # same carry line the finished move prints, from the record-backed carry.
+        stay_lines = _carry_lines(result)
         to_block_q = result.get("to_device") or {}
         # The caller's own `to` (what they typed) beats an opaque device id, and
         # a product phrase beats both: a raw id means nothing to a person (D9).
         target = str(to_block_q.get("name") or to or "another device")
+        # THE SENTENCE MUST NOT READ AS A COMPLETED MOVE (docs/design/
+        # mesh-move-outcome.md, "Why this exists" item 1): a queued receipt is a
+        # durable INTENT, and several surfaces rendered "queued" as "Moved" — the
+        # reported failure was a move that announced itself and changed nothing. The
+        # raw phase token stays on the record (`--json`); the sentence says where the
+        # move really is, and only ``resumed`` speaks about arrival.
         notes = {
-            "queued": ("waiting for a safe point", "queued"),
+            "queued": "It is waiting for a safe point before it starts.",
             "finishing": (
-                "waiting for the current step to finish (a pending approval holds this up)",
-                "queued",
+                "It is waiting for the current step to finish (a pending approval "
+                "holds this up)."
             ),
-            "paused": ("the move has started", "running"),
-            "copying": ("the move has started", "running"),
-            "resumed": (f"it has arrived on {target}", "arrived"),
+            "paused": "",
+            "copying": "",
+            "resumed": "",
         }
-        note, shape = notes.get(phase, ("", "queued"))
+        note = notes.get(phase, "")
+        if phase in ("resumed",):
+            shape = "arrived"
+        elif phase in ("paused", "copying"):
+            shape = "running"
+        else:
+            shape = "queued"
         head = f"Queued a move of {session_id} to {target}"
-        head += f" — {note}." if note else "."
+        if shape == "running":
+            # THE COPY STARTED, so the cancel hint would be a lie: from ``paused``
+            # on, ``move_queue.cancel`` answers ``too_late``.
+            head += f" — the copy has started (phase: {phase})."
+        elif shape == "queued":
+            head += f" — nothing has moved yet (phase: {phase})."
+        else:
+            head += "."
         if shape == "arrived":
-            return [head, "It is no longer running on this device."]
+            return [
+                head,
+                f"It has arrived on {target}.",
+                "It is no longer running on this device.",
+                *stay_lines,
+            ]
         if shape == "running":
             return [
                 head,
                 f"It can no longer be cancelled; the conversation continues on {target}.",
+                *stay_lines,
             ]
         return [
             head,
+            *([note] if note else []),
             "Windows open on it are told first and get a moment to follow; any that "
             f"can't will be disconnected, and the conversation continues on {target}.",
             f"Cancel the queued move before it starts with "
             f"`lop sessions move --cancel-queued {session_id}`.",
+            *stay_lines,
         ]
 
     to_block = result.get("to_device") or {}
@@ -6528,6 +6623,20 @@ def _sessions_move_words(
         engage_lines = [
             f"{target} was asked to start it as soon as it lands; that device's own "
             "listing is where it shows."
+        ]
+    from local_operator.network import mobility as mobility_mod
+
+    if mobility_mod.move_receipt_state(result) != "completed":
+        # THE SAME RULE, WITHOUT A QUEUE BLOCK: an in-progress receipt is a handoff
+        # whose commit has not landed yet, and no surface may call that "Moved".
+        # NOT "QUEUED" EITHER (QA round 1, Q-3): no producer reaches here through the
+        # queue (that receipt carries a ``queue`` block and is worded above), so the
+        # mechanism word would name the wrong thing — this is a handoff that started
+        # and has not finished.
+        return [
+            f"The move of {session_id} to {target} is still in progress "
+            f"(phase: {result.get('phase') or 'in_progress'}); nothing has landed yet.",
+            "Run this verb again to finish it.",
         ]
     if result.get("mode") == "keep":
         return [
@@ -6621,6 +6730,9 @@ def sessions_move_command(args: argparse.Namespace) -> int:
         # with ``bool(...)`` so a hand-rolled Namespace without the attribute is
         # off, the same contract the parser's default gives it.
         queue=bool(getattr(args, "queue", False)),
+        # ``bool(...)`` so a hand-rolled Namespace without the attribute gets the
+        # protective default (the source refuses; nothing is dropped silently).
+        drop_session_roles=bool(getattr(args, "drop_session_roles", False)),
     )
     if getattr(args, "json", False):
         print(_json.dumps(result, indent=2, sort_keys=True, default=str))
@@ -6663,6 +6775,185 @@ def sessions_sync_command(args: argparse.Namespace) -> int:
     return 0
 
 
+def sessions_hold_command(args: argparse.Namespace) -> int:
+    """``lop sessions hold`` — record an operator value hold on one conversation.
+
+    A hold outranks every removal policy and the content pass, so the reference
+    is resolved to one id before anything is written: an ambiguous prefix is
+    refused with its candidates rather than holding the wrong conversation.
+    """
+    from local_operator.session.cleanup import resolve_session_reference, set_hold
+
+    # An empty reason is refused BEFORE anything is read or written, with the
+    # same rule `set_hold` enforces (UX round 1, U1). The API check is the
+    # backstop; this one exists so the operator gets an actionable sentence
+    # rather than a logged ERROR plus a generic failure.
+    if not str(args.reason).strip():
+        print(
+            # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+            "hold: --reason must be non-empty: it records why this conversation must survive.",
+            file=sys.stderr,
+        )
+        return 2
+    sessions_dir = config_dir() / "sessions"
+    requested = str(args.session)
+    session_id, candidates = resolve_session_reference(sessions_dir, requested)
+    if session_id is None:
+        if candidates:
+            print(
+                # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+                f"{requested!r} is ambiguous: {len(candidates)} stored sessions match "
+                "(pass the full id):",
+                file=sys.stderr,
+            )
+            for name in candidates[:20]:
+                print(f"  {name}", file=sys.stderr)
+        else:
+            print(
+                f"no session {requested!r} in this store", file=sys.stderr
+            )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+        return 1
+    if not set_hold(
+        sessions_dir, session_id, reason=str(args.reason), by="operator", kind=str(args.kind)
+    ):
+        print(
+            f"could not record the hold on {session_id}", file=sys.stderr
+        )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+        return 1
+    print(
+        f"Held {session_id} ({args.kind}): {str(args.reason).strip()}"
+    )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+    return 0
+
+
+def sessions_holds_command(args: argparse.Namespace) -> int:
+    """``lop sessions holds`` — list the store's value holds.
+
+    Exit 1 on an unreadable holds file, because that is the same state in which
+    every remover refuses: the listing must not render an empty table as "no
+    holds" when the truth is "cannot tell".
+    """
+    import json as _json
+
+    from local_operator.session.cleanup import HoldsUnreadable, read_holds
+
+    sessions_dir = config_dir() / "sessions"
+    try:
+        holds = read_holds(sessions_dir)
+    except HoldsUnreadable as exc:
+        print(
+            f"cannot read the value holds: {exc}", file=sys.stderr
+        )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+        return 1
+    if getattr(args, "json", False):
+        print(_json.dumps({"holds": holds}, indent=2, sort_keys=True))
+        return 0
+    if not holds:
+        print(
+            "no value holds recorded for this store."
+        )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+        return 0
+    for session_id in sorted(holds):
+        entry = holds[session_id]
+        print(
+            f"  {session_id}  {entry.get('kind', '?')}  {entry.get('reason', '')}"
+            f"  ({entry.get('by', '?')}, {entry.get('at', '?')})"
+        )
+    print(
+        f"{len(holds)} value hold(s)."
+    )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+    return 0
+
+
+def sessions_unhold_command(args: argparse.Namespace) -> int:
+    """``lop sessions unhold`` — clear a hold, logging the decision.
+
+    A session directory that is already gone can still have its hold released:
+    the holds file is the record that must be clearable, and refusing because
+    the directory vanished would leave a tombstone no command can remove. The
+    output says the session is gone so the caller is not misled about what
+    remains.
+    """
+    from local_operator.session.cleanup import (
+        HoldsUnreadable,
+        read_holds,
+        release_hold,
+        resolve_session_reference,
+    )
+
+    # THE RELEASE DECISION NEEDS A WHY (UX round 1, U1). A blank reason used to
+    # clear an evidence/source-of-truth hold and write a `hold-release` row
+    # with `"reason": ""` — a decision no later reader can evaluate, made by
+    # the one act that authorizes reaping. Refused before any read or write;
+    # `release_hold` refuses it too, for callers that never come through here.
+    if not str(args.reason).strip():
+        print(
+            # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+            "unhold: --reason must be non-empty: it is the recorded decision to release the hold.",
+            file=sys.stderr,
+        )
+        return 2
+    sessions_dir = config_dir() / "sessions"
+    requested = str(args.session)
+    session_id, candidates = resolve_session_reference(sessions_dir, requested)
+    if candidates:
+        print(
+            # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+            f"{requested!r} is ambiguous: {len(candidates)} stored sessions match "
+            "(pass the full id):",
+            file=sys.stderr,
+        )
+        for name in candidates[:20]:
+            print(f"  {name}", file=sys.stderr)
+        return 1
+    if session_id is None:
+        # No directory: only a literal id-shaped reference can name a hold on a
+        # session that is gone. Anything path-shaped is refused by the same
+        # rule the resolver applies.
+        if not requested or requested in (".", "..") or Path(requested).name != requested:
+            print(
+                f"not a session id: {requested!r}", file=sys.stderr
+            )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+            return 1
+        target = requested
+    else:
+        target = session_id
+    try:
+        holds = read_holds(sessions_dir)
+    except HoldsUnreadable as exc:
+        print(
+            f"cannot read the value holds: {exc}", file=sys.stderr
+        )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+        return 1
+    if target not in holds:
+        print(
+            f"no hold was recorded for {target}", file=sys.stderr
+        )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+        return 1
+    if not release_hold(sessions_dir, target, reason=str(args.reason), actor="cli"):
+        print(
+            f"could not release the hold on {target}", file=sys.stderr
+        )  # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+        return 1
+    # STATE THE CONSEQUENCE, NOT JUST THE EVENT (UX round 1, U3): a release
+    # does not delete anything now, but it removes the reason cleanup and
+    # retention refused this conversation. Say exactly that, and say nothing
+    # stronger (the other guards still apply).
+    if session_id is None:
+        print(
+            # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+            f"Released the hold on {target}; the session directory is gone, "
+            "so nothing remains to retain."
+        )
+    else:
+        print(
+            # i18n: ignore operator CLI output; translation wave deferred (PR 2736)
+            f"Released the hold on {target}. Cleanup and retention may now apply "
+            "to this conversation; its other protections still do."
+        )
+    return 0
+
+
 def sessions_command(args: argparse.Namespace) -> int:
     """``lop sessions`` — list active sessions and their resource usage.
 
@@ -6674,6 +6965,15 @@ def sessions_command(args: argparse.Namespace) -> int:
 
     if getattr(args, "sessions_command", None) == "cleanup":
         return sessions_cleanup_command(args)
+
+    if getattr(args, "sessions_command", None) == "hold":
+        return sessions_hold_command(args)
+
+    if getattr(args, "sessions_command", None) == "holds":
+        return sessions_holds_command(args)
+
+    if getattr(args, "sessions_command", None) == "unhold":
+        return sessions_unhold_command(args)
 
     if getattr(args, "sessions_command", None) == "reclaim":
         return sessions_reclaim_command(args)
@@ -6972,6 +7272,13 @@ def sessions_command(args: argparse.Namespace) -> int:
     )
     if show_stored:
         header += f" {'LAST_ACTIVE':>11}"
+        # STOPPED rides beside LAST_ACTIVE on the same gate: a stored session has
+        # no uptime, so when it LAST MOVED and when it LAST STOPPED are the two
+        # clocks a reader can actually use. The reason cell follows, because the
+        # age alone cannot separate "it idled out" from "I stopped it" — the
+        # question the 2026-09-30 sweep left unanswered (see ``stop_requested``).
+        header += f" {'STOPPED':>11}"
+        header += f" {'STOP_REASON':<{STOP_REASON_COLUMN_WIDTH}}"
     if show_why:
         header += f" {'WHY':<{WHY_COLUMN_WIDTH}}"
     if show_leaving:
@@ -7040,6 +7347,24 @@ def sessions_command(args: argparse.Namespace) -> int:
             stamp = row["last_activity_s"]
             age = "—" if stamp is None else _format_duration(max(0.0, now - stamp))
             line += f" {age:>11}"
+            # A REAL AGE FROM THE EXIT RECORD, and "—" where there is none. The
+            # two are different sentences and the column must not blur them: a
+            # SIGKILLed runtime writes no record, and printing the transcript's
+            # mtime here would invent a departure nobody observed.
+            stopped = row.get("stopped_at_s")
+            stopped_age = (
+                "—" if stopped is None else _format_duration(max(0.0, now - float(stopped)))
+            )
+            line += f" {stopped_age:>11}"
+            # THE REASON, fitted and marked by the same helpers WHY uses — not
+            # character slicing, which is what runs a wide-glyph row into its
+            # neighbour. Only a stored row can carry one; a live row's cell is
+            # blank because nothing has stopped to report.
+            if stored:
+                said = _clamp_reason_cell(row.get("stop_reason") or "—", STOP_REASON_COLUMN_WIDTH)
+            else:
+                said = ""
+            line += f" {_pad_cell(said, STOP_REASON_COLUMN_WIDTH)}"
         if show_why:
             cell = _clamp_reason_cell(why.get(row["session_id"]) or "")
             # `:<{WHY_COLUMN_WIDTH}` would pad this by CHARACTERS and hand a
@@ -9086,6 +9411,21 @@ def _live_state_supersedes_outcome(row: dict[str, Any]) -> bool:
 #: terminal. The full text is one flag away in ``--json``'s
 #: ``completion_reason`` and is what a script should read.
 WHY_COLUMN_WIDTH = 48
+
+
+#: Width of `lop sessions`' trailing STOP_REASON column, in display CELLS.
+#:
+#: THE SECOND HALF of the STOPPED pair. The age column says WHEN the runtime's own
+#: exit path ran; this one says WHY, in the runtime's words (``idle-exit``,
+#: ``retiring for 0.85.0``, ``SIGTERM``). Both are gated on stored rows exactly
+#: like LAST_ACTIVE, because both are facts only a stopped runtime can report.
+#:
+#: Wide enough that every policy reason a runtime produces fits uncut —
+#: ``retiring for 0.85.0@abc1234`` is the long shape at 27 cells — and a longer
+#: one (the probe-unreadable idle exit appends its evidence) is MARKED by
+#: ``_clamp_reason_cell`` rather than silently sliced, because the cell's purpose
+#: is to answer a question and a plausible-looking cut answers it wrongly.
+STOP_REASON_COLUMN_WIDTH = 28
 
 
 #: Width of `lop sessions`' trailing LEAVING column, in display CELLS.

@@ -1,8 +1,8 @@
-"""Interactive terminal emulator demo for imgui_bundle.imgui_terminal.
+"""Terminal: several shells in tabs
 
-This file is just the *application*: it loads a monospace font and shows one or
-more `TerminalView` widgets in a tab bar, each backed by a `LocalShellTransport`
-(a real shell on a pseudo-terminal). Use the '+' tab to open more terminals.
+Real shells in a tab bar, each behind a pseudo-terminal. Type, scroll the history, select and copy, and open more
+terminals with the "+" tab. This file is the application only: the widget is `imgui_bundle.imgui_terminal`'s
+`TerminalView`, fed by a `LocalShellTransport`. Needs `pip install "imgui-bundle[terminal]"` (pyte), on macOS or Linux.
 
 The widget itself lives in the `imgui_bundle.imgui_terminal` module:
   - terminal_view.py : the transport-agnostic widget (pyte model + draw + input)
@@ -83,7 +83,7 @@ def draw_quit_confirmation(app_state: AppState) -> None:
     if app_state.ask_before_quit:
         imgui.open_popup("Quit?")
         app_state.ask_before_quit = False  # open once; the buttons drive it from here
-    if imgui.begin_popup_modal("Quit?", None, imgui.WindowFlags_.always_auto_resize.value)[0]:
+    if imgui.begin_popup_modal("Quit?", None, imgui.WindowFlags_.always_auto_resize)[0]:
         imgui.text(f"{len(app_state.sessions)} terminals are open. Quit them all?")
         imgui.separator()
         if imgui.button("Quit", em_to_vec2(5, 0)):
@@ -98,12 +98,12 @@ def gui(app_state: AppState) -> None:
     imgui.text("Terminals")
     help_marker(HELP)
 
-    tab_bar_flags = (imgui.TabBarFlags_.auto_select_new_tabs.value
-                     | imgui.TabBarFlags_.reorderable.value)
+    tab_bar_flags = (imgui.TabBarFlags_.auto_select_new_tabs
+                     | imgui.TabBarFlags_.reorderable)
     if imgui.begin_tab_bar("terminals", tab_bar_flags):
         # '+' button on the right opens a new terminal
-        if imgui.tab_item_button("+", imgui.TabItemFlags_.trailing.value
-                                 | imgui.TabItemFlags_.no_tooltip.value):
+        if imgui.tab_item_button("+", imgui.TabItemFlags_.trailing
+                                 | imgui.TabItemFlags_.no_tooltip):
             app_state.sessions.append(Session())
 
         survivors: list[Session] = []
@@ -115,7 +115,7 @@ def gui(app_state: AppState) -> None:
                         imgui.set_next_window_focus()
                         app_state.focused_id = s.id
                     s.view.render_in_child("terminal",
-                                           child_flags=imgui.ChildFlags_.borders.value)
+                                           child_flags=imgui.ChildFlags_.borders)
                 imgui.end_tab_item()
             # drop a tab when its X is clicked or its shell exits (e.g. `exit`)
             if keep and s.transport.alive:
@@ -146,7 +146,6 @@ def main() -> None:
     params.callbacks.show_gui = lambda: gui(app_state)
     params.callbacks.confirm_exit = lambda: confirm_exit(app_state)  # warn if >1 tab
     params.callbacks.before_exit = lambda: on_exit(app_state)
-    params.fps_idling.fps_idle = 20  # idling speed than the default (9), since shell output arrives asynchronously
 
     immapp.run(params)
 

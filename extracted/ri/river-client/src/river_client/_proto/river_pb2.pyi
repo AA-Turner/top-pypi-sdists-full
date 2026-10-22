@@ -1,5 +1,6 @@
 import datetime
 
+from . import top_logprobs_pb2 as _top_logprobs_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -276,7 +277,7 @@ class CapacityStatus(_message.Message):
     def __init__(self, training_run_id: _Optional[str] = ..., workload: _Optional[str] = ..., state: _Optional[str] = ..., capacity_wait: bool = ..., observed_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
 
 class CreateModelRequest(_message.Message):
-    __slots__ = ("session_id", "model_seq_id", "base_model", "lora_config", "user_metadata", "training_data_attestation_id", "full_weight")
+    __slots__ = ("session_id", "model_seq_id", "base_model", "lora_config", "user_metadata", "training_data_attestation_id", "full_weight", "train_router")
     SESSION_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_SEQ_ID_FIELD_NUMBER: _ClassVar[int]
     BASE_MODEL_FIELD_NUMBER: _ClassVar[int]
@@ -284,6 +285,7 @@ class CreateModelRequest(_message.Message):
     USER_METADATA_FIELD_NUMBER: _ClassVar[int]
     TRAINING_DATA_ATTESTATION_ID_FIELD_NUMBER: _ClassVar[int]
     FULL_WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    TRAIN_ROUTER_FIELD_NUMBER: _ClassVar[int]
     session_id: str
     model_seq_id: int
     base_model: str
@@ -291,7 +293,8 @@ class CreateModelRequest(_message.Message):
     user_metadata: _struct_pb2.Struct
     training_data_attestation_id: str
     full_weight: bool
-    def __init__(self, session_id: _Optional[str] = ..., model_seq_id: _Optional[int] = ..., base_model: _Optional[str] = ..., lora_config: _Optional[_Union[LoraConfig, _Mapping]] = ..., user_metadata: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., training_data_attestation_id: _Optional[str] = ..., full_weight: bool = ...) -> None: ...
+    train_router: bool
+    def __init__(self, session_id: _Optional[str] = ..., model_seq_id: _Optional[int] = ..., base_model: _Optional[str] = ..., lora_config: _Optional[_Union[LoraConfig, _Mapping]] = ..., user_metadata: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ..., training_data_attestation_id: _Optional[str] = ..., full_weight: bool = ..., train_router: bool = ...) -> None: ...
 
 class TrainingDataArtifact(_message.Message):
     __slots__ = ("name", "expected_sha256", "content")
@@ -724,7 +727,7 @@ class ImageInput(_message.Message):
     def __init__(self, data: _Optional[bytes] = ..., image_handle: _Optional[str] = ...) -> None: ...
 
 class InferencePrompt(_message.Message):
-    __slots__ = ("prompt", "max_tokens", "temperature", "top_p", "top_k", "stop", "seed", "logprobs", "return_prompt_logprobs", "images", "return_expert_routing", "input_ids", "image_inputs", "resolved_image_handles", "return_prompt_token_ids", "kv_cache_namespace", "kv_cache_policy")
+    __slots__ = ("prompt", "max_tokens", "temperature", "top_p", "top_k", "stop", "seed", "logprobs", "return_prompt_logprobs", "images", "return_expert_routing", "input_ids", "image_inputs", "resolved_image_handles", "return_prompt_token_ids", "kv_cache_namespace", "kv_cache_policy", "top_logprobs_format")
     PROMPT_FIELD_NUMBER: _ClassVar[int]
     MAX_TOKENS_FIELD_NUMBER: _ClassVar[int]
     TEMPERATURE_FIELD_NUMBER: _ClassVar[int]
@@ -742,6 +745,7 @@ class InferencePrompt(_message.Message):
     RETURN_PROMPT_TOKEN_IDS_FIELD_NUMBER: _ClassVar[int]
     KV_CACHE_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     KV_CACHE_POLICY_FIELD_NUMBER: _ClassVar[int]
+    TOP_LOGPROBS_FORMAT_FIELD_NUMBER: _ClassVar[int]
     prompt: str
     max_tokens: int
     temperature: float
@@ -759,7 +763,8 @@ class InferencePrompt(_message.Message):
     return_prompt_token_ids: bool
     kv_cache_namespace: str
     kv_cache_policy: KvCachePolicy
-    def __init__(self, prompt: _Optional[str] = ..., max_tokens: _Optional[int] = ..., temperature: _Optional[float] = ..., top_p: _Optional[float] = ..., top_k: _Optional[int] = ..., stop: _Optional[_Iterable[str]] = ..., seed: _Optional[int] = ..., logprobs: _Optional[int] = ..., return_prompt_logprobs: bool = ..., images: _Optional[_Iterable[bytes]] = ..., return_expert_routing: bool = ..., input_ids: _Optional[_Iterable[int]] = ..., image_inputs: _Optional[_Iterable[_Union[ImageInput, _Mapping]]] = ..., resolved_image_handles: _Optional[_Iterable[str]] = ..., return_prompt_token_ids: bool = ..., kv_cache_namespace: _Optional[str] = ..., kv_cache_policy: _Optional[_Union[KvCachePolicy, _Mapping]] = ...) -> None: ...
+    top_logprobs_format: int
+    def __init__(self, prompt: _Optional[str] = ..., max_tokens: _Optional[int] = ..., temperature: _Optional[float] = ..., top_p: _Optional[float] = ..., top_k: _Optional[int] = ..., stop: _Optional[_Iterable[str]] = ..., seed: _Optional[int] = ..., logprobs: _Optional[int] = ..., return_prompt_logprobs: bool = ..., images: _Optional[_Iterable[bytes]] = ..., return_expert_routing: bool = ..., input_ids: _Optional[_Iterable[int]] = ..., image_inputs: _Optional[_Iterable[_Union[ImageInput, _Mapping]]] = ..., resolved_image_handles: _Optional[_Iterable[str]] = ..., return_prompt_token_ids: bool = ..., kv_cache_namespace: _Optional[str] = ..., kv_cache_policy: _Optional[_Union[KvCachePolicy, _Mapping]] = ..., top_logprobs_format: _Optional[int] = ...) -> None: ...
 
 class SampleFromTrainingRequest(_message.Message):
     __slots__ = ("model_id", "prompts", "metrics_type")
@@ -832,8 +837,8 @@ class InferenceResult(_message.Message):
     prompt_token_logprobs: _containers.RepeatedScalarFieldContainer[float]
     token_ids: _containers.RepeatedScalarFieldContainer[int]
     prompt_token_ids: _containers.RepeatedScalarFieldContainer[int]
-    top_logprobs: _containers.RepeatedCompositeFieldContainer[TopLogprobsPosition]
-    prompt_top_logprobs: _containers.RepeatedCompositeFieldContainer[TopLogprobsPosition]
+    top_logprobs: _top_logprobs_pb2.TopLogprobs
+    prompt_top_logprobs: _top_logprobs_pb2.TopLogprobs
     expert_routing: ExpertRouting
     metrics: _containers.ScalarMap[str, float]
     policy_version: PolicyVersion
@@ -842,7 +847,7 @@ class InferenceResult(_message.Message):
     prompt_tokens: int
     kv_cache_policy_version: PolicyVersion
     policy_spans: _containers.RepeatedCompositeFieldContainer[PolicySpan]
-    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., prompt_top_logprobs: _Optional[_Iterable[_Union[TopLogprobsPosition, _Mapping]]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., retained_kv: bool = ..., cached_prompt_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., kv_cache_policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., policy_spans: _Optional[_Iterable[_Union[PolicySpan, _Mapping]]] = ...) -> None: ...
+    def __init__(self, text: _Optional[str] = ..., token_logprobs: _Optional[_Iterable[float]] = ..., tokens: _Optional[_Iterable[str]] = ..., prompt_token_logprobs: _Optional[_Iterable[float]] = ..., token_ids: _Optional[_Iterable[int]] = ..., prompt_token_ids: _Optional[_Iterable[int]] = ..., top_logprobs: _Optional[_Union[_top_logprobs_pb2.TopLogprobs, _Mapping]] = ..., prompt_top_logprobs: _Optional[_Union[_top_logprobs_pb2.TopLogprobs, _Mapping]] = ..., expert_routing: _Optional[_Union[ExpertRouting, _Mapping]] = ..., metrics: _Optional[_Mapping[str, float]] = ..., policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., retained_kv: bool = ..., cached_prompt_tokens: _Optional[int] = ..., prompt_tokens: _Optional[int] = ..., kv_cache_policy_version: _Optional[_Union[PolicyVersion, _Mapping]] = ..., policy_spans: _Optional[_Iterable[_Union[PolicySpan, _Mapping]]] = ...) -> None: ...
 
 class ExpertRouting(_message.Message):
     __slots__ = ("num_tokens", "num_decoder_layers", "top_k", "layer_indices", "topk_ids", "topk_weights", "routing_handle")
@@ -861,22 +866,6 @@ class ExpertRouting(_message.Message):
     topk_weights: bytes
     routing_handle: str
     def __init__(self, num_tokens: _Optional[int] = ..., num_decoder_layers: _Optional[int] = ..., top_k: _Optional[int] = ..., layer_indices: _Optional[_Iterable[int]] = ..., topk_ids: _Optional[bytes] = ..., topk_weights: _Optional[bytes] = ..., routing_handle: _Optional[str] = ...) -> None: ...
-
-class TopLogprob(_message.Message):
-    __slots__ = ("logprob", "token_id", "token")
-    LOGPROB_FIELD_NUMBER: _ClassVar[int]
-    TOKEN_ID_FIELD_NUMBER: _ClassVar[int]
-    TOKEN_FIELD_NUMBER: _ClassVar[int]
-    logprob: float
-    token_id: int
-    token: str
-    def __init__(self, logprob: _Optional[float] = ..., token_id: _Optional[int] = ..., token: _Optional[str] = ...) -> None: ...
-
-class TopLogprobsPosition(_message.Message):
-    __slots__ = ("candidates",)
-    CANDIDATES_FIELD_NUMBER: _ClassVar[int]
-    candidates: _containers.RepeatedCompositeFieldContainer[TopLogprob]
-    def __init__(self, candidates: _Optional[_Iterable[_Union[TopLogprob, _Mapping]]] = ...) -> None: ...
 
 class InferenceResponse(_message.Message):
     __slots__ = ("results", "usage", "metrics")

@@ -6,7 +6,8 @@ import uuid
 
 from json_logging import util
 from json_logging.dto import RequestResponseDTOBase, DefaultRequestResponseDTO
-from json_logging.formatters import JSONRequestLogFormatter, JSONLogFormatter, JSONLogWebFormatter
+from json_logging.formatters import JSONRequestLogFormatter, JSONLogFormatter, JSONLogWebFormatter, \
+    _validated_excluded_fields
 from json_logging.framework_base import BaseRequestInfoExtractor, BaseResponseInfoExtractor, \
     BaseAppRequestInstrumentationConfigurator, \
     BaseFrameworkConfigurator
@@ -23,6 +24,9 @@ EMPTY_VALUE = '-'
 CREATE_CORRELATION_ID_IF_NOT_EXISTS = True
 JSON_SERIALIZER = lambda log: json.dumps(log, ensure_ascii=False, default=str)
 CORRELATION_ID_HEADERS = ['X-Correlation-ID', 'X-Request-ID']
+# Field names to omit from every JSON log record (e.g. 'written_ts'). Empty by default, so output is unchanged.
+# Read when a formatter is constructed, so set it before calling init_*().
+EXCLUDED_FIELDS = ()
 COMPONENT_ID = EMPTY_VALUE
 COMPONENT_NAME = EMPTY_VALUE
 COMPONENT_INSTANCE_INDEX = 0
@@ -39,8 +43,13 @@ def get_correlation_id(request=None):
     Get current request correlation-id. If one is not present, a new one might be generated
     depends on CREATE_CORRELATION_ID_IF_NOT_EXISTS setting value.
 
+    After init_non_web(), or before any init, there is no HTTP request to read from, so this returns
+    EMPTY_VALUE.
+
     :return: correlation-id string
     """
+    if _request_util is None:
+        return EMPTY_VALUE
     return _request_util.get_correlation_id(request=request)
 
 
@@ -94,6 +103,9 @@ def __init(framework_name=None, custom_formatter=None, enable_json=False):
     if custom_formatter:
         if not issubclass(custom_formatter, logging.Formatter):
             raise ValueError('custom_formatter is not subclass of logging.Formatter', custom_formatter)
+
+    # Validate before any global state changes, so a corrected setting can be retried in the same process
+    _validated_excluded_fields(EXCLUDED_FIELDS)
 
     if not enable_json and not ENABLE_JSON_LOGGING:
         _logger.warning(
@@ -154,6 +166,9 @@ def init_request_instrument(app=None, custom_formatter=None, exclude_url_pattern
     if not issubclass(request_response_dto_class, RequestResponseDTOBase):
         raise ValueError('request_response_dto_class is not subclass of json_logging.RequestInfoBase',
                          custom_formatter)
+
+    # Validate before hooks and handlers are installed, so a failed call leaves nothing behind
+    _validated_excluded_fields(EXCLUDED_FIELDS)
 
     configurator = _current_framework['app_request_instrumentation_configurator']()
     configurator.config(app, request_response_dto_class, exclude_url_patterns=exclude_url_patterns)

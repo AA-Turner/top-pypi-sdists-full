@@ -625,6 +625,48 @@ class TestOnboard:
         path = lock["rules"]["house-style"]["materializations"][0]["path"]
         assert path == "~/.cursor/rules/house.mdc"
 
+    def test_from_a_subdir_writes_at_the_project_root(self, boost, installed,
+                                                      tmp_path, monkeypatch):
+        # GitHub only runs <root>/.github/workflows; a copy under src/ is dead.
+        repo = _mk_repo(tmp_path / "repo")
+        sub = repo / "packages" / "api" / "src"
+        sub.mkdir(parents=True)
+        monkeypatch.chdir(sub)
+        r = boost("onboard")
+        assert r.out.count("created") == 3
+        root = repo.resolve()
+        assert (root / ".github" / "workflows" /
+                "boost-skill-inventory.yml").is_file()
+        assert (root / ".boost" / "telemetry.json").is_file()
+        assert (root / ".skill-lock.json").is_file()
+        assert not (sub / ".github").exists()
+        assert not (sub / ".boost").exists()
+
+    def test_lock_carries_only_this_repos_local_rows(self, boost, installed,
+                                                     tmp_path):
+        from boost_cli.core import lockfile
+        home = paths.home()
+        other = home / "code" / "secret-client"
+        other.mkdir(parents=True)
+        repo = home / "code" / "oss"
+        repo.mkdir(parents=True)
+        lockfile.set_workflow("review-diff", {
+            "kind": "workflow", "scope": "project", "base": str(other),
+            "materializations": [{"agent": "claude-code", "path": str(
+                other / ".claude" / "commands" / "review-diff.md")}]})
+        lockfile.set_workflow("ship", {
+            "kind": "workflow", "scope": "project", "base": str(repo),
+            "materializations": [{"agent": "claude-code", "path": str(
+                repo / ".claude" / "commands" / "ship.md")}]})
+        boost("onboard", "--repo", repo)
+        raw = (repo / ".skill-lock.json").read_text(encoding="utf-8")
+        assert "secret-client" not in raw and str(home) not in raw
+        lock = json.loads(raw)
+        assert sorted(lock["workflows"]) == ["ship"]
+        assert lock["workflows"]["ship"]["base"] == "."
+        assert lock["workflows"]["ship"]["materializations"][0]["path"] == \
+            ".claude/commands/ship.md"
+
     def test_pr_without_gh_fails_before_writing(self, boost, sandbox, tmp_path,
                                                 monkeypatch):
         repo = _mk_repo(tmp_path / "repo")
@@ -1034,6 +1076,22 @@ class TestCompletionsInstall:
         r = boost("completions", "fish", "--install", expect=1)
         assert "no one-shot install for fish yet" in r.err
         assert "boost completions fish" in r.err
+
+    @pytest.mark.parametrize("flag", ["--install", "--uninstall"])
+    def test_fish_hint_keeps_each_command_on_one_line(self, boost, sandbox,
+                                                      monkeypatch, flag):
+        # Unquoted, the wrapper split the command at its `>` and line one was
+        # a redirect with no target; and the redirect alone fails on a HOME
+        # where fish never ran, since nothing has made the directory.
+        monkeypatch.setenv("COLUMNS", "80")
+        r = boost("completions", "fish", flag, expect=1)
+        lines = r.err.splitlines()
+        install = ("`mkdir -p ~/.config/fish/completions && boost completions"
+                   " fish > ~/.config/fish/completions/boost.fish`")
+        remove = "`rm ~/.config/fish/completions/boost.fish`"
+        assert any(install in line for line in lines), r.err
+        assert any(remove in line for line in lines), r.err
+        assert lines[1].strip() == "hint: fish needs none — install:", r.err
 
     def test_install_and_uninstall_are_mutually_exclusive(self, boost, sandbox):
         r = boost("completions", "bash", "--install", "--uninstall", expect=2)
@@ -1527,6 +1585,26 @@ class TestMcp:
         assert "no skills match" not in text
         assert "nothing was searched" in text
         assert "2 or more" in text
+
+    @pytest.mark.parametrize("q", ["", "   "])
+    def test_boost_search_refuses_a_blank_query(self, boost, tapped, q):
+        # The CLI's usage error, as a tool error: "no skills match ''" told the
+        # agent the catalogue lacked something it never asked for.
+        from boost_cli.commands import configuration
+        text, is_err = configuration._mcp_tool("boost_search", {"query": q})
+        assert is_err is True
+        assert text == ("boost_search needs a query — pass a plain-word "
+                        "description of the task")
+
+    def test_boost_search_says_a_stopword_query_searched_nothing(
+            self, boost, tapped):
+        from boost_cli.commands import configuration
+        boost("reindex")
+        text, is_err = configuration._mcp_tool(
+            "boost_search", {"query": "the and of"})
+        assert is_err is False
+        assert "no skills match" not in text
+        assert "only common words and punctuation" in text
 
     def test_boost_search_stays_quiet_when_vectors_read_the_query(
             self, boost, tapped, monkeypatch):

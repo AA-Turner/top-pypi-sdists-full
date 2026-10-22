@@ -1,10 +1,10 @@
 """The worker <-> device-executor seam: length-framed JSON, byte-accounted.
 
-One `SOCK_STREAM` unix socket carries length-framed canonical-JSON commands and replies:
-a fixed 4-byte big-endian length prefix, then exactly that many body bytes (#448). A byte
-stream plus explicit framing is the ONE protocol on every OS — Linux today, Windows
-socketpair and macOS AF_UNIX next, neither of which has SOCK_SEQPACKET (and SEQPACKET
-silently truncates an over-buffer message, the wedge defect class of cr-007).
+One byte stream carries length-framed canonical-JSON commands and replies: a fixed 4-byte
+big-endian length prefix, then exactly that many body bytes (#448). A byte stream plus
+explicit framing is the ONE protocol on every OS: a `SOCK_STREAM` unix socket on Linux and
+macOS, a byte-mode named pipe on Windows (`winpipe`). Neither of the last two has
+SOCK_SEQPACKET (which silently truncates an over-buffer message, cr-007's wedge).
 
 Three properties are structural rather than reviewed:
 
@@ -12,9 +12,8 @@ Three properties are structural rather than reviewed:
   or hostile length prefix, before any body byte is read. Every wire byte in both directions
   is counted. Output bytes never cross this seam — they land in the attempt spool the worker
   brokered, which keeps the executor's writable storage to exactly that spool (§3.1).
-* **No credentials cross it.** `send` refuses a frame carrying a key from `SECRET_KEYS`, so a
-  grant token or worker JWT reaching the executor is a typed refusal at the boundary and not
-  a code-review rule. The executor holds no RecordOwner, storage or billing credential.
+* **Machine credentials stay outside it.** `send` refuses keys from `SECRET_KEYS`; Load,
+  Invoke and `bearer` may carry a signer's supplied bearer at `tensorfs.token`.
 * **A torn frame is typed.** EOF or a peer reset exactly at a frame boundary is the
   disposable executor's normal end (`None`); EOF inside a header or body is
   `seam_eof_mid_frame`, never a silent short read.
@@ -27,7 +26,6 @@ from __future__ import annotations
 import array
 import contextlib
 import ctypes
-import fcntl
 import json
 import os
 import socket
@@ -37,10 +35,20 @@ import sys
 import tempfile
 import threading
 import time
+from collections import deque
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, NoReturn
 
 from cozy_runtime.internal.canonical import DOC_MAX_BYTES
+
+if sys.platform == "win32":
+    import _winapi
+    import msvcrt
+
+    from cozy_runtime.internal import winpipe
+else:
+    import fcntl
 
 #: Worker/executor command-and-reply compatibility, independent of SDK package
 #: version or source build. Compatible additive fields keep this revision; only
@@ -56,14 +64,16 @@ MAX_FRAME = DOC_MAX_BYTES
 #: exactly how many header bytes to collect before it commits to anything.
 HEADER = struct.Struct("!I")
 
-#: Key names that must never appear in a frame, at any depth. Credentials stop at the
-#: worker (§3.1); the executor cannot leak what it was never handed.
+#: Secret field names outside the explicitly supplied TensorFS command options.
 SECRET_KEYS = frozenset({"token", "credential", "authorization", "secret", "jwt"})
 
 #: The attempt-spool file the executor writes its serialized typed result into: the bytes
 #: take the road the output blobs take, and only their digest and length cross here. The
 #: WORKER names the file, so no path ever comes off the child (cr-007).
 RESULT_DOCUMENT = "result.canonical"
+
+#: One decoded frame: a JSON object, routed by its `event`, `cmd`, `seq` and `request_id`.
+type Frame = dict[str, object]
 
 #: Peer-gone errnos: ECONNRESET, EPIPE, ENOTCONN.
 _GONE_ERRNOS = (104, 32, 107)
@@ -76,18 +86,24 @@ class SeamError(Exception):
         self.detail = detail
 
 
-def _scan(value: Any, path: str = "") -> None:
+#: The commands that may carry a signer's supplied bearer, at `tensorfs.token` only.
+SUPPLYING = frozenset({"load", "invoke", "bearer"})
+
+
+def _scan(value: Any, path: str = "", *, supplied: bool = False) -> None:
     if isinstance(value, dict):
         for key, item in value.items():
-            if key.lower() in SECRET_KEYS:
+            at = f"{path}{key}"
+            allowed = supplied and at == "tensorfs.token" and isinstance(item, str)
+            if key.lower() in SECRET_KEYS and not allowed:
                 raise SeamError(
                     "credential_at_seam",
                     f"{path}{key!r}: credentials never cross the worker/executor seam",
                 )
-            _scan(item, f"{path}{key}.")
+            _scan(item, f"{at}.", supplied=supplied)
     elif isinstance(value, (list, tuple)):
         for item in value:
-            _scan(item, path)
+            _scan(item, path, supplied=supplied)
 
 
 @dataclass(slots=True)
@@ -106,12 +122,12 @@ class Channel:
     frames_out: int = 0
     frames_in: int = 0
     refusals: list[str] = field(default_factory=list)
-    #: One frame at a time: follower progress is forwarded from reader threads and overlapped
-    #: calls log from theirs, beside the thread that owns the attempt.
-    sending: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+    #: One frame at a time, and a frame with the descriptors that follow it (held across both
+    #: by `Mux.ask`): attempts, follower readers and overlapped calls all send.
+    sending: threading.RLock = field(default_factory=threading.RLock, repr=False, compare=False)
 
     def send(self, message: dict[str, Any]) -> None:
-        _scan(message)
+        _scan(message, supplied=message.get("cmd") in SUPPLYING)
         data = json.dumps(message, separators=(",", ":"), sort_keys=True).encode()
         if len(data) > MAX_FRAME:
             self.refusals.append("frame_too_large")
@@ -159,7 +175,7 @@ class Channel:
             descriptor.close()
 
     def send_memfd(self, fd: int) -> None:
-        """Transfer one weight set's pinned host tier (`tensorfs.plane` memfd)."""
+        """Transfer one weight set's pinned host tier (`tensorfs.varena` memfd)."""
         _require_memfd(fd)
         self._send_fd(fd, "memfd")
 
@@ -222,6 +238,41 @@ class Channel:
             os.close(received)
             raise
         return received
+
+    def send_ledger(self, memfd: int, eventfd: int) -> None:
+        """Hand over one GPU's ledger (`tensorfs.varena.Ledger`): its memfd, then its eventfd."""
+        _require_memfd(memfd)
+        _require_eventfd(eventfd)
+        self._send_fd(memfd, "ledger memfd")
+        self._send_fd(eventfd, "ledger eventfd")
+
+    def recv_ledger(self) -> list[int]:
+        """One GPU's ledger memfd and eventfd; anything else is closed and refused."""
+        fds = self.recv_fds(2)
+        try:
+            _require_memfd(fds[0])
+            _require_eventfd(fds[1])
+        except SeamError:
+            for fd in fds:
+                os.close(fd)
+            raise
+        return fds
+
+    def recv_fds(self, count: int) -> list[int]:
+        """`count` descriptors, unopened, for a relay to pass on (`send_fds`)."""
+        received: list[int] = []
+        try:
+            for _ in range(count):
+                received.append(self._recv_fd())
+        except BaseException:
+            for fd in received:
+                os.close(fd)
+            raise
+        return received
+
+    def send_fds(self, fds: list[int]) -> None:
+        for fd in fds:
+            self._send_fd(fd, "relayed capability")
 
     def pass_fd(self, to: Channel) -> None:
         """Relay one descriptor to another seam unopened: its receiver checks what it is."""
@@ -374,6 +425,204 @@ class Channel:
         }
 
 
+if sys.platform == "win32":
+
+    class PipeChannel(Channel):
+        """Windows's seam end, on a `winpipe.Pipe`: a handle crosses duplicated into the
+        peer. A file arrives as a C runtime descriptor; a stream capability as its raw
+        handle, for TensorFS to adopt."""
+
+        def send_descriptor(self, descriptor: socket.socket) -> None:
+            raise SeamError("seam_descriptor", "no socket crosses a Windows seam")
+
+        def recv_descriptor(self) -> int:
+            handle = self._recv_handle()
+            if winpipe.file_type(handle) != winpipe.FILE_TYPE_PIPE:
+                _winapi.CloseHandle(handle)
+                raise SeamError("seam_descriptor", "capability must be a local stream")
+            return handle
+
+        def recv_file(self) -> int:
+            received = self._recv_fd()
+            try:
+                if not stat.S_ISREG(os.fstat(received).st_mode) or winpipe.writable(
+                    msvcrt.get_osfhandle(received)
+                ):
+                    raise SeamError(
+                        "seam_descriptor", "an object file must be a read-only regular file"
+                    )
+            except BaseException:
+                os.close(received)
+                raise
+            return received
+
+        def _send_fd(self, fd: int, what: str) -> None:
+            try:
+                self.sock.send_handle(msvcrt.get_osfhandle(fd))
+            except OSError as exc:
+                self._raise(exc)
+            self.sent_bytes += 9
+
+        def _recv_fd(self) -> int:
+            handle = self._recv_handle()
+            try:
+                return msvcrt.open_osfhandle(handle, os.O_NOINHERIT)
+            except OSError:
+                _winapi.CloseHandle(handle)
+                raise
+
+        def _recv_handle(self) -> int:
+            try:
+                handle = self.sock.recv_handle()
+            except ValueError as exc:
+                raise SeamError(
+                    "seam_descriptor", f"expected one scoped capability: {exc}"
+                ) from exc
+            except OSError as exc:
+                self._raise(exc)
+            self.recv_bytes += 9
+            return handle
+
+
+#: Cancel marks kept for calls this executor has not served (yet, or ever).
+CANCELS_KEPT = 256
+
+
+def _nothing(*_: object) -> None:
+    return None
+
+
+@dataclass(slots=True)
+class _Asked:
+    receive: Callable[[Frame], None]
+    answer: Frame | None = None
+    error: SeamError | None = None
+
+
+class Mux:
+    """One seam shared by every thread of the process. Whoever needs a frame reads the next
+    one and routes it: an answer to the request waiting on its `seq`, a `cancel` to its call's
+    mark, a frame that may carry a bearer (`SUPPLYING`) to `bearer` as it is read (a `bearer`
+    frame goes nowhere else), anything else to the commands, in order. No reader thread exists,
+    so a process that has served no call stays single-threaded and forkable (`zygote`)."""
+
+    def __init__(self, channel: Channel, bearer: Callable[[Frame], None] = _nothing) -> None:
+        self.channel = channel
+        self._bearer = bearer
+        self._seq = 0
+        self._asked: dict[int, _Asked] = {}
+        self._commands: deque[Frame] = deque()
+        self._cancels: dict[str, None] = {}
+        self._reading = False
+        self._ended: SeamError | None = None
+        self._changed = threading.Condition()
+
+    def ask(
+        self,
+        request: Frame,
+        send: Callable[[], None] = _nothing,
+        receive: Callable[[Frame], None] = _nothing,
+    ) -> Frame:
+        """Send `request` and the descriptors `send` writes after it, and return its answer.
+        `receive` takes the descriptors following the answer, on the thread that read it."""
+        asked = _Asked(receive)
+        with self.channel.sending:
+            with self._changed:
+                self._seq += 1
+                seq = self._seq
+                self._asked[seq] = asked
+            try:
+                self.channel.send({**request, "seq": seq})
+                send()
+            except BaseException:
+                with self._changed:
+                    del self._asked[seq]
+                raise
+        self._pump(lambda: asked.answer is not None)
+        if asked.error is not None:
+            raise asked.error
+        if asked.answer is None:
+            assert self._ended is not None
+            raise SeamError(self._ended.code, f"{request.get('kind')}#{seq}: {self._ended.detail}")
+        return asked.answer
+
+    def command(self) -> Frame | None:
+        """The next command; None once the peer closed the seam."""
+        self._pump(lambda: bool(self._commands))
+        with self._changed:
+            if self._commands:
+                return self._commands.popleft()
+        assert self._ended is not None
+        if self._ended.code == "seam_closed":
+            return None
+        raise self._ended
+
+    def cancel(self, request_id: str) -> None:
+        with self._changed:
+            self._cancels[request_id] = None
+            while len(self._cancels) > CANCELS_KEPT:
+                del self._cancels[next(iter(self._cancels))]
+            self._changed.notify_all()
+
+    def cancelled(self, request_id: str, wait: float = 0.0) -> bool:
+        """Whether `request_id` is cancelled, waiting up to `wait` seconds for it."""
+        with self._changed:
+            return self._changed.wait_for(lambda: request_id in self._cancels, wait)
+
+    def forget(self, request_id: str) -> None:
+        with self._changed:
+            self._cancels.pop(request_id, None)
+
+    def _pump(self, done: Callable[[], bool]) -> None:
+        while True:
+            with self._changed:
+                self._changed.wait_for(
+                    lambda: done() or self._ended is not None or not self._reading
+                )
+                if done() or self._ended is not None:
+                    return
+                self._reading = True
+            ended: SeamError | None = None
+            try:
+                frame = self.channel.recv()
+                if frame is None:
+                    ended = SeamError("seam_closed", "the worker closed the seam")
+                else:
+                    self._route(frame)
+            except Exception as exc:  # the stream is past a frame no one can place: it ends
+                ended = exc if isinstance(exc, SeamError) else SeamError("seam_io", repr(exc))
+            finally:
+                with self._changed:
+                    self._reading = False
+                    self._ended = self._ended or ended
+                    self._changed.notify_all()
+
+    def _route(self, frame: Frame) -> None:
+        if frame.get("event") == "answer":
+            seq = frame.get("seq")
+            with self._changed:
+                asked = self._asked.pop(seq, None) if isinstance(seq, int) else None
+            if asked is None:
+                raise SeamError("seam_out_of_order", f"an answer to no request: {seq!r}")
+            try:
+                asked.receive(frame)  # its descriptors follow it on the stream
+            except (
+                SeamError
+            ) as exc:  # that exchange fails; a receive that lost the stream closed it
+                asked.error = exc
+            with self._changed:
+                asked.answer = frame
+        elif frame.get("cmd") == "cancel":
+            self.cancel(str(frame.get("request_id", "")))
+        elif frame.get("cmd") == "bearer":
+            self._bearer(frame)
+        else:
+            if frame.get("cmd") in SUPPLYING:
+                self._bearer(frame)
+            with self._changed:
+                self._commands.append(frame)
+
+
 def listener(path: str) -> socket.socket:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(path)
@@ -382,6 +631,8 @@ def listener(path: str) -> socket.socket:
 
 
 def connect(path: str) -> Channel:
+    if sys.platform == "win32":
+        return PipeChannel(winpipe.Pipe.connect(path))
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(path)
     return Channel(sock)
@@ -399,7 +650,12 @@ def _require_device(fd: int) -> None:
 
 def anonymous(name: str, sealing: bool = False) -> int:
     """A new close-on-exec in-memory file no path names: a memfd (`sealing`: one that may be
-    sealed), or on macOS, which has none, an unlinked file."""
+    sealed); on macOS, which has none, an unlinked file; on Windows, a temporary file gone
+    with its last handle."""
+    if sys.platform == "win32":
+        path = os.path.join(tempfile.gettempdir(), f"{name}.{os.urandom(8).hex()}")
+        flags = os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_BINARY | os.O_NOINHERIT
+        return os.open(path, flags | os.O_TEMPORARY | os.O_SHORT_LIVED, 0o600)
     if sys.platform != "linux":
         fd, path = tempfile.mkstemp(prefix=f"{name}.")
         os.unlink(path)
@@ -413,14 +669,49 @@ def anonymous(name: str, sealing: bool = False) -> int:
     return fd
 
 
+#: Linux `fcntl` seals by number (python-build-standalone may lack the names): seal, shrink,
+#: grow and write.
+_ADD_SEALS, _SEALS = 1033, 0x8 | 0x4 | 0x2 | 0x1
+
+
+def sealed(name: str, body: bytes) -> int:
+    """`body` in a new memfd, sealed: a document that crosses beside its request. macOS has
+    no memfd and no seals: there it is an unlinked file, which no path names."""
+    fd = anonymous(name, sealing=True)
+    try:
+        view = memoryview(body)
+        while view:
+            view = view[os.write(fd, view) :]
+        if sys.platform == "linux":
+            fcntl.fcntl(fd, _ADD_SEALS, _SEALS)
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
+def _require_eventfd(fd: int) -> None:
+    """An eventfd, a ledger's freed-bytes signal (Linux only, as varena's ledger is)."""
+    try:
+        named = os.readlink(f"/proc/self/fd/{fd}")
+    except OSError as exc:
+        raise SeamError("seam_descriptor", f"eventfd unreadable: {exc}") from exc
+    if named != "anon_inode:[eventfd]":
+        raise SeamError("seam_descriptor", f"capability must be an eventfd, not {named}")
+
+
 def _require_memfd(fd: int) -> None:
     """A regular file the kernel names `/memfd:…`: an anonymous in-memory tier, never a path.
-    macOS has no memfd: there an unlinked regular file, which no path names either."""
+    macOS has no memfd: there an unlinked regular file, which no path names either. Windows
+    cannot see whether a file's name goes with its last handle: there any regular file."""
     try:
         found = os.fstat(fd)
         named = os.readlink(f"/proc/self/fd/{fd}") if sys.platform == "linux" else ""
     except OSError as exc:
         raise SeamError("seam_descriptor", f"memfd unreadable: {exc}") from exc
-    anonymous = named.startswith("/memfd:") if sys.platform == "linux" else found.st_nlink == 0
+    if sys.platform == "linux":
+        anonymous = named.startswith("/memfd:")
+    else:
+        anonymous = sys.platform == "win32" or found.st_nlink == 0
     if not stat.S_ISREG(found.st_mode) or not anonymous:
         raise SeamError("seam_descriptor", "capability must be a memfd")

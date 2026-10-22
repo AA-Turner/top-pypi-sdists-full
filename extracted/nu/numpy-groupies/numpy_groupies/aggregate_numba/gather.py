@@ -1,20 +1,24 @@
 """Gather aggregated results back onto the input positions."""
 
+import numba as nb
 import numpy as np
 import numpy.typing as npt
 
 
+# the annotations of the jitted function below are documentation only - numba
+# compiles from the argument types and ignores them, the type checker needs them
+@nb.njit(cache=True)
 def _gather_1d(
-    ret: npt.NDArray[np.number], group_idx: npt.NDArray[np.integer], out: npt.NDArray[np.number]
-) -> npt.NDArray[np.number]:
+    ret: npt.NDArray[np.generic], group_idx: npt.NDArray[np.integer], out: npt.NDArray[np.generic]
+) -> npt.NDArray[np.generic]:
     for i in range(group_idx.size):
         out[i] = ret[group_idx[i]]
     return out
 
 
 def unpack_into(
-    group_idx: npt.NDArray[np.integer], ret: npt.NDArray[np.number], out: npt.NDArray[np.number]
-) -> npt.NDArray[np.number]:
+    group_idx: npt.NDArray[np.integer], ret: npt.NDArray[np.generic], out: npt.NDArray[np.generic]
+) -> npt.NDArray[np.generic]:
     """Like ``unpack``, but gathers into a caller-provided array.
 
     ``out`` must match the shape of ``ret[group_idx]`` and the dtype of

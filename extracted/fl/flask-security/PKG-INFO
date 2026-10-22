@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: Flask-Security
-Version: 5.9.1
+Version: 5.9.2
 Summary: Quickly add security features to your Flask application.
 Keywords: flask security
 Author: Matt Wright
@@ -31,7 +31,6 @@ Requires-Dist: libpass>=1.9.3
 Requires-Dist: wtforms>=3.2.1
 Requires-Dist: babel>=2.17.0 ; extra == "babel"
 Requires-Dist: flask_babel>=4.0.0 ; extra == "babel"
-Requires-Dist: humanize>=4.12.0 ; extra == "babel"
 Requires-Dist: argon2_cffi>=25.1.0 ; extra == "common"
 Requires-Dist: bcrypt>=4.3.0 ; extra == "common"
 Requires-Dist: flask_mail>=0.10.0 ; extra == "common"

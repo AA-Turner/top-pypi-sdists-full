@@ -8,7 +8,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 import pandas as pd
@@ -37,7 +37,7 @@ workbook = writer.book
 worksheet = writer.sheets["Sheet1"]
 
 # Get the dimensions of the dataframe.
-(max_row, max_col) = df.shape
+max_row, max_col = df.shape
 
 # Create a list of column headers, to use in add_table().
 column_settings = [{"header": column} for column in df.columns]

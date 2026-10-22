@@ -1,31 +1,40 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
+"""Welcome to Dear ImGui Bundle
+
+The tour you see when you arrive: a carousel of live mini demos, from plots and a shader to a neural network. Each
+slide opens its full demo.
+"""
+# The first screen of the explorer and of the playground: the tagline, the carousel, a button to the catalog of demos,
+# and the prose of demos_assets/welcome.md behind "More info & links". The page that shows it (the explorer, the
+# playground) gives it a Host: what the button and the links do.
 import math
+import sys
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional
 
-try:
-    import numpy as np
-    HAS_NUMPY = True
-except ImportError:
-    HAS_NUMPY = False
+import numpy as np
 
-from imgui_bundle import imgui, imgui_md, hello_imgui, immapp, ImVec2, ImVec4
+import imgui_bundle
+from imgui_bundle import imgui, rich_md, hello_imgui, immapp, ImVec2, ImVec4, em_size
 from imgui_bundle import imgui_color_text_edit as ed, register_demos_assets_folder
-from imgui_bundle import imgui_knobs, imgui_toggle
-from imgui_bundle.demos_python import demo_utils
-from imgui_bundle import implot3d
+from imgui_bundle import imgui_knobs, imgui_toggle, imgui_node_editor as node_ed
+from imgui_bundle import implot, implot3d
 from imgui_bundle.immapp import icons_fontawesome_4
-import webbrowser
 
 
-register_demos_assets_folder()
+# The reader's code language ("Python", "C++", or "" if never chosen), as in demo_utils/api_demos.py:
+# a copy, because the playground's slim wheel has no demos_python.
+def code_language_pref() -> str:
+    return {"python": "Python", "cpp": "C++"}.get(hello_imgui.load_lasting_pref("code_language"), "")
 
-# Optional imports (replacing #ifdef guards)
-try:
-    from imgui_bundle import implot
-    HAS_IMPLOT = True
-except ImportError:
-    HAS_IMPLOT = False
+
+def set_code_language_pref(language: str) -> None:
+    hello_imgui.save_lasting_pref("code_language", "python" if language == "Python" else "cpp")
+
+
+register_demos_assets_folder()  # welcome.md and resources.md (in Pyodide: delivered by the playground, see examples.json)
+
+IS_PYODIDE = sys.platform == "emscripten"
 
 try:
     from imgui_bundle import immvision
@@ -33,26 +42,32 @@ try:
 except ImportError:
     HAS_IMMVISION = False
 
-try:
-    import cv2
-    HAS_OPENCV = True
-except ImportError:
-    HAS_OPENCV = False
+# The GPU slide draws with OpenGL: PyOpenGL on the desktop, WebGL2 in Pyodide (through a PyOpenGL-shaped adapter,
+# see the slide). Without either, the slide is left out.
+HAS_GL = False
+if IS_PYODIDE:
+    HAS_GL = imgui_bundle.has_submodule("webgl")
+else:
+    try:
+        # Workaround for PyOpenGL 3.1.6+ on Wayland: GLFW (used by immapp / hello_imgui)
+        # creates X11/XWayland windows, but PyOpenGL defaults to Wayland EGL, causing a
+        # context mismatch. Force the X11 backend before importing OpenGL.
+        # See https://github.com/pthom/imgui_bundle/issues/321
+        import os
+        if os.getenv("XDG_SESSION_TYPE") == "wayland" and not os.getenv("PYOPENGL_PLATFORM"):
+            os.environ["PYOPENGL_PLATFORM"] = "x11"
 
-try:
-    # Workaround for PyOpenGL 3.1.6+ on Wayland: GLFW (used by immapp / hello_imgui)
-    # creates X11/XWayland windows, but PyOpenGL defaults to Wayland EGL, causing a
-    # context mismatch. Force the X11 backend before importing OpenGL.
-    # See https://github.com/pthom/imgui_bundle/issues/321
-    import os
-    if os.getenv("XDG_SESSION_TYPE") == "wayland" and not os.getenv("PYOPENGL_PLATFORM"):
-        os.environ["PYOPENGL_PLATFORM"] = "x11"
+        import OpenGL.GL as GL
+        import ctypes
+        HAS_GL = True
+    except ImportError:
+        pass
 
-    import OpenGL.GL as GL
-    import ctypes
-    HAS_OPENGL = True
-except ImportError:
-    HAS_OPENGL = False
+
+SITE = "https://imgui-bundle.pages.dev"
+# The interactive manuals, by their filename in the catalog (examples.json)
+MANUALS = [("Dear ImGui", "manual_imgui.py"), ("ImPlot", "manual_implot.py"), ("ImPlot3D", "manual_implot3d.py")]
+SLIDE_DURATION = 5.0  # s: the carousel moves to the next slide by itself, until the user touches it
 
 
 def is_small_screen() -> bool:
@@ -60,27 +75,63 @@ def is_small_screen() -> bool:
     return imgui.get_io().display_size.x < hello_imgui.em_size() * 50
 
 
+@dataclass
+class Host:
+    """What the page that shows the welcome provides: the explorer changes its state, the playground opens its
+    gallery (see main()). Without a host (the standalone run), the page shows no button."""
+    nb_demos: int = 0
+    browse: Optional[Callable[[], None]] = None  # opens the catalog of demos
+    open_demo: Optional[Callable[[str], None]] = None  # opens one demo of the catalog, by its filename in examples.json
+
+
+_host = Host()  # the page that shows the welcome (welcome_gui sets it): the slides' own links use it
+
+
 # ============================================================================
-# Test engine automation (unchanged from old file)
+# Test engine automations: "Show me" walks the explorer's demos (the explorer only)
 # ============================================================================
+
+def _explorer():
+    """The explorer's module and its page (imported here: the explorer imports this module). None standalone."""
+    from imgui_bundle.demos_python import demo_imgui_bundle
+    return demo_imgui_bundle, demo_imgui_bundle._EXPLORER
+
+
+def _show_demo_code(ctx, filename: str) -> None:
+    """Goes to the demos, selects this one (its category's chip scrolls to it, a click on its card) and shows its
+    code"""
+    explorer_module, explorer = _explorer()
+    launcher = explorer.launcher
+    launcher.code_view = None  # as a previous automation may have left it
+    if explorer.state != explorer_module.DEMOS:
+        ctx.item_click("//**/" + explorer_module.DEMOS_LABEL)
+        ctx.sleep(1.5)  # the change of page, then the cards dealt
+    category = next(c for c in launcher.categories if any(d.filename == filename for d in c.demos))
+    ctx.item_click("//**/" + launcher.chip_label(category))
+    ctx.sleep(0.8)  # the scroll
+    top_left, bottom_right = launcher.card_rects[filename]
+    ctx.mouse_move_to_pos(ImVec2((top_left.x + bottom_right.x) / 2, (top_left.y + bottom_right.y) / 2))
+    ctx.mouse_click(0)
+    ctx.sleep(0.5)
+    ctx.item_click("//**/" + icons_fontawesome_4.ICON_FA_CODE + "  View code")
+
 
 def _automation_show_me_immediate_apps():
     engine = hello_imgui.get_imgui_test_engine()
-    automation = imgui.test_engine.register_test(
-        engine, "Automation", "ShowMeImmediateApps"
-    )
+    automation = imgui.test_engine.register_test(engine, "Automation", "ShowMeImmediateApps")
 
     def test_func(ctx):
-        tab_imm_apps_name = "//**/Demo Apps"
-        tab_intro_name = "//**/Intro"
-        ctx.mouse_move(tab_imm_apps_name)
-        ctx.mouse_click(0)
-        ctx.item_click("//**/demo_docking/View code")
-        ctx.item_click("//**/demo_assets_addons/View code")
-        ctx.item_click("//**/demo_hello_world/View code")
-        ctx.mouse_move("//**/demo_hello_world/Run")
-        ctx.mouse_move(tab_intro_name)
-        ctx.mouse_click(0)
+        explorer_module, _ = _explorer()
+        all_the_demos = "//**/" + icons_fontawesome_4.ICON_FA_ARROW_LEFT + "  All the demos"
+        _show_demo_code(ctx, "demo_hello_world.py")
+        ctx.sleep(2.0)
+        ctx.item_click(all_the_demos)
+        _show_demo_code(ctx, "demo_assets_addons.py")
+        ctx.sleep(2.0)
+        ctx.item_click(all_the_demos)
+        ctx.mouse_move("//**/" + icons_fontawesome_4.ICON_FA_PLAY + "  Run")
+        ctx.sleep(1.0)
+        ctx.item_click("//**/" + explorer_module.WELCOME_LABEL)
 
     automation.test_func = test_func
     return automation
@@ -88,15 +139,11 @@ def _automation_show_me_immediate_apps():
 
 def _automation_show_me_custom_background():
     engine = hello_imgui.get_imgui_test_engine()
-    automation = imgui.test_engine.register_test(
-        engine, "Automation", "ShowMeCustomBackgroundExample"
-    )
+    automation = imgui.test_engine.register_test(engine, "Automation", "ShowMeCustomBackgroundExample")
 
     def test_func(ctx):
-        ctx.mouse_move("//**/Demo Apps")
-        ctx.mouse_click(0)
-        ctx.item_click("//**/demo_custom_background/View code")
-        ctx.mouse_move("//**/Run##CurrentDemo")
+        _show_demo_code(ctx, "demo_custom_background.py")
+        ctx.mouse_move("//**/" + icons_fontawesome_4.ICON_FA_ARROW_LEFT + "  All the demos")
 
     automation.test_func = test_func
     return automation
@@ -104,21 +151,16 @@ def _automation_show_me_custom_background():
 
 def _automation_show_me_docking():
     engine = hello_imgui.get_imgui_test_engine()
-    automation = imgui.test_engine.register_test(
-        engine, "Automation", "ShowMeDockingExample"
-    )
+    automation = imgui.test_engine.register_test(engine, "Automation", "ShowMeDockingExample")
 
     def test_func(ctx):
-        ctx.mouse_move("//**/Demo Apps")
-        ctx.mouse_click(0)
-        ctx.item_click("//**/demo_docking/View code")
-        ctx.mouse_move("//**/Run##CurrentDemo")
+        _show_demo_code(ctx, "demo_docking.py")
+        ctx.mouse_move("//**/" + icons_fontawesome_4.ICON_FA_ARROW_LEFT + "  All the demos")
 
     automation.test_func = test_func
     return automation
 
 
-# Centralized automation registration and "More info" link helper
 class _IntroAutomations:
     show_immediate_apps = None
     show_custom_background = None
@@ -129,8 +171,8 @@ class _IntroAutomations:
     def init():
         if _IntroAutomations._inited:
             return
-        if not hello_imgui.get_runner_params().use_imgui_test_engine:
-            return
+        if not hello_imgui.get_runner_params().use_imgui_test_engine or _explorer()[1] is None:
+            return  # the automations drive the explorer's page: none standalone
         _IntroAutomations._inited = True
         _IntroAutomations.show_immediate_apps = _automation_show_me_immediate_apps()
         _IntroAutomations.show_custom_background = _automation_show_me_custom_background()
@@ -143,15 +185,13 @@ class _IntroAutomations:
         if automation is None:
             return
         imgui.spacing()
-        imgui.push_style_color(imgui.Col_.text, imgui_md.link_color())
+        imgui.push_style_color(imgui.Col_.text, rich_md.link_color())
         imgui.text(label)
         if imgui.is_item_hovered(imgui.HoveredFlags_.delay_normal):
             imgui.set_mouse_cursor(imgui.MouseCursor_.hand)
             if imgui.is_mouse_clicked(imgui.MouseButton_.left):
                 imgui.set_window_focus(None)  # clear focus from overlay
-                imgui.test_engine.queue_test(
-                    hello_imgui.get_imgui_test_engine(), automation
-                )
+                imgui.test_engine.queue_test(hello_imgui.get_imgui_test_engine(), automation)
         imgui.pop_style_color()
 
 
@@ -164,6 +204,7 @@ class CarouselSlide:
     title: str
     description: str
     gui_func: Callable[[ImVec2], None]
+    demo: str = ""  # the catalog's demo that goes further (its filename in examples.json), linked from the title card
 
 
 def smooth_damp(current: float, target: float, speed: float, dt: float) -> float:
@@ -195,972 +236,314 @@ def draw_side_panel(panel_id: str, width: float, height: float, draw_widgets: Ca
     imgui.end_child()
 
 
-# ============================================================================
-# Slide 1: Lorenz — ImPlot3D attractor with dual trajectories
-# ============================================================================
-
-@dataclass
-class LorenzParams:
-    sigma: float = 10.0
-    rho: float = 28.0
-    beta: float = 8.0 / 3.0
-    dt: float = 0.01
-    max_size: int = 2000
-
-
-class AnimatedLorenzTrajectory:
-    def __init__(self, x: float, y: float, z: float):
-        self.xs = [x]
-        self.ys = [y]
-        self.zs = [z]
-
-    def step(self, params: LorenzParams):
-        x, y, z = self.xs[-1], self.ys[-1], self.zs[-1]
-        dx = params.sigma * (y - x)
-        dy = x * (params.rho - z) - y
-        dz = x * y - params.beta * z
-        x += dx * params.dt
-        y += dy * params.dt
-        z += dz * params.dt
-        self.xs.append(x)
-        self.ys.append(y)
-        self.zs.append(z)
-        if len(self.xs) > params.max_size:
-            self.xs.pop(0)
-            self.ys.pop(0)
-            self.zs.pop(0)
-
-
-# Module-level state for Lorenz
-_lorenz_params = LorenzParams()
-_lorenz_traj1: AnimatedLorenzTrajectory = None  # type: ignore
-_lorenz_traj2: AnimatedLorenzTrajectory = None  # type: ignore
-_lorenz_inited = False
-_lorenz_initial_delta = 0.1
-
-
-def _lorenz_init_trajectories():
-    global _lorenz_traj1, _lorenz_traj2, _lorenz_inited
-    _lorenz_traj1 = AnimatedLorenzTrajectory(0.0, 1.0, 1.05)
-    _lorenz_traj2 = AnimatedLorenzTrajectory(0.0 + _lorenz_initial_delta, 1.0, 1.05)
-    _lorenz_inited = True
-
-
-def _lorenz_gui_main(plot_size: ImVec2):
-    global _lorenz_inited
-    if not _lorenz_inited:
-        _lorenz_init_trajectories()
-
-    if implot3d.begin_plot("Lorenz##intro", plot_size):
-        implot3d.setup_axes("X", "Y", "Z",
-                            implot3d.AxisFlags_.auto_fit,
-                            implot3d.AxisFlags_.auto_fit,
-                            implot3d.AxisFlags_.auto_fit)
-        xs1 = np.array(_lorenz_traj1.xs, dtype=np.float64)
-        ys1 = np.array(_lorenz_traj1.ys, dtype=np.float64)
-        zs1 = np.array(_lorenz_traj1.zs, dtype=np.float64)
-        implot3d.plot_line("Trajectory", xs1, ys1, zs1)
-        xs2 = np.array(_lorenz_traj2.xs, dtype=np.float64)
-        ys2 = np.array(_lorenz_traj2.ys, dtype=np.float64)
-        zs2 = np.array(_lorenz_traj2.zs, dtype=np.float64)
-        implot3d.plot_line("Trajectory2", xs2, ys2, zs2)
-        implot3d.end_plot()
-    _lorenz_traj1.step(_lorenz_params)
-    _lorenz_traj2.step(_lorenz_params)
-
-
-def _lorenz_gui_side():
-    global _lorenz_initial_delta
-    imgui.text_disabled("Butterfly Effect")
-    imgui.set_item_tooltip(
-        "Tiny changes in initial conditions lead to\n"
-        "completely different trajectories.\n"
-        "The hallmark of deterministic chaos.")
-    imgui.spacing()
-    _, _lorenz_params.sigma = imgui.slider_float("Sigma", _lorenz_params.sigma, 0.0, 100.0)
-    imgui.set_item_tooltip("Rate of divergence (chaos level)")
-    _, _lorenz_params.rho = imgui.slider_float("Rho", _lorenz_params.rho, 0.0, 100.0)
-    imgui.set_item_tooltip("Size and shape of the attractor")
-    _, _lorenz_params.beta = imgui.slider_float("Beta", _lorenz_params.beta, 0.0, 10.0)
-    imgui.set_item_tooltip("Damping on vertical movement")
-    _, _lorenz_params.dt = imgui.slider_float("dt", _lorenz_params.dt, 0.0, 0.05)
-    imgui.set_item_tooltip("Time step (smaller = smoother)")
-    _, _lorenz_initial_delta = imgui.slider_float("Delta", _lorenz_initial_delta, 0.0, 0.2)
-    imgui.set_item_tooltip("Initial difference between trajectories")
-    if imgui.button("Reset"):
-        _lorenz_init_trajectories()
-
-
-def _lorenz_slide_gui(content_size: ImVec2):
-    em = hello_imgui.em_size()
-    main_side = content_size.y
-    gap = em * 0.5
-    side_panel_w = content_size.x - main_side - gap
-
-    _lorenz_gui_main(ImVec2(main_side, main_side))
-
-    if side_panel_w > em * 4.0:
-        imgui.same_line(0.0, gap)
-        draw_side_panel("##lorenz_side", side_panel_w, main_side, _lorenz_gui_side)
-
-
-# ============================================================================
-# Slide 2: ImPlot showcase — 4 diverse plot types in subplots
-# ============================================================================
-
-if HAS_IMPLOT and HAS_NUMPY:
-    _implot_inited = False
-    _implot_xs: np.ndarray = None  # type: ignore
-
-    # Filled line plots (static)
-    _filled_xs: np.ndarray = None  # type: ignore
-    _filled_ys1: np.ndarray = None  # type: ignore
-    _filled_ys2: np.ndarray = None  # type: ignore
-    _filled_ys3: np.ndarray = None  # type: ignore
-
-    # Shaded plots (static, like original demo)
-    _shaded_xs: np.ndarray = None  # type: ignore
-    _shaded_ys: np.ndarray = None  # type: ignore
-    _shaded_ys1: np.ndarray = None  # type: ignore
-    _shaded_ys2: np.ndarray = None  # type: ignore
-    _shaded_ys3: np.ndarray = None  # type: ignore
-    _shaded_ys4: np.ndarray = None  # type: ignore
-
-    # Stem plots (static)
-    _stem_xs: np.ndarray = None  # type: ignore
-    _stem_ys1: np.ndarray = None  # type: ignore
-    _stem_ys2: np.ndarray = None  # type: ignore
-
-    def _random_range(low: float, high: float, n: int) -> np.ndarray:
-        return low + (high - low) * np.random.rand(n)
-
-    def _implot_init():
-        global _implot_inited, _implot_xs
-        global _filled_xs, _filled_ys1, _filled_ys2, _filled_ys3
-        global _shaded_xs, _shaded_ys, _shaded_ys1, _shaded_ys2, _shaded_ys3, _shaded_ys4
-        global _stem_xs, _stem_ys1, _stem_ys2
-        np.random.seed(0)
-
-        _implot_xs = np.linspace(0, 1, 1001, dtype=np.float64)
-
-        # Filled line plots
-        _filled_xs = np.arange(101, dtype=np.float64)
-        _filled_ys1 = _random_range(400.0, 450.0, 101)
-        _filled_ys2 = _random_range(275.0, 350.0, 101)
-        _filled_ys3 = _random_range(150.0, 225.0, 101)
-
-        # Shaded plots (from original demo_shaded_plots)
-        _shaded_xs = np.linspace(0, 1, 1001, dtype=np.float64)
-        _shaded_ys = 0.25 + 0.25 * np.sin(25 * _shaded_xs) * np.sin(5 * _shaded_xs) + _random_range(-0.01, 0.01, 1001)
-        _shaded_ys1 = _shaded_ys + _random_range(0.1, 0.12, 1001)
-        _shaded_ys2 = _shaded_ys - _random_range(0.1, 0.12, 1001)
-        _shaded_ys3 = 0.75 + 0.2 * np.sin(25 * _shaded_xs)
-        _shaded_ys4 = 0.75 + 0.1 * np.cos(25 * _shaded_xs)
-
-        # Stem plots (from original demo_stem_plots)
-        _stem_xs = np.linspace(0, 1, 51, dtype=np.float64)
-        _stem_ys1 = 1.0 + 0.5 * np.sin(25 * _stem_xs) * np.cos(2 * _stem_xs)
-        _stem_ys2 = 0.5 + 0.25 * np.sin(10 * _stem_xs) * np.sin(_stem_xs)
-
-        _implot_inited = True
-
-    def _implot_subplot1_line_plots():
-        """Animated line plots with 3 curves and interactive legend."""
-        t = imgui.get_time() * 1.5
-        ys1 = 0.5 + 0.5 * np.sin(6.0 * (_implot_xs + t))
-        ys2 = 0.5 + 0.3 * np.cos(4.0 * (_implot_xs + t))
-        ys3 = 0.5 + 0.2 * np.sin(10.0 * _implot_xs + t) * np.cos(3.0 * _implot_xs + t)
-        if implot.begin_plot("Line Plots"):
-            implot.setup_axes("x", "y",
-                              implot.AxisFlags_.no_tick_labels,
-                              implot.AxisFlags_.no_tick_labels)
-            implot.setup_axes_limits(0, 1, -0.1, 1.1)
-            implot.plot_line("f(x)", _implot_xs, ys1)
-            implot.plot_line("g(x)", _implot_xs, ys2)
-            implot.plot_line("h(x)", _implot_xs, ys3)
-            implot.end_plot()
-
-    def _implot_subplot2_filled():
-        """Static filled line plots (stock prices)."""
-        if implot.begin_plot("Stock Prices"):
-            implot.setup_axes("Days", "Price")
-            implot.setup_axes_limits(0, 100, 0, 500)
-            spec = implot.Spec(fill_alpha=0.25)
-            implot.plot_shaded("Stock 1", _filled_xs, _filled_ys1, 0.0, spec)
-            implot.plot_line("Stock 1", _filled_xs, _filled_ys1)
-            implot.plot_shaded("Stock 2", _filled_xs, _filled_ys2, 0.0, spec)
-            implot.plot_line("Stock 2", _filled_xs, _filled_ys2)
-            implot.plot_shaded("Stock 3", _filled_xs, _filled_ys3, 0.0, spec)
-            implot.plot_line("Stock 3", _filled_xs, _filled_ys3)
-            implot.end_plot()
-
-    def _implot_subplot3_shaded():
-        """Shaded plots (from original demo)."""
-        spec = implot.Spec(fill_alpha=0.25)
-        if implot.begin_plot("Shaded Plots"):
-            implot.setup_legend(implot.Location_.north_west, implot.LegendFlags_.reverse)
-            implot.plot_shaded("Uncertain Data", _shaded_xs, _shaded_ys1, _shaded_ys2, spec)
-            implot.plot_line("Uncertain Data", _shaded_xs, _shaded_ys, spec)
-            implot.plot_shaded("Overlapping", _shaded_xs, _shaded_ys3, _shaded_ys4, spec)
-            implot.plot_line("Overlapping", _shaded_xs, _shaded_ys3, spec)
-            implot.plot_line("Overlapping", _shaded_xs, _shaded_ys4, spec)
-            implot.end_plot()
-
-    def _implot_subplot4_stems():
-        """Stem plots (from original demo)."""
-        if implot.begin_plot("Stem Plots"):
-            implot.setup_axis_limits(implot.ImAxis_.x1, 0, 1.0)
-            implot.setup_axis_limits(implot.ImAxis_.y1, 0, 1.6)
-            implot.plot_stems("Stems 1", _stem_xs, _stem_ys1)
-            implot.plot_stems("Stems 2", _stem_xs, _stem_ys2,
-                              spec=implot.Spec(marker=implot.Marker_.circle))
-            implot.end_plot()
-
-    def _implot_showcase_gui(plot_size: ImVec2):
-        global _implot_inited
-        if not _implot_inited:
-            _implot_init()
-        sub_flags = implot.SubplotFlags_.no_resize
-        if implot.begin_subplots("##ImPlotShowcase", 2, 2, plot_size, sub_flags):
-            _implot_subplot1_line_plots()
-            _implot_subplot2_filled()
-            _implot_subplot3_shaded()
-            _implot_subplot4_stems()
-            implot.end_subplots()
-
-    def _implot_slide_gui(content_size: ImVec2):
-        _implot_showcase_gui(content_size)
-
-
-# ============================================================================
-# Slide 3: Angled Headers Table — drum sequencer
-# ============================================================================
-
-_table_instruments = ["kick", "snare", "hihat", "open-hh", "tom", "clap", "rim", "crash"]
-_table_num_instr = 8
-_table_num_beats = 8
-_table_pattern: List[List[bool]] = []
-_table_inited = False
-_table_playhead = 0
-_table_bpm = 140.0
-_table_playing = True
-_table_accum = 0.0
-_table_hl_color = ImVec4(0.3, 0.5, 1.0, 0.25)
-
-
-def _table_init():
-    global _table_pattern, _table_inited
-    _table_pattern = [[False] * _table_num_instr for _ in range(_table_num_beats)]
-    _table_pattern[0][0] = _table_pattern[4][0] = True   # kick
-    _table_pattern[2][1] = _table_pattern[6][1] = True   # snare
-    for i in range(0, _table_num_beats, 2):
-        _table_pattern[i][2] = True                        # hihat
-    _table_pattern[1][3] = _table_pattern[5][3] = True    # open-hh
-    _table_pattern[3][4] = True                            # tom
-    _table_pattern[6][5] = True                            # clap
-    _table_pattern[4][6] = _table_pattern[7][6] = True    # rim
-    _table_pattern[0][7] = True                            # crash
-    _table_inited = True
-
-
-def _table_update():
-    global _table_playhead, _table_accum
-    if not _table_playing:
-        return
-    dt = min(imgui.get_io().delta_time, 0.1)  # clamp to prevent drift when tab is in background
-    _table_accum += dt
-    beat_interval = 60.0 / _table_bpm
-    if _table_accum >= beat_interval:
-        _table_accum = 0.0  # reset instead of subtract to prevent accumulated drift
-        _table_playhead = (_table_playhead + 1) % _table_num_beats
-
-
-def _table_gui_main(size: ImVec2):
-    global _table_inited
-    if not _table_inited:
-        _table_init()
-    _table_update()
-
-    total_cols = _table_num_instr + 1
-    flags = (imgui.TableFlags_.sizing_fixed_fit
-             | imgui.TableFlags_.scroll_x | imgui.TableFlags_.scroll_y
-             | imgui.TableFlags_.borders_outer | imgui.TableFlags_.borders_inner_h
-             | imgui.TableFlags_.highlight_hovered_column)
-
-    if imgui.begin_table("##drum_seq", total_cols, flags, size):
-        imgui.table_setup_column("Beat", imgui.TableColumnFlags_.no_hide)
-        for n in range(_table_num_instr):
-            imgui.table_setup_column(
-                _table_instruments[n],
-                imgui.TableColumnFlags_.angled_header | imgui.TableColumnFlags_.width_fixed)
-        imgui.table_setup_scroll_freeze(1, 2)
-
-        imgui.table_angled_headers_row()
-        imgui.table_headers_row()
-
-        hl_col = imgui.color_convert_float4_to_u32(_table_hl_color)
-
-        for row in range(_table_num_beats):
-            imgui.push_id(row)
-            imgui.table_next_row()
-
-            is_playhead = (row == _table_playhead) and _table_playing
-
-            imgui.table_set_column_index(0)
-            if is_playhead:
-                imgui.table_set_bg_color(imgui.TableBgTarget_.cell_bg, hl_col)
-            imgui.align_text_to_frame_padding()
-            imgui.text(str(row + 1))
-
-            for col in range(_table_num_instr):
-                if imgui.table_set_column_index(col + 1):
-                    if is_playhead:
-                        imgui.table_set_bg_color(imgui.TableBgTarget_.cell_bg, hl_col)
-                    imgui.push_id(col)
-                    _, _table_pattern[row][col] = imgui.checkbox("", _table_pattern[row][col])
-                    imgui.pop_id()
-            imgui.pop_id()
-        imgui.end_table()
-
-
-def _table_gui_side():
-    global _table_playing, _table_bpm, _table_hl_color
-    em = hello_imgui.em_size()
-
-    # Play/Pause
-    imgui.text("Play")
-    toggle_config = imgui_toggle.material_style()
-    toggle_config.size = ImVec2(em * 2.5, em * 1.2)
-    _, _table_playing = imgui_toggle.toggle("##play", _table_playing, toggle_config)
-
-    # BPM
-    imgui.spacing()
-    imgui.text("Tempo")
+def _accent_knob(label: str, value: float, v_min: float, v_max: float, fmt: str, size: float) -> tuple[bool, float]:
+    """A knob in the accent color of the style (the sequencer's tempo, Lorenz's parameters)"""
     accent = imgui.get_style_color_vec4(imgui.Col_.slider_grab)
     imgui.push_style_color(imgui.Col_.frame_bg, ImVec4(accent.x, accent.y, accent.z, 0.4))
     imgui.push_style_color(imgui.Col_.frame_bg_hovered, ImVec4(accent.x, accent.y, accent.z, 0.6))
     imgui.push_style_color(imgui.Col_.frame_bg_active, ImVec4(accent.x, accent.y, accent.z, 0.8))
-    _, _table_bpm = imgui_knobs.knob(
-        "##bpm", _table_bpm, 60.0, 300.0, 0.0, "%.0f",
-        imgui_knobs.ImGuiKnobVariant_.wiper_dot,
-        em * 3.5, imgui_knobs.ImGuiKnobFlags_.always_clamp)
+    changed, value = imgui_knobs.knob(label, value, v_min, v_max, 0.0, fmt, imgui_knobs.ImGuiKnobVariant_.wiper_dot,
+                                      size, imgui_knobs.ImGuiKnobFlags_.always_clamp)
     imgui.pop_style_color(3)
+    return changed, value
 
-    # Highlight color
-    imgui.spacing()
-    imgui.text("Highlight")
-    picker_flags = (imgui.ColorEditFlags_.no_side_preview
-                    | imgui.ColorEditFlags_.no_inputs
-                    | imgui.ColorEditFlags_.no_label
-                    | imgui.ColorEditFlags_.alpha_bar
-                    | imgui.ColorEditFlags_.picker_hue_wheel)
-    _, _table_hl_color = imgui.color_picker4("##hl_wheel", _table_hl_color, picker_flags)
 
-    imgui.new_line()
-    imgui.new_line()
-    _IntroAutomations.show_link("More info: complex app layout", _IntroAutomations.show_docking)
-
-
-def _table_slide_gui(content_size: ImVec2):
-    em = hello_imgui.em_size()
-    main_side = content_size.y
-    gap = em * 0.5
-    side_panel_w = content_size.x - main_side - gap
-
-    _table_gui_main(ImVec2(main_side, main_side))
-
-    if side_panel_w > em * 4.0:
-        imgui.same_line(0.0, gap)
-        draw_side_panel("##table_side", side_panel_w, main_side, _table_gui_side)
-
-
-# ============================================================================
-# Slide 4: ImmVision — Image debugging with animated zoom
-# ============================================================================
-
-if HAS_IMMVISION and HAS_OPENCV and HAS_NUMPY:
-    _immvision_image = None
-    _immvision_image_sobel = None
-    _immvision_params = immvision.ImageParams()
-    _immvision_params_sobel = immvision.ImageParams()
-    _immvision_inited = False
-    _immvision_animating = True
-    _immvision_start_time = 0.0
-
-    _immvision_blur_size = 1.25
-    _immvision_deriv_order = 1
-    _immvision_k_size = 7
-
-    _ZOOM_IN_DURATION = 1.5
-    _HOLD_DURATION = 1.5
-    _ZOOM_OUT_DURATION = 1.5
-    _PAUSE_DURATION = 1.5
-    _TOTAL_CYCLE = _ZOOM_IN_DURATION + _HOLD_DURATION + _ZOOM_OUT_DURATION + _PAUSE_DURATION
-    _MIN_ZOOM = 1.0
-    _MAX_ZOOM = 70.0
-
-    _immvision_zoom_center = None
-
-    def _immvision_compute_sobel():
-        assert _immvision_image is not None
-        gray = cv2.cvtColor(_immvision_image, cv2.COLOR_RGB2GRAY)
-        img_float = gray.astype(np.float32) / 255.0
-        blurred = cv2.GaussianBlur(img_float, (0, 0), _immvision_blur_size, _immvision_blur_size)
-        good_scale = 1.0 / (2.0 ** (_immvision_k_size - 2 * _immvision_deriv_order - 2))
-        r = cv2.Sobel(blurred, cv2.CV_64F, _immvision_deriv_order, 0, ksize=_immvision_k_size, scale=good_scale)
-        return r
-
-    def _immvision_init():
-        global _immvision_image, _immvision_image_sobel, _immvision_inited
-        global _immvision_zoom_center, _immvision_start_time
-
-        immvision.use_rgb_color_order()
-        _immvision_image = demo_utils.imread_demo(demo_utils.demos_assets_folder() + "/images/house.jpg")
-        _immvision_image_sobel = _immvision_compute_sobel()
-
-        disp_w = int(hello_imgui.em_size(20.0))
-        _immvision_params.image_display_size = (disp_w, 0)
-        _immvision_params.show_options_panel = False
-        _immvision_params.show_image_info = False
-        _immvision_params.show_pixel_info = True
-        _immvision_params.show_zoom_buttons = False
-        _immvision_params.zoom_key = "intro_immvision"
-
-        _immvision_params_sobel.image_display_size = (disp_w, 0)
-        _immvision_params_sobel.show_options_panel = False
-        _immvision_params_sobel.show_image_info = False
-        _immvision_params_sobel.show_pixel_info = True
-        _immvision_params_sobel.show_zoom_buttons = False
-        _immvision_params_sobel.zoom_key = "intro_immvision"
-
-        h, w = _immvision_image.shape[:2]
-        _immvision_zoom_center = (w * 0.35, h * 0.45)
-        _immvision_start_time = immapp.clock_seconds()
-        _immvision_inited = True
-
-    def _immvision_current_zoom_ratio() -> float:
-        elapsed = math.fmod(immapp.clock_seconds() - _immvision_start_time, _TOTAL_CYCLE)
-
-        if elapsed < _ZOOM_IN_DURATION:
-            t = elapsed / _ZOOM_IN_DURATION
-            eased = 1.0 - (1.0 - t) * (1.0 - t)
-            return _MIN_ZOOM + (_MAX_ZOOM - _MIN_ZOOM) * eased
-        elapsed -= _ZOOM_IN_DURATION
-        if elapsed < _HOLD_DURATION:
-            return _MAX_ZOOM
-        elapsed -= _HOLD_DURATION
-        if elapsed < _ZOOM_OUT_DURATION:
-            t = elapsed / _ZOOM_OUT_DURATION
-            eased = t * t
-            return _MAX_ZOOM - (_MAX_ZOOM - _MIN_ZOOM) * eased
-        return _MIN_ZOOM
-
-    def _immvision_check_user_interaction() -> bool:
-        hovering = (_immvision_params.mouse_info.is_mouse_hovering
-                    or _immvision_params_sobel.mouse_info.is_mouse_hovering)
-        if hovering and (imgui.is_mouse_dragging(0) or imgui.get_io().mouse_wheel != 0.0):
-            return True
-        return False
-
-    def _immvision_gui_main(size: ImVec2):
-        global _immvision_animating
-
-        if not _immvision_inited:
-            _immvision_init()
-        assert _immvision_image is not None
-        assert _immvision_image_sobel is not None
-
-        if _immvision_animating and _immvision_check_user_interaction():
-            _immvision_animating = False
-
-        if _immvision_animating:
-            assert _immvision_zoom_center is not None
-            zoom = _immvision_current_zoom_ratio()
-            _immvision_params.zoom_pan_matrix = immvision.make_zoom_pan_matrix(
-                _immvision_zoom_center, zoom, _immvision_params.image_display_size)
-            _immvision_params_sobel.zoom_pan_matrix = _immvision_params.zoom_pan_matrix
-
-        half_w = int(size.x * 0.5 - hello_imgui.em_size(1.5))
-        # Adapt height to available space while preserving aspect ratio
-        img_h, img_w = _immvision_image.shape[:2]
-        display_h = int(min(half_w * img_h / img_w, size.y))
-        _immvision_params.image_display_size = (half_w, display_h)
-        _immvision_params_sobel.image_display_size = (half_w, display_h)
-
-        immvision.image("Original##intro", _immvision_image, _immvision_params)
-        imgui.same_line()
-        immvision.image("Sobel##intro", _immvision_image_sobel, _immvision_params_sobel)
-
-    def _immvision_gui_side():
-        global _immvision_animating, _immvision_start_time
-        global _immvision_blur_size, _immvision_deriv_order
-        global _immvision_image_sobel
-
-        imgui.text_disabled("Drag to pan, scroll to zoom")
-        if not _immvision_animating:
-            if imgui.button("Restart animation"):
-                _immvision_animating = True
-                _immvision_start_time = immapp.clock_seconds()
-        imgui.separator()
-
-        changed = False
-        c, _immvision_blur_size = imgui.slider_float("Blur", _immvision_blur_size, 0.5, 10.0)
-        if c:
-            changed = True
-
-        imgui.text("Deriv order:")
-        for order in range(1, 5):
-            imgui.same_line()
-            if imgui.radio_button(str(order), _immvision_deriv_order == order):
-                _immvision_deriv_order = order
-                changed = True
-
-        if changed:
-            _immvision_image_sobel = _immvision_compute_sobel()
-            _immvision_params_sobel.refresh_image = True
-
-    def _immvision_slide_gui(content_size: ImVec2):
-        em = hello_imgui.em_size()
-        main_w = content_size.x
-        main_h = content_size.y * 0.7
-        gap = em * 0.5
-        side_panel_h = content_size.y - main_h - gap
-
-        _immvision_gui_main(ImVec2(main_w, main_h))
-
-        if side_panel_h > em * 3.0:
-            imgui.spacing()
-            draw_side_panel("##immvision_side", main_w, side_panel_h, _immvision_gui_side)
-
-
-# ============================================================================
-# Slide 5: Notebook — static screenshot
-# ============================================================================
-
-def _notebook_slide_gui(content_size: ImVec2):
-    img_aspect = 1680.0 / 1050.0
-    w = content_size.x
-    h = w / img_aspect
-    if h > content_size.y:
-        h = content_size.y
-        w = h * img_aspect
-    hello_imgui.image_from_asset("images/imgui_notebook.jpg", ImVec2(w, h))
-
-
-# ============================================================================
-# Slide 6: Node Editor — static screenshot
-# ============================================================================
-
-def _node_editor_slide_gui(content_size: ImVec2):
-    img_aspect = 800.0 / 516.0
-    link_h = imgui.get_frame_height()
-    w = content_size.x
-    h = w / img_aspect
-    if h > content_size.y - link_h:
-        h = content_size.y - link_h
-        w = h * img_aspect
-    hello_imgui.image_from_asset("images/node_editor_fiat.jpg", ImVec2(w, h))
-
-    imgui_md.render_unindented("Built with [fiatlight](https://pthom.github.io/fiatlight/)")
-
-
-# ============================================================================
-# Slide 7: Markdown — side-by-side source and rendered
-# ============================================================================
-
-_MARKDOWN_SAMPLE = r"""
-## Dear ImGui Bundle — live markdown
-
-> *Edit the panel on the left and watch the right update in real time.*
-
-### What you can write
-
-- **Bold**, *italic*, ~~strike~~, <u>underline</u>, <mark>highlight</mark>, `code`
-- Keyboard shortcuts: <kbd>Ctrl</kbd>+<kbd>S</kbd>, <kbd>Cmd</kbd>+<kbd>K</kbd>
-- Chemistry & exponents: H<sub>2</sub>O, x<sup>2</sup>+y<sup>2</sup>=r<sup>2</sup>
-- [Clickable links](https://github.com/pthom/imgui_bundle) and bare URLs: https://dearimgui.org
-
-### A little code
-
-```python
-from imgui_bundle import imgui, immapp
-immapp.run(lambda: imgui.text("Hello, World!"))
-```
-
-### A little math
-
-Euler's identity $e^{i\pi} + 1 = 0$ generalizes to:
-$$
-e^{i\theta} = \cos\theta + i\sin\theta
-$$
-
-## Tables with *resizable* columns and *alignment*
-
-|Id| Library    | What it does        |
-|-:|:----------:|---------------------|
-|1| ImGui      | Core widgets        |
-|2| ImPlot     | 2D plots            |
-|3| ImPlot3D   | 3D plots            |
-|4| ImmVision  | Image analysis      |
-|5| imgui_md   | This renderer       |
-
-> [!TIP]
-> Click the triangle below to unfold. Try adding your own collapsible section.
-
-<details>
-<summary>Images, including from the web</summary>
-
-<img src="https://picsum.photos/id/1019/200/130" height="100" />
-
-</details>
-
-"""
-
-# Markdown editor with syntax highlighting
-_markdown_text_editor: ed.TextEditor = None  # type: ignore
-_markdown_editor_initialized = False
-
-
-def _init_markdown_editor():
-    global _markdown_text_editor, _markdown_editor_initialized
-    _markdown_text_editor = ed.TextEditor()
-    _markdown_text_editor.set_text(_MARKDOWN_SAMPLE)
-    _markdown_text_editor.set_palette(ed.TextEditor.get_dark_palette())
-    _markdown_editor_initialized = True
-
-
-def _markdown_slide_gui(content_size: ImVec2):
-    global _markdown_editor_initialized
-    if not _markdown_editor_initialized:
-        _init_markdown_editor()
-
-    em = hello_imgui.em_size()
-    gap = em * 0.5
-    half_w = (content_size.x - gap) * 0.5
-    h = content_size.y
-
-    # Left panel: editable source with syntax highlighting
+def _accent_button(label: str, size: ImVec2) -> bool:
+    """A button in the accent color of the style"""
     accent = imgui.get_style_color_vec4(imgui.Col_.button_hovered)
-    bg = imgui.color_convert_float4_to_u32(ImVec4(accent.x, accent.y, accent.z, 0.08))
-    border = imgui.color_convert_float4_to_u32(ImVec4(accent.x, accent.y, accent.z, 0.3))
-    rounding = em * 0.4
-
-    panel_pos = imgui.get_cursor_screen_pos()
-    dl = imgui.get_window_draw_list()
-    dl.add_rect_filled(panel_pos, ImVec2(panel_pos.x + half_w, panel_pos.y + h), bg, rounding)
-    dl.add_rect(panel_pos, ImVec2(panel_pos.x + half_w, panel_pos.y + h), border, rounding, 1.5, 0)
-
-    imgui.begin_child("##md_source", ImVec2(half_w, h), False,
-                      imgui.WindowFlags_.no_background)
-
-    # Use code font for better readability
-    code_font = imgui_md.get_code_font()
-    imgui.push_font(code_font.font, code_font.size * 0.9)
-
-    # Render the text editor
-    _markdown_text_editor.render("##md_editor", ImVec2(half_w, h))
-
-    imgui.pop_font()
-    imgui.end_child()
-
-    imgui.same_line(0, gap)
-
-    # Right panel: rendered markdown
-    imgui.begin_child("##md_rendered", ImVec2(half_w, h), False, imgui.WindowFlags_.no_scrollbar)
-    # Get the current text from the editor
-    current_markdown = _markdown_text_editor.get_text()
-    imgui_md.render_unindented(current_markdown)
-    imgui.end_child()
+    imgui.push_style_color(imgui.Col_.button, ImVec4(accent.x, accent.y, accent.z, 0.55))
+    imgui.push_style_color(imgui.Col_.button_hovered, ImVec4(accent.x, accent.y, accent.z, 0.8))
+    imgui.push_style_color(imgui.Col_.button_active, ImVec4(accent.x, accent.y, accent.z, 1.0))
+    clicked = imgui.button(label, size)
+    imgui.pop_style_color(3)
+    return clicked
 
 
-# ============================================================================
-# Slide 8: Source Code Viewer — Self-documenting demo
-# ============================================================================
-
-def _source_code_slide_gui(content_size: ImVec2):
-    imgui.begin_child("##source_code", content_size, False)
-    code_font = imgui_md.get_code_font()
-    nb_lines = max(5, int(content_size.y / code_font.size) - 3)
-    demo_utils.show_python_vs_cpp_file("demo_imgui_bundle_intro", nb_lines)
-    imgui.end_child()
+MANUAL_PICTURE_ASPECT = 640 / 401  # the width / the height of the manuals' pictures (their cards' in the catalog)
 
 
-# ============================================================================
-# Slide 9: Mini Gallery — "Code that reads like a book"
-# ============================================================================
-
-# Each snippet: (title, code_str, gui_func)
-# The gui_func renders the live demo for that snippet.
-
-_GALLERY_SNIPPETS = [
-    ("Animated Plot",
-     # Python
-     """\
-t = imgui.get_time()
-x = np.linspace(0, 4 * np.pi, 200)
-if implot.begin_plot("##wave", ImVec2(-1, -1)):
-    implot.plot_line("sin", x, np.sin(x + t))
-    implot.plot_line("cos", x, np.cos(x + t * 0.7))
-    implot.end_plot()""",
-     # C++
-     """\
-float t = ImGui::GetTime();
-std::vector<float> x(200), s(200), c(200);
-for (int i = 0; i < 200; i++) {
-    x[i] = i * 4.f * IM_PI / 199.f;
-    s[i] = sinf(x[i] + t);
-    c[i] = cosf(x[i] + t * 0.7f);
-}
-if (ImPlot::BeginPlot("##wave", ImVec2(-1, -1))) {
-    ImPlot::PlotLine("sin", x.data(), s.data(), 200);
-    ImPlot::PlotLine("cos", x.data(), c.data(), 200);
-    ImPlot::EndPlot();
-}"""),
-    ("Knob",
-     # Python
-     """\
-_, value = imgui_knobs.knob(
-    "Volume", value, 0, 100, 1,
-    "%.0f%%", imgui_knobs.ImGuiKnobVariant_.wiper_dot)
-imgui.same_line()
-imgui.v_slider_float("##vslider",
-    ImVec2(em * 1.5, em * 5), value, 0, 100, "%.0f")""",
-     # C++
-     """\
-ImGuiKnobs::Knob(
-    "Volume", &value, 0, 100, 1,
-    "%.0f%%", ImGuiKnobVariant_WiperDot);
-ImGui::SameLine();
-ImGui::VSliderFloat("##vslider",
-    ImVec2(em * 1.5f, em * 5.f), &value, 0, 100, "%.0f");"""),
-    ("Color Picker",
-     # Python
-     """\
-# c is an ImVec4
-imgui.text(f"({c[0]:.2f}, {c[1]:.2f}, {c[2]:.2f})")
-_, c = imgui.color_picker4("##color", c)
-""",
-     # C++
-     """\
-// c is an ImVec4
-ImGui::Text("(%.2f, %.2f, %.2f)", c.x, c.y, c.z);
-ImGui::ColorPicker4("##color", &c.x);
-"""),
-    ("Mini Form",
-     # Python
-     """\
-_, name = imgui.input_text("Name", name)
-if imgui.button("Greet") and name:
-    greeting = f"Hello, {name}!"
-imgui.text_colored(ImVec4(0.4, 1, 0.4, 1), greeting)
-_, agreed = imgui.checkbox("I agree", agreed)
-_, choice = imgui.combo("Fruit", choice,
-                        ["Apple", "Banana", "Cherry"])""",
-     # C++
-     """\
-ImGui::InputText("Name", name, sizeof(name));
-if (ImGui::Button("Greet") && name[0])
-    snprintf(greeting, sizeof(greeting), "Hello, %s!", name);
-ImGui::TextColored(ImVec4(0.4f,1,0.4f,1), "%s", greeting);
-ImGui::Checkbox("I agree", &agreed);
-ImGui::Combo("Fruit", &choice, "Apple\\0Banana\\0Cherry\\0");"""),
-]
-
-# _gallery_editors[lang_idx][snippet_idx], lang_idx: 0=Python, 1=C++
-_gallery_editors: list[list[Any]] = [[], []]
-_gallery_initialized = False
-_gallery_lang = 0  # 0 = Python, 1 = C++
+def _manual_picture(demo: str, width: float) -> None:
+    """The picture of a manual (its card's, from the site), which opens it when the page can open a demo"""
+    url = f"{SITE}/resources/playground/{demo.replace('.py', '.jpg')}"
+    top_left = imgui.get_cursor_screen_pos()
+    rich_md.render(f'<img src="{url}" width="{int(width)}">')
+    bottom_right = ImVec2(top_left.x + width, imgui.get_cursor_screen_pos().y)
+    # The rectangle alone is not enough: is_window_hovered() is False when a window above (the prose's) covers it
+    if _host.open_demo is None or not imgui.is_mouse_hovering_rect(top_left, bottom_right) \
+            or not imgui.is_window_hovered():
+        return
+    imgui.set_mouse_cursor(imgui.MouseCursor_.hand)
+    imgui.get_window_draw_list().add_rect(top_left, bottom_right, imgui.get_color_u32(imgui.Col_.button_hovered),
+                                          hello_imgui.em_size(0.3), 2.0)
+    if imgui.is_mouse_clicked(imgui.MouseButton_.left):
+        _host.open_demo(demo)
 
 
-def _init_gallery():
-    global _gallery_initialized
-    for lang_idx, lang_def in enumerate([
-        ed.TextEditor.Language.python(),
-        ed.TextEditor.Language.cpp(),
-    ]):
-        for _, py_code, cpp_code in _GALLERY_SNIPPETS:
-            code = py_code if lang_idx == 0 else cpp_code
-            editor = ed.TextEditor()
-            editor.set_text(code)
-            editor.set_language(lang_def)
-            editor.set_palette(ed.TextEditor.get_dark_palette())
-            # editor.set_read_only(True)
-            _gallery_editors[lang_idx].append(editor)
-    _gallery_initialized = True
-
-
-def _gallery_slide_gui(content_size: ImVec2):
-    global _gallery_initialized, _gallery_lang
-    s = _gallery_slide_gui  # static-like state on the function object
-    if not _gallery_initialized:
-        _init_gallery()
-
-    if not hasattr(s, "_knob_val"):
-        s._knob_val = 42.0
-        s._color = [0.4, 0.6, 1.0, 1.0]
-        s._name = "World"
-        s._greeting = "Hello, World!"
-        s._agreed = True
-        s._choice = 0
-
+def _manual_teaser(text: str, demo: str) -> None:
+    """A line of text, then the manual's picture below it, as large as the space left allows (none if too small)"""
     em = hello_imgui.em_size()
-
-    # Language radio buttons
-    _, _gallery_lang = imgui.radio_button("Python", _gallery_lang, 0)
-    imgui.same_line()
-    _, _gallery_lang = imgui.radio_button("C++", _gallery_lang, 1)
-
-    cols = 2
-    rows = 2
-    gap = em * 0.4
-    cell_w = (content_size.x - gap * (cols - 1)) / cols
-    cursor_offset_y = imgui.get_cursor_screen_pos().y - imgui.get_window_pos().y
-    remaining_h = content_size.y - cursor_offset_y
-    cell_h = (remaining_h - gap * (rows - 1)) / rows
-
-    snippets_gui = [
-        lambda: _gallery_gui_plot(cell_w, cell_h, em),
-        lambda: _gallery_gui_knob(cell_w, cell_h, em, s),
-        lambda: _gallery_gui_color(cell_w, cell_h, em, s),
-        lambda: _gallery_gui_form(cell_w, cell_h, em, s),
-    ]
-
-    origin = imgui.get_cursor_screen_pos()
-    for idx in range(4):
-        row, col = divmod(idx, cols)
-        x = origin.x + col * (cell_w + gap)
-        y = origin.y + row * (cell_h + gap)
-        imgui.set_cursor_screen_pos(ImVec2(x, y))
-        _gallery_render_cell(idx, cell_w, cell_h, em, snippets_gui[idx])
+    imgui.push_text_wrap_pos(imgui.get_cursor_pos_x() + imgui.get_content_region_avail().x)
+    imgui.text_wrapped(text)
+    imgui.pop_text_wrap_pos()
+    avail = imgui.get_content_region_avail()
+    width = min(avail.x - em * 0.5, (avail.y - em * 0.5) * MANUAL_PICTURE_ASPECT)
+    if width < em * 6:
+        return
+    imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + (avail.x - width) / 2)
+    _manual_picture(demo, width)
 
 
-def _gallery_render_cell(idx: int, w: float, h: float, em: float, gui_func):
-    if not hasattr(_gallery_render_cell, "_copy_times"):
-        _gallery_render_cell._copy_times = {}
-    title = _GALLERY_SNIPPETS[idx][0]
-    editor = _gallery_editors[_gallery_lang][idx]
+def is_light_theme() -> bool:
+    """True when the window background is light (a light theme)"""
+    bg = imgui.get_style_color_vec4(imgui.Col_.window_bg)
+    return 0.299 * bg.x + 0.587 * bg.y + 0.114 * bg.z > 0.5
 
-    # Background
+
+def code_palette_follows_theme(editor: ed.TextEditor) -> None:
+    """A code editor's palette follows the theme, as rich_md's code blocks: light on a light background"""
+    editor.set_palette(ed.TextEditor.get_light_palette() if is_light_theme() else ed.TextEditor.get_dark_palette())
+
+
+def panel_bg(top_left: ImVec2, size: ImVec2, alpha_bg: float = 0.08, alpha_border: float = 0.3) -> None:
+    """A rounded rectangle in the accent color, behind a part of a slide"""
+    em = hello_imgui.em_size()
     dl = imgui.get_window_draw_list()
-    p = imgui.get_cursor_screen_pos()
     accent = imgui.get_style_color_vec4(imgui.Col_.button_hovered)
-    bg = imgui.color_convert_float4_to_u32(ImVec4(accent.x, accent.y, accent.z, 0.06))
-    border = imgui.color_convert_float4_to_u32(ImVec4(accent.x, accent.y, accent.z, 0.25))
-    rounding = em * 0.4
-    dl.add_rect_filled(p, ImVec2(p.x + w, p.y + h), bg, rounding)
-    dl.add_rect(p, ImVec2(p.x + w, p.y + h), border, rounding, 1.0, 0)
-
-    imgui.begin_child(f"##gallery_{idx}", ImVec2(w, h), False,
-                      imgui.WindowFlags_.no_scrollbar | imgui.WindowFlags_.no_background)
-    pad = em * 0.4
-
-    default_code_w = (w - pad * 2) * 0.5
-    avail_h = h - imgui.get_cursor_pos_y() - pad
-
-    # Code (left) — resizable child containing title + copy + editor
-    imgui.begin_child(f"##code_{idx}", ImVec2(default_code_w, avail_h),
-                      imgui.ChildFlags_.resize_x | imgui.ChildFlags_.borders)
-
-    # Title + Copy button
-    imgui.text_disabled(title)
-    imgui.same_line(imgui.get_content_region_avail().x - imgui.get_frame_height())
-    if imgui.small_button(icons_fontawesome_4.ICON_FA_COPY + f"##copy_{idx}"):
-        code = _GALLERY_SNIPPETS[idx][1] if _gallery_lang == 0 else _GALLERY_SNIPPETS[idx][2]
-        imgui.set_clipboard_text(code)
-        _gallery_render_cell._copy_times[idx] = imgui.get_time()
-    copied_recently = (imgui.get_time() - _gallery_render_cell._copy_times.get(idx, -1.0)) < 0.7
-    if copied_recently:
-        imgui.set_item_tooltip("Copied!")
-    else:
-        imgui.set_item_tooltip("Copy")
-
-    # Editor
-    code_font = imgui_md.get_code_font()
-    imgui.push_font(code_font.font, code_font.size * 0.8)
-    editor.render(f"##ed_gallery_{idx}", ImVec2(-1, -1))
-    imgui.pop_font()
-
-    imgui.end_child()
-
-    imgui.same_line()
-
-    # Live demo (right) — fills remaining space
-    imgui.begin_child(f"##live_{idx}", ImVec2(0, avail_h), False,
-                      imgui.WindowFlags_.no_scrollbar)
-    gui_func()
-    imgui.end_child()
-
-    imgui.end_child()
+    bg = imgui.color_convert_float4_to_u32(ImVec4(accent.x, accent.y, accent.z, alpha_bg))
+    border = imgui.color_convert_float4_to_u32(ImVec4(accent.x, accent.y, accent.z, alpha_border))
+    bottom_right = ImVec2(top_left.x + size.x, top_left.y + size.y)
+    dl.add_rect_filled(top_left, bottom_right, bg, em * 0.4)
+    dl.add_rect(top_left, bottom_right, border, em * 0.4, 1.5, 0)
 
 
-def _gallery_gui_plot(w: float, h: float, em: float):
-    if not HAS_IMPLOT:
-        imgui.text("ImPlot not available")
-        return
-    if not HAS_NUMPY:
-        _suggest_install("NumPy", "numpy", "gallery_")
-        return
-    t = imgui.get_time()
-    x = np.linspace(0, 4 * np.pi, 200)
-    if implot.begin_plot("##wave", ImVec2(-1, -1)):
-        implot.plot_line("sin", x, np.sin(x + t))
-        implot.plot_line("cos", x, np.cos(x + t * 0.7))
+# ============================================================================
+# Slide: ImPlot, 4 plot types in subplots
+# ============================================================================
+
+_implot_inited = False
+_implot_xs: np.ndarray = None  # type: ignore
+
+# Filled line plots (static)
+_filled_xs: np.ndarray = None  # type: ignore
+_filled_ys1: np.ndarray = None  # type: ignore
+_filled_ys2: np.ndarray = None  # type: ignore
+_filled_ys3: np.ndarray = None  # type: ignore
+
+# Shaded plots (static, like original demo)
+_shaded_xs: np.ndarray = None  # type: ignore
+_shaded_ys: np.ndarray = None  # type: ignore
+_shaded_ys1: np.ndarray = None  # type: ignore
+_shaded_ys2: np.ndarray = None  # type: ignore
+_shaded_ys3: np.ndarray = None  # type: ignore
+_shaded_ys4: np.ndarray = None  # type: ignore
+
+
+def _random_range(low: float, high: float, n: int) -> np.ndarray:
+    return low + (high - low) * np.random.rand(n)
+
+
+def _implot_init():
+    global _implot_inited, _implot_xs
+    global _filled_xs, _filled_ys1, _filled_ys2, _filled_ys3
+    global _shaded_xs, _shaded_ys, _shaded_ys1, _shaded_ys2, _shaded_ys3, _shaded_ys4
+    np.random.seed(0)
+
+    _implot_xs = np.linspace(0, 1, 1001, dtype=np.float64)
+
+    # Filled line plots
+    _filled_xs = np.arange(101, dtype=np.float64)
+    _filled_ys1 = _random_range(400.0, 450.0, 101)
+    _filled_ys2 = _random_range(275.0, 350.0, 101)
+    _filled_ys3 = _random_range(150.0, 225.0, 101)
+
+    # Shaded plots (from original demo_shaded_plots)
+    _shaded_xs = np.linspace(0, 1, 1001, dtype=np.float64)
+    _shaded_ys = 0.25 + 0.25 * np.sin(25 * _shaded_xs) * np.sin(5 * _shaded_xs) + _random_range(-0.01, 0.01, 1001)
+    _shaded_ys1 = _shaded_ys + _random_range(0.1, 0.12, 1001)
+    _shaded_ys2 = _shaded_ys - _random_range(0.1, 0.12, 1001)
+    _shaded_ys3 = 0.75 + 0.2 * np.sin(25 * _shaded_xs)
+    _shaded_ys4 = 0.75 + 0.1 * np.cos(25 * _shaded_xs)
+
+    _implot_inited = True
+
+
+def _implot_subplot1_line_plots():
+    """Animated line plots with 3 curves and interactive legend."""
+    t = imgui.get_time() * 1.5
+    ys1 = 0.5 + 0.5 * np.sin(6.0 * (_implot_xs + t))
+    ys2 = 0.5 + 0.3 * np.cos(4.0 * (_implot_xs + t))
+    ys3 = 0.5 + 0.2 * np.sin(10.0 * _implot_xs + t) * np.cos(3.0 * _implot_xs + t)
+    if implot.begin_plot("Line Plots", flags=_implot_flags()):
+        implot.setup_axes("x", "y",
+                          implot.AxisFlags_.no_tick_labels,
+                          implot.AxisFlags_.no_tick_labels)
+        implot.setup_axes_limits(0, 1, -0.1, 1.1)
+        implot.plot_line("f(x)", _implot_xs, ys1)
+        implot.plot_line("g(x)", _implot_xs, ys2)
+        implot.plot_line("h(x)", _implot_xs, ys3)
+        implot.end_plot()
+        hello_imgui.set_item_is_live()  # the curves move on their own
+
+
+def _implot_subplot2_filled():
+    """Static filled line plots (stock prices)."""
+    if implot.begin_plot("Stock Prices", flags=_implot_flags()):
+        implot.setup_axes("Days", "Price")
+        implot.setup_axes_limits(0, 100, 0, 500)
+        if is_small_screen():  # fewer ticks: in a narrow plot the default labels run together
+            implot.setup_axis_ticks(implot.ImAxis_.x1, 0, 100, 3)
+        spec = implot.Spec(fill_alpha=0.25)
+        implot.plot_shaded("Stock 1", _filled_xs, _filled_ys1, 0.0, spec)
+        implot.plot_line("Stock 1", _filled_xs, _filled_ys1)
+        implot.plot_shaded("Stock 2", _filled_xs, _filled_ys2, 0.0, spec)
+        implot.plot_line("Stock 2", _filled_xs, _filled_ys2)
+        implot.plot_shaded("Stock 3", _filled_xs, _filled_ys3, 0.0, spec)
+        implot.plot_line("Stock 3", _filled_xs, _filled_ys3)
         implot.end_plot()
 
 
-def _gallery_gui_knob(w: float, h: float, em: float, s):
-    _, s._knob_val = imgui_knobs.knob(
-        "Volume", s._knob_val, 0, 100, 1,
-        "%.0f%%", imgui_knobs.ImGuiKnobVariant_.wiper_dot)
-    imgui.same_line()
-    _, s._knob_val = imgui.v_slider_float(
-        "##vslider", ImVec2(em * 1.5, em * 5), s._knob_val, 0, 100, "%.0f")
+def _implot_subplot3_shaded():
+    """Shaded plots (from original demo)."""
+    spec = implot.Spec(fill_alpha=0.25)
+    if implot.begin_plot("Shaded Plots", flags=_implot_flags()):
+        implot.setup_legend(implot.Location_.north_west, implot.LegendFlags_.reverse)
+        implot.plot_shaded("Uncertain Data", _shaded_xs, _shaded_ys1, _shaded_ys2, spec)
+        implot.plot_line("Uncertain Data", _shaded_xs, _shaded_ys, spec)
+        implot.plot_shaded("Overlapping", _shaded_xs, _shaded_ys3, _shaded_ys4, spec)
+        implot.plot_line("Overlapping", _shaded_xs, _shaded_ys3, spec)
+        implot.plot_line("Overlapping", _shaded_xs, _shaded_ys4, spec)
+        implot.end_plot()
 
 
-def _gallery_gui_color(w: float, h: float, em: float, s):
-    imgui.text(f"({s._color[0]:.2f}, {s._color[1]:.2f}, {s._color[2]:.2f})")
-    _, s._color = imgui.color_picker4("##color", s._color)
+def _implot_flags() -> int:
+    """No legends on a phone: they would cover the small plots"""
+    return implot.Flags_.no_legend if is_small_screen() else 0
 
 
-def _gallery_gui_form(w: float, h: float, em: float, s):
-    imgui.set_next_item_width(-1)
-    _, s._name = imgui.input_text("Name", s._name)
-    if imgui.button("Greet") and s._name:
-        s._greeting = f"Hello, {s._name}!"
-    imgui.text_colored(ImVec4(0.4, 1.0, 0.4, 1.0), s._greeting)
-    _, s._agreed = imgui.checkbox("I agree", s._agreed)
-    imgui.set_next_item_width(-1)
-    _, s._choice = imgui.combo("Fruit", s._choice, ["Apple", "Banana", "Cherry"])
+def _implot_slide_gui(content_size: ImVec2):
+    """Three plots, and in the place of the fourth the picture of the ImPlot manual"""
+    if not _implot_inited:
+        _implot_init()
+    sub_flags = implot.SubplotFlags_.no_resize
+    if not implot.begin_subplots("##ImPlotShowcase", 2, 2, content_size, sub_flags):
+        return
+    _implot_subplot1_line_plots()
+    _implot_subplot2_filled()
+    _implot_subplot3_shaded()
+    implot.end_subplots()
+    after = imgui.get_cursor_screen_pos()
+    top_left, bottom_right = imgui.get_item_rect_min(), imgui.get_item_rect_max()
+    em = hello_imgui.em_size()
+    cell_min = ImVec2((top_left.x + bottom_right.x) / 2 + em, (top_left.y + bottom_right.y) / 2 + em * 0.5)
+    imgui.set_cursor_screen_pos(cell_min)
+    imgui.begin_child("##implot_manual", bottom_right - cell_min - ImVec2(em * 0.5, em * 0.5), False,
+                      imgui.WindowFlags_.no_scrollbar | imgui.WindowFlags_.no_background)
+    _manual_teaser("Every plot type, with its code: the ImPlot manual", "manual_implot.py")
+    imgui.end_child()
+    imgui.set_cursor_screen_pos(after)
+    imgui.dummy(ImVec2(0, 0))  # ImGui wants an item where the cursor was moved
 
 
 # ============================================================================
-# Slide 10: Web Deployment — static screenshot
+# Slide: the seascape shader, rendered to a texture (OpenGL on the desktop, WebGL2 in Pyodide)
 # ============================================================================
 
-def _web_deploy_slide_gui(content_size: ImVec2):
-    img_aspect = 1024.0 / 768.0
-    w = content_size.x
-    h = w / img_aspect
-    if h > content_size.y:
-        h = content_size.y
-        w = h * img_aspect
-    hello_imgui.image_from_asset("images/bundle_playground.jpg", ImVec2(w, h))
-    if imgui.is_item_hovered():
-        imgui.set_mouse_cursor(imgui.MouseCursor_.hand)
-    if imgui.is_item_clicked():
-        webbrowser.open("https://imgui-bundle.pages.dev/playground/")
+if HAS_GL:
+    if IS_PYODIDE:
+        from js import document, Float32Array  # type: ignore
+        from imgui_bundle import webgl
 
+        class _GLCompat:
+            """A PyOpenGL-shaped adapter over the WebGL2 context that hello_imgui renders into, for the subset of calls
+            the slide makes (as demos_python/playground/examples/webgl_background_shader.py). Renames are forwarded
+            (glCreateShader -> createShader, GL_FLOAT -> gl.FLOAT); the calls whose shape differs are written out."""
 
-# ============================================================================
-# Slide 10: Seascape shader — FBO + OpenGL
-# ============================================================================
+            def __init__(self):
+                self._gl = document.getElementById("canvas").getContext("webgl2")
+                if self._gl is None:
+                    raise RuntimeError("Could not acquire WebGL2 context on #canvas")
 
-if HAS_OPENGL and HAS_NUMPY:
-    import sys as _sys
+            _CONSTANT_FALLBACKS = {"FALSE": 0, "TRUE": 1}
 
-    # Shader body shared between GLSL 100 (Emscripten/WebGL) and GLSL 330 (desktop).
-    # Uses compatibility macros defined in the version-specific headers below.
-    _SEASCAPE_BODY = """
+            def __getattr__(self, name):
+                if name.startswith("GL_"):
+                    suffix = name[3:]
+                    if hasattr(self._gl, suffix):
+                        return getattr(self._gl, suffix)
+                    if suffix in self._CONSTANT_FALLBACKS:
+                        return self._CONSTANT_FALLBACKS[suffix]
+                    raise AttributeError(name)
+                if name.startswith("gl") and len(name) > 2 and name[2].isupper():
+                    return getattr(self._gl, name[2].lower() + name[3:])
+                raise AttributeError(name)
+
+            # WebGL creates and deletes one object at a time
+            def glGenVertexArrays(self, n):
+                return self._gl.createVertexArray()
+
+            def glDeleteVertexArrays(self, n, vaos):
+                for vao in vaos:
+                    self._gl.deleteVertexArray(vao)
+
+            def glGenBuffers(self, n):
+                return self._gl.createBuffer()
+
+            def glGenFramebuffers(self, n):
+                return self._gl.createFramebuffer()
+
+            def glDeleteFramebuffers(self, n, fbos):
+                for fbo in fbos:
+                    self._gl.deleteFramebuffer(fbo)
+
+            def glGenTextures(self, n):
+                return self._gl.createTexture()
+
+            def glDeleteTextures(self, n, textures):
+                for tex in textures:
+                    self._gl.deleteTexture(tex)
+
+            # PyOpenGL unbinds with 0, WebGL with null
+            def glBindBuffer(self, target, buffer):
+                self._gl.bindBuffer(target, buffer or None)
+
+            def glBindVertexArray(self, vao):
+                self._gl.bindVertexArray(vao or None)
+
+            def glUseProgram(self, program):
+                self._gl.useProgram(program or None)
+
+            def glBindFramebuffer(self, target, fbo):
+                self._gl.bindFramebuffer(target, fbo or None)
+
+            def glBindTexture(self, target, texture):
+                self._gl.bindTexture(target, texture or None)
+
+            def glGetShaderiv(self, shader, pname):
+                return self._gl.getShaderParameter(shader, pname)
+
+            def glBufferData(self, target, data, usage):
+                self._gl.bufferData(target, Float32Array.new(data.tolist()), usage)
+
+            def glVertexAttribPointer(self, index, size, type_, normalized, stride, offset):
+                self._gl.vertexAttribPointer(index, size, type_, bool(normalized), stride, offset)
+
+        GL = _GLCompat()
+        _GLSL_HEADER = "#version 300 es\nprecision highp float;\n"
+    else:
+        _GLSL_HEADER = "#version 330 core\n"
+
+    _VERT_SRC = _GLSL_HEADER + """
+layout(location = 0) in vec2 aPos;
+layout(location = 1) in vec2 aTexCoord;
+out vec2 TexCoord;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); TexCoord = aTexCoord; }
+"""
+
+    # Seascape by Alexander Alekseev aka TDM - 2014, https://www.shadertoy.com/view/Ms2SD1
+    # License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported
+    _FRAG_SRC = _GLSL_HEADER + """
+in vec2 TexCoord;
+out vec4 FragColor;
 uniform vec2 iResolution;
 uniform float iTime;
 uniform float SEA_HEIGHT;
@@ -1207,51 +590,22 @@ float heightMapTracing(vec3 ori,vec3 dir,out vec3 p){float tm=0.0;float tx=1000.
 vec3 getPixel(vec2 coord,float time){vec2 uv=coord/iResolution.xy;uv=uv*2.0-1.0;uv.x*=iResolution.x/iResolution.y;vec3 ang=vec3(sin(time*3.0)*0.1,sin(time)*0.2+0.3,time);vec3 ori=vec3(0.0,3.5,time*5.0);vec3 dir=normalize(vec3(uv.xy,-2.0));dir.z+=length(uv)*0.14;dir=normalize(dir)*fromEuler(ang);vec3 p;heightMapTracing(ori,dir,p);vec3 dist=p-ori;vec3 n=getNormal(p,dot(dist,dist)*EPSILON_NRM);vec3 light=normalize(vec3(0.0,1.0,0.8));return mix(getSkyColor(dir),getSeaColor(p,n,light,dir,dist),pow(smoothstep(0.0,-0.02,dir.y),0.2));}
 
 void main(){
-    vec2 fragCoord=FRAG_TEXCOORD*iResolution;
+    vec2 fragCoord=TexCoord*iResolution;
     float time=iTime*0.3;
     vec3 color=getPixel(fragCoord,time);
-    FRAG_OUT=vec4(pow(color,vec3(0.65)),1.0);
+    FragColor=vec4(pow(color,vec3(0.65)),1.0);
 }
 """
 
-    _IS_EMSCRIPTEN = _sys.platform == "emscripten"
-
-    if _IS_EMSCRIPTEN:
-        _VERT_SRC = """#version 100
-precision mediump float;
-attribute vec3 aPos;
-attribute vec2 aTexCoord;
-varying vec2 TexCoord;
-void main() { gl_Position = vec4(aPos, 1.0); TexCoord = aTexCoord; }
-"""
-        _FRAG_SRC = """#version 100
-precision mediump float;
-varying vec2 TexCoord;
-#define FRAG_TEXCOORD TexCoord
-#define FRAG_OUT gl_FragColor
-""" + _SEASCAPE_BODY
-    else:
-        _VERT_SRC = """#version 330 core
-layout(location = 0) in vec3 aPos;
-layout(location = 1) in vec2 aTexCoord;
-out vec2 TexCoord;
-void main() { gl_Position = vec4(aPos, 1.0); TexCoord = aTexCoord; }
-"""
-        _FRAG_SRC = """#version 330 core
-in vec2 TexCoord;
-out vec4 FragColor;
-#define FRAG_TEXCOORD TexCoord
-#define FRAG_OUT FragColor
-""" + _SEASCAPE_BODY
-
     class _ShaderState:
-        def __init__(self):
+        def __init__(self, fbo_size: int):
             self.shader_program = 0
             self.quad_vao = 0
             self.fbo = 0
             self.texture = 0
-            self.fbo_width = 600
-            self.fbo_height = 600
+            self.texture_id = 0  # what imgui.image() shows (in Pyodide, the texture registered with the renderer)
+            self.fbo_width = fbo_size
+            self.fbo_height = fbo_size
             self.loc_resolution = -1
             self.loc_time = -1
             self.loc_sea_height = -1
@@ -1263,15 +617,14 @@ out vec4 FragColor;
             self.sea_base = ImVec4(0.0, 0.09, 0.18, 1.0)
 
         def init(self):
-            # Compile shaders
             vs = GL.glCreateShader(GL.GL_VERTEX_SHADER)
             GL.glShaderSource(vs, _VERT_SRC)
             GL.glCompileShader(vs)
-
             fs = GL.glCreateShader(GL.GL_FRAGMENT_SHADER)
             GL.glShaderSource(fs, _FRAG_SRC)
             GL.glCompileShader(fs)
-
+            if not GL.glGetShaderiv(fs, GL.GL_COMPILE_STATUS):
+                raise RuntimeError("Seascape shader: " + str(GL.glGetShaderInfoLog(fs)))
             self.shader_program = GL.glCreateProgram()
             GL.glAttachShader(self.shader_program, vs)
             GL.glAttachShader(self.shader_program, fs)
@@ -1279,48 +632,43 @@ out vec4 FragColor;
             GL.glDeleteShader(vs)
             GL.glDeleteShader(fs)
 
-            # Create quad VAO
-            vertices = np.array([
-                -1, -1, 0, 0,
-                 1, -1, 1, 0,
-                -1,  1, 0, 1,
-                 1,  1, 1, 1,
-            ], dtype='float32')
-
+            # A quad over the whole texture: x, y, u, v
+            vertices = np.array([-1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, 1, 1, 1, 1], dtype="float32")
             self.quad_vao = GL.glGenVertexArrays(1)
             vbo = GL.glGenBuffers(1)
             GL.glBindVertexArray(self.quad_vao)
             GL.glBindBuffer(GL.GL_ARRAY_BUFFER, vbo)
             GL.glBufferData(GL.GL_ARRAY_BUFFER, vertices, GL.GL_STATIC_DRAW)
-            GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 16, ctypes.c_void_p(0))
+            offset0, offset8 = (0, 8) if IS_PYODIDE else (ctypes.c_void_p(0), ctypes.c_void_p(8))
+            GL.glVertexAttribPointer(0, 2, GL.GL_FLOAT, GL.GL_FALSE, 16, offset0)
             GL.glEnableVertexAttribArray(0)
-            GL.glVertexAttribPointer(1, 2, GL.GL_FLOAT, GL.GL_FALSE, 16, ctypes.c_void_p(8))
+            GL.glVertexAttribPointer(1, 2, GL.GL_FLOAT, GL.GL_FALSE, 16, offset8)
             GL.glEnableVertexAttribArray(1)
             GL.glBindVertexArray(0)
 
-            # Uniform locations
             self.loc_resolution = GL.glGetUniformLocation(self.shader_program, "iResolution")
             self.loc_time = GL.glGetUniformLocation(self.shader_program, "iTime")
             self.loc_sea_height = GL.glGetUniformLocation(self.shader_program, "SEA_HEIGHT")
             self.loc_sea_choppy = GL.glGetUniformLocation(self.shader_program, "SEA_CHOPPY")
             self.loc_sea_base = GL.glGetUniformLocation(self.shader_program, "SEA_BASE")
 
-            # Create FBO
+            # The texture the shader draws into
             self.fbo = GL.glGenFramebuffers(1)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
             self.texture = GL.glGenTextures(1)
             GL.glBindTexture(GL.GL_TEXTURE_2D, self.texture)
-            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8,
-                            self.fbo_width, self.fbo_height, 0,
+            GL.glTexImage2D(GL.GL_TEXTURE_2D, 0, GL.GL_RGBA8, self.fbo_width, self.fbo_height, 0,
                             GL.GL_RGBA, GL.GL_UNSIGNED_BYTE, None)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, GL.GL_LINEAR)
             GL.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, GL.GL_LINEAR)
-            GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0,
-                                      GL.GL_TEXTURE_2D, self.texture, 0)
+            GL.glFramebufferTexture2D(GL.GL_FRAMEBUFFER, GL.GL_COLOR_ATTACHMENT0, GL.GL_TEXTURE_2D, self.texture, 0)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
+            self.texture_id = webgl.register_texture(self.texture) if IS_PYODIDE else self.texture
 
         def destroy(self):
             try:
+                if IS_PYODIDE and self.texture_id:
+                    webgl.unregister_texture(self.texture_id)
                 if self.texture:
                     GL.glDeleteTextures(1, [self.texture])
                 if self.fbo:
@@ -1331,7 +679,7 @@ out vec4 FragColor;
                     GL.glDeleteVertexArrays(1, [self.quad_vao])
             except Exception:
                 pass  # GL context may already be partially torn down at exit
-            self.texture = self.fbo = self.shader_program = self.quad_vao = 0
+            self.texture = self.fbo = self.shader_program = self.quad_vao = self.texture_id = 0
 
         def render_to_fbo(self):
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, self.fbo)
@@ -1348,7 +696,6 @@ out vec4 FragColor;
             GL.glDrawArrays(GL.GL_TRIANGLE_STRIP, 0, 4)
             GL.glBindVertexArray(0)
             GL.glUseProgram(0)
-            GL.glEnable(GL.GL_DEPTH_TEST)
             GL.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0)
 
     _shader_state: Optional[_ShaderState] = None
@@ -1360,7 +707,8 @@ out vec4 FragColor;
             return
         _shader_inited = True
         try:
-            _shader_state = _ShaderState()
+            # A phone's GPU ray-marches the sea at a quarter of the pixels
+            _shader_state = _ShaderState(300 if is_small_screen() else 600)
             _shader_state.init()
             hello_imgui.get_runner_params().callbacks.enqueue_before_exit(
                 lambda: _shader_state.destroy() if _shader_state else None
@@ -1369,250 +717,1886 @@ out vec4 FragColor;
             print(f"Shader init failed: {e}")
             _shader_state = None
 
-    def _shader_gui_main(width: float, height: float):
-        _shader_lazy_init()
-        if _shader_state:
-            _shader_state.render_to_fbo()
-            tex_ref = imgui.ImTextureRef(_shader_state.texture)
-            imgui.image(tex_ref, ImVec2(width, height),
-                        ImVec2(0, 1), ImVec2(1, 0))  # flip Y for FBO
-        else:
-            imgui.dummy(ImVec2(width, height))
-
-    def _shader_gui_side():
-        imgui.text('"Seascape" by Alexander Alekseev aka TDM')
+    def _shader_gui_side(narrow: bool):
+        imgui.text('"Seascape" by TDM' if narrow else '"Seascape" by Alexander Alekseev aka TDM')
         imgui.set_item_tooltip(
+            "Alexander Alekseev aka TDM, https://www.shadertoy.com/view/Ms2SD1\n"
             "License: Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported\n"
             "Contact: tdmaav@gmail.com")
-        imgui.spacing()
-        if _shader_state:
-            imgui.set_next_item_width(hello_imgui.em_size(7))
-            _, _shader_state.sea_height = imgui.slider_float("Wave height", _shader_state.sea_height, 0.1, 2.0)
-            imgui.set_next_item_width(hello_imgui.em_size(7))
-            _, _shader_state.sea_choppy = imgui.slider_float("Choppiness", _shader_state.sea_choppy, 0.5, 8.0)
-            imgui.set_next_item_width(hello_imgui.em_size(7))
-            _, _shader_state.sea_base = imgui.color_edit3("Sea base color", _shader_state.sea_base)
-
-            _IntroAutomations.show_link("More info & code", _IntroAutomations.show_custom_background)
+        if _shader_state is None:
+            return
+        imgui.set_next_item_width(hello_imgui.em_size(7))
+        _, _shader_state.sea_height = imgui.slider_float("Wave height", _shader_state.sea_height, 0.1, 2.0)
+        if narrow:
+            return
+        imgui.set_next_item_width(hello_imgui.em_size(7))
+        _, _shader_state.sea_choppy = imgui.slider_float("Choppiness", _shader_state.sea_choppy, 0.5, 8.0)
+        imgui.set_next_item_width(hello_imgui.em_size(7))
+        _, _shader_state.sea_base = imgui.color_edit3("Sea base color", _shader_state.sea_base)
+        _IntroAutomations.show_link("More info & code", _IntroAutomations.show_custom_background)
 
     def _shader_slide_gui(content_size: ImVec2):
         em = hello_imgui.em_size()
+        _shader_lazy_init()
+        if _shader_state is None:
+            imgui.dummy(content_size)
+            return
+        _shader_state.render_to_fbo()
+        imgui.image(imgui.ImTextureRef(_shader_state.texture_id), content_size, ImVec2(0, 1), ImVec2(1, 0))
+        hello_imgui.set_item_is_live()  # the sea moves on its own
 
-        # Render shader filling the full content area
-        _shader_gui_main(content_size.x, content_size.y)
-
-        # Overlay controls in a transparent auto-resizing window
+        # The controls, in a translucent window over the sea
+        narrow = is_small_screen()
         pad = em * 0.8
-        overlay_x = imgui.get_item_rect_min().x + content_size.x - em * 18.0 - pad
+        overlay_w = em * 13.0 if narrow else em * 18.0
+        overlay_x = imgui.get_item_rect_max().x - overlay_w - pad
         overlay_y = imgui.get_item_rect_min().y + pad
-
-        imgui.set_next_window_pos(ImVec2(overlay_x, overlay_y), imgui.Cond_.always.value)
+        imgui.set_next_window_pos(ImVec2(overlay_x, overlay_y), imgui.Cond_.always)
         imgui.set_next_window_bg_alpha(0.45)
         imgui.push_style_var(imgui.StyleVar_.window_rounding, em * 0.5)
+        # No focus when it appears: the slide comes into view during a swipe, and a focused window would end the swipe
         if imgui.begin("##seascape_overlay", None,
-                       imgui.WindowFlags_.always_auto_resize |
-                       imgui.WindowFlags_.no_title_bar |
-                       imgui.WindowFlags_.no_move |
-                       imgui.WindowFlags_.no_saved_settings)[0]:
-            imgui.push_item_width(em * 16.0)
-            _shader_gui_side()
+                       imgui.WindowFlags_.always_auto_resize | imgui.WindowFlags_.no_title_bar
+                       | imgui.WindowFlags_.no_move | imgui.WindowFlags_.no_saved_settings
+                       | imgui.WindowFlags_.no_focus_on_appearing)[0]:
+            imgui.push_item_width(overlay_w - em * 2.0)
+            _shader_gui_side(narrow)
             imgui.pop_item_width()
         imgui.end()
         imgui.pop_style_var()
 
 
 # ============================================================================
-# Slide wrappers with fallbacks
+# Slide: Lorenz, an ImPlot3D attractor with two trajectories
 # ============================================================================
 
-def _suggest_install(package_name: str, pip_name: str, imgui_id: str = ""):
-    """Show install instructions with copy buttons for a missing package."""
-    imgui.text_wrapped(f"This demo requires {package_name}. Please run:")
-    imgui.text(f"    pip install {pip_name}")
+@dataclass
+class LorenzParams:
+    sigma: float = 10.0
+    rho: float = 28.0
+    beta: float = 8.0 / 3.0
+    dt: float = 0.01
+    max_size: int = 2000
+
+
+class AnimatedLorenzTrajectory:
+    def __init__(self, x: float, y: float, z: float):
+        self.xs = [x]
+        self.ys = [y]
+        self.zs = [z]
+
+    def step(self, params: LorenzParams):
+        x, y, z = self.xs[-1], self.ys[-1], self.zs[-1]
+        dx = params.sigma * (y - x)
+        dy = x * (params.rho - z) - y
+        dz = x * y - params.beta * z
+        x += dx * params.dt
+        y += dy * params.dt
+        z += dz * params.dt
+        self.xs.append(x)
+        self.ys.append(y)
+        self.zs.append(z)
+        if len(self.xs) > params.max_size:
+            self.xs.pop(0)
+            self.ys.pop(0)
+            self.zs.pop(0)
+
+
+_lorenz_params = LorenzParams()
+_lorenz_traj1: AnimatedLorenzTrajectory = None  # type: ignore
+_lorenz_traj2: AnimatedLorenzTrajectory = None  # type: ignore
+_lorenz_inited = False
+_lorenz_initial_delta = 0.1
+
+
+def _lorenz_init_trajectories():
+    global _lorenz_traj1, _lorenz_traj2, _lorenz_inited
+    _lorenz_traj1 = AnimatedLorenzTrajectory(0.0, 1.0, 1.05)
+    _lorenz_traj2 = AnimatedLorenzTrajectory(0.0 + _lorenz_initial_delta, 1.0, 1.05)
+    _lorenz_inited = True
+
+
+def _lorenz_gui_main(plot_size: ImVec2):
+    if not _lorenz_inited:
+        _lorenz_init_trajectories()
+
+    # On a touch screen, the gesture that rotates the plot, on a line under it (the plot and the line: one group)
+    touch = bool(imgui.get_io().config_flags & imgui.ConfigFlags_.is_touch_screen)
+    if touch:
+        plot_size = ImVec2(plot_size.x, plot_size.y - imgui.get_text_line_height_with_spacing())
+    imgui.begin_group()
+    if implot3d.begin_plot("Lorenz##intro", plot_size):
+        implot3d.setup_axes("X", "Y", "Z",
+                            implot3d.AxisFlags_.auto_fit,
+                            implot3d.AxisFlags_.auto_fit,
+                            implot3d.AxisFlags_.auto_fit)
+        xs1 = np.array(_lorenz_traj1.xs, dtype=np.float64)
+        ys1 = np.array(_lorenz_traj1.ys, dtype=np.float64)
+        zs1 = np.array(_lorenz_traj1.zs, dtype=np.float64)
+        implot3d.plot_line("Trajectory", xs1, ys1, zs1)
+        xs2 = np.array(_lorenz_traj2.xs, dtype=np.float64)
+        ys2 = np.array(_lorenz_traj2.ys, dtype=np.float64)
+        zs2 = np.array(_lorenz_traj2.zs, dtype=np.float64)
+        implot3d.plot_line("Trajectory2", xs2, ys2, zs2)
+        implot3d.end_plot()
+        hello_imgui.set_item_is_live()  # the trajectories move on their own
+    if touch:
+        note = "Drag with two fingers to rotate."
+        imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + (plot_size.x - imgui.calc_text_size(note).x) / 2)
+        imgui.text_disabled(note)
+    imgui.end_group()
+    _lorenz_traj1.step(_lorenz_params)
+    _lorenz_traj2.step(_lorenz_params)
+
+
+def _lorenz_knobs(size: float, all_five: bool) -> None:
+    """The parameters as knobs, on one row: sigma, rho and beta (then dt and the initial gap, when all_five)"""
+    global _lorenz_initial_delta
+    p = _lorenz_params
+    _, p.sigma = _accent_knob("Sigma", p.sigma, 0.0, 30.0, "%.1f", size)
+    imgui.set_item_tooltip("Rate of divergence (chaos level)")
     imgui.same_line()
-    if imgui.button(f"Copy##{imgui_id}pip"):
-        imgui.set_clipboard_text(f"pip install {pip_name}")
-    imgui.text("or")
-    imgui.text(f"   uv pip install {pip_name}")
+    _, p.rho = _accent_knob("Rho", p.rho, 0.0, 60.0, "%.1f", size)
+    imgui.set_item_tooltip("Size and shape of the attractor")
     imgui.same_line()
-    if imgui.button(f"Copy##{imgui_id}uv"):
-        imgui.set_clipboard_text(f"uv pip install {pip_name}")
+    _, p.beta = _accent_knob("Beta", p.beta, 0.0, 8.0, "%.2f", size)
+    imgui.set_item_tooltip("Damping on vertical movement")
+    if not all_five:
+        return
+    _, p.dt = _accent_knob("dt", p.dt, 0.001, 0.03, "%.3f", size)
+    imgui.set_item_tooltip("Time step (smaller = smoother)")
+    imgui.same_line()
+    _, _lorenz_initial_delta = _accent_knob("Gap", _lorenz_initial_delta, 0.0, 0.2, "%.2f", size)
+    imgui.set_item_tooltip("The initial gap between the two trajectories (Restart applies it)")
 
 
-def _implot_slide_wrapper(cs: ImVec2):
-    if HAS_IMPLOT and HAS_NUMPY:
-        _implot_slide_gui(cs)
-    elif not HAS_IMPLOT:
-        imgui.text_wrapped("ImPlot not available.")
-    else:
-        _suggest_install("NumPy", "numpy", "implot_")
+def _lorenz_gui_side():
+    em = hello_imgui.em_size()
+    pad = em * 0.5
+    imgui.text("Butterfly effect")
+    imgui.push_style_color(imgui.Col_.text, imgui.get_style_color_vec4(imgui.Col_.text_disabled))
+    imgui.push_text_wrap_pos(imgui.get_window_width() - pad)
+    imgui.text_wrapped(f"Two trajectories start {_lorenz_initial_delta:.2f} apart, then part ways: "
+                       "deterministic chaos.")
+    imgui.pop_text_wrap_pos()
+    imgui.pop_style_color()
+    imgui.spacing()
+    avail = imgui.get_window_width() - 2 * pad
+    spacing = imgui.get_style().item_spacing.x
+    _lorenz_knobs(min(em * 3.6, (avail - 2 * spacing) / 3), all_five=True)
+    imgui.spacing()
+    if _accent_button(icons_fontawesome_4.ICON_FA_SYNC + "  Restart", ImVec2(avail, em * 1.8)):
+        _lorenz_init_trajectories()
+    imgui.spacing()
+    imgui.separator()
+    imgui.spacing()
+    _manual_teaser("Every 3D plot type, with its code: the ImPlot3D manual", "manual_implot3d.py")
 
 
-def _immvision_slide_wrapper(cs: ImVec2):
-    if HAS_IMMVISION and HAS_OPENCV and HAS_NUMPY:
-        _immvision_slide_gui(cs)
-    elif not HAS_IMMVISION:
-        imgui.text_wrapped("ImmVision not available in this build.")
-    elif not HAS_OPENCV:
-        _suggest_install("OpenCV", "opencv-python", "immvision_")
-    else:
-        _suggest_install("NumPy", "numpy", "immvision_np_")
+def _lorenz_gui_side_narrow():
+    """Sigma, rho and beta, and the Restart button, on one row"""
+    em = hello_imgui.em_size()
+    pad = em * 0.5
+    button_w = em * 5.5
+    spacing = imgui.get_style().item_spacing.x
+    size = min(em * 2.4, (imgui.get_window_width() - 2 * pad - button_w - 3 * spacing) / 3)
+    top = imgui.get_cursor_pos_y()
+    _lorenz_knobs(size, all_five=False)
+    imgui.same_line()
+    imgui.set_cursor_pos_y(top + em * 1.4)  # level with the knobs, below their titles
+    if _accent_button(icons_fontawesome_4.ICON_FA_SYNC + " Restart", ImVec2(button_w, em * 1.8)):
+        _lorenz_init_trajectories()
 
 
-def _lorenz_slide_wrapper(cs: ImVec2):
-    if HAS_NUMPY:
-        _lorenz_slide_gui(cs)
-    else:
-        _suggest_install("NumPy", "numpy", "lorenz_")
-
-
-def _shader_slide_wrapper(cs: ImVec2):
-    if HAS_OPENGL and HAS_NUMPY:
-        _shader_slide_gui(cs)
-    elif not HAS_OPENGL:
-        _suggest_install("OpenGL", "PyOpenGL", "shader_")
-    else:
-        _suggest_install("NumPy", "numpy", "shader_np_")
+def _lorenz_slide_gui(content_size: ImVec2):
+    em = hello_imgui.em_size()
+    gap = em * 0.5
+    if is_small_screen():  # the plot, then the parameters under it
+        panel_h = em * 5.9
+        _lorenz_gui_main(ImVec2(content_size.x, content_size.y - panel_h - gap))
+        draw_side_panel("##lorenz_side", content_size.x, panel_h, _lorenz_gui_side_narrow)
+        return
+    main_side = content_size.y
+    side_panel_w = content_size.x - main_side - gap
+    _lorenz_gui_main(ImVec2(main_side, main_side))
+    if side_panel_w > em * 4.0:
+        imgui.same_line(0.0, gap)
+        draw_side_panel("##lorenz_side", side_panel_w, main_side, _lorenz_gui_side)
 
 
 # ============================================================================
-# Top section
+# Slide: a live data stream, plotted at the screen's rate (as beside a Jupyter notebook, whose cells feed it)
 # ============================================================================
 
+STREAM_WINDOW = 1.0  # seconds of data on the plot
+STREAM_RATES = (10.0, 10000.0)  # samples per second: the slider's range (logarithmic: the look changes up to ~1000)
 
 
-_more_info_expanded = False
+class _StreamState:
+    """Two sensors, sampled at `rate` samples per second: the samples of the last frame are added at each frame"""
+
+    def __init__(self) -> None:
+        self.rng = np.random.default_rng(1)
+        self.rate = 1000.0
+        self.t = np.zeros(0)
+        self.a = np.zeros(0)
+        self.b = np.zeros(0)
+        self.t_end = 0.0  # the time of the last sample
+        self.debt = 0.0  # the samples due, less those taken
+        self.last_time: Optional[float] = None
+
+    def step(self) -> None:
+        now = imgui.get_time()
+        if self.last_time is None:  # the first frame: the plot full at once
+            self.last_time = now
+            self.debt = STREAM_WINDOW * self.rate
+        self.debt += max(0.0, min(now - self.last_time, 0.1)) * self.rate  # (a pause of the app adds no burst)
+        self.last_time = now
+        n = int(self.debt)
+        if n <= 0:
+            return
+        self.debt -= n
+        t = self.t_end + np.arange(1, n + 1) / self.rate
+        self.t_end = float(t[-1])
+        noise = self.rng.normal(0.0, 1.0, (2, n))
+        a = np.sin(2 * np.pi * 1.5 * t) + 0.35 * np.sin(2 * np.pi * 9.3 * t) + 0.07 * noise[0]
+        b = 0.8 * np.sin(2 * np.pi * 0.63 * t + 1.0) * np.cos(2 * np.pi * 5.1 * t) - 0.2 + 0.05 * noise[1]
+        first = int(np.searchsorted(self.t, self.t_end - STREAM_WINDOW))  # the samples older than the window go
+        self.t = np.concatenate([self.t[first:], t])
+        self.a = np.concatenate([self.a[first:], a])
+        self.b = np.concatenate([self.b[first:], b])
 
 
-def _render_links_row():
-    """Render the main links row: GitHub | Documentation | Playground | Discord"""
+_stream: Optional[_StreamState] = None
+
+
+def _stream_plot(state: _StreamState, size: ImVec2) -> None:
+    flags = implot.Flags_.no_menus | implot.Flags_.no_mouse_text | _implot_flags()
+    if implot.begin_plot("##stream", size, flags):
+        implot.setup_axes("", "", implot.AxisFlags_.no_tick_labels, 0)
+        implot.setup_axis_limits(implot.ImAxis_.x1, state.t_end - STREAM_WINDOW, state.t_end, imgui.Cond_.always)
+        implot.setup_axis_limits(implot.ImAxis_.y1, -1.7, 1.7, imgui.Cond_.always)
+        if len(state.t) > 1:  # (none yet at the first frame)
+            implot.plot_line("sensor 1", state.t, state.a)
+            implot.plot_line("sensor 2", state.t, state.b)
+        implot.end_plot()
+        hello_imgui.set_item_is_live()  # the data flow on their own
+
+
+def _stream_stats(state: _StreamState) -> list[str]:
+    return [f"{imgui.get_io().framerate:.0f} frames per second", f"{state.rate:,.0f} samples per second",
+            f"{2 * len(state.t):,} points on the plot"]
+
+
+def _stream_rate_slider(state: _StreamState, width: float) -> None:
+    imgui.set_next_item_width(width)
+    _, state.rate = imgui.slider_float("##rate", state.rate, STREAM_RATES[0], STREAM_RATES[1], "%.0f samples / s",
+                                       imgui.SliderFlags_.logarithmic)
+
+
+def _stream_side() -> None:
+    assert _stream is not None
+    em = hello_imgui.em_size()
+    width = imgui.get_window_width() - em
+    imgui.indent(em * 0.5)  # the panel's padding, for the lines after the first
+    imgui.text("Live data stream")
+    imgui.spacing()
+    for line in _stream_stats(_stream):
+        imgui.text_disabled(line)
+    imgui.spacing()
+    _stream_rate_slider(_stream, width)
+    imgui.spacing()
+    rich_md.render("The same GUI runs beside a **Jupyter notebook**: `immapp.nb.start(gui)` returns at once, and the "
+                   "cells keep feeding it.")
+    imgui.unindent(em * 0.5)
+
+
+def _stream_side_narrow() -> None:
+    """The figures on one line (on two when they do not fit), then the rate"""
+    assert _stream is not None
+    em = hello_imgui.em_size()
+    width = imgui.get_window_width() - em
+    fps, samples, _ = _stream_stats(_stream)
+    line = f"{fps}  |  {samples}"
+    imgui.indent(em * 0.5)  # the panel's padding, for the lines after the first
+    if imgui.calc_text_size(line).x <= width:
+        imgui.text_disabled(line)
+    else:
+        imgui.text_disabled(fps)
+        imgui.text_disabled(samples)
+    _stream_rate_slider(_stream, width)
+    imgui.unindent(em * 0.5)
+
+
+def _stream_slide_gui(content_size: ImVec2):
+    global _stream
+    if _stream is None:
+        _stream = _StreamState()
+    _stream.step()
+    em = hello_imgui.em_size()
+    gap = em * 0.5
+    if is_small_screen():  # the plot, then the figures and the rate under it
+        fps, samples, _ = _stream_stats(_stream)
+        two_lines = imgui.calc_text_size(f"{fps}  |  {samples}").x > content_size.x - em
+        panel_h = (imgui.get_text_line_height_with_spacing() * (2 if two_lines else 1) + imgui.get_frame_height()
+                   + em * 1.3)
+        _stream_plot(_stream, ImVec2(content_size.x, content_size.y - panel_h - gap))
+        draw_side_panel("##stream_side", content_size.x, panel_h, _stream_side_narrow)
+        return
+    side_w = min(em * 17.0, content_size.x * 0.4)
+    _stream_plot(_stream, ImVec2(content_size.x - side_w - gap, content_size.y))
+    imgui.same_line(0.0, gap)
+    draw_side_panel("##stream_side", side_w, content_size.y, _stream_side)
+
+
+# ============================================================================
+# Slide: a tiny neural network learns two spirals (the explorable's widget, see explorables/neural_spiral)
+# ============================================================================
+
+@dataclass
+class Network:
+    """Two inputs, one hidden layer of H units (tanh), one output (a sigmoid: the probability of class 1)"""
+    w1: np.ndarray  # (2, H)
+    b1: np.ndarray  # (H,)
+    w2: np.ndarray  # (H,)
+    b2: float
+
+
+def _nn_random(hidden: int, rng: np.random.Generator) -> Network:
+    return Network(rng.normal(0, 1, (2, hidden)), rng.normal(0, 0.5, hidden),
+                   rng.normal(0, 1 / np.sqrt(hidden), hidden), 0.0)
+
+
+def _nn_forward(net: Network, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """n points x (n, 2) -> the answers of the hidden units h (n, H), the probabilities p (n,)"""
+    h = np.tanh(x @ net.w1 + net.b1)
+    p = 1 / (1 + np.exp(-(h @ net.w2 + net.b2)))
+    return h, p
+
+
+def _nn_loss(p: np.ndarray, y: np.ndarray) -> float:
+    """The cross-entropy"""
+    p = np.clip(p, 1e-7, 1 - 1e-7)
+    return float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
+
+
+def _nn_step(net: Network, x: np.ndarray, y: np.ndarray, rate: float) -> None:
+    """One step of gradient descent on all the points (backpropagation, by hand)"""
+    h, p = _nn_forward(net, x)
+    ds = (p - y) / len(y)
+    da = np.outer(ds, net.w2) * (1 - h * h)
+    net.w1 -= rate * (x.T @ da)
+    net.b1 -= rate * da.sum(axis=0)
+    net.w2 -= rate * (h.T @ ds)
+    net.b2 -= rate * float(ds.sum())
+
+
+def _make_spirals(n: int, turns: float, noise: float, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
+    """n points (n, 2), and their classes (n,): 0 on the first spiral, 1 on the second"""
+    radius = np.tile(np.linspace(0.08, 1.0, n // 2), 2)
+    y = np.repeat([0.0, 1.0], n // 2)
+    angle = 2 * np.pi * turns * radius + np.pi * y
+    x = np.stack([radius * np.cos(angle), radius * np.sin(angle)], axis=1)
+    return x + rng.normal(0, noise, x.shape), y
+
+
+_NN_STEPS_PER_FRAME = 20
+_NN_EXTENT = 1.2  # the plane shown: [-EXTENT, EXTENT] on both axes
+_NN_GRID = 80  # the network's answer is drawn on a GRID x GRID heatmap
+_nn_coords = np.linspace(-_NN_EXTENT, _NN_EXTENT, _NN_GRID)
+_NN_GRID_POINTS = np.stack(np.meshgrid(_nn_coords, _nn_coords[::-1]), axis=-1).reshape(-1, 2)  # row 0 on top
+
+
+class _SpiralState:
+    def __init__(self) -> None:
+        self.rng = np.random.default_rng(0)
+        self.x, self.y = _make_spirals(200, 2.0, 0.02, self.rng)
+        self.rate = 1.0
+        self.training = True  # the slide trains as soon as it shows
+        self.reset()
+
+    def reset(self) -> None:
+        self.net = _nn_random(16, self.rng)
+        self.steps = 0
+        self.losses: list[float] = []
+        self.record()
+
+    def record(self) -> None:
+        _, p = _nn_forward(self.net, self.x)
+        self.losses.append(_nn_loss(p, self.y))
+        self.accuracy = float(np.mean((p > 0.5) == (self.y > 0.5)))
+
+    def train(self) -> None:
+        for _ in range(_NN_STEPS_PER_FRAME):
+            _nn_step(self.net, self.x, self.y, self.rate)
+        self.steps += _NN_STEPS_PER_FRAME
+        self.record()
+
+
+_spiral: Optional[_SpiralState] = None
+
+
+def _spiral_colormap() -> int:
+    """Muted red (class 0), dark grey where the network hesitates, muted blue (class 1): the points stay visible"""
+    cmap = implot.get_colormap_index("answer")
+    if cmap == -1:
+        colors = np.array([[0.5, 0.15, 0.15, 1.0], [0.15, 0.15, 0.15, 1.0], [0.15, 0.25, 0.55, 1.0]], np.float32)
+        cmap = implot.add_colormap("answer", colors, qual=False)
+    return cmap
+
+
+def _spiral_plane(state: _SpiralState, size: ImVec2) -> None:
+    flags = implot.Flags_.no_legend | implot.Flags_.no_menus | implot.Flags_.no_mouse_text | implot.Flags_.equal
+    if implot.begin_plot("##plane", size, flags):
+        implot.setup_axes_limits(-_NN_EXTENT, _NN_EXTENT, -_NN_EXTENT, _NN_EXTENT, imgui.Cond_.always)
+        _, p = _nn_forward(state.net, _NN_GRID_POINTS)
+        implot.push_colormap(_spiral_colormap())
+        implot.plot_heatmap("##answer", p.reshape(_NN_GRID, _NN_GRID), 0.0, 1.0, "",
+                            implot.Point(-_NN_EXTENT, -_NN_EXTENT), implot.Point(_NN_EXTENT, _NN_EXTENT))
+        implot.pop_colormap()
+        for label, cls, color in (("class 0", 0.0, ImVec4(1.0, 0.35, 0.35, 1.0)),
+                                  ("class 1", 1.0, ImVec4(0.35, 0.6, 1.0, 1.0))):
+            points = state.x[state.y == cls]
+            implot.plot_scatter(label, points[:, 0].copy(), points[:, 1].copy(), spec=implot.Spec(
+                marker=implot.Marker_.circle, marker_size=3, marker_fill_color=color,
+                marker_line_color=ImVec4(1, 1, 1, 1)))
+        implot.end_plot()
+        hello_imgui.set_item_is_live(state.training)  # the network learns on its own while it trains
+
+
+def _spiral_loss(state: _SpiralState, size: ImVec2) -> None:
+    flags = implot.Flags_.no_legend | implot.Flags_.no_menus | implot.Flags_.no_mouse_text
+    if implot.begin_plot("Loss", size, flags):
+        implot.setup_axes("step", "", implot.AxisFlags_.auto_fit, implot.AxisFlags_.auto_fit)
+        implot.plot_line("loss", np.array(state.losses), xscale=_NN_STEPS_PER_FRAME)
+        implot.end_plot()
+
+
+def _spiral_controls(state: _SpiralState, width: float) -> None:
+    em = hello_imgui.em_size()
+    row_left = imgui.get_cursor_screen_pos().x
+    if imgui.button("Pause" if state.training else "Train", ImVec2(em * 5, 0)):
+        state.training = not state.training
+    imgui.same_line()
+    if imgui.button("Reset"):
+        state.reset()
+    status = f"step {state.steps}  |  loss {state.losses[-1]:.3f}  |  {state.accuracy:.0%} right"
+    buttons_w = imgui.get_item_rect_max().x - row_left + imgui.get_style().item_spacing.x
+    if buttons_w + imgui.calc_text_size(status).x <= width:
+        imgui.same_line()  # else on its own line (a phone)
+    imgui.text(status)
+    imgui.set_next_item_width(width - em * 9)
+    _, state.rate = imgui.slider_float("learning rate", state.rate, 0.01, 10.0, "%.2f", imgui.SliderFlags_.logarithmic)
+
+
+def _spiral_slide_gui(content_size: ImVec2):
+    global _spiral
+    if _spiral is None:
+        _spiral = _SpiralState()
+    state = _spiral
+    if state.training:
+        state.train()
+    em = hello_imgui.em_size()
+    gap = em * 0.5
+    status_fits = em * 9.5 + imgui.calc_text_size("step 99999  |  loss 0.000  |  100% right").x <= content_size.x
+    controls_h = imgui.get_frame_height_with_spacing() * (2 if status_fits else 3) + em * 0.2
+    plots_h = content_size.y - controls_h
+    if is_small_screen():  # the plane, then the loss under it (when there is room for a curve)
+        side = min(content_size.x, plots_h * 0.65)
+        if plots_h - side - gap < em * 7:
+            side = min(content_size.x, plots_h)
+        _spiral_plane(state, ImVec2(side, side))
+        if plots_h - side - gap >= em * 7:
+            _spiral_loss(state, ImVec2(content_size.x, plots_h - side - gap))
+    else:
+        side = min(plots_h, content_size.x * 0.55)
+        _spiral_plane(state, ImVec2(side, side))
+        imgui.same_line(0.0, gap)
+        _spiral_loss(state, ImVec2(content_size.x - side - gap, side))
+    _spiral_controls(state, content_size.x)
+
+
+# ============================================================================
+# Slide: ImmVision, an image and its edges, inspected (a Julia set computed with numpy)
+# ============================================================================
+
+def _julia_image(w: int, h: int, c: complex = -0.8 + 0.156j, max_iter: int = 100) -> np.ndarray:
+    """A Julia set, colored by its smooth escape time: an RGB uint8 image (h, w, 3)"""
+    xs = np.linspace(-1.6, 1.6, w)
+    ys = np.linspace(-1.2, 1.2, h)
+    z = (xs[None, :] + 1j * ys[:, None]).astype(np.complex128)
+    count = np.full(z.shape, float(max_iter), np.float64)
+    alive = np.ones(z.shape, bool)
+    for i in range(max_iter):
+        z[alive] = z[alive] ** 2 + c
+        escaped = alive & (np.abs(z) > 4.0)
+        count[escaped] = i + 1 - np.log2(np.log(np.abs(z[escaped])))
+        alive &= ~escaped
+    t = np.clip(count / max_iter, 0.0, 1.0)
+    r = 9 * (1 - t) * t ** 3
+    g = 15 * (1 - t) ** 2 * t ** 2
+    b = 8.5 * (1 - t) ** 3 * t
+    return (np.stack([r, g, b], axis=-1) * 255).astype(np.uint8)
+
+
+if HAS_IMMVISION:
+    _immvision_image: Optional[np.ndarray] = None
+    _immvision_edges: Optional[np.ndarray] = None
+    _immvision_params = immvision.ImageParams()
+    _immvision_params_edges = immvision.ImageParams()
+    _immvision_inited = False
+    _immvision_animating = True
+    _immvision_start_time = 0.0
+
+    _ZOOM_IN_DURATION = 1.5
+    _HOLD_DURATION = 1.5
+    _ZOOM_OUT_DURATION = 1.5
+    _PAUSE_DURATION = 3.0
+    _TOTAL_CYCLE = _ZOOM_IN_DURATION + _HOLD_DURATION + _ZOOM_OUT_DURATION + _PAUSE_DURATION
+    # Display pixels per image pixel at the end of the zoom: ImmVision draws the pixels' values from 36 (uint8
+    # images) or 48 (float images), whatever the size of the image on screen
+    _PIXEL_VALUES_ZOOM = 60.0
+    _immvision_zoom_center = (0.0, 0.0)
+
+    def _immvision_init():
+        global _immvision_image, _immvision_edges, _immvision_inited, _immvision_zoom_center, _immvision_start_time
+        _immvision_image = _julia_image(320, 240)
+        gray = _immvision_image.astype(np.float32).mean(axis=2) / 255.0
+        dy, dx = np.gradient(gray)
+        _immvision_edges = np.hypot(dx, dy).astype(np.float32)  # a float image: ImmVision applies a colormap to it
+
+        for params in (_immvision_params, _immvision_params_edges):
+            params.show_options_panel = False
+            params.show_image_info = False
+            params.show_pixel_info = True
+            params.show_zoom_buttons = True  # below the image: zoom in, out, to fit, at 1:1
+            params.zoom_key = "intro_immvision"  # the two images zoom and pan together
+        _immvision_params_edges.colormap_settings.colormap = "Viridis"
+
+        h, w = _immvision_image.shape[:2]
+        _immvision_zoom_center = (w * 0.56, h * 0.42)
+        _immvision_start_time = immapp.clock_seconds()
+        _immvision_inited = True
+
+    def _immvision_zoom_progress() -> float:
+        """From 0 (the whole image) to 1 (its pixels and their values): the whole image first, then the zoom in, a
+        hold, and the zoom out"""
+        elapsed = math.fmod(immapp.clock_seconds() - _immvision_start_time, _TOTAL_CYCLE)
+        if elapsed < _PAUSE_DURATION:
+            return 0.0
+        elapsed -= _PAUSE_DURATION
+        if elapsed < _ZOOM_IN_DURATION:
+            t = elapsed / _ZOOM_IN_DURATION
+            return 1.0 - (1.0 - t) * (1.0 - t)
+        elapsed -= _ZOOM_IN_DURATION
+        if elapsed < _HOLD_DURATION:
+            return 1.0
+        elapsed -= _HOLD_DURATION
+        if elapsed < _ZOOM_OUT_DURATION:
+            t = elapsed / _ZOOM_OUT_DURATION
+            return 1.0 - t * t
+        return 0.0
+
+    def _immvision_check_user_interaction() -> bool:
+        hovering = (_immvision_params.mouse_info.is_mouse_hovering
+                    or _immvision_params_edges.mouse_info.is_mouse_hovering)
+        return hovering and (imgui.is_mouse_dragging(0) or imgui.get_io().mouse_wheel != 0.0)
+
+    def _immvision_gui_main(size: ImVec2, both: bool):
+        global _immvision_animating
+        if not _immvision_inited:
+            _immvision_init()
+        assert _immvision_image is not None and _immvision_edges is not None
+
+        if _immvision_animating and _immvision_check_user_interaction():
+            _immvision_animating = False
+
+        em = hello_imgui.em_size()
+        img_h, img_w = _immvision_image.shape[:2]
+        display_w = int(size.x * 0.5 - em) if both else int(size.x - em * 2.2)  # the frame around an image
+        display_h = int(min(display_w * img_h / img_w, size.y))
+        display_w = int(display_h * img_w / img_h)
+        _immvision_params.image_display_size = (display_w, display_h)
+        _immvision_params_edges.image_display_size = (display_w, display_h)
+
+        if _immvision_animating:
+            # From the whole image (the zoom that fits it, centered) to the pixels around the zoom target
+            fit_zoom = display_w / img_w
+            t = _immvision_zoom_progress()
+            zoom = fit_zoom + (max(_PIXEL_VALUES_ZOOM, fit_zoom) - fit_zoom) * t
+            center = (img_w * 0.5 + (_immvision_zoom_center[0] - img_w * 0.5) * t,
+                      img_h * 0.5 + (_immvision_zoom_center[1] - img_h * 0.5) * t)
+            _immvision_params.zoom_pan_matrix = immvision.make_zoom_pan_matrix(
+                center, zoom, _immvision_params.image_display_size)
+            _immvision_params_edges.zoom_pan_matrix = _immvision_params.zoom_pan_matrix
+
+        immvision.image("Julia set##intro", _immvision_image, _immvision_params)
+        if both:
+            imgui.same_line()
+            immvision.image("Its edges##intro", _immvision_edges, _immvision_params_edges)
+        hello_imgui.set_item_is_live(_immvision_animating)  # the zoom moves on its own
+
+    def _immvision_gui_side():
+        global _immvision_animating, _immvision_start_time
+        imgui.push_style_color(imgui.Col_.text, imgui.get_style_color_vec4(imgui.Col_.text_disabled))
+        hint = "Drag to pan, the buttons zoom" if is_small_screen() else "Drag to pan, scroll to zoom"
+        imgui.text_wrapped(hint + ": at a high zoom, the pixels show their values")
+        imgui.pop_style_color()
+        if not _immvision_animating:
+            imgui.same_line()
+            if imgui.small_button("Restart the animation"):
+                _immvision_animating = True
+                _immvision_start_time = immapp.clock_seconds()
+
+    def _immvision_slide_gui(content_size: ImVec2):
+        em = hello_imgui.em_size()
+        narrow = is_small_screen()
+        # The zoom buttons under the images, then the hint (on two lines on a phone). On a phone, no pixel info: it
+        # shows the pixel under the mouse, and a finger does not hover
+        _immvision_params.show_pixel_info = not narrow
+        side_h = em * (5.0 if narrow else 3.8)
+        _immvision_gui_main(ImVec2(content_size.x, content_size.y - side_h), both=not narrow)
+        _immvision_gui_side()
+
+
+# ============================================================================
+# Slide: a node editor, an image through a pipeline of filters (a mini version of
+# demos_node_editor/demo_node_editor_image_pipeline.py, with numpy filters)
+# ============================================================================
+
+PIPE_IMAGE_SIZE = (200, 150)  # the image that enters the pipeline: width, height (a half of the pictures)
+PIPE_PICTURE = "images/golden_gate.jpg"  # an asset; from picsum.photos (Chris Brignola, Unsplash), copied
+PIPE_RANDOM_URL = "https://picsum.photos/400/300?random={}"  # a random picture (the number defeats the cache)
+PIPE_IMAGE_WIDTH_EM = 7.0  # the width of the images in the nodes (it gives the nodes their width)
+PIPE_LINK_COLOR = ImVec4(0.4, 0.75, 1.0, 1.0)
+PIPE_UNLINKED = ImVec4(0.3, 0.3, 0.3, 1.0)
+
+
+def _pipe_blur(image: np.ndarray, sigma: float) -> np.ndarray:
+    """A gaussian blur, in two passes (one per axis), the borders repeated"""
+    if sigma < 0.3:
+        return image
+    radius = int(math.ceil(3.0 * sigma))
+    kernel = np.exp(-0.5 * (np.arange(-radius, radius + 1) / sigma) ** 2)
+    kernel /= kernel.sum()
+    out = image.astype(np.float32)
+    for axis in (0, 1):
+        pad = [(0, 0)] * out.ndim
+        pad[axis] = (radius, radius)
+        padded = np.pad(out, pad, mode="edge")
+        n = out.shape[axis]
+        acc = np.zeros_like(out)
+        for k, weight in enumerate(kernel):
+            acc += weight * np.take(padded, np.arange(k, k + n), axis=axis)
+        out = acc
+    return out.clip(0, 255).astype(np.uint8)
+
+
+def _pipe_edges(image: np.ndarray) -> np.ndarray:
+    """The magnitude of the gradient of the gray image, scaled to 0..255: a gray image"""
+    gray = image.astype(np.float32).mean(axis=2) if image.ndim == 3 else image.astype(np.float32)
+    gy, gx = np.gradient(gray)
+    magnitude = np.hypot(gx, gy)
+    edges: np.ndarray = (255.0 * magnitude / max(float(magnitude.max()), 1e-6)).astype(np.uint8)
+    return edges
+
+
+def _pipe_overlay(image: np.ndarray, edges: np.ndarray, strength: float) -> np.ndarray:
+    """The edges painted in yellow over the image"""
+    rgb = image if image.ndim == 3 else np.repeat(image[..., None], 3, axis=2)
+    gray_edges = edges if edges.ndim == 2 else edges.mean(axis=2)
+    if rgb.shape[:2] != gray_edges.shape:
+        return rgb
+    mask = (gray_edges.astype(np.float32) / 255.0 * strength * 2.0).clip(0.0, 1.0)[..., None]
+    out = rgb.astype(np.float32) * (1.0 - mask) + np.array([255.0, 220.0, 60.0], np.float32) * mask
+    overlaid: np.ndarray = out.astype(np.uint8)
+    return overlaid
+
+
+def _half_size(image: np.ndarray) -> np.ndarray:
+    """The image at half its size (each pixel the mean of 2 x 2): the filters run four times faster"""
+    h, w = image.shape[0] // 2 * 2, image.shape[1] // 2 * 2
+    quads = image[:h, :w].astype(np.float32).reshape(h // 2, 2, w // 2, 2, -1)
+    half: np.ndarray = quads.mean(axis=(1, 3)).astype(np.uint8)
+    return half
+
+
+def _pipe_picture_from_bytes(file_bytes: bytes) -> Optional[np.ndarray]:
+    """A picture file's bytes decoded, at half size; None when they are not a picture, or when this build of the bundle
+    has no decoder (a Pyodide wheel older than immapp.decode_image)"""
+    if not hasattr(immapp, "decode_image"):
+        return None
+    try:
+        return _half_size(immapp.decode_image(file_bytes))
+    except ValueError:
+        return None
+
+
+def _pipe_default_picture() -> np.ndarray:
+    """The asset's picture, or a Julia set when it cannot be read"""
+    path = hello_imgui.asset_file_full_path(PIPE_PICTURE, assert_if_not_found=False)
+    picture = None
+    if path:
+        with open(path, "rb") as f:
+            picture = _pipe_picture_from_bytes(f.read())
+    if picture is None:
+        picture = _julia_image(PIPE_IMAGE_SIZE[0], PIPE_IMAGE_SIZE[1], -0.8 + 0.156j, 60)
+    return picture
+
+
+class _PipeNode:
+    """A node of the pipeline: its pins, its parameter, and its result (computed again when an input or the
+    parameter changes)"""
+
+    def __init__(self, kind: str, inputs: list[str], param: Optional[float]) -> None:
+        self.kind = kind
+        self.id = node_ed.NodeId.create()
+        self.inputs = [(node_ed.PinId.create(), name) for name in inputs]
+        self.output = node_ed.PinId.create()
+        self.param = param  # the blur's sigma, the overlay's strength (None: no parameter)
+        self.result: Optional[np.ndarray] = None
+        self.key: Any = None  # what the result was computed from
+        self.version = 0  # one more at each new result: its image is sent again to the GPU
+        self.shown_version = -1
+        # The Image node: its picture, and the download of a random one
+        self.picture: Optional[np.ndarray] = None
+        self.picture_version = 0
+        self.download: Optional[immapp.Download] = None
+        self.download_count = 0
+        self.download_error = ""
+
+    def compute(self, inputs: list[np.ndarray]) -> np.ndarray:
+        if self.kind == "Image":
+            if self.picture is None:
+                self.picture = _pipe_default_picture()
+            return self.picture
+        if self.kind == "Blur":
+            assert self.param is not None
+            return _pipe_blur(inputs[0], self.param)
+        if self.kind == "Edges":
+            return _pipe_edges(inputs[0])
+        assert self.param is not None
+        return _pipe_overlay(inputs[0], inputs[1], self.param)  # Overlay
+
+
+class _PipeGraph:
+    def __init__(self) -> None:
+        julia = _PipeNode("Image", [], None)
+        blur = _PipeNode("Blur", ["in"], 1.5)
+        edges = _PipeNode("Edges", ["in"], None)
+        overlay = _PipeNode("Overlay", ["image", "edges"], 0.8)
+        self.nodes = [julia, blur, edges, overlay]
+        # Two levels, so that the link from the image to the overlay passes under the blur and the edges; on a phone,
+        # two rows of two (the graph is fitted to the view: in a row of four, the nodes would be too small to read)
+        if is_small_screen():
+            positions = (ImVec2(0, 0), ImVec2(10, 0), ImVec2(0, 13), ImVec2(10, 13))
+        else:
+            positions = (ImVec2(0, 6), ImVec2(11, 0), ImVec2(22, 0), ImVec2(33, 11))
+        for node, position in zip((julia, blur, edges, overlay), positions, strict=True):
+            node_ed.set_node_position(node.id, position * em_size())  # in the editor's coordinates
+        self.links: list[tuple[node_ed.LinkId, node_ed.PinId, node_ed.PinId]] = []  # (id, an output, an input)
+        self.connect(julia.output, blur.inputs[0][0])
+        self.connect(blur.output, edges.inputs[0][0])
+        self.connect(julia.output, overlay.inputs[0][0])
+        self.connect(edges.output, overlay.inputs[1][0])
+
+    def connect(self, output: node_ed.PinId, input: node_ed.PinId) -> None:
+        self.links = [link for link in self.links if link[2] != input]  # an input receives one link at most
+        self.links.append((node_ed.LinkId.create(), output, input))
+
+    def node_of_pin(self, pin: node_ed.PinId) -> Optional[_PipeNode]:
+        for node in self.nodes:
+            if pin == node.output or any(pin == p for p, _ in node.inputs):
+                return node
+        return None
+
+    def is_output(self, pin: node_ed.PinId) -> bool:
+        return any(pin == node.output for node in self.nodes)
+
+    def source(self, input: node_ed.PinId) -> Optional[_PipeNode]:
+        """The node whose output reaches this input"""
+        for _, output, linked_input in self.links:
+            if linked_input == input:
+                return self.node_of_pin(output)
+        return None
+
+    def feeds(self, node: _PipeNode, other: _PipeNode) -> bool:
+        """True if `node` is `other`, or feeds it through links"""
+        if node is other:
+            return True
+        sources = [self.source(pin) for pin, _ in other.inputs]
+        return any(s is not None and self.feeds(node, s) for s in sources)
+
+    def evaluate(self, node: _PipeNode) -> Optional[np.ndarray]:
+        """The node's result, computed again only when its parameter or one of its sources changed"""
+        sources = [self.source(pin) for pin, _ in node.inputs]
+        inputs = [self.evaluate(s) if s is not None else None for s in sources]
+        if any(i is None for i in inputs):
+            if node.result is not None:
+                node.result, node.key = None, None
+            return None
+        key = (node.param, node.picture_version, tuple((id(s), s.version) for s in sources if s is not None))
+        if key != node.key:
+            node.result = node.compute([i for i in inputs if i is not None])
+            node.key = key
+            node.version += 1
+        return node.result
+
+
+_pipe_editor: Optional[node_ed.EditorContext] = None
+_pipe_graph: Optional[_PipeGraph] = None
+_pipe_frames = 0
+_pipe_size = ImVec2(0, 0)
+
+
+def _pipe_pin(pin: node_ed.PinId, kind: node_ed.PinKind, linked: bool) -> None:
+    node_ed.begin_pin(pin, kind)
+    node_ed.pin_pivot_alignment(ImVec2(0.5, 0.5))  # the links reach the center of the circle
+    node_ed.pin_pivot_size(ImVec2(0, 0))
+    radius = em_size(0.4)
+    top_left = imgui.get_cursor_screen_pos()
+    imgui.dummy(ImVec2(2 * radius, 2 * radius))
+    center = top_left + ImVec2(radius, radius)
+    draw_list = imgui.get_window_draw_list()
+    draw_list.add_circle_filled(center, radius, imgui.get_color_u32(PIPE_LINK_COLOR if linked else PIPE_UNLINKED))
+    draw_list.add_circle(center, radius, imgui.get_color_u32(imgui.Col_.text), thickness=1.5)
+    node_ed.end_pin()
+
+
+def _pipe_node(graph: _PipeGraph, node: _PipeNode) -> None:
+    width = em_size(PIPE_IMAGE_WIDTH_EM)
+    node_ed.begin_node(node.id)
+    imgui.push_id(node.id.id())
+    imgui.text(node.kind)
+    for pin, name in node.inputs:  # the inputs, on the left
+        _pipe_pin(pin, node_ed.PinKind.input, graph.source(pin) is not None)
+        imgui.same_line()
+        imgui.text(name)
+    if node.kind == "Image":
+        _pipe_random_picture(node, width)
+    if node.param is not None:
+        imgui.set_next_item_width(width)
+        if node.kind == "Blur":
+            _, node.param = imgui.slider_float("##param", node.param, 0.0, 4.0, "sigma %.1f")
+        else:
+            _, node.param = imgui.slider_float("##param", node.param, 0.0, 1.0, "strength %.2f")
+    height = width * PIPE_IMAGE_SIZE[1] / PIPE_IMAGE_SIZE[0]
+    if node.result is not None:
+        immvision.image_display("##image", node.result, (int(width), int(height)),
+                                refresh_image=node.version != node.shown_version)
+        node.shown_version = node.version
+    else:
+        imgui.dummy(ImVec2(width, height * 0.5))
+        imgui.text_disabled("(no input)")
+    imgui.begin_horizontal("output", ImVec2(width, 0))  # the output, on the right
+    imgui.spring()
+    imgui.text("out")
+    _pipe_pin(node.output, node_ed.PinKind.output, any(link[1] == node.output for link in graph.links))
+    imgui.end_horizontal()
+    imgui.pop_id()
+    node_ed.end_node()
+
+
+def _pipe_random_picture(node: _PipeNode, width: float) -> None:
+    """The Image node's button: a random picture from picsum.photos, downloaded without blocking the GUI"""
+    if not hasattr(immapp, "decode_image"):
+        return  # this build cannot decode a download (a Pyodide wheel older than immapp.decode_image)
+    if node.download is not None:
+        if not node.download.done:
+            imgui.text_disabled("Downloading...")
+            hello_imgui.set_item_is_live()  # the download ends on its own
+            return
+        picture = _pipe_picture_from_bytes(node.download.data) if not node.download.error else None
+        node.download_error = "" if picture is not None else "No picture: offline?"
+        if picture is not None:
+            node.picture = picture
+            node.picture_version += 1
+        node.download = None
+    if imgui.button(icons_fontawesome_4.ICON_FA_RANDOM + " Random", ImVec2(width, 0)):
+        node.download_count += 1
+        node.download = immapp.start_download(PIPE_RANDOM_URL.format(node.download_count))
+    if node.download_error:
+        imgui.text_disabled(node.download_error)
+
+
+def _pipe_new_links(graph: _PipeGraph) -> None:
+    """A link dragged from a pin to another: accepted from an output to an input, unless it makes a loop"""
+    if node_ed.begin_create(PIPE_LINK_COLOR, 2.0):
+        start_id, end_id = node_ed.PinId(), node_ed.PinId()
+        if node_ed.query_new_link(start_id, end_id):
+            output, input = (end_id, start_id) if graph.is_output(end_id) else (start_id, end_id)
+            output_node, input_node = graph.node_of_pin(output), graph.node_of_pin(input)
+            if output_node is not None and input_node is not None:
+                if graph.is_output(output) and not graph.is_output(input) \
+                        and not graph.feeds(input_node, output_node):
+                    if node_ed.accept_new_item():
+                        graph.connect(output, input)
+                else:
+                    node_ed.reject_new_item(ImVec4(1.0, 0.3, 0.3, 1.0), 2.0)
+        node_ed.end_create()
+
+
+def _pipe_deletions(graph: _PipeGraph) -> None:
+    if node_ed.begin_delete():
+        link_id = node_ed.LinkId()
+        while node_ed.query_deleted_link(link_id):
+            if node_ed.accept_deleted_item():
+                graph.links = [link for link in graph.links if link[0] != link_id]
+        node_id = node_ed.NodeId()
+        while node_ed.query_deleted_node(node_id):
+            node_ed.reject_deleted_item()  # the four nodes stay
+        node_ed.end_delete()
+
+
+def _pipeline_slide_gui(content_size: ImVec2):
+    global _pipe_editor, _pipe_graph, _pipe_frames, _pipe_size
+    em = hello_imgui.em_size()
+    if _pipe_editor is None:
+        config = node_ed.Config()
+        config.settings_file = None  # the slide places its nodes: nothing to save
+        _pipe_editor = node_ed.create_editor(config)
+    previous_editor = node_ed.get_current_editor()
+    node_ed.set_current_editor(_pipe_editor)
+    hint_h = em * (2.8 if is_small_screen() else 1.5)
+    editor_size = ImVec2(content_size.x, content_size.y - hint_h)
+    node_ed.begin("##pipeline", editor_size)
+    if _pipe_graph is None:
+        _pipe_graph = _PipeGraph()
+    for node in _pipe_graph.nodes:
+        _pipe_graph.evaluate(node)
+    for node in _pipe_graph.nodes:
+        _pipe_node(_pipe_graph, node)
+    for link_id, output, input in _pipe_graph.links:
+        node_ed.link(link_id, output, input, PIPE_LINK_COLOR, 3.0)
+    _pipe_new_links(_pipe_graph)
+    _pipe_deletions(_pipe_graph)
+    node_ed.end()
+    # Fit the graph in the view once the editor knows the size of the nodes (the third frame), and when the slide's
+    # size changes (a phone turned). The navigation functions work after end().
+    size_changed = abs(_pipe_size.x - editor_size.x) > 1.0 or abs(_pipe_size.y - editor_size.y) > 1.0
+    if _pipe_frames == 2 or (size_changed and _pipe_frames > 2):
+        node_ed.navigate_to_content(0.0)
+    _pipe_size = editor_size
+    _pipe_frames += 1
+    if previous_editor is not None:  # the app's own editor, if it has one
+        node_ed.set_current_editor(previous_editor)
+    imgui.push_style_color(imgui.Col_.text, imgui.get_style_color_vec4(imgui.Col_.text_disabled))
+    imgui.text_wrapped("Move a slider: the nodes downstream follow. Drag from a pin to another to link them; "
+                       "right-drag to pan, the wheel to zoom.")
+    imgui.pop_style_color()
+
+
+# ============================================================================
+# Slide: the drum sequencer (a table with angled headers, checkboxes, a toggle, a knob, a color wheel)
+# ============================================================================
+
+_table_instruments = ["kick", "snare", "hihat", "open-hh", "tom", "clap", "rim", "crash"]
+_table_num_instr = 8
+_table_num_beats = 16
+_table_pattern: List[List[bool]] = []
+_table_volume = [8.0, 7.0, 5.0, 4.0, 6.0, 7.0, 5.0, 3.0]  # per instrument, 0 to 10
+_table_inited = False
+_table_playhead = 0
+_table_bpm = 140.0
+_table_playing = True
+_table_accum = 0.0
+_table_hl_color = ImVec4(0.3, 0.5, 1.0, 0.25)
+
+
+def _table_init():
+    """A pattern of 8 steps, played twice"""
+    global _table_pattern, _table_inited
+    bar = [[False] * _table_num_instr for _ in range(8)]
+    bar[0][0] = bar[4][0] = True   # kick
+    bar[2][1] = bar[6][1] = True   # snare
+    for i in range(0, 8, 2):
+        bar[i][2] = True           # hihat
+    bar[1][3] = bar[5][3] = True   # open-hh
+    bar[3][4] = True               # tom
+    bar[6][5] = True               # clap
+    bar[4][6] = bar[7][6] = True   # rim
+    bar[0][7] = True               # crash
+    _table_pattern = [list(bar[row % 8]) for row in range(_table_num_beats)]
+    _table_pattern[15][4] = _table_pattern[14][4] = True  # a tom fill at the end
+    _table_inited = True
+
+
+def _table_update():
+    global _table_playhead, _table_accum
+    if not _table_playing:
+        return
+    dt = min(imgui.get_io().delta_time, 0.1)  # clamp to prevent drift when tab is in background
+    _table_accum += dt
+    beat_interval = 60.0 / _table_bpm
+    if _table_accum >= beat_interval:
+        _table_accum = 0.0  # reset instead of subtract to prevent accumulated drift
+        _table_playhead = (_table_playhead + 1) % _table_num_beats
+
+
+def _table_gui_main(size: ImVec2, num_instr: int):
+    if not _table_inited:
+        _table_init()
+    _table_update()
+
+    total_cols = num_instr + 1
+    flags = (imgui.TableFlags_.sizing_fixed_fit
+             | imgui.TableFlags_.scroll_x | imgui.TableFlags_.scroll_y
+             | imgui.TableFlags_.borders_outer | imgui.TableFlags_.borders_inner_h
+             | imgui.TableFlags_.highlight_hovered_column)
+
+    if imgui.begin_table("##drum_seq", total_cols, flags, size):
+        imgui.table_setup_column("Beat", imgui.TableColumnFlags_.no_hide)
+        for n in range(num_instr):
+            imgui.table_setup_column(
+                _table_instruments[n],
+                imgui.TableColumnFlags_.angled_header | imgui.TableColumnFlags_.width_fixed)
+        imgui.table_setup_scroll_freeze(1, 2)
+
+        imgui.table_angled_headers_row()
+        imgui.table_headers_row()
+
+        hl_col = imgui.color_convert_float4_to_u32(_table_hl_color)
+
+        for row in range(_table_num_beats):
+            imgui.push_id(row)
+            imgui.table_next_row()
+
+            is_playhead = (row == _table_playhead) and _table_playing
+
+            imgui.table_set_column_index(0)
+            if is_playhead:
+                imgui.table_set_bg_color(imgui.TableBgTarget_.cell_bg, hl_col)
+            imgui.align_text_to_frame_padding()
+            imgui.text(str(row + 1))
+
+            for col in range(num_instr):
+                if imgui.table_set_column_index(col + 1):
+                    if is_playhead:
+                        imgui.table_set_bg_color(imgui.TableBgTarget_.cell_bg, hl_col)
+                    imgui.push_id(col)
+                    _, _table_pattern[row][col] = imgui.checkbox("", _table_pattern[row][col])
+                    imgui.pop_id()
+            imgui.pop_id()
+
+        # The last row: a volume knob per instrument
+        imgui.table_next_row()
+        imgui.table_set_column_index(0)
+        imgui.align_text_to_frame_padding()
+        imgui.text_disabled("Vol")
+        knob_flags = imgui_knobs.ImGuiKnobFlags_.no_title | imgui_knobs.ImGuiKnobFlags_.no_input
+        for col in range(num_instr):
+            if imgui.table_set_column_index(col + 1):
+                _, _table_volume[col] = imgui_knobs.knob(
+                    f"##vol{col}", _table_volume[col], 0.0, 10.0, 0.0, "%.0f",
+                    imgui_knobs.ImGuiKnobVariant_.wiper_dot, imgui.get_frame_height(), knob_flags)
+        imgui.end_table()
+        hello_imgui.set_item_is_live(_table_playing)  # the playhead moves on its own
+
+
+def _table_play_toggle():
+    global _table_playing
+    em = hello_imgui.em_size()
+    toggle_config = imgui_toggle.material_style()
+    toggle_config.size = ImVec2(em * 2.5, em * 1.2)
+    _, _table_playing = imgui_toggle.toggle("##play", _table_playing, toggle_config)
+
+
+def _table_bpm_knob(size_em: float):
+    global _table_bpm
+    _, _table_bpm = _accent_knob("##bpm", _table_bpm, 60.0, 300.0, "%.0f", hello_imgui.em_size(size_em))
+
+
+def _table_gui_side():
+    """Play, the tempo and the highlight's color on one row; below, the picture of the manual"""
+    global _table_hl_color
+    em = hello_imgui.em_size()
+    imgui.begin_group()
+    imgui.text("Play")
+    _table_play_toggle()
+    imgui.end_group()
+    imgui.same_line(0.0, em * 1.5)
+    imgui.begin_group()
+    imgui.text("Tempo")
+    _table_bpm_knob(3.5)
+    imgui.end_group()
+    imgui.same_line(0.0, em * 1.5)
+    imgui.begin_group()
+    imgui.text("Highlight")
+    picker_flags = (imgui.ColorEditFlags_.no_side_preview
+                    | imgui.ColorEditFlags_.no_inputs
+                    | imgui.ColorEditFlags_.no_label
+                    | imgui.ColorEditFlags_.alpha_bar
+                    | imgui.ColorEditFlags_.picker_hue_wheel)
+    imgui.set_next_item_width(em * 7.0)
+    _, _table_hl_color = imgui.color_picker4("##hl_wheel", _table_hl_color, picker_flags)
+    imgui.end_group()
+    _IntroAutomations.show_link("More info: complex app layout", _IntroAutomations.show_docking)
+
+    # The manual of all the widgets, below: as wide as the panel, or as tall as the space left
+    imgui.spacing()
+    imgui.separator()
+    imgui.spacing()
+    _manual_teaser("All of Dear ImGui's widgets, with their code: the interactive manual", "manual_imgui.py")
+
+
+def _table_gui_side_narrow():
+    """Play and the tempo, on one line"""
+    imgui.text("Play")
+    imgui.same_line()
+    _table_play_toggle()
+    imgui.same_line(0.0, hello_imgui.em_size(1.5))
+    imgui.text("Tempo")
+    imgui.same_line()
+    _table_bpm_knob(2.5)
+
+
+def _table_slide_gui(content_size: ImVec2):
+    em = hello_imgui.em_size()
+    gap = em * 0.5
+    if is_small_screen():  # six instruments fit the width; the controls under the table
+        panel_h = em * 4.6  # the tempo knob and its value under it
+        _table_gui_main(ImVec2(content_size.x, content_size.y - panel_h - gap), 6)
+        draw_side_panel("##table_side", content_size.x, panel_h, _table_gui_side_narrow)
+        return
+    table_w = min(em * 21.0, content_size.x * 0.5)  # the width of its columns and their angled headers
+    _table_gui_main(ImVec2(table_w, content_size.y), _table_num_instr)
+    imgui.same_line(0.0, gap)
+    draw_side_panel("##table_side", content_size.x - table_w - gap, content_size.y, _table_gui_side)
+
+
+# ============================================================================
+# Slide: markdown, the source and its live render
+# ============================================================================
+
+_MARKDOWN_SAMPLE = r"""
+## Dear ImGui Bundle — live markdown
+> *Edit the source, and watch the render follow in real time.*
+### What you can write
+- **Bold**, *italic*, ~~strike~~, <u>underline</u>, <mark>highlight</mark>, `code`
+- Keyboard shortcuts: <kbd>Ctrl</kbd>+<kbd>S</kbd>, <kbd>Cmd</kbd>+<kbd>K</kbd>
+- Chemistry & exponents: H<sub>2</sub>O, x<sup>2</sup>+y<sup>2</sup>=r<sup>2</sup>
+- [Clickable links](https://github.com/pthom/imgui_bundle) and bare URLs: https://dearimgui.org
+### A little code
+```python
+from imgui_bundle import imgui, immapp
+immapp.run(lambda: imgui.text("Hello, World!"))
+```
+### A little math
+Euler's identity $e^{i\pi} + 1 = 0$ generalizes to:
+$$
+e^{i\theta} = \cos\theta + i\sin\theta
+$$
+### A diagram
+```mermaid
+flowchart LR
+    A[Markdown] --> B{rich_md}
+    B --> C[Text and math]
+    B --> D[Diagrams]
+```
+## Tables with *resizable* columns and *alignment*
+|Id| Library    | What it does        |
+|-:|:----------:|---------------------|
+|1| ImGui      | Core widgets        |
+|2| ImPlot     | 2D plots            |
+|3| ImPlot3D   | 3D plots            |
+|4| ImmVision  | Image analysis      |
+|5| rich_md   | This renderer       |
+> [!TIP]
+> Click the triangle below to unfold. Try adding your own collapsible section.
+<details>
+<summary>Images, including from the web</summary>
+<img src="https://picsum.photos/id/1019/200/130" height="100" />
+</details>
+"""
+
+_markdown_text_editor: ed.TextEditor = None  # type: ignore
+_markdown_editor_initialized = False
+_markdown_show_source = False  # on a phone: the source or the render, one at a time
+
+
+def _init_markdown_editor():
+    global _markdown_text_editor, _markdown_editor_initialized
+    _markdown_text_editor = ed.TextEditor()
+    _markdown_text_editor.set_text(_MARKDOWN_SAMPLE)
+    _markdown_text_editor.set_language(ed.TextEditor.Language.markdown())
+    _markdown_editor_initialized = True
+
+
+def _markdown_source(size: ImVec2):
+    em = hello_imgui.em_size()
+    panel_bg(imgui.get_cursor_screen_pos(), size)
+    imgui.begin_child("##md_source", size, False, imgui.WindowFlags_.no_background)
+    code_font = rich_md.get_code_font()
+    imgui.push_font(code_font.font, code_font.size * 0.9)
+    code_palette_follows_theme(_markdown_text_editor)
+    _markdown_text_editor.render("##md_editor", ImVec2(size.x - em * 0.2, size.y))
+    imgui.pop_font()
+    imgui.end_child()
+
+
+def _markdown_rendered(size: ImVec2):
+    """The render, as a document: its table of contents beside it (or above it, when narrow)"""
+    rich_md.render_document("##md_rendered", _markdown_text_editor.get_text(), size)
+
+
+def _markdown_slide_gui(content_size: ImVec2):
+    global _markdown_show_source
+    if not _markdown_editor_initialized:
+        _init_markdown_editor()
+    em = hello_imgui.em_size()
+    gap = em * 0.5
+    if is_small_screen():  # one panel at a time
+        if imgui.radio_button("Rendered", not _markdown_show_source):
+            _markdown_show_source = False
+        imgui.same_line()
+        if imgui.radio_button("Source", _markdown_show_source):
+            _markdown_show_source = True
+        size = ImVec2(content_size.x, content_size.y - imgui.get_frame_height_with_spacing())
+        if _markdown_show_source:
+            _markdown_source(size)
+        else:
+            _markdown_rendered(size)
+        return
+    half_w = (content_size.x - gap) * 0.5
+    _markdown_source(ImVec2(half_w, content_size.y))
+    imgui.same_line(0, gap)
+    _markdown_rendered(ImVec2(half_w, content_size.y))
+
+
+# ============================================================================
+# Slide: a whole app, the heart haiku (demos_immapp/haiku_implot_heart.py): its complete code, and beside it the
+# app that this code runs
+# ============================================================================
+
+_HAIKU_PYTHON = r'''import time
+import numpy as np
+from imgui_bundle import implot, imgui_knobs, imgui, immapp, hello_imgui
+
+# Fill x and y whose plot is a heart
+vals = np.arange(0, np.pi * 2, 0.01)
+x = np.power(np.sin(vals), 3) * 16
+y = 13 * np.cos(vals) - 5 * np.cos(2 * vals) - 2 * np.cos(3 * vals) - np.cos(4 * vals)
+# Heart pulse rate and time tracking
+phase = 0.0
+t0 = time.time() + 0.2
+heart_pulse_rate = 80.0
+heart_thickness = 0.15
+LARGEST_SCALE = 0.9 * 1.3  # of the heart: the pulse scales it up to 0.9, the thickness up to 1.3
+
+def gui():
+    global heart_pulse_rate, phase, t0, heart_thickness
+    t = time.time()
+    phase += (t - t0) * heart_pulse_rate / (np.pi * 2)
+    k = 0.8 + 0.1 * np.cos(phase)
+    t0 = t
+
+    if implot.begin_plot("Heart", immapp.em_to_vec2(21, 21)):
+        implot.setup_axes_limits(x.min() * LARGEST_SCALE, x.max() * LARGEST_SCALE,
+                                 y.min() * LARGEST_SCALE, y.max() * LARGEST_SCALE)
+        for k2 in np.arange(1 - heart_thickness, 1 + heart_thickness, 0.01):
+            implot.plot_line("", x * k * k2, y * k * k2)  # some thickness
+        implot.end_plot()
+        hello_imgui.set_item_is_live()  # the heart beats on its own
+
+    _, heart_pulse_rate = imgui_knobs.knob("Pulse", heart_pulse_rate, 30, 180,
+        variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot, size=immapp.em_size(4.0))
+    imgui.same_line()
+    _, heart_thickness = imgui_knobs.knob("Line Thickness", heart_thickness, 0.01, 0.3,
+        variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot, size=immapp.em_size(4.0))
+
+if __name__ == "__main__":
+    immapp.run(gui, window_size=(380, 470), with_implot=True)
+'''
+
+_HAIKU_CPP = r'''#include "imgui.h"
+#include "implot/implot.h"
+#include "imgui-knobs/imgui-knobs.h"
+#include "immapp/immapp.h"
+#include <algorithm>
+#include <cmath>
+
+const double LARGEST_SCALE = 0.9 * 1.3;  // of the heart: the pulse scales it up to 0.9, the thickness up to 1.3
+
+std::vector<double> VectorTimesK(const std::vector<double>& values, double k) {
+    std::vector<double> r(values.size(), 0.);
+    for (size_t i = 0; i < values.size(); ++i)
+        r[i] = k * values[i];
+    return r;
+}
+
+void Gui() {
+    // Fill x and y whose plot is a heart
+    const double pi = 3.1415926535;
+    static std::vector<double> x, y;
+    if (x.empty()) {
+        for (double t = 0.; t < pi * 2.; t += 0.01) {
+            x.push_back(pow(sin(t), 3.) * 16.);
+            y.push_back(13. * cos(t) - 5 * cos(2. * t) - 2 * cos(3. * t) - cos(4. * t));
+        }
+    }
+    // Heart pulse rate and time tracking
+    static double phase = 0., t0 = ImmApp::ClockSeconds() + 0.2;
+    static float heart_pulse_rate = 80., heart_thickness = 0.15;
+    double t = ImmApp::ClockSeconds();
+    phase += (t - t0) * (double)heart_pulse_rate / (pi * 2.);
+    double k = 0.8 + 0.1 * cos(phase);
+    t0 = t;
+
+    if (ImPlot::BeginPlot("Heart", ImmApp::EmToVec2(21, 21))) {
+        auto [xMin, xMax] = std::minmax_element(x.begin(), x.end());
+        auto [yMin, yMax] = std::minmax_element(y.begin(), y.end());
+        ImPlot::SetupAxesLimits(*xMin * LARGEST_SCALE, *xMax * LARGEST_SCALE,
+                                *yMin * LARGEST_SCALE, *yMax * LARGEST_SCALE);
+        for (double k2 = 1 - heart_thickness; k2 <= 1. + heart_thickness; k2 += 0.01) {
+            auto xk = VectorTimesK(x, k * k2), yk = VectorTimesK(y, k * k2);
+            ImPlot::PlotLine("", xk.data(), yk.data(), (int)xk.size());  // some thickness
+        }
+        ImPlot::EndPlot();
+        HelloImGui::SetItemIsLive();  // the heart beats on its own
+    }
+
+    ImGuiKnobs::Knob("Pulse", &heart_pulse_rate, 30., 180.);
+    ImGui::SameLine();
+    ImGuiKnobs::Knob("Line Thickness", &heart_thickness, 0.01, 0.3);
+}
+
+int main() {
+    HelloImGui::SimpleRunnerParams runnerParams;
+    runnerParams.guiFunction = Gui;
+    runnerParams.windowTitle = "Hello!";
+    runnerParams.windowSize = {380, 470};
+    ImmApp::AddOnsParams addOnsParams;
+    addOnsParams.withImplot = true;
+    ImmApp::Run(runnerParams, addOnsParams);
+}
+'''
+
+_haiku_app: Optional[dict[str, Any]] = None  # the globals of the Python code above, run once (its gui() is the app)
+_haiku_editors: list[Any] = []  # the code, in a read-only editor: [Python, C++]
+_haiku_view = -1  # 0: Python, 1: C++ (on a phone, 2: the app); -1 until the first frame: the app on a phone
+
+
+def _haiku_init() -> None:
+    global _haiku_app
+    _haiku_app = {"__name__": "haiku_implot_heart"}  # not "__main__": the code defines gui(), and does not run it
+    exec(_HAIKU_PYTHON, _haiku_app)
+    for code, language in ((_HAIKU_PYTHON, ed.TextEditor.Language.python()),
+                           (_HAIKU_CPP, ed.TextEditor.Language.cpp())):
+        editor = ed.TextEditor()
+        editor.set_text(code)
+        editor.set_language(language)
+        editor.set_read_only_enabled(True)
+        editor.set_show_whitespaces_enabled(False)  # a page of code, to be read
+        _haiku_editors.append(editor)
+
+
+def _haiku_code(index: int, size: ImVec2) -> None:
+    panel_bg(imgui.get_cursor_screen_pos(), size)
+    imgui.begin_child("##haiku_code", size, False, imgui.WindowFlags_.no_background)
+    code_font = rich_md.get_code_font()
+    imgui.push_font(code_font.font, code_font.size * 0.85)
+    code_palette_follows_theme(_haiku_editors[index])
+    _haiku_editors[index].render("##haiku_editor", size)
+    imgui.pop_font()
+    imgui.end_child()
+
+
+HAIKU_APP_SIZE_EM = ImVec2(22.0, 31.5)  # what the heart app needs: its 21 em plot, its knobs below, a margin
+
+
+def _haiku_running_app(size: ImVec2) -> None:
+    """The app that the Python code runs: its gui(), in a frame, under a smaller font when the frame is too small for
+    it (its sizes are in em, so they follow)"""
+    assert _haiku_app is not None
+    em = hello_imgui.em_size()
+    scale = min(1.0, size.x / (HAIKU_APP_SIZE_EM.x * em), size.y / (HAIKU_APP_SIZE_EM.y * em))
+    panel_bg(imgui.get_cursor_screen_pos(), size, 0.04, 0.3)
+    imgui.begin_child("##haiku_app", size, False, imgui.WindowFlags_.no_background | imgui.WindowFlags_.no_scrollbar)
+    imgui.push_font(None, imgui.get_style().font_size_base * scale)
+    imgui.set_cursor_pos(ImVec2(hello_imgui.em_size(0.5), hello_imgui.em_size(0.5)))
+    imgui.begin_group()
+    _haiku_app["gui"]()
+    imgui.end_group()
+    imgui.pop_font()
+    imgui.end_child()
+
+
+def _haiku_slide_gui(content_size: ImVec2):
+    global _haiku_view
+    if _haiku_app is None:
+        _haiku_init()
+    em = hello_imgui.em_size()
+    gap = em * 0.5
+    narrow = is_small_screen()
+    labels = ["Python", "C++"] + (["The app"] if narrow else [])
+    if _haiku_view < 0:
+        _haiku_view = 2 if narrow else 0
+    remembered = code_language_pref()  # the reader's last choice, in any view of the app
+    if _haiku_view != 2 and remembered:
+        _haiku_view = 1 if remembered == "C++" else 0
+    for i, label in enumerate(labels):
+        if i > 0:
+            imgui.same_line()
+        if imgui.radio_button(label, _haiku_view == i):
+            _haiku_view = i
+            if i < 2:  # "The app" is not a language
+                set_code_language_pref(label)
+    if not narrow and _haiku_view == 2:
+        _haiku_view = 1 if remembered == "C++" else 0
+    size = ImVec2(content_size.x, content_size.y - imgui.get_frame_height_with_spacing())
+    if narrow:  # one at a time: the code, or the app
+        if _haiku_view == 2:
+            _haiku_running_app(size)
+        else:
+            _haiku_code(_haiku_view, size)
+        return
+    app_w = min(em * 23.0, size.x * 0.45)  # the heart is 21 em wide
+    _haiku_code(_haiku_view, ImVec2(size.x - app_w - gap, size.y))
+    imgui.same_line(0, gap)
+    _haiku_running_app(ImVec2(app_w, size.y))
+
+
+# ============================================================================
+# Slide: "Code that reads like a book": four snippets, each beside the widget it draws
+# ============================================================================
+
+# Each snippet: (title, Python code, C++ code). The code shown is the code that draws the widget beside it.
+_GALLERY_SNIPPETS = [
+    ("Animated Plot",
+     # Python
+     """\
+t = imgui.get_time() * 3
+x = np.linspace(0, 4 * np.pi, 200)
+if implot.begin_plot("##wave", ImVec2(-1, -1)):
+    implot.plot_line("sin", x, np.sin(x + t))
+    implot.plot_line("cos", x, np.cos(x + t * 0.7))
+    implot.end_plot()""",
+     # C++
+     """\
+float t = ImGui::GetTime() * 3.f;
+std::vector<float> x(200), s(200), c(200);
+for (int i = 0; i < 200; i++) {
+    x[i] = i * 4.f * IM_PI / 199.f;
+    s[i] = sinf(x[i] + t);
+    c[i] = cosf(x[i] + t * 0.7f);
+}
+if (ImPlot::BeginPlot("##wave", ImVec2(-1, -1))) {
+    ImPlot::PlotLine("sin", x.data(), s.data(), 200);
+    ImPlot::PlotLine("cos", x.data(), c.data(), 200);
+    ImPlot::EndPlot();
+}"""),
+    ("Knob",
+     # Python
+     """\
+_, value = imgui_knobs.knob(
+    "Volume", value, 0, 100, 1,
+    "%.0f%%", imgui_knobs.ImGuiKnobVariant_.wiper_dot)
+imgui.same_line()
+imgui.v_slider_float("##vslider",
+    ImVec2(em * 1.5, em * 5), value, 0, 100, "%.0f")""",
+     # C++
+     """\
+ImGuiKnobs::Knob(
+    "Volume", &value, 0, 100, 1,
+    "%.0f%%", ImGuiKnobVariant_WiperDot);
+ImGui::SameLine();
+ImGui::VSliderFloat("##vslider",
+    ImVec2(em * 1.5f, em * 5.f), &value, 0, 100, "%.0f");"""),
+    ("Color Picker",
+     # Python
+     """\
+# c is an ImVec4
+imgui.text(f"({c[0]:.2f}, {c[1]:.2f}, {c[2]:.2f})")
+_, c = imgui.color_picker4("##color", c)
+""",
+     # C++
+     """\
+// c is an ImVec4
+ImGui::Text("(%.2f, %.2f, %.2f)", c.x, c.y, c.z);
+ImGui::ColorPicker4("##color", &c.x);
+"""),
+    ("Mini Form",
+     # Python
+     """\
+_changed, name = imgui.input_text("Name", name)
+if imgui.button("Greet") and name:
+    greeting = f"Hello, {name}!"
+imgui.text_colored(ImVec4(0.4, 1, 0.4, 1), greeting)
+_, agreed = imgui.checkbox("I agree", agreed)
+_, choice = imgui.combo("Fruit", choice,
+                        ["Apple", "Banana", "Cherry"])""",
+     # C++
+     """\
+ImGui::InputText("Name", name, sizeof(name));
+if (ImGui::Button("Greet") && name[0])
+    snprintf(greeting, sizeof(greeting), "Hello, %s!", name);
+ImGui::TextColored(ImVec4(0.4f,1,0.4f,1), "%s", greeting);
+ImGui::Checkbox("I agree", &agreed);
+ImGui::Combo("Fruit", &choice, "Apple\\0Banana\\0Cherry\\0");"""),
+]
+
+# _gallery_editors[lang_idx][snippet_idx], lang_idx: 0=Python, 1=C++
+_gallery_editors: list[list[Any]] = [[], []]
+_gallery_initialized = False
+_gallery_lang = 0  # 0 = Python, 1 = C++
+_gallery_snippet = 0  # on a phone: the one snippet shown
+
+
+def _init_gallery():
+    global _gallery_initialized
+    for lang_idx, lang_def in enumerate([
+        ed.TextEditor.Language.python(),
+        ed.TextEditor.Language.cpp(),
+    ]):
+        for _, py_code, cpp_code in _GALLERY_SNIPPETS:
+            code = py_code if lang_idx == 0 else cpp_code
+            editor = ed.TextEditor()
+            editor.set_text(code)
+            editor.set_language(lang_def)
+            _gallery_editors[lang_idx].append(editor)
+    _gallery_initialized = True
+
+
+def _gallery_slide_gui(content_size: ImVec2):
+    global _gallery_initialized, _gallery_lang, _gallery_snippet
+    s = _gallery_slide_gui  # static-like state on the function object
+    if not _gallery_initialized:
+        _init_gallery()
+
+    if not hasattr(s, "_knob_val"):
+        s._knob_val = 42.0
+        s._color = [0.4, 0.6, 1.0, 1.0]
+        s._name = "World"
+        s._greeting = "Hello, World!"
+        s._agreed = True
+        s._choice = 0
+
+    em = hello_imgui.em_size()
+    narrow = is_small_screen()
+    top_y = imgui.get_cursor_pos_y()  # content_size starts here (below the title card)
+
+    # Language radio buttons (and on a phone, the snippet shown)
+    remembered = code_language_pref()  # the reader's last choice, in any view of the app
+    if remembered:
+        _gallery_lang = 0 if remembered == "Python" else 1
+    lang_before = _gallery_lang
+    _, _gallery_lang = imgui.radio_button("Python", _gallery_lang, 0)
+    imgui.same_line()
+    _, _gallery_lang = imgui.radio_button("C++", _gallery_lang, 1)
+    if _gallery_lang != lang_before:
+        set_code_language_pref("Python" if _gallery_lang == 0 else "C++")
+    if narrow:
+        imgui.same_line(0.0, em)
+        imgui.set_next_item_width(-1)
+        _, _gallery_snippet = imgui.combo("##snippet", _gallery_snippet, [title for title, _, _ in _GALLERY_SNIPPETS])
+
+    snippets_gui = [
+        lambda: _gallery_gui_plot(em),
+        lambda: _gallery_gui_knob(em, s),
+        lambda: _gallery_gui_color(em, s),
+        lambda: _gallery_gui_form(em, s),
+    ]
+    remaining_h = content_size.y - (imgui.get_cursor_pos_y() - top_y)
+    if narrow:  # one snippet, its code above its widget
+        _gallery_render_cell(_gallery_snippet, content_size.x, remaining_h, em, snippets_gui[_gallery_snippet],
+                             stacked=True)
+        return
+    cols, rows = 2, 2
+    gap = em * 0.4
+    cell_w = (content_size.x - gap * (cols - 1)) / cols
+    cell_h = (remaining_h - gap * (rows - 1)) / rows
+    origin = imgui.get_cursor_screen_pos()
+    for idx in range(4):
+        row, col = divmod(idx, cols)
+        imgui.set_cursor_screen_pos(ImVec2(origin.x + col * (cell_w + gap), origin.y + row * (cell_h + gap)))
+        _gallery_render_cell(idx, cell_w, cell_h, em, snippets_gui[idx], stacked=False)
+
+
+def _gallery_render_cell(idx: int, w: float, h: float, em: float, gui_func, stacked: bool):
+    """A snippet's code and its widget, side by side (the code at the left, resizable) or stacked (the code above)"""
+    if not hasattr(_gallery_render_cell, "_copy_times"):
+        _gallery_render_cell._copy_times = {}
+    title = _GALLERY_SNIPPETS[idx][0]
+    editor = _gallery_editors[_gallery_lang][idx]
+
+    panel_bg(imgui.get_cursor_screen_pos(), ImVec2(w, h), 0.06, 0.25)
+    imgui.begin_child(f"##gallery_{idx}", ImVec2(w, h), False,
+                      imgui.WindowFlags_.no_scrollbar | imgui.WindowFlags_.no_background)
+    pad = em * 0.4
+    avail_h = h - imgui.get_cursor_pos_y() - pad
+    code_font = rich_md.get_code_font()
+    code_font_size = code_font.size * (0.7 if stacked else 0.8)
+    if stacked:  # the code as tall as its lines (and a horizontal scroll bar), at most 55% of the cell
+        nb_lines = len(_GALLERY_SNIPPETS[idx][1 if _gallery_lang == 0 else 2].splitlines())
+        code_h = imgui.get_frame_height_with_spacing() + (nb_lines + 1.6) * code_font_size * 1.1 + em * 0.6
+        code_size, code_flags = ImVec2(w - pad, min(code_h, avail_h * 0.55)), imgui.ChildFlags_.borders
+    else:
+        code_size, code_flags = ImVec2((w - pad * 2) * 0.5, avail_h), imgui.ChildFlags_.resize_x | imgui.ChildFlags_.borders
+
+    imgui.begin_child(f"##code_{idx}", code_size, code_flags)
+    # Title + Copy button
+    imgui.text_disabled(title)
+    imgui.same_line(imgui.get_content_region_avail().x - imgui.get_frame_height())
+    if imgui.small_button(icons_fontawesome_4.ICON_FA_COPY + f"##copy_{idx}"):
+        code = _GALLERY_SNIPPETS[idx][1] if _gallery_lang == 0 else _GALLERY_SNIPPETS[idx][2]
+        imgui.set_clipboard_text(code)
+        _gallery_render_cell._copy_times[idx] = imgui.get_time()
+    copied_recently = (imgui.get_time() - _gallery_render_cell._copy_times.get(idx, -1.0)) < 0.7
+    imgui.set_item_tooltip("Copied!" if copied_recently else "Copy")
+    imgui.push_font(code_font.font, code_font_size)
+    code_palette_follows_theme(editor)
+    editor.render(f"##ed_gallery_{idx}", ImVec2(-1, -1))
+    imgui.pop_font()
+    imgui.end_child()
+
+    if not stacked:
+        imgui.same_line()
+    # The widget, in the remaining space
+    imgui.begin_child(f"##live_{idx}", ImVec2(0, 0 if stacked else avail_h), False, imgui.WindowFlags_.no_scrollbar)
+    gui_func()
+    imgui.end_child()
+    imgui.end_child()
+
+
+def _gallery_gui_plot(em: float):
+    t = imgui.get_time() * 3
+    x = np.linspace(0, 4 * np.pi, 200)
+    implot.push_style_var(implot.StyleVar_.plot_min_size, ImVec2(em * 8, em * 5))  # (ImPlot's own minimum is taller)
+    if implot.begin_plot("##wave", ImVec2(-1, -1)):
+        implot.plot_line("sin", x, np.sin(x + t))
+        implot.plot_line("cos", x, np.cos(x + t * 0.7))
+        implot.end_plot()
+        hello_imgui.set_item_is_live()  # the waves move on their own
+    implot.pop_style_var()
+
+
+def _gallery_gui_knob(em: float, s):
+    _, s._knob_val = imgui_knobs.knob(
+        "Volume", s._knob_val, 0, 100, 1,
+        "%.0f%%", imgui_knobs.ImGuiKnobVariant_.wiper_dot)
+    imgui.same_line()
+    _, s._knob_val = imgui.v_slider_float(
+        "##vslider", ImVec2(em * 1.5, em * 5), s._knob_val, 0, 100, "%.0f")
+
+
+def _gallery_gui_color(em: float, s):
+    imgui.text(f"({s._color[0]:.2f}, {s._color[1]:.2f}, {s._color[2]:.2f})")
+    _, s._color = imgui.color_picker4("##color", s._color)
+
+
+def _gallery_gui_form(em: float, s):
+    imgui.set_next_item_width(-1)
+    _changed, s._name = imgui.input_text("Name", s._name)
+    if imgui.button("Greet") and s._name:
+        s._greeting = f"Hello, {s._name}!"
+    imgui.text_colored(ImVec4(0.4, 1.0, 0.4, 1.0), s._greeting)
+    _, s._agreed = imgui.checkbox("I agree", s._agreed)
+    imgui.set_next_item_width(-1)
+    _, s._choice = imgui.combo("Fruit", s._choice, ["Apple", "Banana", "Cherry"])
+
+
+# ============================================================================
+# Top section: the links row, the prose
+# ============================================================================
+
+def links_row():
+    """The main links row: the site | Repository | Documentation | Playground | Discord. Not on a phone: three lines
+    there, and the fold has them all (the "Start here" of resources.md)"""
+    if is_small_screen():
+        return
     links = [
         ("imgui-bundle.pages.dev", "https://imgui-bundle.pages.dev", "Main project site"),
         ("Repository", "https://github.com/pthom/imgui_bundle", "Source code, issues, discussions"),
-        ("Documentation", "https://imgui-bundle.pages.dev/", "Full documentation for Dear ImGui Bundle"),
+        ("Documentation", "https://imgui-bundle.pages.dev/doc/", "Full documentation for Dear ImGui Bundle"),
         ("Python Playground", "https://imgui-bundle.pages.dev/playground/", "Live Python sandbox with demos - edit and run in your browser"),
         ("Discord", "https://discord.gg/xkzpKMeYN3", "Join the community for questions, showcase, and discussion (new!)"),
+        ("All the resources", "https://imgui-bundle.pages.dev/doc/intro/resources/", "Every documentation, manual, video and community link, in one page"),
     ]
     for i, (label, url, tooltip) in enumerate(links):
         if i > 0:
             imgui.same_line()
-            imgui.text_disabled("|")
-            imgui.same_line()
-        imgui_md.render_text_as_link(label, url)
+            needed = imgui.calc_text_size("| " + label).x + 2 * imgui.get_style().item_spacing.x
+            if needed > imgui.get_content_region_avail().x:  # the row wraps on a narrow screen
+                imgui.new_line()
+            else:
+                imgui.text_disabled("|")
+                imgui.same_line()
+        rich_md.render_text_as_link(label, url)
         if imgui.is_item_hovered():
             imgui.set_tooltip(tooltip)
 
 
-def _render_more_info():
-    """Render the expandable 'More info & links' section."""
-    global _more_info_expanded
-    arrow = icons_fontawesome_4.ICON_FA_COMPRESS if _more_info_expanded else icons_fontawesome_4.ICON_FA_EXPAND
-    if imgui.small_button(f"More info & links {arrow}"):
-        _more_info_expanded = not _more_info_expanded
+ABOUT_TITLE = "About Dear ImGui Bundle"  # the window of the prose
+ABOUT_ANIMATION = 0.3  # s: the window of the prose slides up and fades in
+HEAD_SCALE_SMALL_SCREEN = 0.75  # the tagline's size on a phone, where it would take a third of the screen
 
-    if not _more_info_expanded:
+_welcome_head: list[str] = []  # the tagline and the subtitle: the paragraphs of welcome.md before its first section
+_welcome_rest = ""  # its sections, in the window of the prose
+_welcome_loaded = False
+_about_opened_at: Optional[float] = None  # when the window of the prose opened (None: closed)
+_about_press_outside = False  # the last press, while the window of the prose is open, was outside it
+_cta_height = 0.0  # the height of the button and the manuals' line, measured at the last frame
+HEAD_EXPANDED_DURATION = 8.0  # s: on a phone, a tap on the short tagline shows all of it for that long
+_head_expanded_until = 0.0  # the time until which the whole head shows, on a phone
+
+
+def _load_welcome_text() -> None:
+    """welcome.md, an asset (demos_assets): its paragraphs before the first "## " heading are the head (one line of
+    text each, `*italic*` for the whole paragraph), the rest is the prose"""
+    global _welcome_head, _welcome_rest, _welcome_loaded
+    _welcome_loaded = True
+    path = hello_imgui.asset_file_full_path("welcome.md", assert_if_not_found=False)
+    if not path:
+        _welcome_head = ["*Interactive Python & C++ apps for desktop, mobile, and the web.*"]
         return
-
-    imgui_md.render_unindented( """
-    Dear ImGui Bundle is a batteries-included framework built on Dear ImGui. It bundles 20+ libraries - plotting, markdown, node editors, 3D gizmos, and more - and works in C++ and Python, on desktop, mobile, and web.
-    """)
-
-    imgui_md.render_unindented("The immediate mode paradigm naturally leads to code that is concise and [easy to understand](https://imgui-bundle.pages.dev/doc/intro/what-is-imgui-bundle/#code-that-reads-like-a-book), both for humans and for AI tools.")
-    imgui.same_line()
-    imgui.text_disabled("Start your first app in 2–3 lines of code.")
-    if imgui.is_item_hovered(imgui.HoveredFlags_.delay_normal):
-        imgui.begin_tooltip()
-        imgui.dummy(hello_imgui.em_to_vec2(80.0, 0.0))
-        demo_utils.show_python_vs_cpp_code(
-            """
-            from imgui_bundle import imgui, immapp
-            immapp.run(lambda: imgui.text("Hello!"))
-            """,
-            """
-            #include "immapp/immapp.h"
-            #include "imgui.h"
-            int main() { ImmApp::Run([] { ImGui::Text("Hello"); }); }
-            """,
-            5,
-        )
-        imgui.end_tooltip()
-
-    imgui.indent()
-
-    imgui_md.render_unindented("""
-    **Links:**
-    - [Interactive Explorer](https://imgui-bundle.pages.dev/explorer/): Interactive reference manual - browse demos, see the code, try the widgets. *(You are here!)*
-    - [Documentation](https://imgui-bundle.pages.dev/): Full documentation
-    - [Python Playground](https://imgui-bundle.pages.dev/playground/): Live Python sandbox with ready-to-run demos - edit code, see results instantly
-    - [GitHub](https://github.com/pthom/imgui_bundle): Source code, issues, discussions
-    - [Discord](https://discord.gg/xkzpKMeYN3): Community (new!)
-    - [DeepWiki](https://deepwiki.com/pthom/imgui_bundle): AI-powered Q&A about the framework
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+    cut = text.find("\n## ")
+    head, _welcome_rest = (text, "") if cut < 0 else (text[:cut], text[cut + 1:])
+    _welcome_head = [p.strip() for p in head.split("\n\n") if p.strip()]
 
 
-    **Other resources:**
-    - [Dear ImGui Explorer](https://pthom.github.io/imgui_explorer): Interactive manual for Dear ImGui, ImPlot, ImPlot3D
-    - [Hello ImGui](https://pthom.github.io/hello_imgui): Cross-platform app framework
-    - [Fiatlight](https://pthom.github.io/fiatlight): Turn Python functions into interactive apps. A library built on top of the bundle, by the same author ([repo](https://github.com/pthom/fiatlight))
-    """)
+def _short_head() -> list[str]:
+    """On a phone: the tagline's first sentence only (it ends at its first ". ")"""
+    if not _welcome_head:
+        return []
+    first = _welcome_head[0]
+    italic = first.startswith("*") and first.endswith("*")
+    text = first.strip("*") if italic else first
+    cut = text.find(". ")
+    if cut < 0:
+        return [first]
+    return [f"*{text[:cut + 1]}*" if italic else text[:cut + 1]]
 
-    imgui.unindent()
 
-
-def _intro_top_section():
+def _render_head() -> None:
+    """The tagline and the subtitle, and at the right of their last line the button that opens the prose. Drawn with
+    the markdown fonts, not rendered as markdown: a phone shows them smaller, and only the tagline's first sentence,
+    until a tap shows the rest for a while"""
+    global _about_opened_at, _head_expanded_until
+    if not _welcome_loaded:
+        _load_welcome_text()
+    em = hello_imgui.em_size()
     small = is_small_screen()
+    expanded = not small or imgui.get_time() < _head_expanded_until
+    paragraphs = _welcome_head if expanded else _short_head()
+    if small and expanded:
+        hello_imgui.request_refresh()  # the head folds back on its own
+    label = icons_fontawesome_4.ICON_FA_INFO_CIRCLE if small else f"More info & links {icons_fontawesome_4.ICON_FA_EXPAND}"
+    button_w = imgui.calc_text_size(label).x + imgui.get_style().frame_padding.x * 2.0
+    top_left = imgui.get_cursor_screen_pos()
+    avail_x = imgui.get_content_region_avail().x
+    imgui.push_text_wrap_pos(imgui.get_cursor_pos_x() + avail_x - (button_w + em if _welcome_rest else 0.0))
+    last_line_end = 0.0  # where the last paragraph ends, when it takes one line (else the button goes at the right)
+    for i, paragraph in enumerate(paragraphs):
+        italic = len(paragraph) > 2 and paragraph.startswith("*") and paragraph.endswith("*")
+        text = paragraph.strip("*") if italic else paragraph
+        font = rich_md.get_font(rich_md.MarkdownFontSpec(italic_=italic))
+        imgui.push_font(font.font, font.size * (HEAD_SCALE_SMALL_SCREEN if small else 1.0))
+        if i > 0:
+            imgui.dummy(ImVec2(0, em * 0.2))
+        width = imgui.calc_text_size(text).x
+        last_line_end = width if width + button_w + em <= avail_x else 0.0
+        imgui.text_wrapped(text)
+        imgui.pop_font()
+    imgui.pop_text_wrap_pos()
+    if small:  # a tap on the text shows all of it, or folds it back
+        head_bottom = imgui.get_cursor_screen_pos().y
+        if imgui.is_mouse_hovering_rect(top_left, ImVec2(top_left.x + avail_x - button_w - em, head_bottom)) \
+                and imgui.is_window_hovered() \
+                and imgui.is_mouse_released(imgui.MouseButton_.left) and imgui.get_mouse_drag_delta(0).y == 0:
+            _head_expanded_until = 0.0 if expanded else imgui.get_time() + HEAD_EXPANDED_DURATION
+    if not _welcome_rest:
+        return
+    below = imgui.get_cursor_screen_pos()
+    button_x = top_left.x + (last_line_end + em if last_line_end > 0.0 else avail_x - button_w)
+    imgui.set_cursor_screen_pos(ImVec2(button_x, below.y - imgui.get_text_line_height_with_spacing()))
+    if imgui.small_button(label):
+        _about_opened_at = imgui.get_time()
+    imgui.set_cursor_screen_pos(below)
 
-    # Title
-    imgui_md.render_unindented("# Dear ImGui Bundle Explorer")
 
-    # Links row (always visible)
-    _render_links_row()
-
-    if not small:
-        # Description
-        imgui.spacing()
-        imgui.text_wrapped('Explore Dear ImGui Bundle and its libraries. Each tab shows demos with browsable C++/Python source.')
-        imgui.same_line()
-        imgui.push_style_color(imgui.Col_.text, ImVec4(0.7, 0.7, 0.7, 1.0))
-        imgui.text('Try the "Demo Apps" tab for starter projects')
-        imgui.same_line()
-        _IntroAutomations.init()
-        if hello_imgui.get_runner_params().use_imgui_test_engine:
-            imgui.same_line()
-            if imgui.small_button("Show me " + icons_fontawesome_4.ICON_FA_EYE):
-                assert _IntroAutomations.show_immediate_apps is not None
-                imgui.test_engine.queue_test(
-                    hello_imgui.get_imgui_test_engine(),
-                    _IntroAutomations.show_immediate_apps,
-                )
-        imgui.pop_style_color()
-
-        # Expandable section
-        _render_more_info()
+def _about_window() -> None:
+    """The prose of welcome.md, in a modal window that slides up as it fades in; a click outside, Escape or its close
+    button closes it"""
+    global _about_opened_at, _about_press_outside
+    if _about_opened_at is None:
+        return
+    if not imgui.is_popup_open(ABOUT_TITLE):
+        imgui.open_popup(ABOUT_TITLE)
+    em = hello_imgui.em_size()
+    t = min((imgui.get_time() - _about_opened_at) / ABOUT_ANIMATION, 1.0)
+    eased = 1.0 - (1.0 - t) ** 3
+    if t < 1.0:
+        hello_imgui.request_refresh()  # the window arrives on its own
+    viewport = imgui.get_main_viewport()
+    center = viewport.get_center()
+    imgui.set_next_window_pos(ImVec2(center.x, center.y + em * 3.0 * (1.0 - eased)), imgui.Cond_.always,
+                              ImVec2(0.5, 0.5))
+    imgui.set_next_window_size(ImVec2(min(em * 56.0, viewport.size.x * 0.94), viewport.size.y * 0.82),
+                               imgui.Cond_.always)
+    imgui.push_style_var(imgui.StyleVar_.alpha, max(eased, 0.01))
+    imgui.push_style_var(imgui.StyleVar_.window_rounding, em * 0.6)
+    imgui.push_style_var(imgui.StyleVar_.window_padding, ImVec2(em * 1.2, em * 0.8))
+    background = imgui.get_style_color_vec4(imgui.Col_.window_bg)
+    imgui.push_style_color(imgui.Col_.popup_bg, ImVec4(background.x, background.y, background.z, 1.0))  # opaque
+    opened, keep_open = imgui.begin_popup_modal(ABOUT_TITLE, True,
+                                                imgui.WindowFlags_.no_move | imgui.WindowFlags_.no_saved_settings)
+    if not opened:  # its close button
+        _about_opened_at = None
     else:
-        _IntroAutomations.init()
+        rich_md.render(_welcome_rest)
+        # A tap outside its rectangle closes it: the press and the release both outside, the press after it opened (the
+        # release of the click that opened it must not close it). By the position, not the hover: on a touch screen, a
+        # press that swipes the window's text to scroll it is not hovering.
+        window_min = imgui.get_window_pos()
+        window_max = window_min + imgui.get_window_size()
+        mouse = imgui.get_io().mouse_pos
+        inside = window_min.x <= mouse.x <= window_max.x and window_min.y <= mouse.y <= window_max.y
+        if imgui.is_mouse_clicked(imgui.MouseButton_.left):
+            _about_press_outside = not inside
+        clicked_outside = imgui.is_mouse_released(imgui.MouseButton_.left) and _about_press_outside and not inside
+        if not keep_open or clicked_outside or imgui.is_key_pressed(imgui.Key.escape):
+            imgui.close_current_popup()
+            _about_opened_at = None
+            _about_press_outside = False
+        imgui.end_popup()
+    imgui.pop_style_color()
+    imgui.pop_style_var(3)
 
 
 # ============================================================================
-# Carousel rendering
+# The carousel
 # ============================================================================
 
-def _draw_slide_motto_card(slide: CarouselSlide, slide_width: float) -> float:
+def _draw_slide_motto_card(slide: CarouselSlide, slide_width: float, host: Host) -> float:
+    """The title card of a slide: its title, its description and, when the host can open it, a link to its full
+    demo. Returns the height taken."""
     em = hello_imgui.em_size()
     dl = imgui.get_window_draw_list()
     font_size = imgui.get_font_size()
-
-    title_font_size = font_size * 1.2
+    narrow = is_small_screen()  # a phone: the title and the link, smaller, no description
+    title_font_size = font_size * (1.0 if narrow else 1.2)
     font = imgui.get_font()
 
-    # Estimate text sizes: title is single line scaled, description wraps
+    # The link to the full demo: on a phone, a small "Full demo" badge on the title's line
+    link_text = "Full demo " if narrow else "Open the full demo "
+    link = link_text + icons_fontawesome_4.ICON_FA_CHEVRON_RIGHT if slide.demo and host.open_demo else ""
+    link_font_size = font_size * (0.85 if narrow else 1.0)
+    badge_pad = ImVec2(em * 0.45, em * 0.15) if narrow else ImVec2(0, 0)
+    link_size = (imgui.calc_text_size(link) * (link_font_size / font_size) + badge_pad * 2) if link else ImVec2(0, 0)
     title_size = imgui.calc_text_size(slide.title)
     title_h = title_size.y * (title_font_size / font_size)
-    desc_size = imgui.calc_text_size(slide.description, None, False, slide_width - em * 2.0)
+    desc_size = ImVec2(0, 0) if narrow else imgui.calc_text_size(slide.description, False, slide_width - em * 2.0)
 
-    card_pad_x = em * 1.0
-    card_pad_y = em * 0.4
-    inner_h = title_h + desc_size.y + em * 0.3
+    card_pad_x = em * (0.6 if narrow else 1.0)
+    card_pad_y = em * (0.25 if narrow else 0.4)
     card_w = slide_width - em * 1.0
+    # The link at the right of the title when both fit on the line, else on a line of its own under the text
+    link_on_title = narrow or link_size.x + title_size.x * (title_font_size / font_size) + em <= card_w - 2 * card_pad_x
+    inner_h = title_h + desc_size.y + (em * 0.3 if not narrow else 0.0)
+    if link and not link_on_title:
+        inner_h += link_size.y + em * 0.3
     card_h = inner_h + card_pad_y * 2.0
     card_x = imgui.get_cursor_screen_pos().x + (slide_width - card_w) * 0.5
     card_y = imgui.get_cursor_screen_pos().y
@@ -1625,16 +2609,65 @@ def _draw_slide_motto_card(slide: CarouselSlide, slide_width: float) -> float:
 
     dl.add_rect_filled(ImVec2(card_x, card_y), ImVec2(card_x + card_w, card_y + card_h), card_bg, em * 0.4)
     dl.add_rect(ImVec2(card_x, card_y), ImVec2(card_x + card_w, card_y + card_h), card_border, em * 0.4, 1.5, 0)
-
-    dl.add_text(font, title_font_size,
-                ImVec2(card_x + card_pad_x, card_y + card_pad_y), title_col, slide.title)
-    dl.add_text(font, font_size,
-                ImVec2(card_x + card_pad_x, card_y + card_pad_y + title_h + em * 0.3),
-                desc_col, slide.description, None, slide_width - em * 2.0)
+    dl.add_text(font, title_font_size, ImVec2(card_x + card_pad_x, card_y + card_pad_y), title_col, slide.title)
+    if not narrow:
+        dl.add_text(font, font_size, ImVec2(card_x + card_pad_x, card_y + card_pad_y + title_h + em * 0.3),
+                    desc_col, slide.description, slide_width - em * 2.0)
 
     total_h = card_h + em * 0.4
+    cursor = imgui.get_cursor_screen_pos()
+    if link:  # at the right of the card: on the title's line, or on its own line under the text
+        if link_on_title:
+            link_y = card_y + card_pad_y + (title_h - link_size.y) / 2
+        else:
+            link_y = card_y + card_h - card_pad_y - link_size.y
+        link_pos = ImVec2(card_x + card_w - card_pad_x - link_size.x, link_y)
+        imgui.set_cursor_screen_pos(link_pos)
+        if imgui.invisible_button(f"##open_{slide.demo}", link_size):
+            assert host.open_demo is not None
+            host.open_demo(slide.demo)
+        hovered = imgui.is_item_hovered()
+        if hovered:
+            imgui.set_mouse_cursor(imgui.MouseCursor_.hand)
+        color = imgui.color_convert_float4_to_u32(rich_md.link_color())
+        if narrow:  # a pill in the accent color
+            dl.add_rect_filled(link_pos, link_pos + link_size,
+                               imgui.color_convert_float4_to_u32(ImVec4(accent_col.x, accent_col.y, accent_col.z,
+                                                                        0.55 if hovered else 0.35)),
+                               link_size.y * 0.5)
+            dl.add_text(font, link_font_size, link_pos + badge_pad, title_col, link)
+        else:
+            dl.add_text(link_pos, color, link)
+            if hovered:
+                underline_y = link_pos.y + link_size.y
+                dl.add_line(ImVec2(link_pos.x, underline_y), ImVec2(link_pos.x + link_size.x, underline_y), color)
+    # After the link: ImGui gives the hover to the first item submitted, so the link keeps its click
+    _card_swipe(ImVec2(card_x, card_y), ImVec2(card_w, card_h), slide_width)
+    imgui.set_cursor_screen_pos(cursor)
     imgui.dummy(ImVec2(slide_width, total_h))
     return total_h
+
+
+def _card_swipe(top_left: ImVec2, size: ImVec2, slide_width: float) -> None:
+    """A drag on a slide's title card (a swipe, on a touch screen) moves the carousel with it; released past 3 em, the
+    next or the previous slide comes"""
+    global _current_slide, _drag_offset, _auto_stopped
+    imgui.set_cursor_screen_pos(top_left)
+    imgui.invisible_button("##swipe", size)
+    hello_imgui.set_item_takes_touch_drags(False)  # on a touch screen, the finger's drag is this button's at once
+    if not (imgui.is_item_active() or imgui.is_item_deactivated()):
+        return
+    dx = imgui.get_mouse_drag_delta(imgui.MouseButton_.left).x
+    if imgui.is_item_active():
+        _drag_offset = _current_slide - dx / slide_width
+        _auto_stopped = True
+        return
+    _drag_offset = None
+    em = hello_imgui.em_size()
+    if dx < -em * 3:
+        _current_slide = (_current_slide + 1) % len(slides())
+    elif dx > em * 3:
+        _current_slide = (_current_slide - 1) % len(slides())
 
 
 # Module-level carousel state
@@ -1642,59 +2675,81 @@ _current_slide = 0
 _animated_offset = 0.0
 _auto_timer = 0.0
 _auto_stopped = False
+_drag_offset: Optional[float] = None  # while a swipe drags the slides: where they are (in slides)
+_slides: Optional[list[CarouselSlide]] = None
 
 
-def _intro_mini_demos():
+def slides() -> list[CarouselSlide]:
+    """The slides, in their order; the ones whose library is missing are left out"""
+    global _slides
+    if _slides is not None:
+        return _slides
+    _slides = [CarouselSlide(
+        "Rich Interactive Plots",
+        "ImPlot delivers animated, interactive 2D charts with minimal code. It is extremely fast, and ideal for real-time data monitoring, diagnostics, and dashboards.",
+        _implot_slide_gui, "manual_implot.py")]
+    if HAS_GL:
+        _slides.append(CarouselSlide(
+            "GPU-Accelerated Rendering",
+            "Dear ImGui renders directly on the GPU, fast enough to blend custom shaders and 3D content into your UI.",
+            _shader_slide_gui, "webgl_background_shader.py" if IS_PYODIDE else "demo_custom_background.py"))
+    _slides.append(CarouselSlide(
+        "3D Data Exploration",
+        "ImPlot3D adds rotatable, zoomable 3D plots. Navigate complex datasets with intuitive controls.",
+        _lorenz_slide_gui, "manual_implot3d.py"))
+    _slides.append(CarouselSlide(
+        "Real-Time Data Streams",
+        "Thousands of samples per second, plotted at your screen's refresh rate. The same GUI runs beside a Jupyter "
+        "notebook, live while your cells compute.",
+        _stream_slide_gui, "notebooks.md"))
+    _slides.append(CarouselSlide(
+        "Interactive Science",
+        "A tiny neural network learns two spirals, live: a model with its knobs, in a few lines of numpy. The explorable tells how it works, formula by formula.",
+        _spiral_slide_gui, "explorables/neural_spiral/neural_spiral.py"))
+    if HAS_IMMVISION:
+        _slides.append(CarouselSlide(
+            "Image Analysis",
+            "ImmVision lets you zoom, pan, and inspect pixel values in real time, with linked views and colormaps.",
+            _immvision_slide_gui, "demo_immvision_inspector.py"))
+        _slides.append(CarouselSlide(  # its nodes show their images with ImmVision
+            "Visual Node Editors",
+            "Explore ideas in graph form with imgui-node-editor: an image flows through filters written in numpy, "
+            "and each node shows its result.",
+            _pipeline_slide_gui, "demo_node_editor_image_pipeline.py"))
+    _slides.append(CarouselSlide(
+        "Feature-Rich Widgets",
+        "Dear ImGui ships with advanced tables featuring angled headers, column reordering, sorting, and much more.",
+        _table_slide_gui, "demo_widgets.py"))
+    _slides.append(CarouselSlide(
+        "Rich Documentation, Built In",
+        "Render markdown directly in your UI - headers, code blocks, tables, links, math and images, all from a simple string.",
+        _markdown_slide_gui, "demo_imgui_md.py"))
+    _slides.append(CarouselSlide(
+        "A Whole App in a Few Lines",
+        "The complete program of a beating heart, imports and window included, and beside it the app it runs. "
+        "No boilerplate: the GUI is a function that draws each frame.",
+        _haiku_slide_gui, "haiku_implot_heart.py"))
+    _slides.append(CarouselSlide(
+        "Code That Reads Like a Book",
+        "No widget trees, no callbacks, no state sync. Each snippet below is the complete code for the live demo beside it. The interactive manuals read the same way: every section with its code.",
+        _gallery_slide_gui, "manual_imgui.py"))
+    return _slides
+
+
+def _slides_bg_color() -> int:
+    """The slides' background: the page's, a little darker (more so in a dark theme), so that they stand out"""
+    bg = imgui.get_style_color_vec4(imgui.Col_.window_bg)
+    k = 0.93 if is_light_theme() else 0.75
+    return imgui.color_convert_float4_to_u32(ImVec4(bg.x * k, bg.y * k, bg.z * k, 1.0))
+
+
+def _intro_mini_demos(host: Host, bottom_margin: float):
+    """The carousel, 4:3 and centered, as tall as the space left above bottom_margin"""
     static = _intro_mini_demos
     global _current_slide, _animated_offset, _auto_timer, _auto_stopped
 
-    slides = [
-        CarouselSlide(
-            "Rich Interactive Plots",
-            "ImPlot delivers animated, interactive 2D charts with minimal code. It is extremely fast, and ideal for real-time data monitoring, diagnostics, and dashboards.",
-            _implot_slide_wrapper),
-        CarouselSlide(
-            "GPU-Accelerated Rendering",
-            "Dear ImGui renders directly on the GPU, fast enough to blend custom shaders and 3D content into your UI.",
-            _shader_slide_wrapper),
-        CarouselSlide(
-            "3D Data Exploration",
-            "ImPlot3D adds rotatable, zoomable 3D plots. Navigate complex datasets with intuitive controls.",
-            _lorenz_slide_wrapper),
-        CarouselSlide(
-            "Image Analysis",
-            "ImmVision lets you zoom, pan, and inspect pixel values in real time, with linked views and colormaps.",
-            _immvision_slide_wrapper),
-        CarouselSlide(
-            "Feature-Rich Widgets",
-            "Dear ImGui ships with advanced tables featuring angled headers, column reordering, sorting, and much more.",
-            _table_slide_gui),
-        CarouselSlide(
-            "Explore Ideas in a Node Editor",
-            "With imgui-node-editor, you can build complex applications such as blueprint editors. Here is an example of an image editing pipeline.",
-            _node_editor_slide_gui),
-        CarouselSlide(
-            "Rich Documentation, Built In",
-            "Render markdown directly in your UI - headers, code blocks, tables, links, and images, all from a simple string.",
-            _markdown_slide_gui),
-        CarouselSlide(
-            "Integrated Text & Code Editor",
-            "The built-in text editor supports syntax highlighting, line numbers, and search. Below is the source of this very demo, side by side in Python and C++.",
-            _source_code_slide_gui),
-        CarouselSlide(
-            "Code That Reads Like a Book",
-            "No widget trees, no callbacks, no state sync. Each snippet below is the complete code for the live demo beside it.",
-            _gallery_slide_gui),
-        CarouselSlide(
-            "Deploy to the Web",
-            "Python applications can be effortlessly deployed to the web using Pyodide, and C++ apps using Emscripten.",
-            _web_deploy_slide_gui),
-        CarouselSlide(
-            "Usage in Notebooks",
-            "Dear ImGui Bundle can also be used from a notebook. Here, it displays a real-time dashboard during an ML training session.",
-            _notebook_slide_gui),
-    ]
-    slide_count = len(slides)
+    the_slides = slides()
+    slide_count = len(the_slides)
 
     dt = imgui.get_io().delta_time
     if dt <= 0.0:
@@ -1706,9 +2761,10 @@ def _intro_mini_demos():
     dl = imgui.get_window_draw_list()
 
     # --- Carousel zone: use available height, maintain 4:3 aspect ratio ---
-    avail_height = imgui.get_content_region_avail().y
+    # On a phone the welcome fits the screen, even with a large text setting: the arrows, the dots and the button stay
+    # in view, and nothing needs a vertical swipe (most of the page takes the finger: plots, editors, the cards)
     min_height = em * 12.0 if is_small_screen() else em * 15.0
-    carousel_height = max(avail_height, min_height)
+    carousel_height = max(imgui.get_content_region_avail().y - bottom_margin, min_height)
     carousel_width = carousel_height * (4.0 / 3.0)
     avail_width = imgui.get_content_region_avail().x
     if carousel_width > avail_width:
@@ -1718,24 +2774,28 @@ def _intro_mini_demos():
     if carousel_offset_x < 0.0:
         carousel_offset_x = 0.0
 
-    imgui.indent(carousel_offset_x)
+    if carousel_offset_x > 0.0:  # indent(0) indents by the style's default: the carousel would overflow
+        imgui.indent(carousel_offset_x)
 
-    # --- Auto-advance ---
+    # --- Auto-advance, until the user touches something (a slide's widget, an arrow): then the slide stays ---
+    if imgui.is_any_item_active():
+        _auto_stopped = True
     if not _auto_stopped:
-        user_interacting = imgui.is_any_item_active()
-        if not user_interacting:
-            _auto_timer += dt
-            if _auto_timer > 5.0:
-                _current_slide = (_current_slide + 1) % slide_count
-                _auto_timer = 0.0
+        _auto_timer += dt
+        if _auto_timer > SLIDE_DURATION:
+            _current_slide = (_current_slide + 1) % slide_count
+            _auto_timer = 0.0
 
-    # --- Smooth slide animation ---
+    # --- Smooth slide animation (none while a swipe holds the slides: they follow the finger) ---
     target = float(_current_slide)
-    _animated_offset = smooth_damp(_animated_offset, target, 8.0, dt)
+    _animated_offset = _drag_offset if _drag_offset is not None else smooth_damp(_animated_offset, target, 8.0, dt)
     if abs(_animated_offset - target) < 0.001:
         _animated_offset = target
+    if _animated_offset != target:
+        hello_imgui.request_refresh()  # the slides slide on their own
 
-    # --- Slide area ---
+    # --- Slide area: a child that clips the slides (each one is a child of its own, which the draw list's clip
+    # rect would not clip) ---
     nav_bar_height = em * 2.0
     slide_height = carousel_height - nav_bar_height
     if slide_height < em * 10.0:
@@ -1743,31 +2803,31 @@ def _intro_mini_demos():
     slide_width = carousel_width
 
     slide_area_pos = imgui.get_cursor_screen_pos()
-    imgui.dummy(ImVec2(carousel_width, slide_height))
-
-    # Clip to carousel bounds
-    dl.push_clip_rect(slide_area_pos,
-                      ImVec2(slide_area_pos.x + carousel_width, slide_area_pos.y + slide_height), True)
-
+    imgui.get_window_draw_list().add_rect_filled(  # behind the slides, which have no background of their own
+        slide_area_pos, slide_area_pos + ImVec2(carousel_width, slide_height), _slides_bg_color(), em * 0.5)
+    imgui.begin_child("##carousel_zone", ImVec2(carousel_width, slide_height), False,
+                      imgui.WindowFlags_.no_scrollbar | imgui.WindowFlags_.no_scroll_with_mouse
+                      | imgui.WindowFlags_.no_background)
     for i in range(slide_count):
-        slide_x = slide_area_pos.x + (float(i) - _animated_offset) * slide_width
-        if slide_x > slide_area_pos.x + carousel_width or slide_x + slide_width < slide_area_pos.x:
+        # Tested on the offset, not on the positions: their float rounding kept the slide just left of the area
+        # (and the seascape's overlay window, which then stayed on screen)
+        if abs(i - _animated_offset) >= 1.0:
             continue
+        slide_x = slide_area_pos.x + (float(i) - _animated_offset) * slide_width
 
         imgui.set_cursor_screen_pos(ImVec2(slide_x, slide_area_pos.y))
         child_id = f"##slide_{i}"
         imgui.begin_child(child_id, ImVec2(slide_width, slide_height), False,
                           imgui.WindowFlags_.no_scrollbar | imgui.WindowFlags_.no_background)
 
-        motto_h = _draw_slide_motto_card(slides[i], slide_width)
+        motto_h = _draw_slide_motto_card(the_slides[i], slide_width, host)
 
         imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + em * 0.5)
         demo_size = ImVec2(slide_width - em * 1.0, slide_height - motto_h - em * 0.5)
-        slides[i].gui_func(demo_size)
+        the_slides[i].gui_func(demo_size)
 
         imgui.end_child()
-
-    dl.pop_clip_rect()
+    imgui.end_child()
 
     # --- Navigation: arrows + dots ---
     dot_radius = em * 0.3
@@ -1800,7 +2860,10 @@ def _intro_mini_demos():
 
         hovered = imgui.is_item_hovered()
         r = dot_radius * 1.3 if i == _current_slide else dot_radius
-        accent = imgui.get_style_color_vec4(imgui.Col_.button_hovered)
+        # The current dot: the theme's accent, but a light theme's may be near white, and vanish on its background
+        bg = imgui.get_style_color_vec4(imgui.Col_.window_bg)
+        light_theme = 0.299 * bg.x + 0.587 * bg.y + 0.114 * bg.z > 0.5
+        accent = ImVec4(0.18, 0.44, 0.86, 1.0) if light_theme else imgui.get_style_color_vec4(imgui.Col_.button_hovered)
         if i == _current_slide:
             dot_col = imgui.color_convert_float4_to_u32(accent)
         elif hovered:
@@ -1817,12 +2880,12 @@ def _intro_mini_demos():
         _current_slide = (_current_slide + 1) % slide_count
         _auto_stopped = True
 
-    # Advance cursor past nav bar
-    imgui.set_cursor_screen_pos(ImVec2(slide_area_pos.x, nav_y + em * 1.8))
-    imgui.dummy(ImVec2(1, 1))
+    # Advance cursor to the end of the nav bar: exactly the height claimed above, so that no scrollbar appears
+    imgui.set_cursor_screen_pos(ImVec2(slide_area_pos.x, nav_y + em * 1.7))
+    imgui.dummy(ImVec2(1, 0))
 
     # Navigation via mouse wheel
-    if imgui.shortcut(imgui.Key.mod_shift | imgui.Key.mouse_wheel_x, imgui.InputFlags_.route_global.value):
+    if imgui.shortcut(imgui.Key.mod_shift | imgui.Key.mouse_wheel_x, imgui.InputFlags_.route_global):
         now = imgui.get_time()
         if not hasattr(static, "_time_last_trigger"):
             static._time_last_trigger = -1.0
@@ -1833,36 +2896,129 @@ def _intro_mini_demos():
                     _current_slide = (_current_slide - 1) % slide_count
             else:
                 _current_slide = (_current_slide + 1) % slide_count
-            if _current_slide  < 0:
+            if _current_slide < 0:
                 _current_slide = 0
             static._time_last_trigger = now
 
-    imgui.unindent(carousel_offset_x)
+    if carousel_offset_x > 0.0:
+        imgui.unindent(carousel_offset_x)
 
 
 # ============================================================================
-# Main entry point
+# The page
 # ============================================================================
 
-def demo_gui():
-    # Disable idling so animations run smoothly
-    hello_imgui.get_runner_params().fps_idling.enable_idling = False
+def _call_to_action(host: Host) -> None:
+    """Centered: the big "Browse the N demos" button, then the line of the interactive manuals"""
+    if host.browse is None:
+        return
+    global _cta_height
+    em = hello_imgui.em_size()
+    small = is_small_screen()
+    top = imgui.get_cursor_screen_pos().y
+    avail_x = imgui.get_content_region_avail().x
+    label = f"{icons_fontawesome_4.ICON_FA_TH_LARGE}  Browse the {host.nb_demos} demos"
+    imgui.push_font(None, imgui.get_style().font_size_base * (1.15 if small else 1.3))
+    imgui.push_style_var(imgui.StyleVar_.frame_padding, ImVec2(em * 1.2, em * (0.3 if small else 0.4)))
+    width = imgui.calc_text_size(label).x + em * 2.4
+    imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + (avail_x - width) / 2)
+    if imgui.button(label):
+        host.browse()
+    imgui.pop_style_var()
+    imgui.pop_font()
+    if host.open_demo is not None:
+        _manuals_line(host.open_demo, avail_x, small)
+    _cta_height = imgui.get_cursor_screen_pos().y - top
 
-    _intro_top_section()
+
+def _manuals_line(open_demo: Callable[[str], None], avail_x: float, small: bool) -> None:
+    """The manuals: "or open an interactive manual: Dear ImGui | ImPlot | ImPlot3D | ImAnim" (shorter on a phone;
+    centered when it fits on one line, else wrapped as the links row)"""
+    em = hello_imgui.em_size()
+    intro = "Interactive docs: " if small else "or open an interactive manual: "
+    parts_w = imgui.calc_text_size(intro).x + sum(imgui.calc_text_size(name).x for name, _ in MANUALS)
+    parts_w += imgui.calc_text_size(" | ").x * (len(MANUALS) - 1)
+    # On a phone, one line: a smaller font when needed (down to 75%)
+    scale = max(0.75, min(1.0, avail_x / parts_w)) if small else 1.0
+    imgui.push_font(None, imgui.get_style().font_size_base * scale)
+    parts_w *= scale
+    if parts_w <= avail_x:
+        imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + (avail_x - parts_w) / 2)
+    imgui.text_disabled(intro)
+    for i, (name, filename) in enumerate(MANUALS):
+        imgui.same_line(0, 0)
+        if i > 0:
+            if imgui.calc_text_size(" | " + name).x > imgui.get_content_region_avail().x:
+                imgui.new_line()
+            else:
+                imgui.text_disabled(" | ")
+                imgui.same_line(0, 0)
+        imgui.push_style_color(imgui.Col_.text, rich_md.link_color())
+        imgui.text(name)
+        imgui.pop_style_color()
+        if imgui.is_item_hovered():
+            imgui.set_mouse_cursor(imgui.MouseCursor_.hand)
+            if imgui.is_mouse_clicked(imgui.MouseButton_.left):
+                open_demo(filename)
+    imgui.pop_font()
+    _IntroAutomations.init()
+    if _IntroAutomations.show_immediate_apps is not None:  # the explorer with the test engine: a guided tour
+        label = "Show me " + icons_fontawesome_4.ICON_FA_EYE
+        button_w = imgui.calc_text_size(label).x + imgui.get_style().frame_padding.x * 2
+        imgui.same_line(0, em)
+        if imgui.get_content_region_avail().x < button_w:  # a phone: under the links, centered
+            imgui.new_line()
+            imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + (avail_x - button_w) / 2)
+        if imgui.small_button(label):
+            imgui.test_engine.queue_test(hello_imgui.get_imgui_test_engine(), _IntroAutomations.show_immediate_apps)
+
+
+def welcome_gui(host: Host):
+    """The welcome without its title and links row (the explorer draws its own header above it): the tagline and the
+    button to the prose, the carousel of mini demos, the button to the demos and the manuals"""
+    global _host
+    _host = host
+    _render_head()
     imgui.separator()
-    imgui_md.render("*Below are some examples showing what can be achieved with Dear ImGui Bundle*")
-    _intro_mini_demos()
+    em = hello_imgui.em_size()
+    # The button and the manuals' line: their height at the last frame (an estimate at the first)
+    bottom = 0.0 if host.browse is None else (_cta_height + em * 0.3 if _cta_height > 0.0 else em * 4.6)
+    _intro_mini_demos(host, bottom)
+    _call_to_action(host)
+    _about_window()
 
 
-if __name__ == "__main__":
-    from imgui_bundle import immapp
+def gui(host: Optional[Host] = None):
+    """The whole page: the title, the links row, the welcome"""
+    if is_small_screen():  # the title smaller, in the font of a markdown title
+        font = rich_md.get_font(rich_md.MarkdownFontSpec(header_level_=1))
+        imgui.push_font(font.font, font.size * 0.7)
+        imgui.text("Dear ImGui Bundle")
+        imgui.pop_font()
+        imgui.separator()
+    else:
+        rich_md.render("# Dear ImGui Bundle")
+    links_row()
+    welcome_gui(host or Host())
+
+
+def main():
+    host = Host()
+    if IS_PYODIDE:  # the playground: its gallery of demos (js/examples.js)
+        import js  # type: ignore
+        host.nb_demos = int(js.document.querySelectorAll(".gallery-card").length)
+        host.browse = js.openGallery
+        host.open_demo = js.loadDemoByFilename
     immapp.run(
-        demo_gui,
-        window_title="Dear ImGui Bundle - Intro",
+        lambda: gui(host),
+        window_title="Dear ImGui Bundle - Welcome",
         window_size=(1200, 900),
         with_implot=True,
         with_implot3d=True,
         with_markdown=True,
         with_latex=True,
-        fps_idle=0,
     )
+
+
+if __name__ == "__main__":
+    main()

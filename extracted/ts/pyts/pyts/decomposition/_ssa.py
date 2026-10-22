@@ -5,7 +5,7 @@
 
 import itertools
 from math import ceil
-from typing import Self
+from typing import Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -97,7 +97,7 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
     groups : None, int, 'auto', or array-like (default = None)
         The way the elementary matrices are grouped. If None, no grouping is
         performed. If an integer, it represents the number of groups and the
-        bounds of the groups are computed as
+        bounds of the groups are computed using the resolved window size as
         ``np.linspace(0, window_size, groups + 1).astype('int64')``.
         If 'auto', then three groups are determined, containing trend,
         seasonal, and residual. If array-like, each element must be array-like
@@ -105,7 +105,10 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
 
     lower_frequency_bound : float (default = 0.075)
         The boundary of the periodogram to characterize trend, seasonal and
-        residual components. It must be between 0 and 0.5.
+        residual components. It must be between 0 and 0.5. A component that
+        meets both the trend and the residual criteria (only possible when
+        this bound is above roughly 0.25, the exact value depending on the
+        window size) is assigned to the trend.
         Ignored if ``groups`` is not set to 'auto'.
 
     lower_frequency_contribution : float (default = 0.85)
@@ -199,40 +202,35 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
             and its shape is (n_samples, n_timestamps).
 
         """
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         n_samples, n_timestamps = X.shape
         window_size, grouping_size = self._check_params(n_timestamps)
         n_windows = n_timestamps - window_size + 1
 
-        try:
-            # Get a rough estimation of the required memory. ``_transform``
-            # never materializes the (n_samples, window_size, window_size,
-            # n_windows) stack of elementary matrices (see ``_ssa_fused``),
-            # so the dominant arrays are now the windowed view / eigenvector
-            # workspace (n_samples, window_size, window_size or n_windows)
-            # and the (n_samples, grouping_size, n_timestamps) output.
-            max_array = np.zeros(
-                (
-                    n_samples + 1,
-                    window_size,
-                    max(window_size, n_windows) + grouping_size,
+        if self.chunksize is None:
+            try:
+                # Get a rough estimation of the required memory. ``_transform``
+                # never materializes the (n_samples, window_size, window_size,
+                # n_windows) stack of elementary matrices (see ``_ssa_fused``),
+                # so the dominant arrays are now the windowed view / eigenvector
+                # workspace (n_samples, window_size, window_size or n_windows)
+                # and the (n_samples, grouping_size, n_timestamps) output.
+                max_array = np.zeros(
+                    (
+                        n_samples + 1,
+                        window_size,
+                        max(window_size, n_windows) + grouping_size,
+                    )
                 )
-            )
-            del max_array
-        except MemoryError as err:
-            msg = "The required memory is greater than the available memory. "
-            if self.chunksize is None:
-                msg += (
+                del max_array
+            except MemoryError as err:
+                msg = (
+                    "The required memory is greater than the available memory. "
                     "Set the `chunksize` parameter to an integer to perform "
                     "the transformation using chunks (batches) to decrease "
                     "the required memory."
                 )
-            else:
-                msg += (
-                    "Decrease the value of the `chunksize` parameter to "
-                    "to decrease the required memory."
-                )
-            raise MemoryError(msg) from err
+                raise MemoryError(msg) from err
 
         if self.chunksize is None:
             return self._transform(X)
@@ -320,7 +318,7 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
             # Every component is its own group: membership is the
             # (window_size, window_size) identity, broadcast per sample.
             membership = np.tile(np.eye(window_size), (n_samples, 1, 1))
-        elif self.groups == "auto":
+        elif isinstance(self.groups, str) and self.groups == "auto":
             f = np.arange(0, 1 + window_size // 2) / window_size
             Pxx = np.abs(np.fft.rfft(v, axis=1, norm='ortho')) ** 2
             if Pxx.shape[-1] % 2 == 0:
@@ -335,6 +333,16 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
             c = self.lower_frequency_contribution
             trend = Pxx_cumsum[:, idx_trend, :] / Pxx_cumsum[:, -1, :] > c
             resid = Pxx_cumsum[:, idx_resid, :] / Pxx_cumsum[:, -1, :] < c
+            # The residual criterion uses a fixed frequency (the middle of
+            # the periodogram, roughly 0.25), while the trend criterion uses
+            # 'lower_frequency_bound'. The cumulative periodogram is
+            # non-decreasing, so both criteria can only hold for the same
+            # component when that bound is above the fixed frequency (this
+            # is a no-op otherwise, including for the default bound). Such
+            # a component is kept in the trend, which honors the
+            # user-provided bound, so that the groups partition the
+            # components and still sum back to the input.
+            resid = np.logical_and(resid, ~trend)
             season = np.logical_and(~trend, ~resid)
 
             membership = np.zeros((n_samples, grouping_size, window_size))
@@ -347,9 +355,14 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
             for i, (j, k) in enumerate(itertools.pairwise(grouping)):
                 membership[:, i, j:k] = 1.0
         else:
+            # The branches above handle None, 'auto' and int; the only
+            # remaining possibility per '__init__' is array-like (list,
+            # tuple or np.ndarray) of groups.
+            assert isinstance(self.groups, (list, tuple, np.ndarray))
+            groups = self.groups
             membership = np.zeros((n_samples, grouping_size, window_size))
-            for i, group in enumerate(self.groups):
-                membership[:, i, group] = 1.0
+            for i, group in enumerate(groups):
+                membership[:, i, np.asarray(group, dtype=np.int64)] = 1.0
         return membership, grouping_size
 
     def _check_params(self, n_timestamps: int) -> tuple[int, int]:
@@ -375,7 +388,7 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
         if not (
             self.groups is None
             or (isinstance(self.groups, str) and self.groups == "auto")
-            or isinstance(self.groups, (int, list, tuple, np.ndarray))
+            or isinstance(self.groups, (int, np.integer, list, tuple, np.ndarray))
         ):
             raise TypeError(
                 "'groups' must be either None, an integer, 'auto' or array-like."
@@ -385,7 +398,7 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
         elif isinstance(self.groups, str) and self.groups == "auto":
             grouping_size = 3
         elif isinstance(self.groups, (int, np.integer)):
-            if not 1 <= self.groups <= self.window_size:
+            if not 1 <= self.groups <= window_size:
                 raise ValueError(
                     "If 'groups' is an integer, it must be greater than or "
                     "equal to 1 and lower than or equal to 'window_size'."
@@ -397,9 +410,12 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
             # an integer, or array-like (list, tuple, np.ndarray); the first
             # three are handled above, so this is the array-like case.
             assert isinstance(self.groups, (list, tuple, np.ndarray))
-            idx = np.concatenate(self.groups)
-            diff = np.setdiff1d(idx, np.arange(self.window_size))
-            flat_list = [item for group in self.groups for item in group]
+            groups = self.groups
+            idx = np.concatenate([np.asarray(group) for group in groups])
+            diff = np.setdiff1d(idx, np.arange(window_size))
+            flat_list = [
+                item for group in groups for item in np.asarray(group).tolist()
+            ]
             if (diff.size > 0) or not (
                 all(isinstance(x, (int, np.integer)) for x in flat_list)
             ):
@@ -407,7 +423,7 @@ class SingularSpectrumAnalysis(BaseEstimator, UnivariateTransformerMixin):
                     "If 'groups' is array-like, all the values in 'groups' "
                     "must be integers between 0 and ('window_size' - 1)."
                 )
-            grouping_size = len(self.groups)
+            grouping_size = len(groups)
 
         if not isinstance(self.lower_frequency_bound, (float, np.floating)):
             raise TypeError("'lower_frequency_bound' must be a float.")

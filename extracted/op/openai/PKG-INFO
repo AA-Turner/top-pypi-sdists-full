@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openai
-Version: 3.35.1
+Version: 3.36.1
 Summary: The official Python library for the openai API
 Project-URL: Homepage, https://github.com/openai/openai-python
 Project-URL: Repository, https://github.com/openai/openai-python
@@ -38,6 +38,8 @@ Requires-Dist: numpy>=1; extra == 'datalib'
 Requires-Dist: pandas>=1.2.3; extra == 'datalib'
 Provides-Extra: realtime
 Requires-Dist: websockets<16,>=13; extra == 'realtime'
+Provides-Extra: vertex
+Requires-Dist: google-auth[requests]<3,>=2.36; extra == 'vertex'
 Provides-Extra: voice-helpers
 Requires-Dist: numpy>=2.0.2; extra == 'voice-helpers'
 Requires-Dist: sounddevice>=0.5.1; extra == 'voice-helpers'

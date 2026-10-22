@@ -4,7 +4,7 @@
 # License: BSD-3-Clause
 
 from math import ceil
-from typing import Any, Self
+from typing import Any, Self, cast
 from warnings import warn
 
 import numpy as np
@@ -102,11 +102,15 @@ class DiscreteFourierTransform(BaseEstimator, UnivariateTransformerMixin):
         """
         if self.anova:
             X, y = check_X_y(X, y, dtype=np.float64)
+            X = cast(npt.NDArray[np.float64], X)
+            y = cast(npt.NDArray[Any], y)
         else:
-            X = check_array(X, dtype=np.float64)
+            X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
+            y = cast(npt.NDArray[Any] | None, y)
 
         n_samples, n_timestamps = X.shape
         n_coefs = self._check_params(n_timestamps)
+        self._n_timestamps_fit = n_timestamps
         if self.anova:
             ss = StandardScaler(self.norm_mean, self.norm_std)
             X = ss.fit_transform(X)
@@ -120,7 +124,9 @@ class DiscreteFourierTransform(BaseEstimator, UnivariateTransformerMixin):
                 X_fft = np.c_[X_fft[:, 0], X_fft[:, 2:]]
             if self.drop_sum:
                 X_fft = X_fft[:, 1:]
-            self.support_ = self._anova(X_fft, y, n_coefs, n_timestamps)
+            self.support_ = self._anova(
+                X_fft, cast(npt.NDArray[Any], y), n_coefs, n_timestamps
+            )
         else:
             self.support_ = np.arange(n_coefs)
         return self
@@ -140,8 +146,17 @@ class DiscreteFourierTransform(BaseEstimator, UnivariateTransformerMixin):
 
         """
         check_is_fitted(self, 'support_')
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         n_samples, n_timestamps = X.shape
+        # The selected coefficients are frequencies of the series length seen
+        # in ``fit``; other lengths give other frequencies (or out-of-range
+        # indices), so they are rejected explicitly.
+        if n_timestamps != self._n_timestamps_fit:
+            raise ValueError(
+                "The number of timestamps in X must be the same as "
+                "the number of timestamps when `fit` was called "
+                f"({self._n_timestamps_fit} != {n_timestamps})."
+            )
 
         ss = StandardScaler(self.norm_mean, self.norm_std)
         X = ss.fit_transform(X)
@@ -182,10 +197,14 @@ class DiscreteFourierTransform(BaseEstimator, UnivariateTransformerMixin):
         """
         if self.anova:
             X, y = check_X_y(X, y, dtype=np.float64)
+            X = cast(npt.NDArray[np.float64], X)
+            y = cast(npt.NDArray[Any], y)
         else:
-            X = check_array(X, dtype=np.float64)
+            X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
+            y = cast(npt.NDArray[Any] | None, y)
         n_samples, n_timestamps = X.shape
         n_coefs = self._check_params(n_timestamps)
+        self._n_timestamps_fit = n_timestamps
 
         scaler = StandardScaler(self.norm_mean, self.norm_std)
         X = scaler.fit_transform(X)
@@ -200,7 +219,9 @@ class DiscreteFourierTransform(BaseEstimator, UnivariateTransformerMixin):
         if self.drop_sum:
             X_fft = X_fft[:, 1:]
         if self.anova:
-            self.support_ = self._anova(X_fft, y, n_coefs, n_timestamps)
+            self.support_ = self._anova(
+                X_fft, cast(npt.NDArray[Any], y), n_coefs, n_timestamps
+            )
         else:
             self.support_ = np.arange(n_coefs)
         return X_fft[:, self.support_]
@@ -213,9 +234,12 @@ class DiscreteFourierTransform(BaseEstimator, UnivariateTransformerMixin):
         n_timestamps: int,
     ) -> npt.NDArray[np.int64]:
         if n_coefs < X_fft.shape[1]:
-            non_constant = np.where(
-                ~np.isclose(X_fft.var(axis=0), np.zeros_like(X_fft.shape[1]))
-            )[0]
+            # A coefficient is constant when its spread is at the level of the
+            # floating-point rounding errors of the FFT, relative to the
+            # magnitude of the coefficients. An absolute tolerance would treat
+            # every coefficient of small-scale data as constant.
+            tol = 100 * n_timestamps * np.finfo(np.float64).eps * np.abs(X_fft).max()
+            non_constant = np.flatnonzero(X_fft.std(axis=0) > tol)
             if non_constant.size == 0:
                 raise ValueError(
                     "All the Fourier coefficients are constant. "

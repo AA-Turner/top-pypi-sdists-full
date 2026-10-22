@@ -92,7 +92,7 @@ def test_check_health_gate_failure_rate(
     failed_syncs_per_actor: int,
     expect_rollback: bool,
 ) -> None:
-    """Rollback is recommended only at >=5% failing connectors above the floor."""
+    """Rollback is recommended at the failure rate or absolute count threshold."""
     gate = check_health_gate(
         _rollout(),
         _sync_info(

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapy-ingest
-Version: 1.8.0
+Version: 2.0.0
 Summary: One pipeline. Full crawl observability in SQL or Elasticsearch.
 Home-page: https://github.com/fawadss1/scrapy-ingest
 Author: Fawad Ali
@@ -51,6 +51,10 @@ Provides-Extra: test
 Requires-Dist: pytest>=7.0.0; extra == "test"
 Requires-Dist: pytest-cov>=4.0.0; extra == "test"
 Requires-Dist: pytest-mock>=3.8.0; extra == "test"
+Provides-Extra: dashboard
+Requires-Dist: fastapi>=0.115.0; extra == "dashboard"
+Requires-Dist: httpx>=0.27.0; extra == "dashboard"
+Requires-Dist: uvicorn[standard]>=0.32.0; extra == "dashboard"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -160,9 +164,9 @@ DB_URL = "postgresql://user:password@localhost:5432/database"
 **Discrete fields** (no URL encoding for special characters in passwords):
 
 ```python
-DB_TYPE = "postgres"   # or "mysql" / "mariadb"
+DB_TYPE = "postgres"  # or "mysql" / "mariadb"
 DB_HOST = "localhost"
-DB_PORT = 5432         # MySQL: 3306
+DB_PORT = 5432  # MySQL: 3306
 DB_USER = "user"
 DB_PASSWORD = "password"
 DB_NAME = "database"
@@ -190,7 +194,7 @@ SEARCH_URL = "http://localhost:9200"
 SEARCH_URL = "https://search.example.com:9200"
 SEARCH_USER = "elastic"
 SEARCH_PASSWORD = "secret"
-SEARCH_SSL_VERIFY = True   # set False only for self-signed certs in dev
+SEARCH_SSL_VERIFY = True  # set False only for self-signed certs in dev
 ```
 
 **Index names** match SQL table names by default:

@@ -8,7 +8,7 @@ import platform
 import shutil
 import sys
 import uuid
-from collections.abc import Coroutine
+from collections.abc import Coroutine, Sequence
 from contextlib import suppress
 from enum import Enum
 from functools import wraps
@@ -34,7 +34,7 @@ from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
 from pymobiledevice3.tunneld.api import TUNNELD_DEFAULT_ADDRESS, TunneldAddress, get_tunneld_devices
-from pymobiledevice3.utils import ask_prompt, get_asyncio_loop, hexdump
+from pymobiledevice3.utils import ask_prompt, cancel_on_sigint, get_asyncio_loop, hexdump
 
 UDID_ENV_VAR = "PYMOBILEDEVICE3_UDID"
 # With `--reconnect`: accept the first available device on reconnect, even when its UDID differs
@@ -240,7 +240,10 @@ def async_command(func: Callable[P, Coroutine[Any, Any, R]]) -> Callable[P, R]:
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         task = cli_loop.create_task(func(*args, **kwargs))
         try:
-            return cli_loop.run_until_complete(task)
+            with cancel_on_sigint(task):
+                return cli_loop.run_until_complete(task)
+        except asyncio.CancelledError:
+            raise typer.Exit(code=130) from None
         except KeyboardInterrupt:
             # Ensure graceful coroutine finalization on Ctrl-C; otherwise Python
             # may report "coroutine ignored GeneratorExit" during GC shutdown.
@@ -632,6 +635,18 @@ def make_rsd_dependency(*, allow_none: bool) -> Callable[..., Optional[RemoteSer
     return rsd_dependency
 
 
+def _prompt_device(lockdowns: Sequence[LockdownClient]) -> LockdownClient:
+    """Let the user pick one of ``lockdowns``, and close the others."""
+    chosen: Optional[LockdownClient] = None
+    try:
+        chosen = cast(LockdownClient, prompt_device_list(list(lockdowns)))
+        return chosen
+    finally:
+        for lockdown in lockdowns:
+            if lockdown is not chosen:
+                cli_loop.run_until_complete(lockdown.close())
+
+
 def any_service_provider_dependency(
     rsd_service_provider: Annotated[
         Optional[RemoteServiceDiscoveryService],
@@ -676,7 +691,7 @@ def any_service_provider_dependency(
         if len(devices) == 1:
             return _record_resolved(devices[0])
 
-        return _record_resolved(prompt_device_list(devices))
+        return _record_resolved(_prompt_device(devices))
 
     if udid is not None:
         return _record_resolved(cli_loop.run_until_complete(create_using_usbmux(serial=udid, usbmux_address=usbmux)))
@@ -691,7 +706,7 @@ def any_service_provider_dependency(
         cli_loop.run_until_complete(create_using_usbmux(serial=device.serial, usbmux_address=usbmux))
         for device in devices
     ]
-    return _record_resolved(prompt_device_list(lockdownds))
+    return _record_resolved(_prompt_device(lockdownds))
 
 
 def no_autopair_service_provider_dependency(
@@ -752,11 +767,6 @@ RSDServiceProviderDep = Annotated[
 ServiceProviderDep = Annotated[
     LockdownServiceProvider,
     Depends(any_service_provider_dependency),
-]
-
-NoAutoPairServiceProviderDep = Annotated[
-    LockdownServiceProvider,
-    Depends(no_autopair_service_provider_dependency),
 ]
 
 LockdownClientDep = Annotated[

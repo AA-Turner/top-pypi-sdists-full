@@ -41,7 +41,7 @@ use questdb::QuestDb;
 use questdb::ffi_support::{OwnedDirectColumnSender, OwnedSender};
 #[cfg(feature = "arrow")]
 use questdb::ingress::column_sender::{ArrowColumnOverride, FlushFailure, ImportedArrowColumn};
-use questdb::ingress::column_sender::{Chunk, NumpyDtype, Validity};
+use questdb::ingress::column_sender::{Chunk, MAX_CHUNK_ROWS, NumpyDtype, Validity};
 use questdb::ingress::{AckLevel, TimestampUnit};
 #[cfg(feature = "arrow")]
 use questdb::ingress::{ColumnName, TableName};
@@ -94,9 +94,10 @@ pub struct questdb_db(pub(crate) QuestDb);
 pub struct qwp_sender(pub(crate) OwnedSender, pub(crate) AtomicU32);
 
 /// Direct (pipelined, non-store-and-forward) sibling of [`qwp_sender`],
-/// borrowed from the always-direct pool via
-/// `questdb_db_borrow_direct_sender`. Same single-threaded /
-/// reentrancy-latch contract as [`qwp_sender`]; it exposes
+/// either borrowed from the always-direct pool via
+/// `questdb_db_borrow_direct_sender` or opened standalone via
+/// `qwp_direct_sender_from_conf` / `qwp_direct_sender_from_opts`. Same
+/// single-threaded / reentrancy-latch contract as [`qwp_sender`]; it exposes
 /// `qwp_direct_sender_flush` + `qwp_direct_sender_flush_and_wait` +
 /// `qwp_direct_sender_commit` instead of the store-and-forward queue
 /// primitives exposed by [`qwp_sender`].
@@ -1065,9 +1066,11 @@ pub unsafe extern "C" fn questdb_db_borrow_direct_sender_with_retry(
 
 /// Build a direct (pipelined, non-store-and-forward) column sender from a
 /// QWP/WebSocket config string, owning its own connection with no pool. `conf`
-/// is a UTF-8 string of `conf_len` bytes. Free the returned handle with
-/// `qwp_direct_sender_free`; there is no pool to return it to. Returns NULL
-/// on failure; sets `*err_out` if provided.
+/// is a UTF-8 string of `conf_len` bytes. On normal completion free the
+/// returned handle with `qwp_direct_sender_free`; there is no pool to return
+/// it to. To discard uncommitted frames after a failure, call
+/// `questdb_db_drop_direct_sender(NULL, sender)` instead. Returns NULL on
+/// failure; sets `*err_out` if provided.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qwp_direct_sender_from_conf(
     conf: *const c_char,
@@ -1092,9 +1095,11 @@ pub unsafe extern "C" fn qwp_direct_sender_from_conf(
 /// opts carry the full auth/TLS configuration (including options set through
 /// the `line_sender_opts_*` builder functions rather than a config string), so
 /// this works for senders built either way. `opts` is borrowed, not consumed:
-/// the caller retains ownership and must still free it. Free the returned
-/// handle with `qwp_direct_sender_free`. Returns NULL on failure; sets
-/// `*err_out` if provided.
+/// the caller retains ownership and must still free it. On normal completion
+/// free the returned handle with `qwp_direct_sender_free`. To discard
+/// uncommitted frames after a failure, call
+/// `questdb_db_drop_direct_sender(NULL, sender)` instead. Returns NULL on
+/// failure; sets `*err_out` if provided.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qwp_direct_sender_from_opts(
     opts: *const line_sender_opts,
@@ -1159,7 +1164,9 @@ pub unsafe extern "C" fn questdb_db_return_sender(_db: *mut questdb_db, sender: 
     unsafe { return_or_drop_cs(sender, 0) };
 }
 
-/// Direct-handle counterpart of `questdb_db_return_sender`.
+/// Return a pool-borrowed direct sender. Standalone handles must instead use
+/// `qwp_direct_sender_free`, or `questdb_db_drop_direct_sender(NULL, sender)`
+/// to discard uncommitted frames after a failure.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn questdb_db_return_direct_sender(
     _db: *mut questdb_db,
@@ -1184,7 +1191,13 @@ pub unsafe extern "C" fn questdb_db_drop_sender(_db: *mut questdb_db, sender: *m
     unsafe { return_or_drop_cs(sender, LATCH_DROP) };
 }
 
-/// Direct-handle counterpart of `questdb_db_drop_sender`.
+/// Force-drop a direct sender, closing its connection instead of recycling it
+/// or committing its uncommitted frames. The sender may be pool-borrowed or
+/// standalone. `_db` is ignored and may be NULL because the sender retains its
+/// own backing information. Pass the originating db for a pool-borrowed
+/// handle and NULL for a standalone handle. For a pool-borrowed handle this is
+/// mutually exclusive with `questdb_db_return_direct_sender`; for a standalone
+/// handle it is mutually exclusive with `qwp_direct_sender_free`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn questdb_db_drop_direct_sender(
     _db: *mut questdb_db,
@@ -1193,11 +1206,14 @@ pub unsafe extern "C" fn questdb_db_drop_direct_sender(
     unsafe { return_or_drop_cs(sender, LATCH_DROP) };
 }
 
-/// Free a standalone `qwp_direct_sender_from_conf` handle, committing any
-/// un-sync'd deferred frames first (call `qwp_direct_sender_commit` or a
-/// waited flush beforehand for delivery certainty). Accepts NULL and no-ops.
-/// For a pool-borrowed handle use `questdb_db_return_direct_sender`
-/// instead. A racing in-flight call defers the free to that call's exit path.
+/// Free a standalone `qwp_direct_sender_from_conf` /
+/// `qwp_direct_sender_from_opts` handle, committing any un-sync'd deferred
+/// frames first (call `qwp_direct_sender_commit` or a waited flush beforehand
+/// for delivery certainty). Accepts NULL and no-ops. For a pool-borrowed
+/// handle use `questdb_db_return_direct_sender` instead. To discard a
+/// standalone handle's uncommitted frames, use
+/// `questdb_db_drop_direct_sender(NULL, sender)` instead. A racing in-flight
+/// call defers the free to that call's exit path.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qwp_direct_sender_free(sender: *mut qwp_direct_sender) {
     unsafe { return_or_drop_cs(sender, 0) };
@@ -1824,6 +1840,173 @@ column_fn!(qwp_chunk_column_f64, f64, column_f64, "f64 column data");
 column_fn!(qwp_chunk_column_ipv4, u32, column_ipv4, "ipv4 column data");
 column_fn!(qwp_chunk_column_date, i64, column_date, "date column data");
 
+macro_rules! decimal_column_fn {
+    ($fn_name:ident, $c_ty:ty, $row_ty:ty, $append:path) => {
+        #[unsafe(no_mangle)]
+        pub unsafe extern "C" fn $fn_name(
+            chunk: *mut qwp_chunk,
+            name: *const c_char,
+            name_len: size_t,
+            data: *const $c_ty,
+            row_count: size_t,
+            scale: u8,
+            validity: *const qwp_validity,
+            err_out: *mut *mut line_sender_error,
+        ) -> bool {
+            if chunk.is_null() {
+                return reject_null_chunk(err_out);
+            }
+            let _guard = match unsafe {
+                InUseGuard::acquire(
+                    chunk,
+                    &raw const (*chunk).1,
+                    stringify!($fn_name),
+                    "qwp_chunk",
+                    err_out,
+                )
+            } {
+                Some(g) => g,
+                None => return false,
+            };
+            let name = match unsafe { name_str(name, name_len, err_out) } {
+                Some(s) => s,
+                None => return false,
+            };
+            // Bound the row count before constructing the borrowed slice.
+            // Wide decimals use byte arrays, so they need only byte alignment.
+            let data = match unsafe {
+                typed_slice(
+                    data.cast::<$row_ty>(),
+                    row_count,
+                    err_out,
+                    "decimal column data",
+                )
+            } {
+                Some(s) => s,
+                None => return false,
+            };
+            let validity = match unsafe { as_validity(validity, err_out) } {
+                Some(v) => v,
+                None => return false,
+            };
+            let inner: &mut Chunk = unsafe { &mut (*chunk).0 };
+            bubble_err_to_c!(
+                err_out,
+                $append(inner, name, data, scale, validity.as_ref())
+            );
+            true
+        }
+    };
+}
+
+decimal_column_fn!(
+    qwp_chunk_column_decimal64,
+    i64,
+    i64,
+    Chunk::column_decimal64
+);
+decimal_column_fn!(
+    qwp_chunk_column_decimal128,
+    u8,
+    [u8; 16],
+    questdb::ffi_support::chunk_column_decimal128
+);
+decimal_column_fn!(
+    qwp_chunk_column_decimal256,
+    u8,
+    [u8; 32],
+    Chunk::column_decimal256
+);
+
+/// Borrow a dense, fixed-shape DOUBLE array column. `data_len` counts f64
+/// elements across the entire batch; `shape` excludes the batch dimension.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn qwp_chunk_column_f64_array(
+    chunk: *mut qwp_chunk,
+    name: *const c_char,
+    name_len: size_t,
+    data: *const f64,
+    data_len: size_t,
+    row_count: size_t,
+    shape: *const u32,
+    ndim: size_t,
+    validity: *const qwp_validity,
+    err_out: *mut *mut line_sender_error,
+) -> bool {
+    if chunk.is_null() {
+        return reject_null_chunk(err_out);
+    }
+    let _guard = match unsafe {
+        InUseGuard::acquire(
+            chunk,
+            &raw const (*chunk).1,
+            "qwp_chunk_column_f64_array",
+            "qwp_chunk",
+            err_out,
+        )
+    } {
+        Some(g) => g,
+        None => return false,
+    };
+    let name = match unsafe { name_str(name, name_len, err_out) } {
+        Some(s) => s,
+        None => return false,
+    };
+    if row_count > MAX_CHUNK_ROWS {
+        unsafe {
+            set_err_out_from_error(
+                err_out,
+                Error::new(
+                    ErrorCode::InvalidApiCall,
+                    format!(
+                        "array column row_count {row_count} exceeds MAX_CHUNK_ROWS ({MAX_CHUNK_ROWS})"
+                    ),
+                ),
+            );
+        }
+        return false;
+    }
+    let shape = match unsafe {
+        typed_slice_bounded(
+            shape,
+            ndim,
+            MAX_ARRAY_DIMS,
+            "MAX_ARRAY_DIMS",
+            err_out,
+            "array shape",
+        )
+    } {
+        Some(s) => s,
+        None => return false,
+    };
+    let max_elements = MAX_CHUNK_ROWS
+        .saturating_mul(MAX_NDARRAY_LEAF_ELEMS)
+        .min(isize::MAX as usize / std::mem::size_of::<f64>());
+    let data = match unsafe {
+        typed_slice_bounded(
+            data,
+            data_len,
+            max_elements,
+            "maximum array batch elements",
+            err_out,
+            "array data",
+        )
+    } {
+        Some(s) => s,
+        None => return false,
+    };
+    let validity = match unsafe { as_validity(validity, err_out) } {
+        Some(v) => v,
+        None => return false,
+    };
+    let inner: &mut Chunk = unsafe { &mut (*chunk).0 };
+    bubble_err_to_c!(
+        err_out,
+        inner.column_f64_array(name, data, row_count, shape, validity.as_ref())
+    );
+    true
+}
+
 /// `TIMESTAMP` / `TIMESTAMP_NANOS` column. `unit` selects the precision:
 /// `qwp_ts_unit_micros` (0) → `TIMESTAMP`,
 /// `qwp_ts_unit_nanos` (1) → `TIMESTAMP_NANOS`. `data` holds
@@ -2273,11 +2456,10 @@ symbol_fn!(qwp_chunk_symbol_i32, i32, symbol_i32, "symbol codes (i32)");
 ///
 /// Ownership: on success, `array->release` is consumed (set to NULL);
 /// the returned handle owns the underlying buffers and releases them on
-/// `qwp_arrow_import_free`. On failure, `array->release` may
-/// also have been consumed if the call reached the Arrow import step
-/// before failing — callers MUST check `array->release != NULL` before
-/// invoking it on the failure path. Early-fail paths (NULL pointer,
-/// depth-cap rejection) leave it intact. `schema` is borrowed in all
+/// `qwp_arrow_import_free`. A failure detected before the Arrow import
+/// step leaves `array->release` intact. Once import begins, a failure may
+/// also have consumed it — callers MUST check `array->release != NULL`
+/// before invoking it on the failure path. `schema` is borrowed in all
 /// cases.
 ///
 /// `auto`: Dictionary(*, Utf8/LargeUtf8) -> SYMBOL, plain Utf8 -> VARCHAR.
@@ -2454,12 +2636,11 @@ pub unsafe extern "C" fn qwp_chunk_append_arrow_import(
 ///
 /// Ownership: on success, `array->release` is consumed (set to NULL);
 /// the chunk holds the underlying buffers via an internal Arc until
-/// `qwp_sender_flush_chunk` returns. On failure, `array->release` may
-/// also have been consumed if the call reached the Arrow import step
-/// before failing — callers MUST check `array->release != NULL` before
-/// invoking it on the failure path. Early-fail paths (NULL pointer,
-/// depth-cap rejection) leave it intact. `schema` is borrowed in all
-/// cases.
+/// `qwp_sender_flush_chunk` returns. A failure detected before the Arrow
+/// import step leaves `array->release` intact. Once import begins, a
+/// failure may also have consumed it — callers MUST check
+/// `array->release != NULL` before invoking it on the failure path.
+/// `schema` is borrowed in all cases.
 ///
 /// `array->offset` is honored (the Arrow C Data Interface logical
 /// offset); `row_offset` further sub-slices within the call.
@@ -3455,7 +3636,10 @@ pub unsafe extern "C" fn qwp_sender_flush_buffer_and_keep_and_get_fsn(
 /// Deferred flushes keep one in-flight slot reserved for the later
 /// `qwp_direct_sender_commit` frame; if that reserve would be consumed, the
 /// call fails and the caller must sync before flushing more chunks. In SFA mode
-/// frames are non-deferred and `flush` success means local queue acceptance.
+/// `flush` success means local queue acceptance. A chunk too large for one
+/// frame is split: without `sf_dir` every frame but the last is deferred so
+/// the chunk commits once (earlier if the queue byte budget is tight); with
+/// `sf_dir` each frame commits on its own.
 ///
 /// On success, `chunk` is cleared and the call returns `true`. On failure,
 /// `chunk` is left untouched and `false` is returned (with `*err_out` set if
@@ -3950,8 +4134,10 @@ pub unsafe extern "C" fn qwp_sender_acked_fsn(
     }
 }
 
-/// Pipeline a deferred frame on a direct connection. Not committed until
-/// `qwp_direct_sender_commit` / `qwp_direct_sender_flush_and_wait`.
+/// Publish without waiting. The first successful flush on a fresh physical
+/// connection is non-deferred, including an empty flush; subsequent flushes
+/// are deferred until `qwp_direct_sender_commit` /
+/// `qwp_direct_sender_flush_and_wait`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn qwp_direct_sender_flush(
     sender: *mut qwp_direct_sender,
@@ -4015,18 +4201,10 @@ pub unsafe extern "C" fn qwp_direct_sender_flush_and_wait(
 /// batch — reaching for this entry point would discard that column's role
 /// as the designated timestamp and silently substitute server arrival time.
 ///
-/// Ownership: on success, `array->release` is consumed (set to NULL)
-/// and the function has invoked it internally. On a **transient,
-/// provably-not-delivered** (`line_sender_error_failover_retry` with
-/// `line_sender_error_in_doubt == false`) failure `array` is left intact
-/// (re-exported back into `*array` with a fresh `release`) so the caller
-/// can drop+re-borrow a live sender and retry with the same array. A
-/// delivery-unknown failure (a partial write that fails mid-frame: also
-/// `line_sender_error_failover_retry` but with `line_sender_error_in_doubt ==
-/// true`) is **not** re-exported, since replaying it could duplicate rows. On
-/// any failure `array->release` may have been consumed if the call reached the
-/// Arrow import step — callers MUST check `array->release != NULL` before
-/// invoking it on the failure path. `schema` is always borrowed.
+/// Ownership: success consumes `array->release`. On failure the batch is
+/// normally handed back (`release` non-NULL) unless the Arrow import failed
+/// after taking ownership or the error is `in_doubt`. Always check
+/// `array->release != NULL` before invoking it. `schema` is borrowed.
 ///
 /// Returns `true` on success, `false` on error (with `*err_out` set).
 ///
@@ -4325,15 +4503,9 @@ pub unsafe extern "C" fn qwp_direct_sender_flush_arrow_batch_at_scalar_nanos(
 /// `request_durable_ack=on`) returns `line_sender_error_invalid_api_call` and
 /// leaves `array` untouched.
 ///
-/// Ownership differs from the publish-only flush on the failure path. On a
-/// failure that is provably **pre-publication** (validation, encode, size, or a
-/// transport error before any byte was written) the batch is re-exported back
-/// into `*array` with a fresh `release` so the caller can drop+re-borrow and
-/// retry. On any **post-publication** failure — including an ACK-wait or SFA
-/// no-progress timeout reported as `line_sender_error_failover_retry` — the
-/// batch is **not** re-exported (`array->release` stays NULL): delivery is
-/// unknown and a blind replay could duplicate rows. Callers MUST check
-/// `array->release != NULL` before invoking it on the failure path.
+/// Ownership: as the publish-only flush, except that after the import the
+/// batch is handed back only if it was provably not delivered; otherwise
+/// (including an ACK timeout) it stays consumed.
 ///
 /// Returns `true` on success, `false` on error (with `*err_out` set).
 #[cfg(feature = "arrow")]
@@ -4408,6 +4580,8 @@ pub enum qwp_arrow_override_kind {
     qwp_arrow_override_char = 2,
     qwp_arrow_override_geohash = 3,
     qwp_arrow_override_not_symbol = 4,
+    qwp_arrow_override_uuid = 5,
+    qwp_arrow_override_long256 = 6,
 }
 
 /// Per-column wire-type hint that overrides what the encoder would
@@ -4511,6 +4685,12 @@ unsafe fn arrow_overrides_from_c<'a>(
             }
             x if x == qwp_arrow_override_kind::qwp_arrow_override_char as u32 => {
                 ArrowColumnOverride::Char { column }
+            }
+            x if x == qwp_arrow_override_kind::qwp_arrow_override_uuid as u32 => {
+                ArrowColumnOverride::Uuid { column }
+            }
+            x if x == qwp_arrow_override_kind::qwp_arrow_override_long256 as u32 => {
+                ArrowColumnOverride::Long256 { column }
             }
             x if x == qwp_arrow_override_kind::qwp_arrow_override_geohash as u32 => {
                 if ov.arg == 0 || ov.arg > 60 {
@@ -4845,8 +5025,9 @@ unsafe fn reexport_record_batch_into(
 
 /// Block until all in-flight frames are acknowledged at the requested
 /// `ack_level`. In direct mode this sends a commit-triggering frame first. In
-/// store-and-forward mode all data frames are already non-deferred, so sync
-/// waits for the local queue boundary published before the call.
+/// store-and-forward mode sync waits for the local queue boundary published
+/// before the call; a split chunk's deferred frames are covered by its
+/// committing frame's ack.
 ///
 /// `qwpws_ack_level_ok` waits for every in-flight frame's WAL-commit ack.
 /// `qwpws_ack_level_durable` requires QuestDB Enterprise and additionally
@@ -4856,9 +5037,11 @@ unsafe fn reexport_record_batch_into(
 /// ack/durable watermark — a back-pressured WAL or stuck commit — the wait
 /// returns `line_sender_error_failover_retry`. The deadline resets on every
 /// watermark advance, so a slow-but-progressing wait (e.g. a `durable` upload
-/// under pressure) is not cut off. The unacked frames are retained: drop the
-/// sender and re-borrow to replay (store-and-forward) or re-drive from source
-/// (direct).
+/// under pressure) is not cut off. Without `sf_dir`, an oversize chunk's split
+/// frames are acked only once its committing frame lands, so the watermark
+/// does not move mid-chunk; size the timeout for the largest chunk flushed.
+/// The unacked frames are retained: drop the sender and re-borrow to replay
+/// (store-and-forward) or re-drive from source (direct).
 ///
 /// `timeout` selects the bound: `Some` is the store-and-forward `wait`'s
 /// per-call no-progress deadline (`Duration::ZERO` waits forever); `None` is
@@ -4993,6 +5176,50 @@ mod tests {
                 (*array).release = None;
             }
         }
+    }
+
+    #[cfg(feature = "arrow")]
+    #[test]
+    fn uuid_and_long256_override_constants_parse() {
+        assert_eq!(
+            qwp_arrow_override_kind::qwp_arrow_override_uuid as u32,
+            5,
+            "UUID override kind is part of the public C ABI"
+        );
+        assert_eq!(
+            qwp_arrow_override_kind::qwp_arrow_override_long256 as u32,
+            6,
+            "LONG256 override kind is part of the public C ABI"
+        );
+        let uuid = b"uuid_col";
+        let long256 = b"long256_col";
+        let raw = [
+            qwp_arrow_override {
+                column: uuid.as_ptr() as *const c_char,
+                column_len: uuid.len(),
+                kind: 5,
+                arg: 0,
+            },
+            qwp_arrow_override {
+                column: long256.as_ptr() as *const c_char,
+                column_len: long256.len(),
+                kind: 6,
+                arg: 0,
+            },
+        ];
+        let mut err: *mut line_sender_error = std::ptr::null_mut();
+        let parsed = unsafe { arrow_overrides_from_c("test", raw.as_ptr(), raw.len(), &mut err) }
+            .expect("UUID and LONG256 constants must parse");
+        assert!(err.is_null());
+        assert!(matches!(
+            parsed.as_slice(),
+            [
+                ArrowColumnOverride::Uuid { column: "uuid_col" },
+                ArrowColumnOverride::Long256 {
+                    column: "long256_col"
+                }
+            ]
+        ));
     }
 
     #[test]
@@ -6029,6 +6256,13 @@ mod tests {
     #[test]
     fn qwp_direct_sender_free_accepts_null() {
         unsafe { qwp_direct_sender_free(std::ptr::null_mut()) };
+    }
+
+    #[test]
+    fn questdb_db_drop_direct_sender_accepts_null_db_and_sender() {
+        unsafe {
+            questdb_db_drop_direct_sender(std::ptr::null_mut(), std::ptr::null_mut());
+        }
     }
 
     #[test]

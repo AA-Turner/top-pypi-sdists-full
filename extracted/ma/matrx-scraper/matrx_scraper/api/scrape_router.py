@@ -108,6 +108,8 @@ class PageCaptureRequest(BaseModel):
     #: wants the whole document (SEO audit, archival diff) asks for it here,
     #: and `content_scope` on the result always says which it got.
     full_page: bool = False
+    #: Per-request override of knowledge.scraper.stealth_retry (None = follow the knob). For the A/B proof.
+    stealth_retry: bool | None = None
 
 
 class CapturedLink(BaseModel):
@@ -375,6 +377,7 @@ async def page_capture(
         # WHO this capture is for. A blocked page gets one retry through a home
         # computer this person registered, and never through anyone else's.
         acting_user_id=ctx.user_id,
+        stealth_retry=request.stealth_retry,
     )
     final_url = result.response_url or target_url
     try:
@@ -515,6 +518,45 @@ class BrowserFetchRequest(BaseModel):
     # starvation lever. A page that needs >30s is a miss, not a slow success.
     timeout_ms: int = Field(default=BROWSER_FETCH_DEFAULT_TIMEOUT_MS, ge=1_000, le=30_000)
     use_proxy: bool = True
+    #: CANARY (stealth A/B, 2026-10-21). ``current`` (default) = the pooled browser, exactly as
+    #: before. ``stealth`` = the stealth browser step for THIS request only, with no fallback to
+    #: the pool - a stealth failure is reported as the failure it is. Never reads or changes
+    #: ``knowledge.scraper.browser_engine``.
+    engine: Literal["current", "stealth"] = "current"
+
+
+def _process_tree_rss_mb() -> float | None:
+    """Resident memory of this process plus all its descendants (browsers), MB. Linux only."""
+    import os
+
+    try:
+        parents: dict[int, int] = {}
+        rss_kb: dict[int, int] = {}
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            try:
+                with open(f"/proc/{entry}/stat") as f:
+                    stat = f.read()
+                ppid = int(stat.rsplit(")", 1)[1].split()[1])
+                with open(f"/proc/{entry}/status") as f:
+                    kb = next((int(line.split()[1]) for line in f if line.startswith("VmRSS:")), 0)
+            except (OSError, ValueError, IndexError):
+                continue
+            parents[int(entry)] = ppid
+            rss_kb[int(entry)] = kb
+        root = os.getpid()
+        keep = {root}
+        grew = True
+        while grew:
+            grew = False
+            for pid, ppid in parents.items():
+                if ppid in keep and pid not in keep:
+                    keep.add(pid)
+                    grew = True
+        return round(sum(rss_kb.get(pid, 0) for pid in keep) / 1024, 1)
+    except OSError:
+        return None
 
 
 class BrowserFetchResult(BaseModel):
@@ -528,6 +570,32 @@ class BrowserFetchResult(BaseModel):
     html: str = ""
     error: str | None = None
     truncated: bool = False
+    #: Canary measurements (additive): engine used, wall time, and process-tree RSS before/after.
+    engine: str = "current"
+    elapsed_ms: int = 0
+    rss_mb_before: float | None = None
+    rss_mb_after: float | None = None
+    #: Highest process-tree RSS sampled (every 250 ms) while the call was in flight.
+    rss_mb_peak: float | None = None
+
+
+async def _sample_rss_peak(stop: Any, box: list[float]) -> None:
+    import asyncio
+
+    while not stop.is_set():
+        value = await asyncio.to_thread(_process_tree_rss_mb)
+        if value is not None and value > box[0]:
+            box[0] = value
+        try:
+            await asyncio.wait_for(stop.wait(), 0.25)
+        except asyncio.TimeoutError:
+            pass
+
+
+async def _stop_sampler(stop: Any, sampler: Any, box: list[float]) -> float | None:
+    stop.set()
+    await sampler
+    return round(box[0], 1) if box[0] else None
 
 
 @router.post(
@@ -562,6 +630,15 @@ async def browser_fetch(
             detail="url must be a publicly routable http(s) address",
         )
 
+    import time
+
+    import asyncio
+
+    started = time.monotonic()
+    rss_before = _process_tree_rss_mb()
+    peak_box = [rss_before or 0.0]
+    stop_sampling = asyncio.Event()
+    sampler = asyncio.create_task(_sample_rss_peak(stop_sampling, peak_box))
     pool = get_ext("browser_pool")
     try:
         proxy = get_required_random_proxy() if request.use_proxy else None
@@ -570,21 +647,37 @@ async def browser_fetch(
         # is a structured result, and its own consumers treat any failure as
         # "the escalation didn't help".
         logger.warning("browser-fetch proxy unavailable: %s", exc)
+        await _stop_sampler(stop_sampling, sampler, peak_box)
         return BrowserFetchResult(
             success=False, final_url=request.url, error=f"proxy unavailable: {exc}"
         )
     try:
-        content, response_url, status_code, headers, title = await pool.fetch(
-            target_url, proxy=proxy, timeout_ms=request.timeout_ms
-        )
+        if request.engine == "stealth":
+            from matrx_scraper.stealth_browser import stealth_fetch
+
+            content, response_url, status_code, headers, title = await stealth_fetch(
+                target_url, proxy=proxy, timeout_ms=request.timeout_ms
+            )
+        else:
+            content, response_url, status_code, headers, title = await pool.fetch(
+                target_url, proxy=proxy, timeout_ms=request.timeout_ms
+            )
     except Exception as exc:
         # Loud: a render failure is invisible to the calling host beyond a
         # yellow line, so the service that actually failed must say so.
         logger.warning("browser-fetch render failed for %s: %s", redact_url_secrets(target_url), redact_url_secrets(exc), exc_info=True)
         return BrowserFetchResult(
-            success=False, final_url=target_url, error=f"{type(exc).__name__}: {exc}"
+            success=False,
+            final_url=target_url,
+            error=f"{type(exc).__name__}: {exc}",
+            engine=request.engine,
+            elapsed_ms=int((time.monotonic() - started) * 1000),
+            rss_mb_before=rss_before,
+            rss_mb_after=_process_tree_rss_mb(),
+            rss_mb_peak=await _stop_sampler(stop_sampling, sampler, peak_box),
         )
 
+    rss_peak = await _stop_sampler(stop_sampling, sampler, peak_box)
     final_url = response_url or target_url
     # SSRF gate, part 2 — the browser FOLLOWS redirects, so the page we
     # actually rendered may be an internal host reached via a public 302 (or a
@@ -622,6 +715,11 @@ async def browser_fetch(
         html=html,
         error=None,
         truncated=truncated,
+        engine=request.engine,
+        elapsed_ms=int((time.monotonic() - started) * 1000),
+        rss_mb_before=rss_before,
+        rss_mb_after=_process_tree_rss_mb(),
+        rss_mb_peak=rss_peak,
     )
 
 
@@ -657,9 +755,11 @@ class BrowserInspectRequest(BaseModel):
     # minimal zero-margin document). No navigation happens; the result carries
     # `captures` (one per width x theme) instead of the URL evidence fields.
     html: str | None = Field(default=None, max_length=INLINE_MAX_HTML_CHARS)
-    # Inline mode only. JavaScript evaluated in the page after load + settle.
-    # One expression, or an async function BODY that `return`s; the JSON-
-    # serialisable result comes back as `captures[].measurements`.
+    # JavaScript evaluated in the page after load + settle, BEFORE any screenshot.
+    # One expression, or an async function BODY that `return`s (so it may await the
+    # page's own ready signal); the JSON-serialisable result comes back as
+    # `captures[].measurements` (inline mode) or top-level `measurements` (url mode,
+    # first navigation only).
     measure_script: str | None = Field(default=None, max_length=INLINE_MAX_SCRIPT_CHARS)
     # Inline mode only: viewport widths (default [1440]) x themes (default
     # ["light"]) => one capture each.
@@ -739,6 +839,9 @@ class BrowserInspectResult(BaseModel):
     retryable: bool = False
     # Inline mode only (request had `html`): one entry per width x theme.
     captures: list[InlineInspectCapture] = Field(default_factory=list)
+    # Url mode with a measure_script: its result (null when it failed — see measure_error).
+    measurements: Any = None
+    measure_error: str | None = None
 
 
 async def _browser_inspect_inline(request: BrowserInspectRequest) -> BrowserInspectResult:
@@ -859,6 +962,7 @@ async def browser_inspect(
             nav_timeout_ms=request.timeout_ms,
             exact=ExactCaptureSpec(**request.exact.model_dump()) if request.exact else None,
             pictures_only=request.pictures_only,
+            measure_script=request.measure_script,
         )
     except BrowserInspectTimeout as exc:
         return BrowserInspectResult(
@@ -908,6 +1012,8 @@ async def browser_inspect(
         failed_requests=inspection.failed_requests,
         expect_text_found=inspection.dom_text_found,
         expect_selector_found=inspection.dom_selector_found,
+        measurements=inspection.measurements,
+        measure_error=inspection.measure_error,
         screenshots=[
             InspectedScreenshot(
                 kind=shot.kind,

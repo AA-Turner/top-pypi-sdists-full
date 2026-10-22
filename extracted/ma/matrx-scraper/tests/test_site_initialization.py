@@ -1079,3 +1079,28 @@ async def test_initialization_session_ends_with_its_stream_not_after_the_homepag
     assert completed_at > last_step, order
     assert order.index("stream_end") == completed_at + 1, order
     assert order.count("persist:crawl_completed") == 1
+
+
+def test_share_banner_is_never_a_logo_candidate_but_stays_og_and_twitter_image() -> None:
+    """Bug: the og:image banner (a 1200x628 photo) was also offered as a "logo" and saved as the brand's logo."""
+    og = "https://cdn.shop.example/files/Social_Sharing_Banner.jpg"
+    summary = PageSummary(
+        url="https://shop.example/",
+        final_url="https://shop.example/",
+        og_tags={"og:image": og},
+        twitter_tags={"twitter:image": og},
+    )
+    html = (
+        "<html><body><header>"
+        '<img src="https://cdn.shop.example/files/VS_LOGO_Horizontal.png" alt="Shop logo">'
+        "</header>"
+        f'<img src="{og}" alt="models" width="1200" height="628">'
+        '<img src="https://cdn.shop.example/files/launch.jpg" alt="launch" width="1200" height="628">'
+        "</body></html>"
+    )
+    candidates = extract_homepage_candidates(html, base_url="https://shop.example/", summary=summary)
+    logos = [c.url for c in candidates if c.guessed_kind == "logo"]
+    assert logos == ["https://cdn.shop.example/files/VS_LOGO_Horizontal.png"]
+    assert any(c.guessed_kind == "og_image" and c.url == og for c in candidates)
+    assert any(c.guessed_kind == "twitter_image" and c.url == og for c in candidates)
+    assert derive_site_identity(candidates, summary=summary).logo_url == logos[0]

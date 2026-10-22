@@ -3,7 +3,7 @@ from __future__ import annotations  # noqa: I001
 import queue
 import time
 import unittest
-from typing import TYPE_CHECKING, Any, NoReturn, TypeGuard
+from typing import TYPE_CHECKING, Any, NoReturn
 from warnings import catch_warnings, filterwarnings
 
 import hypothesis
@@ -12,7 +12,6 @@ from hypothesis import reject
 from hypothesis.control import current_build_context
 from hypothesis.errors import Flaky, HypothesisWarning, Unsatisfiable, UnsatisfiedAssumption
 from hypothesis.stateful import Rule
-from requests.exceptions import ChunkedEncodingError
 
 from schemathesis.checks import CheckContext, CheckFunction, run_checks
 from schemathesis.core.control import SkipTest
@@ -32,12 +31,17 @@ from schemathesis.engine.errors import (
     build_code_sample,
     clear_hypothesis_notes,
     is_inconsistent_replay,
-    is_unrecoverable_network_error,
 )
 from schemathesis.engine.run import PhaseName
 from schemathesis.engine.run.unit._case import BudgetExpired, ServerWentAway
 from schemathesis.engine._baseline import is_known
-from schemathesis.engine._rate_limit_retry import send_tracked, validate_with_rate_limited
+from schemathesis.engine._rate_limit_retry import (
+    TRANSPORT_ERRORS,
+    TransportError,
+    is_unrecoverable_transport_error,
+    send_tracked,
+    validate_with_rate_limited,
+)
 from schemathesis.engine.run.stateful.context import StatefulContext
 from schemathesis.engine.recorder import ReproductionStep, ScenarioRecorder
 from schemathesis.generation import overrides
@@ -52,6 +56,7 @@ from schemathesis.generation.stateful.state_machine import (
     StepOutput,
 )
 from schemathesis.generation.metrics import MetricCollector
+from schemathesis.resources import record_interaction
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -69,19 +74,16 @@ def _replay_recorders_into_pool(extra_data_source: ResourceRecorder, recorders: 
     """
     for recorder in recorders:
         for case_id, interaction in recorder.interactions.items():
-            # Stateful steps record an interaction only once the server answered.
-            assert interaction.response is not None
+            # A step that failed with a network error has no response to learn from.
+            if interaction.response is None:
+                continue
             _record_into_pool(extra_data_source, recorder.cases[case_id].value, interaction.response)
 
 
 def _record_into_pool(extra_data_source: ResourceRecorder, case: Case, response: Response) -> None:
-    operation = case.operation
-    if extra_data_source.should_record(operation=operation.label):
-        extra_data_source.record_response(operation=operation, response=response, case=case)
-    if extra_data_source.should_record_request(operation=operation.label):
-        extra_data_source.record_request(operation=operation, case=case, status_code=response.status_code)
+    record_interaction(extra_data_source, case, response)
     if 200 <= response.status_code < 300 or response.status_code == 404:
-        extra_data_source.record_successful_delete(operation=operation, case=case)
+        extra_data_source.record_successful_delete(operation=case.operation, case=case)
     response.clear_cache()
 
 
@@ -203,9 +205,7 @@ def _classify_suite_error(
     )
 
 
-def _unresponsive_operation_error(
-    exc: requests.ConnectionError | ChunkedEncodingError | requests.Timeout, *, case: Case, engine: EngineContext
-) -> events.NonFatalError:
+def _unresponsive_operation_error(exc: TransportError, *, case: Case, engine: EngineContext) -> events.NonFatalError:
     health = engine.health.operations[case.operation.label]
     total = health.completed + health.transport_failures
     error = UnresponsiveOperationError(
@@ -222,9 +222,7 @@ def _unresponsive_operation_error(
     )
 
 
-def _absorbed_timeout_error(
-    exc: requests.ConnectionError | ChunkedEncodingError | requests.Timeout, *, case: Case, engine: EngineContext
-) -> events.NonFatalError:
+def _absorbed_timeout_error(exc: TransportError, *, case: Case, engine: EngineContext) -> events.NonFatalError:
     transport_kwargs = engine.get_transport_kwargs(operation=case.operation)
     return events.NonFatalError(
         error=exc,
@@ -236,7 +234,7 @@ def _absorbed_timeout_error(
 
 
 def _unrecoverable_network_error(
-    exc: requests.ConnectionError | ChunkedEncodingError | requests.Timeout, *, case: Case, engine: EngineContext
+    exc: TransportError, *, case: Case, engine: EngineContext
 ) -> UnrecoverableNetworkError | None:
     """Describe a fatal transport failure, or `None` when the health monitor absorbs it."""
     reason: str | None = None
@@ -289,7 +287,8 @@ def _send_step(machine: APIStateMachine, case: Case, *, engine: EngineContext, e
         rate_limited,
         response,
         lambda response: machine.validate_response(response, case),
-        lambda response: machine.recorder.record_response(case_id=case.id, response=response),
+        machine.recorder,
+        case.id,
     )
 
 
@@ -301,16 +300,8 @@ def _detect_outage(exc: Exception, engine: EngineContext) -> bool:
     return outage
 
 
-def _is_connection_failure(
-    exc: Exception,
-) -> TypeGuard[requests.ConnectionError | ChunkedEncodingError | requests.Timeout]:
-    return isinstance(exc, (requests.ConnectionError, ChunkedEncodingError, requests.Timeout)) and (
-        is_unrecoverable_network_error(exc)
-    )
-
-
 def _absorb_transport_failure(
-    exc: requests.ConnectionError | ChunkedEncodingError | requests.Timeout,
+    exc: TransportError,
     *,
     case: Case,
     engine: EngineContext,
@@ -339,7 +330,7 @@ def _record_network_error(
     """Keep a connection-level failure for the suite report; a timeout the health monitor absorbs skips the step."""
     # A timeout is per-request: a slow operation shouldn't abort the phase. Connection-level failures
     # (reset, chunked-encoding break) usually mean the server crashed; surface those on the first occurrence.
-    if not _is_connection_failure(exc):
+    if not is_unrecoverable_transport_error(exc):
         return
     network_error = _unrecoverable_network_error(exc, case=case, engine=engine)
     if network_error is None:
@@ -388,16 +379,6 @@ def _calibrate_link(
     )
 
 
-def _supervise_response(engine: EngineContext, case: Case, response: Response) -> None:
-    engine.supervisor.record_response(
-        operation_label=case.operation.label,
-        status_code=response.status_code,
-        is_documented_status=case.operation.responses.find_by_status_code(response.status_code) is not None,
-        case=case,
-        cache_writer=engine.cache.writer,
-    )
-
-
 def _feed_error_feedback(
     engine: EngineContext,
     case: Case,
@@ -433,7 +414,7 @@ def _validate_step_response(
     observations = _parse_step_observations(engine, case, response)
     _calibrate_link(engine, response, observations=observations, step_input=step_input, recorder=recorder)
     ctx.current_response = response
-    _supervise_response(engine, case, response)
+    engine.supervisor.observe(case, response.status_code, cache_writer=engine.cache.writer)
     _feed_error_feedback(engine, case, response, observations=observations, recorder=recorder)
     check_ctx = check_context_cache.get_or_create(
         operation=case.operation, ctx=engine, phase="stateful"
@@ -526,6 +507,8 @@ def _run_step(
         ctx.step_failed()
         raise
     except Exception as exc:
+        if isinstance(exc, TRANSPORT_ERRORS):
+            machine.recorder.record_network_error(case_id=case.id, error=exc)
         outage = _detect_outage(exc, engine)
         _record_network_error(exc, case=case, engine=engine, ctx=ctx, state=state, event_queue=event_queue)
         _remember_step_outcome(ctx, case, exc, unique_inputs=unique_inputs)

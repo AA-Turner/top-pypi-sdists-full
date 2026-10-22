@@ -7,6 +7,8 @@ from concurrent.futures import Executor
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+import numpy as np
+
 
 @dataclass(frozen=True)
 class ServerCapabilities:
@@ -79,13 +81,65 @@ class TrainingDataAttestation:
     artifacts: list[AttestedTrainingDataArtifact]
 
 
-@dataclass
-class TopLogprob:
-    """One top-K candidate token at a single position."""
+@dataclass(frozen=True, eq=False)
+class TopLogprobs:
+    """Top-K alternatives as two read-only arrays of shape ``[positions, K]``.
 
-    logprob: float
-    token_id: int
-    token: str = ""  # Decoded string; may be empty when detokenization is skipped.
+    ``token_ids`` uses int32 and ``logprobs`` uses float32. Candidates retain
+    server order. Missing candidates are padded with ID -1 and logprob -inf;
+    the first prompt position has no predecessor and is entirely padding.
+    Decode IDs with the model's tokenizer when candidate text is needed.
+
+    Mutable inputs are copied; contiguous read-only arrays may be shared.
+    """
+
+    token_ids: np.ndarray
+    logprobs: np.ndarray
+
+    def __post_init__(self):
+        ids = np.asarray(self.token_ids)
+        probabilities = np.asarray(self.logprobs)
+        if ids.ndim != 2 or probabilities.shape != ids.shape:
+            raise ValueError("top-K arrays must have matching [positions, K] shapes")
+        if (
+            ids.dtype.kind not in "iu"
+            or np.any(ids < -1)
+            or np.any(ids > np.iinfo(np.int32).max)
+        ):
+            raise ValueError("top-K token IDs must be int32 values or padding -1")
+        for name, array, dtype in (
+            ("token_ids", ids, np.int32),
+            ("logprobs", probabilities, np.float32),
+        ):
+            if (
+                array.dtype != dtype
+                or array.flags.writeable
+                or not array.flags.c_contiguous
+            ):
+                array = np.array(array, dtype=dtype, order="C", copy=True)
+            array.flags.writeable = False
+            object.__setattr__(self, name, array)
+
+    @classmethod
+    def _from_packed(
+        cls, token_ids: bytes, logprobs: bytes, shape: tuple[int, int]
+    ) -> TopLogprobs:
+        """View server-owned packed storage without revalidating its contents."""
+        result = object.__new__(cls)
+        object.__setattr__(
+            result, "token_ids", np.frombuffer(token_ids, dtype="<i4").reshape(shape)
+        )
+        object.__setattr__(
+            result, "logprobs", np.frombuffer(logprobs, dtype="<f4").reshape(shape)
+        )
+        return result
+
+    def __len__(self):
+        return self.token_ids.shape[0]
+
+    @property
+    def width(self) -> int:
+        return self.token_ids.shape[1]
 
 
 @dataclass
@@ -187,8 +241,8 @@ class Sample:
     prompt_token_ids: list[int] | None = None
     # Top-K alternatives at each output / prompt position, when the caller
     # set ``logprobs=K`` on the request. ``None`` when unused or unavailable.
-    top_logprobs: list[list[TopLogprob]] | None = None
-    prompt_top_logprobs: list[list[TopLogprob]] | None = None
+    top_logprobs: TopLogprobs | None = None
+    prompt_top_logprobs: TopLogprobs | None = None
     expert_routing: ExpertRouting | None = None
     # Per-result scalar metrics (see class docstring). Empty dict when the
     # request carried no recognized ``metrics_type`` token.

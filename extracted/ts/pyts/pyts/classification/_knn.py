@@ -23,7 +23,7 @@ from pyts.metrics._dtw import (
 )
 
 
-class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
+class KNeighborsClassifier(UnivariateClassifierMixin, BaseEstimator):
     """k-nearest neighbors classifier.
 
     Parameters
@@ -108,7 +108,6 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
         metric: str | Callable[..., float] = 'minkowski',
         metric_params: dict[str, Any] | None = None,
         n_jobs: int = 1,
-        **kwargs: Any,
     ) -> None:
         self.n_neighbors = n_neighbors
         self.weights = weights
@@ -118,7 +117,6 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
         self.metric = metric
         self.metric_params = metric_params
         self.n_jobs = n_jobs
-        self.kwargs = kwargs
 
     def fit(self, X: npt.ArrayLike, y: npt.ArrayLike) -> Self:
         """Fit the model according to the given training data.
@@ -148,7 +146,6 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
                 metric=dtw,
                 metric_params=self.metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         elif self.metric == 'dtw_classic':
@@ -159,47 +156,42 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
                 metric=_dtw_classic,
                 metric_params=self.metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         elif self.metric == 'dtw_sakoechiba':
             n_timestamps = X.shape[1]
-            if self.metric_params is None:
-                region = sakoe_chiba_band(n_timestamps)
-            else:
-                if 'window_size' not in self.metric_params.keys():
-                    window_size = 0.1
-                else:
-                    window_size = self.metric_params['window_size']
-                region = sakoe_chiba_band(n_timestamps, window_size=window_size)
+            metric_params: dict[str, Any] = (
+                {} if self.metric_params is None else self.metric_params.copy()
+            )
+            window_size = metric_params.pop('window_size', 0.1)
+            metric_params['region'] = sakoe_chiba_band(
+                n_timestamps, window_size=window_size
+            )
             self._clf = SklearnKNN(
                 n_neighbors=self.n_neighbors,
                 weights=self.weights,
                 algorithm='brute',
                 metric=_dtw_region,
-                metric_params={'region': region},
+                metric_params=metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         elif self.metric == 'dtw_itakura':
             n_timestamps = X.shape[1]
-            if self.metric_params is None:
-                region = itakura_parallelogram(n_timestamps)
-            else:
-                if 'max_slope' not in self.metric_params.keys():
-                    max_slope = 2.0
-                else:
-                    max_slope = self.metric_params['max_slope']
-                region = itakura_parallelogram(n_timestamps, max_slope=max_slope)
+            metric_params = (
+                {} if self.metric_params is None else self.metric_params.copy()
+            )
+            max_slope = metric_params.pop('max_slope', 2.0)
+            metric_params['region'] = itakura_parallelogram(
+                n_timestamps, max_slope=max_slope
+            )
             self._clf = SklearnKNN(
                 n_neighbors=self.n_neighbors,
                 weights=self.weights,
                 algorithm='brute',
                 metric=_dtw_region,
-                metric_params={'region': region},
+                metric_params=metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         elif self.metric == 'dtw_multiscale':
@@ -210,7 +202,6 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
                 metric=_dtw_multiscale,
                 metric_params=self.metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         elif self.metric == 'dtw_fast':
@@ -221,7 +212,6 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
                 metric=_dtw_fast,
                 metric_params=self.metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         elif self.metric == 'boss':
@@ -232,7 +222,6 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
                 metric=boss,
                 metric_params=self.metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         else:
@@ -245,7 +234,6 @@ class KNeighborsClassifier(BaseEstimator, UnivariateClassifierMixin):
                 metric=self.metric,
                 metric_params=self.metric_params,
                 n_jobs=self.n_jobs,
-                **self.kwargs,
             )
 
         self._clf.fit(X, y)

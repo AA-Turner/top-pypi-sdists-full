@@ -2,10 +2,10 @@
 
 import logging
 import re
-from typing import Sequence
+from typing import Self, Sequence
 
 import more_itertools as mit
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from stjames.basis_set import BasisSet
 
@@ -15,7 +15,7 @@ from ..method import XTB_METHODS, Method
 from ..mode import Mode
 from ..opt_settings import OptimizationSettings
 from ..settings import Settings
-from ..solvent import Solvent, SolventModel, SolventSettings
+from ..solvent import ENERGY_ONLY_SOLVENT_MODELS, Solvent, SolventModel, SolventSettings
 from ..task import Task
 from ..types import UUID
 from .workflow import MoleculeWorkflow
@@ -58,6 +58,22 @@ class MultiStageOptSettings(BaseModel):
         methods += reversed(self.optimization_settings)
 
         return "//".join(m.level_of_theory for m in methods)
+
+    @model_validator(mode="after")
+    def optimizations_have_gradients(self) -> Self:
+        """Reject optimization stages whose solvent model has no gradients.
+
+        Raises:
+            ValueError: optimization stage uses a solvent model from `ENERGY_ONLY_SOLVENT_MODELS`
+        """
+        for stage in self.optimization_settings:
+            if stage.solvent_settings is not None and stage.solvent_settings.model in ENERGY_ONLY_SOLVENT_MODELS:
+                model = stage.solvent_settings.model.value.upper()
+                raise ValueError(
+                    f"{model} has no gradients, so it cannot be used for optimization ({stage.level_of_theory}); use it on the singlepoint instead."
+                )
+
+        return self
 
 
 class MultiStageOptWorkflow(MoleculeWorkflow, MultiStageOptSettings):

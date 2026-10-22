@@ -1,6 +1,7 @@
 """
 Database schema management utilities for scrapy_ingest.
 """
+
 import logging
 import re
 
@@ -57,7 +58,14 @@ class SchemaManager:
         name = self._uq_name(table, column)
         return f"CONSTRAINT {name} UNIQUE ({column})"
 
-    def _fk(self, table: str, column: str, ref_table: str, ref_column: str = "id", on_delete=None):
+    def _fk(
+        self,
+        table: str,
+        column: str,
+        ref_table: str,
+        ref_column: str = "id",
+        on_delete=None,
+    ):
         name = self._fk_name(table, column)
         clause = (
             f"CONSTRAINT {name} FOREIGN KEY ({column}) "
@@ -70,7 +78,11 @@ class SchemaManager:
     @staticmethod
     def _duplicate_index_error(exc: BaseException) -> bool:
         """MySQL/MariaDB: index already exists (1061)."""
-        for err in (exc, getattr(exc, "__cause__", None), getattr(exc, "__context__", None)):
+        for err in (
+            exc,
+            getattr(exc, "__cause__", None),
+            getattr(exc, "__context__", None),
+        ):
             if err is None:
                 continue
             args = getattr(err, "args", ())
@@ -169,7 +181,9 @@ class SchemaManager:
         ){self._suffix}
         """
         self.db.execute(sql)
-        logger.info("Requests table %s created/verified", self.settings.db_requests_table)
+        logger.info(
+            "Requests table %s created/verified", self.settings.db_requests_table
+        )
 
     def create_logs_table(self):
         jobs = self.settings.db_jobs_table

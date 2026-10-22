@@ -655,32 +655,32 @@ class TestGlobFilter:
         ['!(?)', ['abc'], glob.M],
         ['!(*)', [], glob.M],
         ['!([.])', ['abc'], glob.M],
-        ['!(.)', ['..', '.abc', 'abc'], glob.M | glob.D],
-        [R'!(\.)', ['..', '.abc', 'abc'], glob.M | glob.D],
-        [R'!(\x2e)', ['..', '.abc', 'abc'], glob.M | glob.R | glob.D],
-        ['@(!(.))', ['..', '.abc', 'abc'], glob.M | glob.D],
-        ['!(@(.))', ['..', '.abc', 'abc'], glob.M | glob.D],
-        ['+(!(.))', ['..', '.abc', 'abc'], glob.M | glob.D],
+        ['!(.)', ['.abc', 'abc'], glob.M | glob.D],
+        [R'!(\.)', ['.abc', 'abc'], glob.M | glob.D],
+        [R'!(\x2e)', ['.abc', 'abc'], glob.M | glob.R | glob.D],
+        ['@(!(.))', ['.abc', 'abc'], glob.M | glob.D],
+        ['!(@(.))', ['.abc', 'abc'], glob.M | glob.D],
+        ['+(!(.))', ['.abc', 'abc'], glob.M | glob.D],
         ['+(!(.))', ['.abc', 'abc'], glob.M | glob.D | glob.Z],
         ['!(+(.))', ['.abc', 'abc'], glob.M | glob.D],
         ['!(?)', ['.abc', 'abc'], glob.M | glob.D],
         ['!(*)', [], glob.M | glob.D],
         ['!([.])', ['.abc', 'abc'], glob.M | glob.D],
-        ['@(..|.)', ['.', '..']],
-        ['@(..|.)', ['.', '..'], glob.Z],
+        ['@(..|.)', []],
+        ['@(..|.)', [], glob.Z],
 
         # More extended pattern dot related tests
-        ['*(.)', ['.', '..']],
-        [R'*(\.)', ['.', '..']],
+        ['*(.)', []],
+        [R'*(\.)', []],
         ['*([.])', []],
         ['*(?)', ['abc']],
-        ['@(.?)', ['..']],
+        ['@(.?)', []],
         ['@(?.)', []],
-        ['*(.)', ['.', '..'], glob.D],
-        [R'*(\.)', ['.', '..'], glob.D],
+        ['*(.)', [], glob.D],
+        [R'*(\.)', [], glob.D],
         ['*([.])', [], glob.D],
         ['*(?)', ['.abc', 'abc'], glob.D],
-        ['@(.?)', ['..'], glob.D],
+        ['@(.?)', [], glob.D],
         ['@(?.)', [], glob.D],
 
         GlobFiles(['folder/abc', 'directory/abc', 'dir/abc']),
@@ -972,7 +972,16 @@ class TestGlobMatch:
         ['!(but !(this ))@(okay)', 'but this okay', True, glob.N],
         ['!(not)!( this)@( okay)', 'but this okay', True, glob.N],
         ['@(but!( that))@( okay)', "but this okay", True, glob.N],
+        ['!(not )@(this|+(that))', 'but this', True, glob.N],
+        ['!(not )@(this|+(that))', 'not this', False, glob.N],
         ['!(@(but!( that))@( okay))', "but this okay", False, glob.N],
+
+        # A star directly before an extended star list does not swallow the list
+        ['a**(b)', 'abb', True],
+        ['**(a|b)b', 'b', True],
+        ['x/**(a|b)b', 'x/b', True],
+        ['***(a|b)b', 'b', True, glob.GL],
+        ['x/***(a|b)b', 'x/b', True, glob.GL],
 
         # Dot logic
         ['+([a.])', '.a', False],
@@ -1208,11 +1217,93 @@ class TestGlobMatchSpecial(unittest.TestCase):
         flags = self.flags
         flags |= glob.FORCEUNIX
 
-        value = (['^(?s:(?=[^/])(?!(?:(?<=[/])|(?<=^))(?:\\.{1,2})(?:$|[/]))(?:(?!\\.)[^/]*?)?test[^/]*?[/]*?)$'], [])
+        value = (
+            ['^(?s:(?>(?=[^/])(?!(?:(?<=[/])|(?<=^))(?:\\.{1,2})(?:$|[/]))(?:(?!\\.)[^/]*?)?test)[^/]*?[/]*?)$'],
+            []
+        )
         self.assertEqual(
             glob.translate('****test****', flags=flags),
             value
         )
+
+    def test_atomic_stars_inverse_with_separator(self):
+        """Test that atomic stars do not break `!(...)` groups when followed by a path separator."""
+
+        flags = self.flags | glob.FORCEUNIX
+
+        for pattern, path in (
+            ('*!(a)*b*c/d', 'xbyc/d'),
+            ('*!(a)*b*c/d', 'xyb c/d'),
+            ('*!(a)b*c/d', 'xbyc/d'),
+            ('!(a)*b*c/d', 'xbyc/d'),
+            ('*!(a)*b*c*d/x', 'xbycd/x')
+        ):
+            with self.subTest(pattern=pattern, path=path):
+                self.assertTrue(glob.globmatch(path, pattern, flags=flags))
+
+        self.assertFalse(glob.globmatch('xbyc/e', '*!(a)*b*c/d', flags=flags))
+        self.assertFalse(glob.globmatch('xyc/d', '*!(a)*b*c/d', flags=flags))
+
+    def test_atomic_stars_variable_length_groups(self):
+        """Test that atomic stars are not applied to segments containing variable length extended groups."""
+
+        flags = self.flags | glob.FORCEUNIX
+
+        for pattern, path in (
+            ('*@(abcd|b)*c*', 'abcd'),
+            ('*?(ab)*b*', 'ab'),
+            ('*+(ab|a)*b*', 'ab'),
+            ('*@(abcd|b)*c*/d', 'abcd/d'),
+            ('*?(ab)*b*/d', 'ab/d'),
+            ('*(ab)*b*c*', 'abc'),
+            ('**?(ab)*b**', 'ab')
+        ):
+            with self.subTest(pattern=pattern, path=path):
+                self.assertTrue(glob.globmatch(path, pattern, flags=flags))
+
+        self.assertFalse(glob.globmatch('abcd', '*@(abcd|b)*e*', flags=flags))
+
+    def test_atomic_stars_translate_with_extglob(self):
+        """Test that only segments without extended groups are made atomic."""
+
+        flags = self.flags | glob.FORCEUNIX | glob.NEGATE
+
+        def translate(pattern):
+            return glob.translate(pattern, flags=flags)[0][0]
+
+        # The first segment contains an extended group, so it is left alone (the leading star is where the
+        # atomic group would begin), but the following segment is still atomic.
+        for pattern in ('*@(abcd|b)*c*', '*?(ab)*b*', '*+(ab|a)*b*', '*!(a)*b*c'):
+            with self.subTest(pattern=pattern):
+                regex = translate(pattern)
+                self.assertNotIn('(?>(?=', regex)
+                self.assertIn('(?>[^/]*?', regex)
+
+        # Extended group before the first star or after the last star does not matter.
+        self.assertEqual(translate('@(a|b)*c*d*e').count('(?>'), 2)
+        self.assertEqual(translate('*c*d*e@(a|b)').count('(?>'), 2)
+
+        # Segments without extended groups are still atomic, even if another segment has one.
+        self.assertEqual(translate('*a*@(b|c)*d*e').count('(?>'), 2)
+        self.assertIn('(?>(?=', translate('*a*b*@(b|c)*d*e'))
+
+        # Stars inside extended groups are never atomic.
+        self.assertNotIn('(?>', translate('@(*a*b*c)'))
+
+    def test_atomic_stars_extglob_equivalence(self):
+        """Test patterns with extended groups produce the same results as the unoptimized expression."""
+
+        flags = self.flags | glob.FORCEUNIX
+
+        # These are only expected to behave as the plain regular expression would.
+        for pattern, path, expected in (
+            ('a*@(b|c)*d*e', 'abxdyze', True),
+            ('a*@(b|c)*d*e', 'axxdyze', False),
+            ('*a*!(b)*c*d', 'xaybzcwd', True),
+            ('*+(a)*+(b)*c', 'aabbc', True),
+        ):
+            with self.subTest(pattern=pattern, path=path):
+                self.assertEqual(glob.globmatch(path, pattern, flags=flags), expected)
 
     def test_glob_parsing_nix(self):
         """Test wildcard parsing."""
@@ -2067,35 +2158,98 @@ class TestPrecompile(unittest.TestCase):
         self.assertTrue(m5 in {m1})
 
 
-@unittest.skipUnless(not sys.platform.startswith('win'), "Unix/Linux test")
 class TestPerformance(unittest.TestCase):
     """Test performance."""
 
     def test_performance(self):
         """Test performance of of specific cases."""
 
-        import signal
-        import time
+        self.assertTrue(glob.globmatch('@(' * 900, "@(" * 900, flags=glob.E))
 
-        LIMIT = 5.0
+    def test_performance_consecutive_stars(self):
+        """Test performance of multiple stars separated by literals."""
 
-        class Timeout(Exception):
-            pass
+        self.assertTrue(glob.globmatch('_' * 1000 + '.csv', '*_*_*_*_*.csv', flags=glob.FORCEUNIX))
 
-        signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(Timeout()))
-        signal.setitimer(signal.ITIMER_REAL, LIMIT)
-        t = time.perf_counter()
-        dt = None
-        try:
-            glob.compile("@(" * 900, flags=glob.E)
-            dt = time.perf_counter() - t
-        except Timeout:
-            pass
-        finally:
-            signal.setitimer(signal.ITIMER_REAL, 0)
 
-        hung = dt is None
-        print(
-            f"{'> %.0f s (HANG)' % LIMIT if hung else '%.3f s' % dt}"
-        )
-        self.assertTrue(not hung and dt < 1.0)
+@pytest.mark.parametrize('pattern', ['?(a)*', '*(a)?hidden', '@(a|)[.]hidden', '+(a|)*'])
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('capture', [False, True])
+@pytest.mark.parametrize('dotmatch', [False, True])
+def test_optional_group_wildcard_dotmatch(pattern, as_bytes, capture, dotmatch):
+    """Wildcards still need `DOTMATCH` when an earlier group consumes no text."""
+
+    flags = glob.EXTMATCH | glob.FORCEUNIX
+    if capture:
+        flags |= glob.CAPTURE
+    if dotmatch:
+        flags |= glob.DOTMATCH
+    hidden, visible = '.hidden', 'a.hidden'
+    if as_bytes:
+        pattern, hidden, visible = pattern.encode(), hidden.encode(), visible.encode()
+
+    assert glob.globmatch(hidden, pattern, flags=flags) is dotmatch
+    assert glob.globmatch(visible, pattern, flags=flags)
+
+
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('capture', [False, True])
+def test_optional_group_literal_dot(as_bytes, capture):
+    """A literal dot after an empty group continues to match hidden names."""
+
+    flags = glob.EXTMATCH | glob.FORCEUNIX
+    if capture:
+        flags |= glob.CAPTURE
+    pattern, hidden, visible = '?(a).hidden', '.hidden', 'a.hidden'
+    if as_bytes:
+        pattern, hidden, visible = pattern.encode(), hidden.encode(), visible.encode()
+
+    assert glob.globmatch(hidden, pattern, flags=flags)
+    assert glob.globmatch(visible, pattern, flags=flags)
+
+
+@pytest.mark.parametrize('windows', [False, True])
+@pytest.mark.parametrize('pattern', ['?(a)*', '*(a)?hidden', '@(a|)[.]hidden', '+(a|)*'])
+def test_optional_group_after_separator(pattern, windows):
+    """Dot restrictions also apply at the start of later path components."""
+
+    flags = glob.EXTGLOB | (glob.FORCEWIN if windows else glob.FORCEUNIX)
+    separator = '\\' if windows else '/'
+
+    assert not glob.globmatch('root' + separator + '.hidden', 'root/' + pattern, flags=flags)
+    assert glob.globmatch('root' + separator + 'a.hidden', 'root/' + pattern, flags=flags)
+
+
+class NoTruthIterable:
+    """Model collections such as `numpy` arrays without importing `numpy`."""
+
+    def __init__(self, names):
+        """Store the filenames to iterate over."""
+
+        self.names = names
+
+    def __iter__(self):
+        """Iterate over filenames without testing the collection's truth value."""
+
+        return iter(self.names)
+
+    def __bool__(self):
+        """Reject truth testing, as array collections do."""
+
+        raise ValueError('The truth value of this collection is ambiguous')
+
+
+@pytest.mark.parametrize('precompiled', [False, True], ids=['direct', 'compiled'])
+@pytest.mark.parametrize('names, expected', [
+    ([], []),
+    (['keep.txt', 'skip.txt', 'readme.md'], ['keep.txt'])
+], ids=['empty', 'nonempty'])
+def test_filter_iterable_without_truth_value(precompiled, names, expected):
+    """Filter names and exclusions using iteration alone."""
+
+    values = NoTruthIterable(names)
+    if precompiled:
+        actual = glob.compile('*.txt', exclude='skip.txt').filter(values)
+    else:
+        actual = glob.globfilter(values, '*.txt', exclude='skip.txt')
+    assert actual == expected

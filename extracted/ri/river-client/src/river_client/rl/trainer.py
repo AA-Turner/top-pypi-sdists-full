@@ -13,13 +13,13 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Literal
 
 from river_client.client import (
     _ForwardBackwardNeedsSubBatches,
     _merge_forward_backward_sub_batch_results,
 )
-from river_client.losses import CustomLoss
 from river_client.types import Checkpoint, RiverError
 
 from .advantages import (
@@ -45,9 +45,17 @@ from .config import (
     _integer,
     acknowledge_risk,
 )
-from .custom_loss import custom_batch, loss_contract, validate_custom_loss_inputs
+from .custom_loss import custom_batch, loss_contract
 from .engine import call, group_from_state, group_state
 from .env import Env
+from .losses import (
+    CISPO,
+    PPO,
+    CustomLoss,
+    ImportanceSampling,
+    PolicyGradient,
+    resolve_loss,
+)
 from .progress import Activities
 from .streaming_custom_loss import StreamingCustomLoss
 from .trajectory import Span, decode_state
@@ -167,13 +175,18 @@ class AsyncTrainer:
         engine,
         optimizer: Adam,
         completion: GroupCompletion,
-        normalize: str,
+        normalize: str | None = None,
         groups_per_step: int,
         group_size: int = 16,
         advantage=None,
-        loss: str | CustomLoss = "cispo",
+        loss: str
+        | CustomLoss
+        | CISPO
+        | PPO
+        | ImportanceSampling
+        | PolicyGradient = "cispo",
         custom_loss_inputs=None,
-        train_zero_advantage_batches: bool = False,
+        train_zero_advantage_batches: bool | None = None,
         max_staleness: int = 2,
         stale_policy: str = "wait",
         allow_trajectory_loss: bool = False,
@@ -183,7 +196,7 @@ class AsyncTrainer:
         init_checkpoint=None,
         evaluator=None,
         run_config=None,
-        max_importance_weight: float = 5.0,
+        max_importance_weight: float | None = None,
         routing_replay: bool = False,
         repeat_dataset: bool = True,
         batch_order: str = "completion",
@@ -200,15 +213,23 @@ class AsyncTrainer:
             engine: Rollout engine sharing the training model.
             optimizer: Optimizer settings for each update.
             completion: When a rollout group can be consumed.
-            normalize: Loss scaling: ``"token"``, ``"sequence"``, ``"batch"``,
-                or ``"sum"``. Custom losses require ``"sum"`` and own their
+            normalize: Legacy loss scaling for string-based objectives. Configured
+                losses own this setting; omit it when passing rl.CISPO, rl.PPO,
+                rl.PolicyGradient, or another configured loss. CustomLoss defaults
+                to sum because its graph owns reduction. Choices are "token", "prompt",
+                "sequence", "batch", or "sum". Prompt normalization averages trainable
+                tokens within each reward group, then averages nonempty groups.
+                Custom losses require ``"sum"`` and own their
                 reduction; advantages are not rescaled by token/sequence counts.
             groups_per_step: Reward groups consumed per training batch.
             group_size: Samples requested for each dataset row.
             advantage: Advantage estimator; defaults to ``GroupCentered()``.
-            loss: ``"cispo"``, ``"ppo"``, ``"importance_sampling"``, or
-                ``"decoupled_ppo"``, or a ``CustomLoss``. The trainer prepares
-                custom losses before rollouts.
+            loss: A configured rl.CISPO, rl.PolicyGradient, rl.PPO,
+                rl.DecoupledPPO, rl.ImportanceSampling, or rl.CustomLoss. A bare
+                river.CustomLoss also accepts the standard RL inputs.
+                Existing string names "cispo", "ppo", "importance_sampling",
+                and "decoupled_ppo" remain supported. The trainer prepares custom
+                losses before rollouts.
                 Custom losses default to one logical request per update. Explicit
                 backward batching supports additive sums, optionally divided by
                 mask.sum().clamp_min(1). With batch standardization each output
@@ -221,7 +242,8 @@ class AsyncTrainer:
                 Server microbatching and loss chunking still apply. Custom policy losses
                 must apply sampling temperature themselves (for example, CE on
                 ``logits / engine.temperature``); no implicit logit scaling occurs.
-            custom_loss_inputs: Optional custom-loss callback taking a datum with
+            custom_loss_inputs: Legacy alternative to rl.CustomLoss.input_adapter.
+                Optional custom-loss callback taking a datum with
                 loss_data (targets, old_logprobs, advantages, mask) and returning
                 the declared loss_data columns. Apply mask to every loss term;
                 it excludes prompt, image, tool and terminal positions and applies
@@ -263,8 +285,17 @@ class AsyncTrainer:
                 submission when eligible; set a ``ForwardBackwardBatch`` or
                 ``None`` explicitly to override.
             max_pending_forward_backward: Limit concurrent submitted operations.
-            loss_config: Loss-specific numeric options such as ``eps_max``.
+            loss_config: Legacy numeric options for string-based losses, such as
+                eps_max. Do not combine these with a configured loss object.
         """
+        self._loss_binding = resolve_loss(
+            loss,
+            normalize=normalize,
+            options=loss_config,
+            input_adapter=custom_loss_inputs,
+            train_zero_advantage_batches=train_zero_advantage_batches,
+            max_importance_weight=max_importance_weight,
+        )
         if engine.temperature <= 0 or not math.isfinite(engine.temperature):
             raise ValueError(
                 "RL training requires a finite positive sampling temperature"
@@ -274,41 +305,12 @@ class AsyncTrainer:
         _integer(groups_per_step, "groups_per_step", 1)
         _integer(group_size, "group_size", 1)
         _integer(max_staleness, "max_staleness")
-        if normalize not in {"token", "sequence", "batch", "sum"}:
-            raise ValueError(
-                "normalize must be explicitly token, sequence, batch, or sum"
-            )
         if (
             groups_per_step < 1
             or group_size < completion.min_members
             or max_staleness < 0
         ):
             raise ValueError("invalid batch size, group quorum, or staleness limit")
-        self._custom_loss = isinstance(loss, CustomLoss)
-        self.custom_loss_inputs = custom_loss_inputs
-        if type(train_zero_advantage_batches) is not bool:
-            raise TypeError("train_zero_advantage_batches must be a boolean")
-        if train_zero_advantage_batches and not self._custom_loss:
-            raise ValueError("train_zero_advantage_batches requires CustomLoss")
-        self.train_zero_advantage_batches = train_zero_advantage_batches
-        if self._custom_loss:
-            if normalize != "sum":
-                raise ValueError(
-                    "CustomLoss requires normalize='sum'; reduce in the objective"
-                )
-            if loss_config:
-                raise ValueError("custom loss constants belong in the objective")
-            validate_custom_loss_inputs(loss, custom_loss_inputs)
-            if checkpoint and custom_loss_inputs is not None:
-                if not callable(getattr(custom_loss_inputs, "contract", None)):
-                    raise ValueError(
-                        "checkpointed custom_loss_inputs must implement contract()"
-                    )
-                fingerprint(custom_loss_inputs.contract())
-        elif loss not in {"cispo", "ppo", "importance_sampling", "decoupled_ppo"}:
-            raise ValueError("unsupported RL loss")
-        elif custom_loss_inputs is not None:
-            raise ValueError("custom_loss_inputs is only supported with CustomLoss")
         if stale_policy not in {"wait", "mask_span", "keep"}:
             raise ValueError("stale_policy must be wait, mask_span or keep")
         for name, value in (
@@ -329,9 +331,10 @@ class AsyncTrainer:
             raise ValueError(
                 "routing_replay requires engine return_expert_routing=True"
             )
-        if routing_replay and loss == "decoupled_ppo":
+        if routing_replay and self._loss_binding.requires_proximal_forward:
             raise ValueError(
-                "decoupled_ppo forward does not support forced routing replay"
+                "routing_replay is not supported for objectives with a proximal "
+                "forward pass: forward-only requests do not support forced routing replay"
             )
         self.routing_replay, self.repeat_dataset, self.batch_order = (
             routing_replay,
@@ -339,18 +342,9 @@ class AsyncTrainer:
             batch_order,
         )
         self.advantage = advantage if advantage is not None else GroupCentered()
-        # These unreleased names were renamed; **loss_config must not silently
-        # send a misspelled scheduling option to the loss function.
-        for old_name, new_name in (
-            ("backward_groups", "forward_backward_groups"),
-            ("backward_batch", "forward_backward_batch"),
-            ("max_pending_backward", "max_pending_forward_backward"),
-        ):
-            if old_name in loss_config:
-                raise TypeError(f"{old_name} was renamed to {new_name}")
         if forward_backward_batch == "auto":
             eligible = (
-                not self._custom_loss
+                not self._loss_binding.is_custom
                 and stale_policy == "wait"
                 and completion.mode == "wait"
                 and type(self.advantage) is GroupCentered
@@ -393,6 +387,11 @@ class AsyncTrainer:
                 )
         self.forward_backward_groups = forward_backward_groups
         self._accumulating_groups = []
+        if self.normalize == "prompt" and completion.on_stragglers == "carry_over":
+            raise ValueError(
+                "prompt normalization does not support carry_over; splitting a "
+                "prompt across updates would count each portion as a full prompt"
+            )
         if completion.on_stragglers == "carry_over" and not isinstance(
             self.advantage, Batchwise
         ):
@@ -450,32 +449,8 @@ class AsyncTrainer:
             )
         self.allow_trajectory_loss = allow_trajectory_loss
         self.allow_unbounded_staleness = allow_unbounded_staleness
-        allowed = (
-            set()
-            if self._custom_loss
-            else {
-                "cispo": {"eps_max"},
-                "ppo": {"clip_low", "clip_high"},
-                "decoupled_ppo": {"clip_low", "clip_high"},
-                "importance_sampling": set(),
-            }[loss]
-        )
-        if set(loss_config) - allowed:
-            raise ValueError(
-                f"unsupported {loss} options: {sorted(set(loss_config) - allowed)}"
-            )
         self.engine, self.optimizer, self.completion = engine, optimizer, completion
-        self.normalize, self.groups_per_step, self.group_size = (
-            normalize,
-            groups_per_step,
-            group_size,
-        )
-        self.loss, self.loss_config = (
-            loss,
-            {}
-            if self._custom_loss
-            else {"logprob_temperature": engine.temperature, **loss_config},
-        )
+        self.groups_per_step, self.group_size = groups_per_step, group_size
         self.max_staleness, self.stale_policy, self.truncation = (
             max_staleness,
             stale_policy,
@@ -494,18 +469,39 @@ class AsyncTrainer:
                 "dataset_scheduler requires complete groups and stale_policy=wait"
             )
         self.run_config = copy.deepcopy(run_config or {})
-        if not math.isfinite(max_importance_weight) or max_importance_weight <= 0:
-            raise ValueError("max_importance_weight must be finite and positive")
-        if any(not math.isfinite(v) or v < 0 for v in loss_config.values()):
-            raise ValueError("loss configuration values must be finite and nonnegative")
         if validate_batch is not None and not callable(validate_batch):
             raise TypeError("validate_batch must be callable")
         self.validate_batch = validate_batch
-        self.max_importance_weight = max_importance_weight
+        self._loss_binding.bind(engine, checkpointing=checkpoint is not None)
         self._running = False
         self._status = "idle"
         self._backward_group_batches = []
         self._activities = Activities()
+
+    # Existing attribute access delegates to the binding; it owns all loss state.
+    @property
+    def loss(self):
+        return self._loss_binding.loss
+
+    @property
+    def loss_config(self):
+        return self._loss_binding.config
+
+    @property
+    def normalize(self):
+        return self._loss_binding.normalize
+
+    @property
+    def custom_loss_inputs(self):
+        return self._loss_binding.input_adapter
+
+    @property
+    def train_zero_advantage_batches(self):
+        return self._loss_binding.train_zero_advantage_batches
+
+    @property
+    def max_importance_weight(self):
+        return self._loss_binding.max_importance_weight
 
     def progress(self):
         """Return current batch, model-update, and activity counters.
@@ -567,7 +563,7 @@ class AsyncTrainer:
             },
             "group_size": self.group_size,
             "groups_per_step": self.groups_per_step,
-            "normalize": self.normalize,
+            "normalize": self._loss_binding.normalize,
             "validate_batch": (
                 None
                 if self.validate_batch is None
@@ -575,6 +571,11 @@ class AsyncTrainer:
             ),
             "routing_replay": self.routing_replay,
             "return_expert_routing": self.engine.return_expert_routing,
+            **(
+                {"top_logprobs": self.engine.top_logprobs}
+                if self.engine.top_logprobs is not None
+                else {}
+            ),
             **(
                 {"dataset_scheduler": self.dataset_scheduler.contract()}
                 if self.dataset_scheduler is not None
@@ -593,24 +594,32 @@ class AsyncTrainer:
                 "type": type(self.advantage).__qualname__,
                 **vars(self.advantage),
             },
-            "loss": loss_contract(self.loss, self.custom_loss_inputs)
-            if self._custom_loss
-            else self.loss,
+            "loss": loss_contract(
+                self._loss_binding.loss,
+                self._loss_binding.input_adapter,
+                requirements=self._loss_binding.requirements,
+            )
+            if self._loss_binding.is_custom
+            else self._loss_binding.loss,
             **(
                 {
                     "streaming_loss": loss_contract(
-                        self._streaming_custom_loss.loss, self.custom_loss_inputs
+                        self._streaming_custom_loss.loss,
+                        self._loss_binding.input_adapter,
+                        requirements=self._loss_binding.requirements,
                     )
                 }
                 if self._streaming_custom_loss is not None
                 else {}
             ),
             **(
-                {"train_zero_advantage_batches": self.train_zero_advantage_batches}
-                if self._custom_loss
+                {
+                    "train_zero_advantage_batches": self._loss_binding.train_zero_advantage_batches
+                }
+                if self._loss_binding.is_custom
                 else {}
             ),
-            "loss_config": self.loss_config,
+            "loss_config": self._loss_binding.config,
             "max_staleness": self.max_staleness,
             "stale_policy": self.stale_policy,
             "allow_trajectory_loss": self.allow_trajectory_loss,
@@ -622,7 +631,7 @@ class AsyncTrainer:
             "top_k": self.engine.top_k,
             "renderer": type(self.engine.renderer).__qualname__,
             "base_model": getattr(self.engine.model, "base_model", None),
-            "max_importance_weight": self.max_importance_weight,
+            "max_importance_weight": self._loss_binding.max_importance_weight,
             "run_config": self.run_config,
             "environment": (
                 type(self.engine.env).__qualname__
@@ -661,6 +670,7 @@ class AsyncTrainer:
             "dataset_images": self._dataset_images,
             "sampling_schedule": dataclasses.asdict(self.engine.schedule),
             "base": None if self._base is None else dataclasses.asdict(self._base),
+            "durable_base": self._durable_base,
             **(
                 {
                     "training_run_id": self.engine.model.training_run_id,
@@ -720,7 +730,7 @@ class AsyncTrainer:
         if self.engine.server_capabilities is not None:
             self.engine.server_capabilities.require("policy_versions_v1")
             if self._overlap and (
-                self.normalize != "sum"
+                self._loss_binding.normalize != "sum"
                 or self.advantage.standardize == "batch"
                 or (
                     self._streaming_custom_loss is not None
@@ -761,12 +771,18 @@ class AsyncTrainer:
                     raise RuntimeError(
                         "Sample policy violates the reserved staleness bound"
                     )
+                policy_step = self.engine.model.step - age
+                if span.policy_step == policy_step:
+                    spans.append(span)
+                    continue
                 spans.append(
                     Span(
                         span.kind,
                         span.chunks,
                         logprobs=span.logprobs,
-                        policy_step=self.engine.model.step - age,
+                        sampler_topk_ids=span.sampler_topk_ids,
+                        sampler_topk_logprobs=span.sampler_topk_logprobs,
+                        policy_step=policy_step,
                         run=span.run,
                         policy_version=sampled,
                         policy_spans=span.policy_spans,
@@ -778,12 +794,18 @@ class AsyncTrainer:
                 )
             trajectory._spans = spans
 
-    async def _save_weights(self):
+    async def _save_weights(self, *, durable=False):
         checkpoint = await self._call(
             "checkpoint_weights",
             self.engine.model.save_weights,
             f"rl-{self._run_key}-batch-{self._n:08d}",
             mode="training",
+            durable=durable,
+            **(
+                {}
+                if durable
+                else {"ttl": timedelta(seconds=self.checkpoint.recovery_ttl_seconds)}
+            ),
             **(
                 {"immutable": True, **self._policy_guard()}
                 if getattr(self, "_policy", None)
@@ -798,6 +820,7 @@ class AsyncTrainer:
                 "saved training weights disagree with the trainer's model step"
             )
         self._base, self._journal = checkpoint, []
+        self._durable_base = durable
         await self._save_state()
 
     async def _publish_sampling_snapshot(self, *, recovering=False):
@@ -944,9 +967,7 @@ class AsyncTrainer:
             "loss_fn": (
                 self._streaming_custom_loss.loss
                 if self._streaming_custom_loss is not None
-                else "ppo"
-                if self.loss == "decoupled_ppo"
-                else self.loss
+                else self._loss_binding.backward_loss
             ),
             "zero_out": zero_out,
             **(
@@ -954,7 +975,7 @@ class AsyncTrainer:
                 if self.routing_replay
                 else {}
             ),
-            **self.loss_config,
+            **self._loss_binding.config,
             **self._policy_guard(),
             **(
                 {"allow_routing_fallback": True}
@@ -1197,7 +1218,7 @@ class AsyncTrainer:
                 starting_custom = (
                     self._streaming_custom_loss is not None
                     and not self._streamed_chunks
-                    and not self.train_zero_advantage_batches
+                    and not self._loss_binding.train_zero_advantage_batches
                 )
                 if self.forward_backward_batch is None:
                     if len(groups) < self.forward_backward_groups and not flush:
@@ -1231,14 +1252,15 @@ class AsyncTrainer:
                     contribution, metrics = build_batch(
                         [group.trajectories],
                         estimator=estimator,
-                        normalize=self.normalize,
+                        normalize=self._loss_binding.normalize,
                         truncation=self.truncation,
                         min_members=self.completion.min_members,
                         current_step=self._committed_step,
                         max_staleness=self.max_staleness,
                         defer_normalization=True,
                         advantages=None if by_id is None else [by_id[group.id]],
-                        include_loss_mask=self._custom_loss,
+                        include_loss_mask=self._loss_binding.is_custom,
+                        loss=self._loss_binding,
                     )
                     if metrics["staleness/frac_masked"]:
                         raise RuntimeError(
@@ -1282,7 +1304,7 @@ class AsyncTrainer:
                         g.id for g in groups if g.id not in self._accumulating_groups
                     )
                 if data:
-                    if self.loss == "decoupled_ppo":
+                    if self._loss_binding.requires_proximal_forward:
                         forward = await self._call(
                             "forward",
                             self.engine.model.forward,
@@ -1294,7 +1316,7 @@ class AsyncTrainer:
                         data, correction = decouple_ppo(
                             data,
                             forward.logprobs,
-                            max_importance_weight=self.max_importance_weight,
+                            max_importance_weight=self._loss_binding.max_importance_weight,
                         )
                         self._streamed_corrections.append(
                             (
@@ -1304,7 +1326,10 @@ class AsyncTrainer:
                         )
                 if self._streaming_custom_loss is not None:
                     data = await call(
-                        custom_batch, data, self.loss, self.custom_loss_inputs
+                        custom_batch,
+                        data,
+                        self._loss_binding.loss,
+                        self._loss_binding.input_adapter,
                     )
                 await self._submit_backward(data, len(groups))
                 if self._streaming_custom_loss is not None:
@@ -1314,16 +1339,23 @@ class AsyncTrainer:
                     return
 
     async def _prepare_custom_loss(self):
-        if self.loss._graph is None or self.loss._prepared_for is not self.engine.model:
-            self.loss = await call(self.engine.model.prepare_loss, self.loss)
+        if (
+            self._loss_binding.loss._graph is None
+            or self._loss_binding.loss._prepared_for is not self.engine.model
+        ):
+            self._loss_binding.loss = await call(
+                self.engine.model.prepare_loss, self._loss_binding.loss
+            )
         if self._overlap:
             plan = StreamingCustomLoss(
-                self.loss,
+                self._loss_binding.loss,
                 batch_standardize=self.advantage.standardize == "batch",
-                custom_loss_inputs=self.custom_loss_inputs,
+                custom_loss_inputs=self._loss_binding.input_adapter,
             )
             plan.loss = await call(
-                self.engine.model._prepare_loss_graph, self.loss, plan.graph
+                self.engine.model._prepare_loss_graph,
+                self._loss_binding.loss,
+                plan.graph,
             )
             self._streaming_custom_loss = plan
 
@@ -1573,7 +1605,7 @@ class AsyncTrainer:
             raise ValueError(
                 "steps exceeds the finite dataset; enable repeat_dataset to cycle"
             )
-        if self._custom_loss:
+        if self._loss_binding.is_custom:
             self._running = True
             try:
                 preparation = asyncio.create_task(self._prepare_custom_loss())
@@ -1595,6 +1627,7 @@ class AsyncTrainer:
         self._n, self._submitted = 0, 0
         self._active, self._finished, self._received = set(), set(), set()
         self._pending, self._journal = [], []
+        self._durable_base = False
         self._accumulating_groups = []
         self._admitted_policy_steps = {}
         self._base = None
@@ -1615,7 +1648,9 @@ class AsyncTrainer:
             "steps": steps,
         }
         if self.checkpoint:
-            self._fingerprints["config_fingerprint"] = fingerprint(self._config())
+            config = self._config()
+            self._fingerprints["config_fingerprint"] = fingerprint(config)
+            compatible_fingerprints = self._loss_binding.compatible_fingerprints(config)
         self._run_key = self._fingerprints["plan_fingerprint"][:12]
         store_context = (
             StateStore(self.checkpoint) if self.checkpoint else nullcontext()
@@ -1638,12 +1673,18 @@ class AsyncTrainer:
             with store_context as self._store:
                 saved = self._store.load() if self._store else None
                 if saved:
+                    self._durable_base = saved.get("durable_base", False)
                     if self.init_checkpoint is not None:
                         raise ValueError(
                             "init_checkpoint is mutually exclusive with automatic resume"
                         )
                     if saved.get("version") != 1 or any(
-                        saved.get(k) != v for k, v in self._fingerprints.items()
+                        saved.get(k) != v
+                        and (
+                            k != "config_fingerprint"
+                            or saved.get(k) not in compatible_fingerprints
+                        )
+                        for k, v in self._fingerprints.items()
                     ):
                         raise ValueError(
                             "resume dataset, order, holdout, schedule, or training configuration changed"
@@ -1878,7 +1919,7 @@ class AsyncTrainer:
                                 data, metrics = build_batch(
                                     [g.trajectories for g in backward_groups],
                                     estimator=self.advantage,
-                                    normalize=self.normalize,
+                                    normalize=self._loss_binding.normalize,
                                     truncation=self.truncation,
                                     min_members=self.completion.min_members,
                                     current_step=self.engine.model.step,
@@ -1887,11 +1928,12 @@ class AsyncTrainer:
                                         if self.stale_policy == "mask_span"
                                         else None
                                     ),
-                                    include_loss_mask=self._custom_loss,
+                                    include_loss_mask=self._loss_binding.is_custom,
+                                    loss=self._loss_binding,
                                 )
-                                if self._custom_loss:
+                                if self._loss_binding.is_custom:
                                     if (
-                                        not self.train_zero_advantage_batches
+                                        not self._loss_binding.train_zero_advantage_batches
                                         and not any(
                                             any(datum["advantages"]) for datum in data
                                         )
@@ -1901,8 +1943,8 @@ class AsyncTrainer:
                                         data = await call(
                                             custom_batch,
                                             data,
-                                            self.loss,
-                                            self.custom_loss_inputs,
+                                            self._loss_binding.loss,
+                                            self._loss_binding.input_adapter,
                                         )
                                     metrics["train/datums"] = float(len(data))
                                 if self.validate_batch is not None:
@@ -1911,7 +1953,7 @@ class AsyncTrainer:
                                     )
                                 if data:
                                     if (
-                                        self.loss == "decoupled_ppo"
+                                        self._loss_binding.requires_proximal_forward
                                         and not self._overlap
                                     ):
                                         forward = await self._call(
@@ -1925,7 +1967,7 @@ class AsyncTrainer:
                                         data, correction_metrics = decouple_ppo(
                                             data,
                                             forward.logprobs,
-                                            max_importance_weight=self.max_importance_weight,
+                                            max_importance_weight=self._loss_binding.max_importance_weight,
                                         )
                                         metrics.update(correction_metrics)
                                     optimizer_kwargs = self.optimizer.kwargs(
@@ -1959,7 +2001,7 @@ class AsyncTrainer:
                                             estimator=self.advantage,
                                             truncation=self.truncation,
                                             min_members=self.completion.min_members,
-                                            normalize=self.normalize,
+                                            normalize=self._loss_binding.normalize,
                                             metrics=metrics,
                                         )
                                         if self._streaming_custom_loss is not None:
@@ -2080,7 +2122,7 @@ class AsyncTrainer:
                                     and len(self._journal)
                                     >= self.checkpoint.weights_every
                                 ):
-                                    await self._save_weights()
+                                    await self._save_weights(durable=self._n == steps)
                                 if self.evaluator:
                                     try:
                                         await self.evaluator.launch(
@@ -2134,8 +2176,12 @@ class AsyncTrainer:
                                 raise result[0]
                         if self._store and healthy and not self._updating:
                             async with self._lock:
-                                if self._n == steps and self._journal:
-                                    await self._save_weights()
+                                if (
+                                    not self._full_weight
+                                    and self._n == steps
+                                    and (self._journal or not self._durable_base)
+                                ):
+                                    await self._save_weights(durable=True)
                                 else:
                                     await self._save_state()
                         if self.evaluator:

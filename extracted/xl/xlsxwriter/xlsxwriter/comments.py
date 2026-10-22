@@ -4,15 +4,18 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 from typing import Dict, List, Optional, Union
 
+from xlsxwriter import xmlwriter
 from xlsxwriter.color import Color
-
-from . import xmlwriter
-from .utility import _preserve_whitespace, xl_cell_to_rowcol, xl_rowcol_to_cell
+from xlsxwriter.utility import (
+    _preserve_whitespace,
+    xl_cell_to_rowcol,
+    xl_rowcol_to_cell,
+)
 
 
 ###########################################################################
@@ -137,7 +140,7 @@ class CommentType:
         # Convert a cell reference to a row and column.
         start_cell = options.get("start_cell")
         if start_cell and isinstance(start_cell, str):
-            (start_row, start_col) = xl_cell_to_rowcol(start_cell)
+            start_row, start_col = xl_cell_to_rowcol(start_cell)
             self.start_row = start_row
             self.start_col = start_col
 

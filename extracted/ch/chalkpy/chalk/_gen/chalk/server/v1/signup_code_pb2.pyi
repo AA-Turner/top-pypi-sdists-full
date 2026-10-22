@@ -27,12 +27,21 @@ class SignupCodeStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SIGNUP_CODE_STATUS_REVOKED: _ClassVar[SignupCodeStatus]
     SIGNUP_CODE_STATUS_EXPIRED: _ClassVar[SignupCodeStatus]
 
+class SignupCodeEmailDeliveryStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SIGNUP_CODE_EMAIL_DELIVERY_STATUS_UNSPECIFIED: _ClassVar[SignupCodeEmailDeliveryStatus]
+    SIGNUP_CODE_EMAIL_DELIVERY_STATUS_ACCEPTED: _ClassVar[SignupCodeEmailDeliveryStatus]
+    SIGNUP_CODE_EMAIL_DELIVERY_STATUS_FAILED: _ClassVar[SignupCodeEmailDeliveryStatus]
+
 SIGNUP_CODE_STATUS_UNSPECIFIED: SignupCodeStatus
 SIGNUP_CODE_STATUS_AVAILABLE: SignupCodeStatus
 SIGNUP_CODE_STATUS_REDEEMED: SignupCodeStatus
 SIGNUP_CODE_STATUS_CONSUMED: SignupCodeStatus
 SIGNUP_CODE_STATUS_REVOKED: SignupCodeStatus
 SIGNUP_CODE_STATUS_EXPIRED: SignupCodeStatus
+SIGNUP_CODE_EMAIL_DELIVERY_STATUS_UNSPECIFIED: SignupCodeEmailDeliveryStatus
+SIGNUP_CODE_EMAIL_DELIVERY_STATUS_ACCEPTED: SignupCodeEmailDeliveryStatus
+SIGNUP_CODE_EMAIL_DELIVERY_STATUS_FAILED: SignupCodeEmailDeliveryStatus
 
 class SignupCodeQuota(_message.Message):
     __slots__ = ("resource", "limit")
@@ -71,6 +80,7 @@ class SignupCode(_message.Message):
         "metadata",
         "created_by_email",
         "region",
+        "recipient_email",
     )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -97,6 +107,7 @@ class SignupCode(_message.Message):
     METADATA_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_EMAIL_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
+    RECIPIENT_EMAIL_FIELD_NUMBER: _ClassVar[int]
     id: str
     code_prefix: str
     note: str
@@ -114,6 +125,7 @@ class SignupCode(_message.Message):
     metadata: _containers.ScalarMap[str, str]
     created_by_email: str
     region: str
+    recipient_email: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -133,10 +145,19 @@ class SignupCode(_message.Message):
         metadata: _Optional[_Mapping[str, str]] = ...,
         created_by_email: _Optional[str] = ...,
         region: _Optional[str] = ...,
+        recipient_email: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateSignupCodeRequest(_message.Message):
-    __slots__ = ("note", "expires_in_seconds", "invite_message", "initial_quotas", "metadata", "region")
+    __slots__ = (
+        "note",
+        "expires_in_seconds",
+        "invite_message",
+        "initial_quotas",
+        "metadata",
+        "region",
+        "recipient_email",
+    )
     class MetadataEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -151,12 +172,14 @@ class CreateSignupCodeRequest(_message.Message):
     INITIAL_QUOTAS_FIELD_NUMBER: _ClassVar[int]
     METADATA_FIELD_NUMBER: _ClassVar[int]
     REGION_FIELD_NUMBER: _ClassVar[int]
+    RECIPIENT_EMAIL_FIELD_NUMBER: _ClassVar[int]
     note: str
     expires_in_seconds: int
     invite_message: str
     initial_quotas: _containers.RepeatedCompositeFieldContainer[SignupCodeQuota]
     metadata: _containers.ScalarMap[str, str]
     region: str
+    recipient_email: str
     def __init__(
         self,
         note: _Optional[str] = ...,
@@ -165,21 +188,52 @@ class CreateSignupCodeRequest(_message.Message):
         initial_quotas: _Optional[_Iterable[_Union[SignupCodeQuota, _Mapping]]] = ...,
         metadata: _Optional[_Mapping[str, str]] = ...,
         region: _Optional[str] = ...,
+        recipient_email: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateSignupCodeResponse(_message.Message):
-    __slots__ = ("signup_code", "code")
+    __slots__ = ("signup_code", "code", "email_delivery_status")
     SIGNUP_CODE_FIELD_NUMBER: _ClassVar[int]
     CODE_FIELD_NUMBER: _ClassVar[int]
+    EMAIL_DELIVERY_STATUS_FIELD_NUMBER: _ClassVar[int]
     signup_code: SignupCode
     code: str
+    email_delivery_status: SignupCodeEmailDeliveryStatus
     def __init__(
-        self, signup_code: _Optional[_Union[SignupCode, _Mapping]] = ..., code: _Optional[str] = ...
+        self,
+        signup_code: _Optional[_Union[SignupCode, _Mapping]] = ...,
+        code: _Optional[str] = ...,
+        email_delivery_status: _Optional[_Union[SignupCodeEmailDeliveryStatus, str]] = ...,
+    ) -> None: ...
+
+class ListSignupCodesFilters(_message.Message):
+    __slots__ = ("created_by_user_id", "created_by_email", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    CREATED_BY_USER_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_EMAIL_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    created_by_user_id: str
+    created_by_email: str
+    metadata: _containers.ScalarMap[str, str]
+    def __init__(
+        self,
+        created_by_user_id: _Optional[str] = ...,
+        created_by_email: _Optional[str] = ...,
+        metadata: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class ListSignupCodesRequest(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("filters",)
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    filters: ListSignupCodesFilters
+    def __init__(self, filters: _Optional[_Union[ListSignupCodesFilters, _Mapping]] = ...) -> None: ...
 
 class ListSignupCodesResponse(_message.Message):
     __slots__ = ("signup_codes",)

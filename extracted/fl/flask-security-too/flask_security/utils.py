@@ -913,33 +913,39 @@ def _config_value(key, app=None, default=None, strict=True):
 
 def _td_format(td: timedelta) -> str:
     """Formats a timedelta object to a string.
-    Use humanize.precisedelta if available otherwise use
-    this simplistic version of what humanize provides (English only).
+    If the application has initialized Flask-Babel, the result is localized
+    using the current locale. Otherwise use a simplistic formatter (English only).
     """
-    try:
-        import humanize
+    periods = [
+        ("year", 60 * 60 * 24 * 365),
+        ("month", 60 * 60 * 24 * 30),
+        ("day", 60 * 60 * 24),
+        ("hour", 60 * 60),
+        ("minute", 60),
+        ("second", 1),
+    ]
 
-        return humanize.precisedelta(td)
-    except ImportError:
-        periods = [
-            ("year", 60 * 60 * 24 * 365),
-            ("month", 60 * 60 * 24 * 30),
-            ("day", 60 * 60 * 24),
-            ("hour", 60 * 60),
-            ("minute", 60),
-            ("second", 1),
-        ]
+    seconds = int(td.total_seconds())
+    parts = []
+    for period_name, period_seconds in periods:
+        if seconds >= period_seconds:
+            period_value, seconds = divmod(seconds, period_seconds)
+            parts.append((period_value, period_name))
+    if not parts:
+        parts = [(0, "second")]
 
-        seconds = int(td.total_seconds())
-        strings = []
-        for period_name, period_seconds in periods:
-            if seconds >= period_seconds:
-                period_value, seconds = divmod(seconds, period_seconds)
-                has_s = "s" if period_value > 1 else ""
-                strings.append(f"{period_value} {period_name}{has_s}")
-        if len(strings) == 2:
-            return " and ".join(strings)
-        return ", ".join(strings)
+    from .babel import format_td_parts
+
+    if (localized := format_td_parts(parts)) is not None:
+        return localized
+
+    strings = []
+    for period_value, period_name in parts:
+        has_s = "s" if period_value != 1 else ""
+        strings.append(f"{period_value} {period_name}{has_s}")
+    if len(strings) == 2:
+        return " and ".join(strings)
+    return ", ".join(strings)
 
 
 def send_mail(
@@ -1520,7 +1526,9 @@ def input_svn(
     """
     Used to sanitize, validate, and normalize (user/form) input
 
-    allowed_categories: list of allowed categories (input to unicodedata.category()).
+    allowed_categories: list of allowed unicode categories. Acceptable values are
+    either a major category (e.g. "L") or a full category (e.g. "Pd"). Matched
+    as a prefix of unicodedata.category().
 
     normalize_form: input to unicodedata.normalize().
 
@@ -1537,8 +1545,8 @@ def input_svn(
     if sanitized != value.strip():
         return "illegal", None
     if allowed_categories:
-        cats = [unicodedata.category(c)[0] for c in sanitized]
-        if any([cat not in allowed_categories for cat in cats]):
+        allowed = tuple(allowed_categories)
+        if not all(unicodedata.category(c).startswith(allowed) for c in sanitized):
             return "unallowed", None
     if normalize_form:
         return "ok", unicodedata.normalize(normalize_form, sanitized)

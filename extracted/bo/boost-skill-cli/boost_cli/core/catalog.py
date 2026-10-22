@@ -26,6 +26,8 @@ import operator
 import os
 import re
 import sys
+import threading
+import unicodedata
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -54,7 +56,10 @@ from . import (
 #        under its parent key instead of hoisting its keys to the top level,
 #        so a BOM file's meta/description/digest and a nested `author:` /
 #        `metadata:` file's name/version both change on rescan
-CACHE_FORMAT = 3
+#   4 -- a non-ASCII name is slugged by `_entry_slug` (accents folded, a
+#        name with no ASCII left takes its directory or a hash) instead of
+#        every CJK/Cyrillic name collapsing to `skill`
+CACHE_FORMAT = 4
 
 KIND_SKILL = "skill"
 KIND_RULE = "rule"
@@ -199,6 +204,36 @@ def _entry_category(meta: dict, tap_category: str) -> str:
     return tap_category
 
 
+def _entry_slug(name: str, default_name: str) -> str:
+    """The catalog name for frontmatter ``name``: safe as a path component,
+    and distinct for distinct names.
+
+    ``util.safe_component`` keeps ``[a-z0-9-]`` and nothing else, so every CJK
+    or Cyrillic name became the generic ``skill`` — two in one tap read as one
+    name shipped twice, and neither was installable by what the tap calls it.
+    Accents are folded first (``café`` -> ``cafe``). A name that still loses
+    letters takes its directory (``skills/jp`` -> ``jp``) when nothing of it
+    survives, and otherwise keeps what survives plus a hash of the original,
+    so ``日本語 tools`` and ``한국어 tools`` are not both ``tools``. A name with
+    nothing slug-able at all (``🚀``, ``!!!``) is the same no-survivor case:
+    two emoji names must not both read as ``skill``. The hash is
+    of the name alone, so the slug is stable across scans and machines.
+    """
+    if util.is_safe_component(name):
+        return name
+    folded = "".join(c for c in unicodedata.normalize("NFKD", name)
+                     if not unicodedata.combining(c))
+    survived = util._slug_or_none(folded)
+    if survived and not any(c.isalnum() and not c.isascii() for c in folded):
+        return survived
+    digest = hashlib.sha256(name.encode("utf-8", "surrogateescape")).hexdigest()[:8]
+    if survived:
+        return survived + "-" + digest
+    if util.is_safe_component(default_name):
+        return default_name
+    return "skill-" + digest
+
+
 def _make_entry(root: Path, defining_file: Path, kind: str, default_name: str,
                 tap_name: str, curated: bool, meta: dict, body: str,
                 tap_category: str = "") -> dict:
@@ -206,7 +241,7 @@ def _make_entry(root: Path, defining_file: Path, kind: str, default_name: str,
     # Slugify anything that is not already a safe path component, not just names
     # containing a space: this name becomes a rule/workflow filename, so
     # `../../..` has to be neutralized at index time too, not only at the sinks.
-    slug = util.safe_component(name)
+    slug = _entry_slug(name, default_name)
     description = _description(meta, body)
     item_dir = defining_file.parent
     return {
@@ -373,7 +408,34 @@ def rebuild_tap(tap: registry.Tap) -> list[dict]:
 # the cached list is shared by reference (matching the index cache). Keying on
 # nanosecond mtime + size catches rewrites a bare second-resolution mtime would
 # miss.
-_ENTRY_CACHE: dict[str, tuple[tuple[int, int], list[dict], bool]] = {}
+_ENTRY_CACHE: dict[str, tuple[tuple[int, int], list[dict], bool, str]] = {}
+
+
+def _cache_record(tap: registry.Tap) -> tuple[list[dict], bool, str] | None:
+    """``(skills, is_current, commit)`` for a tap's cache, or ``None`` when
+    the file is missing, unreadable or corrupt. ``commit`` is the HEAD the
+    cache was scanned at (``""`` when it never recorded one)."""
+    p = tap.cache_file
+    key = str(p)
+    try:
+        st = p.stat()
+    except OSError:
+        _ENTRY_CACHE.pop(key, None)
+        return None
+    stamp = (st.st_mtime_ns, st.st_size)
+    cached = _ENTRY_CACHE.get(key)
+    if cached is not None and cached[0] == stamp:
+        return cached[1], cached[2], cached[3]
+    data = jsonstate.read_object(p)[0]
+    if data is None:
+        _ENTRY_CACHE.pop(key, None)
+        return None
+    skills = data.get("skills", [])
+    current = data.get("format") == CACHE_FORMAT
+    commit = data.get("commit")
+    commit = commit if isinstance(commit, str) else ""
+    _ENTRY_CACHE[key] = (stamp, skills, current, commit)
+    return skills, current, commit
 
 
 def _cached_tap(tap: registry.Tap) -> tuple[list[dict], bool] | None:
@@ -388,25 +450,86 @@ def _cached_tap(tap: registry.Tap) -> tuple[list[dict], bool] | None:
     them — so discarding it unconditionally would trade a missing digest for
     missing entries, which is the worse failure.
     """
-    p = tap.cache_file
-    key = str(p)
-    try:
-        st = p.stat()
-    except OSError:
-        _ENTRY_CACHE.pop(key, None)
+    rec = _cache_record(tap)
+    return None if rec is None else (rec[0], rec[1])
+
+
+def cache_is_fresh(tap: registry.Tap, head: str | None = None) -> bool:
+    """True when a tap's cache needs no rescan: it exists, parses, was written
+    at this ``CACHE_FORMAT``, stamps the tap's current ★, and was scanned at
+    the clone's current HEAD.
+
+    ``update`` and ``heal`` ask this before :func:`rebuild_tap`. Rescanning an
+    unchanged tap is not just slow (a full ``scan_dir``; ~20 s across a 63k-item
+    install that had nothing to do): the rewrite bumps the cache mtime, and
+    ``rag.stale`` is stat-only, so the next search rebuilt the BM25 index too.
+    An unresolvable HEAD (``""``) is never fresh — two unknowns are not a match.
+    ``head`` lets a caller that already resolved it skip the git subprocess.
+    """
+    rec = _cache_record(tap)
+    if rec is None or not rec[1]:
+        return False
+    # ``curated`` is config, stamped onto every entry at scan time: a tap whose
+    # ★ was set or cleared since (`heal` unstarring one) needs the restamp.
+    if any(bool(e.get("curated")) != tap.curated for e in rec[0][:1]):
+        return False
+    if head is None:
+        head = gitutil.head_commit(tap.path) if tap.is_cloned else ""
+    return bool(head) and rec[2] == head
+
+
+def stale_commit(tap: registry.Tap, head: str | None = None
+                 ) -> tuple[str, str] | None:
+    """``(scanned_at, clone_head)`` when a tap's cache records a commit other
+    than the clone's HEAD, else ``None``.
+
+    The one staleness :func:`load_tap` does *not* repair on its own: it
+    rescans an old ``CACHE_FORMAT`` but serves a cache scanned at another
+    commit as-is (checking HEAD costs a git subprocess per tap, which the
+    search path must not pay). So an update interrupted between the reset and
+    the cache rewrite, or a hand ``git pull`` in the clone, left every lookup
+    answering from the old tree — ``install`` said "no skill named" for a
+    skill on disk while ``doctor`` said healthy. ``boost heal`` rescans it.
+    Both sides must be known: an unrecorded or unresolvable commit is not
+    evidence of a mismatch.
+    """
+    rec = _cache_record(tap)
+    if rec is None or not rec[2]:
         return None
-    stamp = (st.st_mtime_ns, st.st_size)
-    cached = _ENTRY_CACHE.get(key)
-    if cached is not None and cached[0] == stamp:
-        return cached[1], cached[2]
-    data = jsonstate.read_object(p)[0]
-    if data is None:
-        _ENTRY_CACHE.pop(key, None)
+    if head is None:
+        head = gitutil.head_commit(tap.path) if tap.is_cloned else ""
+    return (rec[2], head) if head and head != rec[2] else None
+
+
+def join_hints(*hints: str | None) -> str | None:
+    """The non-empty ``hints`` as one ``; ``-separated line, or ``None``."""
+    return "; ".join(h for h in hints if h) or None
+
+
+def stale_commit_hint() -> str | None:
+    """The remedy line for a failed lookup when some tap's cache predates its
+    clone, or ``None`` when none does. Pays one git call per cloned tap, so it
+    belongs on a failure path only."""
+    stale = [t.name for t in registry.list_taps()
+             if t.is_cloned and stale_commit(t) is not None]
+    if not stale:
         return None
-    skills = data.get("skills", [])
-    current = data.get("format") == CACHE_FORMAT
-    _ENTRY_CACHE[key] = (stamp, skills, current)
-    return skills, current
+    return ("the catalog of %s was scanned at an older commit than %s clone "
+            "— `boost heal` rescans it" % (", ".join(stale),
+                                          "its" if len(stale) == 1 else "their"))
+
+
+def name_index(entries: list[dict]) -> dict[str, list[dict]]:
+    """``{name: [entries…]}`` over ``entries``, in their order.
+
+    For a caller resolving one name per installed item: :func:`find` is a
+    linear pass over the whole catalogue, so N installed items cost N x 70k
+    comparisons where one pass and N dict lookups do.
+    """
+    idx: dict[str, list[dict]] = {}
+    for e in entries:
+        idx.setdefault(e["name"], []).append(e)
+    return idx
 
 
 def load_tap(tap: registry.Tap, rebuild: bool = False) -> list[dict]:
@@ -519,11 +642,45 @@ def resolve_path_target(name: str) -> Path:
     return p
 
 
+#: The last :func:`all_entries` answer and the per-tap lists it was built
+#: from. Holding the parts (not their ids) keeps a freed list's id from being
+#: reused by a different one and mistaken for it.
+_ALL_ENTRIES: tuple[tuple[list[dict], ...], list[dict]] | None = None
+
+
+def _same_part(a: list[dict], b: list[dict]) -> bool:
+    """Whether two per-tap entry lists are known to hold the same rows.
+
+    Identity, which is what :data:`_ENTRY_CACHE` hands back while a tap's
+    cache file is unchanged. Two empty lists also count: :func:`load_tap`
+    returns a fresh ``[]`` for an uncloned tap with no cache, and without this
+    one such tap on a machine would mean the memo never hit.
+    """
+    return a is b or (not a and not b)
+
+
 def all_entries() -> list[dict]:
-    """Return the entries of every configured tap, concatenated."""
+    """Return the entries of every configured tap, concatenated.
+
+    Every call re-validates each tap's cache (one ``stat`` per tap, through
+    :func:`load_tap`), but when every tap hands back the list it handed back
+    last time, the concatenation from last time is returned — the *same*
+    list object. Callers treat it read-only, as they already treat the
+    per-tap lists :data:`_ENTRY_CACHE` shares, and that identity is what lets
+    :func:`find` keep a name index for it rather than scan the whole catalogue
+    once per name: ``boost outdated`` over 308 installed skills spent 1.2 s of
+    1.4 s in those scans.
+    """
+    global _ALL_ENTRIES
+    parts = tuple(load_tap(tap) for tap in registry.list_taps())
+    memo = _ALL_ENTRIES
+    if (memo is not None and len(memo[0]) == len(parts)
+            and all(map(_same_part, memo[0], parts))):
+        return memo[1]
     out: list[dict] = []
-    for tap in registry.list_taps():
-        out.extend(load_tap(tap))
+    for part in parts:
+        out.extend(part)
+    _ALL_ENTRIES = (parts, out)
     return out
 
 
@@ -648,6 +805,51 @@ def events_for_tap(events: list, qualifier: str | None,
                 else lock is not None)]
 
 
+#: Name indexes for the last few corpora :func:`find` searched, keyed by the
+#: corpus's id and holding the corpus itself (so the id cannot be reused) and
+#: its length at build time (so an append is noticed). More than one slot
+#: because ``install`` interleaves lookups in the shared catalogue with
+#: lookups in :func:`cached_entries`, and rebuilding an index costs about ten
+#: linear scans — a single slot would thrash into a regression.
+_NAME_INDEX: dict[int, tuple[list[dict], int, dict[str, list[dict]]]] = {}
+_NAME_INDEX_SLOTS = 4
+#: ``boost serve`` resolves names from a ``ThreadingHTTPServer``; unlocked,
+#: two threads evicting the same oldest slot raise ``KeyError`` out of a GET.
+_NAME_INDEX_LOCK = threading.Lock()
+
+
+def _name_index(pool: list[dict]) -> dict[str, list[dict]]:
+    """``{name: [entries]}`` over ``pool``, each bucket in ``pool`` order.
+
+    Built once per corpus and reused, so resolving k names costs one pass
+    over the catalogue rather than k. A corpus mutated in place without
+    changing length is not noticed; no caller does that, because every
+    corpus here is one :func:`all_entries` or :func:`cached_entries` answer.
+    """
+    key = id(pool)
+    with _NAME_INDEX_LOCK:
+        hit = _NAME_INDEX.get(key)
+        if hit is not None and hit[0] is pool and hit[1] == len(pool):
+            return hit[2]
+        index: dict[str, list[dict]] = {}
+        for e in pool:
+            index.setdefault(e["name"], []).append(e)
+            # The name the tap wrote, when the catalog had to slug it
+            # (`日本語` -> `jp`), so `boost install 日本語` finds what the tap
+            # calls it. Only an unsafe original is indexed, and no slug is
+            # ever unsafe, so an alias can never shadow another entry's name.
+            meta = e.get("meta")
+            original = _text(meta, "name") if isinstance(meta, dict) else ""
+            if original and original != e["name"] \
+                    and not util.is_safe_component(original):
+                index.setdefault(original, []).append(e)
+        _NAME_INDEX.pop(key, None)
+        while len(_NAME_INDEX) >= _NAME_INDEX_SLOTS:
+            del _NAME_INDEX[next(iter(_NAME_INDEX))]
+        _NAME_INDEX[key] = (pool, len(pool), index)
+        return index
+
+
 def find(name: str, tap: str | None = None,
          entries: list[dict] | None = None) -> list[dict]:
     """Exact-name lookup. Supports 'owner/repo:skill' qualified form.
@@ -660,7 +862,7 @@ def find(name: str, tap: str | None = None,
     if qualifier is not None:
         tap, name = qualifier, bare
     pool = all_entries() if entries is None else entries
-    matches = [e for e in pool if e["name"] == name]
+    matches = list(_name_index(pool).get(name, ()))
     if tap:
         # Same tiering as registry.get: a qualified owner/repo beats a bare
         # repo tail, so `angular/skills:x` never picks up `microsoft/skills:x`.
@@ -854,6 +1056,21 @@ def distinct_candidates(matches: list[dict]) -> list[dict]:
     return [best] if best is not None else matches.copy()
 
 
+class SameTapAmbiguity(BoostError):
+    """One tap ships a name more than once, as genuinely different items.
+
+    A subclass so a caller whose grammar is not the CLI's can re-word the
+    hint: ``--path`` is a flag, and the MCP tools take a ``path`` argument
+    instead. ``paths`` are the candidates' ``rel_dir`` values, sorted.
+    """
+
+    def __init__(self, message: str, hint: str, *, bare: str,
+                 paths: list[str]):
+        super().__init__(message, hint=hint)
+        self.bare = bare
+        self.paths = paths
+
+
 def resolve_one(name: str, path: str | None = None) -> dict:
     """Find exactly one entry or raise with a helpful hint.
 
@@ -932,7 +1149,8 @@ def resolve_one(name: str, path: str | None = None) -> dict:
                 # nothing on, which silenced this hint exactly where a new
                 # user needs it.
                 hint = "no taps configured — start with `boost tap --defaults`"
-        raise BoostError("no skill named %r in any tap" % name, hint=hint)
+        raise BoostError("no skill named %r in any tap" % name,
+                         hint=join_hints(hint, stale_commit_hint()))
     if len(matches) > 1:
         # `name` may already be tap-qualified; hints must re-qualify the BARE
         # name or they emit `t:t:x`, which can never resolve.
@@ -962,12 +1180,14 @@ def resolve_one(name: str, path: str | None = None) -> dict:
             # `_resolve_skill`), so installing one clears the ambiguity for
             # every command that would otherwise hit it again.
             kind = str(matches[0].get("kind") or "skill")
-            raise BoostError(
+            raise SameTapAmbiguity(
                 "%r matches %d different %ss in %s: %s"
                 % (bare, len(matches), kind, taps[0], paths),
                 hint="that registry ships one name twice — install one with "
                      "`boost install %s --path <one of the above>`, then "
-                     "retry; raise it with the tap" % bare)
+                     "retry; raise it with the tap" % bare,
+                bare=bare,
+                paths=sorted(str(e.get("rel_dir", "?")) for e in matches))
         # Several taps, one thing. Registries mirror each other constantly, so
         # the common cross-tap collision is N byte-identical copies of one
         # skill — and the within-tap branch above already decided that

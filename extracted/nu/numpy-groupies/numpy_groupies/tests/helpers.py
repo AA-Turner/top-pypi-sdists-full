@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 
 from numpy_groupies import aggregate_numpy, aggregate_purepy
-from numpy_groupies.aggregate_common import funcs_collecting
+from numpy_groupies.common import funcs_collecting
 
 aggregate_numba: Any
 
@@ -152,10 +152,15 @@ func_list = (
     "any",
     "mean",
     "median",
+    "quantile",
+    "percentile",
     "trapezoid",
     "std",
     "var",
+    "skew",
+    "kurt",
     "len",
+    "nunique",
     "argmin",
     "argmax",
     "anynan",
@@ -168,10 +173,15 @@ func_list = (
     "nanmax",
     "nanmean",
     "nanmedian",
+    "nanquantile",
+    "nanpercentile",
     "nantrapezoid",
     "nanstd",
     "nanvar",
+    "nanskew",
+    "nankurt",
     "nanlen",
+    "nannunique",
     "nanargmin",
     "nanargmax",
     "nansumofsquares",

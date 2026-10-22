@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: microsoft-kiota-bundle
-Version: 1.14.3
+Version: 1.15.0
 Summary: Bundle package for kiota generated libraries in Python
 Keywords: kiota,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>
@@ -12,6 +12,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: MIT License
 License-File: LICENSE
 Requires-Dist: microsoft-kiota-abstractions>=1.11.1,<2.0.0

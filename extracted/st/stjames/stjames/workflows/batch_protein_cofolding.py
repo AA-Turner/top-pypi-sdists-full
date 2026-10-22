@@ -7,6 +7,7 @@ from pydantic import AfterValidator, ConfigDict, model_validator
 from ..base import round_float
 from ..protein import ProteinSequence
 from .protein_cofolding import (
+    ESMFOLD_2_MODELS,
     CofoldingModel,
     CofoldingResult,
     CofoldingTemplate,
@@ -119,6 +120,12 @@ class BatchProteinCofoldingWorkflow(FASTAWorkflow):
             cyclic_binders = [seq for chains in self.binder_sequences_list for seq in chains if hasattr(seq, "cyclic") and seq.cyclic]
             if cyclic_proteins or cyclic_binders:
                 raise ValueError("OpenFold-3 does not support cyclic proteins")
+
+        if self.model in ESMFOLD_2_MODELS:
+            cyclic_proteins = [seq for seq in self.initial_protein_sequences if hasattr(seq, "cyclic") and seq.cyclic]
+            cyclic_binders = [seq for chains in self.binder_sequences_list for seq in chains if hasattr(seq, "cyclic") and seq.cyclic]
+            if cyclic_proteins or cyclic_binders:
+                raise ValueError("ESMFold2 does not support cyclic proteins")
 
         if self.compute_affinity:
             if binder_batch and self.model != CofoldingModel.BOLTZ_2_1:

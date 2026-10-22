@@ -360,6 +360,21 @@ class CompletedRequest:
         "truncated",
     )
 
+    # The subset of RESUMABLE_SUSPEND_STATUSES whose resumer is a PERSON typing
+    # "continue" in that conversation. A sub-agent run (an agent another agent or
+    # tool started) has no such person: its caller reads the answer and continues
+    # it (send_message) or not. So for a run stamped CALLER_RESUMES_KEY these settle
+    # as "completed" with the structured error kept — terminal, marked, and still
+    # continuable — never "paused" until the 30-day abandon sweep (2026-10-21
+    # audit: two helpers parked "waiting for a person" that did not exist).
+    PERSON_RESUMES_STATUSES: ClassVar[tuple[str, ...]] = (
+        "paused_loop_guard",
+        "max_iterations_exceeded",
+        "truncated",
+    )
+    #: completion-metadata flag the executor stamps on a sub-agent run.
+    CALLER_RESUMES_KEY: ClassVar[str] = "resumed_by_caller"
+
     def _structured_error(self) -> dict[str, Any] | Any | None:
         """The completion's error payload, normalized toward the structured-error
         shape. A dict passes through verbatim; a bare-string error with a sibling
@@ -450,6 +465,16 @@ class CompletedRequest:
         if status == "failed":
             user_request["status"] = "failed"
             user_request["error"] = self._structured_error()
+        elif (
+            status in self.PERSON_RESUMES_STATUSES
+            and self.metadata.get(self.CALLER_RESUMES_KEY) is True
+        ):
+            # A sub-agent's limit stop: nobody is in that conversation to resume
+            # it, so it is a terminal outcome for THIS turn, with the reason kept.
+            user_request["status"] = "completed"
+            err = self._structured_error()
+            if err is not None:
+                user_request["error"] = err
         elif status in self.RESUMABLE_SUSPEND_STATUSES:
             user_request["status"] = "paused"
             # A paused run may still carry error detail (e.g. "truncated" sets

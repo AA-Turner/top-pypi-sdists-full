@@ -68,7 +68,7 @@ from river_client.types import (
     TrainingDataArtifact,
     TrainingDataAttestation,
     AttestedTrainingDataArtifact,
-    TopLogprob,
+    TopLogprobs,
     failed_operation_error,
 )
 
@@ -558,19 +558,13 @@ _POLL_TERMINAL_STATUS_CODES = frozenset(
 _POLL_MAX_RETRIES = 6
 
 
-def _proto_top_logprobs_to_dicts(positions) -> list[list[TopLogprob]]:
-    """Convert a repeated ``TopLogprobsPosition`` proto field into nested
-    ``TopLogprob`` dataclass lists for ergonomic access.
-
-    Empty input (server didn't populate top-K) maps to an empty outer list.
-    """
-    return [
-        [
-            TopLogprob(logprob=c.logprob, token_id=c.token_id, token=c.token)
-            for c in pos.candidates
-        ]
-        for pos in positions
-    ]
+def _result_top_logprobs(result, field: str) -> TopLogprobs | None:
+    if not result.HasField(field):
+        return None
+    block = getattr(result, field)
+    return TopLogprobs._from_packed(
+        block.token_ids, block.logprobs, (block.rows, block.width)
+    )
 
 
 def _optional_proto_list(message, field_name: str) -> list:
@@ -664,20 +658,6 @@ def _optional_prompt_token_ids(
         return None
     ids = r.get("prompt_token_ids") or []
     return list(ids) if ids else None
-
-
-def _optional_top_logprobs(
-    r: dict,
-    key: str,
-) -> list[list[TopLogprob]] | None:
-    """Pass through a top-K block from the raw dict, or ``None`` if absent.
-
-    Whether top-K was actually requested is encoded by the server — if the
-    caller didn't set ``prompts[i]["logprobs"] > 0`` then the server returns
-    an empty list here and we surface that as ``None``.
-    """
-    value = r.get(key) or []
-    return list(value) if value else None
 
 
 def _normalize_per_prompt_images(
@@ -1064,10 +1044,8 @@ def _group_sample_dicts(
                     prompt_token_ids=_optional_prompt_token_ids(
                         r, return_prompt_token_ids
                     ),
-                    top_logprobs=_optional_top_logprobs(r, "top_logprobs"),
-                    prompt_top_logprobs=_optional_top_logprobs(
-                        r, "prompt_top_logprobs"
-                    ),
+                    top_logprobs=r.get("top_logprobs"),
+                    prompt_top_logprobs=r.get("prompt_top_logprobs"),
                     expert_routing=_dict_to_expert_routing(r.get("expert_routing")),
                     metrics=dict(r.get("metrics") or {}),
                 )
@@ -2943,6 +2921,7 @@ class Session:
         training_data_attestation: TrainingDataAttestation | str | None = None,
         *,
         full_weight: bool = False,
+        train_router: bool = False,
     ) -> Model:
         """Create a new model for training.
 
@@ -2954,6 +2933,8 @@ class Session:
                 checkpoints include optimizer state. Only an RL model (feature
                 ``full_weight_rl_v1``) can sample: its run owns a sampler that
                 ``save_weights(mode="publish")`` refreshes.
+            train_router: Train MoE router weights along with the backbone.
+                Requires full_weight=True; defaults to frozen routers.
             tokenizer: Tokenizer name or an already-loaded tokenizer object.
                 Defaults to base_model; a full-weight model defaults to the
                 tokenizer the server names for it.
@@ -2973,6 +2954,11 @@ class Session:
         if (lora is not None) == full_weight:
             raise ValueError("select exactly one of lora or full_weight=True")
 
+        if train_router and not full_weight:
+            raise ValueError("train_router requires full_weight=True")
+        if not isinstance(train_router, bool):
+            raise TypeError("train_router must be a boolean")
+
         self._model_seq_id += 1
 
         # Build request
@@ -2981,6 +2967,7 @@ class Session:
             model_seq_id=self._model_seq_id,
             base_model=base_model,
             full_weight=full_weight,
+            train_router=train_router,
         )
 
         if isinstance(training_data_attestation, TrainingDataAttestation):
@@ -3648,7 +3635,11 @@ class Session:
                 value = np.frombuffer(bytes(value), dtype=np.uint8)
             elif not isinstance(value, np.ndarray):
                 if isinstance(value, list):
-                    if value and isinstance(value[0], float):
+                    # Restored matrix columns are nested lists, as in the flat encoder.
+                    leaf = value[0] if value else None
+                    while isinstance(leaf, list):
+                        leaf = leaf[0] if leaf else None
+                    if isinstance(leaf, float):
                         value = np.array(value, dtype=np.float32)
                     else:
                         value = np.array(value, dtype=np.int64)
@@ -4166,6 +4157,8 @@ class Session:
                 proto.seed = p["seed"]
             if "logprobs" in p and p["logprobs"] is not None:
                 proto.logprobs = p["logprobs"]
+                if p["logprobs"] > 0:
+                    proto.top_logprobs_format = 1
             if (
                 "return_prompt_logprobs" in p
                 and p["return_prompt_logprobs"] is not None
@@ -4197,9 +4190,7 @@ class Session:
         return result
 
     @staticmethod
-    def _inference_to_dicts(
-        response: pb2.InferenceResponse,
-    ) -> list[dict]:
+    def _inference_to_dicts(response: pb2.InferenceResponse) -> list[dict]:
         """Convert InferenceResponse proto to list of result dicts.
 
         Dict shape (all lists present; empty when the server didn't populate them):
@@ -4211,8 +4202,8 @@ class Session:
           * ``token_ids`` (list[int]) — output token IDs; populated on native
             /generate, empty on the legacy /v1/completions path
           * ``prompt_token_ids`` (list[int])
-          * ``top_logprobs`` (list[list[TopLogprob]]) — output side top-K
-          * ``prompt_top_logprobs`` (list[list[TopLogprob]]) — prompt side top-K
+          * ``top_logprobs`` (TopLogprobs | None) — output side top-K
+          * ``prompt_top_logprobs`` (TopLogprobs | None) — prompt side top-K
           * ``metrics`` (dict[str, float]) — per-result scalar metrics; empty
             unless the request carried a recognized ``metrics_type`` token
         """
@@ -4255,12 +4246,8 @@ class Session:
                 ),
                 "token_ids": _optional_proto_list(r, "token_ids"),
                 "prompt_token_ids": _optional_proto_list(r, "prompt_token_ids"),
-                "top_logprobs": _proto_top_logprobs_to_dicts(
-                    getattr(r, "top_logprobs", [])
-                ),
-                "prompt_top_logprobs": _proto_top_logprobs_to_dicts(
-                    getattr(r, "prompt_top_logprobs", [])
-                ),
+                "top_logprobs": _result_top_logprobs(r, "top_logprobs"),
+                "prompt_top_logprobs": _result_top_logprobs(r, "prompt_top_logprobs"),
                 "expert_routing": _expert_routing_proto_to_dict(
                     getattr(r, "expert_routing", None)
                 ),
@@ -5209,10 +5196,8 @@ class Client:
                     prompt_token_ids=_optional_prompt_token_ids(
                         r, return_prompt_logprobs
                     ),
-                    top_logprobs=_optional_top_logprobs(r, "top_logprobs"),
-                    prompt_top_logprobs=_optional_top_logprobs(
-                        r, "prompt_top_logprobs"
-                    ),
+                    top_logprobs=r.get("top_logprobs"),
+                    prompt_top_logprobs=r.get("prompt_top_logprobs"),
                     metrics=dict(r.get("metrics") or {}),
                 )
             )

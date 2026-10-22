@@ -69,6 +69,8 @@ from .literals import (
     Av1FilmGrainSynthesisType,
     Av1FramerateControlType,
     Av1FramerateConversionAlgorithmType,
+    Av1RateControlModeType,
+    Av1SceneChangeDetectType,
     Av1SpatialAdaptiveQuantizationType,
     AvcIntraClassType,
     AvcIntraFramerateControlType,
@@ -1936,6 +1938,8 @@ class Mpeg2SettingsOutputTypeDef(TypedDict):
     RateControlMode: NotRequired[Mpeg2RateControlModeType]
     ScanTypeConversionMode: NotRequired[Mpeg2ScanTypeConversionModeType]
     SceneChangeDetect: NotRequired[Mpeg2SceneChangeDetectType]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SlowPal: NotRequired[Mpeg2SlowPalType]
     Softness: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[Mpeg2SpatialAdaptiveQuantizationType]
@@ -1973,6 +1977,8 @@ class Mpeg2SettingsTypeDef(TypedDict):
     RateControlMode: NotRequired[Mpeg2RateControlModeType]
     ScanTypeConversionMode: NotRequired[Mpeg2ScanTypeConversionModeType]
     SceneChangeDetect: NotRequired[Mpeg2SceneChangeDetectType]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SlowPal: NotRequired[Mpeg2SlowPalType]
     Softness: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[Mpeg2SpatialAdaptiveQuantizationType]
@@ -2298,6 +2304,7 @@ AutomatedAbrRuleTypeDef = TypedDict(
 class Av1SettingsOutputTypeDef(TypedDict):
     AdaptiveQuantization: NotRequired[Av1AdaptiveQuantizationType]
     BitDepth: NotRequired[Av1BitDepthType]
+    Bitrate: NotRequired[int]
     FilmGrainSynthesis: NotRequired[Av1FilmGrainSynthesisType]
     FramerateControl: NotRequired[Av1FramerateControlType]
     FramerateConversionAlgorithm: NotRequired[Av1FramerateConversionAlgorithmType]
@@ -2308,14 +2315,18 @@ class Av1SettingsOutputTypeDef(TypedDict):
     NumberBFramesBetweenReferenceFrames: NotRequired[int]
     PerFrameMetrics: NotRequired[list[FrameMetricTypeType]]
     QvbrSettings: NotRequired[Av1QvbrSettingsTypeDef]
-    RateControlMode: NotRequired[Literal["QVBR"]]
+    RateControlMode: NotRequired[Av1RateControlModeType]
+    SceneChangeDetect: NotRequired[Av1SceneChangeDetectType]
     Slices: NotRequired[int]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[Av1SpatialAdaptiveQuantizationType]
 
 
 class Av1SettingsTypeDef(TypedDict):
     AdaptiveQuantization: NotRequired[Av1AdaptiveQuantizationType]
     BitDepth: NotRequired[Av1BitDepthType]
+    Bitrate: NotRequired[int]
     FilmGrainSynthesis: NotRequired[Av1FilmGrainSynthesisType]
     FramerateControl: NotRequired[Av1FramerateControlType]
     FramerateConversionAlgorithm: NotRequired[Av1FramerateConversionAlgorithmType]
@@ -2326,8 +2337,11 @@ class Av1SettingsTypeDef(TypedDict):
     NumberBFramesBetweenReferenceFrames: NotRequired[int]
     PerFrameMetrics: NotRequired[Sequence[FrameMetricTypeType]]
     QvbrSettings: NotRequired[Av1QvbrSettingsTypeDef]
-    RateControlMode: NotRequired[Literal["QVBR"]]
+    RateControlMode: NotRequired[Av1RateControlModeType]
+    SceneChangeDetect: NotRequired[Av1SceneChangeDetectType]
     Slices: NotRequired[int]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[Av1SpatialAdaptiveQuantizationType]
 
 
@@ -2659,6 +2673,8 @@ class H264SettingsOutputTypeDef(TypedDict):
     ScanTypeConversionMode: NotRequired[H264ScanTypeConversionModeType]
     SceneChangeDetect: NotRequired[H264SceneChangeDetectType]
     Slices: NotRequired[int]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SlowPal: NotRequired[H264SlowPalType]
     Softness: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[H264SpatialAdaptiveQuantizationType]
@@ -2709,6 +2725,8 @@ class H264SettingsTypeDef(TypedDict):
     ScanTypeConversionMode: NotRequired[H264ScanTypeConversionModeType]
     SceneChangeDetect: NotRequired[H264SceneChangeDetectType]
     Slices: NotRequired[int]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SlowPal: NotRequired[H264SlowPalType]
     Softness: NotRequired[int]
     SpatialAdaptiveQuantization: NotRequired[H264SpatialAdaptiveQuantizationType]
@@ -2759,6 +2777,8 @@ class H265SettingsOutputTypeDef(TypedDict):
     ScanTypeConversionMode: NotRequired[H265ScanTypeConversionModeType]
     SceneChangeDetect: NotRequired[H265SceneChangeDetectType]
     Slices: NotRequired[int]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SlowPal: NotRequired[H265SlowPalType]
     SpatialAdaptiveQuantization: NotRequired[H265SpatialAdaptiveQuantizationType]
     Telecine: NotRequired[H265TelecineType]
@@ -2813,6 +2833,8 @@ class H265SettingsTypeDef(TypedDict):
     ScanTypeConversionMode: NotRequired[H265ScanTypeConversionModeType]
     SceneChangeDetect: NotRequired[H265SceneChangeDetectType]
     Slices: NotRequired[int]
+    SlidingWindowMs: NotRequired[int]
+    SlidingWindowPeakBitrate: NotRequired[int]
     SlowPal: NotRequired[H265SlowPalType]
     SpatialAdaptiveQuantization: NotRequired[H265SpatialAdaptiveQuantizationType]
     Telecine: NotRequired[H265TelecineType]
@@ -3452,6 +3474,7 @@ class CmafGroupSettingsOutputTypeDef(TypedDict):
     BaseUrl: NotRequired[str]
     ClientCache: NotRequired[CmafClientCacheType]
     CodecSpecification: NotRequired[CmafCodecSpecificationType]
+    DashAdaptationSetGrouping: NotRequired[list[Literal["CODEC"]]]
     DashIFrameTrickPlayNameModifier: NotRequired[str]
     DashManifestStyle: NotRequired[DashManifestStyleType]
     Destination: NotRequired[str]
@@ -3484,6 +3507,7 @@ class CmafGroupSettingsTypeDef(TypedDict):
     BaseUrl: NotRequired[str]
     ClientCache: NotRequired[CmafClientCacheType]
     CodecSpecification: NotRequired[CmafCodecSpecificationType]
+    DashAdaptationSetGrouping: NotRequired[Sequence[Literal["CODEC"]]]
     DashIFrameTrickPlayNameModifier: NotRequired[str]
     DashManifestStyle: NotRequired[DashManifestStyleType]
     Destination: NotRequired[str]
@@ -3515,6 +3539,7 @@ class DashIsoGroupSettingsOutputTypeDef(TypedDict):
     AdditionalManifests: NotRequired[list[DashAdditionalManifestOutputTypeDef]]
     AudioChannelConfigSchemeIdUri: NotRequired[DashIsoGroupAudioChannelConfigSchemeIdUriType]
     BaseUrl: NotRequired[str]
+    DashAdaptationSetGrouping: NotRequired[list[Literal["CODEC"]]]
     DashIFrameTrickPlayNameModifier: NotRequired[str]
     DashManifestStyle: NotRequired[DashManifestStyleType]
     Destination: NotRequired[str]
@@ -3543,6 +3568,7 @@ class DashIsoGroupSettingsTypeDef(TypedDict):
     AdditionalManifests: NotRequired[Sequence[DashAdditionalManifestTypeDef]]
     AudioChannelConfigSchemeIdUri: NotRequired[DashIsoGroupAudioChannelConfigSchemeIdUriType]
     BaseUrl: NotRequired[str]
+    DashAdaptationSetGrouping: NotRequired[Sequence[Literal["CODEC"]]]
     DashIFrameTrickPlayNameModifier: NotRequired[str]
     DashManifestStyle: NotRequired[DashManifestStyleType]
     Destination: NotRequired[str]

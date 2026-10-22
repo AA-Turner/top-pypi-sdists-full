@@ -13,6 +13,7 @@ mod oidc;
 
 use crate::config::rest_parameters::{WifProvider, WorkloadIdentityConfig};
 use crate::sensitive::SensitiveString;
+use crate::tls::RootStoreProvider;
 use crate::tls::aws_http_client::AwsSdkReqwestClient;
 use host_allowlist::is_snowflake_host_for_workload_identity;
 use snafu::{Location, ResultExt, Snafu};
@@ -199,6 +200,7 @@ pub(crate) async fn create_attestation(
     client: &reqwest::Client,
     aws_sdk_http: Option<&AwsSdkReqwestClient>,
     config: &WorkloadIdentityConfig,
+    roots: RootStoreProvider,
 ) -> Result<Attestation, AttestationError> {
     // The AWS, Azure and GCP providers exchange authentication material over
     // the supplied clients (OIDC makes no request). Every caller now passes a
@@ -213,7 +215,8 @@ pub(crate) async fn create_attestation(
             let sdk_http = match aws_sdk_http {
                 Some(sdk_http) => sdk_http,
                 None => {
-                    default_sdk_http = AwsSdkReqwestClient::with_default_tls()
+                    default_sdk_http = AwsSdkReqwestClient::with_default_tls(roots.clone())
+                        .await
                         .context(aws::SdkHttpClientSnafu)
                         .context(AwsAttestationSnafu)?;
                     &default_sdk_http

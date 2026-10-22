@@ -212,6 +212,19 @@ class AgentCostType(sgqlc.types.Enum):
     __choices__ = ("SNOWFLAKE_CORTEX",)
 
 
+class AgentEvalScope(sgqlc.types.Enum):
+    """Scope an agent evaluation run stored its scores at.
+
+    Enumeration Choices:
+
+    * `CONVERSATION`None
+    * `SPAN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONVERSATION", "SPAN")
+
+
 class AgentEvaluationRunSamplesStatus(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -484,6 +497,21 @@ class AgentHealthSeverity(sgqlc.types.Enum):
     __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
 
 
+class AgentMemoryLevel(sgqlc.types.Enum):
+    """Scope of an agent memory: the account, one domain, or one asset in
+    a domain.
+
+    Enumeration Choices:
+
+    * `ACCOUNT`None
+    * `ASSET`None
+    * `DOMAIN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ACCOUNT", "ASSET", "DOMAIN")
+
+
 class AgentModelAgentType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -635,6 +663,41 @@ class AgentRawDataAccessMode(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ENFORCE", "OFF", "SHADOW")
+
+
+class AgentSettingsActorType(sgqlc.types.Enum):
+    """Who made an agent settings change: a `USER` (or the account's API
+    key), an `AGENT`, `MONTE_CARLO` staff, or Monte Carlo
+    `AUTOMATIC`ally.
+
+    Enumeration Choices:
+
+    * `AGENT`None
+    * `AUTOMATIC`None
+    * `MONTE_CARLO`None
+    * `USER`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AGENT", "AUTOMATIC", "MONTE_CARLO", "USER")
+
+
+class AgentSettingsAgent(sgqlc.types.Enum):
+    """An agent whose settings history can be read: `TRIAGE`,
+    `TROUBLESHOOTING`, `MONITOR_TUNING`, `PR` or `COST` (the Cost &
+    Performance agent).
+
+    Enumeration Choices:
+
+    * `COST`None
+    * `MONITOR_TUNING`None
+    * `PR`None
+    * `TRIAGE`None
+    * `TROUBLESHOOTING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COST", "MONITOR_TUNING", "PR", "TRIAGE", "TROUBLESHOOTING")
 
 
 class AgentSourceType(sgqlc.types.Enum):
@@ -5430,6 +5493,24 @@ class IntegrationKeyScope(sgqlc.types.Enum):
     )
 
 
+class IntegrationType(sgqlc.types.Enum):
+    """The kind of integration a connection belongs to. OTHER covers
+    connection types that fit none of the listed kinds.
+
+    Enumeration Choices:
+
+    * `BI`None
+    * `DBT`None
+    * `ETL`None
+    * `OTHER`None
+    * `STREAMING`None
+    * `WAREHOUSE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BI", "DBT", "ETL", "OTHER", "STREAMING", "WAREHOUSE")
+
+
 class InternalJobType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -6881,6 +6962,8 @@ class Permission(sgqlc.types.Enum):
     * `AgentObservabilityContent`None
     * `AiAgentsAccess`None
     * `AiAgentsMcpServersAccess`None
+    * `AiAgentsMemoriesAccess`None
+    * `AiAgentsMemoriesEdit`None
     * `AiAgentsTriageEdit`None
     * `AiAgentsTroubleshootingAccess`None
     * `AlertsAccess`None
@@ -7020,6 +7103,8 @@ class Permission(sgqlc.types.Enum):
         "AgentObservabilityContent",
         "AiAgentsAccess",
         "AiAgentsMcpServersAccess",
+        "AiAgentsMemoriesAccess",
+        "AiAgentsMemoriesEdit",
         "AiAgentsTriageEdit",
         "AiAgentsTroubleshootingAccess",
         "AlertsAccess",
@@ -7679,6 +7764,20 @@ class QueryCategory(sgqlc.types.Enum):
     )
 
 
+class QueryLogAvailability(sgqlc.types.Enum):
+    """Whether a warehouse gets query logs.
+
+    Enumeration Choices:
+
+    * `COLLECTED`None
+    * `NOT_ENABLED`None
+    * `NOT_SUPPORTED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COLLECTED", "NOT_ENABLED", "NOT_SUPPORTED")
+
+
 class QueryLogType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -8336,6 +8435,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `AiAgentsMcpServersPropose`None
     * `AiAgentsMcpServersRead`None
     * `AiAgentsMcpServersWrite`None
+    * `AiAgentsMemoriesAll`None
+    * `AiAgentsMemoriesPropose`None
+    * `AiAgentsMemoriesRead`None
+    * `AiAgentsMemoriesWrite`None
     * `AiAgentsPropose`None
     * `AiAgentsRead`None
     * `AiAgentsTriageAll`None
@@ -8578,6 +8681,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "AiAgentsMcpServersPropose",
         "AiAgentsMcpServersRead",
         "AiAgentsMcpServersWrite",
+        "AiAgentsMemoriesAll",
+        "AiAgentsMemoriesPropose",
+        "AiAgentsMemoriesRead",
+        "AiAgentsMemoriesWrite",
         "AiAgentsPropose",
         "AiAgentsRead",
         "AiAgentsTriageAll",
@@ -10504,6 +10611,20 @@ class UnifiedUserAssignmentModelRelationshipType(sgqlc.types.Enum):
     __choices__ = ("EXPERT", "OWNER")
 
 
+class UnmeasuredDurationBasis(sgqlc.types.Enum):
+    """Why a span's duration is not a measurement. null means measured.
+
+    Enumeration Choices:
+
+    * `APPORTIONED`None
+    * `INHERITED`None
+    * `UNKNOWN`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("APPORTIONED", "INHERITED", "UNKNOWN")
+
+
 class Upload(sgqlc.types.Scalar):
     """Create scalar that ignores normal serialization/deserialization,
     since that will be handled by the multipart request spec
@@ -11341,6 +11462,24 @@ class AgentFilterInput(sgqlc.types.Input):
     MCON or a platform agent MCON (aiagent object type). Returns
     alerts associated with monitors covering this data source.
     """
+
+
+class AgentMemoryInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = ("level", "domain_uuid", "asset_mcon", "agent_type", "memory_text")
+    level = sgqlc.types.Field(sgqlc.types.non_null(AgentMemoryLevel), graphql_name="level")
+
+    domain_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="domainUuid")
+
+    asset_mcon = sgqlc.types.Field(String, graphql_name="assetMcon")
+    """MCON of the asset. Required at the asset level; omit it (not null)
+    otherwise.
+    """
+
+    agent_type = sgqlc.types.Field(sgqlc.types.non_null(AiAgentType), graphql_name="agentType")
+
+    memory_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="memoryText")
+    """At most 300 characters."""
 
 
 class AgentMetricInput(sgqlc.types.Input):
@@ -15925,6 +16064,7 @@ class GetConversationTimeSeriesInput(sgqlc.types.Input):
         "end_time",
         "bucket_size",
         "metric_group",
+        "metric_groups",
         "filters",
         "segment_filter",
     )
@@ -15949,15 +16089,26 @@ class GetConversationTimeSeriesInput(sgqlc.types.Input):
     once, in the bucket of its first matching turn.
     """
 
-    metric_group = sgqlc.types.Field(
-        sgqlc.types.non_null(ConversationMetricGroup), graphql_name="metricGroup"
-    )
+    metric_group = sgqlc.types.Field(ConversationMetricGroup, graphql_name="metricGroup")
     """COUNT returns conversation count; DURATION returns avg/p50/p95
     wall-clock seconds, including idle time between matching turns in
     the window; TOKENS returns summed turn tokens; ERRORS returns
     errored conversations and error rate as a percentage from 0 to
     100. Token values are null on platforms without token counts and
     when no conversation has token data. Zero means zero tokens.
+    Deprecated: use metricGroups instead.
+    """
+
+    metric_groups = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(ConversationMetricGroup)),
+        graphql_name="metricGroups",
+    )
+    """Metric groups to return, in order, with duplicate metrics returned
+    once. Provide a non-empty list or metricGroup, exclusively. COUNT
+    returns conversation count; DURATION returns avg/p50/p95 wall-
+    clock seconds; TOKENS returns summed turn tokens; ERRORS returns
+    errored conversations and error rate as a percentage from 0 to
+    100.
     """
 
     filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
@@ -23608,10 +23759,7 @@ class Account(sgqlc.types.Type):
     enable_reinforcement_loop_v2 = sgqlc.types.Field(
         Boolean, graphql_name="enableReinforcementLoopV2"
     )
-    """Whether the reinforcement loop diagnoses conversations by Issue
-    cluster for this account, which unlocks the cluster selection and
-    root-cause issue views.
-    """
+    """Whether the account is on reinforcement loop V2"""
 
     enable_cost_agent_paid_tier = sgqlc.types.Field(Boolean, graphql_name="enableCostAgentPaidTier")
     """Whether the cost agent is unrestricted for the account: the full
@@ -25594,10 +25742,14 @@ class AgentGraphNode(sgqlc.types.Type):
     """
 
     p50_duration_ms = sgqlc.types.Field(Float, graphql_name="p50DurationMs")
-    """Median (50th percentile) span duration in milliseconds."""
+    """Median (50th percentile) duration in milliseconds over measured
+    spans (null when no span is measured).
+    """
 
     p95_duration_ms = sgqlc.types.Field(Float, graphql_name="p95DurationMs")
-    """95th percentile span duration in milliseconds."""
+    """95th percentile duration in milliseconds over measured spans (null
+    when no span is measured).
+    """
 
     p50_input_tokens = sgqlc.types.Field(Float, graphql_name="p50InputTokens")
     """Median (50th percentile) prompt tokens. Null for non-LLM nodes."""
@@ -26215,6 +26367,45 @@ class AgentLogEntry(sgqlc.types.Type):
     """
 
 
+class AgentMemory(sgqlc.types.Type):
+    """A fact a person asked the AI agents to remember."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "level",
+        "domain_uuid",
+        "asset_mcon",
+        "agent_type",
+        "memory_text",
+        "created_by",
+        "created_time",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="id")
+
+    level = sgqlc.types.Field(sgqlc.types.non_null(AgentMemoryLevel), graphql_name="level")
+
+    domain_uuid = sgqlc.types.Field(UUID, graphql_name="domainUuid")
+    """Domain of the memory; null at the account level."""
+
+    asset_mcon = sgqlc.types.Field(String, graphql_name="assetMcon")
+    """MCON of the asset; set only at the asset level."""
+
+    agent_type = sgqlc.types.Field(sgqlc.types.non_null(AiAgentType), graphql_name="agentType")
+    """Agents that read the memory."""
+
+    memory_text = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="memoryText")
+
+    created_by = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="createdBy")
+    """Display label for the user who asked to remember this. Returns the
+    user's email for human users; for agent users, returns a derived
+    display label (e.g. ``Agent on <domain>``) — never the agent's
+    internal address.
+    """
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+
 class AgentMetadata(sgqlc.types.Type):
     """Metadata about AI agents for agent observability."""
 
@@ -26649,6 +26840,96 @@ class AgentSegmentsResult(sgqlc.types.Type):
         graphql_name="segments",
     )
     """Distinct segment values for the requested field"""
+
+
+class AgentSettingsAuditLogConnection(sgqlc.types.relay.Connection):
+    """Cursor-paginated connection over ``AgentSettingsAuditLogEntry``,
+    newest first.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("page_info", "edges")
+    page_info = sgqlc.types.Field(sgqlc.types.non_null("PageInfo"), graphql_name="pageInfo")
+    """Pagination data for this connection."""
+
+    edges = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of("AgentSettingsAuditLogEdge")), graphql_name="edges"
+    )
+    """Contains the nodes in this connection."""
+
+
+class AgentSettingsAuditLogEdge(sgqlc.types.Type):
+    """A Relay edge containing a `AgentSettingsAuditLog` and its cursor."""
+
+    __schema__ = schema
+    __field_names__ = ("node", "cursor")
+    node = sgqlc.types.Field("AgentSettingsAuditLogEntry", graphql_name="node")
+    """The item at the end of the edge"""
+
+    cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
+    """A cursor for use in pagination"""
+
+
+class AgentSettingsAuditLogEntry(sgqlc.types.Type):
+    """One change to an agent's settings."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "timestamp",
+        "action",
+        "agents",
+        "changes",
+        "domain_uuid",
+        "domain_name",
+        "actor_type",
+        "actor_display_name",
+        "actor_email",
+    )
+    timestamp = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="timestamp")
+    """When the change was made."""
+
+    action = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="action")
+    """`create`, `update` or `delete`."""
+
+    agents = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentSettingsAgent))),
+        graphql_name="agents",
+    )
+    """The agents whose settings changed. The master AI features switch
+    belongs to every agent.
+    """
+
+    changes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("FieldChange"))),
+        graphql_name="changes",
+    )
+    """The agent settings that changed, with before and after values."""
+
+    domain_uuid = sgqlc.types.Field(UUID, graphql_name="domainUuid")
+    """Domain the change applies to, for a per-domain override. Null for
+    account-wide settings, and when the domain was deleted.
+    """
+
+    domain_name = sgqlc.types.Field(String, graphql_name="domainName")
+    """Name of the domain in `domainUuid`."""
+
+    actor_type = sgqlc.types.Field(
+        sgqlc.types.non_null(AgentSettingsActorType), graphql_name="actorType"
+    )
+    """Who made the change."""
+
+    actor_display_name = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="actorDisplayName"
+    )
+    """Name to show for whoever made the change. `Monte Carlo
+    (automatic)` for automatic changes, `Monte Carlo` for Monte Carlo
+    staff, and the agent's label for an agent.
+    """
+
+    actor_email = sgqlc.types.Field(String, graphql_name="actorEmail")
+    """Email of the person who made the change. Null unless `actorType`
+    is `USER`.
+    """
 
 
 class AgentSpanCondition(sgqlc.types.Type):
@@ -31953,6 +32234,8 @@ class Connection(sgqlc.types.relay.Connection):
         "icon_url",
         "terminology",
         "sql_job_timeout_maximum",
+        "integration_type",
+        "connection_type_display_name",
         "allowed_dbt_cloud_environments",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
@@ -32077,6 +32360,16 @@ class Connection(sgqlc.types.relay.Connection):
     sql_job_timeout_maximum = sgqlc.types.Field(Int, graphql_name="sqlJobTimeoutMaximum")
     """The maximum timeout for SQL jobs that can be set for this
     connection
+    """
+
+    integration_type = sgqlc.types.Field(IntegrationType, graphql_name="integrationType")
+    """The kind of integration this connection's type belongs to"""
+
+    connection_type_display_name = sgqlc.types.Field(
+        String, graphql_name="connectionTypeDisplayName"
+    )
+    """Customer-facing name of the connection type, such as "Snowflake".
+    Null for per-account custom connector types and unknown types.
     """
 
     allowed_dbt_cloud_environments = sgqlc.types.Field(
@@ -33466,6 +33759,8 @@ class ConversationTurnV2(sgqlc.types.Type):
         "user_name",
         "role_name",
         "platform_conversation_type",
+        "agent_version",
+        "agent_version_alias",
         "system_messages",
         "messages",
         "internal_steps",
@@ -33499,6 +33794,21 @@ class ConversationTurnV2(sgqlc.types.Type):
     platform_conversation_type = sgqlc.types.Field(String, graphql_name="platformConversationType")
     """Conversation type the source platform reported, verbatim. Null
     when unavailable.
+    """
+
+    agent_version = sgqlc.types.Field(String, graphql_name="agentVersion")
+    """Version of the agent this turn ran under, as the source platform
+    stamped it on the turn's spans. For Snowflake Cortex this is the
+    agent version name, such as `VERSION$19`, or `LIVE` for the
+    unversioned working copy. Each turn carries its own value, so a
+    conversation that spans versions reports every one. Null when the
+    platform stamps no version.
+    """
+
+    agent_version_alias = sgqlc.types.Field(String, graphql_name="agentVersionAlias")
+    """Alias the source platform attached to the version this turn ran
+    under, such as `PRODUCTION`. Null when no alias is set or the
+    platform stamps no version.
     """
 
     system_messages = sgqlc.types.Field(
@@ -33827,6 +34137,16 @@ class CreateAccountSecret(sgqlc.types.Type):
     __field_names__ = ("secret",)
     secret = sgqlc.types.Field(AccountSecretOutput, graphql_name="secret")
     """The secret that was created"""
+
+
+class CreateAgentMemory(sgqlc.types.Type):
+    """Save a memory for the agents of a domain, or for one asset in the
+    domain.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("memory",)
+    memory = sgqlc.types.Field(sgqlc.types.non_null(AgentMemory), graphql_name="memory")
 
 
 class CreateAgentOAuthClient(sgqlc.types.Type):
@@ -38592,6 +38912,14 @@ class DeleteAgent(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class DeleteAgentMemory(sgqlc.types.Type):
+    """Delete a memory permanently."""
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
+
+
 class DeleteAgentTraceTable(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -40462,6 +40790,7 @@ class EtlContainer(sgqlc.types.Type):
         "events",
         "job_count",
         "webhook_status",
+        "supports_etl_job_runs",
         "push_events",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
@@ -40553,6 +40882,9 @@ class EtlContainer(sgqlc.types.Type):
     """Webhook status info, or null if not applicable for this
     integration type
     """
+
+    supports_etl_job_runs = sgqlc.types.Field(Boolean, graphql_name="supportsEtlJobRuns")
+    """Whether Monte Carlo has job run history for this container"""
 
     push_events = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null("PushEventStatus")), graphql_name="pushEvents"
@@ -46188,6 +46520,7 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
         "total_execution_duration",
         "consolidating_job_uuid",
         "evaluated_record_count",
+        "eval_scope",
         "run_evaluated_row_count",
         "run_breached_row_count",
     )
@@ -46260,7 +46593,15 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
     """Number of distinct subjects (conversations) this agent evaluation
     run scored. 0 means the run completed without evaluating anything
     (e.g. no traces in the lookback window). Null for non-agent-
-    evaluation runs and for span/trace-aggregation evaluation runs.
+    evaluation runs and for runs with no conversation count.
+    """
+
+    eval_scope = sgqlc.types.Field(AgentEvalScope, graphql_name="evalScope")
+    """(experimental) Scope of the scores this agent evaluation run
+    stored. It can differ from the monitor's current grain when the
+    grain changed after the run. Null when the run has no single
+    stored scope or the scope cannot be read; use the monitor's grain
+    then.
     """
 
     run_evaluated_row_count = sgqlc.types.Field(BigInt, graphql_name="runEvaluatedRowCount")
@@ -48418,6 +48759,7 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
         "discovery_url",
         "authorization_endpoint",
         "token_endpoint",
+        "client_credentials_token_endpoint",
         "registration_endpoint",
         "token_endpoint_auth_methods",
         "error",
@@ -48472,6 +48814,13 @@ class McpServerAuthDiscovery(sgqlc.types.Type):
 
     token_endpoint = sgqlc.types.Field(String, graphql_name="tokenEndpoint")
     """OAuth2 token endpoint"""
+
+    client_credentials_token_endpoint = sgqlc.types.Field(
+        String, graphql_name="clientCredentialsTokenEndpoint"
+    )
+    """Token endpoint to use for the client credentials grant. Null when
+    the server's authorization server does not offer the grant.
+    """
 
     registration_endpoint = sgqlc.types.Field(String, graphql_name="registrationEndpoint")
     """Dynamic Client Registration endpoint (RFC 7591)"""
@@ -51810,6 +52159,7 @@ class Mutation(sgqlc.types.Type):
         "delete_reinforcement_loop_issues_by_agent",
         "submit_reinforcement_loop_issue_feedback",
         "ignore_reinforcement_loop_issue",
+        "unignore_reinforcement_loop_issue",
         "update_reinforcement_loop_agent",
         "update_reinforcement_loop_selector",
         "delete_agent_trace_table",
@@ -52420,6 +52770,9 @@ class Mutation(sgqlc.types.Type):
         "update_asset_memory",
         "delete_asset_memory",
         "request_agent_budget_increase",
+        "create_agent_memory",
+        "replace_agent_memory",
+        "delete_agent_memory",
         "configure_ai_agent_prompt",
         "create_account_secret",
         "update_account_secret",
@@ -52975,14 +53328,6 @@ class Mutation(sgqlc.types.Type):
                     ),
                 ),
                 (
-                    "remove_auth_headers",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
-                        graphql_name="removeAuthHeaders",
-                        default=None,
-                    ),
-                ),
-                (
                     "user_id_field_type",
                     sgqlc.types.Arg(
                         CustomerMcpUserIdFieldType, graphql_name="userIdFieldType", default=None
@@ -53046,9 +53391,6 @@ class Mutation(sgqlc.types.Type):
     * `oauth_token_endpoint_auth_method`
       (`CustomerMcpTokenEndpointAuthMethod`): New client
       authentication method for the token endpoint
-    * `remove_auth_headers` (`[String!]`): Names of custom auth
-      headers to remove (API_KEY only). Leaving a name out of
-      auth_headers also removes it.
     * `user_id_field_type` (`CustomerMcpUserIdFieldType`): New field
       type for user identity
     * `user_id_header_name` (`String`): New header name for user
@@ -54388,7 +54730,8 @@ class Mutation(sgqlc.types.Type):
     )
     """(experimental) Marks the issue ignored with a reason. The
     scheduled digest leaves ignored issues out. Ignoring again
-    replaces the reason. Monte Carlo staff can't ignore issues.
+    replaces the reason. unignoreReinforcementLoopIssue restores the
+    issue. Monte Carlo staff can't ignore issues.
 
     Arguments:
 
@@ -54396,6 +54739,30 @@ class Mutation(sgqlc.types.Type):
     * `issue_uuid` (`UUID!`): The issueUuid of a
       getReinforcementLoopV2Issues node.
     * `reason` (`ReinforcementLoopIssueDispositionReason!`)None
+    """
+
+    unignore_reinforcement_loop_issue = sgqlc.types.Field(
+        "UnignoreReinforcementLoopIssue",
+        graphql_name="unignoreReinforcementLoopIssue",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "issue_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="issueUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Clears the ignore on an RL V2 issue so the
+    scheduled digest includes it again. An issue that isn't ignored is
+    left as is. Monte Carlo staff can't un-ignore issues.
+
+    Arguments:
+
+    * `issue_uuid` (`UUID!`): The issueUuid of a
+      getReinforcementLoopV2Issues node.
     """
 
     update_reinforcement_loop_agent = sgqlc.types.Field(
@@ -54417,9 +54784,8 @@ class Mutation(sgqlc.types.Type):
     """(experimental) Pause or resume the reinforcement loop for an
     agent, or set its GitHub code repos. While paused, the loop
     diagnoses nothing for any Issue space of the agent; unpausing
-    resumes from where it stopped. A custom agent is diagnosed only
-    once it has a code repo. Each branch must exist on its repo, and
-    each path prefix must be on the repo's branch, or its default
+    resumes from where it stopped. Each branch must exist on its repo,
+    and each path prefix must be on the repo's branch, or its default
     branch when none is set. Omitted fields are unchanged. Creates the
     agent's settings if absent.
 
@@ -79124,6 +79490,76 @@ class Mutation(sgqlc.types.Type):
       limit the requester wants raised.
     """
 
+    create_agent_memory = sgqlc.types.Field(
+        CreateAgentMemory,
+        graphql_name="createAgentMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "memory",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(AgentMemoryInput), graphql_name="memory", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Save a memory for the AI agents
+
+    Arguments:
+
+    * `memory` (`AgentMemoryInput!`)None
+    """
+
+    replace_agent_memory = sgqlc.types.Field(
+        "ReplaceAgentMemory",
+        graphql_name="replaceAgentMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "memory_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="memoryId", default=None
+                    ),
+                ),
+                (
+                    "memory_text",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="memoryText", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Replace an AI agent memory
+
+    Arguments:
+
+    * `memory_id` (`UUID!`): Memory to replace.
+    * `memory_text` (`String!`): At most 300 characters.
+    """
+
+    delete_agent_memory = sgqlc.types.Field(
+        DeleteAgentMemory,
+        graphql_name="deleteAgentMemory",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "memory_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="memoryId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete an AI agent memory
+
+    Arguments:
+
+    * `memory_id` (`UUID!`)None
+    """
+
     configure_ai_agent_prompt = sgqlc.types.Field(
         ConfigureAiAgentPrompt,
         graphql_name="configureAiAgentPrompt",
@@ -82010,6 +82446,8 @@ class PlatformServiceConnection(sgqlc.types.relay.Connection):
         "subtype",
         "created_on",
         "identifiers",
+        "integration_type",
+        "connection_type_display_name",
     )
     uuid = sgqlc.types.Field(UUID, graphql_name="uuid")
     """UUID of the connection"""
@@ -82031,6 +82469,16 @@ class PlatformServiceConnection(sgqlc.types.relay.Connection):
 
     identifiers = sgqlc.types.Field(GenericScalar, graphql_name="identifiers")
     """Connection identifiers"""
+
+    integration_type = sgqlc.types.Field(IntegrationType, graphql_name="integrationType")
+    """The kind of integration this connection's type belongs to"""
+
+    connection_type_display_name = sgqlc.types.Field(
+        String, graphql_name="connectionTypeDisplayName"
+    )
+    """Customer-facing name of the connection type, such as "Snowflake".
+    Null for per-account custom connector types and unknown types.
+    """
 
 
 class PlatformServiceDeployment(sgqlc.types.Type):
@@ -83456,6 +83904,7 @@ class Query(sgqlc.types.Type):
         "get_asset_metric_audit_logs",
         "get_size_collection_audit_logs",
         "get_account_config_audit_logs",
+        "get_agent_settings_audit_logs",
         "get_monitored_rules_audit_logs",
         "get_assigned_assets",
         "get_alerts",
@@ -83484,6 +83933,7 @@ class Query(sgqlc.types.Type):
         "get_remediation_result",
         "ops_agent_conversations",
         "get_agent_memories",
+        "get_domain_agent_memories",
         "get_agent_context",
         "get_ai_agent_config",
         "get_authorization_prompt",
@@ -84861,6 +85311,12 @@ class Query(sgqlc.types.Type):
                 ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
                 ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
                 (
+                    "disposition",
+                    sgqlc.types.Arg(
+                        ReinforcementLoopIssueDisposition, graphql_name="disposition", default=None
+                    ),
+                ),
+                (
                     "mode",
                     sgqlc.types.Arg(ReinforcementLoopRunMode, graphql_name="mode", default="live"),
                 ),
@@ -84909,10 +85365,9 @@ class Query(sgqlc.types.Type):
     * `priorities` (`[AgentHealthPriority!]`): Keep issues whose
       served priority is one of these. Omit or pass an empty list to
       span every priority. HIDDEN requires includeHidden.
-    * `include_hidden` (`Boolean`): Also return issues whose newest
-      report has priority HIDDEN. False by default: hidden issues are
-      left out of the nodes, the counts and emptyReason. (default:
-      `false`)
+    * `include_hidden` (`Boolean`): Also return issues served priority
+      HIDDEN. False by default: hidden issues are left out of the
+      nodes, the counts and emptyReason. (default: `false`)
     * `issue_uuid` (`UUID`): Narrow to one issue by its issueUuid.
       ANDs with the other filters — a mismatch returns empty, not an
       error.
@@ -84923,6 +85378,9 @@ class Query(sgqlc.types.Type):
     * `end_time` (`DateTime`): Keep issues with lastSeenAt at or
       before this instant. Omit for no upper bound. Must not precede
       startTime.
+    * `disposition` (`ReinforcementLoopIssueDisposition`): Keep issues
+      with this disposition: NONE for open issues, IGNORED for ignored
+      ones. Omit to span both.
     * `mode` (`ReinforcementLoopRunMode`): LIVE issues by default;
       BACKTEST reads what backtest runs reported. (default: `"live"`)
     * `order_by` (`[ReinforcementLoopV2IssueOrder!]`): Sort keys,
@@ -107738,6 +108196,47 @@ class Query(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
+    get_agent_settings_audit_logs = sgqlc.types.Field(
+        AgentSettingsAuditLogConnection,
+        graphql_name="getAgentSettingsAuditLogs",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agents",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(AgentSettingsAgent)),
+                        graphql_name="agents",
+                        default=None,
+                    ),
+                ),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
+                ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
+                ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
+                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
+                ("last", sgqlc.types.Arg(Int, graphql_name="last", default=None)),
+            )
+        ),
+    )
+    """(experimental) Changes to the account's AI agent settings, newest
+    first: turning agents on or off, usage caps, the troubleshooting
+    auto-run threshold, and per-domain overrides.
+
+    Arguments:
+
+    * `agents` (`[AgentSettingsAgent!]`): Only return changes to these
+      agents' settings. When omitted or empty, changes for every agent
+      are returned.
+    * `start_time` (`DateTime`): Start of the time range. Defaults to
+      90 days before `endTime`.
+    * `end_time` (`DateTime`): End of the time range. Defaults to the
+      current time.
+    * `before` (`String`)None
+    * `after` (`String`)None
+    * `first` (`Int`)None
+    * `last` (`Int`)None
+    """
+
     get_monitored_rules_audit_logs = sgqlc.types.Field(
         AuditLogEntryConnection,
         graphql_name="getMonitoredRulesAuditLogs",
@@ -108541,6 +109040,37 @@ class Query(sgqlc.types.Type):
     * `filter_domain_ids` (`[String!]`)None
     * `scopes` (`[String!]`)None
     * `domain_id` (`UUID`)None
+    """
+
+    get_domain_agent_memories = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentMemory))),
+        graphql_name="getDomainAgentMemories",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "domain_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="domainUuid", default=None
+                    ),
+                ),
+                (
+                    "mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="mcons",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List the memories of a domain and of its assets
+
+    Arguments:
+
+    * `domain_uuid` (`UUID!`)None
+    * `mcons` (`[String!]`): Limit the asset memories to these MCONs.
+      Domain memories always return.
     """
 
     get_agent_context = sgqlc.types.Field(
@@ -110236,9 +110766,7 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
     """
 
     is_running = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isRunning")
-    """True when the agent is not paused, has no error, and has a code
-    repo if it requires one.
-    """
+    """True when the agent is not paused and has no error."""
 
     last_checked_at = sgqlc.types.Field(DateTime, graphql_name="lastCheckedAt")
     """When the loop last checked it can read the agent's resources; null
@@ -110248,9 +110776,9 @@ class ReinforcementLoopAgent(sgqlc.types.Type):
     requires_code_repo = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="requiresCodeRepo"
     )
-    """True for a custom agent, one with Monte Carlo-hosted traces. The
-    loop diagnoses it only once it has a code repo. Platform agents
-    such as Cortex and Genie take no code repos.
+    """True for a custom agent, one with Monte Carlo-hosted traces. Only
+    custom agents take code repos. The loop diagnoses an agent with or
+    without one.
     """
 
     github_code_repos = sgqlc.types.Field(
@@ -110686,7 +111214,7 @@ class ReinforcementLoopIssueFeedback(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("entries", "up_count", "down_count")
+    __field_names__ = ("entries", "up_count", "down_count", "history")
     entries = sgqlc.types.Field(
         sgqlc.types.non_null(
             sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopIssueFeedbackEntry"))
@@ -110708,16 +111236,29 @@ class ReinforcementLoopIssueFeedback(sgqlc.types.Type):
     entries aren't counted.
     """
 
+    history = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null("ReinforcementLoopIssueFeedbackEntry"))
+        ),
+        graphql_name="history",
+    )
+    """Every feedback row on the issue, newest first, including UNDO rows
+    and ratings a newer one replaced. Same staff visibility as
+    entries. Read only when selected.
+    """
+
 
 class ReinforcementLoopIssueFeedbackEntry(sgqlc.types.Type):
-    """One person's current feedback on an RL V2 issue, or on one of its
+    """One feedback row on an RL V2 issue, or on one of its
     conversations.
     """
 
     __schema__ = schema
     __field_names__ = (
         "feedback_uuid",
+        "issue_report_uuid",
         "user_email",
+        "is_mine",
         "is_staff",
         "rating",
         "reason",
@@ -110732,12 +111273,22 @@ class ReinforcementLoopIssueFeedbackEntry(sgqlc.types.Type):
     )
     feedback_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="feedbackUuid")
 
+    issue_report_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="issueReportUuid"
+    )
+    """The report the person rated. Compare with the node's
+    issueReportUuid to tell whether the issue changed since.
+    """
+
     user_email = sgqlc.types.Field(String, graphql_name="userEmail")
     """Display label for the person who left the feedback. Returns the
     user's email for human users; for agent users, returns a derived
     display label (e.g. ``Agent on <domain>``) — never the agent's
     internal address. Null once that user is deleted.
     """
+
+    is_mine = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isMine")
+    """Left by the caller."""
 
     is_staff = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isStaff")
     """Left by Monte Carlo staff. Only staff see these entries."""
@@ -111054,18 +111605,17 @@ class ReinforcementLoopV2Issue(sgqlc.types.Type):
     """Impact bucket, computed at read time from the worst user impact
     the agent recorded on the issue's conversations in the last 7
     days, and from the issue's and the agent's conversation counts in
-    that window. Falls back to reportedPriority when none of those
-    conversations carries an impact. An issue with no conversations in
-    that window is LOW, or HIDDEN when its worst impact is
-    out_of_reach. HIDDEN when the newest report is hidden, or when the
-    worst impact in the window is out_of_reach below the threshold.
-    Not subject to redaction.
+    that window. A conversation without a user impact had none, the
+    lowest level. An issue with no conversations in that window is
+    LOW, or HIDDEN when its worst impact is out_of_reach or none.
+    HIDDEN when the worst impact in the window is out_of_reach or none
+    below the threshold. Null for an issue with no reports. Not
+    subject to redaction.
     """
 
     reported_priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="reportedPriority")
-    """The highest priority the agent has reported for the issue.
-    priority falls back to it when no conversation in the last 7 days
-    carries a user impact. Never HIDDEN. Not subject to redaction.
+    """The highest priority the agent has reported for the issue. Never
+    HIDDEN. Not subject to redaction.
     """
 
     grouping_metadata = sgqlc.types.Field(GenericScalar, graphql_name="groupingMetadata")
@@ -111160,7 +111710,7 @@ class ReinforcementLoopV2IssueConnection(sgqlc.types.relay.Connection):
     """One page of RL V2 issues."""
 
     __schema__ = schema
-    __field_names__ = ("nodes", "page_info", "empty_reason")
+    __field_names__ = ("nodes", "page_info", "empty_reason", "viewer_is_staff")
     nodes = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ReinforcementLoopV2Issue))),
         graphql_name="nodes",
@@ -111175,6 +111725,11 @@ class ReinforcementLoopV2IssueConnection(sgqlc.types.relay.Connection):
     empty_reason = sgqlc.types.Field(ReinforcementLoopV2EmptyReason, graphql_name="emptyReason")
     """Why nodes is empty. Null when nodes has entries, and on a page
     whose cursor ran past a non-empty result set.
+    """
+
+    viewer_is_staff = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="viewerIsStaff")
+    """Whether the caller counts as Monte Carlo staff: their feedback is
+    hidden from customers and they can't ignore issues.
     """
 
 
@@ -111530,6 +112085,17 @@ class RemoveSnowflakeTasksFromConnection(sgqlc.types.relay.Connection):
     success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
+class ReplaceAgentMemory(sgqlc.types.Type):
+    """Replace the text of a memory. The level, domain, asset and agent
+    type stay.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("memory",)
+    memory = sgqlc.types.Field(sgqlc.types.non_null(AgentMemory), graphql_name="memory")
+    """The new memory. It has a new id."""
+
+
 class Report(sgqlc.types.Type):
     """Available report for an insight"""
 
@@ -111675,7 +112241,7 @@ class ResidualJobMonitor(sgqlc.types.Type):
     )
 
     job_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="jobCount")
-    """Jobs the monitor was created with."""
+    """Jobs in the monitor's scope."""
 
     failed_job_count90d = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="failedJobCount90d"
@@ -118658,8 +119224,8 @@ class ToolDetail(sgqlc.types.Type):
     """Timestamp of the most recent invocation in the lookup window."""
 
     avg_latency_seconds = sgqlc.types.Field(Float, graphql_name="avgLatencySeconds")
-    """Average latency in seconds over invocations in the lookup window
-    (null if no data).
+    """Average latency in seconds over measured invocations in the lookup
+    window (null when no invocation is measured).
     """
 
     invocation_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="invocationCount")
@@ -119086,6 +119652,7 @@ class TraceNode(sgqlc.types.Type):
         "status",
         "is_tool_call",
         "is_llm_call",
+        "duration_basis",
         "has_error",
     )
     node_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="nodeName")
@@ -119147,6 +119714,8 @@ class TraceNode(sgqlc.types.Type):
     is_tool_call = sgqlc.types.Field(Boolean, graphql_name="isToolCall")
 
     is_llm_call = sgqlc.types.Field(Boolean, graphql_name="isLlmCall")
+
+    duration_basis = sgqlc.types.Field(UnmeasuredDurationBasis, graphql_name="durationBasis")
 
     has_error = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasError")
 
@@ -119283,7 +119852,9 @@ class TraceTimeSeriesBucketType(sgqlc.types.Type):
     """Start of the time bucket"""
 
     value = sgqlc.types.Field(Float, graphql_name="value")
-    """Metric value for this bucket (null if no data)"""
+    """Metric value for this bucket (null if no data or no measured
+    invocation for latency)
+    """
 
 
 class TraceTimeSeriesType(sgqlc.types.Type):
@@ -120352,6 +120923,12 @@ class UnifiedUserEdge(sgqlc.types.Type):
     """A cursor for use in pagination"""
 
 
+class UnignoreReinforcementLoopIssue(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("issue_uuid",)
+    issue_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="issueUuid")
+
+
 class UnknownVectorIndexMetadata(sgqlc.types.Type):
     """Default metadata for unknown vector database"""
 
@@ -120661,8 +121238,7 @@ class UpdateConversationClusteringSettings(sgqlc.types.Type):
 
 class UpdateCostAgentSettings(sgqlc.types.Type):
     """Update the Cost & Performance Agent scope settings for the
-    caller's account.  Requires permission to manage AI agent usage,
-    which the Account Owner role grants.
+    caller's account.
     """
 
     __schema__ = schema
@@ -122741,6 +123317,7 @@ class Warehouse(sgqlc.types.Type):
         "supports_custom_sql_rules",
         "supports_high_segment_count",
         "supports_activity_filters",
+        "query_log_availability",
         "supports_metric_segmentation",
         "supports_metric_aggregation",
         "supports_metric_monitor_time_axis_timezone",
@@ -123095,6 +123672,17 @@ class Warehouse(sgqlc.types.Type):
 
     supports_activity_filters = sgqlc.types.Field(Boolean, graphql_name="supportsActivityFilters")
     """Indicates if the warehouse supports activity filters"""
+
+    query_log_availability = sgqlc.types.Field(
+        QueryLogAvailability, graphql_name="queryLogAvailability"
+    )
+    """Whether the warehouse gets query logs, judged from its active
+    warehouse connections only. dbt and other integration connections
+    do not count. COLLECTED when one collects them, NOT_ENABLED when
+    one supports them but none collects them, NOT_SUPPORTED when none
+    can. A data lake needs a connection that feeds it query logs. Null
+    when no warehouse connection is active.
+    """
 
     supports_metric_segmentation = sgqlc.types.Field(
         Boolean, graphql_name="supportsMetricSegmentation"

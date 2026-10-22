@@ -123,6 +123,27 @@ def get_modified_connectors(
     return _extract_connector_names(changed_files)
 
 
+def get_merge_base(path: str | Path, base_ref: str = GIT_DEFAULT_BRANCH) -> str:
+    """Find the merge base of a base git reference and `HEAD`.
+
+    Resolve it once and pass it as `base_ref` to `get_changed_files` and
+    `get_file_at_merge_base` so both compare against the same commit.
+
+    Args:
+        path: A directory inside the git checkout.
+        base_ref: Base git reference, e.g. `origin/master`.
+
+    Returns:
+        The merge base commit's SHA.
+
+    Raises:
+        subprocess.SubprocessError: If `base_ref` is unknown, `path` is not in a
+            git checkout, or git times out.
+        OSError: If git cannot be run or `path` does not exist.
+    """
+    return _git(path, "merge-base", base_ref, "HEAD").strip()
+
+
 def get_changed_files(
     path: str | Path, base_ref: str = GIT_DEFAULT_BRANCH
 ) -> list[str]:
@@ -136,7 +157,8 @@ def get_changed_files(
 
     Args:
         path: A directory inside the git checkout. Only changes under it are listed.
-        base_ref: Base git reference to compare against, e.g. `origin/master`.
+        base_ref: Base git reference to compare against, e.g. `origin/master`,
+            or a merge base from `get_merge_base`.
 
     Returns:
         Sorted paths relative to `path`, exactly as stored (git does not quote
@@ -147,27 +169,67 @@ def get_changed_files(
             git checkout, or git times out.
         OSError: If git cannot be run or `path` does not exist.
     """
-
-    def git(*args: str) -> str:
-        return subprocess.run(
-            ["git", *args],
-            cwd=path,
-            capture_output=True,
-            encoding="utf-8",
-            errors="surrogateescape",
-            check=True,
-            timeout=30,
-        ).stdout
-
-    merge_base = git("merge-base", base_ref, "HEAD").strip()
+    merge_base = get_merge_base(path, base_ref)
     # -z prints paths verbatim, NUL-separated; without it git quotes paths with
     # non-ASCII characters. --no-renames lists both sides of a move, so moving a
     # file in or out of a directory shows up as a change on both sides.
-    changed = git(
-        "diff", "--name-only", "-z", "--no-renames", "--relative", merge_base, "--"
+    changed = _git(
+        path,
+        "diff",
+        "--name-only",
+        "-z",
+        "--no-renames",
+        "--relative",
+        merge_base,
+        "--",
     ).split("\0")
-    untracked = git("ls-files", "-z", "--others", "--exclude-standard").split("\0")
+    untracked = _git(path, "ls-files", "-z", "--others", "--exclude-standard").split(
+        "\0"
+    )
     return sorted({file_path for file_path in changed + untracked if file_path})
+
+
+def get_file_at_merge_base(
+    path: str | Path, file_name: str, base_ref: str = GIT_DEFAULT_BRANCH
+) -> str | None:
+    """Read a file as it was at the merge base of a base git reference and `HEAD`.
+
+    This is the base side of the diff that `get_changed_files` lists, so the two
+    can be used together to tell what changed inside a file.
+
+    Args:
+        path: A directory inside the git checkout.
+        file_name: The file's path relative to `path`.
+        base_ref: Base git reference to compare against, e.g. `origin/master`,
+            or a merge base from `get_merge_base`.
+
+    Returns:
+        The file's content, or None if it did not exist at the merge base.
+
+    Raises:
+        subprocess.SubprocessError: If `base_ref` is unknown, `path` is not in a
+            git checkout, or git times out.
+        OSError: If git cannot be run or `path` does not exist.
+    """
+    merge_base = get_merge_base(path, base_ref)
+    try:
+        # `<rev>:./<file>` resolves the file relative to `path`, not the repo root.
+        return _git(path, "show", f"{merge_base}:./{file_name}")
+    except subprocess.CalledProcessError:
+        return None
+
+
+def _git(cwd: str | Path, *args: str) -> str:
+    """Run a git command in `cwd` and return its output, raising on failure."""
+    return subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        encoding="utf-8",
+        errors="surrogateescape",
+        check=True,
+        timeout=30,
+    ).stdout
 
 
 def format_github_actions_connector_matrix(

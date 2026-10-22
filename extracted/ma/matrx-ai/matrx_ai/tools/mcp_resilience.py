@@ -52,6 +52,10 @@ _PROVIDER_STUMBLED = re.compile(r"^\W*(HTTP\s*)?50[0234]\b|\b(internal server er
 #: as opposed to refusing the request itself (-32600 invalid request, -32601 no such method, -32602 invalid params).
 _RPC_PROVIDER_FAILED = re.compile(r"MCP error (-32603|-320\d\d)\b")
 _RPC_REFUSED = re.compile(r"MCP error -3260[012]\b")
+#: A plan or usage cap the provider says will answer the same if asked again (Notion: ``usage_limit_reached``, "do not
+#: retry automatically"): never a stumble, even when its wording also says "try again later" (live 2026-10-21: three
+#: retries of one capped Notion query).
+_PLAN_CAP = re.compile(r"\busage_limit_reached\b|\bdo not retry\b|\bdon'?t retry\b", re.I)
 #: The words ``failure_words`` puts on a call this layer already asked again: an outer loop must not repeat it.
 _ASKED_AGAIN = re.compile(r"\basked \d+ times\b")
 #: A URL's query may carry a key or a signature: never in a failure's words.
@@ -142,6 +146,8 @@ def classify(exc: BaseException) -> str | None:
     if isinstance(exc, TimeoutError | ConnectionError):
         return NO_ANSWER
     text = str(exc)
+    if _PLAN_CAP.search(text):
+        return None  # a plan cap answers the same if asked again
     if _RPC_REFUSED.search(text):
         return None  # the request itself was wrong: asking again answers the same
     if _SLOW_DOWN.search(text):
@@ -154,6 +160,8 @@ def classify(exc: BaseException) -> str | None:
 def classify_reply(text: str) -> str | None:
     """An error REPLY (the provider answered ``isError``): a stumble only when it says slow down or that the
     provider itself failed; a refusal of the request is the provider's real answer."""
+    if _PLAN_CAP.search(text or ""):
+        return None
     if _SLOW_DOWN.search(text or ""):
         return NOT_REACHED
     if _PROVIDER_STUMBLED.search(text or ""):

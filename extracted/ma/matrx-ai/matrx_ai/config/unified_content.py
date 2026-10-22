@@ -125,6 +125,7 @@ class TextContent:
         from matrx_ai.config.prompt_values import prompt_safe_value
         from matrx_ai.config.template_substitution import (
             FILLED_ATTR,
+            declared_values_given,
             restart_point,
             substitute_authored,
         )
@@ -143,6 +144,9 @@ class TextContent:
             template, template, variables, prompt_safe_value, unescape=True, blocks=blocks
         )
         setattr(self, FILLED_ATTR, replaced_text)
+        # Whether any DECLARED variable carried a value (the variable rule: compare the declared
+        # values, never hunt the text) — read by ``UnifiedConfig._opening_turn_is_run_context``.
+        self._declared_values_given = declared_values_given(template, variables, prompt_safe_value)
         self.text = replaced_text + tail
         role = (self.metadata or {}).get("role")
         # Dropped only when the pass itself emptied it — never by searching the text for braces.

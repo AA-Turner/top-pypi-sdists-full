@@ -3,23 +3,41 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Sequence
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, ParamSpec, Protocol, TypeVar
 
 from bitfab import subtree
+from bitfab.client import _active_span_context
 from bitfab.constants import _replay_context
 from bitfab.mock_matching import MATCHER
 from bitfab.mock_override import SpanNodeMeta
+from bitfab.warn_once import warn_once
 
 if TYPE_CHECKING:
     from langchain_core.messages import ToolMessage
     from langgraph.prebuilt.tool_node import ToolCallRequest
     from langgraph.types import Command
 
+    from bitfab.agent_middleware import BitfabAgentMiddleware
+
 P = ParamSpec("P")
 T = TypeVar("T")
+GraphT = TypeVar("GraphT")
 
 _TOOL_RESULT_TAG = "__bitfabLangGraphToolResult"
+_STATE_WRITES_KEY = "stateWrites"
+_PREGEL_KEY_PREFIX = "__pregel_"
+_PREGEL_SEND_KEY = f"{_PREGEL_KEY_PREFIX}send"
+_DEEPAGENTS_INSTALL = "pip install 'bitfab-py[deepagents]' (Python 3.11+)"
+_LANGCHAIN_INSTALL = "pip install 'langchain>=1.0'"
+
+
+def _missing_package(package: str, install: str) -> ImportError:
+    return ImportError(
+        f"{package} is required for this LangGraph integration method. "
+        f"Install it with: {install}"
+    )
 
 
 class _LangGraphRunnable(Protocol):
@@ -38,6 +56,20 @@ class _LangGraphRunnable(Protocol):
         config: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Any: ...
+
+    def stream(
+        self,
+        input: Any,
+        config: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Iterator[Any]: ...
+
+    def astream(
+        self,
+        input: Any,
+        config: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[Any]: ...
 
 
 def _is_tool_message(value: Any) -> bool:
@@ -59,6 +91,83 @@ def _encode_nested(value: Any) -> Any:
     if isinstance(value, dict):
         return {key: _encode_nested(entry) for key, entry in value.items()}
     return value
+
+
+def _encode_tool_result_with_state_writes(
+    value: Any, state_writes: list[tuple[str, Any]]
+) -> dict[str, Any]:
+    encoded = _encode_tool_result(value)
+    if state_writes and encoded[_TOOL_RESULT_TAG] != "unsupported":
+        encoded[_STATE_WRITES_KEY] = [
+            [channel, _encode_nested(update)] for channel, update in state_writes
+        ]
+    return encoded
+
+
+def _tool_call_configurable(request: ToolCallRequest) -> dict[str, Any] | None:
+    config = getattr(getattr(request, "runtime", None), "config", None)
+    if not isinstance(config, dict):
+        return None
+    configurable = config.get("configurable")
+    return configurable if isinstance(configurable, dict) else None
+
+
+def _pregel_send(request: ToolCallRequest) -> Callable[[Any], None] | None:
+    configurable = _tool_call_configurable(request)
+    if configurable is None:
+        return None
+    send = configurable.get(_PREGEL_SEND_KEY)
+    runs_inside_graph = any(
+        isinstance(key, str) and key.startswith(_PREGEL_KEY_PREFIX)
+        for key in configurable
+    )
+    if send is None and runs_inside_graph:
+        warn_once(
+            "langgraph-state-writes-unavailable",
+            "this LangGraph version does not expose its state-write function to "
+            "tool calls, so graph state a tool writes while it runs (such as a "
+            "Deep Agents file) is not recorded and is not restored on replay.",
+        )
+    return send
+
+
+@contextmanager
+def _recording_state_writes(
+    request: ToolCallRequest,
+) -> Iterator[list[tuple[str, Any]]]:
+    state_writes: list[tuple[str, Any]] = []
+    send = _pregel_send(request)
+    if send is None:
+        yield state_writes
+        return
+
+    def record_and_send(writes: Any) -> None:
+        entries = list(writes)
+        state_writes.extend(entries)
+        send(entries)
+
+    config = request.runtime.config
+    configurable = config["configurable"]
+    config["configurable"] = {**configurable, _PREGEL_SEND_KEY: record_and_send}
+    try:
+        yield state_writes
+    finally:
+        config["configurable"] = configurable
+
+
+def _resend_recorded_state_writes(request: ToolCallRequest, result: Any) -> None:
+    if not _is_encoded_tool_result(result):
+        return
+    recorded_writes = result.get(_STATE_WRITES_KEY)
+    if not recorded_writes:
+        return
+    send = _pregel_send(request)
+    if send is None:
+        raise RuntimeError(
+            "The recorded LangGraph tool result updated graph state, but this "
+            "replay has no LangGraph state to update."
+        )
+    send([(channel, update) for channel, update in recorded_writes])
 
 
 def _encode_tool_result(value: Any) -> dict[str, Any]:
@@ -225,55 +334,169 @@ class BitfabLangGraphIntegration:
         self._trace_function_key = trace_function_key
         self._mock_tools_on_replay = mock_tools_on_replay
         self.callback_handler = callback_handler
+        self._middleware: BitfabAgentMiddleware | None = None
+        self._instrumented_classes: dict[type, type] = {}
+
+    @property
+    def middleware(self) -> BitfabAgentMiddleware:
+        """LangChain agent middleware that makes each tool call replayable.
+
+        Pass it to ``create_agent(middleware=[...])`` or
+        ``create_deep_agent(middleware=[...])`` and run the agent through
+        ``instrument()``. Each tool call the agent makes is recorded as a
+        replayable span under the agent's ``tools`` step, the same as a
+        ``ToolNode`` built with ``wrap_tool_call`` / ``awrap_tool_call``.
+
+        Raises:
+            ImportError: If ``langchain`` 1.0+ is not installed
+        """
+        if self._middleware is None:
+            try:
+                from bitfab.agent_middleware import BitfabAgentMiddleware
+            except ImportError as err:
+                raise _missing_package("langchain", _LANGCHAIN_INSTALL) from err
+
+            self._middleware = BitfabAgentMiddleware(self)
+        return self._middleware
 
     def _should_mock(self, tool_name: str) -> bool:
         if isinstance(self._mock_tools_on_replay, bool):
             return self._mock_tools_on_replay
         return tool_name in self._mock_tools_on_replay
 
-    def create_invoker(self, graph: _LangGraphRunnable) -> Callable[..., Any]:
-        """Create a sync graph entry point with callbacks and replay root.
+    def instrument(self, graph: GraphT) -> GraphT:
+        """Trace a compiled graph or agent as this trace function.
+
+        Returns a copy of ``graph`` of the same type, so it can be used
+        anywhere the graph can: called directly, nested as a node in another
+        graph, or served by LangGraph Platform. Every way of running it
+        (``invoke``, ``ainvoke``, ``stream``, ``astream``, ``batch``,
+        ``stream_events``, ``astream_events``) attaches the Bitfab callback
+        handler and records the run as a replayable root span carrying the
+        graph input, with the final graph state as its output. Copies made
+        with ``with_config`` or ``copy`` stay traced.
+
+        When the graph has a checkpointer and the run has a ``thread_id``, the
+        thread's checkpoint at the start of the run is recorded too, and
+        replay runs against that checkpoint in memory instead of the
+        graph's own checkpointer. Inside a ``trace()`` root, under any trace
+        function key, the checkpoint is recorded on that trace's root, and any
+        run of the graph during a replay uses an in-memory checkpointer.
+
+        Replay a recorded run through any of its run methods, for example
+        ``client.replay(key, agent.invoke)`` or ``client.replay(key,
+        agent.astream)``; a streamed replay is drained and its result is the
+        final graph state.
 
         Experimental: this API may change before it is stable.
         """
-        configured_graph = graph.with_config({"callbacks": [self.callback_handler]})
+        from bitfab.langgraph_runs import instrument_graph
 
-        def invoke(
-            input: Any,
-            config: dict[str, Any] | None = None,
-            **kwargs: Any,
-        ) -> Any:
-            def invoke_graph(root_input: Any) -> Any:
-                return configured_graph.invoke(root_input, config=config, **kwargs)
+        return instrument_graph(self, graph)
 
-            return self.wrap_invoke(invoke_graph)(input)
-
-        return invoke
+    def create_invoker(self, graph: _LangGraphRunnable) -> Callable[..., Any]:
+        """Deprecated alias for ``instrument(graph).invoke``. Warns once."""
+        warn_once(
+            "deprecated-create-invoker",
+            "create_invoker(graph) is deprecated; use instrument(graph).invoke instead.",
+        )
+        return self.instrument(graph).invoke
 
     def create_async_invoker(
         self, graph: _LangGraphRunnable
     ) -> Callable[..., Awaitable[Any]]:
-        """Create an async graph entry point with callbacks and replay root.
+        """Deprecated alias for ``instrument(graph).ainvoke``. Warns once."""
+        warn_once(
+            "deprecated-create-async-invoker",
+            "create_async_invoker(graph) is deprecated; use instrument(graph).ainvoke instead.",
+        )
+        return self.instrument(graph).ainvoke
 
-        Experimental: this API may change before it is stable.
+    def create_deep_agent(
+        self,
+        *args: Any,
+        middleware: Sequence[Any] = (),
+        subagents: Sequence[Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Build a LangChain Deep Agents agent traced as this trace function.
+
+        A drop-in for ``deepagents.create_deep_agent``: every argument is passed
+        through unchanged, except that ``middleware`` and each declarative
+        subagent's ``middleware`` gain this integration's ``middleware``, so the
+        main agent's and its subagents' tool calls are replayable spans.
+        Subagents given as a compiled ``runnable`` or a remote ``graph_id`` are
+        passed through as they are. Returns the agent wrapped by
+        ``instrument()``.
+
+        Raises:
+            ImportError: If ``deepagents`` is not installed
         """
-        configured_graph = graph.with_config({"callbacks": [self.callback_handler]})
+        try:
+            from deepagents import create_deep_agent
+        except ImportError as err:
+            raise _missing_package("deepagents", _DEEPAGENTS_INSTALL) from err
 
-        async def invoke(
-            input: Any,
-            config: dict[str, Any] | None = None,
-            **kwargs: Any,
-        ) -> Any:
-            async def invoke_graph(root_input: Any) -> Any:
-                return await configured_graph.ainvoke(
-                    root_input,
-                    config=config,
-                    **kwargs,
-                )
+        return self.instrument(
+            create_deep_agent(
+                *args,
+                middleware=self._with_middleware(middleware),
+                subagents=self._with_subagent_middleware(subagents),
+                **kwargs,
+            )
+        )
 
-            return await self.wrap_invoke(invoke_graph)(input)
+    def create_agent(
+        self, *args: Any, middleware: Sequence[Any] = (), **kwargs: Any
+    ) -> Any:
+        """Build a LangChain ``create_agent`` agent traced as this trace function.
 
-        return invoke
+        A drop-in for ``langchain.agents.create_agent``: every argument is
+        passed through unchanged, except that ``middleware`` gains this
+        integration's ``middleware``. Returns the agent wrapped by
+        ``instrument()``.
+
+        Raises:
+            ImportError: If ``langchain`` 1.0+ is not installed
+        """
+        try:
+            from langchain.agents import create_agent
+        except ImportError as err:
+            raise _missing_package("langchain", _LANGCHAIN_INSTALL) from err
+
+        return self.instrument(
+            create_agent(*args, middleware=self._with_middleware(middleware), **kwargs)
+        )
+
+    def _with_middleware(self, middleware: Sequence[Any]) -> list[Any]:
+        listed = list(middleware)
+        return listed if self.middleware in listed else [*listed, self.middleware]
+
+    def _with_subagent_middleware(
+        self, subagents: Sequence[Any] | None
+    ) -> list[Any] | None:
+        if subagents is None:
+            return None
+        return [
+            spec
+            if "runnable" in spec or "graph_id" in spec
+            else {
+                **spec,
+                "middleware": self._with_middleware(spec.get("middleware", ())),
+            }
+            for spec in subagents
+        ]
+
+    def _root_span(
+        self, finalize: Callable[[Any], Any] | None = None
+    ) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        return self._client._integration_span(
+            self._trace_function_key,
+            name=self._trace_function_key,
+            type="agent",
+            finalize=finalize,
+            instrumentation="langgraph",
+        )
 
     def _recording_trace_function_key(self) -> str:
         session = subtree.current_session()
@@ -323,6 +546,68 @@ class BitfabLangGraphIntegration:
                 f"{call_index + 1}; refusing to execute the live tool during replay."
             )
 
+    def _tool_step_span_id(self, request: ToolCallRequest) -> str | None:
+        stack_context = _active_span_context()
+        if subtree.current_session() is not None or stack_context is None:
+            return None
+        config = getattr(getattr(request, "runtime", None), "config", None) or {}
+        run_id = getattr(config.get("callbacks"), "parent_run_id", None)
+        if run_id is None:
+            return None
+        return self.callback_handler._visible_span_id_in_trace(
+            str(run_id), stack_context["trace_id"]
+        )
+
+    @contextmanager
+    def _claimed_tool_call(
+        self, request: ToolCallRequest, trace_id: str, tool_call_id: str
+    ) -> Iterator[list[tuple[str, Any]]]:
+        claimed = self.callback_handler._claimed_tool_calls
+        claim = (trace_id, tool_call_id)
+        claimed.add(claim)
+        try:
+            with _recording_state_writes(request) as state_writes:
+                yield state_writes
+        finally:
+            claimed.discard(claim)
+
+    def _recording_trace_id(self, tool_name: str) -> str | None:
+        active_context = _active_span_context()
+        if active_context is None:
+            warn_once(
+                f"langgraph-tool-call-outside-root:{self._trace_function_key}",
+                f'tool call "{tool_name}" ran outside a Bitfab trace for '
+                f'"{self._trace_function_key}", so it was not recorded as a '
+                "replayable span. Run the agent through instrument(agent) and "
+                "call invoke, ainvoke, stream, or astream on what it returns.",
+            )
+            return None
+        return active_context["trace_id"]
+
+    def _tool_span(
+        self,
+        request: ToolCallRequest,
+        should_mock: bool,
+        state_writes: list[tuple[str, Any]],
+    ) -> Callable[[Callable[P, T]], Callable[P, T]]:
+        return self._client._integration_span(
+            self._trace_function_key,
+            name=request.tool_call["name"],
+            type="function",
+            capture_when="nested",
+            mock_on_replay=should_mock,
+            finalize=lambda value: _encode_tool_result_with_state_writes(
+                value, state_writes
+            ),
+            instrumentation="langgraph",
+            framework_parent_span_id=self._tool_step_span_id(request),
+        )
+
+    def _finish_tool_call(self, request: ToolCallRequest, result: Any) -> Any:
+        _resend_recorded_state_writes(request, result)
+        tool_call = request.tool_call
+        return _revive_tool_override(result, tool_call["id"], tool_call["name"])
+
     def wrap_tool_call(
         self,
         request: ToolCallRequest,
@@ -330,27 +615,23 @@ class BitfabLangGraphIntegration:
     ) -> ToolMessage | Command:
         """Intercept one synchronous call through ``ToolNode.wrap_tool_call``."""
         tool_call = request.tool_call
-        tool_name = tool_call["name"]
         tool_call_id = tool_call.get("id")
-        should_mock = self._should_mock(tool_name)
-        self._assert_replay_tool_call_is_safe(tool_name, tool_call_id, should_mock)
-        if not tool_call_id:
-            return handler(request)
-
-        @self._client._integration_span(
-            self._trace_function_key,
-            name=tool_name,
-            type="function",
-            capture_when="nested",
-            mock_on_replay=should_mock,
-            finalize=_encode_tool_result,
-            instrumentation="langgraph",
+        should_mock = self._should_mock(tool_call["name"])
+        self._assert_replay_tool_call_is_safe(
+            tool_call["name"], tool_call_id, should_mock
         )
-        def execute(_args: dict[str, Any]) -> Any:
+        trace_id = self._recording_trace_id(tool_call["name"])
+        if not tool_call_id or trace_id is None:
             return handler(request)
 
-        result = execute(tool_call.get("args", {}))
-        return _revive_tool_override(result, tool_call_id, tool_name)
+        with self._claimed_tool_call(request, trace_id, tool_call_id) as state_writes:
+
+            @self._tool_span(request, should_mock, state_writes)
+            def execute(_args: dict[str, Any]) -> Any:
+                return handler(request)
+
+            result = execute(tool_call.get("args", {}))
+        return self._finish_tool_call(request, result)
 
     async def awrap_tool_call(
         self,
@@ -359,33 +640,24 @@ class BitfabLangGraphIntegration:
     ) -> ToolMessage | Command:
         """Intercept one asynchronous call through ``ToolNode.awrap_tool_call``."""
         tool_call = request.tool_call
-        tool_name = tool_call["name"]
         tool_call_id = tool_call.get("id")
-        should_mock = self._should_mock(tool_name)
-        self._assert_replay_tool_call_is_safe(tool_name, tool_call_id, should_mock)
-        if not tool_call_id:
-            return await handler(request)
-
-        @self._client._integration_span(
-            self._trace_function_key,
-            name=tool_name,
-            type="function",
-            capture_when="nested",
-            mock_on_replay=should_mock,
-            finalize=_encode_tool_result,
-            instrumentation="langgraph",
+        should_mock = self._should_mock(tool_call["name"])
+        self._assert_replay_tool_call_is_safe(
+            tool_call["name"], tool_call_id, should_mock
         )
-        async def execute(_args: dict[str, Any]) -> Any:
+        trace_id = self._recording_trace_id(tool_call["name"])
+        if not tool_call_id or trace_id is None:
             return await handler(request)
 
-        result = await execute(tool_call.get("args", {}))
-        return _revive_tool_override(result, tool_call_id, tool_name)
+        with self._claimed_tool_call(request, trace_id, tool_call_id) as state_writes:
+
+            @self._tool_span(request, should_mock, state_writes)
+            async def execute(_args: dict[str, Any]) -> Any:
+                return await handler(request)
+
+            result = await execute(tool_call.get("args", {}))
+        return self._finish_tool_call(request, result)
 
     def wrap_invoke(self, fn: Callable[P, T]) -> Callable[P, T]:
         """Wrap the application function that invokes the compiled graph."""
-        return self._client._integration_span(
-            self._trace_function_key,
-            name=self._trace_function_key,
-            type="agent",
-            instrumentation="langgraph",
-        )(fn)
+        return self._root_span()(fn)

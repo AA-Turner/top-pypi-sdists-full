@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 import biolib.api
 from biolib import utils
-from biolib._internal.http_client import HttpError
+from biolib._shared.http_client import HttpError
 from biolib._shared.types import MountPoint
 from biolib._shared.types.typing import Dict, List, Literal, Optional, TypedDict
 from biolib.api.client import ApiClient

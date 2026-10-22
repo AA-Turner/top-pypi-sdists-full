@@ -11,7 +11,7 @@ import logging
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 
 import sqlalchemy
 from airbyte.exceptions import PyAirbyteInputError
@@ -48,6 +48,8 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_DESTINATION_VERSION_ACTOR_HEALTH,
     SELECT_FAILED_SYNC_ATTEMPTS_FOR_CONNECTOR,
     SELECT_FAILED_SYNC_ATTEMPTS_FOR_DESTINATION_CONNECTOR,
+    SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_DESTINATION_ROLLOUT,
+    SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_SOURCE_ROLLOUT,
     SELECT_NEW_CONNECTOR_RELEASES,
     SELECT_ORG_ADMIN_CONTACTS,
     SELECT_ORG_CONNECTOR_PINS,
@@ -544,6 +546,40 @@ def query_connector_versions(
         SELECT_CONNECTOR_VERSIONS,
         parameters={"actor_definition_id": connector_definition_id},
         query_name="SELECT_CONNECTOR_VERSIONS",
+        gsm_client=gsm_client,
+    )
+
+
+def query_latest_rc_counterpart_failures(
+    *,
+    actor_type: Literal["source", "destination"],
+    actor_ids: list[str],
+    rc_version_id: str,
+    created_at_start: datetime,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Query failed latest-RC syncs with counterpart-origin failures."""
+    if not actor_ids:
+        return []
+
+    if actor_type == "destination":
+        statement = SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_DESTINATION_ROLLOUT
+        excluded_origin = "source"
+        query_name = "SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_DESTINATION_ROLLOUT"
+    else:
+        statement = SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_SOURCE_ROLLOUT
+        excluded_origin = "destination"
+        query_name = "SELECT_LATEST_RC_COUNTERPART_FAILURES_FOR_SOURCE_ROLLOUT"
+
+    return _run_sql_query(
+        statement,
+        parameters={
+            "actor_ids": actor_ids,
+            "rc_version_id": rc_version_id,
+            "created_at_start": created_at_start,
+            "excluded_origin": excluded_origin,
+        },
+        query_name=query_name,
         gsm_client=gsm_client,
     )
 

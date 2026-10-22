@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling", "editables", "Cython", "setuptools", "mypy-protobuf~=5.0"]
+requires = ["hatchling", "editables", "Cython>=3.1", "setuptools", "mypy-protobuf~=5.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
 ]
 requires-python = ">=3.11"
 dependencies = [
@@ -102,6 +103,7 @@ exclude = [
     "src/snowflake/connector/_internal/nanoarrow_cpp/scripts",
     # Exclude Rust build artifacts
     "sf_core/target/",
+    "sf_core/third_party/rustls-webpki/target/",
     "python_bridge/target/",
     "sf_params_spec/target/",
     "sf_types/target/",
@@ -110,6 +112,9 @@ exclude = [
     "sf_core/tests/e2e/",
     "sf_core/tests/integration/",
     "sf_core/tests/*.rs",
+    # Vendored rustls-webpki unit-test fixtures. The library build does not read them.
+    "sf_core/third_party/rustls-webpki/tests/",
+    "sf_core/third_party/rustls-webpki/third-party/",
 ]
 
 # Individual files need force-include (file symlinks are not dereferenced)
@@ -290,7 +295,7 @@ fix = [
 skip-install = false
 dev-mode = true
 dependencies = [
-    "Cython",
+    "Cython>=3.1",
     "setuptools",
 ]
 
@@ -301,7 +306,7 @@ PARAMETER_PATH = "{env:PARAMETER_PATH:../parameters.json}"
 SKIP_CORE_BUILD = "{env:SKIP_CORE_BUILD:1}"
 
 [[tool.hatch.envs.dev.matrix]]
-python = ["3.11", "3.12", "3.13", "3.14"]
+python = ["3.11", "3.12", "3.13", "3.14", "3.14t"]
 
 [tool.hatch.envs.dev.scripts]
 # Per-test retries come from addopts --reruns 2 (not a second whole-suite run).
@@ -324,7 +329,7 @@ skip-install = true
 dev-mode = false
 
 [[tool.hatch.envs.test.matrix]]
-python = ["3.11", "3.12", "3.13", "3.14"]
+python = ["3.11", "3.12", "3.13", "3.14", "3.14t"]
 
 [tool.hatch.envs.test.scripts]
 # Install from wheel
@@ -346,7 +351,7 @@ no_mfa = "pytest tests/e2e/authentication/test_user_password.py -m requires_no_m
 template = "test"
 
 [[tool.hatch.envs.test-native-arrow.matrix]]
-python = ["3.13"]
+python = ["3.13", "3.14t"]
 
 [tool.hatch.envs.test-native-arrow.env-vars]
 SNOWFLAKE_TEST_USE_CORE_ARROW = "1"
@@ -357,7 +362,7 @@ template = "test"
 features = ["test", "dev", "pandas"]
 
 [[tool.hatch.envs.test-pandas.matrix]]
-python = ["3.11", "3.12", "3.13", "3.14"]
+python = ["3.11", "3.12", "3.13", "3.14", "3.14t"]
 
 [tool.hatch.envs.test-pandas.scripts]
 cov = "pytest tests/e2e/pandas tests/e2e/numpy --cov=src/snowflake --cov-report=xml --cov-report=html {args}"

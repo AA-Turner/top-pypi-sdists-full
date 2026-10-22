@@ -24,6 +24,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 # Repo root: .../aidream, holding both packages/ and aidream/.
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCAN_ROOTS = ("packages", "aidream")
@@ -117,6 +119,31 @@ SEAMS: tuple[Seam, ...] = (
         ),
     ),
     Seam(
+        name="typed-text-last reorder",
+        # The reorder itself AND its one boundary entry: a translator (or anything else) calling
+        # ``order_for_wire`` reorders at render time, outside the boundary, exactly as calling
+        # ``place_before_typed_text`` would. The location is enforced, not a name.
+        pattern=r"\b(?:place_before_typed_text|order_for_wire)\s*\(",
+        allowed=("packages/matrx-ai/matrx_ai/config/typed_text_last.py", CONTROLLER),
+        remedy=(
+            "The newest person turn is ordered to END with their typed text ONCE, inside "
+            "prepare_for_send (send_boundary.order_for_wire → SendPrep.wire_messages). A "
+            "translator renders the list it is handed; it never reorders."
+        ),
+    ),
+    Seam(
+        name="send boundary reached from a provider",
+        # A provider module importing the boundary is the render-time hole this seam closes:
+        # the boundary runs BEFORE the provider call and hands over its result.
+        pattern=r"\bmatrx_ai\.config\.send_boundary\b|\bfrom\s+\.+config\.send_boundary\b",
+        allowed=(),
+        scope=("packages/matrx-ai/matrx_ai/providers/",),
+        remedy=(
+            "Providers render what prepare_for_send handed them (SendPrep.wire_config / "
+            "wire_messages). Move the step into prepare_for_send."
+        ),
+    ),
+    Seam(
         name="wire message-list replacement",
         pattern=r"\.config\.messages\s*=(?!=)|\bconfig\.messages\s*=(?!=)",
         allowed=(CONTROLLER,),
@@ -200,14 +227,54 @@ def test_guard_detects_a_planted_violation(tmp_path: Path) -> None:
         "def send(cfg):\n"
         "    trim_messages_context(cfg.messages)\n"
         "    cfg.config.messages = []\n"
-        "    response_format_transition_after_first_structured_answer(cfg)\n",
+        "    response_format_transition_after_first_structured_answer(cfg)\n"
+        "    place_before_typed_text(cfg.messages, None)\n",
         encoding="utf-8",
     )
     violations = scan([bad], root=tmp_path)
-    assert len(violations) == 3, violations
+    assert len(violations) == 4, violations
     assert any("context trim" in v for v in violations)
     assert any("wire message-list replacement" in v for v in violations)
     assert any("structured follow-up response-format policy" in v for v in violations)
+    assert any("typed-text-last reorder" in v for v in violations)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        # The pre-review shape (12e9ed9991): the translator reorders at render time through
+        # the boundary's own entry point.
+        "from matrx_ai.config.send_boundary import order_for_wire\n"
+        "class T:\n"
+        "    def messages_for_wire(self, config):\n"
+        "        out, placed = order_for_wire(list(config.messages), None)\n"
+        "        return out\n",
+        # The original shape: the translator calls the placement directly.
+        "from matrx_ai.config import typed_text_last\n"
+        "class T:\n"
+        "    def messages_for_wire(self, config):\n"
+        "        return typed_text_last.place_before_typed_text(list(config.messages), None)[0]\n",
+    ],
+)
+def test_a_planted_reorder_in_a_translator_fails_the_guard(tmp_path: Path, body: str) -> None:
+    """The reorder's LOCATION is enforced: a translator that orders the person's turn at render
+    time — under any of the reorder's names — is a violation."""
+    bad = tmp_path / "packages" / "matrx-ai" / "matrx_ai" / "providers" / "acme" / "translator.py"
+    bad.parent.mkdir(parents=True)
+    bad.write_text(body, encoding="utf-8")
+    violations = scan([bad], root=tmp_path)
+    assert any("typed-text-last reorder" in v for v in violations), violations
+
+
+def test_no_translator_reorders_the_person_turn() -> None:
+    """Every real translator renders the boundary's list: none touches the reorder seam."""
+    providers = REPO_ROOT / "packages" / "matrx-ai" / "matrx_ai" / "providers"
+    violations = [
+        v
+        for v in scan(sorted(providers.rglob("*.py")))
+        if "typed-text-last reorder" in v or "send boundary reached from a provider" in v
+    ]
+    assert not violations, "\n".join(violations)
 
 
 def test_controller_is_the_only_trim_caller_and_is_itself_scanned() -> None:

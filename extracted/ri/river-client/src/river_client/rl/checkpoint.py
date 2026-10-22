@@ -93,9 +93,14 @@ class Checkpointing:
 
     Attributes:
         run_dir: Local or shared filesystem directory for this run's state.
-        weights_every: Optimizer updates between full weight checkpoints.
+        weights_every: Optimizer updates between LoRA recovery checkpoints.
+            Rolling saves stay on shared NFS until their TTL expires; completed
+            runs save a final checkpoint to cloud storage. Recovery also
+            requires run_dir. Save milestones separately to retain them.
             Full-weight models ignore it: they make no training saves and
             resume from the server's newest auto checkpoint instead.
+        recovery_ttl_seconds: Lifetime of each NFS recovery save, default seven days.
+            Must fit the server retention cap. Resume before the base expires.
         rollout_every: Seconds between rollout-state snapshots.
         on_signal: Signals that request a final checkpoint before shutdown.
     """
@@ -104,9 +109,11 @@ class Checkpointing:
     weights_every: int = 20
     rollout_every: float = 60.0
     on_signal: tuple[str, ...] = ()
+    recovery_ttl_seconds: int = 7 * 24 * 60 * 60
 
     def __post_init__(self):
         _integer(self.weights_every, "weights_every", 1)
+        _integer(self.recovery_ttl_seconds, "recovery_ttl_seconds", 1)
         if "://" in str(self.run_dir):
             raise ValueError(
                 "run_dir must be a durable local/shared filesystem directory; River currently stores weights, not arbitrary trainer metadata"
@@ -150,8 +157,8 @@ class StateStore:
             return None
         state = json.loads(self.path.read_text())
         storage = state.pop("__river_arrays__", None)
-        if not isinstance(storage, dict) or storage.get("version") != 1:
-            raise ValueError("checkpoint requires binary array storage version 1")
+        if not isinstance(storage, dict) or storage.get("version") != 2:
+            raise ValueError("checkpoint requires binary array storage version 2")
         name = storage["file"]
         if not re.fullmatch(r"trainer-arrays-[0-9a-f]{32}\.bin", name):
             raise ValueError("invalid checkpoint array filename")
@@ -169,18 +176,23 @@ class StateStore:
         # Numeric leaves leave the object tree before the generic handle codecs
         # and image traversal, avoiding repeated Python walks over every token.
         binary = self.directory / f"trainer-arrays-{uuid.uuid4().hex}.bin"
-        with binary.open("x+b") as stream:
-            state = _pack_arrays(state, stream)
-            size = stream.tell()
-            stream.flush()
-            stream.seek(0)
-            digest = hashlib.file_digest(stream, "sha256").hexdigest()
-            os.fsync(stream.fileno())
+        stream = binary.open("x+b")
+        try:
+            with stream:
+                state = _pack_arrays(state, stream)
+                size = stream.tell()
+                stream.flush()
+                stream.seek(0)
+                digest = hashlib.file_digest(stream, "sha256").hexdigest()
+                os.fsync(stream.fileno())
+        except BaseException:
+            binary.unlink(missing_ok=True)
+            raise
         self._sync_directory()
         state = decode_state(state)
         retained = self.images.copy_images(state, images)
         state["__river_arrays__"] = {
-            "version": 1,
+            "version": 2,
             "file": binary.name,
             "bytes": size,
             "sha256": digest,
@@ -214,8 +226,26 @@ class StateStore:
 
 
 def _pack_arrays(value, stream):
+    if isinstance(value, np.ndarray):
+        # Preserve array dtype and representation through recovery.
+        if value.ndim not in (1, 2) or value.dtype.str not in {
+            "<i8",
+            "<i4",
+            "|u1",
+            "<f8",
+            "<f4",
+            "|b1",
+        }:
+            raise ValueError("unsupported checkpoint array shape or dtype")
+        array = np.ascontiguousarray(value)
+        offset = stream.tell()
+        if array.size:
+            stream.write(memoryview(array).cast("B"))
+        return {
+            "__river_ndarray_storage__": [offset, list(array.shape), array.dtype.str]
+        }
     if isinstance(value, dict):
-        if "__river_array__" in value:
+        if "__river_array__" in value or "__river_ndarray_storage__" in value:
             raise ValueError("checkpoint state contains reserved array metadata")
         return {key: _pack_arrays(item, stream) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
@@ -260,8 +290,9 @@ def _pack_arrays(value, stream):
 
 def _unpack_arrays(value, payload):
     if isinstance(value, dict):
-        if set(value) == {"__river_array__"}:
-            offset, shape, dtype = value["__river_array__"]
+        if set(value) in ({"__river_array__"}, {"__river_ndarray_storage__"}):
+            marker = next(iter(value))
+            offset, shape, dtype = value[marker]
             dimensions = shape if isinstance(shape, list) else [shape]
             if len(dimensions) not in {1, 2} or any(
                 type(size) is not int or size < 0 for size in dimensions
@@ -269,17 +300,21 @@ def _unpack_arrays(value, payload):
                 raise ValueError("invalid checkpoint array shape")
             count = math.prod(dimensions)
             if (
-                dtype not in {"<i8", "<i4", "|u1", "<f8", "|b1"}
+                dtype not in {"<i8", "<i4", "|u1", "<f8", "<f4", "|b1"}
                 or type(offset) is not int
                 or offset < 0
                 or offset + count * np.dtype(dtype).itemsize > len(payload)
             ):
                 raise ValueError("invalid checkpoint array bounds or dtype")
-            return (
-                np.frombuffer(payload, dtype=dtype, count=count, offset=offset)
-                .reshape(dimensions)
-                .tolist()
-            )
+            array = np.frombuffer(
+                payload, dtype=dtype, count=count, offset=offset
+            ).reshape(dimensions)
+            if marker == "__river_ndarray_storage__":
+                # A surviving small leaf must not pin the entire checkpoint blob.
+                array = array.copy()
+                array.flags.writeable = False
+                return array
+            return array.tolist()
         return {key: _unpack_arrays(item, payload) for key, item in value.items()}
     if isinstance(value, list):
         return [_unpack_arrays(item, payload) for item in value]

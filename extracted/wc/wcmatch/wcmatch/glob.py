@@ -390,7 +390,7 @@ class _GlobSplit(Generic[AnyStr]):
             )
 
         if (
-            (self.extmatchbase and not parts[0].is_drive) or
+            (self.extmatchbase and not parts[0].is_drive and not parts[0].is_globstar) or
             (self.matchbase and len(parts) == 1 and not parts[0].dir_only)
         ):
             if self.globstarlong and self.follow:
@@ -497,6 +497,7 @@ class Glob(Generic[AnyStr]):
 
         self.root_dir = temp  # type: AnyStr
         self.current_limit = self.limit
+        self._expanded_patterns = 0
         self._parse_patterns(pats)
         if epats is not None:
             self._parse_patterns(epats, force_negate=True)
@@ -506,14 +507,13 @@ class Glob(Generic[AnyStr]):
 
         seen = set()
         try:
-            total = 0
             for p in patterns:
                 p = util.norm_pattern(p, not self.unix, self.raw_chars)
                 count = 0
                 for expanded in _wcparse.expand(p, self.flags, self.current_limit):
                     count += 1
-                    total += 1
-                    if 0 < self.limit < total:
+                    self._expanded_patterns += 1
+                    if 0 < self.limit < self._expanded_patterns:
                         raise _wcparse.PatternLimitException(
                             f"Pattern limit exceeded the limit of {self.limit:d}"
                         )
@@ -527,7 +527,7 @@ class Glob(Generic[AnyStr]):
                         seen.add(expanded)
 
                     yield is_neg, expanded[1:] if is_neg and not force_negate else expanded
-                if self.limit:
+                if self.limit > 0:
                     self.current_limit -= count
                     if self.current_limit < 1:
                         self.current_limit = 1
@@ -814,8 +814,10 @@ class Glob(Generic[AnyStr]):
             return True
 
         unique = False
-        if (path.lower() if not self.case_sensitive else path) not in self.seen:
-            self.seen.add(path)
+        # Paths that only differ by case are the same file only when the file system ignores case.
+        key = path if _wcparse.is_case_sensitive(self.flags) else path.lower()
+        if key not in self.seen:
+            self.seen.add(key)
             unique = True
         return unique
 

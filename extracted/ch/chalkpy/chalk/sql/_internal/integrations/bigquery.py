@@ -629,13 +629,16 @@ class BigQuerySourceImpl(BaseSQLSource):
                         )
                         for name, value in named_params.items()
                     ]
+                connection_properties: list[google.cloud.bigquery.ConnectionProperty] = []
+                if session_id is not None:
+                    connection_properties.append(google.cloud.bigquery.ConnectionProperty("session_id", session_id))
                 query_job = client.query(
                     formatted_op,
                     job_config=google.cloud.bigquery.QueryJobConfig(
                         priority="INTERACTIVE",
                         use_query_cache=True,
                         query_parameters=positional_params,
-                        session_id=session_id,
+                        connection_properties=connection_properties,
                     ),
                 )
                 result = query_job.result()
@@ -648,6 +651,9 @@ class BigQuerySourceImpl(BaseSQLSource):
                         col = table.column(field.name)
                         if col.type != field.type:
                             col = pc.cast(col, field.type)
+                        # Table columns are ChunkedArrays; from_arrays needs pa.Array.
+                        if isinstance(col, pa.ChunkedArray):
+                            col = col.combine_chunks()
                         arrays.append(col)
                     else:
                         arrays.append(pa.nulls(len(table), field.type))

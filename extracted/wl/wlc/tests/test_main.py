@@ -8,22 +8,35 @@
 from __future__ import annotations
 
 import errno
+import json
 import os
 import sys
 from io import BytesIO, TextIOWrapper
+from itertools import product
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
+from typing import TYPE_CHECKING
 from unittest.mock import patch
+
+import responses
 
 import wlc
 from wlc.config import WeblateConfig
+from wlc.main import main
 
 from .test_base import (
+    DATA_TEST_BASE,
     TEST_CONFIG,
     TEST_DATA,
     TEST_SECTION,
+    BufferedStringIO,
     CLITestBase,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from wlc.client import LazyObjectT, RequestParams
 
 
 class TestSettings(CLITestBase):
@@ -257,6 +270,73 @@ class TestSettings(CLITestBase):
 class TestProjectSettings(CLITestBase):
     """Test project configuration credential precedence."""
 
+    def test_project_default_unsupported_path_is_terminal_safe(self) -> None:
+        """Unsupported repository defaults must produce handled diagnostics."""
+        current = Path.cwd()
+        with (
+            TemporaryDirectory() as tmpdirname,
+            patch.object(WeblateConfig, "find_config", return_value=None),
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            repo = Path(tmpdirname)
+            paths = (
+                "a/b/c/d",
+                "a/b/c/d\x1b]0;title\x07",
+                "a/b/c/d/e\x1b]52;c;cHJlZmVyZW5jZQ==\x07",
+                "a/b/c/d\x1b[2J",
+            )
+            try:
+                os.chdir(repo)
+                for path, command, tty in product(paths, ("ls", "show"), (False, True)):
+                    with self.subTest(path=path, command=command, tty=tty):
+                        (repo / ".weblate").write_text(
+                            "[weblate]\nurl = http://127.0.0.1:8000/api/\n"
+                            f"translation = {path}\n",
+                            encoding="utf-8",
+                        )
+                        output = self.execute(
+                            [command], settings=False, expected=1, tty=tty
+                        )
+                        self.assertEqual(output, "Error: Invalid object path.\n")
+                        self.assertFalse(responses.calls)
+            finally:
+                os.chdir(current)
+
+    def test_project_default_rejects_object_path_traversal(self) -> None:
+        """Repository defaults can not steer authenticated object requests."""
+        current = Path.cwd()
+        with TemporaryDirectory() as tmpdirname:
+            root = Path(tmpdirname)
+            user_config = root / "user.ini"
+            user_config.write_text(
+                "[weblate]\nurl = http://127.0.0.1:8000/api/\n"
+                "\n"
+                "[keys]\nhttp://127.0.0.1:8000/api/ = KEY\n",
+                encoding="utf-8",
+            )
+            repo = root / "repo"
+            repo.mkdir()
+            (repo / ".weblate").write_text(
+                "[weblate]\ntranslation = ../projects/hello\n", encoding="utf-8"
+            )
+
+            try:
+                os.chdir(repo)
+                with (
+                    patch.object(
+                        WeblateConfig, "find_config", return_value=user_config
+                    ),
+                    patch.dict(os.environ, {}, clear=True),
+                ):
+                    for command in ("show", "delete"):
+                        with self.subTest(command=command):
+                            output = self.execute([command], settings=False, expected=1)
+                            self.assertIn("Error: Invalid object path.", output)
+            finally:
+                os.chdir(current)
+
+        self.assertFalse(responses.calls)
+
     def test_project_config_with_env_key_reports_error(self) -> None:
         """WLC_KEY can not use a URL from discovered project config."""
         current = Path.cwd()
@@ -390,6 +470,87 @@ class TestCommands(CLITestBase):
         output = self.execute(["ls", "empty"])
         self.assertEqual("", output)
 
+    def test_listing_commands_stream(self) -> None:
+        """Each listing command writes a row before advancing its API iterator."""
+        # Use complete rows so JSON does not need unrelated lazy-object fixtures.
+        translation = json.loads(
+            (DATA_TEST_BASE / "translations-hello-weblate-cs").read_text(
+                encoding="utf-8"
+            )
+        )
+        for path in ("translations/", "components/hello/weblate/translations/"):
+            responses.replace(
+                responses.GET,
+                f"http://127.0.0.1:8000/api/{path}",
+                json={"next": None, "results": [translation]},
+            )
+        change = json.loads(
+            (DATA_TEST_BASE / "projects-hello-changes").read_text(encoding="utf-8")
+        )["results"][0]
+        change["component"] = None
+        responses.replace(
+            responses.GET,
+            "http://127.0.0.1:8000/api/projects/hello/changes/",
+            json={"next": None, "results": [change]},
+        )
+        commands = (
+            ["list-projects"],
+            ["list-components"],
+            ["list-components", "hello"],
+            ["list-languages"],
+            ["list-translations"],
+            ["list-translations", "hello/weblate"],
+            ["list-units", "hello/weblate/cs"],
+            ["ls"],
+            ["ls", "hello"],
+            ["ls", "hello/weblate"],
+            ["changes", "hello"],
+            ["stats", "hello/weblate"],
+        )
+        for format_name in ("text", "csv", "html", "json"):
+            for command in commands:
+                with self.subTest(format=format_name, command=command):
+                    self.check_listing_command_stream(command, format_name)
+
+    def check_listing_command_stream(
+        self, command: list[str], format_name: str
+    ) -> None:
+        """Observe row delivery through a command's real API iterator."""
+        original = wlc.Weblate.list_factory
+        output = BufferedStringIO()
+        emitted = []
+
+        def listing(
+            client: wlc.Weblate,
+            path: str,
+            parser: type[LazyObjectT],
+            *,
+            params: RequestParams | None = None,
+        ) -> Iterator[LazyObjectT]:
+            for row in original(client, path, parser, params=params):
+                previous = output.tell()
+                yield row
+                self.assertGreater(output.tell(), previous)
+                emitted.append(row)
+
+        with patch.object(wlc.Weblate, "list_factory", listing):
+            result = main(
+                args=["--format", format_name, *command],
+                settings=(),
+                stdout=output,
+            )
+        self.assertEqual(result, 0)
+        self.assertTrue(emitted)
+
+    def test_ls_leaf_legacy_behavior(self) -> None:
+        """Streaming should not change the legacy leaf-listing behavior."""
+        for path in ("hello/weblate/cs", "123"):
+            with (
+                self.subTest(path=path),
+                self.assertRaisesRegex(AttributeError, "keys"),
+            ):
+                self.execute(["ls", path])
+
     def test_list_languages(self) -> None:
         """Language listing."""
         output = self.execute(["list-languages"])
@@ -442,6 +603,37 @@ class TestCommands(CLITestBase):
         self.execute(["show", "io"], expected=10)
         with self.assertRaises(RuntimeError):
             self.execute(["show", "bug"])
+
+    def test_invalid_server_timestamp_does_not_reach_terminal(self) -> None:
+        """Malformed API dates should be handled without terminal controls."""
+        payload = "\x1b]8;;https://evil.example\x07CLICK-ME\x1b]8;;\x07"
+        for command, path, fixture in (
+            (
+                ["show", "hello/weblate/cs"],
+                "translations/hello/weblate/cs",
+                "translations-hello-weblate-cs",
+            ),
+            (
+                ["stats", "hello"],
+                "projects/hello/statistics",
+                "projects-hello-statistics",
+            ),
+        ):
+            with self.subTest(command=command):
+                data = json.loads((TEST_DATA / "api" / fixture).read_text())
+                data["last_change"] = payload
+                responses.replace(
+                    responses.GET,
+                    f"http://127.0.0.1:8000/api/{path}/",
+                    json=data,
+                )
+
+                output = self.execute(command, expected=1, tty=True)
+
+                self.assertIn("Error: Invalid last_change timestamp", output)
+                self.assertNotIn("Traceback", output)
+                self.assertNotIn("\x1b", output)
+                self.assertNotIn("evil.example", output)
 
     def test_delete(self) -> None:
         """Project delete."""

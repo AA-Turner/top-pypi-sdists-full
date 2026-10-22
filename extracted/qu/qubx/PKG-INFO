@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: Qubx
-Version: 4.3.0
+Version: 4.3.1
 Summary: Qubx - Quantitative Trading Framework
 Project-URL: homepage, https://xlydian.com
 Project-URL: repository, https://github.com/xLydianSoftware/Qubx
@@ -8,7 +8,7 @@ Project-URL: docs, https://xlydiansoftware.github.io/Qubx
 Author-email: Dmitry Marienko <dmitry.marienko@xlydian.com>, Yuriy Arabskyy <yuriy.arabskyy@xlydian.com>
 License-File: LICENSE
 Requires-Python: <4.0,>=3.12
-Requires-Dist: aiohttp<3.11,>=3.10.11
+Requires-Dist: aiohttp<4,>=3.14.3
 Requires-Dist: click<9,>=8.1.7
 Requires-Dist: croniter<3,>=2.0.5
 Requires-Dist: duckdb>=1.0.0
@@ -57,7 +57,7 @@ Requires-Dist: python-binance<2,>=1.0.19; extra == 'binance'
 Provides-Extra: bitfinex
 Requires-Dist: qubx-bitfinex-api<4,>=3.0.7; extra == 'bitfinex'
 Provides-Extra: connectors
-Requires-Dist: ccxt<5,>=4.5.46; extra == 'connectors'
+Requires-Dist: ccxt<5,>=4.5.89; extra == 'connectors'
 Provides-Extra: iceberg
 Requires-Dist: pyiceberg[pyarrow]==0.12.0; extra == 'iceberg'
 Provides-Extra: jupyter

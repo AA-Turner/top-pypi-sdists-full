@@ -1,11 +1,15 @@
-# An example of using Dear ImGui with Glfw using a *full python* backend.
-# This mode is inspired from [pyimgui](https://github.com/pyimgui/pyimgui) backends, and is still experimental.
-#
-# These examples also demonstrate how to use the markdown rendering feature of ImGui Bundle.
-#
-# See full python backends implementations here:
-# https://github.com/pthom/imgui_bundle/tree/main/bindings/imgui_bundle/python_backends
+"""
+Dear ImGui in a window you own: GLFW, SDL2, SDL3, pyglet, pygame or wgpu.
 
+With a pure Python backend, you drive the full app loop. See
+[Pure Python backends](https://imgui-bundle.pages.dev/doc/python/pure-python-backend/). Unlike `immapp.run()`, there
+is no Hello ImGui here: no DPI handling, themes or assets.
+
+This one is for [GLFW](https://www.glfw.org) (`pip install imgui-bundle[glfw,opengl]`); the others work the same way.
+The backend passes the inputs to ImGui and draws it with PyOpenGL. It is adapted from
+[pyimgui](https://github.com/pyimgui/pyimgui)'s, and is still experimental. All the backends:
+[python_backends](https://github.com/pthom/imgui_bundle/tree/main/bindings/imgui_bundle/python_backends).
+"""
 
 # Workaround issue when using wayland ("Attempt to retrieve context when no valid context", in PyOpenGL)
 # (see https://github.com/pthom/imgui_bundle/issues/321)
@@ -19,7 +23,7 @@ from imgui_bundle.python_backends.glfw_backend import GlfwRenderer
 # When using a pure python backend, prefer to import glfw before imgui_bundle (so that you end up using the standard glfw, not the one provided by imgui_bundle)
 import glfw
 from imgui_bundle import imgui, imgui_ctx
-from imgui_bundle import imgui_md
+from imgui_bundle import rich_md
 import sys
 
 
@@ -34,10 +38,9 @@ def init_fonts_and_markdown():
     # uncomment to keep using the default hardcoded font, or load your default font here
     # imgui.get_io().fonts.add_font_default()
 
-    # Load markdown fonts
-    imgui_md.initialize_markdown()
-    font_loader = imgui_md.get_font_loader_function()
-    font_loader()
+    md_options = rich_md.MarkdownOptions()
+    md_options.with_latex = True  # LaTeX formulas ($...$ and $$...$$)
+    rich_md.create_context(md_options)  # the markdown fonts load at the first render
 
 
 def main():
@@ -71,9 +74,15 @@ def main():
 
             is_expand, show_custom_window = imgui.begin("Custom window", True)
             if is_expand:
-                imgui_md.render_unindented("""
+                rich_md.render(r"""
                 # Hello, World
-                Here is some *markdown* text.
+                Here is some *markdown* text, and a formula: $e^{i\pi} + 1 = 0$
+
+                ![](images/world.png)
+
+                ```python
+                print("code blocks too")
+                ```
                 """)
 
                 imgui.text("Example Text")
@@ -107,6 +116,7 @@ def main():
         impl.render(imgui.get_draw_data())
         glfw.swap_buffers(window)
 
+    rich_md.destroy_context()
     impl.shutdown()
     glfw.terminate()
 

@@ -7,6 +7,7 @@ import logging
 import os
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, replace
 from typing import Any, cast
 
 _TRACER_NAME = "chalk_remote_call"
@@ -37,6 +38,37 @@ _runtime_span_flusher: _BackgroundSpanFlusher | None = None
 _SPAN_FLUSH_TIMEOUT_MILLIS = 5000
 
 _logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _TracingConfig:
+    policy: str | None
+    sample_rate: float | None
+    otlp_endpoint: str
+    service_name: str
+    environment_id: str | None
+
+
+def _load_tracing_config() -> _TracingConfig:
+    """Read and normalize the tracing environment once for an invocation."""
+    raw_policy = os.environ.get(_REMOTE_FUNCTION_TRACE_POLICY_ENV_VAR, "")
+    policy = raw_policy.strip().lower()
+    raw_rate = os.environ.get(_REMOTE_FUNCTION_TRACE_SAMPLE_RATE_ENV_VAR)
+    sample_rate = None
+    if raw_rate is not None:
+        with contextlib.suppress(ValueError):
+            sample_rate = float(raw_rate)
+        if sample_rate is not None and (sample_rate < 0.0 or sample_rate > 1.0):
+            sample_rate = None
+
+    return _TracingConfig(
+        policy=policy if policy in _TRACE_POLICIES else None,
+        sample_rate=sample_rate,
+        otlp_endpoint=os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+        or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
+        service_name=os.environ.get("CHALK_SERVICE") or _TRACER_NAME,
+        environment_id=os.environ.get("CHALK_ENVIRONMENT_ID") or None,
+    )
 
 
 class _BackgroundSpanFlusher:
@@ -139,46 +171,14 @@ def _collect_trace_metadata(
     return first, None
 
 
-def _trace_policy() -> str | None:
-    raw_policy = os.environ.get(_REMOTE_FUNCTION_TRACE_POLICY_ENV_VAR)
-    if raw_policy is None:
-        return None
-
-    policy = raw_policy.strip().lower()
-    if policy in _TRACE_POLICIES:
-        return policy
-    return None
-
-
-def _trace_sample_rate(force_trace: bool) -> float | None:
-    if force_trace:
-        return 1.0
-    raw_rate = os.environ.get(_REMOTE_FUNCTION_TRACE_SAMPLE_RATE_ENV_VAR)
-    if raw_rate is None:
-        return None
-
-    try:
-        rate = float(raw_rate)
-    except ValueError:
-        return None
-
-    if rate < 0.0 or rate > 1.0:
-        return None
-    return rate
-
-
-def _otel_exporter_configured() -> bool:
-    return bool(os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT") or os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"))
-
-
-def _runtime_resource_attributes() -> dict[str, str]:
-    attributes = {"service.name": os.environ.get("CHALK_SERVICE") or _TRACER_NAME}
-    if environment_id := os.environ.get("CHALK_ENVIRONMENT_ID"):
-        attributes["chalk.environment_id"] = environment_id
+def _runtime_resource_attributes(config: _TracingConfig) -> dict[str, str]:
+    attributes = {"service.name": config.service_name}
+    if config.environment_id:
+        attributes["chalk.environment_id"] = config.environment_id
     return attributes
 
 
-def _configure_runtime_tracing(sample_rate: float) -> None:
+def _configure_runtime_tracing(config: _TracingConfig, sample_rate: float) -> None:
     global _runtime_tracing_configured, _runtime_tracer_provider, _runtime_span_flusher
     if _runtime_tracing_configured:
         return
@@ -194,15 +194,22 @@ def _configure_runtime_tracing(sample_rate: float) -> None:
 
     try:
         provider = sdk_trace.TracerProvider(
-            resource=resources.Resource.create(_runtime_resource_attributes()),
+            resource=resources.Resource.create(_runtime_resource_attributes(config)),
             sampler=sdk_sampling.ParentBased(sdk_sampling.TraceIdRatioBased(sample_rate)),
         )
 
-        if _otel_exporter_configured():
+        if config.otlp_endpoint:
             try:
                 otlp_exporter = importlib.import_module("opentelemetry.exporter.otlp.proto.grpc.trace_exporter")
                 sdk_export = importlib.import_module("opentelemetry.sdk.trace.export")
-                provider.add_span_processor(sdk_export.BatchSpanProcessor(otlp_exporter.OTLPSpanExporter()))
+                # gRPC otherwise derives an invalid HTTP/2 authority from the Unix socket path.
+                channel_options = (
+                    (("grpc.default_authority", "localhost"),) if config.otlp_endpoint.startswith("unix:") else None
+                )
+                exporter = otlp_exporter.OTLPSpanExporter(
+                    endpoint=config.otlp_endpoint, channel_options=channel_options
+                )
+                provider.add_span_processor(sdk_export.BatchSpanProcessor(exporter))
                 _runtime_span_flusher = _BackgroundSpanFlusher(provider.force_flush, _SPAN_FLUSH_TIMEOUT_MILLIS)
             except Exception:
                 pass
@@ -215,19 +222,10 @@ def _configure_runtime_tracing(sample_rate: float) -> None:
     _runtime_tracing_configured = True
 
 
-def _sample_rate_for_inherited_parent(policy: str, force_trace: bool) -> float | None:
-    if policy == _TRACE_POLICY_PARENT_BASED_ALWAYS_OFF:
-        return 0.0
-    if policy == _TRACE_POLICY_PARENT_BASED_TRACE_ID_RATIO:
-        return _trace_sample_rate(force_trace)
-    return None
-
-
 def _span_metadata(
     first_metadata: Mapping[str, Any] | None,
     traceparent_metadata: Mapping[str, Any] | None,
-    policy: str,
-    force_trace: bool,
+    config: _TracingConfig,
 ) -> tuple[Mapping[str, Any] | None, Any | None, Any]:
     if traceparent_metadata is not None:
         carrier = _trace_carrier(traceparent_metadata)
@@ -244,20 +242,20 @@ def _span_metadata(
         if not parent_span_context.is_valid:
             return None, None, None
 
-        sample_rate = _sample_rate_for_inherited_parent(policy, force_trace)
+        sample_rate = 0.0 if config.policy == _TRACE_POLICY_PARENT_BASED_ALWAYS_OFF else config.sample_rate
         if sample_rate is None:
             return None, None, None
-        _configure_runtime_tracing(sample_rate)
+        _configure_runtime_tracing(config, sample_rate)
         return traceparent_metadata, parent_context, otel_modules
 
-    if policy != _TRACE_POLICY_PARENT_BASED_TRACE_ID_RATIO:
+    if config.policy != _TRACE_POLICY_PARENT_BASED_TRACE_ID_RATIO:
         return None, None, None
 
-    sample_rate = _trace_sample_rate(force_trace)
+    sample_rate = config.sample_rate
     if sample_rate is None:
         return None, None, None
 
-    _configure_runtime_tracing(sample_rate)
+    _configure_runtime_tracing(config, sample_rate)
     otel_modules = _get_otel_modules()
     if otel_modules is None:
         return None, None, None
@@ -366,26 +364,25 @@ def remote_function_invocation_span(
     context_metadata: Any,
     coalesced_count: int | None = None,
 ) -> Iterator[None]:
+    config = _load_tracing_config()
     first_metadata, traceparent_metadata = _collect_trace_metadata(context_metadata)
     override = str((first_metadata or {}).get(_REMOTE_FUNCTION_TRACE_OVERRIDE_KEY) or "").strip().lower()
     if override == _TRACE_OVERRIDE_ON:
-        policy = _TRACE_POLICY_PARENT_BASED_TRACE_ID_RATIO
+        config = replace(config, policy=_TRACE_POLICY_PARENT_BASED_TRACE_ID_RATIO, sample_rate=1.0)
     elif override == _TRACE_OVERRIDE_OFF:
-        policy = _TRACE_POLICY_ALWAYS_OFF
-    else:
-        policy = _trace_policy()
-    if policy is None:
+        config = replace(config, policy=_TRACE_POLICY_ALWAYS_OFF)
+    if config.policy is None:
         yield
         return
 
     force_trace = override == _TRACE_OVERRIDE_ON
     if force_trace and traceparent_metadata is not None:
         traceparent_metadata = _force_sampled_traceparent(traceparent_metadata)
-    if policy == _TRACE_POLICY_PARENT_BASED_ALWAYS_OFF and traceparent_metadata is None:
+    if config.policy == _TRACE_POLICY_PARENT_BASED_ALWAYS_OFF and traceparent_metadata is None:
         yield
         return
 
-    if policy == _TRACE_POLICY_ALWAYS_OFF:
+    if config.policy == _TRACE_POLICY_ALWAYS_OFF:
         _metadata, parent_context, otel_modules, tracer = _always_off_span_metadata(
             first_metadata,
             traceparent_metadata,
@@ -394,8 +391,7 @@ def remote_function_invocation_span(
         _metadata, parent_context, otel_modules = _span_metadata(
             first_metadata,
             traceparent_metadata,
-            policy,
-            force_trace,
+            config,
         )
         tracer = _get_tracer(otel_modules[2]) if otel_modules is not None else None
 
@@ -416,7 +412,7 @@ def remote_function_invocation_span(
         span_kwargs["context"] = parent_context
 
     # The always-off tracer exports nothing, so only runtime-provider spans need a flush.
-    flush_after = policy != _TRACE_POLICY_ALWAYS_OFF
+    flush_after = config.policy != _TRACE_POLICY_ALWAYS_OFF
     try:
         with tracer.start_as_current_span("chalkcompute.remote_function.invoke", **span_kwargs) as span:
             span.set_attribute("chalk.remote_function.name", function_name)

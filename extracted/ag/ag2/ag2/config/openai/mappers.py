@@ -29,9 +29,11 @@ from openai.types.responses import (
     FileSearchToolParam,
     FunctionShellToolParam,
     ImageDetail,
+    ResponseFormatTextJSONSchemaConfigParam,
     ResponseFunctionCallOutputItemParam,
     ResponseFunctionShellToolCall,
     ResponseFunctionToolCallParam,
+    ResponseIncludable,
     ResponseInputContentParam,
     ResponseInputFileContentParam,
     ResponseInputFileParam,
@@ -40,6 +42,7 @@ from openai.types.responses import (
     ResponseInputItemParam,
     ResponseInputTextContentParam,
     ResponseInputTextParam,
+    ResponseTextConfigParam,
     ResponseUsage,
     SkillReferenceParam,
     ToolSearchToolParam,
@@ -86,7 +89,7 @@ from ag2.exceptions import (
     UnsupportedInputError,
     UnsupportedToolError,
 )
-from ag2.files.types import FileProvider
+from ag2.files.types import FileProvider, UploadedFile
 from ag2.response import ResponseProto
 from ag2.tools.builtin.code_execution import CodeExecutionToolSchema
 from ag2.tools.builtin.file_search import FileSearchToolSchema
@@ -163,14 +166,14 @@ def _strictify_schema(schema: dict[str, Any]) -> dict[str, Any]:
 
 def response_proto_to_text_config(
     response: ResponseProto | None,
-) -> dict[str, Any] | None:
+) -> ResponseTextConfigParam | None:
     """Convert a ResponseProto to Responses API text config."""
     if not response or not response.json_schema:
         return None
 
     strict_schema = _strictify_schema(response.json_schema)
 
-    fmt: dict[str, Any] = {
+    fmt: ResponseFormatTextJSONSchemaConfigParam = {
         "type": "json_schema",
         "name": response.name,
         "schema": strict_schema,
@@ -299,9 +302,13 @@ def events_to_responses_input(
                     result.append(_user_message(_input_text(serializer.encode(inp.data).decode())))
 
                 elif isinstance(inp, FileIdInput):
-                    if (provider := getattr(inp, "provider", None)) and provider is not FileProvider.OPENAI:
+                    if (
+                        isinstance(inp, UploadedFile)
+                        and inp.provider is not None
+                        and inp.provider is not FileProvider.OPENAI
+                    ):
                         raise UnsupportedInputError(
-                            f"file uploaded via '{provider.value}' cannot be used with '{FileProvider.OPENAI.value}'",
+                            f"file uploaded via '{inp.provider.value}' cannot be used with '{FileProvider.OPENAI.value}'",
                             "openai-responses",
                         )
                     # OpenAI Responses API: file_id and filename are mutually exclusive.
@@ -434,6 +441,15 @@ def convert_messages(
                         raise UnsupportedInputError(f"UrlInput({_kind_label(inp.kind)})", "openai-completions")
 
                 elif isinstance(inp, FileIdInput):
+                    if (
+                        isinstance(inp, UploadedFile)
+                        and inp.provider is not None
+                        and inp.provider is not FileProvider.OPENAI
+                    ):
+                        raise UnsupportedInputError(
+                            f"file uploaded via '{inp.provider.value}' cannot be used with '{FileProvider.OPENAI.value}'",
+                            "openai-completions",
+                        )
                     file_ref: File = {"type": "file", "file": {"file_id": inp.file_id}}
                     parts.append(file_ref)
 
@@ -765,8 +781,8 @@ def reject_client_executed_shell(openai_tools: list[dict[str, Any]]) -> None:
             raise ClientExecutedShellUnsupportedError()
 
 
-def responses_api_includes(tools: Iterable[ToolSchema]) -> list[str]:
-    includes: list[str] = []
+def responses_api_includes(tools: Iterable[ToolSchema]) -> list[ResponseIncludable]:
+    includes: list[ResponseIncludable] = []
     for t in tools:
         if isinstance(t, WebSearchToolSchema):
             includes.append("web_search_call.action.sources")

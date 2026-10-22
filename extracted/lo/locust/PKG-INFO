@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: locust
-Version: 2.46.7
+Version: 2.47.0
 Summary: Developer-friendly load testing framework
 Project-URL: Homepage, https://locust.cloud/
 Project-URL: Repository, https://github.com/locustio/locust
@@ -29,8 +29,8 @@ Requires-Dist: configargparse>=1.7.1
 Requires-Dist: flask-cors>=3.0.10
 Requires-Dist: flask-login>=0.6.3
 Requires-Dist: flask>=2.0.0
-Requires-Dist: gevent>=24.10.1
-Requires-Dist: geventhttpclient>=2.3.1
+Requires-Dist: gevent>=24.11.1
+Requires-Dist: geventhttpclient>=2.5.1
 Requires-Dist: msgpack>=1.0.0
 Requires-Dist: psutil>=5.9.1
 Requires-Dist: pytest<10,>=8.3.3

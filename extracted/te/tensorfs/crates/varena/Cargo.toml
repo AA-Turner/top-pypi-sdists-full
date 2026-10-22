@@ -1,0 +1,21 @@
+[package]
+name = "varena"
+version = "0.13.6"
+edition = "2021"
+publish.workspace = true
+description = "The memory of the process computing with model weights: GPU pages, slots and pins; the sealed host tier."
+
+[dependencies]
+platform.workspace = true
+tensorfs.workspace = true
+libc.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[features]
+# Store-backed sources (checkpoints and fills from a TensorFS store). Without it: sealed host
+# layouts only.
+default = ["store"]
+store = ["tensorfs/store"]
+# Test-only fault points on the host tier.
+faults = []

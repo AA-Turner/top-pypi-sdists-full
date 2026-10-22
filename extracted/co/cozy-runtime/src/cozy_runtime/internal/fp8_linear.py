@@ -1,7 +1,7 @@
-"""The `fp8-rowwise/1` encoded GEMM: one call of the Runtime's 8-bit op library.
+"""The `fp8.rowwise` encoded GEMM: one call of the Runtime's 8-bit op library.
 
-The library (`int8_op/`) comes prebuilt and verified on the card, else compiled by the machine
-at boot (`int8_linear.native`). One kernel quantizes each activation row to E4M3 against its own
+The op is the Runtime wheel's prebuilt one (`prebuilt`), serving once it verifies on the card
+(`int8_linear.native`). One kernel quantizes each activation row to E4M3 against its own
 amax (`eager_quantize`'s law, bit for bit). The GEMM then applies both row scales and the bias in
 its epilogue: wgmma on Hopper, tcgen05 on B200 and B300, the TMA mma on RTX 50, and cuBLASLt's
 `_scaled_mm` on other cards. Until the library lands, and for what it does not take (f32, a CPU
@@ -16,7 +16,7 @@ import sys
 from types import ModuleType
 
 from cozy_runtime.author.kernels import PreQuantized
-from cozy_runtime.internal import int8_linear
+from cozy_runtime.internal import int8_linear, prebuilt
 from cozy_runtime.internal.encoding.formats import E4M3_MAX, Tensor
 
 #: The activation scale's floor, as `ROW_SCALE_FLOOR` is the weights': a row of exact zeros
@@ -112,7 +112,7 @@ def linear(
     bias: Tensor | None,
     out_dtype: object,
 ) -> Tensor:
-    """`x @ W.T + bias` for one `fp8-rowwise/1` weight: `data` E4M3 `[N, K]`, `scale` f32."""
+    """`x @ W.T + bias` for one `fp8.rowwise` weight: `data` E4M3 `[N, K]`, `scale` f32."""
     op = _op(torch, x, x.dtype, out_dtype)
     if op is not None:
         try:
@@ -123,5 +123,10 @@ def linear(
 
 
 def serving(index: int) -> str:
-    """The kernel this card's fp8 leaves serve now: a run's `gemm.selected`, read once a run."""
-    return OP if _OPS.get(index) is not None else SCALED_MM
+    """The GEMM this card's fp8 leaves serve now: a run's `gemm.selected`, read once a run. A
+    prebuilt library with no fp8 GEMM for the card (Ada; RTX 50 on Windows) quantizes, and
+    `_scaled_mm` multiplies."""
+    if _OPS.get(index) is None:
+        return SCALED_MM
+    library = int8_linear.library(index)
+    return SCALED_MM if isinstance(library, prebuilt.Prebuilt) and not library.cutlass_fp8 else OP

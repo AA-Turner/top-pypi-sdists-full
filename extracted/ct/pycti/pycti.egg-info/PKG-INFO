@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pycti
-Version: 7.261019.0
+Version: 7.261021.1
 Summary: Python API client for OpenCTI.
 Home-page: https://github.com/OpenCTI-Platform/opencti/client-python
 Author: Filigran
@@ -43,7 +43,7 @@ Requires-Dist: black~=26.10.0; extra == "dev"
 Requires-Dist: build~=1.6.1; extra == "dev"
 Requires-Dist: isort~=9.0.2; extra == "dev"
 Requires-Dist: types-pytz~=2026.5.0.20261006; extra == "dev"
-Requires-Dist: pre-commit~=4.6.0; extra == "dev"
+Requires-Dist: pre-commit~=4.7.0; extra == "dev"
 Requires-Dist: pytest-cov~=7.1.0; extra == "dev"
 Requires-Dist: pytest_randomly~=5.0.0; extra == "dev"
 Requires-Dist: pytest~=9.1.1; extra == "dev"

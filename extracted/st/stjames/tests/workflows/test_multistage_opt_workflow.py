@@ -1,6 +1,6 @@
 """Test multistage opt workflow behavior and validation."""
 
-from pytest import fixture
+from pytest import fixture, mark, raises
 
 from stjames import Atom, BasisSet, Method, Molecule, Settings, Solvent, SolventModel, SolventSettings, Task
 from stjames.workflows import MultiStageOptWorkflow, build_mso_settings, multi_stage_opt_settings_from_workflow
@@ -169,3 +169,23 @@ def test_msos_from_msow(He: Molecule) -> None:
     assert msos.singlepoint_settings.solvent_settings.solvent == "acetone"
 
     assert msos.optimization_settings[0].method == Method.GFN2_XTB
+
+
+@mark.parametrize(
+    ("method", "model"),
+    [
+        (Method.GFN2_XTB, SolventModel.CPCMX),
+        (Method.BP86, SolventModel.COSMORS),
+    ],
+)
+def test_energy_only_solvent_rejected_for_optimization(He: Molecule, method: Method, model: SolventModel) -> None:
+    """Solvent models without gradients are allowed on the singlepoint but not on optimizations."""
+    sp = Settings(method=method, tasks=[Task.ENERGY], solvent_settings=SolventSettings(solvent=Solvent.WATER, model=model))
+    opt = Settings(method=Method.GFN2_XTB, tasks=[Task.OPTIMIZE])
+    MultiStageOptSettings(optimization_settings=[opt], singlepoint_settings=sp)
+
+    solvated_opt = sp.model_copy(update={"tasks": [Task.OPTIMIZE]})
+    with raises(ValueError):
+        MultiStageOptSettings(optimization_settings=[solvated_opt])
+    with raises(ValueError):
+        MultiStageOptWorkflow(initial_molecule=He, optimization_settings=[solvated_opt])

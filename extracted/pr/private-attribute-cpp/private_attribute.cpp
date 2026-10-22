@@ -3854,7 +3854,7 @@ PrivateAttrType_del(PyObject* cls) noexcept
     PyType_Type.tp_dealloc(cls);
 }
 
-static const char* PrivateAttrBase_doc = "The class to help to create private attribute. It does not have any special behavior.";
+static const char* PrivateAttrBase_doc = "The class to help creating private attribute. It does not have any special behavior.";
 
 // PrivateAttrBase
 static PyObject*
@@ -4374,25 +4374,11 @@ PrivateModule_get_PrivateAttrBase(PyObject* /*self*/, void* /*closure*/) noexcep
             return NULL;
         }
         AllData::store_module_self[AllData::kPrivateAttrBaseKey] = base;
-        Py_DECREF(base);
-        it = AllData::store_module_self.find(AllData::kPrivateAttrBaseKey);
+        return base;
     }
     PyObject* PrivateAttrBase = it->second.get();
     Py_INCREF(PrivateAttrBase);
     return PrivateAttrBase;
-}
-
-static int
-PyList_AppendString(PyObject* list, const char* str) noexcept
-{
-    PyObject* obj = PyUnicode_InternFromString(str);
-    if (!obj) return -1;
-    if (PyList_Append(list, obj) < 0) {
-        Py_DECREF(obj);
-        return -1;
-    }
-    Py_DECREF(obj);
-    return 0;
 }
 
 static PyObject*
@@ -4400,19 +4386,20 @@ PrivateModule_dir(PyObject* self, PyObject* /*args*/) noexcept
 {
     PyObject* parent_dir = PyObject_CallMethod((PyObject*)&PyModule_Type, "__dir__", "O", self);
     if (!parent_dir) return NULL;
-    PyObject* attr_list = PyList_New(0);
+    PyObject* attr_list = Py_BuildValue("[ssssssss]",
+        "PrivateWrapProxy",
+        "PrivateAttrType",
+        "PrivateAttrBase",
+        "prepare",
+        "postprocess",
+        "register_metaclass",
+        "ensure_type",
+        "ensure_metaclass"
+    );
     if (!attr_list) {
         Py_DECREF(parent_dir);
         return NULL;
     }
-    PyList_AppendString(attr_list, "PrivateWrapProxy");
-    PyList_AppendString(attr_list, "PrivateAttrType");
-    PyList_AppendString(attr_list, "PrivateAttrBase");
-    PyList_AppendString(attr_list, "prepare");
-    PyList_AppendString(attr_list, "postprocess");
-    PyList_AppendString(attr_list, "register_metaclass");
-    PyList_AppendString(attr_list, "ensure_type");
-    PyList_AppendString(attr_list, "ensure_metaclass");
     PyObject* result = PySequence_Concat(parent_dir, attr_list);
     Py_DECREF(parent_dir);
     Py_DECREF(attr_list);
@@ -4723,36 +4710,25 @@ PrivateModule_exec(PyObject* m) noexcept
     if (!private_attr_base) {
         return -1;
     }
-    PyObject* all = PyList_New(0);
+    Py_DECREF(private_attr_base);
+    PyObject* all = Py_BuildValue("[ssssssss]",
+        "PrivateWrapProxy",
+        "PrivateAttrType",
+        "PrivateAttrBase",
+        "prepare",
+        "postprocess",
+        "register_metaclass",
+        "ensure_type",
+        "ensure_metaclass"
+    );
     if (!all) {
-        Py_DECREF(private_attr_base);
         return -1;
     }
     if (PyModule_AddObject(m, "__all__", all) < 0) {
         Py_DECREF(all);
-        Py_DECREF(private_attr_base);
         return -1;
     }
-    /* all contains:
-     * PrivateWrapProxy
-     * PrivateAttrType
-     * PrivateAttrBase
-     * prepare
-     * postprocess
-     * register_metaclass
-     * ensure_type
-     * ensure_metaclass
-     */
-    PyList_AppendString(all, "PrivateWrapProxy");
-    PyList_AppendString(all, "PrivateAttrType");
-    PyList_AppendString(all, "PrivateAttrBase");
-    PyList_AppendString(all, "prepare");
-    PyList_AppendString(all, "postprocess");
-    PyList_AppendString(all, "register_metaclass");
-    PyList_AppendString(all, "ensure_type");
-    PyList_AppendString(all, "ensure_metaclass");
 
-    Py_DECREF(private_attr_base);
     AllData::store_module_self[AllData::kModuleSelfKey] = m;    // store module self
 
     return 0;

@@ -67,7 +67,8 @@ class FileReadResult(KindModel):
 )
 class FileWriteResult(KindModel):
     path: str = ""
-    #: Local branch: what was written, and how.
+    #: Every branch: the UTF-8 bytes this call wrote (the appended part in
+    #: append mode), and how.
     bytes_written: int | None = None
     #: ``write`` or ``append``.
     mode: str | None = None
@@ -236,8 +237,9 @@ class FilePatchResult(KindModel):
     created: bool = False
     edits_applied: list[FileEditApplied] = []
     edits_failed: list[FileEditFailure] = []
-    #: Character counts around the patch. None = the backend did not report
-    #: them; 0 would read as "the file was empty", which is a different claim.
+    #: UTF-8 byte sizes around the patch (what ``stat`` reports), on every
+    #: backend. None = that side was not read (e.g. a binary/oversize sandbox
+    #: prior); 0 would read as "the file was empty", which is a different claim.
     size_before: int | None = None
     size_after: int | None = None
 
@@ -262,8 +264,8 @@ class FileEditResult(KindModel):
     #: the caller passed ``replace_all=False`` against a single match.
     old_str_count: int = 0
     replaced: int = 0
-    #: Character counts around the edit. None = the backend did not report them
-    #: (the durable-VFS branch does not), never a claim that the file was empty.
+    #: UTF-8 byte sizes around the edit (what ``stat`` reports), on every
+    #: backend. None = that side was not read, never a claim the file was empty.
     size_before: int | None = None
     size_after: int | None = None
 

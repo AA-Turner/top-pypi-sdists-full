@@ -4,11 +4,25 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
+from enum import Enum
+
 # Package imports.
-from . import xmlwriter
+from xlsxwriter import xmlwriter
+
+
+class XFormatType(Enum):
+    """
+    Enum to distinguish the type of cell xf format since style and the default
+    (the first format) are handled slightly differently.
+
+    """
+
+    USER = 1
+    STYLE = 2
+    DEFAULT = 3
 
 
 class Styles(xmlwriter.XMLwriter):
@@ -269,7 +283,7 @@ class Styles(xmlwriter.XMLwriter):
             if xf_format.font_charset:
                 self._xml_empty_tag("charset", [("val", xf_format.font_charset)])
 
-            if xf_format.font_name == "Calibri" and not xf_format.hyperlink:
+            if xf_format.font_scheme in ("major", "minor"):
                 self._xml_empty_tag("scheme", [("val", xf_format.font_scheme)])
 
             if xf_format.hyperlink:
@@ -386,9 +400,8 @@ class Styles(xmlwriter.XMLwriter):
         else:
             self._xml_start_tag("patternFill", [("patternType", patterns[pattern])])
 
-        if fg_color:
-            if not fg_color._is_automatic:
-                self._xml_empty_tag("fgColor", fg_color._attributes())
+        if fg_color and not fg_color._is_automatic:
+            self._xml_empty_tag("fgColor", fg_color._attributes())
 
         if bg_color:
             if not bg_color._is_automatic:
@@ -500,7 +513,8 @@ class Styles(xmlwriter.XMLwriter):
         attributes = [("count", count)]
 
         self._xml_start_tag("cellStyleXfs", attributes)
-        self._write_style_xf()
+        style_format = self.xf_formats[0]
+        self._write_xf(style_format, XFormatType.STYLE)
 
         if self.has_hyperlink:
             self._write_style_xf(True, self.hyperlink_font_id)
@@ -521,8 +535,10 @@ class Styles(xmlwriter.XMLwriter):
         self._xml_start_tag("cellXfs", attributes)
 
         # Write the xf elements.
+        cell_type = XFormatType.DEFAULT
         for xf_format in formats:
-            self._write_xf(xf_format)
+            self._write_xf(xf_format, cell_type)
+            cell_type = XFormatType.USER
 
         self._xml_end_tag("cellXfs")
 
@@ -554,7 +570,7 @@ class Styles(xmlwriter.XMLwriter):
         else:
             self._xml_empty_tag("xf", attributes)
 
-    def _write_xf(self, xf_format) -> None:
+    def _write_xf(self, xf_format, xf_type: XFormatType) -> None:
         # Write the <xf> element.
         xf_id = xf_format.xf_id
         font_id = xf_format.font_index
@@ -571,8 +587,10 @@ class Styles(xmlwriter.XMLwriter):
             ("fontId", font_id),
             ("fillId", fill_id),
             ("borderId", border_id),
-            ("xfId", xf_id),
         ]
+
+        if xf_type != XFormatType.STYLE:
+            attributes.append(("xfId", xf_id))
 
         if xf_format.quote_prefix:
             attributes.append(("quotePrefix", 1))
@@ -593,14 +611,14 @@ class Styles(xmlwriter.XMLwriter):
             attributes.append(("applyBorder", 1))
 
         # Check if XF format has alignment properties set.
-        (apply_align, align) = xf_format._get_align_properties()
+        apply_align, align = xf_format._get_align_properties()
 
         # Check if an alignment sub-element should be written.
         if apply_align and align:
             has_alignment = True
 
         # We can also have applyAlignment without a sub-element.
-        if apply_align or xf_format.hyperlink:
+        if (apply_align or xf_format.hyperlink) and xf_type == XFormatType.USER:
             attributes.append(("applyAlignment", 1))
 
         # Check for cell protection properties.

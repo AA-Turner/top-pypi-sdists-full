@@ -137,12 +137,8 @@ def _geohash_decode_server_str(s: str, bits: int) -> int:
     return result
 
 
-def _cmp_geohash_with_sentinel(bits: int):
-    storage_w = 8 if bits <= 7 else 16 if bits <= 15 else 32 if bits <= 32 else 64
-    storage_sentinel = (1 << storage_w) - 1
+def _cmp_geohash(bits: int):
     def fn(expected, actual) -> bool:
-        if expected == storage_sentinel:
-            expected = None
         if expected is None:
             return actual is None or actual == ""
         if actual is None or actual == "":
@@ -245,7 +241,7 @@ def _cmp_long256(expected, actual) -> bool:
                 actual_bytes = bytes.fromhex(actual[2:].zfill(64))
             except ValueError:
                 return False
-            return actual_bytes == expected[::-1] or actual_bytes == expected
+            return actual_bytes == expected[::-1]
     return False
 
 def _cmp_decimal(expected, actual, scale: int) -> bool:
@@ -323,10 +319,13 @@ _INGRESS_ORACLES: Dict[str, Callable[[Any, Any], bool]] = {
     "date": _cmp_date_ms,
     "timestamp": _cmp_timestamp_us,
     "timestamp_ns": _cmp_timestamp_ns,
-    "geohash1": _cmp_geohash_with_sentinel(1),
-    "geohash5": _cmp_geohash_with_sentinel(5),
-    "geohash32": _cmp_geohash_with_sentinel(32),
-    "geohash60": _cmp_geohash_with_sentinel(60),
+    # QWP ingress always carries an explicit bitmap when a valid GEOHASH
+    # could have the all-ones representation. The maximum value is therefore
+    # data, not an implicit null sentinel.
+    "geohash1": _cmp_geohash(1),
+    "geohash5": _cmp_geohash(5),
+    "geohash32": _cmp_geohash(32),
+    "geohash60": _cmp_geohash(60),
     "decimal64": lambda e, a: _cmp_decimal(e, a, scale=4),
     "decimal128": lambda e, a: _cmp_decimal(e, a, scale=10),
     "decimal256": lambda e, a: _cmp_decimal(e, a, scale=20),
@@ -742,6 +741,16 @@ class TestArrowIngressExtraTypes(afc.ArrowFuzzBase):
         table = self.fresh_table("arrow_extra_d32")
         self._ingest_one_col(table, "DECIMAL(18, 2)", "c", arr)
 
+    def test_extra_fixed_size_binary_routes_to_binary(self):
+        values = [b"12345678", None, b"abcdefgh"]
+        arr = pa.array(values, type=pa.binary(8))
+        table = self.fresh_table("arrow_extra_fsb8")
+        self._ingest_one_col(table, "BINARY", "c", arr)
+        actual = _read_back_arrow_cells(
+            self._fixture, table, [("c", KIND_REGISTRY["binary"])]
+        )
+        self.assertEqual(actual, values)
+
 
 class TestArrowIngressUnsupportedTypes(afc.ArrowFuzzBase):
     """Arrow primitive variants that QuestDB ingress explicitly rejects
@@ -802,10 +811,6 @@ class TestArrowIngressUnsupportedTypes(afc.ArrowFuzzBase):
 
     def test_reject_run_end_encoded(self):
         arr = pa.RunEndEncodedArray.from_arrays([3], pa.array([42]))
-        self._expect_unsupported(arr)
-
-    def test_reject_fixed_size_binary_non_uuid_width(self):
-        arr = pa.array([b"12345678"], type=pa.binary(8))
         self._expect_unsupported(arr)
 
     def test_reject_null(self):

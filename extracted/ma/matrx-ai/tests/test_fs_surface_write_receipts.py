@@ -127,11 +127,17 @@ class _FakeDaemon:
             text = text.replace(e["old_text"], e["new_text"], -1 if e["replace_all"] else 1)
             applied.append({"edit_index": i, "mode": "replace", "delta_chars": 0})
         self.files[key] = text  # partial apply — the tool must never let this happen
+        # The real daemon's /fs/patch reply is a stat-like entry of the RESULT
+        # (path, size, kind, ...) plus the per-edit lists — it never carries
+        # size_before / size_after (tracker 884c50b2: the tool read those
+        # absent keys and reported 0/0 for a 35-byte file).
+        del before
         return {
+            "path": path,
+            "kind": "file",
+            "size": len(text.encode("utf-8")),
             "edits_applied": applied,
             "edits_failed": failed,
-            "size_before": len(before),
-            "size_after": len(text),
         }
 
 
@@ -204,6 +210,58 @@ def _receipt(result) -> dict[str, Any]:
     assert result.success, result.error
     assert result.surface_write is not None, "a successful file write must carry its receipt"
     return result.surface_write.model_dump()
+
+
+# ── result sizes (tracker 884c50b2) ──────────────────────────────────────────
+# Every backend reports real UTF-8 byte counts — CHECKLIST carries an em dash,
+# so a len(str) character count would come out 2 short.
+
+
+def _nbytes(text: str) -> int:
+    return len(text.encode("utf-8"))
+
+
+async def test_fs_edit_reports_real_byte_sizes(backend) -> None:
+    backend.seed("intake_checklist.sh", CHECKLIST)
+    after = CHECKLIST.replace("printed: 20", "printed: 20 (edited)")
+    r = await filesystem.fs_edit(
+        {"path": "intake_checklist.sh", "old_str": "printed: 20", "new_str": "printed: 20 (edited)"},
+        CTX,
+    )
+    assert r.success, r.error
+    assert r.output["old_str_count"] == 1 and r.output["replaced"] == 1
+    assert r.output["size_before"] == _nbytes(CHECKLIST) == len(backend.read("intake_checklist.sh")) - 9
+    assert r.output["size_after"] == _nbytes(after) == len(backend.read("intake_checklist.sh"))
+
+
+async def test_fs_patch_reports_real_byte_sizes(backend) -> None:
+    backend.seed("intake_checklist.sh", CHECKLIST)
+    r = await filesystem.fs_patch(
+        {
+            "path": "intake_checklist.sh",
+            "edits": [{"old_text": "printed: 20", "new_text": "printed: 30 — double-sided"}],
+        },
+        CTX,
+    )
+    assert r.success, r.error
+    assert r.output["size_before"] == _nbytes(CHECKLIST)
+    assert r.output["size_after"] == len(backend.read("intake_checklist.sh"))
+    assert r.output["size_after"] > r.output["size_before"]
+
+
+@pytest.mark.parametrize("append", [False, True])
+async def test_fs_write_reports_bytes_written_and_mode(backend, append: bool) -> None:
+    if append:
+        backend.seed("intake_checklist.sh", CHECKLIST)
+    line = 'check "Masks restocked — front door"\n'
+    r = await filesystem.fs_write(
+        {"path": "intake_checklist.sh", "content": line, "append": append}, CTX
+    )
+    assert r.success, r.error
+    assert r.output["bytes_written"] == _nbytes(line)
+    assert r.output["mode"] == ("append" if append else "write")
+    if r.output.get("size") is not None:  # sandbox branch: the resulting file's size
+        assert r.output["size"] == len(backend.read("intake_checklist.sh"))
 
 
 # ── receipts ─────────────────────────────────────────────────────────────────

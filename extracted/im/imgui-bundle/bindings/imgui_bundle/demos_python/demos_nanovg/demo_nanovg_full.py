@@ -1,10 +1,19 @@
+"""NanoVG: the full demo
+
+The demo of [NanoVG](https://github.com/memononen/nanovg), a vector drawing library: shapes, gradients, text, images.
+Drawn each frame behind the GUI, or into a framebuffer that an ImGui image shows. The scene follows the mouse, and a
+checkbox blows it up.
+"""
 # port of bindings/imgui_bundle/demos_cpp/demos_nanovg/demo_nanovg_full.cpp
 from imgui_bundle import imgui, nanovg as nvg, hello_imgui, ImVec2, ImVec4, register_demos_assets_folder
-from imgui_bundle.demos_python.demos_nanovg.demo_nanovg_full import demo_nanovg_full_impl
+# The scene, in the folder next to this file (on the path: this file runs as a script)
+from demo_nanovg_full import demo_nanovg_full_impl  # type: ignore[import-not-found]
 from typing import List
 
 nvg_imgui = nvg.nvg_imgui
 register_demos_assets_folder()
+
+SCENE_WIDTH = 1000  # The scene is laid out for this width (in pixels): narrower (a phone), it is scaled down
 
 class MyNvgDemo:
     blowup: bool
@@ -61,12 +70,14 @@ def main():
     runner_params.callbacks.enqueue_post_init(post_init)
     runner_params.callbacks.enqueue_before_exit(before_exit)
 
-    def nvg_drawing_function(_: nvg.Context, width: float, height: float):
+    def nvg_drawing_function(vg: nvg.Context, width: float, height: float):
         now = imgui.get_time()
         mouse_pos = ImVec2(
             imgui.get_mouse_pos().x - imgui.get_main_viewport().pos.x,
             imgui.get_mouse_pos().y - imgui.get_main_viewport().pos.y)
-        app_state.myNvgDemo.render(width, height, mouse_pos.x, mouse_pos.y, now)
+        scale = min(1.0, width / SCENE_WIDTH)
+        nvg.scale(vg, scale, scale)
+        app_state.myNvgDemo.render(width / scale, height / scale, mouse_pos.x / scale, mouse_pos.y / scale, now)
 
     def custom_background():
         clear_color_vec4 = ImVec4(*app_state.clear_color)
@@ -81,8 +92,9 @@ def main():
         if app_state.display_in_frame_buffer:
             clear_color_vec4 = ImVec4(*app_state.clear_color)
             nvg_imgui.render_nvg_to_frame_buffer(app_state.vg, app_state.myFrameBuffer, nvg_drawing_function, clear_color_vec4)
-            imgui.image(
-                imgui.ImTextureRef(app_state.myFrameBuffer.texture_id), ImVec2(1000, 600))
+            # 1000 pixels wide at most (the screen's width on a phone), with the framebuffer's aspect ratio
+            width = min(1000.0, imgui.get_main_viewport().work_size.x - hello_imgui.em_size(2))
+            imgui.image(imgui.ImTextureRef(app_state.myFrameBuffer.texture_id), ImVec2(width, width * 0.6))
 
         imgui.button("?##Note")
         if imgui.is_item_hovered():

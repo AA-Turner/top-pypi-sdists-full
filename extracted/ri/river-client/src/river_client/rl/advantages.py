@@ -112,16 +112,20 @@ def build_batch(
     defer_normalization=False,
     advantages=None,
     include_loss_mask=False,
+    loss=None,
 ):
-    if normalize not in {"token", "sequence", "batch", "sum"}:
+    if normalize not in {"token", "prompt", "sequence", "batch", "sum"}:
         raise ValueError(
-            "normalize must be explicitly 'token', 'sequence', 'batch', or 'sum'"
+            "normalize must be explicitly 'token', 'prompt', 'sequence', 'batch', or 'sum'"
         )
     rewards = reward_values(groups, truncation)
     if advantages is None:
         advantages = estimator(rewards, min_members=min_members)
     records, ages, stale, total = [], [], 0, 0
+    group_token_counts = []
     for group, group_advantages in zip(groups, advantages, strict=True):
+        group_index = len(group_token_counts)
+        group_token_counts.append(0)
         for traj, advantage in zip(group, group_advantages, strict=True):
             for span in traj.spans:
                 if span.kind == "generated":
@@ -140,7 +144,10 @@ def build_batch(
             }:
                 continue
             data = traj.to_data(
-                advantage, current_step=current_step, max_staleness=max_staleness
+                advantage,
+                current_step=current_step,
+                max_staleness=max_staleness,
+                requirements=None if loss is None else loss.requirements,
             )
             masks = traj.to_data(
                 1.0, current_step=current_step, max_staleness=max_staleness
@@ -150,22 +157,28 @@ def build_batch(
                     datum["loss_mask"] = mask["advantages"]
             n_tokens = sum(sum(d["advantages"]) for d in masks)
             if n_tokens:
-                records.append((data, n_tokens))
-    token_count = sum(count for data, count in records)
-    for data, count in records:
-        denominator = (
-            1
-            if normalize == "sum" or (defer_normalization and normalize != "sequence")
-            else token_count
-            if normalize == "token"
-            else (1 if defer_normalization else len(records)) * count
-            if normalize == "sequence"
-            else len(records)
-        )
+                records.append((data, n_tokens, group_index))
+                group_token_counts[group_index] += n_tokens
+    token_count = sum(group_token_counts)
+    group_count = sum(count > 0 for count in group_token_counts)
+    for data, count, group_index in records:
+        if normalize == "prompt":
+            # A completed group's length is known before the batch is ready.
+            denominator = group_token_counts[group_index] * (
+                1 if defer_normalization else group_count
+            )
+        elif normalize == "sequence":
+            denominator = count * (1 if defer_normalization else len(records))
+        elif defer_normalization or normalize == "sum":
+            denominator = 1
+        elif normalize == "token":
+            denominator = token_count
+        else:
+            denominator = len(records)
         for datum in data:
             datum["advantages"] = [a / denominator for a in datum["advantages"]]
     signal = "loss_mask" if include_loss_mask else "advantages"
-    data = [d for datums, count in records for d in datums if any(d[signal])]
+    data = [d for record in records for d in record[0] if any(d[signal])]
     flat_rewards = [t.reward for group in groups for t in group]
     flat = [t for group in groups for t in group]
     metrics = {
@@ -179,6 +192,7 @@ def build_batch(
         "train/generated_tokens": float(total),
         "train/active_tokens": float(token_count),
         "train/active_sequences": float(len(records)),
+        "train/active_groups": float(group_count),
         "train/datums": float(len(data)),
         "length/generated_p50": float(
             np.percentile([t.generated_tokens for t in flat], 50)
@@ -197,7 +211,7 @@ def build_batch(
         )
     for key in {key for t in flat for key in t.metrics}:
         metrics[f"rollout/{key}"] = sum(t.metrics.get(key, 0) for t in flat)
-    return data, metrics
+    return (data if loss is None else loss.encode_metadata(data)), metrics
 
 
 def decouple_ppo(data, proximal_logprobs, *, max_importance_weight: float):
@@ -267,6 +281,8 @@ def accumulation_scale(
             scale /= max(float(np.std(values)), estimator.eps)
     if normalize == "token":
         scale /= max(1, metrics["train/active_tokens"])
+    elif normalize == "prompt":
+        scale /= max(1, metrics["train/active_groups"])
     elif normalize in {"sequence", "batch"}:
         scale /= max(1, metrics["train/active_sequences"])
     return scale

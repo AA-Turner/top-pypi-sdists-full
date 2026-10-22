@@ -1,4 +1,5 @@
 """Standalone pipeline that enables request tracking and flushes to PostgreSQL."""
+
 from .base import BasePipeline
 from ..bootstrap import attach_runtime_hooks
 from ..collector import ensure_collector
@@ -28,11 +29,11 @@ class RequestsPipeline(BasePipeline):
         settings = Settings(crawler.settings)
         return cls(settings, crawler)
 
-    def open_spider(self, spider):
-        get_flusher(self.crawler, self.settings).start(spider)
+    def open_spider(self):
+        get_flusher(self.crawler, self.settings).start(self.crawler.spider)
 
-    def close_spider(self, spider):
+    def close_spider(self):
         get_flusher(self.crawler, self.settings).stop_periodic()
 
-    def process_item(self, item, spider):
+    def process_item(self, item):
         return item

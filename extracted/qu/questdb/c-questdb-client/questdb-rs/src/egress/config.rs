@@ -88,6 +88,11 @@ pub const DEFAULT_PATH: &str = "/read/v1";
 pub const HIGHEST_KNOWN_VERSION: u8 = crate::egress::wire::PROTOCOL_VERSION;
 
 /// Default WS port (matches QuestDB HTTP / ILP-HTTP convention).
+/// Default `query_timeout_ms`: `0`, i.e. no client-supplied per-query
+/// timeout, so each query runs under the server-wide `query.timeout`.
+/// Matches the Java client's `query_timeout_ms` default.
+pub const DEFAULT_QUERY_TIMEOUT_MS: u64 = 0;
+
 const DEFAULT_PLAIN_PORT: &str = "9000";
 const DEFAULT_TLS_PORT: &str = "9000";
 
@@ -489,6 +494,19 @@ pub struct ReaderConfig {
     /// handshake, the WS upgrade (see `auth_timeout_ms`), or the
     /// `SERVER_INFO` read (see `server_info_timeout_ms`).
     pub connect_timeout_ms: u64,
+    /// Default per-query timeout in milliseconds, applied to every query
+    /// this reader runs unless the query overrides it with
+    /// [`ReaderQuery::timeout`](crate::egress::ReaderQuery::timeout). `0`
+    /// (the default) means no client timeout: each query runs under the
+    /// server-wide `query.timeout`.
+    ///
+    /// A non-zero value requires a server advertising `CAP_QUERY_TIMEOUT`;
+    /// against an older server every query is refused before anything is
+    /// sent, with [`crate::ErrorCode::UnsupportedServer`], rather than
+    /// silently running under the server default. The server applies no
+    /// ceiling, so this may legitimately exceed `query.timeout` — which is
+    /// the point for long transforms. Connect-string key: `query_timeout_ms`.
+    pub query_timeout_ms: u64,
     /// Client's zone identifier — opaque case-insensitive string (e.g.
     /// `eu-west-1a`, `dc-amsterdam`). When set, the host-health tracker
     /// prefers endpoints whose server-advertised `zone_id` matches
@@ -551,9 +569,7 @@ pub(crate) const INGRESS_ONLY_CONFIG_KEYS: &[&str] = &[
     // Generic auth timeout (Duration in millis; distinct from the
     // shared `auth_timeout_ms` which is QWP-WS-specific on ingress).
     "auth_timeout",
-    // QWP-WS pacing / in-flight
-    "in_flight_window",
-    "max_in_flight",
+    // QWP-WS pacing
     "qwp_ws_progress",
     "max_frame_rejections",
     "poison_min_escalation_window_millis",
@@ -563,6 +579,7 @@ pub(crate) const INGRESS_ONLY_CONFIG_KEYS: &[&str] = &[
     "sf_max_segment_bytes",
     "sf_max_total_bytes",
     "sf_durability",
+    "sf_sync_interval_millis",
     "sf_append_deadline_millis",
     // QWP-WS reconnect / connect retry
     "reconnect_max_duration_millis",
@@ -771,6 +788,7 @@ impl ReaderConfig {
         let mut auth_timeout_ms: u64 = DEFAULT_AUTH_TIMEOUT_MS;
         let server_info_timeout_ms: u64 = DEFAULT_SERVER_INFO_TIMEOUT_MS;
         let mut connect_timeout_ms: u64 = 0;
+        let mut query_timeout_ms: u64 = DEFAULT_QUERY_TIMEOUT_MS;
         let mut zone: Option<String> = None;
         let mut tls_verify = TlsVerify::On;
         let mut tls_ca = default_tls_ca();
@@ -915,6 +933,9 @@ impl ReaderConfig {
                 "connect_timeout" => {
                     connect_timeout_ms = parse_value("connect_timeout", val)?;
                 }
+                "query_timeout_ms" => {
+                    query_timeout_ms = parse_value("query_timeout_ms", val)?;
+                }
                 "zone" => {
                     // Empty / whitespace-only is treated as unset
                     // (zone-blind). Reject CR/LF — these are headers /
@@ -1045,6 +1066,7 @@ impl ReaderConfig {
             auth_timeout_ms,
             server_info_timeout_ms,
             connect_timeout_ms,
+            query_timeout_ms,
             zone,
             auth,
             tls_verify,
@@ -1987,6 +2009,61 @@ mod tests {
         assert!(err.msg().contains("connect_timeout"), "msg: {}", err.msg());
     }
 
+    // --- query_timeout_ms (per-query timeout default) ---
+
+    #[test]
+    fn query_timeout_defaults_to_none() {
+        let c = ReaderConfig::from_conf("ws::addr=h:1").unwrap();
+        assert_eq!(
+            c.query_timeout_ms, 0,
+            "default must leave queries under the server-wide query.timeout"
+        );
+        assert_eq!(DEFAULT_QUERY_TIMEOUT_MS, 0);
+    }
+
+    #[test]
+    fn query_timeout_parses_from_connect_string() {
+        let c = ReaderConfig::from_conf("ws::addr=h:1;query_timeout_ms=600000").unwrap();
+        assert_eq!(c.query_timeout_ms, 600_000);
+    }
+
+    #[test]
+    fn query_timeout_zero_is_no_timeout() {
+        // `0` is the documented sentinel for "send no timeout_ms". The
+        // server rejects a zero on the wire, so the client must express
+        // "none" by omitting the field, never by sending 0.
+        let c = ReaderConfig::from_conf("ws::addr=h:1;query_timeout_ms=0").unwrap();
+        assert_eq!(c.query_timeout_ms, 0);
+    }
+
+    #[test]
+    fn query_timeout_has_no_ceiling() {
+        // Deliberate: the server applies no ceiling either, and a dbt-style
+        // transform legitimately wants longer than `query.timeout`. A cap
+        // here would silently cut such a query short.
+        let c = ReaderConfig::from_conf("ws::addr=h:1;query_timeout_ms=86400000").unwrap();
+        assert_eq!(c.query_timeout_ms, 86_400_000);
+    }
+
+    #[test]
+    fn query_timeout_non_numeric_rejected() {
+        let err = ReaderConfig::from_conf("ws::addr=h:1;query_timeout_ms=soon").unwrap_err();
+        assert_eq!(err.code(), ErrorCode::ConfigError);
+        assert!(
+            err.msg().contains("query_timeout_ms"),
+            "msg must name the key: {}",
+            err.msg()
+        );
+    }
+
+    #[test]
+    fn query_timeout_negative_rejected() {
+        // The field is an unsigned varint on the wire; a negative value is
+        // a `STATUS_PARSE_ERROR` at the server, so reject it at parse time.
+        let err = ReaderConfig::from_conf("ws::addr=h:1;query_timeout_ms=-1").unwrap_err();
+        assert_eq!(err.code(), ErrorCode::ConfigError);
+    }
+
     #[test]
     fn failover_max_duration_defaults_to_30s() {
         let c = ReaderConfig::from_conf("ws::addr=h:1").unwrap();
@@ -2187,6 +2264,25 @@ mod tests {
                     )
                 });
             }
+        }
+    }
+
+    #[test]
+    fn egress_rejects_removed_in_flight_keys() {
+        // `in_flight_window` and `max_in_flight` are not configuration keys
+        // anywhere in the client, so the cross-role tolerance above does not
+        // extend to them: the egress reader rejects them as unknown, exactly
+        // like the ingress sender. Keeping them out of
+        // `INGRESS_ONLY_CONFIG_KEYS` is what this test pins down.
+        for key in ["in_flight_window", "max_in_flight"] {
+            let conf = format!("ws::addr=h:1;{key}=8");
+            let err = ReaderConfig::from_conf(&conf).unwrap_err();
+            assert_eq!(err.code(), ErrorCode::ConfigError, "key: {key}");
+            assert!(
+                err.msg().contains(&format!("Unknown config key \"{key}\"")),
+                "key: {key}, msg: {}",
+                err.msg()
+            );
         }
     }
 

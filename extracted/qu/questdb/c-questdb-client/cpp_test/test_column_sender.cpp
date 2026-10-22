@@ -25,8 +25,12 @@
 #include <questdb/ingress/qwp_sender.hpp>
 #include <questdb/ingress/line_sender.hpp>
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
+#include <cstring>
+#include <limits>
 #include <memory>
 #include <string>
 #include <thread>
@@ -42,7 +46,8 @@ namespace
 std::unique_ptr<qm::MockServer> spawn_mock(int slot_count)
 {
     qm::Script accept_one_frame = {qm::ActionAwaitClientFrame{0x51}};
-    std::vector<qm::Script> scripts(static_cast<size_t>(slot_count), accept_one_frame);
+    std::vector<qm::Script> scripts(
+        static_cast<size_t>(slot_count), accept_one_frame);
     return std::make_unique<qm::MockServer>(std::move(scripts));
 }
 
@@ -51,15 +56,40 @@ std::unique_ptr<qm::MockServer> spawn_acking_mock(int slot_count)
     qm::Script ack_one_frame = {
         qm::ActionAwaitClientFrame{0x51},
         qm::ActionSendRaw{qm::ingress_ok_frame()}};
-    std::vector<qm::Script> scripts(static_cast<size_t>(slot_count), ack_one_frame);
+    std::vector<qm::Script> scripts(
+        static_cast<size_t>(slot_count), ack_one_frame);
     return std::make_unique<qm::MockServer>(std::move(scripts));
 }
 
 std::string conf_for(const std::string& addr, const std::string& extras = {})
 {
     return "ws::addr=" + addr +
-           ";lazy_connect=true;sender_pool_min=1;pool_reap=manual;close_flush_timeout_millis=0;" +
+           ";lazy_connect=true;sender_pool_min=1;pool_reap=manual;close_flush_"
+           "timeout_millis=0;" +
            extras;
+}
+
+void check_db_config_error(
+    const std::string& conf, const std::string& expected_message)
+{
+    questdb_error* err = nullptr;
+    questdb_db* db = questdb_db_connect(conf.c_str(), conf.size(), &err);
+    if (db != nullptr)
+    {
+        questdb_db_close(db);
+    }
+    REQUIRE(db == nullptr);
+    REQUIRE(err != nullptr);
+    std::unique_ptr<questdb_error, decltype(&questdb_error_free)> owned_err{
+        err, &questdb_error_free};
+
+    CHECK(questdb_error_get_code(err) == questdb_error_config_error);
+    size_t message_len = 0;
+    const char* message = questdb_error_msg(err, &message_len);
+    REQUIRE(message != nullptr);
+    CHECK(
+        std::string{message, message_len}.find(expected_message) !=
+        std::string::npos);
 }
 
 } // namespace
@@ -90,15 +120,162 @@ TEST_CASE("column_chunk row_count starts at 0 and is_empty after clear")
     CHECK(chunk.row_count() == 0);
 }
 
+TEST_CASE("column_chunk native decimals and arrays flush through C ABI")
+{
+    auto mock = spawn_acking_mock(1);
+    questdb::pool db{conf_for(mock->addr())};
+    auto conn = db.borrow_sender();
+    const int64_t d64[] = {12345, 0, -12345};
+    std::array<uint8_t, 48> d128{};
+    std::array<uint8_t, 96> d256{};
+    d128[0] = 1;
+    d256[0] = 1;
+    std::fill(d128.begin() + 32, d128.end(), uint8_t{0xff});
+    std::fill(d256.begin() + 64, d256.end(), uint8_t{0xff});
+    const double values[] = {
+        100.25,
+        std::numeric_limits<double>::quiet_NaN(),
+        10,
+        20,
+        0,
+        0,
+        0,
+        0,
+        101,
+        100.5,
+        30,
+        40};
+    const uint32_t shape[] = {2, 2};
+    const uint8_t bits[] = {5};
+    qdb::validity_view valid{bits, 3};
+    const int64_t ts[] = {1, 2, 3};
+    qdb::column_chunk chunk{"native_columns"};
+    auto& ref = chunk.column_decimal64("d64", d64, 3, 2, &valid)
+                    .column_decimal128("d128", d128.data(), 3, 9, &valid)
+                    .column_decimal256("d256", d256.data(), 3, 76, &valid)
+                    .column_f64_array("a", values, 12, 3, shape, 2, &valid)
+                    .at_nanos(ts, 3);
+    CHECK(&ref == &chunk);
+    conn.flush_and_wait(chunk);
+    const auto frames = mock->captured_requests();
+    REQUIRE_FALSE(frames.empty());
+    const auto check_body = [&](const char* column,
+                                const std::vector<uint8_t>& body) {
+        INFO("column: ", column);
+        CHECK(std::any_of(frames.begin(), frames.end(), [&](const auto& frame) {
+            return std::search(
+                       frame.begin(), frame.end(), body.begin(), body.end()) !=
+                   frame.end();
+        }));
+    };
+    const auto append_u64_le = [](std::vector<uint8_t>& body, uint64_t value) {
+        for (unsigned shift = 0; shift < 64; shift += 8)
+            body.push_back(static_cast<uint8_t>(value >> shift));
+    };
+    // Null flag, bitmap, scale, then only the non-null mantissas in LE.
+    std::vector<uint8_t> body{1, 2, 2};
+    append_u64_le(body, 12345);
+    append_u64_le(body, static_cast<uint64_t>(-12345));
+    check_body("d64", body);
+    body = {1, 2, 9};
+    body.insert(body.end(), d128.begin(), d128.begin() + 16);
+    body.insert(body.end(), d128.begin() + 32, d128.end());
+    check_body("d128", body);
+    body = {1, 2, 76};
+    body.insert(body.end(), d256.begin(), d256.begin() + 32);
+    body.insert(body.end(), d256.begin() + 64, d256.end());
+    check_body("d256", body);
+
+    body = {1, 2};
+    for (size_t row : {size_t{0}, size_t{2}})
+    {
+        // Each non-null array has ndim=2, shape=[2, 2], then four doubles.
+        body.insert(body.end(), {2, 2, 0, 0, 0, 2, 0, 0, 0});
+        for (size_t i = 0; i < 4; ++i)
+        {
+            uint64_t value_bits;
+            std::memcpy(&value_bits, &values[row * 4 + i], sizeof(value_bits));
+            append_u64_le(body, value_bits);
+        }
+    }
+    check_body("a", body);
+    CHECK(chunk.row_count() == 0);
+    conn.drop_on_return();
+}
+
+TEST_CASE("column_chunk native columns report validation errors")
+{
+    const int64_t d64[] = {1};
+    const uint8_t wide[32] = {};
+    const double values[] = {1, 2, 3, 4};
+    const uint32_t shape[] = {2, 2};
+    const uint32_t zero_shape[] = {0};
+    const uint8_t bits[] = {3};
+    const qdb::validity_view wrong_validity{bits, 2};
+    qdb::column_chunk chunk{"t"};
+    CHECK_THROWS_AS(
+        chunk.column_decimal64("d64", d64, 1, 0, &wrong_validity),
+        qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_decimal128("d128", wide, 1, 0, &wrong_validity),
+        qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_decimal256("d256", wide, 1, 0, &wrong_validity),
+        qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_f64_array("a", values, 4, 1, shape, 2, &wrong_validity),
+        qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_decimal64("d64", d64, 1, 19), qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_decimal128("d128", wide, 1, 39), qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_decimal256("d256", wide, 1, 77), qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_f64_array("a", values, 3, 1, shape, 2),
+        qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_f64_array("a", values, 4, 1, zero_shape, 1),
+        qdb::line_sender_error);
+    CHECK(chunk.row_count() == 0);
+    chunk.column_decimal64("d64", d64, 1, 0);
+    CHECK_THROWS_AS(
+        chunk.column_f64_array("a", values, 4, 2, shape, 2),
+        qdb::line_sender_error);
+    CHECK_THROWS_AS(
+        chunk.column_decimal128("d64", wide, 1, 0), qdb::line_sender_error);
+}
+
+TEST_CASE("column_chunk native arrays enforce the row limit at append")
+{
+    constexpr size_t max_rows = 16 * 1024 * 1024;
+    const std::vector<double> data(max_rows + 1);
+    const uint32_t shape[] = {1};
+    qdb::column_chunk chunk{"t"};
+    // The FFI must check the row limit before borrowing the data buffer.
+    CHECK_THROWS_WITH_AS(
+        chunk.column_f64_array(
+            "a", nullptr, max_rows + 1, max_rows + 1, shape, 1),
+        doctest::Contains("MAX_CHUNK_ROWS"),
+        qdb::line_sender_error);
+    CHECK_THROWS_WITH_AS(
+        chunk.column_f64_array(
+            "a", data.data(), data.size(), max_rows + 1, shape, 1),
+        doctest::Contains("MAX_CHUNK_ROWS"),
+        qdb::line_sender_error);
+    CHECK(chunk.row_count() == 0);
+    chunk.column_f64_array("a", data.data(), max_rows, max_rows, shape, 1);
+    CHECK(chunk.row_count() == max_rows);
+}
+
 TEST_CASE("column_chunk fluent chaining returns the same chunk")
 {
     qdb::column_chunk chunk{"t"};
     int64_t v[] = {1, 2, 3};
     double f[] = {1.5, 2.5, 3.5};
     int64_t ts[] = {1, 2, 3};
-    auto& ref = chunk.column_i64("v", v, 3)
-                     .column_f64("f", f, 3)
-                     .at_nanos(ts, 3);
+    auto& ref =
+        chunk.column_i64("v", v, 3).column_f64("f", f, 3).at_nanos(ts, 3);
     CHECK(&ref == &chunk);
     CHECK(chunk.row_count() == 3);
 }
@@ -106,6 +283,36 @@ TEST_CASE("column_chunk fluent chaining returns the same chunk")
 TEST_CASE("pool construction throws on invalid connect string")
 {
     CHECK_THROWS_AS(questdb::pool{"http::not-a-qwp-string;"}, questdb::error);
+}
+
+TEST_CASE("periodic durability config errors cross the C API as ConfigError")
+{
+    check_db_config_error(
+        "ws::addr=127.0.0.1:1;lazy_connect=true;"
+        "sf_dir=unused-periodic-config-test;sf_durability=periodic;"
+        "sf_sync_interval_millis=0;",
+        "\"sf_sync_interval_millis\" must be greater than 0.");
+    check_db_config_error(
+        "ws::addr=127.0.0.1:1;lazy_connect=true;"
+        "sf_sync_interval_millis=5000;",
+        "sf_sync_interval_millis requires sf_durability=periodic");
+}
+
+TEST_CASE("valid periodic durability config crosses the C API")
+{
+    const std::string conf =
+        "ws::addr=127.0.0.1:1;lazy_connect=true;"
+        "sender_pool_min=0;query_pool_min=0;"
+        "sf_dir=unused-periodic-config-test;sf_durability=periodic;"
+        "sf_sync_interval_millis=123;";
+    questdb_error* err = nullptr;
+    questdb_db* raw_db = questdb_db_connect(conf.c_str(), conf.size(), &err);
+    std::unique_ptr<questdb_error, decltype(&questdb_error_free)> owned_err{
+        err, &questdb_error_free};
+    REQUIRE(raw_db != nullptr);
+    std::unique_ptr<questdb_db, decltype(&questdb_db_close)> db{
+        raw_db, &questdb_db_close};
+    CHECK(err == nullptr);
 }
 
 TEST_CASE("borrowed_sender returns conn to pool on destructor")
@@ -149,11 +356,11 @@ TEST_CASE("column_chunk flush round-trips through the mock")
 
     qdb::column_chunk chunk{"trades"};
     int64_t qty[] = {10, 20, 30};
-    int64_t ts[] = {1'700'000'000'000'000'000LL,
-                    1'700'000'000'000'000'001LL,
-                    1'700'000'000'000'000'002LL};
-    chunk.column_i64("qty", qty, 3)
-         .at_nanos(ts, 3);
+    int64_t ts[] = {
+        1'700'000'000'000'000'000LL,
+        1'700'000'000'000'000'001LL,
+        1'700'000'000'000'000'002LL};
+    chunk.column_i64("qty", qty, 3).at_nanos(ts, 3);
 
     CHECK_FALSE(conn.published_fsn().has_value());
     CHECK_FALSE(conn.acked_fsn().has_value());
@@ -172,8 +379,9 @@ TEST_CASE("column_chunk symbol column round-trips through the mock")
 {
     // Exercises the columnar symbol FFI (qwp_chunk_symbol_i32) end to
     // end: append a dictionary-encoded SYMBOL column, flush, and confirm the
-    // frame reaches the mock. Previously only the row API's .symbol() was covered
-    // in C/C++; the column-major symbol appender had no test on the C ABI.
+    // frame reaches the mock. Previously only the row API's .symbol() was
+    // covered in C/C++; the column-major symbol appender had no test on the C
+    // ABI.
     auto mock = spawn_mock(1);
     questdb::pool db{conf_for(mock->addr())};
     auto conn = db.borrow_sender();
@@ -202,8 +410,9 @@ TEST_CASE("column_chunk symbol_i8 / symbol_i16 round-trip through the mock")
     // The i32 case is covered above; the narrow-width appenders
     // (qwp_chunk_symbol_i8 / _i16) do their own code -> global-id
     // conversion and range check at the C boundary, so exercise them end to end
-    // too. Under the FFI `panic = "abort"` profile a width-specific bug (a bad cast
-    // or an out-of-range slot index) would abort the host rather than error.
+    // too. Under the FFI `panic = "abort"` profile a width-specific bug (a bad
+    // cast or an out-of-range slot index) would abort the host rather than
+    // error.
     const int32_t dict_offsets[] = {0, 4, 8};
     const uint8_t dict_bytes[] = {'A', 'A', 'P', 'L', 'M', 'S', 'F', 'T'};
     int64_t ts[] = {
@@ -245,8 +454,8 @@ TEST_CASE("column_chunk symbol_i8 / symbol_i16 round-trip through the mock")
 TEST_CASE("column_chunk symbol append validates codes and UTF-8 at the C ABI")
 {
     // The encoder relies on every non-null code being a valid dict index, and
-    // QuestDB SYMBOLs are UTF-8, so both are rejected eagerly at append -- a bad
-    // value would otherwise be interned, persisted to the store-and-forward
+    // QuestDB SYMBOLs are UTF-8, so both are rejected eagerly at append -- a
+    // bad value would otherwise be interned, persisted to the store-and-forward
     // side-file, and locally ACKed, then rejected by the server, stranding the
     // dependent queued frame.
     SUBCASE("out-of-range code is rejected")
@@ -256,7 +465,8 @@ TEST_CASE("column_chunk symbol append validates codes and UTF-8 at the C ABI")
         const int32_t dict_offsets[] = {0, 5};
         const uint8_t dict_bytes[] = {'a', 'l', 'p', 'h', 'a'};
         CHECK_THROWS_AS(
-            chunk.symbol_i32("sym", bad_codes, 2, dict_offsets, 2, dict_bytes, 5),
+            chunk.symbol_i32(
+                "sym", bad_codes, 2, dict_offsets, 2, dict_bytes, 5),
             qdb::line_sender_error);
     }
     SUBCASE("non-UTF-8 dictionary bytes are rejected")
@@ -279,11 +489,11 @@ TEST_CASE("column_chunk flush_and_wait round-trips through the mock")
 
     qdb::column_chunk chunk{"trades"};
     int64_t qty[] = {10, 20, 30};
-    int64_t ts[] = {1'700'000'000'000'000'000LL,
-                    1'700'000'000'000'000'001LL,
-                    1'700'000'000'000'000'002LL};
-    chunk.column_i64("qty", qty, 3)
-         .at_nanos(ts, 3);
+    int64_t ts[] = {
+        1'700'000'000'000'000'000LL,
+        1'700'000'000'000'000'001LL,
+        1'700'000'000'000'000'002LL};
+    chunk.column_i64("qty", qty, 3).at_nanos(ts, 3);
 
     conn.flush_and_wait(chunk);
     CHECK(chunk.row_count() == 0);
@@ -329,6 +539,49 @@ TEST_CASE("one borrowed_sender sends a Buffer and a Chunk")
     sender.drop_on_return();
 }
 
+// The QWP/WS row buffer reaches C and C++ through the pool, and its rewind
+// records lengths rather than copying what it discards. On a real connection
+// the discarded rows' symbols would ride in the published frame's dictionary
+// if the rewind left their cells behind.
+TEST_CASE("borrowed_sender publishes only the rows a bookmark rewind kept")
+{
+    auto mock = spawn_acking_mock(1);
+    questdb::pool db{conf_for(mock->addr())};
+    auto sender = db.borrow_sender();
+
+    auto buf = sender.new_buffer();
+    buf.table("trades")
+        .symbol("sym", "keep")
+        .column("qty", int64_t{1})
+        .at_now();
+
+    auto bm = buf.bookmark();
+    // Several rows past the bookmark: unwinding one is the case a single-row
+    // rollback happens to cover, unwinding several is not.
+    for (int i = 0; i < 3; ++i)
+    {
+        buf.table("trades")
+            .symbol("sym", "drop-" + std::to_string(i))
+            .column("qty", static_cast<int64_t>(100 + i))
+            .at_now();
+    }
+    CHECK(buf.row_count() == 4);
+
+    buf.rewind_to_bookmark(bm);
+    CHECK(buf.row_count() == 1);
+
+    sender.flush_and_wait(buf);
+
+    auto requests = mock->captured_requests();
+    REQUIRE(requests.size() == 1);
+    const std::string frame{
+        reinterpret_cast<const char*>(requests[0].data()), requests[0].size()};
+    CHECK(frame.find("keep") != std::string::npos);
+    CHECK(frame.find("drop-") == std::string::npos);
+
+    sender.drop_on_return();
+}
+
 TEST_CASE("borrowed_sender flush_and_wait round-trips through the mock")
 {
     auto mock = spawn_acking_mock(1);
@@ -368,8 +621,7 @@ TEST_CASE("qwp_sender_flush_buffer_and_wait: NULL buffer -> invalid_api_call")
     CHECK_FALSE(ok);
     REQUIRE(err != nullptr);
     CHECK(
-        line_sender_error_get_code(err) ==
-        line_sender_error_invalid_api_call);
+        line_sender_error_get_code(err) == line_sender_error_invalid_api_call);
     line_sender_error_free(err);
 
     questdb_db_drop_sender(db, rs);
@@ -392,7 +644,8 @@ TEST_CASE("borrowed_sender::new_buffer preserves max_name_len on lazy reinit")
     {
         // 17 chars: rejected by the cap-16 re-init (pins cap <= 16).
         auto buf = rs.new_buffer();
-        auto moved = std::move(buf); // nulls buf._impl; table() triggers may_init
+        auto moved =
+            std::move(buf); // nulls buf._impl; table() triggers may_init
         CHECK(moved.row_count() == 0);
         try
         {
@@ -445,8 +698,9 @@ TEST_CASE("borrowed_sender::wait rejects durable ACK without opt-in")
     catch (const qdb::line_sender_error& e)
     {
         CHECK(e.code() == qdb::line_sender_error_code::invalid_api_call);
-        CHECK(std::string{e.what()}.find("request_durable_ack=on") !=
-              std::string::npos);
+        CHECK(
+            std::string{e.what()}.find("request_durable_ack=on") !=
+            std::string::npos);
     }
 
     rs.drop_on_return();

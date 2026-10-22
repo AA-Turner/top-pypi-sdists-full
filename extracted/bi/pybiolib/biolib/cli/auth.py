@@ -39,7 +39,7 @@ def whoami() -> None:
         email = user_dict['email']
         display_name = user_dict['account']['display_name']
 
-        print(f'Name: {display_name}\nEmail: {email}\nLogged into: {client.base_url}')
+        print(f'Name: {display_name}\nEmail: {email}\nBioLib server: {client.base_url}')
     else:
-        print('Not logged in', file=sys.stderr)
+        print(f'Not logged in\nBioLib server: {client.base_url}', file=sys.stderr)
         exit(1)

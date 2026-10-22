@@ -22,7 +22,7 @@ from stirrup.constants import (
     TURNS_REMAINING_WARNING_THRESHOLD,
 )
 from stirrup.core.cache import CacheManager, CacheState, compute_task_hash
-from stirrup.core.exceptions import ContextOverflowError
+from stirrup.core.exceptions import CompactionRequiredError, ContextOverflowError
 from stirrup.core.models import (
     AssistantMessage,
     ChatMessage,
@@ -30,6 +30,7 @@ from stirrup.core.models import (
     LLMClient,
     SubAgentMetadata,
     SummaryMessage,
+    SummaryTrigger,
     SystemMessage,
     TokenUsage,
     Tool,
@@ -385,9 +386,10 @@ class Agent[FinishParams: BaseModel, FinishMeta]:
             block_successive_assistant_messages: If True (default), automatically inject a continue
                                                message when assistant responds without tool calls to
                                                prevent successive assistant messages.
-            recover_from_context_overflow: If True (default), drop one completed turn and retry when
-                                           the model reports a context overflow. If the original
-                                           prompt still overflows, the context error is raised.
+            recover_from_context_overflow: If True (default), drop one completed turn, summarize the
+                                           rest and retry when the model reports a context overflow
+                                           or raises CompactionRequiredError. If no turn can be
+                                           dropped, the error is raised.
             share_parent_exec_env: When True and used as a subagent, share the parent's code
                                    execution environment instead of creating a new one. This
                                    provides better performance (no file copying) and allows
@@ -1213,6 +1215,17 @@ class Agent[FinishParams: BaseModel, FinishMeta]:
             tool_end_time=tool_end_time,
         )
 
+    def _unwind_rejected_turn(
+        self, messages: list[ChatMessage], error: ContextOverflowError | CompactionRequiredError
+    ) -> tuple[list[ChatMessage], str]:
+        """Drop the latest completed turn, re-raising a ``CompactionRequiredError`` itself if none can go."""
+        try:
+            return self._unwind_context_overflow(messages)
+        except ContextOverflowError:
+            if isinstance(error, CompactionRequiredError):
+                raise error from None
+            raise
+
     def _unwind_context_overflow(self, messages: list[ChatMessage]) -> tuple[list[ChatMessage], str]:
         """Drop the latest completed turn, preserving the original task prompt."""
         if not self._recover_from_context_overflow:
@@ -1333,6 +1346,8 @@ class Agent[FinishParams: BaseModel, FinishMeta]:
         self,
         messages: list[ChatMessage],
         run_metadata_by_turn: dict[str, dict[str, list[Any]]],
+        *,
+        trigger: SummaryTrigger = "token_threshold",
     ) -> tuple[list[ChatMessage], list[ChatMessage]]:
         """Summarize messages, unwinding completed turns if summarization overflows."""
         current_messages = messages
@@ -1384,6 +1399,7 @@ class Agent[FinishParams: BaseModel, FinishMeta]:
                 summary_bridge = SummaryMessage(
                     content=summary_bridge_prompt,
                     replaced_ids=replaced_ids,
+                    trigger=trigger,
                 )
                 # Use a user acknowledgement to avoid consecutive assistant messages with strict providers.
                 acknowledgement_msg = UserMessage(content="Got it, thanks!")
@@ -1391,10 +1407,9 @@ class Agent[FinishParams: BaseModel, FinishMeta]:
                 self._logger.context_summarization_complete(summary_content, summary_bridge_prompt)
 
                 return current_messages, [*task_context, summary_bridge, acknowledgement_msg]
-            except ContextOverflowError:
-                # Summarization can overflow too; drop the latest completed turn and retry.
-                # _unwind_context_overflow raises if that would cross a progress boundary.
-                current_messages, dropped_turn_id = self._unwind_context_overflow(current_messages)
+            except (ContextOverflowError, CompactionRequiredError) as error:
+                # Summarization can be rejected too; drop the latest completed turn and retry.
+                current_messages, dropped_turn_id = self._unwind_rejected_turn(current_messages, error)
                 run_metadata_by_turn.pop(dropped_turn_id, None)
 
     async def run(
@@ -1538,6 +1553,7 @@ class Agent[FinishParams: BaseModel, FinishMeta]:
                 msgs.append(num_turns_remaining_msg)
                 self._logger.user_message(num_turns_remaining_msg)
 
+            compacted = False
             while True:
                 turn_metadata: dict[str, list[Any]] = {}
                 try:
@@ -1549,9 +1565,19 @@ class Agent[FinishParams: BaseModel, FinishMeta]:
                         max_turns=self._max_turns,
                     )
                     break
-                except ContextOverflowError:
-                    msgs, dropped_turn_id = self._unwind_context_overflow(msgs)
+                except (ContextOverflowError, CompactionRequiredError) as error:
+                    # Drop the turn that broke the limit, then summarize the history the model accepted.
+                    if compacted:
+                        raise
+                    msgs, dropped_turn_id = self._unwind_rejected_turn(msgs, error)
                     run_metadata_by_turn.pop(dropped_turn_id, None)
+                    trigger = error.reason if isinstance(error, CompactionRequiredError) else "token_overflow"
+                    LOGGER.warning(f"Compacting the conversation after a rejected request: {error}")
+                    messages_to_summarize, msgs = await self.summarize_messages(
+                        msgs, run_metadata_by_turn, trigger=trigger
+                    )
+                    full_msg_history.append(messages_to_summarize)
+                    compacted = True
 
             # Update cumulative stats
             run_metadata_by_turn[assistant_message.id] = turn_metadata

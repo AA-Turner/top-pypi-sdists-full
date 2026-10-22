@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs-lite
-Version: 1.43.116
-Summary: Lite type annotations for boto3 1.43.116 generated with mypy-boto3-builder 8.12.0
+Version: 1.43.117
+Summary: Lite type annotations for boto3 1.43.117 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.44.0,>=1.43.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.43.116; extra == "boto3"
+Requires-Dist: boto3==1.43.117; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.44.0,>=1.43.0; extra == "all"
@@ -194,8 +194,6 @@ Requires-Dist: mypy-boto3-es<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-eventbridgev2<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-events<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-evs<1.44.0,>=1.43.0; extra == "all"
-Requires-Dist: mypy-boto3-finspace<1.44.0,>=1.43.0; extra == "all"
-Requires-Dist: mypy-boto3-finspace-data<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-firehose<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-fis<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-fms<1.44.0,>=1.43.0; extra == "all"
@@ -449,7 +447,6 @@ Requires-Dist: mypy-boto3-textract<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-timestream-influxdb<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-timestream-query<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-timestream-write<1.44.0,>=1.43.0; extra == "all"
-Requires-Dist: mypy-boto3-tnb<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-transcribe<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-transfer<1.44.0,>=1.43.0; extra == "all"
 Requires-Dist: mypy-boto3-translate<1.44.0,>=1.43.0; extra == "all"
@@ -796,10 +793,6 @@ Provides-Extra: events
 Requires-Dist: mypy-boto3-events<1.44.0,>=1.43.0; extra == "events"
 Provides-Extra: evs
 Requires-Dist: mypy-boto3-evs<1.44.0,>=1.43.0; extra == "evs"
-Provides-Extra: finspace
-Requires-Dist: mypy-boto3-finspace<1.44.0,>=1.43.0; extra == "finspace"
-Provides-Extra: finspace-data
-Requires-Dist: mypy-boto3-finspace-data<1.44.0,>=1.43.0; extra == "finspace-data"
 Provides-Extra: firehose
 Requires-Dist: mypy-boto3-firehose<1.44.0,>=1.43.0; extra == "firehose"
 Provides-Extra: fis
@@ -1306,8 +1299,6 @@ Provides-Extra: timestream-query
 Requires-Dist: mypy-boto3-timestream-query<1.44.0,>=1.43.0; extra == "timestream-query"
 Provides-Extra: timestream-write
 Requires-Dist: mypy-boto3-timestream-write<1.44.0,>=1.43.0; extra == "timestream-write"
-Provides-Extra: tnb
-Requires-Dist: mypy-boto3-tnb<1.44.0,>=1.43.0; extra == "tnb"
 Provides-Extra: transcribe
 Requires-Dist: mypy-boto3-transcribe<1.44.0,>=1.43.0; extra == "transcribe"
 Provides-Extra: transfer
@@ -1365,7 +1356,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.43.116](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.43.117](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1425,7 +1416,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.116' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.117' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1758,9 +1749,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs-lite[full]` - Type annotations for all 436 services in one
+- `boto3-stubs-lite[full]` - Type annotations for all 433 services in one
   package (recommended).
-- `boto3-stubs-lite[all]` - Type annotations for all 436 services in separate
+- `boto3-stubs-lite[all]` - Type annotations for all 433 services in separate
   packages.
 - `boto3-stubs-lite[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2232,12 +2223,6 @@ repository.
   service.
 - `boto3-stubs-lite[evs]` - Type annotations for
   [EVS](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_evs/) service.
-- `boto3-stubs-lite[finspace]` - Type annotations for
-  [Finspace](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_finspace/)
-  service.
-- `boto3-stubs-lite[finspace-data]` - Type annotations for
-  [FinSpaceData](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_finspace_data/)
-  service.
 - `boto3-stubs-lite[firehose]` - Type annotations for
   [Firehose](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_firehose/)
   service.
@@ -2974,9 +2959,6 @@ repository.
   service.
 - `boto3-stubs-lite[timestream-write]` - Type annotations for
   [TimestreamWrite](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_timestream_write/)
-  service.
-- `boto3-stubs-lite[tnb]` - Type annotations for
-  [TelcoNetworkBuilder](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_tnb/)
   service.
 - `boto3-stubs-lite[transcribe]` - Type annotations for
   [TranscribeService](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_transcribe/)

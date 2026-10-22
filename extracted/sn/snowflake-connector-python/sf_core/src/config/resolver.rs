@@ -554,6 +554,37 @@ user = "custom-user"
     }
 
     #[test]
+    fn named_profile_keeps_token_file_path_without_setting_token() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = make_paths(&temp_dir);
+        write_config(
+            &temp_dir,
+            "connections.toml",
+            r#"
+[aws-oauth-file]
+account = "file-account"
+user = "file-user"
+authenticator = "oauth"
+token_file_path = "/Users/test/.snowflake/token"
+"#,
+        );
+
+        let mut explicit = ParamStore::new();
+        explicit.insert(
+            "connection_name".to_owned(),
+            Setting::String("aws-oauth-file".into()),
+        );
+
+        let resolved = resolve_with_paths(&explicit, &paths, false).unwrap();
+
+        assert_eq!(
+            get_str(&resolved, param_names::TOKEN_FILE_PATH),
+            Some("/Users/test/.snowflake/token".to_owned())
+        );
+        assert_eq!(get_str(&resolved, param_names::TOKEN), None);
+    }
+
+    #[test]
     fn bare_connect_loads_default_profile_from_overridden_connections_file() {
         let snowflake_home = TempDir::new().unwrap();
         write_config(

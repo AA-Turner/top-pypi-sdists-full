@@ -520,3 +520,29 @@ async def test_batch_children_get_alias_reconciliation_too() -> None:
 
     assert result.success is True
     assert result.output.results[0].output["content"] == "brief body"
+
+
+# --------------------------------------------------------------------------
+# A value that reaches the manifest as its JSON TEXT (a binding's context slot:
+# the Studio's studio_workspace, 2026-10-21) must come back native, or the
+# output gate fails every `get` (live: chat.tool_call 65a55bda, conv 7aa4b17e).
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["full", "page", "summary"])
+async def test_a_json_text_value_comes_back_native(mode: str) -> None:
+    obj = _obj("studio_workspace", '{"__kind": "agent_studio_workspace", "inputs": []}')
+    result = await _call(_manifest([obj]), {"key": "studio_workspace", "mode": mode})
+
+    assert result.success is True, result.error
+    assert result.output.content == {"__kind": "agent_studio_workspace", "inputs": []}
+
+
+@pytest.mark.asyncio
+async def test_plain_text_that_only_looks_bracketed_stays_text() -> None:
+    obj = _obj("note", "[draft] keep it warm")
+    result = await _call(_manifest([obj]), {"key": "note", "mode": "full"})
+
+    assert result.success is True
+    assert result.output.content == "[draft] keep it warm"

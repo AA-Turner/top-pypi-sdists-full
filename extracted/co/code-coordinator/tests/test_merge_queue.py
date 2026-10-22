@@ -3882,6 +3882,394 @@ class TestReviewGate:
             entry, board, ancillary_gh_ops=_Gh(),
         ) is False
 
+    # ── #3749: context-only rebase/base-merge delta preserves approval ─────
+
+    def test_has_approved_review_context_only_delta_survives_rebase(self) -> None:
+        """#3749: a rebase/zero-conflict base-merge that only shifts the
+        diff's context lines (upstream churned nearby, but the reviewed
+        hunk's own +/- content is byte-identical) must not void the
+        approval, even though the patch-id genuinely changed."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"  # context shift changed the hash
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                assert (repo, base) == ("acme/api", "main")
+                if head == "abc123":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " context after\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -40,3 +40,3 @@\n"
+                        " shifted context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " shifted context after\n"
+                    )
+                raise AssertionError(head)
+
+        # #3749: the context-only check shares *ancillary_gh_ops* with the
+        # #3707 ancillary-files check rather than reading the raw *gh_ops*
+        # positional — passing it any other way must not activate it.
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is True
+
+    def test_has_approved_review_genuine_content_change_still_voids(self) -> None:
+        """A delta whose +/- content itself differs (not just context) must
+        still void the approval — #3749's fallback only carries forward a
+        content-identical rebase, never a real change."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context\n"
+                        "-old line\n"
+                        "+new line\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context\n"
+                        "-old line\n"
+                        "+a genuinely different line\n"
+                    )
+                raise AssertionError(head)
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is False
+
+    def test_has_approved_review_context_only_delta_via_ancillary_gh_ops_only(
+        self,
+    ) -> None:
+        """#3749: the context-only check must activate from *ancillary_gh_ops*
+        alone, with no positional *gh_ops* supplied — this is exactly the
+        shape `coord/review.py`'s scoped-review dispatch calls
+        `has_approved_review` with (`ancillary_gh_ops=github_ops`, no
+        positional `gh_ops`). A version of this check gated on the raw
+        *gh_ops* parameter instead would be inert at that call site even
+        though the caller clearly opted in."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " context after\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -40,3 +40,3 @@\n"
+                        " shifted context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " shifted context after\n"
+                    )
+                raise AssertionError(head)
+
+        # No positional gh_ops — only ancillary_gh_ops, matching review.py.
+        assert mq.has_approved_review(
+            entry, board, ancillary_gh_ops=_Gh(),
+        ) is True
+
+    def test_has_approved_review_context_only_delta_with_full_git_headers(
+        self,
+    ) -> None:
+        """#3749: a real rebase's two base-relative compares differ in their
+        file-identity header region too — the pre-image blob hash on the
+        ``index`` line moves with the base, and the `--- a/`/`+++ b/`
+        markers sit right above the hunk. None of that is content a
+        reviewer read, so a delta whose ONLY differences are header lines
+        plus shifted context must still carry the approval forward."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "index 1111111..2222222 100644\n"
+                        "--- a/src/main.py\n"
+                        "+++ b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@ def handler():\n"
+                        " context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " context after\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "index 3333333..4444444 100644\n"
+                        "--- a/src/main.py\n"
+                        "+++ b/src/main.py\n"
+                        "@@ -40,3 +40,3 @@ def handler():\n"
+                        " shifted context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " shifted context after\n"
+                    )
+                raise AssertionError(head)
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is True
+
+    def test_has_approved_review_removed_line_starting_with_dashes_still_voids(
+        self,
+    ) -> None:
+        """#3749: a REMOVED line whose own content starts with `--` (a
+        SQL/Lua/Haskell comment, a YAML document separator, a shell
+        `--flag \\` continuation) renders as `---…` in a unified diff and
+        must not be mistaken for the `--- a/path` file header — it is real
+        content churn and must still void the approval.
+
+        Both blocks also carry an ordinary `-plain`/`+plain` pair so the
+        content-line list is non-empty either way: that keeps this test
+        aimed squarely at the header-vs-content distinction, instead of
+        being answered by the separate "no content lines on either side"
+        fail-closed branch."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/query.sql b/query.sql\n"
+                        "--- a/query.sql\n"
+                        "+++ b/query.sql\n"
+                        "@@ -1,4 +1,3 @@\n"
+                        " select 1;\n"
+                        "-plain removed\n"
+                        "+plain added\n"
+                        "--- old comment\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/query.sql b/query.sql\n"
+                        "--- a/query.sql\n"
+                        "+++ b/query.sql\n"
+                        "@@ -1,4 +1,3 @@\n"
+                        " select 1;\n"
+                        "-plain removed\n"
+                        "+plain added\n"
+                        "--- new comment\n"
+                    )
+                raise AssertionError(head)
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is False
+
+    def test_has_approved_review_added_line_starting_with_plusses_still_voids(
+        self,
+    ) -> None:
+        """#3749: the `+` mirror of the previous case — an ADDED line whose
+        own content starts with `++` (`++i;`) renders as `+++…` and must not
+        be mistaken for the `+++ b/path` file header."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/loop.c b/loop.c\n"
+                        "--- a/loop.c\n"
+                        "+++ b/loop.c\n"
+                        "@@ -1,4 +1,4 @@\n"
+                        " while (go) {\n"
+                        "-plain removed\n"
+                        "+plain added\n"
+                        "+++i;\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/loop.c b/loop.c\n"
+                        "--- a/loop.c\n"
+                        "+++ b/loop.c\n"
+                        "@@ -1,4 +1,4 @@\n"
+                        " while (go) {\n"
+                        "-plain removed\n"
+                        "+plain added\n"
+                        "+++j;\n"
+                    )
+                raise AssertionError(head)
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is False
+
+    def test_has_approved_review_binary_mode_change_fails_closed(self) -> None:
+        """#3749: a block that differs (before != after) but has no `+`/`-`
+        content line on either side — a binary file change, a permission
+        (`old mode`/`new mode`) flip, an empty-file add/delete — must fail
+        closed and void the approval. Absence of an observed content line
+        is not evidence the content is unchanged."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/assets/logo.png b/assets/logo.png\n"
+                        "old mode 100644\n"
+                        "new mode 100755\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/assets/logo.png b/assets/logo.png\n"
+                        "Binary files a/assets/logo.png and b/assets/logo.png differ\n"
+                    )
+                raise AssertionError(head)
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is False
+
+    def test_has_approved_review_byte_identical_diffs_fails_closed(self) -> None:
+        """#3749: if every per-file block compares byte-identical between
+        the two base-relative diffs, reaching the context-only check at all
+        means the patch-id read upstream was wrong, not that this is a
+        genuine no-op the patch-id check somehow missed — mirrors
+        `_review_delta_is_ancillary_only`'s empty-changed-path posture."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+        identical_diff = (
+            "diff --git a/src/main.py b/src/main.py\n"
+            "@@ -10,3 +10,3 @@\n"
+            " context\n"
+            "-old line\n"
+            "+new line\n"
+        )
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                return identical_diff
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is False
+
+    def test_has_approved_review_context_only_missing_base_branch_fails_closed(
+        self,
+    ) -> None:
+        """#3749: no *target_branch* on the entry means there is no base to
+        anchor the compares at — fail closed rather than silently skip the
+        check."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.target_branch = None
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                raise AssertionError("must not be called without a base_branch")
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is False
+
+    def test_has_approved_review_context_only_none_compare_fails_closed(self) -> None:
+        """#3749: an unreadable compare (`get_compare_diff` returns ``None``
+        — e.g. a GitHub API error) must fail closed, never be read as "no
+        diff, so nothing changed"."""
+        work = self._work("w1")
+        review = self._review("w1", verdict="approve")
+        review.review_head_sha = "abc123"
+        review.review_patch_id = "patchid-old"
+
+        entry = _q("w1", branch="worker/w1", target="main", repo_github="acme/api")
+        entry.branch_head_sha = "def456"
+        entry.branch_patch_id = "patchid-new"
+
+        board = self._board(completed=[work, review])
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                return None
+
+        assert mq.has_approved_review(entry, board, ancillary_gh_ops=_Gh()) is False
+
     # ── #292 Defect 3: skip-and-proceed instead of group-halt ────────────
 
     def test_process_review_gated_entry_does_not_block_approved_sibling(self) -> None:
@@ -4166,6 +4554,114 @@ class TestScopedReviewCandidate:
             entry, board, ancillary_files=["CHANGELOG.md"], ancillary_gh_ops=_Gh(),
         )
         assert found is review
+
+    # ── #3749: context-only rebase/base-merge delta ────────────────────────
+
+    def test_returns_none_when_delta_is_context_only(self) -> None:
+        """#3749: has_approved_review already covers a context-only delta —
+        there is nothing left to scope a review around."""
+        work = self._work("w1")
+        review = self._review("w1")
+        board = self._board(completed=[work, review])
+        entry = self._voided_entry()
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":  # review_head_sha
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " context after\n"
+                    )
+                if head == "def456":  # current branch_head_sha
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -40,3 +40,3 @@\n"
+                        " shifted context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " shifted context after\n"
+                    )
+                raise AssertionError(head)
+
+        # #3749: shares *ancillary_gh_ops* with the #3707 ancillary-files
+        # check rather than the raw *gh_ops* positional.
+        found = mq.find_scoped_review_candidate(entry, board, ancillary_gh_ops=_Gh())
+        assert found is None
+
+    def test_finds_candidate_when_content_genuinely_differs(self) -> None:
+        """A delta whose +/- content differs (not just context) is still a
+        scoped-review candidate — the context-only exemption only matches a
+        content-identical rebase."""
+        work = self._work("w1")
+        review = self._review("w1")
+        board = self._board(completed=[work, review])
+        entry = self._voided_entry()
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context\n"
+                        "-old line\n"
+                        "+new line\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context\n"
+                        "-old line\n"
+                        "+a genuinely different line\n"
+                    )
+                raise AssertionError(head)
+
+        found = mq.find_scoped_review_candidate(entry, board, ancillary_gh_ops=_Gh())
+        assert found is review
+
+    def test_returns_none_when_delta_is_context_only_via_ancillary_gh_ops_only(
+        self,
+    ) -> None:
+        """#3749: same as `test_returns_none_when_delta_is_context_only`, but
+        with the context-only check wired exactly as `coord/review.py`'s
+        scoped-review dispatch calls it — `ancillary_gh_ops` only, no
+        positional `gh_ops`."""
+        work = self._work("w1")
+        review = self._review("w1")
+        board = self._board(completed=[work, review])
+        entry = self._voided_entry()
+
+        class _Gh:
+            def get_compare_diff(self, repo: str, base: str, head: str) -> str | None:
+                if head == "abc123":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -10,3 +10,3 @@\n"
+                        " context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " context after\n"
+                    )
+                if head == "def456":
+                    return (
+                        "diff --git a/src/main.py b/src/main.py\n"
+                        "@@ -40,3 +40,3 @@\n"
+                        " shifted context before\n"
+                        "-old line\n"
+                        "+new line\n"
+                        " shifted context after\n"
+                    )
+                raise AssertionError(head)
+
+        found = mq.find_scoped_review_candidate(
+            entry, board, ancillary_gh_ops=_Gh(),
+        )
+        assert found is None
 
     # ── only_conflict_fix_since_review ──────────────────────────────────────
 
@@ -6739,7 +7235,10 @@ class TestReconcileConflictEntries:
         assert load_queue()[0].state == CONFLICT
 
     def test_only_touches_conflict_entries(self, coord_db) -> None:
-        """PENDING/MERGED/HUMAN_REQUIRED entries are never re-tested."""
+        """PENDING/MERGED entries, and a HUMAN_REQUIRED entry with no
+        conflict-shaped error (e.g. a permission/protection latch), are
+        never re-tested. A retry-cap-latched conflict IS re-tested — see
+        ``TestReconcileHumanRequiredConflictLatch`` below (#3750)."""
         pending = _q("p", state=PENDING, pr=200)
         merged = _q("m", state=MERGED, pr=201)
         human = _q("h", state=mq.HUMAN_REQUIRED, pr=202)
@@ -6776,6 +7275,163 @@ class TestReconcileConflictEntries:
         assert [e.entry.assignment_id for e in events] == ["clean"]
         states = {x.assignment_id: x.state for x in load_queue()}
         assert states == {"clean": PENDING, "broken": CONFLICT}
+
+
+class TestReconcileHumanRequiredConflictLatch:
+    """A HUMAN_REQUIRED entry escalated by the conflict-fix retry cap must
+    be re-tested against live mergeability exactly like a plain CONFLICT
+    entry, instead of staying latched forever once the branch is actually
+    clean again. Eligibility requires both a ``"rebaseable"``
+    classification AND the absence of a known non-mergeability escalation
+    phrase (``_NON_MERGEABILITY_HUMAN_REQUIRED_SIGNALS``) — several
+    HUMAN_REQUIRED escalations build their message as
+    ``f"{existing_error}; ..."``, so the original conflict wording can
+    survive into a message whose actual cause was never a mergeability
+    question at all."""
+
+    def test_unparks_human_required_conflict_latch_when_now_mergeable(self, coord_db) -> None:
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = "Pull request #100 is not mergeable"
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: True})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert len(events) == 1
+        assert events[0].kind == "reopened"
+        assert "human_required latch cleared" in events[0].message
+        reloaded = load_queue()[0]
+        assert reloaded.state == PENDING
+        assert reloaded.error is None
+
+    def test_leaves_human_required_conflict_latch_parked_when_still_conflicting(
+        self, coord_db,
+    ) -> None:
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = "Pull request #100 is not mergeable"
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: False})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert events == []
+        reloaded = load_queue()[0]
+        assert reloaded.state == mq.HUMAN_REQUIRED
+        assert reloaded.error == "Pull request #100 is not mergeable"
+
+    def test_leaves_permission_human_required_latch_untouched(self, coord_db) -> None:
+        """A permission/protection HUMAN_REQUIRED latch is not a
+        mergeability question — it must never be probed at all."""
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = "GraphQL: protected branch rules violation"
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: True})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert events == []
+        assert gh.mergeable_calls == []
+        reloaded = load_queue()[0]
+        assert reloaded.state == mq.HUMAN_REQUIRED
+        assert reloaded.error == "GraphQL: protected branch rules violation"
+
+    def test_leaves_already_upstream_latch_untouched_despite_conflict_wording(
+        self, coord_db,
+    ) -> None:
+        """quadraui #3462: the stale-rebase worker found the branch's
+        content already landed elsewhere — not a conflict at all — but the
+        escalation message is built as ``f"{existing_error}; ..."``, so the
+        ORIGINAL ``"is not mergeable"`` wording survives into it. That
+        prefix must not make the entry eligible for re-probing: GitHub will
+        happily read MERGEABLE for a no-op branch, and unparking here would
+        re-enter the merge flow for a PR the system already determined has
+        nothing to merge."""
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = (
+            "Pull request #100 is not mergeable; stale-rebase worker "
+            "found: no unique commits. Branch content is already present "
+            "on main (landed via another change) — nothing to merge; "
+            "close the issue or `coord drive-queue remove`."
+        )
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: True})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert events == []
+        assert gh.mergeable_calls == []
+        reloaded = load_queue()[0]
+        assert reloaded.state == mq.HUMAN_REQUIRED
+
+    def test_leaves_usage_limit_latch_untouched_despite_conflict_wording(
+        self, coord_db,
+    ) -> None:
+        """A conflict-fix worker killed by the account's usage limit never
+        resolved (or failed to resolve) anything — the original conflict
+        wording surviving in the prefixed message must not make this
+        eligible."""
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = (
+            "Pull request #100 is not mergeable; conflict-fix worker was "
+            "killed by the account's 5-hour usage limit — not a real "
+            "conflict. Wait for the reset, then re-run `coord merge` to "
+            "retry unchanged."
+        )
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: True})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert events == []
+        assert gh.mergeable_calls == []
+        reloaded = load_queue()[0]
+        assert reloaded.state == mq.HUMAN_REQUIRED
+
+    def test_leaves_reword_mismatch_latch_untouched_despite_conflict_wording(
+        self, coord_db,
+    ) -> None:
+        """A reword-commit worker's refusal to push a non-content-
+        preserving rewrite is not a mergeability question either."""
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = (
+            "Pull request #100 is not mergeable; reword-commit worker "
+            "refused to push: a conflict marker appeared mid-rebase. "
+            "Manual reword required."
+        )
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: True})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert events == []
+        assert gh.mergeable_calls == []
+        reloaded = load_queue()[0]
+        assert reloaded.state == mq.HUMAN_REQUIRED
+
+    def test_leaves_declined_escalation_latch_untouched_despite_conflict_wording(
+        self, coord_db,
+    ) -> None:
+        """quadraui #3444: when the ordinary conflict-fix escalation that
+        follows a stale-rebase mismatch itself couldn't be dispatched, the
+        resulting latch is about dispatch capacity, not live
+        mergeability."""
+        entry = _q("a", state=mq.HUMAN_REQUIRED, pr=100)
+        entry.error = (
+            "Pull request #100 is not mergeable; stale-rebase worker "
+            "refused to push: a conflict marker appeared. The rebase was "
+            "not content-preserving against the new base, and the "
+            "ordinary conflict-fix escalation could not be dispatched "
+            "either — manual resolution required."
+        )
+        save_queue([entry])
+
+        gh = FakeGh(mergeable_results={100: True})
+        events = mq.reconcile_conflict_entries(gh)
+
+        assert events == []
+        assert gh.mergeable_calls == []
+        reloaded = load_queue()[0]
+        assert reloaded.state == mq.HUMAN_REQUIRED
 
 
 class TestReconcileConflictEntriesRebaseRefusalGuard:

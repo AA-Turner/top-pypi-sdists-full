@@ -9,7 +9,6 @@ from tentaclio.clients import base_client, decorators
 
 from tentaclio_s3.clients import exceptions
 
-
 __all__ = ["S3Client"]
 
 

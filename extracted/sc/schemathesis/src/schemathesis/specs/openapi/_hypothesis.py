@@ -35,10 +35,10 @@ from schemathesis.core.media_types import (
     find_media_type_strategy,
     iter_matching_media_type_strategies,
 )
-from schemathesis.core.mutations import Mutation, MutationMetadata
+from schemathesis.core.mutations import MutationMetadata
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.timing import Instant
-from schemathesis.core.transforms import deepclone, to_wire_string
+from schemathesis.core.transforms import deepclone, jsonify_python_specific_types
 from schemathesis.core.transport import prepare_urlencoded
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.feedback import NO_FEEDBACK, FeedbackSources
@@ -48,12 +48,11 @@ from schemathesis.generation.jsonschema.context import Alphabet
 from schemathesis.generation.meta import (
     CaseMetadata,
     ComponentInfo,
-    ExamplesPhaseData,
-    FuzzingPhaseData,
     GenerationInfo,
+    PhaseData,
     PhaseInfo,
-    StatefulPhaseData,
     TestPhase,
+    build_phase_data,
 )
 from schemathesis.generation.value import GeneratedValue
 from schemathesis.hooks import HookContext, HookDispatcher, apply_to_all_dispatchers
@@ -405,33 +404,6 @@ def _is_valid_urlencoded_form(value: Any) -> bool:
     return is_valid_urlencoded(value)
 
 
-PhaseData = ExamplesPhaseData | FuzzingPhaseData | StatefulPhaseData
-
-_PHASE_DATA_TYPES: dict[TestPhase, type[PhaseData]] = {
-    TestPhase.EXAMPLES: ExamplesPhaseData,
-    TestPhase.FUZZING: FuzzingPhaseData,
-    TestPhase.STATEFUL: StatefulPhaseData,
-}
-
-
-def _phase_data(
-    phase: TestPhase,
-    description: str | None,
-    *,
-    parameter: str | None = None,
-    parameter_location: ParameterLocation | None = None,
-    location: str | None = None,
-    mutations: tuple[Mutation, ...] = (),
-) -> PhaseData:
-    return _PHASE_DATA_TYPES[phase](
-        description=description,
-        parameter=parameter,
-        parameter_location=parameter_location,
-        location=location,
-        mutations=mutations,
-    )
-
-
 def _describe_generation(
     generation_mode: GenerationMode, phase: TestPhase, containers: tuple[ValueContainer, ...]
 ) -> tuple[GenerationMode, PhaseData]:
@@ -450,7 +422,7 @@ def _describe_generation(
         )
         and first_invalid_dictionary_draw is None
     ):
-        return GenerationMode.POSITIVE, _phase_data(phase, "Positive test case")
+        return GenerationMode.POSITIVE, build_phase_data(phase, "Positive test case")
     # Every negated container contributes; each mutation carries the location it was applied to.
     metadata = MutationMetadata(
         mutations=tuple(
@@ -461,7 +433,7 @@ def _describe_generation(
         )
     )
     if metadata.mutations:
-        return generation_mode, _phase_data(
+        return generation_mode, build_phase_data(
             phase,
             metadata.description,
             parameter=metadata.parameter,
@@ -472,7 +444,7 @@ def _describe_generation(
     # Mutators reject empty mutation lists and overlays drop emptied metadata, so an invalid draw is what is left.
     draw = first_invalid_dictionary_draw
     assert draw is not None
-    return generation_mode, _phase_data(
+    return generation_mode, build_phase_data(
         phase,
         f"Dictionary `{draw.dictionary}` entry violates the schema for `{draw.parameter_name}`",
         parameter=draw.parameter_name,
@@ -1050,20 +1022,6 @@ def get_parameters_strategy(
         )
     # No parameters defined for this location
     return _NONE_STRATEGY
-
-
-def jsonify_python_specific_types(value: Any) -> Any:
-    """Convert Python-specific values to their JSON equivalents.
-
-    Builds a new value: the input may be a spec-declared example that every other case reuses.
-    """
-    if value is None or isinstance(value, bool):
-        return to_wire_string(value)
-    if isinstance(value, dict):
-        return {key: jsonify_python_specific_types(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [jsonify_python_specific_types(item) for item in value]
-    return value
 
 
 def jsonify_query_parameters(value: dict[str, Any], optional: frozenset[str]) -> dict[str, Any]:

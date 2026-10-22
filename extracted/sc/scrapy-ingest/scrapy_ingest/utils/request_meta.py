@@ -1,4 +1,5 @@
 """Shared request/response metadata for logging and error middleware."""
+
 from __future__ import annotations
 
 import re
@@ -110,7 +111,9 @@ def response_from_exception(exception, response=None):
     return None
 
 
-def response_size_bytes_for_request(request, exception=None, response=None) -> str | None:
+def response_size_bytes_for_request(
+    request, exception=None, response=None
+) -> str | None:
     """Resolve comma-formatted size for success and failure paths."""
     size = format_response_size_bytes(response_from_exception(exception, response))
     if size is not None:

@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: kagglehub
-Version: 1.0.2
+Version: 1.0.3
 Summary: Access Kaggle resources anywhere
 Project-URL: Homepage, https://github.com/Kaggle/kagglehub
 Project-URL: Bug Tracker, https://github.com/Kaggle/kagglehub/issues
@@ -206,12 +206,14 @@ License:                                  Apache License
            WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
            See the License for the specific language governing permissions and
            limitations under the License.
+License-File: LICENSE
 Keywords: API,Kaggle
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.10
-Requires-Dist: kagglesdk<1.0,>=0.1.22
+Requires-Python: >=3.11
+Requires-Dist: certifi>=2026.10.19
+Requires-Dist: kagglesdk<1.0,>=0.1.38
 Requires-Dist: packaging
 Requires-Dist: pyyaml
 Requires-Dist: requests
@@ -226,6 +228,7 @@ Requires-Dist: polars; extra == 'polars-datasets'
 Provides-Extra: signing
 Requires-Dist: betterproto>=2.0.0b6; extra == 'signing'
 Requires-Dist: model-signing; extra == 'signing'
+Requires-Dist: pyopenssl; extra == 'signing'
 Requires-Dist: sigstore>=3.6.1; extra == 'signing'
 Description-Content-Type: text/markdown
 
@@ -572,7 +575,13 @@ kagglehub.dataset_download('bricevergnou/spotify-recommendation/versions/1')
 # Download a single file.
 kagglehub.dataset_download('bricevergnou/spotify-recommendation', path='data.csv')
 
-# Download a dataset or file, even if previously downloaded to cache.
+# Download one directory while preserving its nested structure.
+kagglehub.dataset_download(
+    'moltean/fruits/versions/99',
+    path='fruits-360_meta/fruits-360-meta/Papers',
+)
+
+# Download a dataset, directory, or file, even if previously downloaded to cache.
 kagglehub.dataset_download('bricevergnou/spotify-recommendation', force_download=True)
 
 # Download a dataset to a custom output directory.

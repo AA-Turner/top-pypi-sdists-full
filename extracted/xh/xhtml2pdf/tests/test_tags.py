@@ -43,6 +43,14 @@ class PisaTagOLTestCase(TestCase):
         self.assertEqual(instance.node, element)
         self.assertEqual(context.listCounter, 9)
 
+    def test_a_start_that_is_not_a_number_counts_from_one(self) -> None:
+        dom = minidom.parseString('<ol start="abc"><li>item</li></ol>')
+        element = dom.getElementsByTagName("ol")[0]
+        context = pisaContext()
+        attrs = pisaGetAttributes(context, element.tagName.lower(), element.attributes)
+        tags.pisaTagOL(element, attrs).start(context)
+        self.assertEqual(context.listCounter, 0)
+
 
 class ListMarkerFaceTestCase(TestCase):
     """
@@ -85,7 +93,8 @@ class BadInputKeepsTheDocumentTestCase(TestCase):
     A mistyped barcode, a chart whose JSON names no type and a <pdf:spacer/>
     without a height are all author mistakes worth a warning, not worth the
     document. Everything else in a stylesheet or in the markup degrades; these
-    three did not.
+    three did not. Nor did an integer attribute, <ol start> or <td colspan>,
+    whose value was not a number.
     """
 
     @staticmethod
@@ -154,6 +163,24 @@ class BadInputKeepsTheDocumentTestCase(TestCase):
         """Spacer(1, None) raised TypeError on None + int."""
         self.assert_warns_and_converts(
             "<p>a</p><pdf:spacer/><p>b</p>", "Ignoring <pdf:spacer> with no height"
+        )
+
+    def test_a_list_start_that_is_not_a_number(self) -> None:
+        """int("abc") raised ValueError while reading the attributes."""
+        self.assert_warns_and_converts(
+            '<ol start="abc"><li>a</li></ol>', "Attribute 'start' expects an integer"
+        )
+
+    def test_a_colspan_that_is_not_a_number(self) -> None:
+        self.assert_warns_and_converts(
+            '<table><tr><td colspan="x">a</td><td>b</td></tr></table>',
+            "Attribute 'colspan' expects an integer",
+        )
+
+    def test_a_rowspan_that_is_not_a_number(self) -> None:
+        self.assert_warns_and_converts(
+            '<table><tr><td rowspan="x">a</td></tr><tr><td>b</td></tr></table>',
+            "Attribute 'rowspan' expects an integer",
         )
 
 
@@ -1302,6 +1329,55 @@ class TocLevelStylesTestCase(TestCase):
         plain = self.positions(f"<html><body>{body}</body></html>", page=0)
 
         self.assertEqual(plain["Body text"], leaked["Body text"])
+
+
+class OutlineNestingTestCase(TestCase):
+    """
+    A heading's outline entry goes under the nearest entry before it with a
+    lower level, or at the top with none -- as Chrome's document outline does.
+    """
+
+    @staticmethod
+    def outline(body: str) -> list[tuple[int, str]]:
+        output = io.BytesIO()
+        pisa.CreatePDF(f"<html><body>{body}</body></html>", dest=output)
+
+        def flat(items, depth=0):
+            for item in items:
+                if isinstance(item, list):
+                    yield from flat(item, depth + 1)
+                else:
+                    yield depth, item["/Title"]
+
+        return list(flat(PdfReader(output).outline))
+
+    def test_a_document_that_starts_at_h2(self) -> None:
+        self.assertEqual(
+            [(0, "A"), (1, "A1"), (0, "B")],
+            self.outline("<h2>A</h2><h3>A1</h3><h2>B</h2>"),
+        )
+
+    def test_a_skipped_level_in_the_middle(self) -> None:
+        self.assertEqual(
+            [(0, "T"), (1, "Skip"), (1, "B")],
+            self.outline("<h1>T</h1><h3>Skip</h3><h2>B</h2>"),
+        )
+
+    def test_a_deep_heading_before_a_top_one(self) -> None:
+        self.assertEqual(
+            [(0, "Deep"), (0, "Top")], self.outline("<h3>Deep</h3><h1>Top</h1>")
+        )
+
+    def test_headings_in_order_are_nested_as_before(self) -> None:
+        self.assertEqual(
+            [(0, "T"), (1, "S"), (2, "SS"), (1, "S2"), (0, "T2")],
+            self.outline("<h1>T</h1><h2>S</h2><h3>SS</h3><h2>S2</h2><h1>T2</h1>"),
+        )
+
+    def test_a_table_of_contents_still_links_to_them(self) -> None:
+        body = "<pdf:toc/><h2>A</h2><h4>Deep</h4><h2>B</h2>"
+
+        self.assertEqual([(0, "A"), (1, "Deep"), (0, "B")], self.outline(body))
 
 
 class ImageBorderRadiusTestCase(TestCase):

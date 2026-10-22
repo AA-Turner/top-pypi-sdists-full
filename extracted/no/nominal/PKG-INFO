@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: nominal
-Version: 1.180.0
+Version: 1.180.1
 Summary: Automate Nominal workflows in Python
 Project-URL: Homepage, https://nominal.io
 Project-URL: Documentation, https://docs.nominal.io
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Requires-Python: <4,>=3.11
+Requires-Dist: certifi>=2026.10.18
 Requires-Dist: click<9,>=8
 Requires-Dist: conjure-python-client<4,>=3.1.0
 Requires-Dist: ffmpeg-python>=0.2.0

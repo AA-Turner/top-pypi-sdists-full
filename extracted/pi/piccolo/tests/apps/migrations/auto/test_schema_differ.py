@@ -101,11 +101,14 @@ class TestSchemaDiffer(TestCase):
         """
         Testing changing the schema.
         """
+        name_column = Varchar()
+        name_column._meta.name = "name"
+
         schema: list[DiffableTable] = [
             DiffableTable(
                 class_name="Band",
                 tablename="band",
-                columns=[],
+                columns=[name_column],
                 schema="schema_1",
             )
         ]
@@ -113,7 +116,7 @@ class TestSchemaDiffer(TestCase):
             DiffableTable(
                 class_name="Band",
                 tablename="band",
-                columns=[],
+                columns=[name_column],
                 schema=None,
             )
         ]
@@ -131,6 +134,42 @@ class TestSchemaDiffer(TestCase):
 
         self.assertListEqual(schema_differ.create_tables.statements, [])
         self.assertListEqual(schema_differ.drop_tables.statements, [])
+
+        # A schema change alone shouldn't be misdetected as a table rename
+        # (this table has overlapping columns, which is what the rename
+        # heuristic keys off).
+        self.assertListEqual(schema_differ.rename_tables.statements, [])
+
+    def test_same_table_name_different_schema(self) -> None:
+        """
+        Two tables with the same class_name / tablename, but in different
+        schemas, are different tables - both should be created.
+
+        https://github.com/piccolo-orm/piccolo/issues/1426
+        """
+        schema: list[DiffableTable] = [
+            DiffableTable(
+                class_name="Band", tablename="band", schema="schema_1"
+            ),
+            DiffableTable(
+                class_name="Band", tablename="band", schema="schema_2"
+            ),
+        ]
+        schema_snapshot: list[DiffableTable] = []
+
+        schema_differ = SchemaDiffer(
+            schema=schema, schema_snapshot=schema_snapshot, auto_input="y"
+        )
+
+        create_tables = schema_differ.create_tables
+        self.assertEqual(len(create_tables.statements), 2)
+        self.assertEqual(
+            set(create_tables.statements),
+            {
+                "manager.add_table(class_name='Band', tablename='band', schema='schema_1', columns=None)",  # noqa: E501
+                "manager.add_table(class_name='Band', tablename='band', schema='schema_2', columns=None)",  # noqa: E501
+            },
+        )
 
     def test_add_column(self) -> None:
         """
@@ -448,6 +487,53 @@ class TestSchemaDiffer(TestCase):
         self.assertEqual(
             schema_differ.alter_columns.statements[0],
             "manager.alter_column(table_class_name='Ticket', tablename='ticket', column_name='price', db_column_name='price', params={'digits': (4, 2)}, old_params={'digits': (5, 2)}, column_class=Numeric, old_column_class=Numeric, schema=None)",  # noqa
+        )
+
+    def test_alter_column_with_custom_old_column_class(self) -> None:
+        """
+        A column whose *old* class is a user-defined ``Column`` subclass must
+        not crash the differ.
+
+        ``UniqueGlobalNames`` only knows the built-in column classes, so the
+        lookup for the old class has to tolerate a miss the same way the lookup
+        for the new class already does.
+
+        https://github.com/piccolo-orm/piccolo/issues/1428
+
+        """
+
+        class CustomVarchar(Varchar):
+            pass
+
+        name_1 = Varchar(length=20)
+        name_1._meta.name = "name"
+
+        name_2 = CustomVarchar(length=10)
+        name_2._meta.name = "name"
+
+        schema: list[DiffableTable] = [
+            DiffableTable(
+                class_name="Band",
+                tablename="band",
+                columns=[name_1],
+            )
+        ]
+        schema_snapshot: list[DiffableTable] = [
+            DiffableTable(
+                class_name="Band",
+                tablename="band",
+                columns=[name_2],
+            )
+        ]
+
+        schema_differ = SchemaDiffer(
+            schema=schema, schema_snapshot=schema_snapshot, auto_input="y"
+        )
+
+        self.assertEqual(len(schema_differ.alter_columns.statements), 1)
+        self.assertIn(
+            "old_column_class=CustomVarchar",
+            schema_differ.alter_columns.statements[0],
         )
 
     def test_db_column_name(self) -> None:

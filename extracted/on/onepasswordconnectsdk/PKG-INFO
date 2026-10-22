@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onepasswordconnectsdk
-Version: 2.1.0
+Version: 2.1.1
 Summary: Python SDK for 1Password Connect
 License: MIT
 License-File: LICENSE.md
@@ -13,6 +13,8 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
+Requires-Dist: certifi (>=2026.10.19)
 Requires-Dist: httpx (>=0.28.1,<0.29.0)
 Requires-Dist: python-dateutil (>=2.8.1,<3.0.0)
 Project-URL: Bug Tracker, https://github.com/1Password/connect-sdk-python/issues
@@ -34,6 +36,8 @@ Description-Content-Type: text/markdown
 ---
 
 The 1Password Connect SDK provides access to 1Password via [1Password Connect](https://developer.1password.com/docs/connect) hosted in your infrastructure. The library is intended to be used by Python applications to simplify accessing items in 1Password vaults.
+
+*This project is licensed under [MIT](./LICENSE.md). Use of the 1Password APIs and services accessed through these tools is governed by the [1Password API Terms of Service](https://1password.com/legal/api-sdk-terms-of-service).*
 
 ## 🪄 See it in action
 

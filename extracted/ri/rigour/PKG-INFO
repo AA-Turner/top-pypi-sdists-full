@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rigour
-Version: 2.5.0
+Version: 2.6.1
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: License :: OSI Approved :: MIT License
@@ -20,7 +20,7 @@ Requires-Dist: pip>=10.0.0 ; extra == 'dev'
 Requires-Dist: bump2version ; extra == 'dev'
 Requires-Dist: wheel>=0.29.0 ; extra == 'dev'
 Requires-Dist: ruamel-yaml ; extra == 'dev'
-Requires-Dist: ruff>=0.16.0,<0.17.0 ; extra == 'dev'
+Requires-Dist: ruff>=0.16.0,<0.18.0 ; extra == 'dev'
 Requires-Dist: build ; extra == 'dev'
 Requires-Dist: twine ; extra == 'dev'
 Requires-Dist: mypy ; extra == 'dev'

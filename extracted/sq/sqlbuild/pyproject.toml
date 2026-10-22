@@ -7,7 +7,7 @@ build-backend = "maturin"
 
 [project]
 name = "sqlbuild"
-version = "0.164.3"
+version = "0.167.0"
 description = "Typed, test-first SQL pipelines with local E2E testing"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
@@ -19,7 +19,7 @@ dependencies = [
   "pydantic-settings>=2,<3",
   "PyYAML>=6.0.2",
   "rich>=15.0.0",
-  "sqlbuild-cli==0.164.3",  # x-release-please-version
+  "sqlbuild-cli==0.167.0",  # x-release-please-version
 ]
 
 [project.optional-dependencies]
@@ -46,10 +46,11 @@ sqlserver = [
   "pymssql>=2.3.0",
 ]
 clickhouse = [
-  "clickhouse-connect>=0.8",
+  "clickhouse-connect>=0.15",
 ]
 ingestr = [
-  "ingestr>=1.0.0",
+  "dbc>=0.3.1",
+  "ingestr>=1.1.73",
 ]
 dlt = [
   "dlt[duckdb,filesystem,sql_database]>=1.28.0,<2",
@@ -72,7 +73,8 @@ dev = [
   "dbt-snowflake==1.12.0b1",
   "dbt-sqlserver>=1.9.0,<1.11",
   "dlt[duckdb,filesystem,sql_database]>=1.28.0,<2",
-  "ingestr>=1.0.0",
+  "dbc>=0.3.1",
+  "ingestr>=1.1.73",
   "jsonschema>=4.23.0",
   "maturin>=1.9,<2",
   "pre-commit>=4.3.0",

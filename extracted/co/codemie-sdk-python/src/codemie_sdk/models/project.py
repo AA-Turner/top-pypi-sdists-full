@@ -81,6 +81,7 @@ class ProjectListItem(BaseModel):
     budgets: list[ProjectBudgetItem] | None = []
     chargeback_enabled: bool = False
     chargeback_attribution: str = "project"
+    cli_analytics_enabled: bool | None = None
 
 
 class PaginationInfo(BaseModel):
@@ -119,6 +120,7 @@ class ProjectDetailResponse(BaseModel):
     cost_center_name: str | None = None
     members: list[ProjectMember]
     chargeback_attribution: str = "project"
+    cli_analytics_enabled: bool | None = None
 
 
 class ProjectCreateRequest(BaseModel):
@@ -134,6 +136,7 @@ class ProjectCreateRequest(BaseModel):
     )
     description: str | None = Field(default=None, description="Project description")
     cost_center_id: UUID | None = None
+    cli_analytics_enabled: bool | None = None
 
 
 class ProjectCreateResponse(BaseModel):
@@ -151,6 +154,7 @@ class ProjectCreateResponse(BaseModel):
     cost_center_name: str | None = None
     enforce_member_spend_limits: bool = False
     chargeback_attribution: str = "project"
+    cli_analytics_enabled: bool | None = None
 
 
 # PATCH /v1/projects/{name} returns the same shape as the create response
@@ -174,6 +178,7 @@ class ProjectUpdateRequest(BaseModel):
     clear_cost_center: bool = False
     enforce_member_spend_limits: bool | None = None
     chargeback_attribution: str | None = None
+    cli_analytics_enabled: bool | None = None
 
 
 class ProjectOwnershipUpdateRequest(BaseModel):

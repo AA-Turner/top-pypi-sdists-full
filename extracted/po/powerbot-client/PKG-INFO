@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: powerbot_client
-Version: 2.36.0
+Version: 2.36.1
 Summary: PowerBot Asyncio Client
 Author: PowerBot
 Author-email: support@powerbot-trading.com
@@ -10,7 +10,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: certifi (>=2024.7.4,<2025.0.0)
+Requires-Dist: certifi (>=2024.7.4)
 Requires-Dist: python-dateutil (>=2.9.0.post0,<3.0.0)
 Requires-Dist: six (>=1.16.0,<2.0.0)
 Requires-Dist: urllib3 (>=2.2.2,<3.0.0,!=2.6.0)

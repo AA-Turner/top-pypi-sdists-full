@@ -501,6 +501,7 @@ class ProcessingKwargs(TypedDict, total=False):
     Valid keys: ``"common"``, ``"text"``, ``"audio"``, ``"image"``, ``"video"``, ``"chat_template"``.
     Modality and ``"common"`` kwargs override built-in defaults. ``"chat_template"`` kwargs are
     forwarded to ``apply_chat_template``, except the Sentence Transformers ``restore_suffix`` flag.
+    ``text.logits_to_keep`` is passed to the causal model instead (default 1, 0 for all token logits).
     """
 
     common: dict[str, Any]
@@ -598,8 +599,7 @@ def _count_media_per_sample(messages: list[list[dict[str, Any]]]) -> tuple[list[
 
     Some VLM processors flatten per-sample visual tokens into single tensors (e.g.
     ``pixel_values`` shape ``(total_visual_tokens, hidden_dim)``), losing the per-sample
-    association. By counting before the processor call, we get reliable per-sample counts
-    that downstream minibatching can use directly.
+    association. Counting the original messages preserves this association for minibatching.
     """
     num_images: list[int] = []
     num_videos: list[int] = []
@@ -698,12 +698,14 @@ class Transformer(InputModule):
         config_kwargs (dict[str, Any], optional): Keyword arguments forwarded to
             ``AutoConfig.from_pretrained`` when loading the config. See the `AutoConfig.from_pretrained
             <https://huggingface.co/docs/transformers/en/model_doc/auto#transformers.AutoConfig.from_pretrained>`_
-            documentation for more details. Defaults to None.
+            documentation for more details. Defaults to None. KV caching is disabled on the loaded
+            config and its sub-configs unless explicitly overridden in these kwargs via ``use_cache``.
         processing_kwargs (dict[str, dict[str, Any]], optional): Keyword arguments applied when *calling*
             the processor during preprocessing. This is a nested dict whose keys are modality names
             (``"text"``, ``"audio"``, ``"image"``, ``"video"``), ``"common"`` for kwargs shared across all
             modalities, or ``"chat_template"`` for kwargs forwarded to ``apply_chat_template`` (e.g.
             ``{"add_generation_prompt": True}``). Modality and common kwargs override the built-in defaults.
+            ``text.logits_to_keep`` is passed to the causal model instead (default 1, 0 for all token logits).
             The ``"chat_template"`` dict also accepts ``"restore_suffix"`` (default ``True``), a Sentence
             Transformers flag: fixed tokens a chat template appends after the content (e.g. an assistant
             prefill) are restored when truncation drops them, so models that read the final token position
@@ -808,6 +810,12 @@ class Transformer(InputModule):
             processor_kwargs = {}
         if config_kwargs is None:
             config_kwargs = {}
+
+        # A revision resolved for the model repository must not pin a separate processor repository
+        processor_revision = processor_kwargs.get("revision")
+        if tokenizer_name_or_path not in (None, model_name_or_path) and hasattr(processor_revision, "initial"):
+            processor_kwargs = {**processor_kwargs, "revision": processor_revision.initial}
+
         self.processing_kwargs: ProcessingKwargs = processing_kwargs or {}
         unknown_keys = set(self.processing_kwargs) - self._VALID_PROCESSING_KWARGS_KEYS
         if unknown_keys:
@@ -819,7 +827,6 @@ class Transformer(InputModule):
             )
         self.backend = backend
         self.do_lower_case = do_lower_case
-        self.track_media_counts = False
         self._prompt_length_mapping = {}
         self._method_signature_cache: dict[str, set[str]] = {}
         self._chat_template_suffix_cache: dict[Any, list[int]] = {}
@@ -830,6 +837,7 @@ class Transformer(InputModule):
         self.document_length = document_length
 
         config, is_peft_model = self._load_config(model_name_or_path, backend, config_kwargs)
+        self._configure_use_cache(config, config_kwargs)
         self._warn_on_unsupported_attention_config(config)
 
         if (
@@ -848,16 +856,9 @@ class Transformer(InputModule):
             model_name_or_path, transformer_task, config, backend, is_peft_model, **model_kwargs
         )
 
-        # Unwrap PEFT first: ``PeftModel.forward`` hides the base model's multimodal params (e.g. ``pixel_values``).
-        forward_model = self.model
-        if is_peft_available():
-            from peft import PeftModel
-
-            if isinstance(forward_model, PeftModel):
-                forward_model = forward_model.get_base_model()
         # ``None`` = forward accepts ``**kwargs`` (pass all but undeclared ST bookkeeping).
         # Set = declared params plus safety net.
-        forward_signature = inspect.signature(forward_model.forward)
+        forward_signature = inspect.signature(self.model.forward)
         self._declared_forward_params = set(forward_signature.parameters)
         self.model_forward_params: set[str] | None = None
         if not any(p.kind is inspect.Parameter.VAR_KEYWORD for p in forward_signature.parameters.values()):
@@ -1304,6 +1305,7 @@ class Transformer(InputModule):
         for modality_key in modality_kwargs:
             if overrides := effective_processing_kwargs.get(modality_key):  # type: ignore[arg-type]
                 modality_kwargs[modality_key].update(overrides)
+        logits_to_keep = modality_kwargs["text"].pop("logits_to_keep", 1)
 
         # strategy='fixed': pad to the expansion length so the post-tokenization swap below has
         # pad positions to replace. Applied after the merge so processing_kwargs can't break the
@@ -1392,15 +1394,6 @@ class Transformer(InputModule):
             processor_inputs["text"] = self.input_formatter.prepend_prompt_to_texts(processor_inputs["text"], prompt)
             prompt_length = self._get_prompt_length(prompt, **kwargs)
 
-        # Track per-sample image/video counts before the processor flattens them into single tensors.
-        # Losses that minibatch VLM inputs (e.g. CachedMNRL) use these counts to slice visual tensors.
-        # Only used if the Trainer updated track_media_counts to True. Not gated on self.training:
-        # trainer.evaluate() computes the eval loss under model.eval() and needs the counts too.
-        num_images_per_sample = None
-        num_videos_per_sample = None
-        if self.track_media_counts and modality == "message":
-            num_images_per_sample, num_videos_per_sample = _count_media_per_sample(processor_inputs["message"])
-
         with suggest_extra_on_exception():
             processor_output = self._call_processor(
                 modality,
@@ -1410,10 +1403,12 @@ class Transformer(InputModule):
                 chat_template_kwargs=chat_template_kwargs,
             )
 
-        if num_images_per_sample is not None and "image_grid_thw" in processor_output:
-            processor_output["num_images_per_sample"] = torch.tensor(num_images_per_sample, dtype=torch.long)
-        if num_videos_per_sample is not None and "video_grid_thw" in processor_output:
-            processor_output["num_videos_per_sample"] = torch.tensor(num_videos_per_sample, dtype=torch.long)
+        if modality == "message" and ("pixel_values" in processor_output or "video_grid_thw" in processor_output):
+            num_images, num_videos = _count_media_per_sample(processor_inputs["message"])
+            if "pixel_values" in processor_output:
+                processor_output["num_images_per_sample"] = torch.tensor(num_images, dtype=torch.long)
+            if "video_grid_thw" in processor_output:
+                processor_output["num_videos_per_sample"] = torch.tensor(num_videos, dtype=torch.long)
 
         if should_flatten:
             # DataCollatorWithFlattening expects list[dict], but the processor returns dict[str, list].
@@ -1428,8 +1423,10 @@ class Transformer(InputModule):
             processor_output["prompt_length"] = prompt_length
 
         if self.transformer_task in ("text-generation", "any-to-any"):
+            if isinstance(logits_to_keep, bool) or not isinstance(logits_to_keep, int) or logits_to_keep < 0:
+                raise ValueError("logits_to_keep must be a non-negative integer")
             self._verify_left_padding(processor_output, modality_kwargs, common_kwargs)
-            processor_output["logits_to_keep"] = 1
+            processor_output["logits_to_keep"] = logits_to_keep
 
         # ColBERT-style query expansion: swap pad positions within the width floor for the expansion
         # token id, and mark them via ``query_expansion_positions`` so downstream modules score them.
@@ -1672,19 +1669,6 @@ class Transformer(InputModule):
             embedding = embedding.flatten(2).transpose(1, 2)
 
         features[self.module_output_name] = embedding
-
-        # If the AutoModel is wrapped with a PeftModel(ForFeatureExtraction), then it may have added virtual tokens
-        # We need to extend the attention mask to include these virtual tokens, or the pooling will fail
-        if "input_ids" in features and "attention_mask" in features and is_peft_available():
-            from peft import PeftModel
-
-            if isinstance(self.model, PeftModel) and self.model.active_peft_config.is_prompt_learning:
-                batch_size = features["input_ids"].shape[0]
-                attention_mask = features["attention_mask"]
-                prefix_attention_mask = torch.ones(
-                    batch_size, self.model.active_peft_config.num_virtual_tokens, device=attention_mask.device
-                )
-                features["attention_mask"] = torch.cat((prefix_attention_mask, attention_mask), dim=1)
 
         if (
             hasattr(self.model.config, "output_hidden_states")
@@ -2231,8 +2215,8 @@ class Transformer(InputModule):
 
     def _load_config(
         self, model_name_or_path: str, backend: str, config_kwargs: dict[str, Any]
-    ) -> tuple[PeftConfig | PretrainedConfig, bool]:
-        """Loads the transformers or PEFT configuration
+    ) -> tuple[PretrainedConfig, bool]:
+        """Loads the transformers configuration, resolving the base model's config for PEFT checkpoints
 
         Args:
             model_name_or_path (str): The model name on Hugging Face (e.g. 'sentence-transformers/all-MiniLM-L6-v2')
@@ -2241,7 +2225,7 @@ class Transformer(InputModule):
             config_kwargs (dict[str, Any]): Keyword arguments passed to the Hugging Face Transformers config.
 
         Returns:
-            tuple[PeftConfig | PretrainedConfig, bool]: The model configuration and a boolean indicating whether the model is a PEFT model.
+            tuple[PretrainedConfig, bool]: The model configuration and a boolean indicating whether the model is a PEFT model.
         """
         adapter_config_file = find_adapter_config_file(
             model_name_or_path,
@@ -2265,16 +2249,36 @@ class Transformer(InputModule):
                 )
             from peft import PeftConfig
 
-            return PeftConfig.from_pretrained(model_name_or_path, **config_kwargs), True
+            peft_config = PeftConfig.from_pretrained(model_name_or_path, **config_kwargs)
+            # `revision` and `subfolder` locate the adapter, not the base model.
+            base_config_kwargs = {
+                key: value for key, value in config_kwargs.items() if key not in ("revision", "subfolder")
+            }
+            return AutoConfig.from_pretrained(peft_config.base_model_name_or_path, **base_config_kwargs), True
 
         return AutoConfig.from_pretrained(model_name_or_path, **config_kwargs), False
 
     @staticmethod
-    def _warn_on_unsupported_attention_config(config: PeftConfig | PretrainedConfig) -> None:
-        """Warn if the config requests bidirectional attention settings not supported by the installed transformers version."""
-        if not isinstance(config, PretrainedConfig):
-            return
+    def _configure_use_cache(
+        config: PretrainedConfig, config_kwargs: dict[str, Any] | PretrainedConfig, use_cache: bool = False
+    ) -> None:
+        """Override Transformers cache settings with False unless explicitly set in ST's config_kwargs.
 
+        Applies recursively to sub-configs, with more specific config_kwargs overrides taking precedence.
+        """
+        if isinstance(config_kwargs, PretrainedConfig):
+            config_kwargs = config_kwargs.to_dict()
+        use_cache = config_kwargs.get("use_cache", use_cache)
+        if hasattr(config, "use_cache"):
+            config.use_cache = use_cache
+        for name in config.sub_configs:
+            sub_config = getattr(config, name, None)
+            if sub_config is not None:
+                Transformer._configure_use_cache(sub_config, config_kwargs.get(name) or {}, use_cache)
+
+    @staticmethod
+    def _warn_on_unsupported_attention_config(config: PretrainedConfig) -> None:
+        """Warn if the config requests bidirectional attention settings not supported by the installed transformers version."""
         configs_to_check: list[PretrainedConfig] = [config]
         if hasattr(config, "sub_configs"):
             for sub_config_name in config.sub_configs.keys():
@@ -2302,7 +2306,7 @@ class Transformer(InputModule):
         self,
         model_name_or_path: str,
         transformer_task: TransformerTask,
-        config: PeftConfig | PretrainedConfig,
+        config: PretrainedConfig,
         backend: str,
         is_peft_model: bool,
         **model_kwargs,
@@ -2312,7 +2316,9 @@ class Transformer(InputModule):
         Args:
             model_name_or_path (str): The model name on Hugging Face (e.g. 'sentence-transformers/all-MiniLM-L6-v2')
                 or the path to a local model directory.
-            config ("PeftConfig" | PretrainedConfig): The model configuration.
+            transformer_task (TransformerTask): The task the Transformer is used for, which determines the
+                auto model class used to load the model, e.g. ``"feature-extraction"``.
+            config (PretrainedConfig): The model configuration.
             backend (str): The backend used for model inference. Can be `torch`, `onnx`, or `openvino`.
             is_peft_model (bool): Whether the model is a PEFT model.
             model_kwargs (dict[str, Any]): Keyword arguments passed to the Hugging Face Transformers model.

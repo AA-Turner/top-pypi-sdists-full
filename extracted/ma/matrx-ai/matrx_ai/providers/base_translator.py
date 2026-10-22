@@ -21,7 +21,8 @@ from typing import TYPE_CHECKING, Any
 
 from matrx_utils import detached_task, vcprint
 
-from matrx_ai.config.typed_text_last import person_turn_index, place_before_typed_text
+from matrx_ai.config.provider_profiles import TURN_CONTEXT_AFTER_CACHE_LINE
+from matrx_ai.config.typed_text_last import HOST_TURN_KEY
 
 if TYPE_CHECKING:
     from matrx_ai.config.unified_config import UnifiedConfig
@@ -32,14 +33,17 @@ class BaseTranslator(ABC):
 
     debug: bool
 
-    #: THE CACHE LINE LAW: True = this translator places the per-turn context
-    #: block AFTER the cached prefix (``get_trailing_context_text``) instead of
-    #: in the system channel. Every chat translator sets it (2026-10-16:
-    #: Anthropic, OpenAI, then Google, xAI, Groq, Cerebras, Together, generic
-    #: OpenAI-compatible); a provider left False concatenates it into the system
-    #: text, which changes the cached prefix every turn. Guard:
+    #: The provider family key of this translator. THE CACHE LINE LAW's per-provider fact
+    #: (does the per-turn block ride AFTER the cached prefix instead of in the system channel?)
+    #: lives in ONE table, ``config/provider_profiles.TURN_CONTEXT_AFTER_CACHE_LINE``, read
+    #: here and by the send boundary. A provider missing there concatenates the block into the
+    #: system text, which changes the cached prefix every turn. Guard:
     #: ``tests/test_turn_context_rides_after_the_cache_line_on_every_provider.py``.
-    TURN_CONTEXT_AFTER_CACHE_LINE: bool = False
+    PROVIDER: str = ""
+
+    @property
+    def turn_context_after_cache_line(self) -> bool:
+        return bool(TURN_CONTEXT_AFTER_CACHE_LINE.get(self.PROVIDER, False))
 
     def __init__(self, debug: bool = False):
         self.debug = debug
@@ -130,7 +134,7 @@ class BaseTranslator(ABC):
         directive survives the chat-decoration stripping non-FC models undergo.
         """
         stable = self.get_stable_system_text(config)
-        if self.TURN_CONTEXT_AFTER_CACHE_LINE:
+        if self.turn_context_after_cache_line:
             # THE CACHE LINE LAW (Arman, 2026-10-16): nothing behind the cache
             # line changes between turns. This provider delivers the per-turn
             # block AFTER the cached prefix (``get_trailing_context_text``), so
@@ -171,11 +175,6 @@ class BaseTranslator(ABC):
             return None
         return render()
 
-    @staticmethod
-    def _strict_alternation(profile: Any) -> bool:
-        capabilities = getattr(profile, "capabilities", None)
-        return bool(getattr(capabilities, "requires_strict_role_alternation", False))
-
     def get_trailing_context_text(self, config: UnifiedConfig, profile: Any = None) -> str | None:
         """Everything this send places AFTER the last prompt-cache line, or None.
 
@@ -183,13 +182,13 @@ class BaseTranslator(ABC):
         removal of LARGE tool outputs should ever modify text behind the cache
         line." The per-turn context block (live date and time, active
         selection, value list, attached skills...) changes every turn, so on a
-        provider that sets ``TURN_CONTEXT_AFTER_CACHE_LINE`` it rides HERE —
-        after the conversation's newest block, as its own framed block (never
-        concatenated into the person's words) — and not in the system channel,
-        where it sat in front of the whole cached history and forced it to be
-        re-written on every turn (conversation 3787dd66: 53,807 tokens read,
-        49k-150k re-written, per turn). Never persisted: the next turn's
-        history is byte-identical to what this turn cached.
+        provider the table marks ``TURN_CONTEXT_AFTER_CACHE_LINE`` it rides
+        after the cached prefix, as its own framed block (never concatenated
+        into the person's words) — and not in the system channel, where it sat
+        in front of the whole cached history and forced it to be re-written on
+        every turn (conversation 3787dd66: 53,807 tokens read, 49k-150k
+        re-written, per turn). Never persisted: the next turn's history is
+        byte-identical to what this turn cached.
 
         Followed by the tail channel (live plan) when the last message is a
         tool result. Guard:
@@ -201,17 +200,15 @@ class BaseTranslator(ABC):
         # a tool result — re-appended there it read as part of that result and the model told
         # the person about "the platform block in that last turn". Guard:
         # ``tests/test_turn_context_rides_after_the_cache_line_on_every_provider.py``.
-        # 🚨 THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): when the send has a
-        # person turn, the block rides BEFORE their typed text (``messages_for_wire``), never here.
-        # Only a send with no person turn at all (the newest message is the model's own) keeps
-        # this trailing host turn.
+        # 🚨 THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): the send boundary
+        # (``send_boundary.order_for_wire``) already placed the block BEFORE the person's typed
+        # text when the list it handed over carries the platform's host turn. Only a send it
+        # left without one (no person turn at all, or a model the catalog declares
+        # ``strict_role_alternation``) keeps this trailing block.
         if (
-            self.TURN_CONTEXT_AFTER_CACHE_LINE
+            self.turn_context_after_cache_line
             and not self._newest_is_tool_result(config)
-            and (
-                person_turn_index(list(getattr(config, "messages", None) or [])) is None
-                or self._strict_alternation(profile)
-            )
+            and not self._boundary_placed_block(config)
         ):
             turn_context = self.get_turn_context_text(config)
             if turn_context:
@@ -222,28 +219,35 @@ class BaseTranslator(ABC):
         return "\n\n".join(parts) or None
 
     def messages_for_wire(self, config: UnifiedConfig, profile: Any = None) -> list[Any]:
-        """The message list a CHAT send renders: the newest person turn ENDS with their typed text.
+        """The message list a CHAT send renders — exactly what the send boundary handed over.
 
-        🚨 THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): this turn's platform
-        block (``render_turn_context``) rides inside the person's turn as its own block BEFORE
-        their attachments and typed text; nothing the harness adds ever follows the typed text.
-        A send with no typed text keeps its own instruction last. Built on a shallow copy for
-        this send only — the ledger keeps the person's message as stored. Every chat translator
-        iterates THIS, never ``config.messages`` (a TTS / image prompt fold keeps the raw list).
-        Law + order: ``matrx_ai/config/typed_text_last.py``. Guard:
-        ``tests/test_request_ends_with_what_the_person_typed.py``.
+        🚨 THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): the order of the
+        newest person turn (authored template → this turn's platform block on its own turn →
+        attachments → typed text, LAST) is decided ONCE, in the send boundary
+        (``send_boundary.order_for_wire``, stored on ``SendPrep.wire_messages``), which knows
+        the provider and the model profile. A translator never reorders; it renders this list
+        and records where the block went. Every chat translator iterates THIS, never
+        ``config.messages`` directly (a TTS / image prompt fold keeps the raw list). Law +
+        order: ``matrx_ai/config/typed_text_last.py``. Guards:
+        ``tests/test_request_ends_with_what_the_person_typed.py``,
+        ``tests/test_send_boundary_guard.py``.
         """
-        source = list(getattr(config, "messages", None) or [])
-        block = self.get_turn_context_text(config) if self.TURN_CONTEXT_AFTER_CACHE_LINE else None
-        if block and (self._newest_is_tool_result(config) or self._strict_alternation(profile)):
-            # Once per person turn: mid-loop the block is not re-sent. A model the catalog
-            # declares strict_role_alternation cannot take a second user turn: its block keeps
-            # the documented fallback (``place_trailing_on_chat_messages``: system message end).
-            block = None
-        out, placed = place_before_typed_text(source, block)
-        if placed and block:
-            record_platform_text_placement(self._provider_label(), "before_typed_text", block)
+        out = list(getattr(config, "messages", None) or [])
+        for message in out:
+            metadata = getattr(message, "metadata", None)
+            if isinstance(metadata, dict) and metadata.get(HOST_TURN_KEY):
+                text = "".join(getattr(c, "text", "") or "" for c in getattr(message, "content", None) or [])
+                record_platform_text_placement(self._provider_label(), "before_typed_text", text)
+                break
         return out
+
+    @staticmethod
+    def _boundary_placed_block(config: UnifiedConfig) -> bool:
+        for message in getattr(config, "messages", None) or []:
+            metadata = getattr(message, "metadata", None)
+            if isinstance(metadata, dict) and metadata.get(HOST_TURN_KEY):
+                return True
+        return False
 
     @staticmethod
     def _newest_is_tool_result(config: UnifiedConfig) -> bool:
@@ -667,8 +671,8 @@ class BaseTranslator(ABC):
         from matrx_ai.schema.lint import make_portable
         from matrx_ai.schema.rules import (
             NORMALIZATION_NOTES_KEY,
-            classify_normalization_notes,
             OPEN_SCALAR_ITEM_SCHEMA,
+            classify_normalization_notes,
             concretize_empty_schemas,
             dedupe_combinator_branches,
             drop_refinement_combinators,

@@ -83,9 +83,9 @@ def validate_person_id(identifier: str) -> None:
     - GitHub handle prefixed with `@` (e.g. `@aaronsteers`)
     - Slack user ID matching `U` + uppercase alphanumeric (e.g. `U05AKF1BCC9`)
     - Slack usergroup ID matching `S` + uppercase alphanumeric
-      (e.g. `S0BKR63VAN5`)
+      (e.g. `S0BJ4K3LC4X`)
     - Pasted Slack user mention (e.g. `<@U05AKF1BCC9>`)
-    - Pasted Slack usergroup mention (e.g. `<!subteam^S0BKR63VAN5|@oc-internal-ai>`)
+    - Pasted Slack usergroup mention (e.g. `<!subteam^S0BJ4K3LC4X|@oc-hydra>`)
     - Email address ending in `@airbyte.io` (e.g. `aj@airbyte.io`)
 
     A bare string without `@` prefix that does not match the Slack ID or
@@ -126,7 +126,7 @@ def validate_person_id(identifier: str) -> None:
         f"Identifier '{stripped}' is not a recognized format. "
         "Use '@username' for a GitHub handle, an Airbyte email address "
         "(e.g. 'aj@airbyte.io'), a Slack user ID (e.g. 'U05AKF1BCC9'), "
-        "or a Slack usergroup ID (e.g. 'S0BKR63VAN5')."
+        "or a Slack usergroup ID (e.g. 'S0BJ4K3LC4X')."
     )
 
 

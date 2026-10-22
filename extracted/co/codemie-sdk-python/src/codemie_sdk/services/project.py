@@ -57,6 +57,7 @@ class ProjectService:
         description: str | None = None,
         cost_center_id: UUID | None = None,
         display_name: str | None = None,
+        cli_analytics_enabled: bool | None = None,
     ) -> ProjectCreateResponse:
         """Create a new shared project.
 
@@ -65,6 +66,7 @@ class ProjectService:
             description: Project description (optional)
             cost_center_id: Optional cost center ID
             display_name: Human-friendly display name (max 150 chars)
+            cli_analytics_enabled: Enable CLI analytics ingestion (None = not sent)
 
         Returns:
             ProjectCreateResponse with project details
@@ -77,6 +79,7 @@ class ProjectService:
             description=description,
             cost_center_id=cost_center_id,
             display_name=display_name,
+            cli_analytics_enabled=cli_analytics_enabled,
         )
 
         return self._api.post(
@@ -163,6 +166,7 @@ class ProjectService:
         enforce_member_spend_limits: bool | None = None,
         display_name: str | None = None,
         chargeback_attribution: str | None = None,
+        cli_analytics_enabled: bool | None = None,
     ) -> ProjectUpdateResponse:
         """Update a project.
 
@@ -177,6 +181,7 @@ class ProjectService:
             enforce_member_spend_limits: Enable/disable per-member spend enforcement
             display_name: Human-friendly display name (max 150 chars)
             chargeback_attribution: Chargeback attribution mode ("project" or "cost_center")
+            cli_analytics_enabled: Enable/disable CLI analytics ingestion (None = not sent)
 
         Returns:
             ProjectUpdateResponse with updated project details
@@ -194,6 +199,7 @@ class ProjectService:
             enforce_member_spend_limits=enforce_member_spend_limits,
             display_name=display_name,
             chargeback_attribution=chargeback_attribution,
+            cli_analytics_enabled=cli_analytics_enabled,
         )
 
         return self._api.patch(

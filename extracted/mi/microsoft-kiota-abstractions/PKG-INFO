@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: microsoft-kiota-abstractions
-Version: 1.14.3
+Version: 1.15.0
 Summary: Core abstractions for kiota generated libraries in Python
 Keywords: kiota,openAPI,Microsoft,Graph
 Author-email: Microsoft <graphtooling+python@microsoft.com>
@@ -12,11 +12,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: License :: OSI Approved :: MIT License
 License-File: LICENSE
 Requires-Dist: std-uritemplate>=2.0.0
 Requires-Dist: opentelemetry-api>=1.27.0
 Requires-Dist: opentelemetry-sdk>=1.27.0
+Requires-Dist: typing-extensions>=4.4.0
 Project-URL: Documentation, https://learn.microsoft.com/openapi/kiota/
 Project-URL: Homepage, https://github.com/microsoft/kiota#readme
 Project-URL: Repository, https://github.com/microsoft/kiota-python

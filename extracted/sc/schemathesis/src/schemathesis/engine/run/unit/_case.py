@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, NoReturn
 
 import requests
-from requests.exceptions import ChunkedEncodingError
 
 from schemathesis.auths import reauth_and_replay
 from schemathesis.checks import CheckContext
@@ -12,20 +11,24 @@ from schemathesis.core.error_feedback.collector import parse_observations
 from schemathesis.core.errors import InvalidSchema, MalformedMediaType
 from schemathesis.core.failures import Failure
 from schemathesis.engine import StopReason, events
-from schemathesis.engine._rate_limit_retry import send_tracked, validate_with_rate_limited
-from schemathesis.engine._validate import validate_response
+from schemathesis.engine._rate_limit_retry import (
+    TRANSPORT_ERRORS,
+    is_unrecoverable_transport_error,
+    send_tracked,
+    validate_case,
+)
 from schemathesis.engine.errors import (
     TestingState,
     UnexpectedError,
     UnrecoverableNetworkError,
     build_code_sample,
-    is_unrecoverable_network_error,
 )
 from schemathesis.engine.recorder import ScenarioRecorder
 from schemathesis.engine.supervisor import SchedulingDirective
 from schemathesis.generation import metrics
 from schemathesis.generation.case import Case
 from schemathesis.generation.meta import CONTENT_TYPE_PROBES, coverage_scenario
+from schemathesis.resources import record_interaction
 from schemathesis.wfc.escalation import record_auth_outcome
 
 if TYPE_CHECKING:
@@ -196,9 +199,7 @@ def _raise_case_error(
 def _as_unrecoverable_network_error(
     exc: Exception, case: Case, transport_kwargs: dict[str, Any]
 ) -> UnrecoverableNetworkError | None:
-    if isinstance(
-        exc, (requests.ConnectionError, ChunkedEncodingError, requests.Timeout)
-    ) and is_unrecoverable_network_error(exc):
+    if is_unrecoverable_transport_error(exc):
         code_sample = build_code_sample(case, exc.request, transport_kwargs)
         return UnrecoverableNetworkError(error=exc, code_sample=code_sample)
     return None
@@ -224,18 +225,14 @@ def _do_call_and_validate(
         case=case, ctx=ctx, recorder=recorder, response=response, transport_kwargs=transport_kwargs
     )
     metrics.maximize(generation.maximize, case=case, response=response)
-    validate_with_rate_limited(
-        rate_limited,
-        response,
-        lambda answer: validate_response(
-            case=case,
-            ctx=check_ctx,
-            response=answer,
-            continue_on_failure=continue_on_failure,
-            recorder=recorder,
-            baseline=ctx.config.load_baseline(),
-        ),
-        lambda answer: recorder.record_response(case_id=case.id, response=answer),
+    validate_case(
+        ctx,
+        recorder,
+        case=case,
+        check_ctx=check_ctx,
+        rate_limited=rate_limited,
+        response=response,
+        continue_on_failure=continue_on_failure,
     )
     response.clear_cache()
 
@@ -257,11 +254,8 @@ def _call_with_reauth(
     def _perform_call() -> Response:
         try:
             retried, response = send_tracked(ctx, case, transport_kwargs=transport_kwargs, emit=pending_events.append)
-        except (requests.Timeout, requests.ConnectionError, ChunkedEncodingError) as error:
-            if isinstance(error.request, requests.Request):
-                recorder.record_request(case_id=case.id, request=error.request.prepare())
-            elif isinstance(error.request, requests.PreparedRequest):
-                recorder.record_request(case_id=case.id, request=error.request)
+        except TRANSPORT_ERRORS as error:
+            recorder.record_network_error(case_id=case.id, error=error)
             raise
         rate_limited.extend(retried)
         return response
@@ -290,14 +284,7 @@ def _record_response_signals(
         )
     if _is_ordinary_request(case):
         record_auth_outcome(case, response.status_code)
-        is_documented_status = case.operation.responses.find_by_status_code(response.status_code) is not None
-        ctx.supervisor.record_response(
-            operation_label=case.operation.label,
-            status_code=response.status_code,
-            is_documented_status=is_documented_status,
-            case=case,
-            cache_writer=ctx.cache.writer,
-        )
+        ctx.supervisor.observe(case, response.status_code, cache_writer=ctx.cache.writer)
     # Record DELETE attempts immediately to influence subsequent strategy draws.
     # Include both successful (2xx) and 404 responses - each attempt increases decay
     # to avoid hammering the same resource repeatedly.
@@ -327,8 +314,6 @@ def record_extra_data_from_recorder(ctx: EngineContext, operation: APIOperation,
         if response is None:
             continue
         case = recorder.cases[case_id].value
-        if extra_data_source.should_record(operation=operation.label) and _is_ordinary_request(case):
-            extra_data_source.record_response(operation=operation, response=response, case=case)
-        if extra_data_source.should_record_request(operation=operation.label) and _is_ordinary_request(case):
-            extra_data_source.record_request(operation=operation, case=case, status_code=response.status_code)
+        if _is_ordinary_request(case):
+            record_interaction(extra_data_source, case, response)
         response.clear_cache()

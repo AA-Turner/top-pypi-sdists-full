@@ -11,6 +11,7 @@ Usage::
     from boto3.session import Session
     from types_boto3_network_firewall import (
         Client,
+        FirewallPolicyActiveWaiter,
         GetAnalysisReportResultsPaginator,
         ListAnalysisReportsPaginator,
         ListContainerAssociationsPaginator,
@@ -30,6 +31,8 @@ Usage::
 
     session = Session()
     client: NetworkFirewallClient = session.client("network-firewall")
+
+    firewall_policy_active_waiter: FirewallPolicyActiveWaiter = client.get_waiter("firewall_policy_active")
 
     get_analysis_report_results_paginator: GetAnalysisReportResultsPaginator = client.get_paginator("get_analysis_report_results")
     list_analysis_reports_paginator: ListAnalysisReportsPaginator = client.get_paginator("list_analysis_reports")
@@ -65,12 +68,14 @@ from .paginator import (
     ListTLSInspectionConfigurationsPaginator,
     ListVpcEndpointAssociationsPaginator,
 )
+from .waiter import FirewallPolicyActiveWaiter
 
 Client = NetworkFirewallClient
 
 
 __all__ = (
     "Client",
+    "FirewallPolicyActiveWaiter",
     "GetAnalysisReportResultsPaginator",
     "ListAnalysisReportsPaginator",
     "ListContainerAssociationsPaginator",

@@ -64,6 +64,19 @@ class TestLlm:
                 }
             ],
             model="gpt-5.6-terra",
+            model_config={
+                "backup": {
+                    "model": "gpt-4.1",
+                    "kick_in_timeout_ms": 300,
+                    "tier": "standard",
+                },
+                "primary": {
+                    "model": "gpt-4.1",
+                    "tier": "standard",
+                },
+                "temperature": 0,
+                "type": "cascading",
+            },
             model_high_priority=True,
             model_temperature=0,
             model_ultrafast=True,
@@ -80,6 +93,7 @@ class TestLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -118,6 +132,7 @@ class TestLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -140,6 +155,7 @@ class TestLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                             "query_params": {
@@ -279,6 +295,19 @@ class TestLlm:
                 }
             ],
             model="gpt-5.6-terra",
+            model_config={
+                "backup": {
+                    "model": "gpt-4.1",
+                    "kick_in_timeout_ms": 300,
+                    "tier": "standard",
+                },
+                "primary": {
+                    "model": "gpt-4.1",
+                    "tier": "standard",
+                },
+                "temperature": 0,
+                "type": "cascading",
+            },
             model_high_priority=True,
             model_temperature=0,
             model_ultrafast=True,
@@ -295,6 +324,7 @@ class TestLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -333,6 +363,7 @@ class TestLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -355,6 +386,7 @@ class TestLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                             "query_params": {
@@ -546,6 +578,19 @@ class TestAsyncLlm:
                 }
             ],
             model="gpt-5.6-terra",
+            model_config={
+                "backup": {
+                    "model": "gpt-4.1",
+                    "kick_in_timeout_ms": 300,
+                    "tier": "standard",
+                },
+                "primary": {
+                    "model": "gpt-4.1",
+                    "tier": "standard",
+                },
+                "temperature": 0,
+                "type": "cascading",
+            },
             model_high_priority=True,
             model_temperature=0,
             model_ultrafast=True,
@@ -562,6 +607,7 @@ class TestAsyncLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -600,6 +646,7 @@ class TestAsyncLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -622,6 +669,7 @@ class TestAsyncLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                             "query_params": {
@@ -761,6 +809,19 @@ class TestAsyncLlm:
                 }
             ],
             model="gpt-5.6-terra",
+            model_config={
+                "backup": {
+                    "model": "gpt-4.1",
+                    "kick_in_timeout_ms": 300,
+                    "tier": "standard",
+                },
+                "primary": {
+                    "model": "gpt-4.1",
+                    "tier": "standard",
+                },
+                "temperature": 0,
+                "type": "cascading",
+            },
             model_high_priority=True,
             model_temperature=0,
             model_ultrafast=True,
@@ -777,6 +838,7 @@ class TestAsyncLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -815,6 +877,7 @@ class TestAsyncLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                         }
@@ -837,6 +900,7 @@ class TestAsyncLlm:
                             "parameters": {
                                 "properties": {},
                                 "type": "object",
+                                "additional_properties": True,
                                 "required": ["string"],
                             },
                             "query_params": {

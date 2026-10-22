@@ -283,6 +283,7 @@ async def agent_produce(
         top_config_overrides={"response_format": await _response_format_for(ctx, kind)},
         declared_variables=list(getattr(config, "exposed_variables", None) or []),
         variable_sources=dict(getattr(config, "variable_sources", None) or {}),
+        include_org_catalog=getattr(config, "include_org_catalog", True),
     )
     mandate_key = getattr(inputs, "mandate_key", None)
     if mandate_key:

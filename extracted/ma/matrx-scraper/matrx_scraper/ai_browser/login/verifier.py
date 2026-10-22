@@ -267,20 +267,36 @@ AUTH_FLOW_URL_SEGMENTS = frozenset(
 )
 
 
+#: Longest run of adjacent tokens re-joined into one segment ("one-time-code").
+_MAX_JOINED_TOKENS = 3
+
+
 def url_segments(url: str | None) -> frozenset[str]:
-    """Split a url into alphanumeric segments for vocabulary membership."""
+    """Split a url into alphanumeric segments for vocabulary membership.
+
+    Every single token is a segment, and so is every run of up to
+    ``_MAX_JOINED_TOKENS`` ADJACENT tokens joined without the separator. Sites
+    spell the same word with ``_`` or ``-`` inside it — ``/users/sign_in``
+    (Rails/Devise), ``/log-in``, ``/two-factor``, ``/one-time-code`` — and a
+    vocabulary of whole words must still recognise them. Membership stays
+    exact-match, so "designing" still never contains "signin".
+    """
     if not url:
         return frozenset()
-    out: set[str] = set()
+    tokens: list[str] = []
     token: list[str] = []
     for ch in url.lower():
         if ch.isalnum():
             token.append(ch)
         elif token:
-            out.add("".join(token))
+            tokens.append("".join(token))
             token = []
     if token:
-        out.add("".join(token))
+        tokens.append("".join(token))
+    out: set[str] = set(tokens)
+    for size in range(2, _MAX_JOINED_TOKENS + 1):
+        for i in range(len(tokens) - size + 1):
+            out.add("".join(tokens[i : i + size]))
     return frozenset(out)
 
 

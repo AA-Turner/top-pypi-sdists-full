@@ -1,6 +1,8 @@
 """
-Render a 3D cube with WebGL from Python, display it inside an ImGui window
-via `imgui.image()`. Zero CPU/GPU round-trip on the steady-state path.
+Render a 3D cube with WebGL from Python, and display it in an ImGui window
+
+A 3D cube drawn with [WebGL2](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API) into a texture, and
+shown in the GUI by `imgui.image()`. No copy between the GPU and the CPU at each frame.
 
 **Pyodide only.** This demo uses Python's `js` interop to call the browser's
 WebGL2 API directly, and the wheel-side bridge (`imgui_bundle.webgl`) is
@@ -12,7 +14,7 @@ for the PyOpenGL equivalent.
 
 ImGui's renderer is C++ compiled to wasm; it identifies textures by
 integer IDs (`ImTextureID`). Textures we create from Python via
-`gl.createTexture()` come back as JS `WebGLTexture` *objects* — so we
+`gl.createTexture()` come back as JS `WebGLTexture` *objects*, so we
 need a bridge that registers the JS texture and returns an integer the
 renderer can use.
 
@@ -36,8 +38,8 @@ gl.deleteTexture(tex)
 ```
 
 Register once at startup; the integer is stable for the lifetime of the
-registration. ImGui's renderer samples the same GPU memory we render into
-— no copy, no readback per frame.
+registration. ImGui's renderer samples the same GPU memory we render into:
+no copy, no readback per frame.
 
 ## What this demo shows
 
@@ -58,7 +60,7 @@ import math
 import numpy as np
 
 import imgui_bundle
-from imgui_bundle import hello_imgui, imgui, immapp, imgui_md, ImVec2
+from imgui_bundle import hello_imgui, imgui, immapp, rich_md, ImVec2
 
 if not imgui_bundle.has_submodule("webgl"):
     raise RuntimeError(
@@ -93,7 +95,7 @@ gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 gl.bindTexture(gl.TEXTURE_2D, None)
 
-# Depth renderbuffer — required for correct occlusion when faces overlap.
+# Depth renderbuffer: required for correct occlusion when faces overlap.
 _depth_rb = gl.createRenderbuffer()
 gl.bindRenderbuffer(gl.RENDERBUFFER, _depth_rb)
 gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, TEX_W, TEX_H)
@@ -268,10 +270,15 @@ def _docs_window():
     global _show_docs
     if not _show_docs:
         return
-    imgui.set_next_window_size(hello_imgui.em_to_vec2(48, 32), imgui.Cond_.first_use_ever)
+    # Centered, and at most the size of the screen (a phone)
+    viewport = imgui.get_main_viewport()
+    size = imgui.ImVec2(min(hello_imgui.em_size(48), viewport.work_size.x),
+                        min(hello_imgui.em_size(32), viewport.work_size.y))
+    imgui.set_next_window_pos(viewport.get_work_center(), imgui.Cond_.first_use_ever, imgui.ImVec2(0.5, 0.5))
+    imgui.set_next_window_size(size, imgui.Cond_.first_use_ever)
     expanded, _show_docs = imgui.begin("About this demo", _show_docs)  # type: ignore
     if expanded:
-        imgui_md.render_unindented(__doc__ or "")
+        rich_md.render(__doc__ or "")
     imgui.end()
 
 
@@ -280,14 +287,19 @@ def gui():
     render_cube_into_texture()
 
     imgui.set_next_window_pos(hello_imgui.em_to_vec2(2.0, 2.0), imgui.Cond_.appearing)
+    # At most the width of the screen (a phone): the texts wrap, the image shrinks
+    max_width = imgui.get_main_viewport().work_size.x - hello_imgui.em_size(4)
+    imgui.set_next_window_size_constraints(imgui.ImVec2(0, 0), imgui.ImVec2(max_width, imgui.FLT_MAX))
     imgui.begin("3D cube via WebGL (Pyodide)")
-    imgui.text("Python WebGL renders a depth-tested 3D cube into an FBO;")
-    imgui.text("imgui.image() displays the same texture, no readback.")
-    imgui.text(f"ImTextureID = {TEXTURE_ID} (constant across frames)")
+    imgui.text_wrapped("Python WebGL renders a depth-tested 3D cube into an FBO; "
+                       "imgui.image() displays the same texture, no readback.")
+    imgui.text_wrapped(f"ImTextureID = {TEXTURE_ID} (constant across frames)")
     imgui.text(f"Texture: {TEX_W} x {TEX_H}")
     _, _show_docs = imgui.checkbox("Show docs", _show_docs)
     imgui.separator()
-    imgui.image(imgui.ImTextureRef(TEXTURE_ID), ImVec2(TEX_W, TEX_H))
+    side = min(TEX_W, max_width - hello_imgui.em_size(1))
+    imgui.image(imgui.ImTextureRef(TEXTURE_ID), ImVec2(side, side * TEX_H / TEX_W))
+    hello_imgui.set_item_is_live()  # the cube rotates on its own: no idling while it is visible
     imgui.text(f"FPS: {hello_imgui.frame_rate():.1f}")
     imgui.end()
     _docs_window()
@@ -305,7 +317,6 @@ def before_exit():
 
 def main():
     runner_params = hello_imgui.RunnerParams()
-    runner_params.fps_idling.enable_idling = False
     runner_params.app_window_params.window_title = "3D cube via WebGL -> imgui.image (Pyodide)"
     runner_params.imgui_window_params.default_imgui_window_type = (
         hello_imgui.DefaultImGuiWindowType.no_default_window
@@ -315,7 +326,7 @@ def main():
 
     # Markdown for the docs window. (LaTeX not used here, but enabled for
     # consistency with the other webgl playground entries.)
-    md_options = imgui_md.MarkdownOptions()
+    md_options = rich_md.MarkdownOptions()
     md_options.with_latex = True
     add_ons_params = immapp.AddOnsParams()
     add_ons_params.with_markdown = True

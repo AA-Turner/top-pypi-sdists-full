@@ -63,7 +63,7 @@ impl ClonePy for Qualifier {
 
 impl Display for Qualifier {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        let xref: fastobo::ast::Qualifier = Python::with_gil(|py| self.clone_py(py).into_py(py));
+        let xref: fastobo::ast::Qualifier = Python::attach(|py| self.clone_py(py).into_py(py));
         xref.fmt(f)
     }
 }
@@ -111,7 +111,7 @@ impl Qualifier {
         Ok(self.to_string())
     }
 
-    fn __richcmp__<'py>(&self, other: &Bound<'py, PyAny>, op: CompareOp) -> PyResult<PyObject> {
+    fn __richcmp__<'py>(&self, other: &Bound<'py, PyAny>, op: CompareOp) -> PyResult<Py<PyAny>> {
         impl_richcmp_py!(self, other, op, self.key && self.value)
     }
 
@@ -120,7 +120,7 @@ impl Qualifier {
     fn get_key(&self) -> &Ident {
         &self.key
     }
-    
+
     #[setter]
     fn set_key(&mut self, key: Ident) {
         self.key = key;
@@ -216,7 +216,7 @@ impl QualifierList {
     #[pyo3(signature = (qualifiers = None))]
     fn __init__<'py>(qualifiers: Option<&Bound<'py, PyAny>>) -> PyResult<Self> {
         if let Some(x) = qualifiers {
-            Python::with_gil(|py| Self::collect(py, x))
+            Python::attach(|py| Self::collect(py, x))
         } else {
             Ok(Self::new(Vec::new()))
         }
@@ -232,8 +232,7 @@ impl QualifierList {
     }
 
     fn __str__(&self) -> PyResult<String> {
-        let frame: fastobo::ast::QualifierList =
-            Python::with_gil(|py| self.clone_py(py).into_py(py));
+        let frame: fastobo::ast::QualifierList = Python::attach(|py| self.clone_py(py).into_py(py));
         Ok(frame.to_string())
     }
 
@@ -243,7 +242,7 @@ impl QualifierList {
 
     fn __getitem__(&self, index: isize) -> PyResult<Py<Qualifier>> {
         if index < self.qualifiers.len() as isize {
-            Python::with_gil(|py| Ok(self.qualifiers[index as usize].clone_ref(py)))
+            Python::attach(|py| Ok(self.qualifiers[index as usize].clone_ref(py)))
         } else {
             Err(PyIndexError::new_err("list index out of range"))
         }

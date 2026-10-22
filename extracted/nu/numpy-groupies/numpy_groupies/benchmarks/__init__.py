@@ -17,8 +17,8 @@ from typing import Any
 import numpy as np
 
 from numpy_groupies import aggregate_numpy, aggregate_purepy
-from numpy_groupies.aggregate_common import funcs_collecting
 from numpy_groupies.benchmarks import _ufunc
+from numpy_groupies.common import funcs_collecting
 from numpy_groupies.tests.reference import aggregate_ref
 
 try:
@@ -52,15 +52,19 @@ func_list = (
     np.min,
     np.max,
     len,
+    "nunique",
     np.all,
     np.any,
     "anynan",
     "allnan",
     np.mean,
     np.median,
+    "quantile",
     np.trapezoid,
     np.std,
     np.var,
+    "skew",
+    "kurt",
     "first",
     "last",
     "argmax",
@@ -70,13 +74,17 @@ func_list = (
     np.nanmin,
     np.nanmax,
     "nanlen",
+    "nannunique",
     "nanall",
     "nanany",
     np.nanmean,
     np.nanmedian,
+    "nanquantile",
     "nantrapezoid",
     np.nanvar,
     np.nanstd,
+    "nanskew",
+    "nankurt",
     "nanfirst",
     "nanlast",
     "nanargmin",

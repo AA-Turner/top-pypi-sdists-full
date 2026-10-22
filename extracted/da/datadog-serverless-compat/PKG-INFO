@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: datadog-serverless-compat
-Version: 0.18.0
+Version: 0.19.0
 Summary: Datadog Serverless Compatibility Layer for Python
 Home-page: https://www.datadoghq.com
 License: Apache-2.0

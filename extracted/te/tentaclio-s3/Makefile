@@ -1,0 +1,62 @@
+
+# Help
+.PHONY: help
+
+help:
+	@grep -E '^[0-9a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+# Local installation
+.PHONY: init clean lock update install
+
+install: ## Initalise the virtual env installing deps
+	uv sync --all-extras
+
+clean: ## Remove all the unwanted clutter
+	find src -type d -name __pycache__ | xargs rm -rf
+	find src -type d -name '*.egg-info' | xargs rm -rf
+	rm -rf .venv
+
+lock: ## Lock dependencies
+	uv lock
+
+update: ## Update dependencies (whole tree)
+	uv lock --upgrade
+
+sync: ## Install dependencies as per the lock file
+	uv sync --all-extras
+
+# Linting and formatting
+.PHONY: lint test format
+
+lint: ## Lint files with flake and mypy
+	uv run flake8 src tests
+	uv run mypy src tests
+	uv run black --check src tests
+	uv run isort --check-only src tests
+
+
+format: ## Run black and isort
+	uv run black src tests
+	uv run isort src tests
+
+# Testing
+
+.PHONY: test
+test:
+	TENTACLIO__CONN__S3_TEST=s3://public_key:private_key@tentaclio-bucket uv run pytest tests
+
+unit: ## Run unit tests
+	uv run pytest tests/unit
+
+functional:
+	uv run pytest tests/functional/s3
+
+# Release
+package:
+	# create a source distribution
+	uv run python -m build --sdist
+	# create a wheel
+	uv run python -m build --wheel
+
+release: package
+	uv run twine upload dist/*

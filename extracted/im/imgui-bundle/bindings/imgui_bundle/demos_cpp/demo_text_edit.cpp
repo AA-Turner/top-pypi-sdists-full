@@ -15,6 +15,14 @@
 // ============================================================================
 namespace
 {
+    // The editors' palette follows the app's theme: light on a light background
+    const TextEditor::Palette& ThemePalette()
+    {
+        ImVec4 bg = ImGui::GetStyleColorVec4(ImGuiCol_WindowBg);
+        bool light = 0.299f * bg.x + 0.587f * bg.y + 0.114f * bg.z > 0.5f;
+        return light ? TextEditor::GetLightPalette() : TextEditor::GetDarkPalette();
+    }
+
     std::string gCppContent;    // loaded once
     std::string gPythonContent; // loaded once
 
@@ -79,14 +87,14 @@ namespace
                 else
                     ed.SetText(ExtractFunctionSource(gPythonContent, std::string("def ") + pyFuncName + "(", "# ===="));
                 ed.SetLanguage(lang == 0 ? TextEditor::Language::Cpp() : TextEditor::Language::Python());
-                ed.SetPalette(TextEditor::GetLightPalette());
                 ed.SetReadOnlyEnabled(true);
                 ed.SetCaretsVisible(false);
             }
 
-            auto codeFont = ImGuiMd::GetCodeFont();
+            auto codeFont = RichMd::GetCodeFont();
             ImGui::PushFont(codeFont.font, codeFont.size);
             std::string id = std::string("##src_") + editorKey;
+            sourceEditors[editorKey].SetPalette(ThemePalette());
             sourceEditors[editorKey].Render(id.c_str(), ImVec2(-1, ImGui::GetTextLineHeight() * 15));
             ImGui::PopFont();
             ImGui::SeparatorText("Demo");
@@ -112,12 +120,14 @@ void DemoBasicEditor()
         initialized = true;
     }
 
-    // Palette buttons
+    // Palette buttons (until one is pressed, the palette follows the theme)
+    static const TextEditor::Palette* palette = nullptr;
     if (ImGui::SmallButton("Dark"))
-        editor.SetPalette(TextEditor::GetDarkPalette());
+        palette = &TextEditor::GetDarkPalette();
     ImGui::SameLine();
     if (ImGui::SmallButton("Light"))
-        editor.SetPalette(TextEditor::GetLightPalette());
+        palette = &TextEditor::GetLightPalette();
+    editor.SetPalette(palette ? *palette : ThemePalette());
 
     // Language selection
     ImGui::SameLine();
@@ -167,7 +177,7 @@ void DemoBasicEditor()
     ImGui::TextDisabled("(folding uses brackets for C/C++, indentation for Python)");
 
     // Render editor: we shall use a monospace font
-    auto codeFont = ImGuiMd::GetCodeFont();
+    auto codeFont = RichMd::GetCodeFont();
     ImGui::PushFont(codeFont.font, codeFont.size);
     editor.Render("##basic");
     ImGui::PopFont();
@@ -205,8 +215,9 @@ void DemoChangeCallback()
         ImGui::Text("  (last change: %s)", lastChangeTime.c_str());
     }
 
-    auto codeFont = ImGuiMd::GetCodeFont();
+    auto codeFont = RichMd::GetCodeFont();
     ImGui::PushFont(codeFont.font, codeFont.size);
+    editor.SetPalette(ThemePalette());
     editor.Render("##changes");
     ImGui::PopFont();
 }
@@ -259,8 +270,9 @@ void DemoFilters()
     if (ImGui::SmallButton("Strip trailing spaces"))
         editor.StripTrailingWhitespaces();
 
-    auto codeFont = ImGuiMd::GetCodeFont();
+    auto codeFont = RichMd::GetCodeFont();
     ImGui::PushFont(codeFont.font, codeFont.size);
+    editor.SetPalette(ThemePalette());
     editor.Render("##filters");
     ImGui::PopFont();
 }
@@ -467,8 +479,9 @@ void DemoDecoratorsAndContextMenus()
 
     ImGui::NewLine();
     ImGui::NewLine();
-    auto codeFont = ImGuiMd::GetCodeFont();
+    auto codeFont = RichMd::GetCodeFont();
     ImGui::PushFont(codeFont.font, codeFont.size);
+    editor.SetPalette(ThemePalette());
     editor.Render("##decorators_ctx", ImVec2(-1, ImGui::GetTextLineHeight() * 30));
     ImGui::PopFont();
 
@@ -531,8 +544,9 @@ void DemoTextDiff()
     if (ImGui::Checkbox("Word Wrap", &wrap))
         diff.SetWordWrapEnabled(wrap);
 
-    auto codeFont = ImGuiMd::GetCodeFont();
+    auto codeFont = RichMd::GetCodeFont();
     ImGui::PushFont(codeFont.font, codeFont.size);
+    diff.SetPalette(ThemePalette());
     diff.Render("##diff");
     ImGui::PopFont();
 }
@@ -660,8 +674,9 @@ void DemoEditorWithMenus()
 		ImGui::EndMenuBar();
 	}
 
-    auto codeFont = ImGuiMd::GetCodeFont();
+    auto codeFont = RichMd::GetCodeFont();
     ImGui::PushFont(codeFont.font, codeFont.size);
+    editor.SetPalette(ThemePalette());
     editor.Render("##editor_menus");
     ImGui::PopFont();
 
@@ -723,9 +738,10 @@ void DemoMultiCursor()
 
     // Editor (constrained height so the cursor info panel below stays visible)
     {
-        auto codeFont = ImGuiMd::GetCodeFont();
+        auto codeFont = RichMd::GetCodeFont();
         ImGui::PushFont(codeFont.font, codeFont.size);
         float editorHeight = ImGui::GetTextLineHeight() * 20.0f;
+        editor.SetPalette(ThemePalette());
         editor.Render("##multi_cursor", ImVec2(0, editorHeight));
         ImGui::PopFont();
     }
@@ -759,9 +775,9 @@ void DemoMultiCursor()
 // ============================================================================
 // Main demo function
 // ============================================================================
-void demo_text_edit()
+void gui_demo_text_edit()
 {
-    ImGuiMd::Render(R"(
+    RichMd::Render(R"(
 # ImGuiColorTextEdit
 [ImGuiColorTextEdit](https://github.com/goossens/ImGuiColorTextEdit) is a syntax highlighting text editor for Dear ImGui (originally by BalazsJako, rewritten by Johan A. Goossens)
     )");

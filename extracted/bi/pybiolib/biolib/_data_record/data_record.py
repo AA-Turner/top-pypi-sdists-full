@@ -13,8 +13,8 @@ from biolib._internal.data_record.push_data import (
     validate_data_path_and_get_files_and_size_of_directory,
 )
 from biolib._internal.data_record.remote_storage_endpoint import DataRecordRemoteStorageEndpoint
-from biolib._internal.http_client import HttpClient, HttpError
 from biolib._shared import types
+from biolib._shared.http_client import HttpClient, HttpError
 from biolib._shared.types import ResourceDetailedDict, ResourceVersionDetailedDict, ZipFileNodeDict
 from biolib._shared.utils import parse_resource_uri
 from biolib.api import client as api_client

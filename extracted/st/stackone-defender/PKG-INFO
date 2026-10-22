@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: stackone-defender
-Version: 0.9.3
+Version: 0.9.4
 Summary: Indirect prompt injection defense for AI agents using tool calls
 Project-URL: Homepage, https://defender.stackone.com/?utm_source=pypi&utm_medium=listing&utm_campaign=homepage
 Project-URL: Repository, https://github.com/StackOneHQ/defender-py

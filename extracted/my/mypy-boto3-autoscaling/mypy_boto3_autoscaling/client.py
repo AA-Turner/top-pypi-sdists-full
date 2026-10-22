@@ -67,6 +67,8 @@ from .type_defs import (
     DeleteTagsTypeTypeDef,
     DeleteWarmPoolTypeTypeDef,
     DescribeAccountLimitsAnswerTypeDef,
+    DescribeAccountSettingsAnswerTypeDef,
+    DescribeAccountSettingsTypeTypeDef,
     DescribeAdjustmentTypesAnswerTypeDef,
     DescribeAutoScalingInstancesTypeTypeDef,
     DescribeAutoScalingNotificationTypesAnswerTypeDef,
@@ -114,6 +116,7 @@ from .type_defs import (
     PoliciesTypeTypeDef,
     PolicyARNTypeTypeDef,
     ProcessesTypeTypeDef,
+    PutAccountSettingTypeTypeDef,
     PutLifecycleHookTypeTypeDef,
     PutNotificationConfigurationTypeTypeDef,
     PutScalingPolicyTypeTypeDef,
@@ -394,6 +397,16 @@ class AutoScalingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/describe_account_limits.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_autoscaling/client/#describe_account_limits)
+        """
+
+    def describe_account_settings(
+        self, **kwargs: Unpack[DescribeAccountSettingsTypeTypeDef]
+    ) -> DescribeAccountSettingsAnswerTypeDef:
+        """
+        Describes the current Amazon EC2 Auto Scaling account settings for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/describe_account_settings.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_autoscaling/client/#describe_account_settings)
         """
 
     def describe_adjustment_types(self) -> DescribeAdjustmentTypesAnswerTypeDef:
@@ -706,6 +719,14 @@ class AutoScalingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/launch_instances.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_autoscaling/client/#launch_instances)
+        """
+
+    def put_account_setting(self, **kwargs: Unpack[PutAccountSettingTypeTypeDef]) -> dict[str, Any]:
+        """
+        Modifies an account setting for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/put_account_setting.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_autoscaling/client/#put_account_setting)
         """
 
     def put_lifecycle_hook(self, **kwargs: Unpack[PutLifecycleHookTypeTypeDef]) -> dict[str, Any]:

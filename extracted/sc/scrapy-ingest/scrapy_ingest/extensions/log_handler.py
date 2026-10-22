@@ -1,4 +1,5 @@
 """Log handler + early buffer + print capture for full job logs."""
+
 from __future__ import annotations
 
 import logging
@@ -11,6 +12,37 @@ _early: logging.Handler | None = None
 _buf: list = []
 _skip = ("urllib3.", "requests.", "scrapy_ingest.", "psycopg2.")
 _stdout_wrap = None
+
+
+def level_from_setting(value, default=logging.INFO) -> int:
+    if isinstance(value, int):
+        return value
+    if value is None:
+        return default
+    return logging._nameToLevel.get(str(value).upper(), default)
+
+
+def ingest_capture_level(settings) -> int:
+    """Level stored in the DB: INFO+ by default; DEBUG+ only when ``LOG_LEVEL`` is DEBUG."""
+    if str(settings.get("LOG_LEVEL", "INFO")).upper() == "DEBUG":
+        return logging.DEBUG
+    return logging.INFO
+
+
+def configure_logging_for_ingest(handler, capture_level, console_level) -> None:
+    """Let ingest capture at *capture_level* while other handlers keep *console_level*."""
+    root = logging.getLogger()
+    root.setLevel(capture_level)
+    for h in root.handlers:
+        if h is handler:
+            h.setLevel(capture_level)
+        elif isinstance(h, logging.Handler):
+            h.setLevel(console_level)
+    for name in ("scrapy", "twisted", "py.warnings"):
+        log = logging.getLogger(name)
+        log.propagate = True
+        if log.level == logging.NOTSET or log.level > capture_level:
+            log.setLevel(capture_level)
 
 
 def _entry(record: logging.LogRecord) -> dict:
@@ -81,20 +113,6 @@ def install_early():
         root.addHandler(_early)
         if root.level == logging.NOTSET or root.level > logging.INFO:
             root.setLevel(logging.INFO)
-    try:
-        import scrapy.utils.log as slog
-
-        if not getattr(slog, "_ingest_patched", False):
-            _orig = slog.configure_logging
-
-            def _wrap(*a, **k):
-                install_early()
-                return _orig(*a, **k)
-
-            slog.configure_logging = _wrap
-            slog._ingest_patched = True
-    except ImportError:
-        pass
 
 
 def drain_early(collector, min_level=logging.INFO):
@@ -135,8 +153,13 @@ class _Stdout:
             line = line.rstrip("\r")
             if not line:
                 continue
-            if " [" in line and "] " in line and any(
-                t in line for t in ("INFO:", "WARNING:", "ERROR:", "DEBUG:", "CRITICAL:")
+            if (
+                " [" in line
+                and "] " in line
+                and any(
+                    t in line
+                    for t in ("INFO:", "WARNING:", "ERROR:", "DEBUG:", "CRITICAL:")
+                )
             ):
                 continue
             now = datetime.now(tz=timezone.utc)
@@ -180,6 +203,3 @@ def stop_prints():
     if sys.stdout is _stdout_wrap:
         sys.stdout = _stdout_wrap.original
     _stdout_wrap = None
-
-
-install_early()

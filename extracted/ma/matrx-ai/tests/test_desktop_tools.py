@@ -804,3 +804,188 @@ async def test_one_writer_files_the_task_in_the_computers_organization(
     with pytest.raises(desktop.DeviceTaskRefused) as refused:
         await desktop.create_device_op_task(a, user_id="u", organization_id="o", device_id="nope", created_via="web")
     assert refused.value.error_type == "invalid_argument"
+
+
+# ── desktop-protocol 1.66 / 1.67: the Matrx Local contract fields ────────────────────────────────
+
+
+@pytest.mark.parametrize(
+    ("tool", "args", "op", "params"),
+    [
+        (
+            "desktop_window",
+            {"action": "list", "app": "Safari"},
+            "window.list",
+            {"limit": 50, "app": "Safari"},
+        ),
+        (
+            "desktop_window",
+            {"action": "minimize", "id": 7, "mode": "maximize"},
+            "window.minimize",
+            {"id": 7, "mode": "maximize"},
+        ),
+        ("desktop_window", {"action": "minimize", "id": 7}, "window.minimize", {"id": 7}),
+        (
+            "desktop_audio",
+            {"action": "record", "seconds": 2, "channels": 2, "sample_rate": 48000},
+            "audio.record",
+            {"seconds": 2, "channels": 2, "sample_rate": 48000},
+        ),
+        (
+            "desktop_audio",
+            {"action": "play", "path": "a.wav", "device_id": "out-2"},
+            "audio.play",
+            {"path": "/Users/person/a.wav", "device_id": "out-2"},
+        ),
+        (
+            "desktop_mail",
+            {"action": "send", "to": ["a@b.co"], "bcc": ["c@d.co"], "subject": "Hi", "body": "Yo"},
+            "mail.send",
+            {"to": ["a@b.co"], "bcc": ["c@d.co"], "subject": "Hi", "body": "Yo"},
+        ),
+        (
+            "desktop_messages",
+            {"action": "list", "contact": "Jane", "unread_only": True},
+            "messages.list",
+            {"contact": "Jane", "unread_only": True},
+        ),
+        ("desktop_contacts", {"action": "search", "limit": 10}, "contacts.search", {"limit": 10}),
+        (
+            "desktop_calendar",
+            {
+                "action": "events",
+                "start": "2026-10-12T00:00:00Z",
+                "end": "2026-10-13",
+                "calendars": ["Work", "Home"],
+            },
+            "calendar.list",
+            {"from_ms": 1_791_763_200_000, "to_ms": 1_791_849_600_000, "calendars": ["Work", "Home"]},
+        ),
+        (
+            "desktop_calendar",
+            {"action": "reminders", "lists": ["Groceries"]},
+            "reminders.list",
+            {"lists": ["Groceries"]},
+        ),
+        (
+            "desktop_photos",
+            {"action": "search", "media_type": "video"},
+            "photos.search",
+            {"media_type": "video"},
+        ),
+        (
+            "desktop_photos",
+            {"action": "get", "id": "ABC", "thumbnail_size": 256},
+            "photos.get",
+            {"id": "ABC", "thumbnail_size": 256},
+        ),
+        (
+            "desktop_windows_admin",
+            {"action": "services", "status": "paused"},
+            "windows.services",
+            {"status": "paused"},
+        ),
+        (
+            "desktop_windows_admin",
+            {"action": "service_control", "name": "Spooler", "service_action": "pause"},
+            "windows.service_control",
+            {"name": "Spooler", "action": "pause"},
+        ),
+        (
+            "desktop_windows_admin",
+            {"action": "event_log", "source": "Kernel"},
+            "windows.event_log",
+            {"source": "Kernel"},
+        ),
+        (
+            "shell_job",
+            {"action": "start", "command": "npm run dev", "env": {"PORT": "3002"}},
+            "exec.job.start",
+            {"command": "npm run dev", "env": {"PORT": "3002"}},
+        ),
+        (
+            "shell_job",
+            {"action": "output", "job_id": "j1", "max_bytes": 4096},
+            "exec.job.output",
+            {"job_id": "j1", "offset": 0, "wait_ms": 0, "max_bytes": 4096},
+        ),
+        (
+            "desktop_git",
+            {"action": "commit", "cwd": "/Users/person/repo", "message": "m", "author": "A <a@b.co>"},
+            "git.commit",
+            {"cwd": "/Users/person/repo", "message": "m", "amend": False, "author": "A <a@b.co>"},
+        ),
+        (
+            "desktop_web",
+            {"action": "fetch", "url": "https://example.com", "follow_redirects": False},
+            "web.fetch",
+            {
+                "url": "https://example.com",
+                "method": "GET",
+                "headers": [],
+                "timeout_s": 30,
+                "follow_redirects": False,
+            },
+        ),
+        (
+            "desktop_net",
+            {"action": "scan", "host": "192.168.1.10", "ports": [22], "timeout_ms": 200},
+            "net.scan",
+            {"host": "192.168.1.10", "ports": [22], "timeout_ms": 200},
+        ),
+        (
+            "desktop_messages",
+            {"action": "send", "to": "+15550100", "text": "hi", "service": "SMS"},
+            "messages.send",
+            {"to": "+15550100", "text": "hi", "service": "SMS"},
+        ),
+        (
+            "desktop_windows_admin",
+            {"action": "features", "installed_only": True},
+            "windows.features",
+            {"installed_only": True},
+        ),
+    ],
+)
+async def test_protocol_1_66_and_1_67_fields_reach_the_op(
+    monkeypatch: pytest.MonkeyPatch,
+    tool: str,
+    args: dict[str, Any],
+    op: str,
+    params: dict[str, Any],
+) -> None:
+    seen = _aidream(monkeypatch, 200, {"ok": True})
+    _bind(DESKTOP)
+    r = await getattr(desktop, tool)(args, ToolContext(call_id="n1", tool_name=tool))
+    assert r.success, r.error
+    assert _sent(seen) == [(op, params)]
+
+
+async def test_a_photo_thumbnail_reaches_the_model_as_an_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from matrx_ai.config import ImageContent
+
+    _aidream(monkeypatch, 200, {"photo": {"id": "ABC"}, "thumbnail_png_base64": "iVBORw0KGgo="})
+    _bind(DESKTOP)
+    r = await desktop.desktop_photos(
+        {"action": "get", "id": "ABC", "thumbnail_size": 128},
+        ToolContext(call_id="n2", tool_name="desktop_photos"),
+    )
+    assert r.success, r.error
+    assert "thumbnail_png_base64" not in r.output
+    assert r.output["thumbnail_bytes"] == 9
+    assert isinstance(r.provider_content[0], ImageContent)
+
+
+async def test_scrape_engine_and_browser_wait_reach_their_ops() -> None:
+    from matrx_ai.tools.arg_models.desktop_args import DesktopWebArgs
+
+    op, params, _ = desktop._web_plan(
+        DesktopWebArgs(action="scrape", urls=["https://example.com"], engine="browser")
+    )
+    assert (op, params["engine"]) == ("web.scrape", "browser")
+    op, params, _ = desktop._web_plan(
+        DesktopWebArgs(action="browser_fetch", url="https://example.com", wait_timeout_ms=5000)
+    )
+    assert (op, params["wait_timeout_ms"]) == ("web.fetch_with_browser", 5000)

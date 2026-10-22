@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: haystack-ai
-Version: 3.4.0
+Version: 3.4.1
 Summary: LLM framework to build customizable, production-ready LLM applications. Connect components (models, vector DBs, file converters) to pipelines or agents that can interact with your data.
 Project-URL: CI: GitHub, https://github.com/deepset-ai/haystack/actions
 Project-URL: Docs: RTD, https://haystack.deepset.ai/overview/intro
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.11
 Requires-Dist: anyio>=4.14.2
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: docstring-parser
 Requires-Dist: filetype
 Requires-Dist: httpx

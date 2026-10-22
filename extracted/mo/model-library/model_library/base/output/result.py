@@ -51,7 +51,7 @@ class FinishReason(str, Enum):
     """Model stopped because it reached the maximum token limit."""
 
     CONTEXT_WINDOW_EXCEEDED = "context_window_exceeded"
-    """Model stopped because the input exceeded the context window."""
+    """Model stopped because generation exceeded its context window."""
 
     TOOL_CALLS = "tool_calls"
     """Model stopped to make one or more tool calls."""
@@ -257,6 +257,7 @@ class QueryResultMetadata(ValsModel):
     reasoning_tokens: int | None = None
     cache_read_tokens: int | None = None
     cache_write_tokens: int | None = None
+    cache_write_1h_tokens: int | None = None
     fallback: FallbackInfo | None = None
     served_model: str | None = Field(
         default=None,
@@ -333,6 +334,10 @@ class QueryResultMetadata(ValsModel):
             cache_write_tokens=cast(
                 int | None,
                 add_optional(self.cache_write_tokens, other.cache_write_tokens),
+            ),
+            cache_write_1h_tokens=cast(
+                int | None,
+                add_optional(self.cache_write_1h_tokens, other.cache_write_1h_tokens),
             ),
             duration_seconds=self.default_duration_seconds
             + other.default_duration_seconds,

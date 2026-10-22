@@ -39,16 +39,24 @@ class ActionName(StrEnum):
     VERSION = "version"
 
 
-class Agent(StrEnum):
-    """A coding agent a configure run sets up: its `probe wizard --agent` word.
+def _agent_words() -> dict[str, str]:
+    """The wizard's exact installable ids and aliases, from its shared registry.
 
-    These are the Probe service API v1 words the desktop app sends, a fixed
-    contract; which harness each one is comes from the registry, through the
-    wizard's own `--agent` lookup (`tests/test_core_run.py` pins every word)."""
+    Keep the existing API v1 enum members (CLAUDE, CODEX, PI) while allowing
+    clients to send the canonical ids that `probe status` reports. A new
+    installable harness needs no second service-side list.
+    """
+    from probe.harness import get_registry
 
-    CLAUDE = "claude"
-    CODEX = "codex"  # harness-literal-ok: API v1 wire word, resolved through the registry
-    PI = "pi"  # harness-literal-ok: API v1 wire word, resolved through the registry
+    return {
+        word.upper(): word
+        for harness in get_registry().installable()
+        for word in dict.fromkeys((harness.cli_flag, *harness.names))
+        if word
+    }
+
+
+Agent = StrEnum("Agent", _agent_words(), module=__name__)
 
 
 class Recorder(StrEnum):

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.316.0"
+  version: "1.330.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -27,7 +27,7 @@ info:
   x-logo:
     url: https://zernio.com/icon.png?v=3
   x-long-description: |
-    Zernio is the social media API that replaces 27 integrations. Schedule posts, retrieve analytics,
+    Zernio is the social media API that replaces 28 integrations. Schedule posts, retrieve analytics,
     manage DMs, comments, and reviews across X, Instagram, WhatsApp, TikTok, LinkedIn,
     Facebook, YouTube, Threads, Pinterest, Bluesky, Telegram, Google Business Profile, Snapchat,
     Discord, Slack, and iMessage, all from a single REST API. Run paid ads on Meta (Facebook + Instagram), Google,
@@ -70,7 +70,7 @@ x-documentation:
   readme: |
     # Zernio API
 
-    The social media API that replaces 27 integrations. Build social media and blog publishing features into your app in minutes, not months.
+    The social media API that replaces 28 integrations. Build social media and blog publishing features into your app in minutes, not months.
 
     ## Quick Start
 
@@ -855,7 +855,7 @@ components:
             code: ads_connection_required
             param: accountId
     StoreReconnectRequired:
-      description: 'The store must re-approve the Zernio Shopify app to grant pixel access (code `reconnect_required`). Send the merchant to `details.authUrl`; the Shopify account id stays the same. Also returned while the store account itself needs reconnection (code `ads_connection_required`).'
+      description: 'The store must re-approve the Zernio app (Shopify or Wix), or connect a Webflow site with the Zernio Webflow app, to grant pixel access (code `reconnect_required`). Send the merchant to `details.authUrl`; the account id stays the same. Also returned while the store account itself needs reconnection (code `ads_connection_required`).'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -1180,6 +1180,27 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    AdLead:
+      type: object
+      properties:
+        id: { type: string, description: Zernio lead id. }
+        leadgenId: { type: string, description: 'Meta lead id. On LinkedIn, the leadFormResponse id.' }
+        formId: { type: string }
+        formName: { type: [string, "null"] }
+        accountId: { type: string }
+        adId: { type: [string, "null"] }
+        adsetId: { type: [string, "null"] }
+        campaignId: { type: [string, "null"], description: 'On LinkedIn, this is the LinkedIn Campaign id, which corresponds to platformAdSetId on GET /v1/ads (LinkedIn''s Campaign Group is Zernio''s campaign).' }
+        isOrganic: { type: boolean }
+        createdTime: { type: [string, "null"], description: ISO 8601. }
+        fields: { type: object, additionalProperties: { type: string }, description: 'Question key → answer. On LinkedIn, the key is the lowercased predefinedField, else the question name, else the numeric questionId; multiple-choice values are option labels (unlike Meta, which returns the option key).' }
+        fieldData: { type: array, items: { type: object }, description: "Raw Meta field_data." }
+        status: { type: string, enum: [new, contacted, unreachable, qualified, converted, disqualified], description: 'Meta leads only. `contacted` is set when the first WhatsApp message of a lead_received workflow is delivered, `unreachable` when it fails or the phone number is not valid.' }
+        statusChangedAt: { type: [string, "null"], format: date-time }
+        value: { type: [number, "null"] }
+        currency: { type: [string, "null"] }
+        contactId: { type: [string, "null"], description: 'The contact a lead_received workflow created or matched for this lead.' }
+        firstContactedAt: { type: [string, "null"], format: date-time, description: 'When the first WhatsApp message to the lead was delivered.' }
     ConnectWelcomeScreen:
       type: object
       properties:
@@ -2653,23 +2674,29 @@ components:
             a default payor.
         regionalRegulatedCategories:
           type: array
-          description: 'Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.'
+          description: 'Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV, MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL). Forwarded to the ad set.'
           items: { type: string }
         regionalRegulationIdentities:
           type: object
           additionalProperties: { type: integer }
           description: |
-            Meta only. Beneficiary/payer entity IDs required alongside regionalRegulatedCategories.
-            Values are numeric IDs from the advertiser's Meta verification/authorization setup.
-            Keys depend on the declared category: BRAZIL_REGULATION and THAILAND_UNIVERSAL use
-            universal_beneficiary / universal_payer; SINGAPORE_UNIVERSAL uses
-            singapore_universal_beneficiary / singapore_universal_payer; TAIWAN_UNIVERSAL uses
-            taiwan_universal_beneficiary / taiwan_universal_payer; TAIWAN_FINSERV uses
-            taiwan_finserv_beneficiary / taiwan_finserv_payer; AUSTRALIA_FINSERV uses
-            australia_finserv_beneficiary / australia_finserv_payer; INDIA_FINSERV uses
-            india_finserv_beneficiary / india_finserv_payer.
-            Both beneficiary and payer must be included. If omitted and the advertiser has
-            set defaults in Meta Ads Manager advertising settings, Meta auto-fills them.
+            Meta only. Verified identity IDs of the beneficiary and payer for each declared
+            regionalRegulatedCategories value. Meta may require them on ad sets created through
+            the API even when a default beneficiary and payer are set in Ads Manager advertising
+            settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+            The value is the Verified identity ID (Meta Business Settings > Verified identities),
+            not a Page or Business ID, and beneficiary and payer may be the same ID.
+            Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+            australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+            taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+            TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+            SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+            AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+            universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+            advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+            (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+            ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+            Ignored when adSetId adds the ad to an existing ad set.
     WorkflowNode:
       type: object
       required: [id, type]
@@ -2711,11 +2738,13 @@ components:
 
 
             **trigger**: `{ triggerType:
-            inbound_message|api_call|whatsapp_event|referral|story_mention|comment|reaction,
+            inbound_message|api_call|whatsapp_event|referral|story_mention|comment|reaction|lead_received,
             keywords:[string], matchType: any|contains|exact|regex, onlyFirstMessage:boolean,
             eventType: message_sent|message_delivered|message_read|message_failed|reaction,
             referral:{ ref, matchType: exact|prefix|any }, reaction:{ emojis:[string] },
             comment:{ keywords:[string], matchType: any|contains|exact|regex, platformPostId },
+            leadReceived:{ formIds:[string], pageAccountIds:[string], consentCheckboxKey,
+            defaultCountry, allowCrossProfile:boolean },
             cooldownHours:int (1-720) }`. Default `triggerType` is `inbound_message` for legacy
             nodes. A workflow starts only on events of its own trigger type: `inbound_message` on a
             message, `referral` on an ig.me / m.me / click-to-message ad referral (standalone, or the
@@ -2730,10 +2759,20 @@ components:
             the run then continues in the conversation that reply opens; when an active comment
             automation's keywords match the comment, the automation answers and the workflow does
             not start), `whatsapp_event` on a WhatsApp status of a message we sent (filtered by
-            `eventType`), `api_call` only via `POST /v1/workflows/{workflowId}/trigger`.
+            `eventType`), `api_call` only via `POST /v1/workflows/{workflowId}/trigger`, and
+            `lead_received` (WhatsApp workflows only) when a Meta lead ad form is submitted.
+            A `lead_received` trigger needs `leadReceived.consentCheckboxKey` and at least one of
+            `formIds` or `pageAccountIds`; a form scope wins over a Page scope, then the earliest
+            activated workflow. It starts only for leads submitted in the last hour and after the
+            workflow was activated, whose consent checkbox (the form's custom disclaimer, see
+            `POST /v1/ads/lead-forms`) is ticked, and whose phone number parses to a valid
+            international number (`defaultCountry`, ISO 3166 alpha-2, defaults to the country of
+            the workflow's WhatsApp number); otherwise the lead is marked `unreachable`. The Page
+            and the WhatsApp number must be in the same profile unless `allowCrossProfile` is true.
+            Every send or call reached first from the trigger must be a WhatsApp template (checked on save).
             `referral.matchType` defaults to `any`. `cooldownHours` (inbound_message, referral,
-            story_mention, reaction and whatsapp_event) stops the same contact from starting the
-            workflow again inside the window. A `whatsapp_event` workflow never starts on the
+            story_mention, reaction, whatsapp_event and lead_received, where it defaults to 24) stops
+            the same contact from starting the workflow again inside the window. A `whatsapp_event` workflow never starts on the
             status of a message a workflow, sequence or comment automation sent. A redelivered platform event never starts the same workflow twice.
 
 
@@ -2746,7 +2785,10 @@ components:
             `postback.payload`, `postback.title`, `quickReply.payload`, `quickReply.title`, `story.id`,
             `story.url`, `comment.id`, `comment.text`, `comment.platformPostId`, `reaction.emoji`,
             `reaction.action` (added|removed). `api_call` runs also get the request's `variables`,
-            merged over these. An array or object interpolated into text renders as JSON.
+            merged over these. `lead_received` runs also get `lead.id`, `lead.leadgenId`,
+            `lead.formId`, `lead.formName`, `lead.adId`, `lead.adsetId`, `lead.campaignId` and every
+            form answer by its key (`lead.full_name`, `lead.email`, `lead.phone_number`). Template
+            `variableMapping` entries with `field: custom` interpolate `{{...}}` in `customValue`. An array or object interpolated into text renders as JSON.
 
 
             **send_message**: `{ messageType: text|template|media|interactive|cards, text,
@@ -3227,7 +3269,7 @@ components:
             `POST /v1/ads/ctwa`) carries `stage`, `adAccountId` and `createdObjects`: where
             it failed, on which ad account, and every object this request had already
             created with what cleanup did to it. `left_behind` objects still exist on the
-            ad account (Meta refused the delete, typically on a held account), so delete
+            ad account (Meta refused the delete, typically on a held account, or the delete hit a network error), so delete
             them yourself or reuse them. `unconfirmedWrite` is set when Meta answered a
             create with a 5xx or dropped the connection and Zernio could not confirm
             whether the object exists: check that parent before creating it again.
@@ -3260,7 +3302,7 @@ components:
                   cleanup:
                     type: string
                     enum: [deleted, left_behind, kept]
-                    description: "`deleted`: Zernio deleted it. `left_behind`: Meta refused the delete, so it still exists. `kept`: deliberately not deleted (image hashes are shared by every upload of the same file)."
+                    description: "`deleted`: Zernio deleted it. `left_behind`: cleanup could not delete it (Meta refused the delete, or the delete hit a network error), so it still exists. `kept`: deliberately not deleted (image hashes are shared by every upload of the same file)."
             unconfirmedWrite:
               type: object
               description: 'Meta ad create failures only, when Meta answered a create with a 5xx or dropped the connection and the object could not be looked up. Zernio did not retry it.'
@@ -7791,7 +7833,7 @@ components:
     ApiChangelogEntry:
       type: object
       description: One API changelog entry, as shown on https://docs.zernio.com/changelog.
-      required: [id, type, impact, platforms, message, publishedAt, specVersion, url, changes]
+      required: [id, type, impact, platforms, title, summary, message, publishedAt, specVersion, url, changes]
       properties:
         id: { type: string, description: 'Stable entry id; the same entry is never published twice.' }
         type:
@@ -7807,7 +7849,9 @@ components:
           items: { type: string }
           description: 'Platform and area slugs the entry is about: a platform (`instagram`, `facebook`, `threads`, `tiktok`, `x`, `linkedin`, `youtube`, `pinterest`, `reddit`, `bluesky`, `telegram`, `snapchat`, `whatsapp`, `discord`, `slack`, `google-business`, `imessage`), an ads platform (`meta-ads`, `google-ads`, `tiktok-ads`, `linkedin-ads`, `pinterest-ads`, `x-ads`) or an area (`ads`, `publishing`, `inbox`, `telephony`, `commerce`, `analytics`, `webhooks`, `general`). Filter with the `platform` query parameter.'
           example: [whatsapp, inbox]
-        message: { type: string, description: 'The announcement, in Markdown.' }
+        title: { type: [string, "null"], description: 'The change in a few words, for example `Delete inbox conversations`. Null on older entries.' }
+        summary: { type: [string, "null"], description: 'One or two plain sentences on what changed and why it matters. Null when `title` is.' }
+        message: { type: string, description: 'The details in Markdown: endpoints, fields and how to use them.' }
         publishedAt: { type: string, format: date-time }
         specVersion: { type: [string, "null"], description: 'The `info.version` of the OpenAPI spec the entry describes, when known.' }
         url: { type: string, format: uri, description: 'The entry on the docs changelog.' }
@@ -8191,8 +8235,8 @@ components:
         timezone: { type: string }
         status:
           type: string
-          enum: [draft, scheduled, publishing, published, partial, failed, cancelled]
-          description: '`cancelled` is set by POST /v1/posts/{postId}/unpublish once every platform entry has been removed from its platform (a post with published entries left becomes `partial`); cancelled posts can be edited and rescheduled like drafts.'
+          enum: [draft, pending_approval, scheduled, publishing, published, partial, failed, cancelled]
+          description: '`cancelled` is set by POST /v1/posts/{postId}/unpublish once every platform entry has been removed from its platform (a post with published entries left becomes `partial`); cancelled posts can be edited and rescheduled like drafts. `pending_approval` (set by `requiresApproval: true`) never publishes until POST /v1/posts/{postId}/review approves it.'
         tags:
           type: array
           description: "YouTube constraints: each tag max 100 chars, combined max 500 chars, duplicates removed."
@@ -8884,6 +8928,22 @@ components:
         mediaProductType: { type: [string, "null"], description: LIVE for a live video., example: LIVE }
         username: { type: [string, "null"], description: Instagram handle of the broadcasting account. }
         timestamp: { type: [string, "null"], description: 'Creation time of the broadcast media as Meta returns it (ISO 8601).' }
+
+    InstagramTaggedMedia:
+      type: object
+      required: [id, caption, mediaType, mediaProductType, mediaUrl, thumbnailUrl, permalink, timestamp, username, likeCount, commentsCount]
+      properties:
+        id: { type: string, description: Instagram media ID of the post the account is tagged in. }
+        caption: { type: [string, "null"] }
+        mediaType: { type: [string, "null"], description: 'IMAGE, VIDEO or CAROUSEL_ALBUM.', example: IMAGE }
+        mediaProductType: { type: [string, "null"], description: 'FEED or REELS.', example: FEED }
+        mediaUrl: { type: [string, "null"], description: 'Temporary CDN URL. Meta omits it for videos with copyrighted audio, flagged videos and reels whose owner disabled downloads.' }
+        thumbnailUrl: { type: [string, "null"], description: Cover image of a video or reel. }
+        permalink: { type: [string, "null"], description: Public Instagram URL of the post. }
+        timestamp: { type: [string, "null"], description: 'Publication time as Meta returns it (ISO 8601).' }
+        username: { type: [string, "null"], description: Instagram handle of the account that posted the media and tagged yours. }
+        likeCount: { type: [integer, "null"], description: Null when the owner hides like counts. }
+        commentsCount: { type: [integer, "null"] }
 
     InstagramBusinessDiscovery:
       type: object
@@ -10108,7 +10168,7 @@ components:
         _id: { type: string }
         platform:
           type: string
-          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, sms, phone, rcs, whopads, hubspot]
+          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, sms, phone, rcs, whopads, hubspot, webflow]
         profileId:
           oneOf:
             - type: string
@@ -11143,6 +11203,28 @@ components:
       properties:
         post:
           $ref: '#/components/schemas/Post'
+    TikTokSmartPlusReviewStatus:
+      type: string
+      enum: [approved, partially_approved, rejected, unknown]
+      description: "TikTok `review_status` normalized: ALL_AVAILABLE -> approved, PART_AVAILABLE -> partially_approved (delivers in part of the targeted locations), UNAVAILABLE -> rejected, anything else or missing -> unknown (see `rawReviewStatus`)."
+    TikTokReviewRejection:
+      type: object
+      description: "One TikTok `reject_info` entry."
+      properties:
+        reasons: { type: array, items: { type: string } }
+        suggestion: { type: [string, "null"], description: "TikTok's advice for fixing the rejection." }
+        forbiddenPlacements: { type: array, items: { type: string } }
+        forbiddenAges: { type: array, items: { type: string } }
+        forbiddenLocations: { type: array, items: { type: string } }
+        content:
+          type: [object, "null"]
+          description: "The content TikTok rejected."
+          properties:
+            type: { type: [string, "null"], description: "TikTok `content_type`, verbatim (ModeString, ModeImage, ModeVideo, ModeMusic, LandingPage, ...)." }
+            text: { type: [string, "null"] }
+            imageId: { type: [string, "null"] }
+            videoId: { type: [string, "null"] }
+            musicId: { type: [string, "null"] }
     TikTokDryRunVerdict:
       type: object
       required: [dryRun, canPublish, tiktok]
@@ -14045,8 +14127,8 @@ components:
             channel: { type: string, enum: [whatsapp, messenger, instagram_direct] }
             wabaId: { type: string, description: 'WhatsApp only. WhatsApp Business Account id, sent as `whatsapp_business_account_id`.' }
             ctwaClid: { type: string, description: 'WhatsApp only. Click-to-WhatsApp click id from the first inbound message referral, sent as `ctwa_clid`.' }
-            pageId: { type: string, description: 'Messenger: Facebook Page id, sent as `page_id`. Instagram Direct: when `instagramBusinessAccountId` is absent, Zernio reads the Instagram professional account linked to this Page and sends its id as `instagram_business_account_id`; if none is linked or the lookup fails, `page_id` is sent instead.' }
-            instagramBusinessAccountId: { type: string, description: 'Instagram Direct only. Instagram professional account id (`instagram_business_account` on the Page), sent as `instagram_business_account_id` next to `ig_sid`.' }
+            pageId: { type: string, description: 'Messenger: Facebook Page id, sent as `page_id`. Instagram Direct: when `instagramBusinessAccountId` is absent, Zernio reads the Instagram professional account linked to this Page and sends its id as `ig_account_id`; if none is linked or the lookup fails, `page_id` is sent instead.' }
+            instagramBusinessAccountId: { type: string, description: 'Instagram Direct only. Instagram professional account id (`instagram_business_account` on the Page), sent as `ig_account_id` next to `ig_sid`.' }
             pageScopedUserId: { type: string, description: 'Messenger only. The page-scoped user id (PSID) your Messenger webhook gives for the person, sent as `page_scoped_user_id` next to `page_id`.' }
             instagramScopedUserId: { type: string, description: 'Instagram Direct only. The Instagram-scoped user id (IGSID) your Instagram messaging webhook gives for the person, sent as `ig_sid`.' }
         platformData:
@@ -14189,17 +14271,17 @@ components:
       type: object
       description: 'A blog container on the connected platform. All content lives on the platform; Zernio proxies it and stores nothing.'
       properties:
-        id: { type: string, description: 'Platform-native blog id. Shopify uses a numeric blog id. WordPress.com uses the numeric site id; self-hosted WordPress and Wix use `1`, scoped to the connected account.' }
-        platform: { type: string, enum: [shopify, wordpress, wix] }
+        id: { type: string, description: 'Platform-native blog id. Shopify uses a numeric blog id. WordPress.com uses the numeric site id; self-hosted WordPress and Wix use `1`, scoped to the connected account. Webflow uses the CMS collection id.' }
+        platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
         title: { type: string }
-        handle: { type: string, description: 'URL slug on Shopify; site hostname on WordPress and Wix.' }
+        handle: { type: string, description: 'URL slug on Shopify and Webflow (the collection slug); site hostname on WordPress and Wix.' }
     BlogArticle:
       type: object
       description: 'An article inside a blog on the connected platform.'
       properties:
-        id: { type: string, description: 'Platform-native article/post id: numeric on Shopify and WordPress, a GUID on Wix.' }
+        id: { type: string, description: 'Platform-native article/post id: numeric on Shopify and WordPress, a GUID on Wix, a hex item id on Webflow.' }
         blogId: { type: string, description: 'Platform-native id of the blog the article belongs to.' }
-        platform: { type: string, enum: [shopify, wordpress, wix] }
+        platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
         title: { type: string }
         bodyHtml: { type: [string, "null"], description: 'Article body as HTML. Wix stores rich content, converted from and to HTML; Wix lists return null (get the article for its body).' }
         handle: { type: string, description: 'URL slug of the article.' }
@@ -15269,18 +15351,18 @@ components:
         updated_at: { type: string, format: date-time }
     StorePixelInstall:
       type: object
-      description: 'A tracking tag''s install on a connected store: a Shopify web pixel, or a Custom HTML widget on a WordPress site. Fields marked Shopify or WordPress are present only for that platform.'
+      description: 'A tracking tag''s install on a connected store: a Shopify web pixel, a Custom HTML widget on a WordPress site, the Zernio embedded script on a Wix site, or the Zernio custom code script on a Webflow site. Fields marked with a platform are present only for it.'
       properties:
         storeAccountId: { type: string }
-        platform: { type: string, enum: [shopify, wordpress], description: 'The store platform.' }
+        platform: { type: string, enum: [shopify, wordpress, wix, webflow], description: 'The store platform.' }
         tagPlatform: { type: string, description: 'Platform of the tag this install is about (e.g. `metaads`).' }
         siteTagId: { type: string, description: 'The id the tag carries on the site (see `TrackingTag.siteTagId`).' }
-        installed: { type: boolean, description: 'Shopify: this tag is the one the store fires for its platform. WordPress: the Zernio widget for this tag is in an active widget area with its script intact.' }
+        installed: { type: boolean, description: 'Shopify, Wix and Webflow: this tag is the one the store fires for its platform. WordPress: the Zernio widget for this tag is in an active widget area with its script intact.' }
         shopDomain: { type: string, example: 'acme.myshopify.com', description: Shopify only. }
-        installedTagId: { type: [string, "null"], description: 'Shopify only: the tag of the same platform the store fires now (may be a different tag), or null.' }
+        installedTagId: { type: [string, "null"], description: 'Shopify, Wix and Webflow only: the tag of the same platform the store fires now (may be a different tag), or null.' }
         tags:
           type: array
-          description: 'GET only on WordPress, always on Shopify: every Zernio tag on the store, all platforms.'
+          description: 'GET only on WordPress, always on Shopify, Wix and Webflow: every Zernio tag on the store, all platforms.'
           items:
             type: object
             properties:
@@ -15290,7 +15372,8 @@ components:
               sidebarId: { type: string, description: WordPress only. }
               active: { type: boolean, description: 'WordPress only: false when the widget sits outside an active widget area.' }
         webPixelId: { type: [string, "null"], description: 'Shopify only: web pixel id, or null when nothing is installed.' }
-        siteUrl: { type: string, description: WordPress only. }
+        siteUrl: { type: [string, "null"], description: 'WordPress, Wix and Webflow only. Null on a Wix site that was never published.' }
+        publishRequired: { type: boolean, description: 'Webflow only, always true: the change reaches the live site on its next publish.' }
         method: { type: string, enum: [wordpress_widget], description: WordPress only. }
         widgetId: { type: [string, "null"], description: 'WordPress only: widget id, e.g. `custom_html-3`.' }
         sidebarId: { type: [string, "null"], description: 'WordPress only: widget area holding the widget.' }
@@ -22409,7 +22492,7 @@ paths:
             full synced history (we keep up to the last ~12 months per account).
         - name: status
           in: query
-          schema: { type: string, enum: [draft, scheduled, publishing, published, partial, failed, cancelled] }
+          schema: { type: string, enum: [draft, pending_approval, scheduled, publishing, published, partial, failed, cancelled] }
         - name: platform
           in: query
           schema: { type: string, example: twitter }
@@ -22671,6 +22754,10 @@ paths:
                   type: boolean
                   default: false
                   description: When true, saves the post as a draft. When none of scheduledFor, publishNow, or queuedFromProfile are provided, the post defaults to draft automatically.
+                requiresApproval:
+                  type: boolean
+                  default: false
+                  description: 'When true, saves the post as pending_approval instead of scheduled. Needs scheduledFor, at the root or on every platform; cannot be combined with isDraft, publishNow, queuedFromProfile or queueId. The post publishes only after POST /v1/posts/{postId}/review approves it; approving after the scheduled time publishes within a couple of minutes.'
                 dryRun:
                   type: boolean
                   default: false
@@ -23446,7 +23533,7 @@ paths:
                       scheduledFor:
                         type: string
                         format: date-time
-                        description: Optional per-platform scheduled time override.
+                        description: Optional per-platform scheduled time override. It is kept when a top-level scheduledFor is also sent, except a date sent back unchanged that matched the post scheduled time or is already past, which follows the new top-level scheduledFor.
                       platformSpecificData:
                         type: object
                         additionalProperties: true
@@ -23456,6 +23543,9 @@ paths:
                 isDraft:
                   type: boolean
                   description: When omitted, the post keeps its current draft status. Send `false` to promote a draft to scheduled (combined with `scheduledFor`, `publishNow`, or a queue).
+                requiresApproval:
+                  type: boolean
+                  description: 'Send true on a draft to submit it for approval: it becomes pending_approval and publishes only after POST /v1/posts/{postId}/review approves it. Cannot be combined with isDraft, publishNow, queuedFromProfile or queueId. Returns 409 when the post is not a draft.'
                 timezone: { type: string }
                 visibility: { type: string, enum: [public, private, unlisted] }
                 tags:
@@ -23526,7 +23616,7 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: 'The requested scheduledFor collides with another post already occupying that slot in the same queue (code: queue_slot_conflict). Choose a different time, omit scheduledFor and let the queue assign the next open slot, or send queueId: null to schedule this post outside the queue.'
+          description: 'The requested scheduledFor collides with another post already occupying that slot in the same queue (code: queue_slot_conflict). Choose a different time, omit scheduledFor and let the queue assign the next open slot, or send queueId: null to schedule this post outside the queue. Also returned when requiresApproval is sent on a post that is not a draft (code: invalid_resource_state).'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -23770,6 +23860,56 @@ paths:
                   error: { type: string }
                   details:
                     type: object
+  /v1/posts/{postId}/review:
+    post:
+      x-resource-group: "publishing"
+      operationId: reviewPost
+      tags: [Posts]
+      summary: Approve or reject a post
+      description: |
+        Approves or rejects a post saved with `requiresApproval: true` (status `pending_approval`).
+        `approve` schedules the post for its `scheduledFor` and fires the `post.scheduled` webhook. When that time has already passed, the post publishes within a couple of minutes.
+        `reject` returns the post to `draft`.
+        Returns 409 when the post is not `pending_approval`.
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision:
+                  type: string
+                  enum: [approve, reject]
+                  description: 'approve schedules the post; reject returns it to draft.'
+            example:
+              decision: "approve"
+      responses:
+        '200':
+          description: The reviewed post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PostGetResponse'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: 'The post is not pending_approval (code: invalid_resource_state), for example because it was already approved or rejected.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /v1/posts/{postId}/unpublish:
     post:
       x-resource-group: "publishing"
@@ -24835,7 +24975,7 @@ paths:
           description: Filter by platform
           schema:
             type: string
-            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, whopads, hubspot]
+            enum: [facebook, instagram, linkedin, twitter, tiktok, youtube, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, wix, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, redditads, whopads, hubspot, webflow]
         - name: status
           in: query
           description: Filter by health status
@@ -26364,11 +26504,11 @@ paths:
         - name: welcome
           in: query
           schema: { type: boolean }
-          description: 'Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button fills for about a second and then sends the user on to the platform''s own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio''s own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform''s authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.'
+          description: 'Any platform. When `true`, `authUrl` points to a Zernio-hosted welcome screen that shows your brand next to the platform ("<brandName> wants to connect to your <platform>") whose button reads Connecting for about a second and then sends the user on to the platform''s own authorization screen, with no click; the rest of the flow is unchanged. `brandName`, `logoUrl`, `primaryColor` and `welcomeTheme` are optional and default to Zernio''s own name, mark and look. The link is valid for 30 minutes, after which the page asks the user to start again. The brand also carries to the account and channel pickers Zernio shows after authorization, and when you pass no `redirect_url` the flow ends on a branded Zernio-hosted page saying whether the account connected, instead of the Zernio dashboard. Cannot be combined with `headless=true` or `signup=hosted` (400 `INVALID_FIELD_VALUE`). The platform''s authorization screen still names the Zernio app. Recommended. When left out, the screen is shown if the workspace saved it as on by default (`PUT /v1/connect/welcome-screen`), except with `headless=true` or `signup=hosted`; pass `false` to skip it. Branding you leave out of the call comes from those saved settings, and a `welcomeTheme` you send is merged key by key over the saved theme.'
         - name: welcomeTheme
           in: query
           schema: { type: string, maxLength: 4000 }
-          description: 'Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine` and `consentLine` (up to 200 each), `buttonLabel` (up to 30, the label on that button); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor`, `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.'
+          description: 'Welcome screen only (`welcome=true`): a URL-encoded JSON object that restyles and rewords the screen. All keys are optional. Copy: `heading` (up to 120 characters), `trustLine`, `consentLine` and `statusLine` (up to 200 each, `statusLine` being the line above the button), `buttonLabel` (up to 30, the label of the link the button becomes if the redirect stalls); each may contain the placeholders `{brand}` and `{platform}`. Style: `primaryColor` (the button), `accentColor` (the header gradient, built as a scale of that colour, and the icons), `pageColor`, `cardColor` and `textColor` as `#RRGGBB`, `cornerRadius` as an integer from 0 to 24 (pixels), `font` as `sans`, `serif` or `mono`. A `primaryColor` here wins over the `primaryColor` parameter. Unknown keys, invalid JSON or an invalid value are a 400 `INVALID_FIELD_VALUE`. Rejected when the welcome screen is not shown. Example: `{"heading":"Link your {platform} to {brand}","cardColor":"#FFF7ED","cornerRadius":12}`.'
         - name: logoUrl
           in: query
           schema: { type: string, format: uri, maxLength: 2048 }
@@ -27073,6 +27213,107 @@ paths:
         '403': { description: 'API key does not have access to this profile.' }
         '404': { description: 'Profile not found or access denied.' }
         '503': { description: 'The Wix app or state signing is not configured.' }
+
+  /v1/connect/webflow:
+    get:
+      x-resource-group: "accounts"
+      operationId: getWebflowConnectUrl
+      tags: [Connect]
+      summary: Get Webflow OAuth URL
+      description: |
+        Returns Webflow's consent URL for the Zernio Webflow app. The user picks
+        exactly one site there; Webflow then returns the browser to Zernio's
+        internal callback, which connects that site and redirects to
+        `redirect_url` (or the dashboard when omitted). Picking several sites
+        connects none and redirects with `error=webflow_pick_one_site`.
+        Connecting a site already connected with a site token upgrades the same
+        account. Only an OAuth connection can install tracking tags on the site
+        (`installTrackingTagOnStore`); blogs work with either. The token does not
+        expire.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema: { type: string }
+          description: 'Your Zernio profile ID (get from /v1/profiles).'
+        - name: redirect_url
+          in: query
+          schema: { type: string }
+          description: 'Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.'
+      responses:
+        '200':
+          description: Webflow consent URL and authenticated state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authUrl, state]
+                properties:
+                  authUrl: { type: string, format: uri, description: 'Webflow consent URL to open in the user agent.' }
+                  state: { type: string, description: 'Authenticated, expiring state handled by the callback.' }
+        '400': { description: 'Invalid `profileId` or `redirect_url`.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { description: 'API key does not have access to this profile.' }
+        '404': { description: 'Profile not found or access denied.' }
+        '503': { description: 'The Webflow app or state signing is not configured.' }
+  /v1/connect/webflow/token:
+    post:
+      x-resource-group: "accounts"
+      operationId: connectWebflowWithSiteToken
+      tags: [Connect]
+      summary: Connect Webflow with a site API token
+      description: |
+        Connects one Webflow site using a site API token, created in the
+        site's Site settings > Apps & integrations > API access with Sites
+        read-only and CMS read and write access. Zernio checks the token's
+        scopes, reads its site, and stores the token encrypted. Webflow is a
+        connect-only blog platform: each CMS collection with a rich text field
+        is a blog in the Blogs API (`/v1/accounts/{accountId}/blogs`); it does
+        not support social posts, inbox, analytics or ads. Publishing an
+        article needs a site that has been published once. Reconnecting the
+        same site and profile updates the connection in place.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [profileId, siteToken]
+              properties:
+                profileId: { type: string, description: 'Your Zernio profile ID (get from /v1/profiles).' }
+                siteToken: { type: string, minLength: 1, maxLength: 512, writeOnly: true, description: 'Webflow site API token with Sites read and CMS read and write access.' }
+      responses:
+        '200':
+          description: Webflow site connected as a platform account
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [account]
+                properties:
+                  account:
+                    type: object
+                    required: [_id, platform, username, displayName, profileId]
+                    properties:
+                      _id: { type: string }
+                      platform: { type: string, enum: [webflow] }
+                      username: { type: string, description: 'Hostname of the connected Webflow site.' }
+                      displayName: { type: string, description: 'Webflow site name.' }
+                      profileId: { type: string }
+        '400': { description: 'Malformed body, or a token Webflow rejects, that is not scoped to one site, or that lacks Sites read or CMS write access.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { description: 'API key does not have access to this profile.' }
+        '404': { description: 'Profile not found or access denied.' }
+        '502': { description: 'Webflow returned an unclassified upstream error.' }
 
   /v1/connect/wordpress/token:
     post:
@@ -33036,6 +33277,78 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
           $ref: '#/components/responses/AccountConnectionRequired'
+  /v1/accounts/{accountId}/instagram/tags:
+    get:
+      x-resource-group: analytics
+      operationId: listInstagramTaggedMedia
+      tags: [Instagram]
+      summary: List the posts an Instagram account is tagged in
+      description: |
+        Returns the media where other Instagram users photo-tagged the connected
+        account, newest first. Private media is never returned.
+
+        Cursor-paginated: pass `nextCursor` from the previous response as
+        `cursor` to read the next page. `nextCursor` is null when there are no
+        more pages. Meta does not say whether a page is the last one, so the
+        final page can come back empty with `nextCursor` null.
+
+        Requires an Instagram account connected via **Facebook Login**. Meta
+        does not give Instagram Login access to tagging, so accounts connected
+        with classic Instagram Login receive a 400
+        (`instagram_tagged_media_requires_facebook_login`) and must be
+        reconnected choosing the Facebook option.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of a connected Instagram account (Facebook Login).
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Page size.
+          schema: { type: integer, minimum: 1, maximum: 50, default: 25 }
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema: { type: string, minLength: 1, maxLength: 1000 }
+      responses:
+        '200':
+          description: One page of tagged media
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, nextCursor]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InstagramTaggedMedia'
+                  nextCursor:
+                    type: [string, "null"]
+                    description: Pass as `cursor` to read the next page. Null when there are no more pages.
+        '400':
+          description: 'Invalid accountId, limit or cursor, an account on another platform (`platform_not_supported`) or an account connected with Instagram Login (`instagram_tagged_media_requires_facebook_login`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: 'The API key is not scoped to this account, or Meta refused the request (`platform_api_error`, for example a missing permission).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: The account is not reachable by the caller (`account_not_found`).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          $ref: '#/components/responses/AccountConnectionRequired'
   /v1/accounts/{accountId}/instagram/stories/{storyId}/insights:
     get:
       x-resource-group: "analytics"
@@ -38072,6 +38385,28 @@ paths:
                   type: string
                   enum: [imessage, sms, rcs, whatsapp]
                   description: 'iMessage only (JSON body only). Overrides the delivery channel for this one send; the provider otherwise picks it automatically. The sender must carry the matching add-on (SMS, RCS or WhatsApp), or the send fails. Not a default to set on every request. Rejected with 400 on other platforms.'
+                sharedMediaId:
+                  type: string
+                  pattern: '^\d+$'
+                  example: '17895695668004550'
+                  description: >-
+                    Instagram only (JSON body only). Shares one of the account's own
+                    published posts in the DM, by its Instagram media id (the `id`
+                    returned by the media endpoints, not a permalink). Meta only
+                    accepts media the account owns. Sent on its own: cannot be
+                    combined with `message`, attachments, `quickReplies`, `buttons`,
+                    `template` or `sticker` (400). `messageTag: HUMAN_AGENT` is
+                    allowed. Rejected with 400 on other platforms. Works on accounts
+                    connected with Instagram Login and with Facebook Login.
+                sticker:
+                  type: string
+                  enum: [like_heart]
+                  description: >-
+                    Instagram only (JSON body only). Sends a sticker instead of text;
+                    `like_heart` is the heart sticker. Sent on its own: cannot be
+                    combined with `message`, attachments, `quickReplies`, `buttons`,
+                    `template` or `sharedMediaId` (400). `messageTag: HUMAN_AGENT`
+                    is allowed. Rejected with 400 on other platforms.
                 quickReplies:
                   type: array
                   maxItems: 13
@@ -57900,7 +58235,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: query, required: true, schema: { type: string }, description: Account ID. Sibling-expanded to its linked posting↔ads pair. }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: 'Account ID. Sibling-expanded to its linked posting↔ads pair. An id that does not exist or sits on a profile the API key cannot reach answers 404 (code: account_not_found).' }
         - { name: adAccountId, in: query, schema: { type: string }, description: "Optional platform-native ad account ID (e.g. Meta `act_…`, TikTok advertiser ID). Use when the connection wraps multiple platform ad accounts and the chart should show one only. Note: rows ingested before 2026-05-13 don't carry this column; the recurring 7-day re-sync repopulates them naturally." }
         - { name: fromDate, in: query, schema: { type: string, format: date }, description: "Inclusive start of metrics range (YYYY-MM-DD). Defaults to 90 days ago." }
         - { name: toDate, in: query, schema: { type: string, format: date }, description: "Inclusive end of metrics range (YYYY-MM-DD). Defaults to today. Max 730-day range." }
@@ -57929,6 +58264,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
 
   /v1/ads/{adId}:
     get:
@@ -59611,6 +59947,79 @@ paths:
         '404': { description: "Ad not found, it has no platform ad id yet, or the platform has no review record for it" }
         '429': { $ref: '#/components/responses/RateLimited' }
         '501': { description: "Only supported on TikTok, Google and Meta (Facebook and Instagram ads)" }
+
+  /v1/ads/{adId}/tiktok-smart-plus-review:
+    get:
+      x-resource-group: "ads"
+      operationId: getTikTokSmartPlusAdReview
+      tags: ["Ad Campaigns"]
+      x-platforms: ["tiktok"]
+      summary: Review status of each creative in a TikTok Smart+ ad
+      description: |-
+        Shows which Spark post, video or carousel of an Upgraded Smart+ ad TikTok approved or rejected, with every rejection reason, keyed by the TikTok post id for a Spark post.
+
+        Reads TikTok's `/smart_plus/ad/review_info/` live (read-only, works on a paused ad) for the
+        Smart+ ad that holds `adId`, and returns the ad-level verdict plus one entry per creative.
+        `adId` may be the Smart+ ad itself or any creative of it synced as its own ad: Zernio finds
+        the Smart+ ad in the ad's ad group through `/smart_plus/ad/get/`, and uses the ad group's only
+        Smart+ ad when no creative list names the ad.
+
+        `materialType`, `tiktokItemId`, `videoId`, `name` and `operationStatus` come from the Smart+
+        ad's `creative_list`. TikTok leaves out of that list the creatives it added on its own
+        (creator content, authorized TikTok posts, Creative Library content) and lists each image of a
+        carousel under its own material id, so those entries come back with the review verdict and
+        null descriptive fields. TikTok returns no review timestamp; `readAt` is when Zernio read it.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: adId, in: path, required: true, schema: { type: string }, description: "Zernio ad id (24-char hex) or the TikTok ad id: the Smart+ ad id or the ad id of one of its creatives." }
+      responses:
+        '200':
+          description: The Smart+ ad's review verdict per creative
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adId: { type: string }
+                  platform: { type: string, enum: [tiktok] }
+                  platformAdId: { type: string }
+                  smartPlusAdId: { type: string, description: "The TikTok Smart+ ad whose review this is." }
+                  review:
+                    type: [object, "null"]
+                    description: "The ad-level verdict (`smart_plus_ad_review_infos`). Null when TikTok returned none."
+                    properties:
+                      reviewStatus: { $ref: '#/components/schemas/TikTokSmartPlusReviewStatus' }
+                      rawReviewStatus: { type: [string, "null"], description: "TikTok `review_status`, verbatim." }
+                      rejectReasons: { type: array, items: { type: string }, description: "Every distinct reason across `rejections`." }
+                      passedLocations: { type: array, items: { type: string }, description: "Location codes that passed the review." }
+                      appealStatus: { type: [string, "null"], description: "TikTok `appeal_status`, verbatim: NOT_APPEALED, APPEALING, APPEAL_SUCCESSFUL, APPEAL_FAILED, APPEAL_DONE." }
+                      appealRejectReasons: { type: array, items: { type: string } }
+                      rejections: { type: array, items: { $ref: '#/components/schemas/TikTokReviewRejection' } }
+                  materials:
+                    type: array
+                    description: "One entry per creative TikTok reviewed (`material_review_infos`)."
+                    items:
+                      type: object
+                      properties:
+                        adMaterialId: { type: string, description: "TikTok `ad_material_id` of the creative inside this ad." }
+                        materialType: { type: [string, "null"], enum: [spark_post, video, carousel, catalog_carousel, null], description: "Null for a creative TikTok added on its own or a carousel image." }
+                        tiktokItemId: { type: [string, "null"], description: "The TikTok post id when the creative is a Spark post." }
+                        videoId: { type: [string, "null"] }
+                        name: { type: [string, "null"] }
+                        operationStatus: { type: [string, "null"], description: "TikTok `material_operation_status`: ENABLE or DISABLE." }
+                        reviewStatus: { $ref: '#/components/schemas/TikTokSmartPlusReviewStatus' }
+                        rawReviewStatus: { type: [string, "null"], description: "TikTok `review_status`, verbatim." }
+                        rejectReasons: { type: array, items: { type: string }, description: "Every distinct reason across `rejections`. Empty when approved." }
+                        passedLocations: { type: array, items: { type: string } }
+                        rejections: { type: array, items: { $ref: '#/components/schemas/TikTokReviewRejection' } }
+                  readAt: { type: string, format: date-time, description: "When the verdict was read from TikTok." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Ad not found, it has no TikTok ad or ad group id yet, or no Smart+ ad of its ad group holds it" }
+        '422': { description: "The TikTok ad is not an Upgraded Smart+ ad (read it with GET /v1/ads/{adId}/review)" }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '501': { description: "Only supported on TikTok" }
 
   /v1/ads/{adId}/media:
     get:
@@ -64306,6 +64715,190 @@ paths:
         '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
         '501': { description: Only available on Google Ads accounts }
 
+  /v1/ads/accounts/billing:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdAccountBilling
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Get ad account billing'
+      description: >-
+        Reads the payments accounts a Google Ads account can be billed to, plus its billing setups and account budgets.
+
+
+        Payments accounts come from Google's PaymentsAccountService, read as the manager
+        above the customer: they are the monthly invoicing (consolidated billing) accounts
+        of that manager. An empty `paymentsAccounts` means the manager has no monthly
+        invoicing, so billing cannot be set up through the API and has to be added in
+        Google Ads. Billing setups and account budgets are read live from Google with their
+        status. Results are cached for 10 minutes and dropped on every setup through Zernio.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "Google ads SocialAccount id." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Google Ads customer id, digits only. Defaults to the connection's selected customer." }
+      responses:
+        '200':
+          description: Billing state of the customer
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  paymentsAccounts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        paymentsAccountId: { type: string, description: "Format 1234-5678-9012-3456. Pass it to POST /v1/ads/accounts/billing." }
+                        name: { type: [string, "null"] }
+                        currency: { type: [string, "null"] }
+                        paymentsProfileId: { type: [string, "null"] }
+                        payingManagerCustomerId: { type: [string, "null"], description: "Manager whose monthly invoice pays this account." }
+                  billingSetups:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        billingSetupId: { type: string }
+                        status: { type: string, enum: [PENDING, APPROVED_HELD, APPROVED, CANCELLED, UNKNOWN], description: "APPROVED_HELD means approved but waiting for its first account budget to be approved." }
+                        paymentsAccountId: { type: [string, "null"] }
+                        startDateTime: { type: [string, "null"], description: "In the account time zone, as Google returns it." }
+                        endDateTime: { type: [string, "null"] }
+                  accountBudgets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        accountBudgetId: { type: string }
+                        status: { type: string, enum: [PENDING, APPROVED, CANCELLED, UNKNOWN] }
+                        billingSetupId: { type: [string, "null"] }
+                        approvedSpendingLimitMicros: { type: [string, "null"] }
+                        approvedSpendingLimitType: { type: [string, "null"], description: "INFINITE for an unlimited budget." }
+                        pendingProposalId: { type: [string, "null"], description: "Account budget proposal still waiting for Google's review." }
+                  pendingBudgetProposals:
+                    type: array
+                    description: "New account budgets proposed but not yet approved by Google. A setup with one is not reused by the POST."
+                    items:
+                      type: object
+                      properties:
+                        accountBudgetProposalId: { type: string }
+                        billingSetupId: { type: [string, "null"] }
+                  cachedAt: { type: [string, "null"], format: date-time, description: "When this data was fetched from Google. Null when the cache is unavailable." }
+                  stale: { type: boolean, description: "True when Google's quota was exhausted and this is the last successful fetch." }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdAccountNotSelected' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+    post:
+      x-resource-group: "ads"
+      operationId: setUpAdAccountBilling
+      tags: ["Ad Accounts"]
+      x-platforms: ["google"]
+      summary: 'Set up ad account billing (monthly invoicing)'
+      description: >-
+        Bills a Google Ads account to a monthly invoicing payments account of a manager above it, and proposes its account budget, so the account can serve without anyone opening Google Ads.
+
+
+        Monthly invoicing only. Google's API cannot add a card or other payment method,
+        so `paymentsAccountId` must be one of the manager's monthly invoicing (consolidated
+        billing) payments accounts listed by GET /v1/ads/accounts/billing. A manager without
+        monthly invoicing has none, and billing has to be added in Google Ads instead.
+
+
+        Creates a billing setup (Google's BillingSetupService) that starts now on that
+        payments account, then an account budget proposal that starts now and never ends:
+        unlimited by default, or capped at `spendingLimit` in the account currency. Google
+        reviews the budget offline, usually within an hour; until then the setup reads
+        `APPROVED_HELD` and ads do not serve. A customer whose current billing setup
+        already has a budget is refused with 409, and so is one billed to another payments
+        account: this call never replaces existing billing. A current setup on the same
+        payments account without a budget (for example after a budget rejection) is
+        reused, so resending the same request finishes it.
+
+
+        Not idempotent and never retried: after a 502 with details.creationStatus=unknown,
+        read GET /v1/ads/accounts/billing before retrying. Google has no dry run for
+        billing setups, so `validateOnly: true` checks the payments account and the
+        existing billing without creating anything (and asks Google to validate the budget
+        when a setup would be reused).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [accountId, adAccountId, paymentsAccountId]
+              properties:
+                accountId: { type: string, pattern: '^[a-fA-F0-9]{24}$', description: "Google ads SocialAccount id." }
+                adAccountId: { type: string, pattern: '^[0-9]+$', description: "Google Ads customer id to bill, digits only." }
+                paymentsAccountId: { type: string, pattern: '^\d{4}-\d{4}-\d{4}-\d{4}$', description: "Monthly invoicing payments account from GET /v1/ads/accounts/billing." }
+                spendingLimit: { type: number, exclusiveMinimum: 0, description: "Account budget cap in the account currency. Omit for an unlimited budget." }
+                budgetName: { type: string, minLength: 1, maxLength: 255, default: "Zernio account budget" }
+                purchaseOrderNumber: { type: string, minLength: 1, maxLength: 64, description: "Printed on the invoice. No effect on delivery." }
+                validateOnly: { type: boolean, default: false }
+            example:
+              accountId: "69ce75d483e990e1c01ccfe4"
+              adAccountId: "5551234567"
+              paymentsAccountId: "1234-5678-9012-3456"
+              spendingLimit: 5000
+      responses:
+        '201':
+          description: "Billing setup created (or reused) and account budget proposed."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  paymentsAccountId: { type: string }
+                  paymentsAccountName: { type: [string, "null"] }
+                  billingSetupId: { type: string }
+                  reusedBillingSetup: { type: boolean, description: "True when an existing setup on the same payments account without a budget was completed." }
+                  accountBudgetProposalId: { type: [string, "null"] }
+                  validateOnly: { type: boolean }
+                  nextSteps: { type: string }
+        '200':
+          description: "validateOnly: checks passed, nothing created. billingSetupId is set when an existing setup would be reused."
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customerId: { type: string }
+                  paymentsAccountId: { type: string }
+                  paymentsAccountName: { type: [string, "null"] }
+                  billingSetupId: { type: [string, "null"] }
+                  reusedBillingSetup: { type: boolean }
+                  accountBudgetProposalId: { type: [string, "null"], description: "Always null for validateOnly." }
+                  validateOnly: { type: boolean }
+        '400':
+          description: "Invalid input, a payments account the customer cannot use (the message lists the available ones), or a Google rejection. A rejected budget after a created setup carries details.billingSetupId: resend the same request to finish."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/AdAccountNotSelected' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409':
+          description: "The customer already has billing: a current billing setup with a budget, or one on another payments account. Nothing is changed."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '429': { description: "Google Ads operations budget or quota exhausted; retry later." }
+        '501': { description: Only available on Google Ads accounts }
+        '502':
+          description: "Google did not confirm the billing setup (details.creationStatus=unknown) or the budget proposal. Read GET /v1/ads/accounts/billing before retrying."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
   /v1/ads/accounts/user-invitations:
     get:
       x-resource-group: "ads"
@@ -64975,7 +65568,7 @@ paths:
                     connectionUpdated: true
                     warnings: []
                     paymentMethodRequired: true
-                    nextSteps: "The account has no billing yet. Set up billing in Google Ads (Billing > Settings) before ads can serve, or add it to an existing monthly invoicing setup. Zernio cannot add payment methods through the API."
+                    nextSteps: "The account has no billing yet. If the manager has monthly invoicing, set it up with POST /v1/ads/accounts/billing; otherwise add billing in Google Ads (Billing > Settings). Ads do not serve until billing is set up. Zernio cannot add payment methods through the API."
                     validateOnly: false
         '400':
           description: "Invalid input, a managerCustomerId the connection does not reach, or a Meta or Google rejection. For Meta, details.reason identifies creation_limit, business_verification_required, unsupported_currency, unsupported_timezone or business_unavailable when recognized."
@@ -65628,12 +66221,29 @@ paths:
                   items: { type: string }
                 regionalRegulatedCategories:
                   type: array
-                  description: 'Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL, AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV). Forwarded to the ad set.'
+                  description: 'Meta only. Regional regulation categories required when the ad set targets certain countries (e.g. AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV, MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL). Forwarded to the ad set.'
                   items: { type: string }
                 regionalRegulationIdentities:
                   type: object
                   additionalProperties: { type: integer }
-                  description: 'Meta only. Beneficiary/payer entity IDs for regionalRegulatedCategories. Values are numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary / universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses Ads Manager defaults when configured.'
+                  description: |
+                    Meta only. Verified identity IDs of the beneficiary and payer for each declared
+                    regionalRegulatedCategories value. Meta may require them on ad sets created through
+                    the API even when a default beneficiary and payer are set in Ads Manager advertising
+                    settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+                    The value is the Verified identity ID (Meta Business Settings > Verified identities),
+                    not a Page or Business ID, and beneficiary and payer may be the same ID.
+                    Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+                    australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+                    taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+                    TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+                    SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+                    AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+                    universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+                    advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+                    (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+                    ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+                    Ignored when adSetId adds the ad to an existing ad set.
                 linkUrl:
                   type: string
                   format: uri
@@ -66380,7 +66990,7 @@ paths:
                   description: "Meta only. Meta's \"Ad includes media created or edited with AI\" disclosure, the checkbox in Ads Manager, stored on the creative as `generative_asset_spec.transparency_metadata.self_disclosure`. OPT_IN checks it, OPT_OUT explicitly declares no AI media, omitted leaves Meta's default. Applied to each new creative, including standalone, creatives[] and attach shapes, and preserved when a creative is rebuilt. This sets the disclosure on the ad; whether and when the viewer-facing label renders is Meta's decision."
                 validateOnly:
                   type: boolean
-                  description: 'Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI''s own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.'
+                  description: 'Google Performance Max validates the complete atomic campaign and asset group with no resource creation or local persistence. Google validation still downloads image URLs and consumes quota. On Meta, validates the complete inline campaign, ad set, creative and ad with execution_options validate_only. Nothing is uploaded or created, and validation bypasses Idempotency-Key storage. Supports a single image or existing video.id (each also with bodies[] / headlines[] Multiple Text Options), all-image placementAssets with per-rule copy and text pools, or existingCreativeId; dynamicCreative, translations, carouselCards, placement videos, new video uploads, creatives[], adSetId and RESERVED buying return 400. Placement validation uses existing Instagram identities only. Existing campaign or creative nodes are marked skipped. When Meta cannot dry-run the nested tree (code 2, or an unknown-error code 1 on an OFFSITE_CONVERSIONS ad set nested in a new campaign, which Meta returns for some website-conversion ad sets that it then creates normally), the campaign and creative are validated on their own and the adSet and ad nodes come back unverified with the reason. Success returns 200 with per-node results; Meta rejection returns an error. ChatGPT (OpenAI) has no platform dry-run: Zernio runs every check it knows (creative lengths, budget, bid strategy, targeting) plus live lookups of the conversion event and target countries, and uploads or creates nothing. OpenAI''s own write-time checks (image fetch, currency-specific minimums, ad review) still run only on a real create. Any other platform, or a Google campaignType other than pmax or demand_gen, returns 501 `feature_not_available`.'
                 budgetAmount: { type: number, description: "Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents. Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads: in the ad account currency, minimum 1; OpenAI can require a higher daily minimum for some currencies and names it in the error." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy, multi-creative and Performance Max shapes. Inherited on attach. OpenAI Ads accepts both as the campaign's single spend cap. A lifetime cap can later switch to daily with PUT /v1/ads/campaigns/{campaignId}, but OpenAI never switches a daily cap back to lifetime (422). Automatic bidding (Maximize Results) needs a daily budget. Reddit Ads: the ad group's daily or lifetime spend goal; lifetime needs `endDate`." }
                 status:
@@ -66841,18 +67451,31 @@ paths:
                   type: array
                   description: |
                     Meta only. Regional regulation categories required when the ad set targets certain countries.
-                    Known values: BRAZIL_REGULATION, SINGAPORE_UNIVERSAL, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL,
-                    AUSTRALIA_FINSERV, INDIA_FINSERV, TAIWAN_FINSERV. Meta rejects the ad set without this when
+                    Known values: AUSTRALIA_FINSERV, AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, INDIA_FINSERV,
+                    MALAYSIA_UNIVERSAL, SINGAPORE_UNIVERSAL, TAIWAN_FINSERV, TAIWAN_UNIVERSAL, THAILAND_UNIVERSAL. Meta rejects the ad set without this when
                     the targeting geo includes the corresponding country.
                   items: { type: string }
                 regionalRegulationIdentities:
                   type: object
                   additionalProperties: { type: integer }
                   description: |
-                    Meta only. Beneficiary/payer entity IDs for regionalRegulatedCategories. Values are
-                    numeric IDs from Meta verification. Keys vary by category (e.g. universal_beneficiary /
-                    universal_payer for BRAZIL_REGULATION and THAILAND_UNIVERSAL). If omitted, Meta uses
-                    Ads Manager defaults when configured.
+                    Meta only. Verified identity IDs of the beneficiary and payer for each declared
+                    regionalRegulatedCategories value. Meta may require them on ad sets created through
+                    the API even when a default beneficiary and payer are set in Ads Manager advertising
+                    settings (seen on AUSTRALIA_FINSERV), so sending them explicitly is the reliable path.
+                    The value is the Verified identity ID (Meta Business Settings > Verified identities),
+                    not a Page or Business ID, and beneficiary and payer may be the same ID.
+                    Keys by category: AUSTRALIA_FINSERV uses australia_finserv_beneficiary /
+                    australia_finserv_payer; TAIWAN_FINSERV uses taiwan_finserv_beneficiary /
+                    taiwan_finserv_payer; INDIA_FINSERV uses india_finserv_beneficiary / india_finserv_payer;
+                    TAIWAN_UNIVERSAL uses taiwan_universal_beneficiary / taiwan_universal_payer;
+                    SINGAPORE_UNIVERSAL uses singapore_universal_beneficiary / singapore_universal_payer;
+                    AUSTRALIA_UNIVERSAL, BRAZIL_REGULATION, MALAYSIA_UNIVERSAL and THAILAND_UNIVERSAL use
+                    universal_beneficiary / universal_payer. When Meta rejects the ad set for a missing verified
+                    advertiser, the error carries param regionalRegulationIdentities, details.expectedIdentityKeys
+                    (the keys the declared categories expect), details.suggestedCategories (the markets Meta
+                    ties to that subcode) and Meta's metaCode, metaSubcode and fbtraceId.
+                    Ignored when adSetId adds the ad to an existing ad set.
                 endDate: { type: string, format: date-time, description: 'Required for lifetime budgets. Read like `startDate` (account timezone on Meta, TikTok, X, Pinterest, OpenAI and Reddit; whole account-local days on Google; UTC on LinkedIn), and a date-only end runs to 23:59:59 local.' }
                 startDate:
                   type: string
@@ -67613,7 +68236,36 @@ paths:
             `adAccountId` and every created object with its cleanup result
             (see `ErrorResponse.details`); an `unconfirmedWrite` there means
             Meta did not confirm a create and Zernio did not retry it.
-        '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
+        '503':
+          description: |
+            An upstream service is temporarily unavailable (most often the connection to Meta
+            dropped mid-request). Retry after the indicated delay. On Meta, `details` carries the
+            same `stage`, `adAccountId` and `createdObjects` as a 502, and the message names every
+            `left_behind` object. In `createdObjects`, `deleted` means Zernio deleted the object.
+            `left_behind` entries still exist on the ad account because cleanup could not delete
+            them (Meta refused the delete, or the delete hit a network error): delete a left-behind video with `DELETE /v1/ads/videos/{id}` and the other objects in
+            Meta Ads Manager. `kept` images are never deleted, because an image hash is shared by
+            every upload of the same file. An empty `left_behind` list is not a guarantee: when
+            Meta created media but its answer never arrived (a dropped connection or a 5xx on the
+            first step of a video upload), Zernio never learned the id and cannot list or delete it.
+          headers:
+            Retry-After:
+              schema: { type: integer, example: 5 }
+              description: 'Minimum delay in seconds before retrying.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+              example:
+                error: 'Temporary connection issue while reaching an upstream service. Please retry the request. Zernio could not delete what this request created before failing (video 1234567890123456), so it is still on Meta: delete the video with DELETE /v1/ads/videos/1234567890123456.'
+                type: api_error
+                code: temporarily_unavailable
+                details:
+                  stage: media
+                  adAccountId: act_123
+                  createdObjects:
+                    - { type: campaign, id: '120210000000000001', cleanup: deleted }
+                    - { type: video, id: '1234567890123456', cleanup: left_behind }
+                    - { type: image, id: 4f1c2e9b0a7d3e6f8b2c1d0e9f8a7b6c, cleanup: kept }
 
   /v1/ads/leads:
     get:
@@ -67653,21 +68305,7 @@ paths:
                   status: { type: string, example: success }
                   leads:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string, description: Zernio lead id. }
-                        leadgenId: { type: string, description: 'Meta lead id. On LinkedIn, the leadFormResponse id.' }
-                        formId: { type: string }
-                        formName: { type: [string, "null"] }
-                        accountId: { type: string }
-                        adId: { type: [string, "null"] }
-                        adsetId: { type: [string, "null"] }
-                        campaignId: { type: [string, "null"], description: 'On LinkedIn, this is the LinkedIn Campaign id, which corresponds to platformAdSetId on GET /v1/ads (LinkedIn''s Campaign Group is Zernio''s campaign).' }
-                        isOrganic: { type: boolean }
-                        createdTime: { type: [string, "null"], description: ISO 8601. }
-                        fields: { type: object, additionalProperties: { type: string }, description: 'Question key → answer. On LinkedIn, the key is the lowercased predefinedField, else the question name, else the numeric questionId; multiple-choice values are option labels (unlike Meta, which returns the option key).' }
-                        fieldData: { type: array, items: { type: object }, description: "Raw Meta field_data." }
+                    items: { $ref: '#/components/schemas/AdLead' }
                   pagination:
                     type: object
                     properties:
@@ -67683,6 +68321,46 @@ paths:
         '403': { description: Ads add-on required. }
         '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
         '502': { $ref: '#/components/responses/UpstreamFailure' }
+
+  /v1/ads/leads/{id}:
+    patch:
+      x-resource-group: "contacts"
+      operationId: updateLead
+      tags: ["Lead Gen"]
+      x-platforms: ["meta"]
+      summary: Update a lead's status
+      description: |
+        Sets the status of a Meta lead (and optionally its value) so you can track it from lead to sale.
+
+        `{id}` is the Zernio lead id (`id` on `GET /v1/ads/leads`, `leadId` on `GET /v1/ads/lead-forms/{formId}/leads`) or the Meta `leadgenId` together with `accountId` in the body. Requires the Ads add-on.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: 'Zernio lead id, or the Meta leadgenId (then accountId is required).' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [new, contacted, unreachable, qualified, converted, disqualified] }
+                value: { type: number, minimum: 0, description: 'Deal value; requires currency.' }
+                currency: { type: string, example: EUR, description: ISO 4217 code. }
+                accountId: { type: string, description: 'Required when `{id}` is a Meta leadgenId: the facebook or metaads account that received the lead.' }
+      responses:
+        '200':
+          description: The updated lead.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  lead: { $ref: '#/components/schemas/AdLead' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Ads add-on required. }
+        '404': { description: Lead not found or not accessible. }
 
   /v1/ads/lead-forms:
     get:
@@ -67798,6 +68476,24 @@ paths:
                             style: { type: string, enum: [LIST_STYLE, PARAGRAPH_STYLE] }
                             buttonText: { type: string }
                             coverPhoto: { type: string, format: uri, description: "Direct public JPEG or PNG image URL, up to 5 MB. Uploaded as an unpublished Page photo and attached to the form. Redirects, Ad Image hashes and IDs are not supported." }
+                        customDisclaimer:
+                          type: object
+                          required: [title, body, checkboxes]
+                          description: "Consent section with checkboxes (Meta custom_disclaimer). Each lead's answers come back on the lead, and a lead_received workflow only messages leads that ticked its consentCheckboxKey."
+                          properties:
+                            title: { type: string, example: WhatsApp }
+                            body: { type: string, example: "Acme can contact you on WhatsApp about your request." }
+                            checkboxes:
+                              type: array
+                              minItems: 1
+                              items:
+                                type: object
+                                required: [key, text]
+                                properties:
+                                  key: { type: string, example: whatsapp_optin }
+                                  text: { type: string, example: "I agree to receive WhatsApp messages from Acme" }
+                                  isRequired: { type: boolean, default: false }
+                                  isCheckedByDefault: { type: boolean, default: false }
                     - type: object
                       title: LinkedInLeadFormPlatformData
                       required: [adAccountId, headline, description, questions]
@@ -67966,7 +68662,9 @@ paths:
                     items:
                       type: object
                       properties:
-                        id: { type: string }
+                        id: { type: string, description: Meta leadgenId. }
+                        leadId: { type: string, description: 'Zernio lead id, for PATCH /v1/ads/leads/{id}. Only on persisted leads.' }
+                        status: { type: string, description: 'Lead status (see PATCH /v1/ads/leads/{id}). Only on persisted leads.' }
                         createdTime: { type: [string, "null"] }
                         adId: { type: [string, "null"] }
                         formId: { type: string }
@@ -68564,6 +69262,18 @@ paths:
 
         For geo queries, `q` should contain only the locality name (e.g. `"Amsterdam"`,
         not `"Amsterdam, NL"`). Use `countryCode` to disambiguate.
+
+        Meta language: Meta matches `q` against names in one language and returns names and `path` in
+        that language. Pass `locale` (e.g. `pl_PL`) to choose it. Without `locale`, the `behavior` and
+        `workIndustry` catalogs are in `en_US`, and `interest`, `interestSuggestion`, `geo`, `workPosition`
+        and `workEmployer` follow the language of the Facebook user who connected the account (so a
+        Russian-language Facebook user gets Russian paths, and Polish names need `locale=pl_PL`).
+        A non-English `behavior` or `workIndustry` query without `locale` never matches, so pass the
+        locale of the names you search. Meta's `interest` search matches its own interest names and has no fuzzy or
+        synonym mode, so a phrase Meta does not use as an interest name (e.g. `dental implants`) can
+        return nothing while a shorter word (`dentistry`) does. If Meta returns an empty `behavior`,
+        `workIndustry` or `income` catalog the request fails with a 502 `platform_api_error` instead of
+        an empty `results` list.
       security:
         - bearerAuth: []
       parameters:
@@ -68573,6 +69283,7 @@ paths:
         - { name: geoType, in: query, required: false, schema: { type: string, enum: [all, country, country_group, region, city, subcity, neighborhood, place, zip, metro_area, geo_market], default: city }, description: "Only used when `dimension=geo`. The kind of location to resolve. `all` searches every type in one relevance-ranked call. Defaults to `city`." }
         - { name: countryCode, in: query, required: false, schema: { type: string, minLength: 2, maxLength: 2 }, description: "ISO 3166-1 alpha-2 country code (e.g. NL) to scope a geo search." }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "TikTok only: the advertiser to search as, when the connection holds several. Each TikTok advertiser has its own targetable regions and catalogs. Defaults to the connection's first advertiser; an advertiser the connection does not hold returns 400." }
+        - { name: locale, in: query, required: false, schema: { type: string, pattern: '^[a-z]{2,3}_[A-Z]{2}$', examples: [pl_PL] }, description: "Meta only: the language Meta matches `q` against and names results and `path` in, as language_TERRITORY (e.g. `pl_PL`, `en_US`). Applies to `geo`, `interest`, `interestSuggestion`, `behavior`, `workPosition`, `workEmployer` and `workIndustry`. Without it, `behavior` and `workIndustry` use `en_US` and the other searches use the language of the Facebook user who connected the account. `income` always uses `en_US`. Ignored on other platforms." }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Maximum results to return." }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
@@ -74458,10 +75169,10 @@ paths:
       x-resource-group: "ads"
       operationId: installTrackingTagOnStore
       tags: ["Tracking Tags"]
-      x-platforms: ["meta", "tiktok", "google", "x", "openai", "linkedin", "pinterest", "whop", "shopify", "wordpress"]
-      summary: Install on a Shopify store or WordPress site
+      x-platforms: ["meta", "tiktok", "google", "x", "openai", "linkedin", "pinterest", "whop", "shopify", "wordpress", "wix", "webflow"]
+      summary: Install on a Shopify, WordPress, Wix or Webflow site
       description: |
-        Installs a pixel on a connected Shopify store or WordPress site, so store visits and purchases are reported without editing the theme.
+        Installs a pixel on a connected Shopify store or WordPress, Wix or Webflow site, so store visits and purchases are reported without editing the theme.
 
         Puts the Meta pixel on a connected Shopify store's storefront and checkout through
         Zernio's Shopify web pixel (a Shopify app pixel, no theme edits). The store then sends
@@ -74540,6 +75251,26 @@ paths:
         kept in the `_epik` cookie. WordPress gets Pinterest's base code (core.js, `load`, `page`)
         with a `pagevisit` event; the manual fallback is the official Pinterest for WooCommerce
         plugin (WooCommerce stores).
+
+        **Wix** (`storeAccountId` is a connected Wix site): Zernio's Wix app embeds one script on
+        the site that loads each installed tag's base code (the same code WordPress gets), so on
+        Wix each tag records page views. Wix changes pages without reloading, so later page views
+        are recorded again on Wix's own page-view event for Meta, TikTok, Google, Pinterest,
+        OpenAI and Whop; LinkedIn and X count the first page of each visit. Like Shopify, the site holds one tag per platform:
+        installing a different tag of the same platform replaces it (`replacedTagId`) and other
+        platforms' tags are kept. The script is an Advertising script, so it runs only for
+        visitors who accept advertising cookies when the site shows a cookie banner. Sites
+        connected before pixel support answer 409 `reconnect_required` until the owner approves
+        the Zernio app's new permission (`details.authUrl`, or Apps > Manage Apps in the Wix
+        dashboard).
+
+        **Webflow** (`storeAccountId` is a Webflow site connected with "Connect with Webflow",
+        `GET /v1/connect/webflow`): Zernio applies one script to the site's custom code that
+        loads each tag's base code, one tag per platform, as on Wix. Webflow publishes custom
+        code only with the site, so the install answers `publishRequired: true` and the tags fire
+        after the site's next publish (Zernio never publishes it). A site connected with a site
+        token answers 409 `reconnect_required` with `details.authUrl` to connect it with the app
+        (the account id stays the same).
       security:
         - bearerAuth: []
       parameters:
@@ -74553,7 +75284,7 @@ paths:
               type: object
               required: [storeAccountId]
               properties:
-                storeAccountId: { type: string, description: 'The connected Shopify (`shopify`) or WordPress (`wordpress`) account id.' }
+                storeAccountId: { type: string, description: 'The connected Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) or Webflow (`webflow`) account id.' }
                 adAccountId: { type: string, description: 'Scopes the tag lookup on platforms whose tag ids live inside an ad account. Ignored elsewhere.' }
                 sidebarId: { type: string, description: 'WordPress only: widget area to use (see `install.preflight.sidebars` from GET). Defaults to a footer area.' }
                 verifyHomepage: { type: boolean, default: true, description: 'WordPress only: fetch the homepage afterwards and report `homepageCheck`.' }
@@ -74571,7 +75302,7 @@ paths:
                       - $ref: '#/components/schemas/StorePixelInstall'
                       - type: object
                         properties:
-                          replacedTagId: { type: [string, "null"], description: 'Shopify only: the pixel this install replaced on the store, if any.' }
+                          replacedTagId: { type: [string, "null"], description: 'Shopify, Wix and Webflow only: the pixel this install replaced on the store, if any.' }
                           sidebarName: { type: string, description: 'WordPress only: name of the widget area used.' }
                           created: { type: boolean, description: 'WordPress only: false when an existing Zernio widget was updated.' }
                           homepageCheck:
@@ -74603,10 +75334,10 @@ paths:
       x-resource-group: "ads"
       operationId: getTrackingTagStoreInstall
       tags: ["Tracking Tags"]
-      x-platforms: ["meta", "tiktok", "google", "x", "openai", "linkedin", "pinterest", "shopify", "wordpress"]
+      x-platforms: ["meta", "tiktok", "google", "x", "openai", "linkedin", "pinterest", "shopify", "wordpress", "wix", "webflow"]
       summary: Get store install status
       description: |
-        Shows whether a tracking tag is live on your Shopify store or WordPress site, and whether a WordPress install would be blocked.
+        Shows whether a tracking tag is installed on your Shopify store or WordPress, Wix or Webflow site, and whether a WordPress install would be blocked.
 
         Whether this tag is the one the Shopify store fires for its platform. `installedTagId`
         names the tag of that platform the store currently fires, which can be a different tag,
@@ -74623,7 +75354,7 @@ paths:
       parameters:
         - { name: accountId, in: path, required: true, schema: { type: string } }
         - { name: tagId, in: path, required: true, schema: { type: string }, description: 'Tag id (`TrackingTag.id`).' }
-        - { name: storeAccountId, in: query, required: true, schema: { type: string }, description: 'The connected Shopify or WordPress account id.' }
+        - { name: storeAccountId, in: query, required: true, schema: { type: string }, description: 'The connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: 'Scopes the tag lookup on platforms whose tag ids live inside an ad account.' }
       responses:
         '200':
@@ -74664,15 +75395,17 @@ paths:
       x-resource-group: "ads"
       operationId: removeTrackingTagFromStore
       tags: ["Tracking Tags"]
-      x-platforms: ["meta", "tiktok", "google", "x", "openai", "linkedin", "pinterest", "shopify", "wordpress"]
-      summary: Remove from a Shopify store or WordPress site
+      x-platforms: ["meta", "tiktok", "google", "x", "openai", "linkedin", "pinterest", "shopify", "wordpress", "wix", "webflow"]
+      summary: Remove from a Shopify, WordPress, Wix or Webflow site
       description: |
-        Removes a tracking tag from your Shopify store or WordPress site, leaving other platforms' tags and hand-added pixel code in place.
+        Removes a tracking tag from your Shopify store or WordPress, Wix or Webflow site, leaving other platforms' tags and hand-added pixel code in place.
 
         Idempotent: nothing installed returns 200 with
         `installed: false`. If the store fires a different tag of the same platform, nothing is
         removed and the call answers 409 `invalid_resource_state`. Shopify: other platforms'
-        tags stay; the web pixel itself is deleted once no tag remains.
+        tags stay; the web pixel itself is deleted once no tag remains. Wix works the same way,
+        and the site's Zernio script is disabled once no tag remains. Webflow too: the Zernio
+        script leaves the site's custom code once no tag remains, live after the next publish.
 
         WordPress: deletes every widget Zernio created for this pixel and reports how many in
         `removed` (0 when nothing was installed). Pixel code added by hand is left alone.
@@ -74681,7 +75414,7 @@ paths:
       parameters:
         - { name: accountId, in: path, required: true, schema: { type: string } }
         - { name: tagId, in: path, required: true, schema: { type: string }, description: 'Tag id (`TrackingTag.id`).' }
-        - { name: storeAccountId, in: query, required: true, schema: { type: string }, description: 'The connected Shopify or WordPress account id.' }
+        - { name: storeAccountId, in: query, required: true, schema: { type: string }, description: 'The connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: adAccountId, in: query, required: false, schema: { type: string }, description: 'Scopes the tag lookup on platforms whose tag ids live inside an ad account.' }
       responses:
         '200':
@@ -75332,20 +76065,22 @@ paths:
       x-resource-group: "publishing"
       operationId: listBlogs
       tags: ["Blogs"]
-      x-platforms: ["shopify", "wordpress", "wix"]
+      x-platforms: ["shopify", "wordpress", "wix", "webflow"]
       summary: List blogs
       description: |
         Lists blogs on the connected account. Shopify returns its store blogs
         with cursor pagination. A WordPress or Wix account represents one site
-        and always returns exactly that one blog with `nextCursor: null`.
+        and always returns exactly that one blog with `nextCursor: null`. A
+        Webflow site returns each CMS collection that has a rich text field
+        (its blog id is the collection id), with `nextCursor: null`.
 
         `limit` is 1-50 (default 20). Treat `nextCursor` as opaque; pass it
         unchanged on the next request. Supported on Shopify (`shopify`),
-        WordPress (`wordpress`) and Wix (`wix`).
+        WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`).
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress or Wix account id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 }, description: 'Page size (1-50).' }
         - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from a previous response. Omit for the first page.' }
       responses:
@@ -75356,7 +76091,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify, wordpress, wix] }
+                  platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
                   blogs:
                     type: array
                     items: { $ref: '#/components/schemas/Blog' }
@@ -75417,7 +76152,7 @@ paths:
       x-resource-group: "publishing"
       operationId: getBlog
       tags: ["Blogs"]
-      x-platforms: ["shopify", "wordpress", "wix"]
+      x-platforms: ["shopify", "wordpress", "wix", "webflow"]
       summary: Get a blog
       description: |
         Fetches a single blog. Use the platform-native `blogId` returned by
@@ -75427,7 +76162,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress or Wix account id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native blog/site id returned by the list operation.' }
       responses:
         '200':
@@ -75437,7 +76172,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify, wordpress, wix] }
+                  platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
                   blog: { $ref: '#/components/schemas/Blog' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -75522,21 +76257,22 @@ paths:
       x-resource-group: "publishing"
       operationId: listBlogArticles
       tags: ["Blogs"]
-      x-platforms: ["shopify", "wordpress", "wix"]
+      x-platforms: ["shopify", "wordpress", "wix", "webflow"]
       summary: List blog articles
       description: |
         Lists the articles of a blog. Cursor-paginated: pass `limit` (1-50,
         default 20) and the `cursor` from a previous response's `nextCursor`;
         `nextCursor` is null when there are no more pages. Treat cursors as
         opaque and pass them unchanged. Supported on Shopify (`shopify`),
-        WordPress (`wordpress`) and Wix (`wix`). WordPress and Wix results
+        WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`). WordPress and Wix results
         include `status` and include `publishDate` only for scheduled
         (`future`) posts. Wix lists return `bodyHtml: null`; get the article
-        for its body.
+        for its body. Webflow results report `status` as `publish` or
+        `draft` only.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress or Wix account id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native blog/site id returned by the list operation.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 }, description: 'Page size (1-50).' }
         - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from a previous response. Omit for the first page.' }
@@ -75548,7 +76284,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify, wordpress, wix] }
+                  platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
                   articles:
                     type: array
                     items: { $ref: '#/components/schemas/BlogArticle' }
@@ -75565,13 +76301,13 @@ paths:
       x-resource-group: "publishing"
       operationId: createBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify", "wordpress", "wix"]
+      x-platforms: ["shopify", "wordpress", "wix", "webflow"]
       summary: Create a blog article
       description: |
         Creates an article on the blog. Publishing behavior:
 
-        - WordPress and Wix default to a draft when both publishing fields are
-          omitted.
+        - WordPress, Wix and Webflow default to a draft when both publishing
+          fields are omitted.
         - `isPublished: false` keeps the article as a draft and takes priority
           over a future `publishDate`.
         - A future `publishDate` schedules publication natively on the
@@ -75582,18 +76318,25 @@ paths:
         - `seo.title` / `seo.description` map to Shopify's global `title_tag`
           and `description_tag` metafields (the fields Shopify themes read for
           the page title and meta description), and on Wix to the post's SEO
-          title and meta description. WordPress rejects `seo`; SEO plugin and
-          custom-field writes are not supported.
+          title and meta description. WordPress and Webflow reject `seo`; SEO
+          plugin and custom-field writes are not supported.
+        - Webflow has no scheduling API: a future `publishDate` returns 400
+          unless `isPublished: false` keeps a draft. Fields map to the
+          collection's own fields by type and slug (the body to its rich text
+          field, `excerpt` to a summary field, `image` to an image field, `tags`
+          and `author` to tag and author reference fields); sending a field the
+          collection does not have returns 400, as does a collection that
+          requires a field the Blogs API cannot fill.
         - Wix stores rich content: `bodyHtml` is converted on write (each
           top-level HTML element must fit 30,000 characters), and images in
           the body are imported into the site's Media Manager.
 
-        Supported on Shopify (`shopify`), WordPress (`wordpress`) and Wix (`wix`). WordPress
+        Supported on Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`). WordPress
         native scheduling depends on the site's scheduler/WP-Cron.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress or Wix account id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native blog/site id returned by the list operation.' }
       requestBody:
         required: true
@@ -75624,6 +76367,7 @@ paths:
                     description: { type: string }
                 isPublished: { type: boolean, description: 'Set false for a draft or true to publish. On WordPress and Wix false takes priority over a future publishDate; omission with no date defaults to draft.' }
                 publishDate: { type: string, format: date-time, description: 'ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.' }
+                fieldData: { type: object, additionalProperties: true, description: 'Webflow only. The collection''s own fields that the Blogs API does not map, keyed by field slug, in Webflow''s value format (a Reference is an item id, an Image is { url, alt }). Required by collections with required fields of their own; a create that leaves one empty answers 400 listing them. A slug the API already fills (name, slug, body, summary, image, tags, author, date) or one the collection lacks answers 400. Other platforms answer 400.' }
       responses:
         '201':
           description: Article created
@@ -75632,7 +76376,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify, wordpress, wix] }
+                  platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
                   article: { $ref: '#/components/schemas/BlogArticle' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -75647,21 +76391,21 @@ paths:
       x-resource-group: "publishing"
       operationId: getBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify", "wordpress", "wix"]
+      x-platforms: ["shopify", "wordpress", "wix", "webflow"]
       summary: Get a blog article
       description: |
         Fetches a single article. An article addressed through a blog it does
         not belong to is a 404 (code blog_article_not_found).
 
-        Supported on Shopify (`shopify`), WordPress (`wordpress`) and Wix (`wix`). WordPress
+        Supported on Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`). WordPress
         returns its native `status`; `publishedAt` is present only for a
         published post and `publishDate` only for a scheduled post.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress or Wix account id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native blog/site id returned by the list operation.' }
-        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix. Other formats return 400.' }
+        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix, a 24-character hex item id on Webflow. Other formats return 400.' }
       responses:
         '200':
           description: Article fetched
@@ -75670,7 +76414,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify, wordpress, wix] }
+                  platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
                   article: { $ref: '#/components/schemas/BlogArticle' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -75684,7 +76428,7 @@ paths:
       x-resource-group: "publishing"
       operationId: updateBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify", "wordpress", "wix"]
+      x-platforms: ["shopify", "wordpress", "wix", "webflow"]
       summary: Update a blog article
       description: |
         Partial-updates an article. Send any subset of the create fields
@@ -75696,15 +76440,17 @@ paths:
         Omitting both fields preserves the current WordPress or Wix status. Omitting
         `image` preserves the current featured image; removal is not supported.
         WordPress rejects `seo` and does not support SEO-plugin/custom-field,
-        category, or custom-post-type writes.
+        category, or custom-post-type writes. On Webflow, an edit to a
+        published item goes live immediately, `isPublished: false` unpublishes
+        it, and a future `publishDate` returns 400.
 
-        Supported on Shopify (`shopify`), WordPress (`wordpress`) and Wix (`wix`).
+        Supported on Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`).
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress or Wix account id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native blog/site id returned by the list operation.' }
-        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix. Other formats return 400.' }
+        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix, a 24-character hex item id on Webflow. Other formats return 400.' }
       requestBody:
         required: true
         content:
@@ -75734,6 +76480,7 @@ paths:
                     description: { type: string }
                 isPublished: { type: boolean, description: 'Set false to move to draft or true to publish. On WordPress and Wix false takes priority over a future publishDate; omission preserves status unless publishDate is sent (edits to a published Wix post go live).' }
                 publishDate: { type: string, format: date-time, description: 'ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.' }
+                fieldData: { type: object, additionalProperties: true, description: 'Webflow only. The collection''s own fields that the Blogs API does not map, keyed by field slug, in Webflow''s value format (a Reference is an item id, an Image is { url, alt }). Required by collections with required fields of their own; a create that leaves one empty answers 400 listing them. A slug the API already fills (name, slug, body, summary, image, tags, author, date) or one the collection lacks answers 400. Other platforms answer 400.' }
       responses:
         '200':
           description: Article updated
@@ -75742,7 +76489,7 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify, wordpress, wix] }
+                  platform: { type: string, enum: [shopify, wordpress, wix, webflow] }
                   article: { $ref: '#/components/schemas/BlogArticle' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -75756,21 +76503,22 @@ paths:
       x-resource-group: "publishing"
       operationId: deleteBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify", "wordpress", "wix"]
+      x-platforms: ["shopify", "wordpress", "wix", "webflow"]
       summary: Delete a blog article
       description: |
         Deletes the article. The delete happens on the platform and is
         permanent; Zernio stores nothing to restore it from. On WordPress the
         post is force-deleted, while uploaded attachments and tags remain in
-        the site's media library and taxonomy.
+        the site's media library and taxonomy. On Webflow the item is
+        unpublished from the live site, then deleted from the collection.
 
-        Supported on Shopify (`shopify`), WordPress (`wordpress`) and Wix (`wix`).
+        Supported on Shopify (`shopify`), WordPress (`wordpress`), Wix (`wix`) and Webflow (`webflow`).
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress or Wix account id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify, WordPress, Wix or Webflow account id.' }
         - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native blog/site id returned by the list operation.' }
-        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix. Other formats return 400.' }
+        - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^[A-Za-z0-9_-]{1,64}$' }, description: 'Platform-native article id: numeric on Shopify and WordPress, a GUID on Wix, a 24-character hex item id on Webflow. Other formats return 400.' }
       responses:
         '204': { description: Article deleted (no content). }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -79285,6 +80033,69 @@ paths:
         '429': { $ref: '#/components/responses/RateLimited' }
         '502': { $ref: '#/components/responses/UpstreamFailure' }
         '503': { $ref: '#/components/responses/TemporarilyUnavailable' }
+
+  /v1/media/prepare:
+    post:
+      x-resource-group: "publishing"
+      operationId: prepareMedia
+      tags: [Media]
+      summary: Prepare media for a platform
+      description: |
+        Turn any image or video into a version the target platform accepts, using the same per-platform processing Zernio runs before publishing. Each team can prepare up to 60 files per hour; past that the endpoint answers 429 with `retryAfterSeconds`.
+
+        What each target does to a video: `instagram`, `facebook_reel` re-encode to H.264 Main 4.1, 30 fps, 1080 wide (HDR sources only get the size step, so they are not flattened to SDR). `instagram_story` re-encodes a video over 100MB to fit 60 seconds and 100MB. `facebook_story` reframes anything wider than 9:16 onto a 1080x1920 canvas with a blurred background (Facebook otherwise publishes such stories with 0 seconds of video and no error). `threads` re-encodes to the conservative H.264 Baseline profile Threads processes reliably. `bluesky` re-encodes to 1080 wide and at most 180 seconds, then compresses under 50MB if the result is still larger. `telegram` compresses to 50MB and moves the index to the start of the file. The other targets compress only when the file is over the platform limit.
+
+        Images are converted to a format the platform ingests (Instagram takes only JPEG, LinkedIn and Google Business reject WebP and AVIF) and compressed under its size limit; `telegram` also fits the width plus height limit and `googlebusiness` enlarges images under its minimum size.
+
+        When the file already complies, `changed` is false and `url` is the input URL (after redirects). Otherwise `url` points to the prepared file in Zernio storage, kept under the same retention as uploaded media. The request is synchronous: a long video can take a few minutes. Videos over 200MB are refused with 413, and a video URL whose host sends no Content-Length is refused with 400.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, target]
+              properties:
+                url:
+                  type: string
+                  format: uri
+                  description: 'Public http(s) URL of the image or video.'
+                  example: "https://example.com/clip.mov"
+                target:
+                  type: string
+                  enum: [instagram, instagram_story, facebook, facebook_reel, facebook_story, threads, tiktok, linkedin, twitter, bluesky, pinterest, reddit, snapchat, telegram, googlebusiness, youtube_thumbnail]
+                  description: 'Where the media will be published. `twitter`, `googlebusiness` and `youtube_thumbnail` take images only; `facebook_reel` takes videos only.'
+                  example: facebook_story
+      responses:
+        "200":
+          description: Prepared media
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [target, url, changed, mediaType, originalSize, outputSize]
+                properties:
+                  target: { type: string }
+                  url: { type: string, format: uri, description: 'URL to publish: the prepared file, or the input URL when nothing needed to change.' }
+                  changed: { type: boolean, description: 'Whether the media was processed.' }
+                  mediaType: { type: string, enum: [image, video] }
+                  originalSize: { type: [integer, "null"], description: 'Input size in bytes, null when the host does not report it.' }
+                  outputSize: { type: [integer, "null"], description: 'Size of the returned file in bytes.' }
+              example:
+                target: facebook_story
+                url: "https://media.zernio.com/media/1761100000000_ab12cd_clip_story.mp4"
+                changed: true
+                mediaType: video
+                originalSize: 48211337
+                outputSize: 31877210
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/ResourceGroupForbidden" }
+        "413": { description: 'The video is over the 200MB this endpoint prepares.' }
+        "422": { description: 'The media could not be processed (for example a corrupt file).' }
+        "429": { $ref: "#/components/responses/RateLimited" }
 
   # ============================================
   # Changelog

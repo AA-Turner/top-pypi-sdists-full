@@ -41,7 +41,7 @@ def test_authenticated_api_calls(fixture_client, fixture_df):
     with tentaclio.open(
         f"postgresql://hostname{fixture_client.url.path}::{TEST_TABLE_NAME}", mode="w"
     ) as writer:
-        fixture_df.to_csv(writer, index=False)
+        fixture_df.to_csv(writer, index=False, mode="wt")
 
     with tentaclio_postgres.PostgresClient(
         credentials.authenticate(f"postgresql://hostname{fixture_client.url.path}")

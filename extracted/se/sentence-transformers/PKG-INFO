@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentence-transformers
-Version: 6.1.0
+Version: 6.2.0
 Summary: Embeddings, Retrieval, and Reranking
 Author-email: Nils Reimers <info@nils-reimers.de>, Tom Aarsen <tom.aarsen@huggingface.co>
 Maintainer-email: Tom Aarsen <tom.aarsen@huggingface.co>
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -21,7 +22,7 @@ License-File: LICENSE
 License-File: NOTICE.txt
 Requires-Dist: transformers<6.0.0,>=5.0.0
 Requires-Dist: tokenizers>=0.19
-Requires-Dist: huggingface-hub<2.0.0,>=1.3.0
+Requires-Dist: huggingface-hub<3.0.0,>=1.3.0
 Requires-Dist: torch>=2.2
 Requires-Dist: numpy>=1.24.0
 Requires-Dist: scikit-learn>=1.1.0
@@ -37,6 +38,8 @@ Requires-Dist: transformers[video]; extra == "video"
 Provides-Extra: train
 Requires-Dist: datasets>=2.16.0; extra == "train"
 Requires-Dist: accelerate>=1.3.0; extra == "train"
+Provides-Extra: merge
+Requires-Dist: mergekit>=0.1.5; extra == "merge"
 Provides-Extra: onnx
 Requires-Dist: optimum-onnx[onnxruntime]; extra == "onnx"
 Provides-Extra: onnx-gpu
@@ -46,14 +49,17 @@ Requires-Dist: optimum-intel[openvino]>=2.0.0; extra == "openvino"
 Provides-Extra: dev
 Requires-Dist: datasets>=2.16.0; extra == "dev"
 Requires-Dist: accelerate>=1.3.0; extra == "dev"
+Requires-Dist: fastcluster>=1.2.0; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest>=8.2; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-env; extra == "dev"
 Requires-Dist: pytest-subtests; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: peft; extra == "dev"
 Requires-Dist: transformers[audio,video,vision]; extra == "dev"
+Requires-Dist: faiss-cpu; extra == "dev"
+Requires-Dist: usearch; extra == "dev"
 Dynamic: license-file
 
 <!--- BADGES: START --->
@@ -89,6 +95,8 @@ See [Installation](https://www.sbert.net/docs/installation.html) in the docs for
 ## Getting Started
 
 See [Quickstart](https://www.sbert.net/docs/quickstart.html) in our documentation.
+
+Log in with `hf auth login` for higher Hugging Face Hub rate limits and access to private or gated models your account can read. See the [login instructions](https://www.sbert.net/docs/installation.html#log-in-to-hugging-face).
 
 ### Embedding Models
 
@@ -324,21 +332,9 @@ and many more use-cases.
 
 For all examples, see [examples/sentence_transformer/applications](https://github.com/huggingface/sentence-transformers/tree/main/examples/sentence_transformer/applications).
 
-## Development setup
+## Contributing
 
-After cloning the repo (or a fork) to your machine, in a virtual environment, run:
-
-```
-python -m pip install -e ".[dev]"
-
-pre-commit install
-```
-
-To test your changes, run:
-
-```
-pytest
-```
+See the [contributor guidelines](CONTRIBUTING.md) for contribution expectations, AI usage guidelines, and development setup.
 
 ## Citing & Authors
 

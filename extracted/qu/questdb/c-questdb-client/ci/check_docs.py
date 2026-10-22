@@ -11,8 +11,9 @@ import urllib.parse
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 EXPECTED_QUESTDB_VERSION = "10.0"
-EXPECTED_RUST_VERSION = "1.91.1"
+EXPECTED_RUST_VERSION = "1.91.0"
 EXPECTED_ARROW_RANGE = ">=58, <60"
+EXPECTED_ARROW_FFI_REQUIREMENT = "=59.0.0"
 EXPECTED_POLARS_RANGE = ">=0.52, <0.55"
 
 ACTIVE_DOCS = (
@@ -212,7 +213,7 @@ def check_compatibility(errors):
         (manifests[0], "arrow", EXPECTED_ARROW_RANGE),
         (manifests[0], "polars", EXPECTED_POLARS_RANGE),
         (manifests[0], "polars-arrow", EXPECTED_POLARS_RANGE),
-        (manifests[1], "arrow", EXPECTED_ARROW_RANGE),
+        (manifests[1], "arrow", EXPECTED_ARROW_FFI_REQUIREMENT),
     )
     for manifest, dependency, expected in dependency_ranges:
         actual = manifest_dependency_range(manifest, dependency, errors)
@@ -262,8 +263,12 @@ def check_compatibility(errors):
             ),
             (rust_text, "declared Rust MSRV"),
             (
-                f"| Arrow crate | `{EXPECTED_ARROW_RANGE}` |",
-                "Arrow compatibility range",
+                f"| Published `questdb-rs` Arrow crate | `{EXPECTED_ARROW_RANGE}` |",
+                "published Arrow compatibility range",
+            ),
+            (
+                f"| `questdb-rs-ffi` artifact Arrow crate | `{EXPECTED_ARROW_FFI_REQUIREMENT}` |",
+                "FFI Arrow implementation pin",
             ),
             (
                 f"| Polars crates | `{EXPECTED_POLARS_RANGE}` |",
@@ -289,6 +294,10 @@ def check_compatibility(errors):
             (rust_text, "declared Rust MSRV"),
             (questdb_text, "QWP/WebSocket server floor"),
             (f"Arrow `{EXPECTED_ARROW_RANGE}`", "Arrow compatibility range"),
+            (
+                f"the FFI artifact pins Arrow `{EXPECTED_ARROW_FFI_REQUIREMENT}`",
+                "FFI Arrow implementation pin",
+            ),
             (f"Polars `{EXPECTED_POLARS_RANGE}`", "Polars compatibility range"),
             ("require QuestDB Enterprise", "Enterprise feature boundary"),
         ),
@@ -380,6 +389,10 @@ def check_compatibility(errors):
                 "Enterprise-only `qwpws_ack_level_durable`",
                 "durable ACK edition qualifier",
             ),
+            (
+                "NULL for a standalone handle",
+                "standalone direct-sender force-drop contract",
+            ),
         ),
         ROOT / "include" / "questdb" / "ingress" / "line_sender.h": (
             (
@@ -398,6 +411,10 @@ def check_compatibility(errors):
             (
                 "Enterprise-only\n * `qwpws_ack_level_durable`",
                 "durable ACK edition qualifier",
+            ),
+            (
+                "For a standalone handle, pass NULL for `db`.",
+                "standalone direct-sender force-drop contract",
             ),
         ),
     }

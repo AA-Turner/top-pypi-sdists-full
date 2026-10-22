@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hydra_zen
-Version: 0.17.1
+Version: 0.17.2
 Summary: Configurable, reproducible, and scalable workflows in Python, via Hydra
 Author-email: Ryan Soklaski <rsoklaski@gmail.com>, Justin Goodwin <jgoodwin@ll.mit.edu>
 Maintainer-email: Justin Goodwin <jgoodwin@ll.mit.edu>

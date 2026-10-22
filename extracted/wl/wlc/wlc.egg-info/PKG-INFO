@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wlc
-Version: 3.0.0
+Version: 3.1.0
 Summary: A command-line utility for Weblate, translation tool with tight version control integration
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -32,7 +32,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: argcomplete
-Requires-Dist: certifi>=2026.7.22
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: idna>=3.15
 Requires-Dist: python-dateutil
 Requires-Dist: pyxdg>=0.26

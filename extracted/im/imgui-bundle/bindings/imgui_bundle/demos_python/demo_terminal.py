@@ -1,9 +1,10 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
-"""Launcher demo for imgui_bundle.imgui_terminal: an embedded terminal emulator.
+"""Terminal: a shell inside an ImGui window
 
-A real shell runs behind a pseudo-terminal; pyte parses its VT100 output and
-`TerminalView` draws it. Standalone demo with more comments:
-bindings/imgui_bundle/demos_python/demos_terminal/demo_terminal_pyte.py
+A real shell in an ImGui widget: type commands, scroll back through the history, select and copy. The shell runs
+behind a pseudo-terminal (macOS and Linux), [pyte](https://github.com/selectel/pyte) parses its VT100 output, and
+`imgui_bundle.imgui_terminal.TerminalView` draws it. A standalone version, with more comments:
+`demos_terminal/demo_terminal_pyte.py`.
 """
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ def _lazy_init() -> None:
     atexit.register(_transport.stop)
 
 
-def demo_gui() -> None:
+def gui() -> None:
     if not _PYTE_AVAILABLE:
         imgui.text_wrapped(
             "This demo needs the pyte package (VT100 emulator). Install it with:")
@@ -68,13 +69,12 @@ def demo_gui() -> None:
         return
     with imgui_ctx.push_font(_mono_font, 0.0):
         _view.render_in_child("terminal", hello_imgui.em_to_vec2(0, TERMINAL_HEIGHT_EM),
-                              imgui.ChildFlags_.borders.value)
+                              imgui.ChildFlags_.borders)
 
 
 def main() -> None:
     from imgui_bundle import immapp
-    immapp.run(demo_gui, window_title="imgui_terminal demo", window_size=(900, 600),
-               fps_idle=0.0)
+    immapp.run(gui, window_title="imgui_terminal demo", window_size=(900, 600))
 
 
 if __name__ == "__main__":

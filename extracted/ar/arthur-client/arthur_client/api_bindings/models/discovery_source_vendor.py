@@ -35,6 +35,16 @@ class DiscoverySourceVendor(str, Enum):
     GCP_COMPUTE_ENGINE = 'gcp_compute_engine'
     AWS_EC2 = 'aws_ec2'
     AWS_NETWORK = 'aws_network'
+    GCP_NETWORK = 'gcp_network'
+    GCP_CONTAINERS = 'gcp_containers'
+    AZURE_AI_FOUNDRY = 'azure_ai_foundry'
+    VERCEL_AI = 'vercel_ai'
+    GCP_SECURITY_OPERATIONS = 'gcp_security_operations'
+    CROWDSTRIKE_FALCON = 'crowdstrike_falcon'
+    NIGHTFALL = 'nightfall'
+    ZSCALER = 'zscaler'
+    CLOUDFLARE = 'cloudflare'
+    WIZ = 'wiz'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

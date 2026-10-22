@@ -1,9 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: json-logging
-Version: 1.5.1
+Version: 1.6.0
 Summary: JSON Python Logging
 Home-page: https://github.com/thangbn/json-logging
-Author: Bob T.
+Author: Bob T., Udit Agrawal
+Maintainer: Udit Agrawal
 License: Apache License 2.0
 Keywords: json,elastic,python,python3,python2,logging,logging-library,json,elasticsearch,elk,elk-stack,logstash,kibana
 Platform: any
@@ -17,6 +18,17 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: System :: Logging
 Classifier: Framework :: Flask
 License-File: LICENSE
+License-File: NOTICE
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: platform
+Dynamic: summary
 
 json-logging
 ============

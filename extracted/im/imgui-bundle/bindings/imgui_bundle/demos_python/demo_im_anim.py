@@ -1,15 +1,17 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
-from imgui_bundle import imgui, imgui_md, immapp
+from imgui_bundle import imgui, rich_md, immapp
 
 from imgui_bundle.demos_python.demo_utils.imgui_explorer_setup import get_imgui_explorer, get_package_path
 imgui_explorer, _has_imgui_explorer = get_imgui_explorer()
 
+FPS_IDLE = 30.0  # when idle: its demos animate, and they are not ours to mark as live (set_item_is_live)
 
-def demo_gui():
-    imgui_md.render_unindented(
+
+def gui():
+    rich_md.render(
         """
         # ImAnim
-        ImAnim is an Animation Engine for Dear ImGui. Browse the demos below, and look at their code in the right panel! You may switch between C++ and Python code with the toggle at the top right of this window.
+        ImAnim is an Animation Engine for Dear ImGui. Browse the demos below, and read their code beside them (on a small screen: under "Code").
     """
     )
 
@@ -26,4 +28,4 @@ def demo_gui():
 
 
 if __name__ == "__main__":
-    immapp.run(gui_function=demo_gui, with_markdown=True, window_size=(1000, 800))
+    immapp.run(gui_function=gui, with_markdown=True, window_size=(1000, 800), fps_idle=FPS_IDLE)

@@ -58,6 +58,7 @@ from matrx_ai.tools.implementations.kind_shared import (
     COMPONENT_PLATFORMS,
     COMPONENT_ROLES,
     SHAPE_AUTHORING_POINTER,
+    bare_media_notices,
     can_access_kind,
     component_globals_lint,
     component_import_lint,
@@ -121,8 +122,8 @@ async def _refuse_broken_source(source: str) -> tuple[ToolResult | None, bool]:
     surfaces loudly in its result.
 
     The globals gate (Q82 / B-17, 2026-09-11) is the SAME rule the browser
-    Studio write path runs (matrx-frontend
-    `features/agent-apps/utils/component-source-gate.ts`) and the same one
+    Studio write path runs (the
+    `@ai-matrx/code-runtime` gate, lists in `gate-lists.json`) and the same one
     `content_ir.kind_component_source_gate` enforces at the table — three
     enforcement points, one list, held identical by
     `tests/test_component_source_gate_parity.py`."""
@@ -350,6 +351,9 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
                     component_count=len(comp_rows),
                     open_incident_types=len(incidents) if is_editor else None,
                 ),
+                latest_inspections=await _latest_inspections(
+                    [component_id] if component_id else [str(c.id) for c in comp_rows]
+                ),
                 note=bodies_note,
             ),
             # Bodies bounded above; 50 deduped incidents with 300-char stacks
@@ -368,7 +372,7 @@ async def kindcomp_get_context(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
 
 
-async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def _kindcomp_create_component_save(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Create a new DB-authored render component for a kind.
 
     Authoring rules: the ``shape-authoring`` skill. Sources that never
@@ -483,6 +487,7 @@ async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> T
 
         return ToolResult(
             success=True,
+            model_notices=bare_media_notices(component_source),
             output=KindComponentCreateResult(
                 component_id=str(created.id),
                 kind=kd.kind,
@@ -622,7 +627,7 @@ async def _load_editable_component(
     return comp, kd, None
 
 
-async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def _kindcomp_update_code_save(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Replace code sections on a kind component.
 
     ``updates`` maps section name (``component_source`` / ``props_transform``)
@@ -696,6 +701,9 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         return attach_sections_surface_write(
             ToolResult(
                 success=True,
+                model_notices=bare_media_notices(
+                    str(updates.get("component_source") or "") if "component_source" in updates else None
+                ),
                 output=KindComponentUpdateResult(
                     component_id=component_id,
                     updated_sections=sections,
@@ -728,7 +736,7 @@ async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolRe
         )
 
 
-async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+async def _kindcomp_patch_code_save(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     """Apply targeted string replacements to one code section without
     rewriting it. Patches apply in order, each on the previous result, with
     three matching rounds of decreasing strictness (exact → whitespace-
@@ -848,6 +856,7 @@ async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolRes
         return attach_surface_write(
             ToolResult(
                 success=True,
+                model_notices=bare_media_notices(working if section == "component_source" else None),
                 output=KindComponentPatchResult(
                     component_id=component_id,
                     section=section,
@@ -1022,3 +1031,79 @@ async def kindcomp_resolve_incident(args: dict[str, Any], ctx: ToolContext) -> T
                 error_type="execution", message=str(e), traceback=traceback.format_exc()
             ),
         )
+
+
+# --------------------------------------------------------------------------- #
+# Automatic preview after a save (host seam ``kind_component_preview``)       #
+# --------------------------------------------------------------------------- #
+#
+# The host (aidream) injects ``kind_component_preview(component_id=, ctx=)``: it reads the knob
+# ``content_ir.shape_preview_on_save`` and, when on, renders the saved component in a real browser
+# and returns an ``image_ref_list`` (screenshots the model SEES + findings in ``details``), or None
+# when off. Unconfigured (standalone matrx-ai) the save result is returned unchanged. A preview never
+# blocks or undoes the save: any failure becomes a finding beside the save result.
+
+PREVIEW_EXT_KEY = "kind_component_preview"
+#: Host seam ``kind_component_latest_inspection(component_id=)`` -> the newest measured inspection or None.
+INSPECTION_EXT_KEY = "kind_component_latest_inspection"
+
+
+async def _latest_inspections(component_ids: list[str]) -> list[dict[str, Any]]:
+    """What the host measured the last time each component was saved. A failing host never fails the context."""
+    from matrx_ai._ext import get_ext, has_ext
+
+    if not has_ext(INSPECTION_EXT_KEY):
+        return []
+    out: list[dict[str, Any]] = []
+    for cid in component_ids[:8]:
+        try:
+            found = await get_ext(INSPECTION_EXT_KEY)(component_id=cid)
+        except Exception as exc:  # noqa: BLE001 — reported in the bundle, never a failure of it
+            found = {"component_id": cid, "verdict": "unavailable", "reason": f"The latest inspection could not be read: {exc}"}
+        if found:
+            out.append(found)
+    return out
+
+
+async def _with_auto_preview(result: ToolResult, args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    from matrx_ai._ext import get_ext, has_ext
+
+    if not result.success or kind_layer.is_layer_target(args) or not has_ext(PREVIEW_EXT_KEY):
+        return result
+    output = result.output
+    save = output.model_dump(mode="json") if hasattr(output, "model_dump") else output
+    component_id = (save or {}).get("component_id") if isinstance(save, dict) else None
+    if not component_id:
+        return result
+    try:
+        preview = await get_ext(PREVIEW_EXT_KEY)(component_id=str(component_id), ctx=ctx)
+    except Exception as exc:  # noqa: BLE001 — the save stands; the failure is reported beside it
+        preview = {
+            "verdict": "unknown",
+            "findings": [
+                {"code": "preview_unavailable", "where": "all", "message": f"The automatic preview did not run: {exc}"}
+            ],
+        }
+    if not preview:
+        return result
+    if isinstance(preview, dict) and preview.get("kind") == "image_ref_list":
+        preview["details"] = {"save": save, **(preview.get("details") or {})}
+        return result.model_copy(update={"output": preview})
+    return result.model_copy(update={"output": {"save": save, "preview": preview}})
+
+
+async def kindcomp_create_component(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Create a new DB-authored render component for a kind (see ``_kindcomp_create_component_save``),
+    then — while the host's preview setting is on — append its screenshots + findings."""
+    return await _with_auto_preview(await _kindcomp_create_component_save(args, ctx), args, ctx)
+
+
+async def kindcomp_update_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Replace code sections on a kind component (see ``_kindcomp_update_code_save``), then the
+    automatic preview."""
+    return await _with_auto_preview(await _kindcomp_update_code_save(args, ctx), args, ctx)
+
+
+async def kindcomp_patch_code(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
+    """Patch one code section (see ``_kindcomp_patch_code_save``), then the automatic preview."""
+    return await _with_auto_preview(await _kindcomp_patch_code_save(args, ctx), args, ctx)

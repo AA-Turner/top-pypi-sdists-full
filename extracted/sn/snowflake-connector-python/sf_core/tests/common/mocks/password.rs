@@ -8,7 +8,8 @@ use wiremock::matchers::{body_partial_json, method, path_regex};
 use wiremock::{Match, Mock, Request, ResponseTemplate};
 
 /// Rejects requests whose JSON body contains `data.AUTHENTICATOR`.
-/// Plain password auth must NOT send this field (matching old driver behavior).
+/// Plain password auth must NOT send this field, matching the old JDBC, Python, and ODBC
+/// drivers. The old Node.js driver sends `SNOWFLAKE`.
 struct AuthenticatorFieldAbsent;
 
 impl Match for AuthenticatorFieldAbsent {

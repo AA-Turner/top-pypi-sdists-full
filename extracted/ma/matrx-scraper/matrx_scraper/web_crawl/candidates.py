@@ -36,6 +36,15 @@ _FAX_RE = re.compile(
 )
 _LOGO_HINTS = ("logo", "brand", "wordmark", "logomark")
 _HERO_HINTS = ("hero", "banner", "masthead", "cover")
+# A file or alt text that names itself a social-share card is never a logo.
+_SHARE_HINTS = ("social-sharing", "social_sharing", "social-share", "social_share", "sharing-banner",
+                "share-image", "share_image", "og-image", "og_image", "og-default", "opengraph", "open-graph",
+                "twitter-card", "social-card", "social-media-image", "social_media_image")
+
+
+def is_share_banner_shape(width: int | None, height: int | None) -> bool:
+    """True for a social-share banner's shape (about 1.91:1, 1000px or wider): never a logo."""
+    return bool(width and height and width >= 1000 and 1.7 <= width / height <= 2.1)
 
 
 class DiscoveredCandidate(BaseModel):
@@ -58,9 +67,9 @@ class SiteIdentity(BaseModel):
 
 
 # A logo candidate below this confidence is left out of the identity write —
-# the discovery inbox still receives every candidate. Excludes the low-trust
-# og:image-as-logo guess (0.45); admits schema.org logos (0.99) and
-# header/nav or hint-matched logos (0.85).
+# the discovery inbox still receives every candidate. Admits schema.org logos
+# (0.99) and header/nav or hint-matched logos (0.8+). The og:image / twitter:image
+# share banner is never a logo candidate at all (it is its own og_image kind).
 _IDENTITY_LOGO_MIN_CONFIDENCE = 0.8
 
 
@@ -282,6 +291,10 @@ def extract_homepage_candidates(
                     confidence=0.97,
                 )
 
+    og_image = _absolute_http_url(str(summary.og_tags.get("og:image") or ""), base_url)
+    twitter_image = _absolute_http_url(str(summary.twitter_tags.get("twitter:image") or ""), base_url)
+    share_urls = {u for u in (og_image, twitter_image) if u}
+
     for image in tree.css("img"):
         attrs = image.attributes
         raw_src = attrs.get("src") or attrs.get("data-src")
@@ -298,10 +311,21 @@ def extract_homepage_candidates(
             "class": class_name,
             "id": element_id,
         }
-        if _ancestor_is_header_or_nav(image) or any(hint in hints for hint in _LOGO_HINTS):
-            add("media", "logo", url=url, context=context, confidence=0.85)
         width = _int_attr(image, "width")
         height = _int_attr(image, "height")
+        # The share image (og:image / twitter:image) and anything shaped or named like one is stored as its
+        # own kind, never as a logo candidate.
+        is_share = (
+            url in share_urls
+            or any(hint in hints for hint in _SHARE_HINTS)
+            or is_share_banner_shape(width, height)
+        )
+        in_header = _ancestor_is_header_or_nav(image)
+        named_logo = any(hint in hints for hint in ("logo", "wordmark", "logomark"))
+        if not is_share and (in_header or named_logo or any(hint in hints for hint in _LOGO_HINTS)):
+            # Real logo signals rank: named logo in the header > named logo or header image > "brand" only.
+            confidence = 0.9 if (in_header and named_logo) else 0.85 if (in_header or named_logo) else 0.8
+            add("media", "logo", url=url, context=context, confidence=confidence)
         if any(hint in hints for hint in _HERO_HINTS) or (
             width is not None and height is not None and width >= 800 and height >= 300
         ):
@@ -313,13 +337,8 @@ def extract_homepage_candidates(
                 confidence=0.82,
             )
 
-    og_image = _absolute_http_url(str(summary.og_tags.get("og:image") or ""), base_url)
     if og_image:
-        add("media", "logo", url=og_image, context={"where": "og:image"}, confidence=0.45)
         add("media", "og_image", url=og_image, context={"where": "og:image"}, confidence=0.99)
-    twitter_image = _absolute_http_url(
-        str(summary.twitter_tags.get("twitter:image") or ""), base_url
-    )
     add(
         "media",
         "twitter_image",

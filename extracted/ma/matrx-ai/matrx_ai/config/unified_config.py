@@ -3,7 +3,6 @@ Unified AI API Configuration System for OpenAI, Anthropic, and Google Gemini
 Preserves ALL content types and metadata from all providers
 """
 
-import re
 from collections.abc import Callable
 from dataclasses import MISSING, dataclass, field, fields
 from typing import Any, Literal
@@ -1297,7 +1296,7 @@ class UnifiedConfig:
             return False
         for block in last.content:
             template = getattr(block, "_authored_template", None)
-            if template and template != block.text and not _filled_with_nothing(template, block.text):
+            if template and template != block.text and getattr(block, "_declared_values_given", False):
                 return True
         return False
 
@@ -1617,18 +1616,3 @@ def _has_words_or_media(user_input: Any) -> bool:
             else:
                 return True
     return False
-
-
-_TEMPLATE_SLOT = re.compile(r"\{\{[^{}]*\}\}")
-
-
-def _filled_with_nothing(template: str, text: str | None) -> bool:
-    """True when every ``{{slot}}`` of an authored turn was filled with an empty value.
-
-    Such a turn carries no run context: it is the author's sentence with holes in it
-    ("I'd like your help writing something. Here is what I'm looking to create:\n\n\n\n…").
-    Counted as "filled", it stayed in the person's first turn and was stored as words she never
-    typed (live 2026-10-19, conversation 47da87f1, Content Writing Partner with no values).
-    """
-    return text is not None and _TEMPLATE_SLOT.sub("", template) == text
-

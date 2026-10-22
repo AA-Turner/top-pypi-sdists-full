@@ -871,6 +871,9 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         return result
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
+        # Imported here because chalk.client imports chalk.features at module load.
+        from chalk.client._chalkdf_import import is_chalkdf_dataframe
+
         bound = inspect.signature(self.fn).bind(*args, **kwargs)
         updated_args = []
         inputs = self.inputs
@@ -887,8 +890,8 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
                 annotation = None
 
             if annotation is not None:
-                if self.static and type(val).__name__ == "DataFrame" and type(val).__module__ == "chalkdf.dataframe":
-                    # No need to wrap this class in DataFrame.
+                if self.static and is_chalkdf_dataframe(val):
+                    # chalkdf frames (including subclasses such as MaterializedDataFrame) are passed through as-is.
                     pass
                 elif self.static and isinstance(val, LazyFramePlaceholder):
                     # No need to wrap this class in DataFrame.
@@ -900,7 +903,14 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
                     frozen_filter = Filter(lhs=CHALK_TS_FEATURE, operation="<=", rhs=TimeDelta(hours_ago=0))
                     annotation.filters = (frozen_filter, *annotation.filters)
 
-                if annotation.filters and len(annotation.filters) > 0 and not isinstance(val, LazyFramePlaceholder):
+                # chalkdf frames and placeholders have no Filter-based __getitem__; static resolvers
+                # apply their own filters, so skip the chalk.features.DataFrame filter pass for them.
+                if (
+                    annotation.filters
+                    and len(annotation.filters) > 0
+                    and not isinstance(val, LazyFramePlaceholder)
+                    and not is_chalkdf_dataframe(val)
+                ):
                     try:
                         val = val[annotation.filters]
                         val._materialize()  # pyright: ignore[reportPrivateUsage]

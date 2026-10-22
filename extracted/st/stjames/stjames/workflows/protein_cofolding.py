@@ -22,6 +22,11 @@ class CofoldingModel(LowercaseStrEnum):
     BOLTZ_2_1 = "boltz_2_1"
     OPENFOLD_3 = "openfold_3"
     DECAF_BOLTZ = "decaf_boltz"
+    ESMFOLD_2 = "esmfold_2"
+    ESMFOLD_2_FAST = "esmfold_2_fast"
+
+
+ESMFOLD_2_MODELS = frozenset({CofoldingModel.ESMFOLD_2, CofoldingModel.ESMFOLD_2_FAST})
 
 
 class Token(BaseModel):
@@ -75,7 +80,7 @@ class PocketConstraint(BaseModel):
 
 
 class BondConstraint(BaseModel):
-    """Covalent bond constraint to be used for prediction (Boltz-2 only).
+    """Covalent bond constraint to be used for prediction (Boltz-2 and ESMFold2 only).
 
     Attributes:
         atom_1: first atom in the bond
@@ -190,7 +195,7 @@ class ProteinCofoldingWorkflow(FASTAWorkflow):
         use_potentials: use potentials (inference-time steering) with Boltz when true
         contact_constraints: Boltz contact constraints
         pocket_constraints: Boltz pocket constraints
-        bond_constraints: Boltz covalent bond constraints (Boltz-2 only)
+        bond_constraints: covalent bond constraints (Boltz-2 and ESMFold2 only)
         templates: structural templates to guide prediction (Boltz-2 only)
         protonation_method: method used to protonate polymers; `None` skips protonation
             (incompatible with `do_pose_refinement`)
@@ -271,8 +276,8 @@ class ProteinCofoldingWorkflow(FASTAWorkflow):
         if self.pocket_constraints and self.model not in boltz_models:
             raise ValueError(f"pocket_constraints require a Boltz model, got {self.model}")
 
-        if self.bond_constraints and self.model != CofoldingModel.BOLTZ_2:
-            raise ValueError(f"this workflow only supports bond_constraints with Boltz-2 currently, got {self.model}")
+        if self.bond_constraints and self.model != CofoldingModel.BOLTZ_2 and self.model not in ESMFOLD_2_MODELS:
+            raise ValueError(f"this workflow only supports bond_constraints with Boltz-2 or ESMFold2 currently, got {self.model}")
 
         if self.bond_constraints and (self.do_pose_refinement or self.compute_strain):
             raise ValueError("do_pose_refinement and compute_strain must be False when bond_constraints are set")
@@ -285,6 +290,9 @@ class ProteinCofoldingWorkflow(FASTAWorkflow):
 
         if self.model == CofoldingModel.OPENFOLD_3 and any(seq.cyclic for seq in self.initial_protein_sequences if hasattr(seq, "cyclic")):
             raise ValueError("OpenFold-3 does not support cyclic proteins")
+
+        if self.model in ESMFOLD_2_MODELS and any(seq.cyclic for seq in self.initial_protein_sequences if hasattr(seq, "cyclic")):
+            raise ValueError("ESMFold2 does not support cyclic proteins")
 
         if self.protonation_method is None and self.do_pose_refinement:
             raise ValueError("do_pose_refinement requires a protonation_method")

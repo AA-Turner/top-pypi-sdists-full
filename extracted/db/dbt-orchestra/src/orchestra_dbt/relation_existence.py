@@ -1,10 +1,12 @@
 from collections.abc import Collection
+from functools import cache
 from time import perf_counter
 from typing import Any, cast
 
-from .compatibility import release_connections
+from .compatibility import is_dbt_v2, release_connections
 from .logger import log_debug, log_info, log_warn
 from .models import Freshness, MaterialisationNode, NodeType, ParsedDag
+from .target_finder import find_flag_value, find_target_in_args
 
 # Adapters whose relation listing can't be trusted to gate reuse on. dbt-spark swallows
 # unrecognised errors and returns [], which would read as "the whole schema is gone".
@@ -128,8 +130,68 @@ def find_missing_relations(
     return missing
 
 
+@cache
+def _load_catalog_v2(user_args: tuple[str, ...]) -> Any:
+    """dbt 2.x's `parse --write-catalog` result, fetched once for every check that needs it."""
+    from dbt.cli.main import dbtRunner
+
+    # Resolve the same project and profile as the user's run.
+    profile_flags: list[str] = []
+    if target := find_target_in_args(list(user_args)):
+        profile_flags += ["--target", target]
+    for flag in (
+        "--project-dir",
+        "--target-path",
+        "--profiles-dir",
+        "--profile",
+        "--vars",
+        "--threads",
+        "--packages-install-path",
+    ):
+        if (value := find_flag_value(list(user_args), flag)) is not None:
+            profile_flags += [flag, value]
+
+    # Any: the type checker uses the dev install's dbt 1.x types, which lack v2's fields.
+    result: Any = dbtRunner().invoke(["parse", "--write-catalog", "-q", *profile_flags])
+    if result.exception:
+        raise RuntimeError(f"dbt parse --write-catalog failed: {result.exception}")
+    return result
+
+
+def _find_missing_relations_v2(
+    candidates: Collection[str], user_args: list[str]
+) -> set[str] | None:
+    """Candidates missing from dbt 2.x's catalog; None for an unsupported adapter."""
+    result = _load_catalog_v2(tuple(user_args))
+    adapter_type = result.result.metadata.adapter_type
+    if adapter_type in _UNSUPPORTED_ADAPTERS:
+        log_debug(f"Existence checks are not enabled for the '{adapter_type}' adapter.")
+        return None
+    return {
+        unique_id for unique_id in candidates if unique_id not in result.catalog.nodes
+    }
+
+
+def _find_missing_relations_v1(candidates: Collection[str]) -> set[str] | None:
+    """The in-process 1.x check; None for an adapter it is not enabled for."""
+    adapter, manifest = _acquire_adapter()
+    adapter_type: str = adapter.type()
+    if adapter_type in _UNSUPPORTED_ADAPTERS:
+        log_debug(f"Existence checks are not enabled for the '{adapter_type}' adapter.")
+        return None
+    try:
+        with adapter.connection_named(_CONNECTION_NAME):
+            adapter.clear_transaction()
+            return find_missing_relations(adapter, manifest, candidates)
+    finally:
+        # The real dbt run is a subprocess started straight after this.
+        release_connections(adapter)
+
+
 def apply_relation_existence_gate(
-    parsed_dag: ParsedDag, paths_to_run: list[str] | None
+    parsed_dag: ParsedDag,
+    paths_to_run: list[str] | None,
+    user_args: list[str],
 ) -> None:
     """Stop reusing nodes whose warehouse relation no longer exists.
 
@@ -143,30 +205,24 @@ def apply_relation_existence_gate(
         )
         return
 
+    v2 = is_dbt_v2()
     started_at = perf_counter()
     try:
-        adapter, manifest = _acquire_adapter()
-        adapter_type: str = adapter.type()
-        if adapter_type in _UNSUPPORTED_ADAPTERS:
-            log_debug(
-                f"Existence checks are not enabled for the '{adapter_type}' adapter."
-            )
+        if v2:
+            missing = _find_missing_relations_v2(candidates, user_args)
+        else:
+            missing = _find_missing_relations_v1(candidates)
+        if missing is None:
             return
-        try:
-            with adapter.connection_named(_CONNECTION_NAME):
-                adapter.clear_transaction()
-                missing = find_missing_relations(adapter, manifest, candidates)
-        finally:
-            # The real dbt run is a subprocess started straight after this.
-            release_connections(adapter)
     except Exception as e:
         log_warn(
             f"Warehouse existence check failed; reuse decisions are unchanged. {e}"
         )
         return
 
+    method = "dbt v2 catalog" if v2 else "dbt 1.x adapter"
     log_info(
-        f"Warehouse existence check for {len(candidates)} node(s) took "
+        f"Warehouse existence check ({method}) for {len(candidates)} node(s) took "
         f"{perf_counter() - started_at:.2f}s."
     )
 
@@ -185,3 +241,21 @@ def apply_relation_existence_gate(
         )
     else:
         log_debug("Every reusable node still exists in the warehouse.")
+
+
+def find_view_sources(candidates: Collection[str], user_args: list[str]) -> set[str]:
+    """Candidates that are views in dbt 2.x's catalog; all of them if it can't be read."""
+    try:
+        sources = _load_catalog_v2(tuple(user_args)).catalog.sources
+    except Exception as e:
+        log_warn(
+            f"Could not tell which sources are views, so all count as changed. {e}"
+        )
+        return set(candidates)
+    # dbt-databricks lowercases information_schema's table_type.
+    return {
+        unique_id
+        for unique_id in candidates
+        if unique_id in sources
+        and sources[unique_id].metadata.materialization_type.lower() == "view"
+    }

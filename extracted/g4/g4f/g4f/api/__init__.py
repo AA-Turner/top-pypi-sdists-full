@@ -129,6 +129,7 @@ from .stubs import (
     AudioSpeechConfig,
 )
 from g4f import debug
+from g4f import tracing
 
 try:
     from g4f.gui.server.crypto import create_or_read_keys, decrypt_data, get_session_key
@@ -500,6 +501,7 @@ async def lifespan(app: FastAPI):
     if ProviderLoader.ignored:
         debug.log(f"Ignored providers: {ProviderLoader.ignored}")
     yield
+    tracing.shutdown()
     if has_cdp:
         from g4f.requests.cdp import _terminate_shared_browser
         _terminate_shared_browser()
@@ -541,7 +543,16 @@ def create_app():
             "https://g4f.dev",
             "https://g4f.space",
         ]
-        cors_regex = r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:[0-9]+)?$"
+        # The sandbox reaches its apps through hostnames such as
+        # omniroute.g4f.local (see g4f/api/domain_router.py), so those origins
+        # are allowed alongside localhost.
+        from .domain_router import domain_suffix
+
+        _suffix = re.escape(domain_suffix())
+        cors_regex = (
+            r"^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)(:[0-9]+)?$"
+            rf"|^https?://([a-z0-9-]+\.)?{_suffix}(:[0-9]+)?$"
+        )
 
     # When allow_credentials=True, the "*" wildcard is not permitted by the
     # CORS spec for allow_headers / expose_headers — browsers reject the
@@ -709,16 +720,11 @@ def create_app():
 
     api = Api(app)
 
-    # Forward /omniroute/* and /ollama/* to locally running gateways. These are
-    # registered before the generic API routes so that paths such as
-    # /ollama/v1/chat/completions are not captured by the
-    # /{mode}/{provider:path}/chat/completions catch-all route.
-    from .omniroute_proxy import register_omniroute_routes
-    from .ollama_proxy import register_ollama_routes
+    # Forward /remote_desktop/* to the locally running Remote Desktop server.
+    # Registered before the generic API routes so that its paths are not
+    # captured by the /{mode}/{provider:path}/chat/completions catch-all route.
     from .remote_desktop_proxy import register_remote_desktop_routes
 
-    register_omniroute_routes(app)
-    register_ollama_routes(app)
     register_remote_desktop_routes(app)
 
     api.register_routes()
@@ -730,6 +736,13 @@ def create_app():
     from .vnc_relay import register_vnc_routes
 
     register_vnc_routes(app)
+
+    # Host-based routing for the sandbox: <app>.g4f.local and <port>.g4f.local
+    # reach the sandbox apps through this API. Registered last so the rewritten
+    # paths hit the proxies and routes that already exist.
+    from .domain_router import register_domain_router
+
+    register_domain_router(app)
 
     if AppConfig.gui:
         if not has_a2wsgi:
@@ -1168,6 +1181,7 @@ class Api:
             except ProviderNotFoundError:
                 return ErrorResponse.from_message(f"Provider not found: {config.provider}", 404)
             try:
+                trace = tracing.RequestTrace()
                 if config.conversation_id is None:
                     config.conversation_id = conversation_id
                 if config.timeout is None:
@@ -1217,6 +1231,17 @@ class Api:
                                 status_code=HTTP_422_UNPROCESSABLE_CONTENT,
                             )
 
+                trace = tracing.start_request_trace(
+                    "chat.completions",
+                    input=config.messages,
+                    model=config.model or AppConfig.model,
+                    provider=config.provider,
+                    model_parameters=tracing.model_parameters(config),
+                    metadata={"mode": mode, "stream": config.stream},
+                    user_id=x_user,
+                    session_id=config.conversation_id,
+                )
+
                 # Create the completion response
                 response = self.client.chat.completions.create(
                     **filter_none(
@@ -1242,6 +1267,8 @@ class Api:
 
                 if not config.stream:
                     result = await response
+                    trace.record_output(result)
+                    trace.finish()
                     return Response(
                         content=result.model_dump_json()
                         if hasattr(result, "model_dump_json")
@@ -1253,6 +1280,7 @@ class Api:
                     )
 
                 first_chunk = await response.__anext__()
+                trace.record_output(first_chunk)
 
                 async def streaming():
                     yield f"data: {first_chunk.model_dump_json() if hasattr(first_chunk, 'model_dump_json') else first_chunk.json()}\n\n"
@@ -1272,18 +1300,22 @@ class Api:
                                         config.provider
                                     ] = chunk
                             else:
+                                trace.record_output(chunk)
                                 yield f"data: {chunk.model_dump_json() if hasattr(chunk, 'model_dump_json') else chunk.json()}\n\n"
                     except GeneratorExit:
                         pass
                     except RateLimitError as e:
                         debug.error(e)
+                        trace.record_error(e)
                         yield f"data: {format_exception(e, config)}\n\n"
                         return
                     except Exception as e:
                         logger.exception(e)
+                        trace.record_error(e)
                         yield f"data: {format_exception(e, config)}\n\n"
                         return
                     finally:
+                        trace.finish()
                         if hasattr(response, "aclose"):
                             try:
                                 await response.aclose()
@@ -1307,16 +1339,24 @@ class Api:
                 )
             except (ModelNotFoundError, ProviderNotFoundError) as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(e, config, HTTP_404_NOT_FOUND)
             except (MissingAuthError, NoValidHarFileError) as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(e, config, HTTP_401_UNAUTHORIZED)
             except RateLimitError as e:
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(
                     e, config, HTTP_429_TOO_MANY_REQUESTS
                 )
             except Exception as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(
                     e, config, HTTP_500_INTERNAL_SERVER_ERROR
                 )
@@ -1345,6 +1385,7 @@ class Api:
             except ProviderNotFoundError:
                 return ErrorResponse.from_message(f"Provider not found: {config.provider}", 404)
             try:
+                trace = tracing.RequestTrace()
                 if config.timeout is None:
                     config.timeout = AppConfig.timeout
                 if config.stream_timeout is None and config.stream:
@@ -1361,6 +1402,16 @@ class Api:
                         {"role": "system", "content": config.instructions},
                         *messages,
                     ]
+
+                trace = tracing.start_request_trace(
+                    "responses",
+                    input=messages,
+                    model=config.model or AppConfig.model,
+                    provider=config.provider,
+                    model_parameters=tracing.model_parameters(config),
+                    metadata={"stream": config.stream},
+                    user_id=x_user,
+                )
 
                 response = self.client.chat.completions.create(
                     **filter_none(
@@ -1385,6 +1436,8 @@ class Api:
 
                 if not config.stream:
                     result = await response
+                    trace.record_output(result)
+                    trace.finish()
                     text = result.choices[0].message.content if result.choices else ""
                     usage = getattr(result, "usage", None)
                     if usage is not None and hasattr(usage, "model_dump"):
@@ -1413,6 +1466,7 @@ class Api:
                     )
 
                 first_chunk = await response.__anext__()
+                trace.record_output(first_chunk)
 
                 async def responses_streaming():
                     yield f"data: {first_chunk.model_dump_json() if hasattr(first_chunk, 'model_dump_json') else first_chunk.json()}\n\n"
@@ -1424,18 +1478,22 @@ class Api:
                             if isinstance(chunk, BaseConversation):
                                 pass
                             else:
+                                trace.record_output(chunk)
                                 yield f"data: {chunk.model_dump_json() if hasattr(chunk, 'model_dump_json') else chunk.json()}\n\n"
                     except GeneratorExit:
                         pass
                     except RateLimitError as e:
                         debug.error(e)
+                        trace.record_error(e)
                         yield f"data: {format_exception(e, config)}\n\n"
                         return
                     except Exception as e:
                         logger.exception(e)
+                        trace.record_error(e)
                         yield f"data: {format_exception(e, config)}\n\n"
                         return
                     finally:
+                        trace.finish()
                         if hasattr(response, "aclose"):
                             try:
                                 await response.aclose()
@@ -1461,16 +1519,24 @@ class Api:
                 )
             except (ModelNotFoundError, ProviderNotFoundError) as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(e, config, HTTP_404_NOT_FOUND)
             except (MissingAuthError, NoValidHarFileError) as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(e, config, HTTP_401_UNAUTHORIZED)
             except RateLimitError as e:
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(
                     e, config, HTTP_429_TOO_MANY_REQUESTS
                 )
             except Exception as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(
                     e, config, HTTP_500_INTERNAL_SERVER_ERROR
                 )
@@ -1499,6 +1565,7 @@ class Api:
             except ProviderNotFoundError:
                 return ErrorResponse.from_message(f"Provider not found: {config.provider}", 404)
             try:
+                trace = tracing.RequestTrace()
                 if config.timeout is None:
                     config.timeout = AppConfig.timeout
                 if config.stream_timeout is None and config.stream:
@@ -1519,6 +1586,17 @@ class Api:
                         {"role": "system", "content": system_content},
                         *messages,
                     ]
+
+                trace = tracing.start_request_trace(
+                    "messages",
+                    input=messages,
+                    model=config.model or AppConfig.model,
+                    provider=config.provider,
+                    model_parameters=tracing.model_parameters(config),
+                    metadata={"stream": config.stream},
+                    user_id=x_user,
+                    session_id=config.conversation_id,
+                )
 
                 response = self.client.chat.completions.create(
                     **filter_none(
@@ -1543,6 +1621,8 @@ class Api:
 
                 if not config.stream:
                     result = await response
+                    trace.record_output(result)
+                    trace.finish()
                     text = result.choices[0].message.content if result.choices else ""
                     usage = getattr(result, "usage", None)
                     input_tokens = getattr(usage, "prompt_tokens", 0) or 0
@@ -1569,6 +1649,7 @@ class Api:
                     )
 
                 first_chunk = await response.__anext__()
+                trace.record_output(first_chunk)
 
                 async def messages_streaming():
                     yield f"data: {first_chunk.model_dump_json() if hasattr(first_chunk, 'model_dump_json') else first_chunk.json()}\n\n"
@@ -1580,18 +1661,22 @@ class Api:
                             if isinstance(chunk, BaseConversation):
                                 pass
                             else:
+                                trace.record_output(chunk)
                                 yield f"data: {chunk.model_dump_json() if hasattr(chunk, 'model_dump_json') else chunk.json()}\n\n"
                     except GeneratorExit:
                         pass
                     except RateLimitError as e:
                         debug.error(e)
+                        trace.record_error(e)
                         yield f"data: {format_exception(e, config)}\n\n"
                         return
                     except Exception as e:
                         logger.exception(e)
+                        trace.record_error(e)
                         yield f"data: {format_exception(e, config)}\n\n"
                         return
                     finally:
+                        trace.finish()
                         if hasattr(response, "aclose"):
                             try:
                                 await response.aclose()
@@ -1617,16 +1702,24 @@ class Api:
                 )
             except (ModelNotFoundError, ProviderNotFoundError) as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(e, config, HTTP_404_NOT_FOUND)
             except (MissingAuthError, NoValidHarFileError) as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(e, config, HTTP_401_UNAUTHORIZED)
             except RateLimitError as e:
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(
                     e, config, HTTP_429_TOO_MANY_REQUESTS
                 )
             except Exception as e:
                 logger.exception(e)
+                trace.record_error(e)
+                trace.finish()
                 return ErrorResponse.from_exception(
                     e, config, HTTP_500_INTERNAL_SERVER_ERROR
                 )

@@ -33,7 +33,7 @@ from matrx_ai.providers.outbound_params import resolve_outbound_params, resolve_
 class OpenAITranslator(BaseTranslator):
     """Translates between unified format and OpenAI Responses API"""
 
-    TURN_CONTEXT_AFTER_CACHE_LINE = True
+    PROVIDER = "openai"
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)

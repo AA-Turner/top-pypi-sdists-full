@@ -266,10 +266,12 @@ class ResourceShareAgent(_message.Message):
     ) -> None: ...
 
 class SandboxPrincipal(_message.Message):
-    __slots__ = ("id",)
+    __slots__ = ("id", "group_id")
     ID_FIELD_NUMBER: _ClassVar[int]
+    GROUP_ID_FIELD_NUMBER: _ClassVar[int]
     id: str
-    def __init__(self, id: _Optional[str] = ...) -> None: ...
+    group_id: str
+    def __init__(self, id: _Optional[str] = ..., group_id: _Optional[str] = ...) -> None: ...
 
 class WorkloadAgent(_message.Message):
     __slots__ = ("team_id", "environment_id", "permissions", "sandbox", "feature_permissions", "customer_claims")

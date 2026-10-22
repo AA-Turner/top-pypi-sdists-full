@@ -11,7 +11,8 @@ single pass - it composes like the streaming reductions, but carries the
 sample spacing ``dx`` in the ``ddof`` slot.
 """
 
-import typing
+import math
+from typing import Any, NamedTuple
 
 import numpy as np
 import numpy.typing as npt
@@ -22,13 +23,14 @@ from numpy_groupies.aggregate_numba.compose import (
     complex_less,
     output_size,
     rule_float,
+    rule_int64,
     rule_same,
 )
 from numpy_groupies.aggregate_numba.jit import njit_stable
 from numpy_groupies.aggregate_numba.steps import group_count, group_place, group_starts
 
 
-def _median_valid_plain(
+def _group_valid_plain(
     g: int,
     a_sorted: npt.NDArray[np.number],
     counts: npt.NDArray[np.int64],
@@ -51,7 +53,7 @@ def _median_valid_plain(
     return size_g
 
 
-def _median_valid_nan(
+def _group_valid_nan(
     g: int,
     a_sorted: npt.NDArray[np.number],
     counts: npt.NDArray[np.int64],
@@ -83,7 +85,7 @@ def _select_kth(
     lo: int,
     hi: int,
     k: int,
-) -> typing.Any:
+) -> Any:
     """The k-th smallest of ``arr[lo:hi]``, the block reordered in place.
 
     A quickselect: the block is partitioned around a pivot until the position
@@ -159,7 +161,7 @@ def _select_kth(
     return arr[k]
 
 
-def _median_driver_factory(nans: bool) -> typing.Any:
+def _median_driver_factory(nans: bool) -> Any:
     # every operation builds its own copies of the shared helpers - the
     # compiled specialization of one must not reach into the other (see
     # compose.build_kernel)
@@ -167,14 +169,16 @@ def _median_driver_factory(nans: bool) -> typing.Any:
     _count = njit_stable(group_count)
     _starts = njit_stable(group_starts)
     _place = njit_stable(group_place)
-    _valid_plain = njit_stable(_median_valid_plain)
-    _valid_nan = njit_stable(_median_valid_nan)
+    # the same helper serves the quantile as well - the same source, the same
+    # signature, the same specializations: one compiled artifact serves both
+    _valid_plain = njit_stable(_group_valid_plain)
+    _valid_nan = njit_stable(_group_valid_nan)
     # the selection and the middle that uses it: the middle closes over the
     # selection, so that the compiled block belongs to the operation that uses
     # it (see njit_stable)
-    _select = njit_stable(_select_kth, name=f"{op_name}_select")
+    _select = njit_stable(_select_kth)
 
-    def _middle(a_sorted: npt.NDArray[np.number], begin: int, m: int) -> typing.Any:
+    def _middle(a_sorted: npt.NDArray[np.number], begin: int, m: int) -> Any:
         """the middle value(s) of the block at ``a_sorted[begin:begin+m]``.
 
         No sorting needed: the wanted element is selected in place, and the
@@ -206,8 +210,10 @@ def _median_driver_factory(nans: bool) -> typing.Any:
         aux_dtype: np.dtype,
         fill_value: float,
         ddof: int,
+        q: float,
     ) -> npt.NDArray[np.number]:
-        # median is order-insensitive and takes no ddof - both slots unused
+        # median is order-insensitive and takes no ddof and no quantile -
+        # both slots unused
         size = output_size(group_idx, size_arg)
         out = np.full(size, fill_value, out_dtype)
         counts = _count(group_idx, size)
@@ -253,6 +259,115 @@ median = build_custom_kernel(
     rule=rule_float,
     fill_default=np.nan,
     doc="Median of the values of every group",
+)
+
+
+def _quantile_driver_factory(nans: bool) -> Any:
+    """The driver of the quantile - the median is the quantile 0.5.
+
+    The quantile is an order statistic, so it groups the data the same way the
+    median does: a counting sort places the values of every group in a
+    contiguous block, and the wanted quantile is then selected out of the block
+    (O(n) on average) instead of sorting it.
+    """
+    op_name = "nanquantile" if nans else "quantile"
+    _count = njit_stable(group_count)
+    _starts = njit_stable(group_starts)
+    _place = njit_stable(group_place)
+    # the same helper serves the median as well - the same source, the same
+    # signature, the same specializations: one compiled artifact serves both
+    _valid_plain = njit_stable(_group_valid_plain)
+    _valid_nan = njit_stable(_group_valid_nan)
+    # the selection is the same block for every operation that selects - the
+    # median and the quantile share it, one compiled artifact serves both
+    _select = njit_stable(_select_kth)
+
+    def _quantile_at(a_sorted: npt.NDArray[np.number], begin: int, m: int, q: float) -> Any:
+        """the quantile q of the block at ``a_sorted[begin:begin+m]``.
+
+        The quantile names a position between two of the values of the group:
+        the virtual index q * (m - 1) says how far between the smallest and
+        the largest value it lies, and the two values it falls between are
+        interpolated the way numpy interpolates them.
+        """
+        pos = q * (m - 1)
+        lower_index = int(np.floor(pos))
+        upper_index = int(np.ceil(pos))
+        upper = _select(a_sorted, begin, begin + m, begin + upper_index)
+        if lower_index == upper_index:
+            # the quantile is one of the values of the group
+            return upper
+        # the value below: the largest of the elements the selection left in
+        # front of the one it picked - they are the ones below it
+        lower = a_sorted[begin]
+        for i in range(begin + 1, begin + lower_index + 1):
+            if complex_less(lower, a_sorted[i]):
+                lower = a_sorted[i]
+        # the 1.0 promotes integral input to float64, just like np.quantile
+        # promotes before interpolating - the subtraction in its own dtype
+        # overflows (int8 100 - (-100)) and bool addition is a logical or
+        return lower * 1.0 + (upper * 1.0 - lower * 1.0) * (pos - lower_index)
+
+    _quantile_at = njit_stable(_quantile_at, name=f"{op_name}_quantile_at")
+
+    def driver(
+        group_idx: npt.NDArray[np.integer],
+        a: npt.NDArray[np.number],
+        size_arg: int,
+        out_dtype: np.dtype,
+        aux_dtype: np.dtype,
+        fill_value: float,
+        ddof: int,
+        q: float,
+    ) -> npt.NDArray[np.number]:
+        # the quantile is order-insensitive and takes no ddof - the slot stays
+        # unused, the quantile has one of its own
+        size = output_size(group_idx, size_arg)
+        out = np.full(size, fill_value, out_dtype)
+        counts = _count(group_idx, size)
+        starts = _starts(counts)
+        # counting-sort placement into contiguous group-blocks (the order
+        # within a block is arbitrary, which the quantile ignores)
+        a_sorted = np.empty(group_idx.size, a.dtype)
+        _place(group_idx, a, starts.copy(), a_sorted)
+        # the nan variant filters the nans out into a buffer of its own, the
+        # plain one leaves the values where they are
+        buf = np.empty(group_idx.size, a.dtype) if nans else np.empty(0, a.dtype)
+        for g in range(size):
+            if counts[g] == 0:
+                continue  # untouched group, keeps the fill value
+            if nans:
+                m = _valid_nan(g, a_sorted, counts, starts, buf)
+                if m == 0:
+                    # all-nan group: it keeps the fill value
+                    out[g] = fill_value
+                else:
+                    out[g] = _quantile_at(buf, 0, m, q)
+            else:
+                m = _valid_plain(g, a_sorted, counts, starts)
+                if m == 0:
+                    # a nan-poisoned group for the plain quantile (where any
+                    # nan is contagious) - the poison is shaped like the
+                    # output, since a plain nan written into a complex column
+                    # leaves its imaginary part at a zero the group never
+                    # claimed to have. The cell still holds the fill value,
+                    # which is of the output dtype, and a nan times a value of
+                    # that dtype is a nan in every part it has (for a real
+                    # dtype: the plain nan)
+                    out[g] = out[g] * np.nan
+                else:
+                    out[g] = _quantile_at(a_sorted, starts[g], m, q)
+        return out
+
+    return njit_stable(driver, name=f"{op_name}_driver")
+
+
+quantile = build_custom_kernel(
+    "quantile",
+    driver_factory=_quantile_driver_factory,
+    rule=rule_float,
+    fill_default=np.nan,
+    doc="Quantile of the values of every group",
 )
 
 
@@ -352,7 +467,7 @@ def _sort_scatter(
         cursor[g] += 1
 
 
-def _sort_driver_factory(nans: bool) -> typing.Any:
+def _sort_driver_factory(nans: bool) -> Any:
     # every operation builds its own copies of the shared helpers - the
     # compiled specialization of one must not reach into the other (see
     # compose.build_kernel)
@@ -370,6 +485,7 @@ def _sort_driver_factory(nans: bool) -> typing.Any:
         aux_dtype: np.dtype,
         fill_value: float,
         ddof: int,
+        q: float,
     ) -> npt.NDArray[np.number]:
         # sort emits one value per input item, so neither the group count nor
         # the fill value is of any use here; the reverse flag arrives in the
@@ -397,7 +513,168 @@ sort = build_custom_kernel(
 )
 
 
-class TrapezoidState(typing.NamedTuple):
+@njit_stable
+def _mix_hash(x: np.uint64) -> Any:
+    """spread the bits of a hash over the whole word (splitmix64).
+
+    The result is an unsigned integer - numba's stubs do not know the
+    arithmetic of them, so the type checker is told nothing here.
+    """
+    x = (x ^ (x >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9)
+    x = (x ^ (x >> np.uint64(27))) * np.uint64(0x94D049BB133111EB)
+    return x ^ (x >> np.uint64(31))
+
+
+@njit_stable
+def _hash_float(v: float) -> Any:
+    """the hash of a floating point value.
+
+    The mantissa of a double is exact in 53 bits, so the mantissa and the
+    exponent name the value - and no two different values have the same pair.
+    A zero of either sign has the same mantissa, so the two have the same
+    hash, as they are the same value.
+    """
+    m, e = math.frexp(v)
+    return _mix_hash(
+        np.uint64(int(m * 9007199254740992.0)) ^ (np.uint64(e & 0xFFFFFFFF) * np.uint64(0x9E3779B97F4A7C15))
+    )
+
+
+@njit_stable
+def _hash_value(v: Any) -> Any:
+    """the hash of a value - the values that are equal have the same hash.
+
+    A complex value mixes the hashes of its two parts, a floating point one
+    has a hash of its own, an integer its own value.
+    """
+    if isinstance(v, (complex, np.complex64, np.complex128)):
+        return _mix_hash(_hash_float(v.real) ^ (_hash_float(v.imag) * np.uint64(0x9E3779B97F4A7C15)))
+    if isinstance(v, (float, np.float32, np.float64)):
+        return _hash_float(v)
+    return _mix_hash(np.uint64(v))
+
+
+@njit_stable
+def _count_distinct(
+    values: npt.NDArray[np.number],
+    begin: int,
+    n: int,
+    slots: npt.NDArray[np.number],
+    gens: npt.NDArray[np.int32],
+    generation: int,
+    mask: int,
+) -> tuple[int, bool]:
+    """the number of distinct values of the block, and whether it holds a nan.
+
+    The values are counted in a hash table with open addressing: a slot that
+    holds the value already is a value seen before, a free one makes it a new
+    one.  The generation of the group says which of the slots are in use, so
+    that the table needs no clearing between the groups.
+
+    The nans are not counted at all - they are one value among themselves,
+    which the caller adds.
+    """
+    distinct = 0
+    has_nan = False
+    for i in range(begin, begin + n):
+        v = values[i]
+        if v != v:
+            # val != val - the nan of a complex value in either part
+            has_nan = True
+            continue
+        # the index is an int64: numba would widen a uint64 against the
+        # int64 of the mask to a float, which is no index
+        h = np.int64(_hash_value(v) & np.uint64(mask))
+        while True:
+            if gens[h] != generation:
+                # a free slot: the value is a new one
+                gens[h] = generation
+                slots[h] = v
+                distinct += 1
+                break
+            if slots[h] == v:
+                break  # a value seen before
+            h = (h + 1) & mask
+    return distinct, has_nan
+
+
+def _nunique_driver_factory(nans: bool) -> Any:
+    """The driver of the number of distinct values of every group.
+
+    The values are placed group by group with a counting sort, and the
+    distinct ones of every group are then counted in a hash table - which
+    needs no ordering of the values and so is linear in the number of them.
+    The nans are one value among themselves: the plain variant counts them
+    as one, the nan variant leaves them out.
+    """
+    op_name = "nannunique" if nans else "nunique"
+    _count = njit_stable(group_count)
+    _starts = njit_stable(group_starts)
+    _place = njit_stable(group_place)
+    # the counting of the distinct values: one function for both variants, the
+    # same source and the same signature, so one compiled artifact serves both
+    _distinct = _count_distinct
+
+    def driver(
+        group_idx: npt.NDArray[np.integer],
+        a: npt.NDArray[np.number],
+        size_arg: int,
+        out_dtype: np.dtype,
+        aux_dtype: np.dtype,
+        fill_value: float,
+        ddof: int,
+        q: float,
+    ) -> npt.NDArray[np.number]:
+        # the number of the distinct values takes neither ddof nor a quantile -
+        # both slots stay unused
+        size = output_size(group_idx, size_arg)
+        out = np.full(size, fill_value, out_dtype)
+        counts = _count(group_idx, size)
+        starts = _starts(counts)
+        # counting-sort placement into contiguous group-blocks
+        a_sorted = np.empty(group_idx.size, a.dtype)
+        _place(group_idx, a, starts.copy(), a_sorted)
+        # the hash table: two slots for every value of the largest group, so
+        # that it is never more than half full and the probing stays short
+        max_count = 0
+        for g in range(size):
+            max_count = max(max_count, counts[g])
+        capacity = 1
+        while capacity < 2 * max_count:
+            capacity *= 2
+        slots = np.empty(capacity, a.dtype)
+        # the generation of a group says which of the slots it uses
+        gens = np.full(capacity, -1, np.int32)
+        for g in range(size):
+            n = counts[g]
+            if n == 0:
+                continue  # untouched group, keeps the fill value
+            # the table of this group holds only as many slots as the group
+            # needs - the slots of the other groups are not touched
+            mask = 1
+            while mask < 2 * n:
+                mask *= 2
+            mask -= 1
+            distinct, has_nan = _distinct(a_sorted, starts[g], n, slots, gens, g, mask)
+            if has_nan and not nans:
+                # the plain variant counts the nans of the group as one value
+                distinct += 1
+            out[g] = distinct
+        return out
+
+    return njit_stable(driver, name=f"{op_name}_driver")
+
+
+nunique = build_custom_kernel(
+    "nunique",
+    driver_factory=_nunique_driver_factory,
+    rule=rule_int64,
+    fill_default=0,
+    doc="Number of distinct values of every group",
+)
+
+
+class TrapezoidState(NamedTuple):
     """``out`` accumulates the integral and doubles as the result, ``prev``
     keeps the previous sample of each group, ``pending`` marks the groups
     whose first sample is still due and ``untouched`` the groups without
@@ -454,6 +731,6 @@ trapezoid = build_kernel(
     forced_fill=0,
     fill_default=0,
     rule=rule_float,
-    ddof_default=1.0,
+    ddof_default=1,
     doc="Trapezoidal integration of the samples of every group",
 )

@@ -12,8 +12,6 @@ from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.hazmat.primitives.serialization.pkcs7 import PKCS7Options, PKCS7SignatureBuilder
 
 from pymobiledevice3.exceptions import CloudConfigurationAlreadyPresentError, ConnectionTerminatedError, ProfileError
-from pymobiledevice3.lockdown import LockdownClient
-from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.lockdown_service import LockdownService
 
 ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT = 14002
@@ -44,12 +42,6 @@ class MobileConfigService(LockdownService):
     SERVICE_NAME = "com.apple.mobile.MCInstall"
     RSD_SERVICE_NAME = "com.apple.mobile.MCInstall.shim.remote"
 
-    def __init__(self, lockdown: LockdownServiceProvider) -> None:
-        if isinstance(lockdown, LockdownClient):
-            super().__init__(lockdown, self.SERVICE_NAME)
-        else:
-            super().__init__(lockdown, self.RSD_SERVICE_NAME)
-
     async def hello(self) -> None:
         """Perform the ``HelloHostIdentifier`` handshake with the service."""
         await self._send_recv({"RequestType": "HelloHostIdentifier"})
@@ -72,7 +64,9 @@ class MobileConfigService(LockdownService):
             keybag_data = f.read()
         private_key = serialization.load_pem_private_key(keybag_data, password=None)
         if not isinstance(private_key, (rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey)):
-            raise ProfileError(f"unsupported supervision private key type: {type(private_key).__name__}")
+            raise ProfileError(
+                f"The supervision keybag must hold an RSA or EC private key, not {type(private_key).__name__}"
+            )
         cer = x509.load_pem_x509_certificate(keybag_data)
         public_key = cer.public_bytes(Encoding.DER)
         escalate_response = await self._send_recv({"RequestType": "Escalate", "SupervisorCertificate": public_key})
@@ -231,7 +225,7 @@ class MobileConfigService(LockdownService):
                 error_code = cast(list[dict[str, Any]], error_chain)[0]["ErrorCode"]
                 if error_code == ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT:
                     raise CloudConfigurationAlreadyPresentError()
-            raise ProfileError(f"invalid response {response}")
+            raise ProfileError(f"The device rejected the profile request: {response}")
         return response
 
     async def install_wifi_profile(

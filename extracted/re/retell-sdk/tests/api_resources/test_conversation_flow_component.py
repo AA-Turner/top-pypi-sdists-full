@@ -156,6 +156,12 @@ class TestConversationFlowComponent:
                         "high_priority": True,
                         "ultrafast": True,
                     },
+                    "model_config": {
+                        "primary": {
+                            "model": "gpt-4.1",
+                            "tier": "standard",
+                        }
+                    },
                     "name": "name",
                     "reminder_max_count": 0,
                     "reminder_trigger_ms": 1,
@@ -222,6 +228,7 @@ class TestConversationFlowComponent:
                     "parameters": {
                         "properties": {},
                         "type": "object",
+                        "additional_properties": True,
                         "required": ["string"],
                     },
                     "query_params": {
@@ -472,6 +479,12 @@ class TestConversationFlowComponent:
                         "high_priority": True,
                         "ultrafast": True,
                     },
+                    "model_config": {
+                        "primary": {
+                            "model": "gpt-4.1",
+                            "tier": "standard",
+                        }
+                    },
                     "name": "name",
                     "reminder_max_count": 0,
                     "reminder_trigger_ms": 1,
@@ -521,6 +534,7 @@ class TestConversationFlowComponent:
                     "parameters": {
                         "properties": {},
                         "type": "object",
+                        "additional_properties": True,
                         "required": ["string"],
                     },
                     "query_params": {
@@ -797,6 +811,12 @@ class TestAsyncConversationFlowComponent:
                         "high_priority": True,
                         "ultrafast": True,
                     },
+                    "model_config": {
+                        "primary": {
+                            "model": "gpt-4.1",
+                            "tier": "standard",
+                        }
+                    },
                     "name": "name",
                     "reminder_max_count": 0,
                     "reminder_trigger_ms": 1,
@@ -863,6 +883,7 @@ class TestAsyncConversationFlowComponent:
                     "parameters": {
                         "properties": {},
                         "type": "object",
+                        "additional_properties": True,
                         "required": ["string"],
                     },
                     "query_params": {
@@ -1113,6 +1134,12 @@ class TestAsyncConversationFlowComponent:
                         "high_priority": True,
                         "ultrafast": True,
                     },
+                    "model_config": {
+                        "primary": {
+                            "model": "gpt-4.1",
+                            "tier": "standard",
+                        }
+                    },
                     "name": "name",
                     "reminder_max_count": 0,
                     "reminder_trigger_ms": 1,
@@ -1162,6 +1189,7 @@ class TestAsyncConversationFlowComponent:
                     "parameters": {
                         "properties": {},
                         "type": "object",
+                        "additional_properties": True,
                         "required": ["string"],
                     },
                     "query_params": {

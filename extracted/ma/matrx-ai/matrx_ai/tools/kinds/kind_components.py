@@ -124,6 +124,9 @@ class KindComponentContext(KindModel):
     #: Pointer to the ``shape-authoring`` skill — the ONE home of the authoring rules.
     rules: str = ""
     summary: KindComponentContextSummary | None = None
+    #: The newest measured inspection (cut-off text, overlaps, contrast, screenshot file ids) of the asked-for
+    #: component, or of each component of the kind. Empty when none was ever inspected or the host has no inspector.
+    latest_inspections: list[dict[str, JsonValue]] = []
     #: Set only when the schema / canonical example was cut to the result
     #: budget: what, and how to get the rest (``bound_kind_bodies``).
     note: str | None = None

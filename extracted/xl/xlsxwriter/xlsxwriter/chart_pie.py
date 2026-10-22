@@ -4,12 +4,12 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 from warnings import warn
 
-from . import chart
+from xlsxwriter import chart
 
 
 class ChartPie(chart.Chart):
@@ -32,7 +32,6 @@ class ChartPie(chart.Chart):
         """
         super().__init__()
 
-        self.vary_data_color = 1
         self.rotation = 0
 
         # Set the available data label positions for this chart type.

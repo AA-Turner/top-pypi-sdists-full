@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: snowflake-connector-python
-Version: 5.0.0
+Version: 5.1.0
 Summary: Snowflake DB driver for Python
 Project-URL: Homepage, https://github.com/snowflakedb/drivers
 Project-URL: Bug Reports, https://github.com/snowflakedb/drivers/issues
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
@@ -57,9 +58,6 @@ Requires-Dist: zstandard; extra == 'test'
 Description-Content-Type: text/markdown
 
 # Snowflake Connector for Python
-
-> [!CAUTION]
-> This version of the driver is in public preview and is not ready for use with production data and may be unstable.
 
 This package includes the Snowflake Connector for Python, which conforms to the [Python DB API 2.0](https://www.python.org/dev/peps/pep-0249/) specification.
 
@@ -187,4 +185,4 @@ PYTHON_REFERENCE_DRIVER_VERSION='==4.3.0' hatch run reference:test
 ## References
 
 - [PEP 249 - Python Database API Specification v2.0](https://peps.python.org/pep-0249/)
-- [Python Database API Specification v2.0](https://www.python.org/dev/peps/pep-0249/) 
+- [Python Database API Specification v2.0](https://www.python.org/dev/peps/pep-0249/)

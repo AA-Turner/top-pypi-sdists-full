@@ -12,6 +12,7 @@ import logging
 import os
 import sys
 import threading
+import time
 import uuid
 import weakref
 from collections.abc import Awaitable, Callable, Collection, Mapping, Sequence
@@ -29,9 +30,10 @@ from typing import (
 
 from typing_extensions import ParamSpec
 
-from bitfab import subtree
+from bitfab import baml_auto_trace, jev, openrouter, subtree
 from bitfab.baml import run_function_with_baml
 from bitfab.categories import CategoriesClient
+from bitfab.client_patching import node_owns_next_call
 from bitfab.commit_ref import CommitRef, current_commit_ref, start_commit_ref_resolution
 from bitfab.constants import (
     DEFAULT_SERVICE_URL,
@@ -231,6 +233,95 @@ def _load_baml_collector_class() -> Any:
         _baml_collector_class = None
     _baml_collector_loaded = True
     return _baml_collector_class
+
+
+def _hidden_original(original_code: Any) -> Any:
+    session = subtree.current_session()
+    if session is None or original_code is None:
+        return contextlib.nullcontext()
+    return subtree.suppressed_node(original_code, session, all_sessions=True)
+
+
+def _renamed_run(run: Any, method_name: str, span_name: str) -> Any:
+    with contextlib.suppress(AttributeError, TypeError, ValueError):
+        run.__code__ = run.__code__.replace(co_name=method_name, co_qualname=span_name)
+    return run
+
+
+def _elapsed_ms(started_at: float) -> int:
+    return round((time.monotonic() - started_at) * 1000)
+
+
+def _build_jev_auto_run(
+    span_name: str, original: Callable[..., Any]
+) -> Callable[..., Any]:
+    original_code = getattr(original, "__code__", None)
+
+    if inspect.iscoroutinefunction(original):
+
+        async def run(self: Any, *args: Any, **kwargs: Any) -> Any:
+            span = get_current_span()
+            started_at = time.monotonic()
+            with _hidden_original(original_code):
+                reply = await original(self, *args, **kwargs)
+            jev.record_auto_traced_reply(span, reply, _elapsed_ms(started_at))
+            return reply
+
+    else:
+
+        def run(self: Any, *args: Any, **kwargs: Any) -> Any:
+            span = get_current_span()
+            started_at = time.monotonic()
+            with _hidden_original(original_code):
+                reply = original(self, *args, **kwargs)
+            jev.record_auto_traced_reply(span, reply, _elapsed_ms(started_at))
+            return reply
+
+    return _renamed_run(run, jev.SYSTEM_ONE, span_name)
+
+
+def _build_openrouter_auto_run(
+    span_name: str, original: Callable[..., Any]
+) -> Callable[..., Any]:
+    original_code = getattr(original, "__code__", None)
+
+    if openrouter.is_async_create(original):
+
+        async def run(self: Any, *args: Any, **kwargs: Any) -> Any:
+            span = get_current_span()
+            started_at = time.monotonic()
+            with _hidden_original(original_code):
+                response = await original(self, *args, **kwargs)
+            openrouter.record_auto_traced_completion(
+                span, kwargs, response, _elapsed_ms(started_at)
+            )
+            return response
+
+    else:
+
+        def run(self: Any, *args: Any, **kwargs: Any) -> Any:
+            span = get_current_span()
+            started_at = time.monotonic()
+            with _hidden_original(original_code):
+                response = original(self, *args, **kwargs)
+            openrouter.record_auto_traced_completion(
+                span, kwargs, response, _elapsed_ms(started_at)
+            )
+            return response
+
+    return _renamed_run(run, openrouter.CREATE, span_name)
+
+
+def _record_baml_collector(collector: Any) -> None:
+    try:
+        prompt = _extract_prompt_from_collector(collector)
+        if prompt:
+            get_current_span().set_prompt(prompt)
+        metadata = _extract_context_from_collector(collector)
+        if metadata:
+            get_current_span().add_context(metadata)
+    except Exception:
+        pass
 
 
 def _parse_http_body(raw_body: Any) -> dict[str, Any] | None:
@@ -529,6 +620,33 @@ def _active_span_context() -> ActiveSpanContext | None:
             "span_id": subtree.current_parent_span_id(session),
         }
     return {"trace_id": current["traceId"], "span_id": current["spanId"]}
+
+
+def _active_trace_function_key() -> str | None:
+    stack = _get_span_stack()
+    return stack[-1].get("rootTraceFunctionKey") if stack else None
+
+
+def _active_root_span_key() -> str | None:
+    stack = _get_span_stack()
+    if not stack or not stack[-1].get("isRoot", False):
+        return None
+    return stack[-1].get("rootTraceFunctionKey")
+
+
+def _trace_root_span_context() -> SpanContext | None:
+    stack = _get_span_stack()
+    if not stack:
+        return None
+    trace_id = stack[-1]["traceId"]
+    return next(
+        (
+            context
+            for context in reversed(stack)
+            if context.get("isRoot", False) and context["traceId"] == trace_id
+        ),
+        None,
+    )
 
 
 class CurrentSpan:
@@ -1090,6 +1208,9 @@ class Bitfab:
         self._capture_enabled_from_env: bool | None = None
         self._strict = strict
         self.baml_client = baml_client
+        self._llm_auto_traced: dict[Any, Callable[..., Any]] = {}
+        self._llm_auto_runs: dict[Any, Callable[..., Any]] = {}
+        self._llm_auto_traced_lock = threading.RLock()
         # The key is NOT read here. HttpClient gets a callable so the key is
         # resolved at send time, after any in-script load_dotenv() has run.
         self.http_client = HttpClient(
@@ -1669,14 +1790,25 @@ class Bitfab:
         *,
         mock_tools_on_replay: bool | list[str] | tuple[str, ...] = True,
     ) -> BitfabLangGraphIntegration:
-        """Get experimental LangGraph callbacks and ``ToolNode`` replay hooks.
+        """Get experimental LangGraph callbacks and replayable tool calls.
 
         The returned integration combines native ``wrap_tool_call`` /
-        ``awrap_tool_call`` hooks for replayable tool execution with
-        ``create_invoker()`` / ``create_async_invoker()`` for a
-        callback-configured replayable graph entry point. Lower-level callback
+        ``awrap_tool_call`` hooks for a ``ToolNode``, a ``middleware`` for
+        LangChain's ``create_agent`` and Deep Agents' ``create_deep_agent``
+        (or the ``create_agent()`` / ``create_deep_agent()`` builders that add
+        it), and ``instrument()`` for a callback-configured replayable graph
+        entry point. Tool calls that do
+        not pass through the hooks or the middleware are still recorded by the
+        callback handler, but cannot be mocked on replay. Lower-level callback
         and root wrappers remain available. This API may change before it is
         stable.
+
+        Args:
+            trace_function_key: Groups traces under this key in Bitfab
+            mock_tools_on_replay: ``True`` mocks every tool call that passes
+                through the hooks or the middleware on replay, ``False`` runs
+                them all live, and a list or tuple of tool names mocks only
+                those tools
         """
         from bitfab.langgraph import BitfabLangGraphCallbackHandler
         from bitfab.langgraph_integration import BitfabLangGraphIntegration
@@ -1687,7 +1819,6 @@ class Bitfab:
             trace_function_key=trace_function_key,
             service_url=self.service_url,
             get_active_span_context=_active_span_context,
-            capture_tools=False,
             _http_client=self.http_client,
             _should_record=self._should_record,
         )
@@ -1696,6 +1827,37 @@ class Bitfab:
             trace_function_key=trace_function_key,
             callback_handler=callback_handler,
             mock_tools_on_replay=mock_tools_on_replay,
+        )
+
+    def get_deep_agents_integration(
+        self,
+        trace_function_key: str,
+        *,
+        mock_tools_on_replay: bool | list[str] | tuple[str, ...] = True,
+    ) -> BitfabLangGraphIntegration:
+        """Get experimental tracing and replay for LangChain Deep Agents.
+
+        Alias of :meth:`get_langgraph_integration`, named for Deep Agents.
+        Build the agent with ``integration.create_deep_agent(...)``, which
+        takes Deep Agents' own arguments. Each run records one replayable root with
+        the agent, its model calls, every subagent the ``task`` tool hands work
+        to, and every tool call nested beneath them, including ``write_todos``
+        and the built-in file tools. On replay, the tool calls of the agent and its subagents,
+        including ``task``, return their recorded results without running, so
+        a mocked ``task`` call does not re-run its subagent, and file changes
+        recorded with a file tool call are applied to the replayed agent's
+        files.
+
+        Args:
+            trace_function_key: Groups traces under this key in Bitfab
+            mock_tools_on_replay: ``True`` mocks every main-agent tool call on
+                replay, ``False`` runs them all live, and a list or tuple of
+                tool names mocks only those tools
+
+        This API may change before it is stable.
+        """
+        return self.get_langgraph_integration(
+            trace_function_key, mock_tools_on_replay=mock_tools_on_replay
         )
 
     def get_claude_agent_handler(self, trace_function_key: str):
@@ -2300,6 +2462,7 @@ class Bitfab:
         surface: CaptureSurface | None,
         mirror_in_enclosing_traces: bool = False,
         instrumentation: SpanInstrumentation | None = None,
+        framework_parent_span_id: str | None = None,
     ) -> Callable[[Callable[P, T]], Callable[P, T]]:
         span_type = type
         explicit_name = name
@@ -2313,6 +2476,7 @@ class Bitfab:
         def decorator(fn: Callable[P, T]) -> Callable[P, T]:
             is_async = inspect.iscoroutinefunction(fn)
             is_async_gen = inspect.isasyncgenfunction(fn)
+            is_sync_gen = inspect.isgeneratorfunction(fn)
             monitored_code = getattr(fn, "__code__", None)
             function_name = fn.__name__ or None
             # Span name priority: explicit name > qualified function name > trace_function_key
@@ -2392,7 +2556,11 @@ class Bitfab:
                         or str(uuid.uuid4())
                     )
                 span_id = str(uuid.uuid4())
-                parent_span_id = parent_context["spanId"] if parent_context else None
+                parent_span_id = (
+                    (framework_parent_span_id or parent_context["spanId"])
+                    if parent_context
+                    else None
+                )
                 is_root_span = parent_span_id is None
                 if is_root_span:
                     variant = None
@@ -2863,7 +3031,188 @@ class Bitfab:
                     )
                     return False, None
 
-            if is_async_gen:
+            def refuse_generator_mock(
+                new_stack: list[SpanContext],
+                base_params: dict[str, Any],
+                is_root_span: bool,
+                args: tuple[Any, ...],
+                kwargs: dict[str, Any],
+                kind: str,
+            ) -> None:
+                span_ctx = new_stack[-1]
+                call_index: int | None = None
+                replay_ctx = _replay_context.get()
+                if (replay_ctx or {}).get("selective_replay") is not None:
+                    _safe_check_mock_replay(
+                        new_stack, base_params, is_root_span, args, kwargs
+                    )
+                variant_chain = span_ctx.get("variantChain", ())
+                call_index, _ = MATCHER.claim(
+                    replay_ctx,
+                    trace_function_key=trace_function_key,
+                    span_name=span_name,
+                    is_root_span=is_root_span,
+                    variant_chain=variant_chain,
+                )
+                strategy = (replay_ctx or {}).get("mock_strategy")
+                base_selected = strategy == "all" or (
+                    strategy == "marked" and mock_on_replay
+                )
+
+                overrides = (replay_ctx or {}).get("mock_overrides") or []
+                override_selected = False
+                if overrides and call_index is not None:
+                    matched_key = MATCHER.key_for(
+                        replay_ctx,
+                        trace_function_key=trace_function_key,
+                        span_name=span_name,
+                        variant_chain=variant_chain,
+                    )
+                    mock_entry = (replay_ctx.get("mock_tree") or {}).get(
+                        f"{matched_key}:{call_index}"
+                    )
+                    node = SpanNodeMeta(
+                        trace_function_key=trace_function_key,
+                        span_name=span_name,
+                        type=span_type,
+                        original_span_id=(
+                            mock_entry.get("sourceSpanId") if mock_entry else None
+                        ),
+                        variant=base_params["variant"],
+                    )
+
+                    def get_original_output() -> Any:
+                        if not mock_entry:
+                            raise RuntimeError(
+                                "mock_override.get_original_output() has no "
+                                f"recorded output for span '{trace_function_key}'"
+                                f":'{span_name}': the live span has no "
+                                "counterpart in the replayed trace."
+                            )
+                        return _resolve_recorded_output(
+                            mock_entry, replay_ctx.get("fetch_span_output")
+                        )
+
+                    override_ctx = MockOverrideCtx(
+                        node=node,
+                        inputs=list(args),
+                        kwargs=dict(kwargs),
+                        get_original_output=get_original_output,
+                    )
+                    for override in overrides:
+                        if not override.match(node):
+                            continue
+                        raw_value = override.value
+                        injected = (
+                            raw_value(override_ctx)
+                            if callable(raw_value)
+                            else raw_value
+                        )
+                        if injected is not NO_MOCK_OVERRIDE:
+                            override_selected = True
+                            break
+
+                if base_selected or override_selected:
+                    self.http_client.trace_completion.abort(
+                        span_ctx["traceId"], span_ctx["spanId"]
+                    )
+                    raise RuntimeError(
+                        f"Replay selected {kind} span "
+                        f"'{trace_function_key}:{span_name}' for mocking, but "
+                        f"{kind} spans cannot be mocked. The real span "
+                        "was not executed; move unsafe work to a mockable sync "
+                        "or coroutine descendant."
+                    )
+
+            if is_sync_gen:
+
+                @functools.wraps(fn)
+                def sync_gen_wrapper(*args: P.args, **kwargs: P.kwargs) -> Any:
+                    if not self._should_record():
+                        yield from fn(*args, **kwargs)
+                        return
+                    if (
+                        capture_when != "nested"
+                        and self._awaits_first_simulation_plan_read()
+                    ):
+                        with contextlib.suppress(RuntimeError):
+                            self._simulation_plan.wait_for_first_read()
+                    setup = _safe_build_span_context(args, kwargs)
+                    if setup is None:
+                        yield from fn(*args, **kwargs)
+                        return
+                    new_stack, base_params, is_root_span = setup
+                    span_ctx = new_stack[-1]
+                    refuse_generator_mock(
+                        new_stack, base_params, is_root_span, args, kwargs, "generator"
+                    )
+
+                    yielded: list[Any] = []
+                    return_value: Any = None
+                    error_msg: str | None = None
+                    iterator = fn(*args, **kwargs)
+
+                    try:
+                        while True:
+                            token = _span_stack.set(new_stack)
+                            try:
+                                with subtree.borrowed_span(
+                                    monitored_code,
+                                    span_ctx["traceId"],
+                                    span_ctx["spanId"],
+                                ):
+                                    try:
+                                        value = next(iterator)
+                                    except StopIteration as stop:
+                                        return_value = stop.value
+                                        return
+                            finally:
+                                _span_stack.reset(token)
+                            yielded.append(value)
+                            yield value
+                    except Exception as e:
+                        error_msg = str(e)
+                        raise
+                    finally:
+                        token = _span_stack.set(new_stack)
+                        try:
+                            try:
+                                with subtree.borrowed_span(
+                                    monitored_code,
+                                    span_ctx["traceId"],
+                                    span_ctx["spanId"],
+                                ):
+                                    iterator.close()
+                            except Exception as e:
+                                error_msg = str(e)
+                                raise
+                            finally:
+                                if finalize is not None and error_msg is None:
+                                    output, send_error = _run_finalize(
+                                        finalize, yielded
+                                    )
+                                else:
+                                    output = {
+                                        "yielded": yielded,
+                                        "return": return_value,
+                                    }
+                                    send_error = error_msg
+                                _safe_send_span(
+                                    span_ctx,
+                                    **base_params,
+                                    result=output,
+                                    error=send_error,
+                                    ended_at=_get_ended_at(),
+                                )
+                        finally:
+                            with contextlib.suppress(ValueError):
+                                _span_stack.reset(token)
+
+                sync_gen_wrapper._bitfab_wrapped = True  # type: ignore[attr-defined]
+                sync_gen_wrapper._bitfab_options = options  # type: ignore[attr-defined]
+                sync_gen_wrapper._bitfab_trace_function_key = trace_function_key  # type: ignore[attr-defined]
+                return sync_gen_wrapper  # type: ignore[return-value]
+            elif is_async_gen:
                 # Async-generator functions (`async def fn(...): yield ...`) return
                 # an async generator synchronously, so the sync_wrapper branch would
                 # close the span before the body ever ran - every nested with_span
@@ -2897,93 +3246,14 @@ class Bitfab:
                     new_stack, base_params, is_root_span = setup
                     span_ctx = new_stack[-1]
 
-                    # Async generators cannot be replaced by one recorded
-                    # return value. The counter still advances so later sibling
-                    # spans stay aligned, but a strategy or override that
-                    # selects this span must fail closed before iteration.
-                    call_index: int | None = None
-                    replay_ctx = _replay_context.get()
-                    if (replay_ctx or {}).get("selective_replay") is not None:
-                        _safe_check_mock_replay(
-                            new_stack, base_params, is_root_span, args, kwargs
-                        )
-                    variant_chain = span_ctx.get("variantChain", ())
-                    call_index, _ = MATCHER.claim(
-                        replay_ctx,
-                        trace_function_key=trace_function_key,
-                        span_name=span_name,
-                        is_root_span=is_root_span,
-                        variant_chain=variant_chain,
+                    refuse_generator_mock(
+                        new_stack,
+                        base_params,
+                        is_root_span,
+                        args,
+                        kwargs,
+                        "async-generator",
                     )
-                    strategy = (replay_ctx or {}).get("mock_strategy")
-                    base_selected = strategy == "all" or (
-                        strategy == "marked" and mock_on_replay
-                    )
-
-                    overrides = (replay_ctx or {}).get("mock_overrides") or []
-                    override_selected = False
-                    if overrides and call_index is not None:
-                        matched_key = MATCHER.key_for(
-                            replay_ctx,
-                            trace_function_key=trace_function_key,
-                            span_name=span_name,
-                            variant_chain=variant_chain,
-                        )
-                        mock_entry = (replay_ctx.get("mock_tree") or {}).get(
-                            f"{matched_key}:{call_index}"
-                        )
-                        node = SpanNodeMeta(
-                            trace_function_key=trace_function_key,
-                            span_name=span_name,
-                            type=span_type,
-                            original_span_id=(
-                                mock_entry.get("sourceSpanId") if mock_entry else None
-                            ),
-                            variant=base_params["variant"],
-                        )
-
-                        def get_original_output() -> Any:
-                            if not mock_entry:
-                                raise RuntimeError(
-                                    "mock_override.get_original_output() has no "
-                                    f"recorded output for span '{trace_function_key}'"
-                                    f":'{span_name}': the live span has no "
-                                    "counterpart in the replayed trace."
-                                )
-                            return _resolve_recorded_output(
-                                mock_entry, replay_ctx.get("fetch_span_output")
-                            )
-
-                        override_ctx = MockOverrideCtx(
-                            node=node,
-                            inputs=list(args),
-                            kwargs=dict(kwargs),
-                            get_original_output=get_original_output,
-                        )
-                        for override in overrides:
-                            if not override.match(node):
-                                continue
-                            raw_value = override.value
-                            injected = (
-                                raw_value(override_ctx)
-                                if callable(raw_value)
-                                else raw_value
-                            )
-                            if injected is not NO_MOCK_OVERRIDE:
-                                override_selected = True
-                                break
-
-                    if base_selected or override_selected:
-                        self.http_client.trace_completion.abort(
-                            span_ctx["traceId"], span_ctx["spanId"]
-                        )
-                        raise RuntimeError(
-                            "Replay selected async-generator span "
-                            f"'{trace_function_key}:{span_name}' for mocking, but "
-                            "async-generator spans cannot be mocked. The real span "
-                            "was not executed; move unsafe work to a mockable sync "
-                            "or coroutine descendant."
-                        )
 
                     yielded: list[Any] = []
                     return_value: Any = None
@@ -3292,7 +3562,7 @@ class Bitfab:
         self,
         *,
         name: str | None = None,
-        type: SpanType = "custom",
+        type: SpanType | None = None,
         capture: bool = True,
         test_run_id: str | None = None,
         mock_on_replay: bool | None = None,
@@ -3312,7 +3582,13 @@ class Bitfab:
 
         Args:
             name: Captured node name. Defaults to the function name.
-            type: Captured node type. Defaults to ``"custom"``.
+            type: Captured node type. Defaults to ``"llm"`` when the function
+                is a generated BAML client method, a :meth:`wrap_baml` or
+                :meth:`wrap_jev` wrapper, or a function named ``system_one``,
+                and ``"custom"`` otherwise. On a BAML call the node is the
+                call's only span and carries its prompt and usage. On a
+                ``system_one`` call whose reply has a ``model`` and ``usage``,
+                the node carries the Jev model, token counts, and duration.
             capture: Whether the enclosing trace captures this node. When
                 False, the function is omitted and captured descendants attach
                 to its nearest captured parent.
@@ -3364,31 +3640,42 @@ class Bitfab:
                 "function of the call's arguments."
             )
 
-        span_type = type
-        options = {
-            "name": name,
-            "type": span_type,
-            "capture": capture,
-            "experiment_id": experiment_id,
-            "mock_on_replay": mock_on_replay,
-            "replay_reusable": replay_reusable,
-            "variant": variant if isinstance(variant, str) else None,
-        }
-
         def decorator(fn: Callable[P, T]) -> Callable[P, T]:
+            llm_call = (
+                baml_auto_trace.resolve_call_target(fn)
+                or jev.resolve_call_target(fn)
+                or openrouter.resolve_call_target(fn)
+            )
+            node_fn = fn if llm_call is None else llm_call
+            calls_llm = (
+                llm_call is not None or getattr(fn, "__name__", None) == jev.SYSTEM_ONE
+            )
+            span_type: SpanType = (
+                type if type is not None else ("llm" if calls_llm else "custom")
+            )
+            options = {
+                "name": name,
+                "type": span_type,
+                "capture": capture,
+                "experiment_id": experiment_id,
+                "mock_on_replay": mock_on_replay,
+                "replay_reusable": replay_reusable,
+                "variant": variant if isinstance(variant, str) else None,
+            }
             configured = self._subtree_node_wrapper(
-                fn,
+                node_fn,
                 name=name,
                 span_type=span_type,
                 capture=capture,
                 experiment_id=experiment_id,
                 mock_on_replay=mock_on_replay,
                 finalize=finalize,
-                without_session=fn,
+                without_session=node_fn,
                 guard_without_session=True,
                 replay_reusable=replay_reusable,
                 variant=variant,
                 runs_as_trace_root=_is_trace_root(fn),
+                owns_llm_call=llm_call is not None,
             )
             _node_wrapper_bodies[configured] = fn
             configured._bitfab_node = True  # type: ignore[attr-defined]
@@ -3401,6 +3688,135 @@ class Bitfab:
         stack = _span_stack.get()
         return stack[-1].get("variantChain", ()) if stack else ()
 
+    def _cached_llm_call(
+        self,
+        cache: dict[Any, Callable[..., Any]],
+        original: Callable[..., Any],
+        build: Callable[[], Callable[..., Any]],
+    ) -> Callable[..., Any]:
+        existing = cache.get(original)
+        if existing is not None:
+            return existing
+        with self._llm_auto_traced_lock:
+            existing = cache.get(original)
+            if existing is None:
+                existing = build()
+                cache[original] = existing
+            return existing
+
+    def _llm_auto_traced_call(
+        self,
+        span_name: str,
+        original: Callable[..., Any],
+        run: Callable[[str, Callable[..., Any]], Callable[..., Any]],
+    ) -> Callable[..., Any]:
+        return self._cached_llm_call(
+            self._llm_auto_traced,
+            original,
+            lambda: self._integration_span(
+                span_name,
+                name=span_name,
+                type="llm",
+                capture_when="nested",
+                instrumentation="trace",
+            )(run(span_name, original)),
+        )
+
+    def _baml_auto_traced_call(
+        self, span_name: str, original: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        return self._llm_auto_traced_call(span_name, original, self._baml_auto_run)
+
+    def _baml_auto_run(
+        self, span_name: str, original: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        return self._cached_llm_call(
+            self._llm_auto_runs,
+            original,
+            lambda: self._build_baml_auto_run(span_name, original),
+        )
+
+    def _jev_auto_traced_call(
+        self, span_name: str, original: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        return self._llm_auto_traced_call(span_name, original, self._jev_auto_run)
+
+    def _jev_auto_run(
+        self, span_name: str, original: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        return self._cached_llm_call(
+            self._llm_auto_runs,
+            original,
+            lambda: _build_jev_auto_run(span_name, original),
+        )
+
+    def _openrouter_auto_traced_call(
+        self, span_name: str, original: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        return self._llm_auto_traced_call(
+            span_name, original, self._openrouter_auto_run
+        )
+
+    def _openrouter_auto_run(
+        self, span_name: str, original: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        return self._cached_llm_call(
+            self._llm_auto_runs,
+            original,
+            lambda: _build_openrouter_auto_run(span_name, original),
+        )
+
+    def _build_baml_auto_run(
+        self, span_name: str, original: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        method_name = span_name.rsplit(".", 1)[-1]
+        original_code = getattr(original, "__code__", None)
+
+        def prepared(
+            client: Any, args: tuple[Any, ...], kwargs: dict[str, Any]
+        ) -> tuple[Any, tuple[Any, ...], dict[str, Any], list[Any]]:
+            collector_cls = _load_baml_collector_class()
+            if collector_cls is None:
+                return None, (client, *args), kwargs, []
+            try:
+                collector = collector_cls("bitfab-baml-tracing")
+                call_args, call_kwargs, existing = baml_auto_trace.with_collector(
+                    client, original, args, kwargs, collector
+                )
+            except Exception:
+                return None, (client, *args), kwargs, []
+            return collector, call_args, call_kwargs, existing
+
+        def recorded(collector: Any, existing: list[Any]) -> None:
+            if collector is None:
+                return
+            baml_auto_trace.mark_recorded(existing)
+            _record_baml_collector(collector)
+
+        if inspect.iscoroutinefunction(original):
+
+            async def run(self: Any, *args: Any, **kwargs: Any) -> Any:
+                collector, call_args, call_kwargs, existing = prepared(
+                    self, args, kwargs
+                )
+                with _hidden_original(original_code):
+                    result = await original(*call_args, **call_kwargs)
+                recorded(collector, existing)
+                return result
+
+        else:
+
+            def run(self: Any, *args: Any, **kwargs: Any) -> Any:
+                collector, call_args, call_kwargs, existing = prepared(
+                    self, args, kwargs
+                )
+                with _hidden_original(original_code):
+                    result = original(*call_args, **call_kwargs)
+                recorded(collector, existing)
+                return result
+
+        return _renamed_run(run, method_name, span_name)
+
     def _integration_span(
         self,
         trace_function_key: str,
@@ -3411,6 +3827,7 @@ class Bitfab:
         mock_on_replay: bool | None = None,
         finalize: Callable[[Any], Any] | None = None,
         instrumentation: SpanInstrumentation | None = None,
+        framework_parent_span_id: str | None = None,
     ) -> Callable[[Callable[P, T]], Callable[P, T]]:
         span_type = type
 
@@ -3424,6 +3841,7 @@ class Bitfab:
                 finalize=finalize,
                 surface="opt-in",
                 instrumentation=instrumentation,
+                framework_parent_span_id=framework_parent_span_id,
             )(fn)
             configured = self._subtree_node_wrapper(
                 fn,
@@ -3460,6 +3878,7 @@ class Bitfab:
         instrumentation: SpanInstrumentation | None = None,
         variant: str | Callable[..., str | None] | None = None,
         runs_as_trace_root: bool = False,
+        owns_llm_call: bool = False,
     ) -> Callable[P, T]:
         code = getattr(fn, "__code__", None)
         node_span_name = name or _function_span_name(fn)
@@ -3517,6 +3936,16 @@ class Bitfab:
         def guard_outside_trace() -> None:
             if guard_without_session and _enclosing_surface() == "opt-in":
                 raise _mixed_tracing_error("node", "span")
+
+        def owned_llm_call() -> Any:
+            if owns_llm_call:
+                return node_owns_next_call()
+            return contextlib.nullcontext()
+
+        def omitted_llm_call() -> Any:
+            if owns_llm_call:
+                return node_owns_next_call(record=False)
+            return contextlib.nullcontext()
 
         def reset_span_parent(token: Any) -> None:
             if token is not None:
@@ -3594,12 +4023,16 @@ class Bitfab:
                 if runs_as_trace_root:
                     return await fn(*args, **kwargs)
                 if not captures_node(session):
-                    with subtree.suppressed_node(code, session, all_sessions=True):
+                    with (
+                        subtree.suppressed_node(code, session, all_sessions=True),
+                        omitted_llm_call(),
+                    ):
                         return await fn(*args, **kwargs)
                 token = align_span_parent(session)
                 variant_token = resolve_variant(args, kwargs)
                 try:
-                    return await build_traced(session)(*args, **kwargs)
+                    with owned_llm_call():
+                        return await build_traced(session)(*args, **kwargs)
                 finally:
                     _node_variant.reset(variant_token)
                     reset_span_parent(token)
@@ -3615,12 +4048,16 @@ class Bitfab:
             if runs_as_trace_root:
                 return fn(*args, **kwargs)
             if not captures_node(session):
-                with subtree.suppressed_node(code, session, all_sessions=True):
+                with (
+                    subtree.suppressed_node(code, session, all_sessions=True),
+                    omitted_llm_call(),
+                ):
                     return fn(*args, **kwargs)
             token = align_span_parent(session)
             variant_token = resolve_variant(args, kwargs)
             try:
-                return build_traced(session)(*args, **kwargs)
+                with owned_llm_call():
+                    return build_traced(session)(*args, **kwargs)
             finally:
                 _node_variant.reset(variant_token)
                 reset_span_parent(token)
@@ -3782,6 +4219,9 @@ class Bitfab:
         self._simulation_plan.refresh()
 
         def decorator(fn: Callable[P, T]) -> Callable[P, T]:
+            baml_auto_trace.install_import_hook()
+            jev.install_import_hook()
+            openrouter.install_import_hook()
             body = _without_node_settings(fn)
             roots = subtree.roots_for(body)
             code = getattr(body, "__code__", None)
@@ -3795,6 +4235,9 @@ class Bitfab:
                 )
 
             def build() -> subtree.Session | None:
+                baml_auto_trace.instrument_loaded_clients()
+                jev.instrument_loaded_clients()
+                openrouter.instrument_loaded_clients()
                 current = get_current_span()
                 trace_id = getattr(current, "trace_id", None)
                 span_id = getattr(current, "id", None)
@@ -3823,6 +4266,7 @@ class Bitfab:
                     mock_on_replay_default=mock_on_replay_default,
                     root_code=code,
                     root_span_context=getattr(current, "_context", None),
+                    owner=self,
                     link_pending=True,
                 )
 
@@ -4022,19 +4466,12 @@ class Bitfab:
             collector = collector_cls("bitfab-baml-tracing")
             tracked_client = baml_client.with_options(collector=collector)
             tracked_method = getattr(tracked_client, method_name)
-            result = await tracked_method(*args, **kwargs)
+            with baml_auto_trace.wrapper_call(collector) as call:
+                result = await tracked_method(*args, **kwargs)
 
             wrapper.collector = collector
-
-            try:
-                prompt = _extract_prompt_from_collector(collector)
-                if prompt:
-                    get_current_span().set_prompt(prompt)
-                metadata = _extract_context_from_collector(collector)
-                if metadata:
-                    get_current_span().add_context(metadata)
-            except Exception:
-                pass
+            if not call.recorded:
+                _record_baml_collector(collector)
 
             if on_collector is not None:
                 with contextlib.suppress(Exception):
@@ -4044,6 +4481,225 @@ class Bitfab:
 
         functools.update_wrapper(wrapper, actual_method)
         wrapper.collector = None
+        setattr(wrapper, baml_auto_trace.BAML_CALL_MARKER, True)
+        return wrapper
+
+    def wrap_jev(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_reply: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that calls Jev (TypeSafe's System One model) to
+        record the reply's model, token usage, and duration.
+
+        The wrapper opens no span of its own. Each call writes one context
+        entry onto the span that is current when the call starts, so call it
+        inside a ``span``, ``trace``, or ``node``. Outside any span it records
+        nothing and returns the reply unchanged.
+
+        Beneath a ``trace`` root, ``TypeSafeClient.system_one`` and
+        ``AsyncTypeSafeClient.system_one`` calls are already recorded without
+        this wrapper as their own ``llm`` span, and so is any first-party
+        function or method named ``system_one`` whose reply has a ``model``
+        and ``usage``. Wrapping such a call records nothing more. ``node`` on
+        the wrapper configures that one span.
+
+        Example::
+
+            jev_client = TypeSafeClient()
+            ask_jev = client.wrap_jev(jev_client.system_one)
+            reply = ask_jev(state=state, questions=questions)
+
+        Args:
+            fn: A function, sync or async, that calls Jev and returns its
+                reply (a ``SystemOneResponse``, or a dict with ``model`` and
+                ``usage``).
+            on_reply: Called with each reply after it is recorded. Errors it
+                raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        method_name = getattr(fn, "__name__", None)
+        if not method_name:
+            raise ValueError(
+                "wrap_jev requires a named function (e.g., jev_client.system_one)."
+            )
+        fn = jev.resolve_call_target(fn) or fn
+
+        def finish(
+            call: jev.WrapperCall, span: Any, reply: Any, started_at: float
+        ) -> Any:
+            if not call.recorded():
+                jev.record_reply(span, reply, _elapsed_ms(started_at))
+            if on_reply is not None:
+                with contextlib.suppress(Exception):
+                    on_reply(reply)
+            return reply
+
+        async def finish_awaited(
+            awaitable: Awaitable[Any], span: Any, started_at: float
+        ) -> Any:
+            with jev.wrapper_call() as call:
+                reply = await awaitable
+            return finish(call, span, reply, started_at)
+
+        if inspect.iscoroutinefunction(fn):
+
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                span = get_current_span()
+                started_at = time.monotonic()
+                with jev.wrapper_call() as call:
+                    reply = await fn(*args, **kwargs)
+                return finish(call, span, reply, started_at)
+
+            wrapper: Callable[..., Any] = async_wrapper
+        else:
+
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                span = get_current_span()
+                started_at = time.monotonic()
+                with jev.wrapper_call() as call:
+                    reply = fn(*args, **kwargs)
+                if inspect.isawaitable(reply):
+                    return finish_awaited(reply, span, started_at)
+                return finish(call, span, reply, started_at)
+
+            wrapper = sync_wrapper
+
+        functools.update_wrapper(wrapper, fn)
+        setattr(wrapper, jev.JEV_CALL_MARKER, True)
+        return wrapper
+
+    def wrap_openrouter(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a chat completion to OpenRouter to
+        record the call's prompt, model, token usage, the cost OpenRouter
+        reports, and duration.
+
+        The wrapper opens no span of its own. Each call writes onto the span
+        that is current when the call starts, so call it inside a ``span``,
+        ``trace``, or ``node``. Outside any span it records nothing and
+        returns the completion unchanged. The request's ``messages`` (passed
+        as keyword arguments, or as a dict in the first argument) become the
+        span's prompt, and one context entry holds ``provider``
+        (``"openrouter"``), ``model`` (the model OpenRouter routed to),
+        ``upstreamProvider``, ``inputTokens``, ``outputTokens``,
+        ``cachedInputTokens``, ``reasoningTokens``, ``costUsd`` (OpenRouter's
+        ``usage.cost``), and ``durationMs``. Fields the response omits are
+        left out.
+
+        Beneath a ``trace`` root, ``chat.completions.create`` calls on an
+        ``openai`` client whose base URL is ``openrouter.ai`` are already
+        recorded without this wrapper as their own ``llm`` span named
+        ``Completions.create`` (or ``AsyncCompletions.create``). Wrapping such
+        a call records nothing more, and ``node`` on the wrapper configures
+        that one span. A call the OpenAI Agents SDK or LangChain integration
+        is already recording is not recorded a second time. Streaming calls
+        (``stream=True``) are not recorded.
+
+        Example::
+
+            llm = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=key)
+            complete = client.wrap_openrouter(llm.chat.completions.create)
+            response = complete(
+                model="anthropic/claude-sonnet-4.5",
+                messages=[{"role": "user", "content": text}],
+            )
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the chat completion.
+            on_response: Called with each chat completion after it is
+                recorded. Errors it raises are ignored.
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``. A failed
+            call raises its error unchanged and records nothing.
+
+        Raises:
+            ValueError: If ``fn`` has no ``__name__``.
+        """
+        method_name = getattr(fn, "__name__", None)
+        if not method_name:
+            raise ValueError(
+                "wrap_openrouter requires a named function "
+                "(e.g., llm.chat.completions.create)."
+            )
+        fn = openrouter.resolve_call_target(fn) or fn
+
+        def finish(
+            call: openrouter.WrapperCall,
+            span: Any,
+            request: Any,
+            response: Any,
+            started_at: float,
+            framework_owned: bool,
+        ) -> Any:
+            if not framework_owned and not call.recorded():
+                openrouter.record_completion(
+                    span, request, response, _elapsed_ms(started_at)
+                )
+            if on_response is not None:
+                with contextlib.suppress(Exception):
+                    on_response(response)
+            return response
+
+        async def finish_awaited(
+            awaitable: Awaitable[Any],
+            span: Any,
+            request: Any,
+            started_at: float,
+            framework_owned: bool,
+        ) -> Any:
+            with openrouter.wrapper_call() as call:
+                response = await awaitable
+            return finish(call, span, request, response, started_at, framework_owned)
+
+        if inspect.iscoroutinefunction(fn):
+
+            async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+                span = get_current_span()
+                framework_owned = openrouter.framework_records_call()
+                started_at = time.monotonic()
+                with openrouter.wrapper_call() as call:
+                    response = await fn(*args, **kwargs)
+                request = openrouter.request_of(args, kwargs)
+                return finish(
+                    call, span, request, response, started_at, framework_owned
+                )
+
+            wrapper: Callable[..., Any] = async_wrapper
+        else:
+
+            def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+                span = get_current_span()
+                framework_owned = openrouter.framework_records_call()
+                started_at = time.monotonic()
+                request = openrouter.request_of(args, kwargs)
+                with openrouter.wrapper_call() as call:
+                    response = fn(*args, **kwargs)
+                if inspect.isawaitable(response):
+                    return finish_awaited(
+                        response, span, request, started_at, framework_owned
+                    )
+                return finish(
+                    call, span, request, response, started_at, framework_owned
+                )
+
+            wrapper = sync_wrapper
+
+        functools.update_wrapper(wrapper, fn)
+        setattr(wrapper, openrouter.OPENROUTER_CALL_MARKER, True)
         return wrapper
 
     def get_trace(self, trace_id: str) -> DetachedTrace:
@@ -4847,6 +5503,32 @@ class BitfabFunction:
             mock_tools_on_replay=mock_tools_on_replay,
         )
 
+    def get_deep_agents_integration(
+        self,
+        *,
+        mock_tools_on_replay: bool | list[str] | tuple[str, ...] = True,
+    ) -> BitfabLangGraphIntegration:
+        """Get the experimental LangChain Deep Agents integration bound to this key.
+
+        Equivalent to ``Bitfab.get_deep_agents_integration(key)``; see that
+        method for what it records and replays. This API may change before it
+        is stable.
+
+        Example::
+
+            research = client.get_function("research-agent")
+            integration = research.get_deep_agents_integration()
+            agent = integration.create_deep_agent(
+                model=model,
+                tools=[internet_search],
+            )
+            result = agent.invoke({"messages": [{"role": "user", "content": "..."}]})
+        """
+        return self._client.get_deep_agents_integration(
+            self._trace_function_key,
+            mock_tools_on_replay=mock_tools_on_replay,
+        )
+
     def wrap_baml(
         self,
         method_or_client: Any,
@@ -4870,3 +5552,50 @@ class BitfabFunction:
             An async wrapper with the same signature that auto-instruments the call
         """
         return self._client.wrap_baml(method_or_client, method)
+
+    def wrap_jev(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_reply: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that calls Jev (TypeSafe's System One model) to
+        record the reply's model, token usage, and duration.
+
+        Delegates to ``Bitfab.wrap_jev``. See that method for details.
+
+        Like ``wrap_baml``, it does not use the bound key and opens no span of
+        its own: it writes onto the span that is current when the call starts.
+
+        Args:
+            fn: A function, sync or async, that calls Jev and returns its reply
+            on_reply: Called with each reply after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_jev(fn, on_reply=on_reply)
+
+    def wrap_openrouter(
+        self,
+        fn: Callable[..., Any],
+        *,
+        on_response: Callable[[Any], None] | None = None,
+    ) -> Callable[..., Any]:
+        """Wrap a function that sends a chat completion to OpenRouter to
+        record the call's prompt, model, token usage, cost, and duration.
+
+        Delegates to ``Bitfab.wrap_openrouter``. See that method for details.
+
+        Like ``wrap_jev``, it does not use the bound key and opens no span of
+        its own: it writes onto the span that is current when the call starts.
+
+        Args:
+            fn: A function, sync or async, that sends the request and returns
+                the chat completion
+            on_response: Called with each chat completion after it is recorded
+
+        Returns:
+            A wrapper with the same signature and name as ``fn``
+        """
+        return self._client.wrap_openrouter(fn, on_response=on_response)

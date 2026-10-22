@@ -7,7 +7,7 @@ name = "fastobo"
 dynamic = ["version"]
 description = "Faultless AST for Open Biomedical Ontologies in Python."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = { file = "COPYING" }
 authors = [
   { name = "Martin Larralde", email = "martin.larralde@embl.de" },
@@ -28,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -65,6 +66,10 @@ before-all = "curl -sSf https://sh.rustup.rs | sh -s -- -y"
 [tool.cibuildwheel.macos]
 before-all = ["curl -sSf https://sh.rustup.rs | sh -s -- -y"]
 environment = { MACOSX_DEPLOYMENT_TARGET = "10.12" }
+
+[[tool.cibuildwheel.overrides]]
+select = "cp312*"
+config-settings = { "maturin.build-args" = "--features abi3" }
 
 [[tool.cibuildwheel.overrides]]
 select = "*-macosx_x86_64"

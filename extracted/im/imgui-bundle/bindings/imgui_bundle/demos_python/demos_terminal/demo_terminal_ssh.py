@@ -1,8 +1,8 @@
-"""Remote-shell demo: TerminalView driven over SSH (paramiko).
+"""Terminal over SSH
 
-Same widget as the local-shell demo; the transport is an SSH channel instead of
-a local pty. This is the shape you'd use to open a shell on a server or a
-robot's companion computer from a desktop GUI.
+The same terminal widget, fed by an SSH channel instead of a local shell. With [paramiko](https://www.paramiko.org):
+the shape of a shell on a server or a robot, from a desktop GUI. By default it connects to localhost as you, through
+the SSH agent; edit the host and the user in the file. Needs `pip install "imgui-bundle[terminal]" paramiko`.
 
     pip install "imgui-bundle[terminal]" paramiko
     # edit the connection constants below, then:
@@ -62,6 +62,7 @@ class SSHTransport:
         except Exception as e:
             self.error = f"{type(e).__name__}: {e}"
         self.alive = False
+        hello_imgui.request_refresh()  # the app shows the end or the error at once, even while idling
 
     def _write(self, data: bytes) -> None:
         if self._chan is not None:
@@ -104,7 +105,7 @@ def gui() -> None:
                            "(needs an SSH server you can log into).")
         return
     with imgui_ctx.push_font(mono_font, 0.0):
-        view.render_in_child("terminal", child_flags=imgui.ChildFlags_.borders.value)
+        view.render_in_child("terminal", child_flags=imgui.ChildFlags_.borders)
 
 
 def on_exit() -> None:
@@ -119,7 +120,6 @@ def main() -> None:
     params.callbacks.load_additional_fonts = load_fonts
     params.callbacks.show_gui = gui
     params.callbacks.before_exit = on_exit
-    params.fps_idling.fps_idle = 20  # idling speed than the default (9), since shell output arrives asynchronously
     immapp.run(params)
 
 

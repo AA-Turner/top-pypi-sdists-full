@@ -32,7 +32,7 @@ class GroqTranslator(BaseTranslator):
     """Translates between unified format and Groq API (OpenAI-style)"""
 
     #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
-    TURN_CONTEXT_AFTER_CACHE_LINE = True
+    PROVIDER = "groq"
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)

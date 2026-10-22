@@ -102,6 +102,19 @@ def extracted_text_length(result: Any) -> int:
     return best
 
 
+def _read_verdict(result: Any):
+    from matrx_scraper.read_judge import judge_read
+
+    text = next((v for v in (getattr(result, "text_data", None), getattr(result, "ai_content", None),
+                             getattr(result, "markdown_renderable", None)) if isinstance(v, str) and v.strip()), "")
+    status = getattr(result, "status_code", None)
+    return judge_read(
+        status=int(status) if isinstance(status, int) and status else None,
+        text=text,
+        title=getattr(result, "title", None),
+    )
+
+
 def assess(result: Any, *, thin_chars: int = THIN_CONTENT_CHARS) -> SanityVerdict:
     """Judge a parsed `ScrapeResult`. Only ever downgrades, never upgrades."""
     chars = extracted_text_length(result)
@@ -127,6 +140,18 @@ def assess(result: Any, *, thin_chars: int = THIN_CONTENT_CHARS) -> SanityVerdic
             failure_reason=BOT_WALL,
             redirected_off_requested_path=changed,
             message="The site showed a bot check instead of the page, so nothing was read.",
+        )
+
+    verdict = _read_verdict(result)
+    if verdict.failed and verdict.reason != "empty":  # no text at all keeps its own, richer branch below
+        # The ONE read judge (``read_judge.judge_read``) with the status the fetcher really saw: a
+        # browser-rendered 404, a soft-404 ("Page not found" served as 200) and a sign-in wall are failed
+        # reads whichever engine produced them. ``bad_status`` is the name the fetcher already uses for HTTP.
+        return SanityVerdict(
+            content_chars=chars,
+            failure_reason="bad_status" if verdict.reason == "http_error" else verdict.reason,
+            redirected_off_requested_path=changed,
+            message=f"We could not read this page: {verdict.detail}.",
         )
 
     if chars == 0:

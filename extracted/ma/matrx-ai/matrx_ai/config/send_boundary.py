@@ -79,6 +79,7 @@ from __future__ import annotations
 import logging
 import time
 from collections import OrderedDict
+from copy import copy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -132,6 +133,11 @@ class SendPrep:
     # What rides after the person's typed text in this send's composed person turn (loop stage),
     # or ``None`` — the law holds (``config/typed_text_last.py``).
     typed_text_problem: str | None = None
+    # THE message list this send renders (loop stage): the newest person turn ordered so it
+    # ENDS with their typed text, this turn's platform block on its own turn before it
+    # (``order_for_wire``). Computed ONCE, here; it is ``wire_config.messages`` and every chat
+    # translator renders exactly it. ``None`` = nothing to order (no person turn).
+    wire_messages: list[Any] | None = None
 
 
 async def prepare_for_send(
@@ -271,20 +277,22 @@ async def prepare_for_send(
         await _stage_live_plan(
             prep, config, conversation_id=conversation_id, organization_id=organization_id
         )
-        # THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): the newest person
-        # turn, composed exactly as every chat translator will render it, must end with their
-        # typed text. Announced loudly, never fatal (``config/typed_text_last.py``).
-        _run_step(
-            prep,
-            "typed_text_last",
-            lambda: _check_typed_text_last(prep, config, conversation_id=conversation_id),
-        )
         _run_step(
             prep,
             "prompt_cache_key",
             lambda: _set_prompt_cache_key(config, conversation_id, request_id),
         )
         _run_step(prep, "wire_config", lambda: _build_wire(prep, config))
+        # THE REQUEST ENDS WITH WHAT THE PERSON TYPED (Arman, 2026-10-19): AFTER the wire clone
+        # (it orders the materialized messages), the newest person turn is ordered ONCE, here,
+        # for the provider this send goes to; translators only render it. The result is checked
+        # and announced loudly, never fatal (``config/typed_text_last.py``).
+        profile = await _send_profile(config, conversation_id=conversation_id)
+        _run_step(
+            prep,
+            "typed_text_last",
+            lambda: order_for_wire(config, profile, prep=prep, conversation_id=conversation_id),
+        )
         # What this send is made of (after the trim, i.e. what really goes out),
         # kept for the request's completion to store on the conversation.
         _run_step(
@@ -754,21 +762,105 @@ def _announce_ceiling_raise(*, model: Any, requested: int, sent: Any, repairs: l
     )
 
 
-def _check_typed_text_last(prep: SendPrep, config: Any, *, conversation_id: str | None) -> None:
+def order_for_wire(
+    config: Any,
+    profile: Any,
+    *,
+    prep: SendPrep | None = None,
+    conversation_id: str | None = None,
+) -> SendPrep:
+    """THE REQUEST ENDS WITH WHAT THE PERSON TYPED: the one home of the typed-text-last reorder.
+
+    Orders the newest person turn of the send (``prep.wire_config`` when the wire clone exists,
+    else ``config``) so it ends with their typed text, this turn's platform block riding its own
+    turn before it (``config/typed_text_last.py`` owns the order). Both inputs are resolved
+    here, never in a translator: whether the provider carries the block after the cache line
+    (``provider_profiles.TURN_CONTEXT_AFTER_CACHE_LINE``) and whether the model rejects two user
+    turns in a row (the profile's ``strict_role_alternation``; that model keeps the block in the
+    documented system-message fallback). Mid tool loop the block is never re-sent.
+
+    The ordered list is stored on ``prep.wire_messages`` and becomes ``prep.wire_config``'s
+    message list (a shallow wire copy when there was none — the canonical config and its ledger
+    are never touched). Every chat translator renders exactly that list
+    (``BaseTranslator.messages_for_wire``). Guard: ``tests/test_send_boundary_guard.py`` (seam
+    "typed-text-last reorder": nothing else calls this or ``place_before_typed_text``).
+    """
+    from matrx_ai.config.provider_profiles import (
+        chat_provider_of,
+        requires_strict_role_alternation,
+        turn_context_after_cache_line,
+    )
     from matrx_ai.config.typed_text_last import (
         announce_problem,
         place_before_typed_text,
         typed_text_problem,
     )
 
-    messages = getattr(config, "messages", None)
-    render = getattr(messages, "render_turn_context", None)
-    block = render() if callable(render) else None
-    composed, _ = place_before_typed_text(list(messages or []), block)
-    problem = typed_text_problem(composed)
+    prep = prep if prep is not None else SendPrep(stage=STAGE_LOOP)
+    source = prep.wire_config if prep.wire_config is not None else config
+    messages = getattr(source, "messages", None)
+    provider = chat_provider_of(profile)
+    if provider is None:
+        # Not a chat turn (speech, image, decision…): its prompt fold keeps the raw list.
+        return prep
+    listed = list(messages or [])
+    block = None
+    if turn_context_after_cache_line(provider) and not requires_strict_role_alternation(profile):
+        last = listed[-1] if listed else None
+        role = getattr(last, "role", None)
+        if str(getattr(role, "value", role) or "").lower() != "tool":
+            render = getattr(messages, "render_turn_context", None)
+            block = render() if callable(render) else None
+    ordered, _placed = place_before_typed_text(listed, block)
+    problem = typed_text_problem(ordered)
     prep.typed_text_problem = problem
     if problem:
         announce_problem(problem, conversation_id=conversation_id, stage=prep.stage)
+    if ordered is listed:
+        return prep
+    prep.wire_messages = ordered
+    wire = prep.wire_config if prep.wire_config is not None else copy(config)
+    wire.messages = _wire_list(messages, ordered)
+    prep.wire_config = wire
+    return prep
+
+
+def _wire_list(messages: Any, ordered: list[Any]) -> Any:
+    """A wire ``MessageList`` carrying ``ordered`` and the ledger's per-turn side channels."""
+    from matrx_ai.config.message_config import MessageList
+
+    if not isinstance(messages, MessageList):
+        return MessageList(_messages=list(ordered))
+    wire = copy(messages)
+    wire._messages = list(ordered)
+    wire._deferred_empty_messages = list(messages._deferred_empty_messages)
+    wire._turn_context_blocks = dict(messages._turn_context_blocks)
+    return wire
+
+
+async def _send_profile(config: Any, *, conversation_id: str | None) -> Any:
+    """The model profile this send is routed to (catalog), or ``None`` — announced, never fatal.
+
+    Read only when there is a person turn to order; the provider call resolves the same profile.
+    """
+    from matrx_ai.config.typed_text_last import person_turn_index
+
+    if person_turn_index(list(getattr(config, "messages", None) or [])) is None:
+        return None
+    try:
+        from matrx_ai.catalog.resolve import resolve_call_profile
+
+        return await resolve_call_profile(
+            str(getattr(config, "model", "") or ""),
+            offering_id=getattr(config, "routing_offering_id", None),
+        )
+    except Exception as exc:  # noqa: BLE001 — the provider call raises its own routing error
+        vcprint(
+            f"[send_boundary] could not resolve the model profile for {conversation_id}: {exc!r} "
+            "— the person turn is NOT ordered at the boundary",
+            color="red",
+        )
+        return None
 
 
 def _set_prompt_cache_key(config: Any, conversation_id: str | None, request_id: str | None) -> None:
@@ -1129,6 +1221,16 @@ def _run_step(prep: SendPrep, name: str, fn: Any) -> None:
             f"[send_boundary/{prep.stage}] step {name!r} failed (ignored): "
             f"{type(exc).__name__}: {exc}",
             color="yellow",
+        )
+        # LOUD, not only on the console: an ERROR line with the traceback reaches app_log, so a
+        # step that fails on every send (``context_breakdown`` failed 344 times unseen) is seen.
+        logger.error(
+            "send_boundary step %r failed (ignored) at stage %s: %s: %s",
+            name,
+            prep.stage,
+            type(exc).__name__,
+            exc,
+            exc_info=True,
         )
 
 

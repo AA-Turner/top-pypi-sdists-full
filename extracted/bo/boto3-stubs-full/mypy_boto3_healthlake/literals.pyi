@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_healthlake.literals import AgentInputMessageTypeType
+    from mypy_boto3_healthlake.literals import AgentErrorTypeType
 
-    data: AgentInputMessageTypeType = "confirmation_response"
+    data: AgentErrorTypeType = "AccessDeniedException"
     ```
 """
 
@@ -22,8 +22,8 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AgentErrorTypeType",
     "AgentInputMessageTypeType",
-    "AgentOutputMessageTypeType",
     "AnalyticsStatusType",
     "AuthorizationStrategyType",
     "BackupStatusType",
@@ -55,10 +55,14 @@ __all__ = (
     "WaiterName",
 )
 
-AgentInputMessageTypeType = Literal["confirmation_response", "normal"]
-AgentOutputMessageTypeType = Literal[
-    "INITIAL_GREETING", "choices", "complete", "confirmation", "error", "normal", "options"
+AgentErrorTypeType = Literal[
+    "AccessDeniedException",
+    "InternalServerException",
+    "ResourceNotFoundException",
+    "ThrottlingException",
+    "ValidationException",
 ]
+AgentInputMessageTypeType = Literal["confirmation_response", "normal"]
 AnalyticsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "PAUSED", "PAUSING"]
 AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_V1"]
 BackupStatusType = Literal["DISABLED", "ENABLED"]
@@ -259,8 +263,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -514,7 +516,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

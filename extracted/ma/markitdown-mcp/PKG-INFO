@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: markitdown-mcp
-Version: 0.0.1a7
+Version: 0.0.1a8
 Summary: An MCP server for the "markitdown" library.
 Project-URL: Documentation, https://github.com/microsoft/markitdown#readme
 Project-URL: Issues, https://github.com/microsoft/markitdown/issues
@@ -16,9 +16,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Requires-Dist: markitdown[all]<0.2.0,>=0.1.1
+Requires-Dist: markitdown[all]<0.2.0,>=0.1.9
 Requires-Dist: mcp<3.0.0,>=2.1.1
-Requires-Dist: requests<3.0.0,>=2.0.0
 Description-Content-Type: text/markdown
 
 # MarkItDown-MCP

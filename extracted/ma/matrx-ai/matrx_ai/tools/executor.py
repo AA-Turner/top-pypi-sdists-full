@@ -796,28 +796,36 @@ class ToolExecutor:
         tool_def: ToolDefinition,
         arguments: dict[str, Any],
         msg: str,
-        validation_error: ValidationError,
+        validation_error: ValidationError | None,
         dispatch_kind: str,
         started_at: float,
+        suggested_action: str = (
+            "Re-read the tool's input schema and call it again with "
+            "exactly the documented arguments (no extra keys)."
+        ),
     ) -> tuple[dict[str, Any], ToolResult]:
         """Terminal reject for a pre-dispatch argument-validation failure —
         error_type='invalid_arguments' (fault_domain model_error), recorded to
         both trace sinks with the full args (forensics: 'what did the model
         actually send?') and streamed to the client."""
-        _note_tool_argument_refusal(
-            ctx=ctx,
-            tool_name=canonical_name,
-            validation_error=validation_error,
-        )
+        if validation_error is not None:
+            _note_tool_argument_refusal(
+                ctx=ctx,
+                tool_name=canonical_name,
+                validation_error=validation_error,
+            )
+        else:
+            vcprint(
+                f"[ToolExecutor] {canonical_name} call refused for its arguments "
+                f"(the model corrects it): {msg[:160]}, call {ctx.call_id}",
+                color="yellow",
+            )
         result = ToolResult(
             success=False,
             error=ToolError(
                 error_type="invalid_arguments",
                 message=f"Invalid arguments for '{tool_name}': {msg}",
-                suggested_action=(
-                    "Re-read the tool's input schema and call it again with "
-                    "exactly the documented arguments (no extra keys)."
-                ),
+                suggested_action=suggested_action,
             ),
             started_at=started_at,
             completed_at=time.time(),
@@ -1326,6 +1334,37 @@ class ToolExecutor:
         # (discriminator, action, removed fields) when pre-flight stripped
         # arguments another action owns — told to the model on the result.
         removed_variant_fields: tuple[str, str, list[str]] | None = None
+
+        # ── Copied context-trim text is never run ─────────────────────────
+        # Old calls in the model's context are trimmed in their own shape, each
+        # cut value ending in a note (config/context_trim.py). A NEW call that
+        # carries the note copied history: running it would send a truncated
+        # value. Refuse it so the model writes the full value (2026-10-21,
+        # conversation 9b224bf5: three calls sent a trim stub as arguments).
+        from matrx_ai.config.context_trim import arguments_carry_trim_marker
+
+        _copied_marker = arguments_carry_trim_marker(arguments or {})
+        if _copied_marker is not None:
+            return await self._reject_invalid_arguments(
+                ctx=ctx,
+                tool_name=tool_name,
+                as_called=as_called,
+                canonical_name=canonical_name,
+                tool_def=tool_def,
+                arguments=arguments or {},
+                msg=(
+                    "these arguments contain text copied from an earlier call that was "
+                    f"trimmed from your context ({_copied_marker!r})."
+                ),
+                validation_error=None,
+                dispatch_kind=_dispatch_kind,
+                started_at=started_at,
+                suggested_action=(
+                    "Write every argument out in full for this call; earlier calls in "
+                    "your context are shortened and must never be copied."
+                ),
+            )
+
         if not is_delegated_pre:
             from matrx_ai.tools._dispatch_util import (
                 coerce_stringified_containers,

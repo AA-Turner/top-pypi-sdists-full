@@ -10,6 +10,7 @@
 
 #include "qwp_mock_c.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -44,8 +45,11 @@ static int tests = 0;
         }                                                                      \
         else                                                                   \
         {                                                                      \
-            fprintf(stderr, "FAILED TEST: %s (%d new errors)\n",               \
-                    #name, errors - before);                                   \
+            fprintf(                                                           \
+                stderr,                                                        \
+                "FAILED TEST: %s (%d new errors)\n",                           \
+                #name,                                                         \
+                errors - before);                                              \
         }                                                                      \
     } while (0)
 
@@ -80,18 +84,74 @@ TEST(test_appended_query_error_codes_have_distinct_values)
 {
     CHECK(
         questdb_error_schema_drift != questdb_error_no_schema &&
-        questdb_error_no_schema != questdb_error_arrow_export &&
-        questdb_error_arrow_export != questdb_error_schema_drift,
+            questdb_error_no_schema != questdb_error_arrow_export &&
+            questdb_error_arrow_export != questdb_error_schema_drift,
         "schema_drift / no_schema / arrow_export distinct");
-    CHECK(questdb_error_schema_drift > questdb_error_failover_would_duplicate,
-          "schema_drift appended (not renumbered)");
+    CHECK(
+        questdb_error_schema_drift > questdb_error_failover_would_duplicate,
+        "schema_drift appended (not renumbered)");
 }
 
 TEST(test_appended_sender_error_codes_exist)
 {
-    CHECK(line_sender_error_arrow_unsupported_column_kind !=
-              line_sender_error_arrow_ingest,
-          "sender error codes distinct");
+    CHECK(
+        line_sender_error_arrow_unsupported_column_kind !=
+            line_sender_error_arrow_ingest,
+        "sender error codes distinct");
+}
+
+TEST(test_symbol_dict_full_is_a_distinct_appended_code)
+{
+    /* A full connection symbol dictionary must be recognisable by code, not by
+     * message text -- that is the whole reason it is not invalid_api_call. */
+    CHECK(
+        line_sender_error_symbol_dict_full !=
+            line_sender_error_invalid_api_call,
+        "symbol_dict_full distinct from invalid_api_call");
+    CHECK(
+        line_sender_error_symbol_dict_full >
+            line_sender_error_store_resend_required,
+        "symbol_dict_full appended (not renumbered)");
+    CHECK(
+        questdb_error_symbol_dict_full == line_sender_error_symbol_dict_full,
+        "neutral alias resolves to the same enumerator");
+}
+
+TEST(test_query_timeout_is_a_distinct_appended_code)
+{
+    /* A query that ran past its own timeout must be recognisable by code:
+     * callers branch on it to avoid retrying a write the server may have
+     * applied anyway. */
+    CHECK(
+        line_sender_error_query_timeout != line_sender_error_cancelled,
+        "query_timeout distinct from cancelled");
+    CHECK(
+        line_sender_error_query_timeout !=
+            line_sender_error_server_limit_exceeded,
+        "query_timeout distinct from server_limit_exceeded");
+    CHECK(
+        line_sender_error_query_timeout != line_sender_error_invalid_api_call,
+        "query_timeout distinct from invalid_api_call");
+    CHECK(
+        line_sender_error_query_timeout > line_sender_error_symbol_dict_full,
+        "query_timeout appended (not renumbered)");
+    CHECK(
+        line_sender_error_query_timeout == 38,
+        "query_timeout discriminant pinned at 38 for cached ABI consumers");
+    CHECK(
+        questdb_error_query_timeout == line_sender_error_query_timeout,
+        "neutral alias resolves to the same enumerator");
+}
+
+TEST(test_query_set_timeout_ms_null_query_is_tolerated)
+{
+    /* Proves the symbol links and argument-marshals under a plain C
+     * compiler (the Cython contract surface), and that the NULL-handle
+     * contract shared by every `qwp_reader_query_*` mutator holds: report
+     * and return, never crash. */
+    qwp_reader_query_set_timeout_ms(NULL, 1000);
+    qwp_reader_query_set_timeout_ms(NULL, 0);
+    CHECK(true, "NULL query handle did not crash");
 }
 
 TEST(test_egress_null_cursor_returns_error_tristate)
@@ -166,8 +226,7 @@ TEST(test_ingress_at_column_null_conn_returns_false)
     memset(&sch, 0, sizeof(sch));
     line_sender_error* err = NULL;
     bool ok = qwp_sender_flush_arrow_batch_at_column(
-        NULL, make_table("t"), &arr, &sch, make_col("ts"),
-        NULL, 0, &err);
+        NULL, make_table("t"), &arr, &sch, make_col("ts"), NULL, 0, &err);
     CHECK(!ok, "NULL conn → false");
     CHECK(err != NULL, "err_out populated");
     if (err)
@@ -199,8 +258,8 @@ TEST(test_chunk_append_arrow_column_null_chunk)
     memset(&arr, 0, sizeof(arr));
     memset(&sch, 0, sizeof(sch));
     line_sender_error* err = NULL;
-    bool ok = qwp_chunk_append_arrow_column(
-        NULL, "v", 1, &arr, &sch, 0, 0, &err);
+    bool ok =
+        qwp_chunk_append_arrow_column(NULL, "v", 1, &arr, &sch, 0, 0, &err);
     CHECK(!ok, "NULL chunk → false");
     CHECK(err != NULL, "err_out populated");
     if (err)
@@ -221,8 +280,8 @@ TEST(test_chunk_append_arrow_column_null_array_schema)
     CHECK(err == NULL, "no err on chunk_new");
     if (!chunk)
         return;
-    bool ok = qwp_chunk_append_arrow_column(
-        chunk, "v", 1, NULL, NULL, 0, 0, &err);
+    bool ok =
+        qwp_chunk_append_arrow_column(chunk, "v", 1, NULL, NULL, 0, 0, &err);
     CHECK(!ok, "NULL array+schema → false");
     CHECK(err != NULL, "err_out populated");
     if (err)
@@ -275,8 +334,8 @@ TEST(test_chunk_append_arrow_column_valid_i64_smoke)
     sch.release = noop_schema_release;
     sch.private_data = NULL;
 
-    bool ok = qwp_chunk_append_arrow_column(
-        chunk, "v", 1, &arr, &sch, 0, 1, &err);
+    bool ok =
+        qwp_chunk_append_arrow_column(chunk, "v", 1, &arr, &sch, 0, 1, &err);
     CHECK(ok, "valid i64 append → true");
     CHECK(err == NULL, "no err on success");
     if (err)
@@ -971,16 +1030,15 @@ static void expect_arrow_array_rejected(
             sch->release(sch);
         return;
     }
-    bool ok = qwp_chunk_append_arrow_column(
-        chunk, "v", 1, arr, sch, 0, 0, &err);
+    bool ok =
+        qwp_chunk_append_arrow_column(chunk, "v", 1, arr, sch, 0, 0, &err);
     CHECK(!ok, label);
     CHECK(err != NULL, "err_out populated on malformed array");
     if (err)
     {
         int code = (int)line_sender_error_get_code(err);
-        int accepted =
-            code == line_sender_error_arrow_ingest ||
-            code == line_sender_error_invalid_api_call;
+        int accepted = code == line_sender_error_arrow_ingest ||
+                       code == line_sender_error_invalid_api_call;
         CHECK(accepted, "malformed array → structured error (not abort)");
         line_sender_error_free(err);
     }
@@ -1036,9 +1094,7 @@ TEST(test_chunk_append_arrow_column_malformed_array_rejected)
 /* Open a mock + questdb_db + borrow a conn. Returns NULL on any setup
  * failure; populates *out_db / *out_mock on success. */
 static qwp_sender* mock_borrow_sender_frames(
-    qwp_mock_c** out_mock,
-    questdb_db** out_db,
-    int frame_count)
+    qwp_mock_c** out_mock, questdb_db** out_db, int frame_count)
 {
     *out_mock = NULL;
     *out_db = NULL;
@@ -1048,8 +1104,10 @@ static qwp_sender* mock_borrow_sender_frames(
     const char* addr = qwp_mock_c_addr(mock);
     char conf[256];
     snprintf(
-        conf, sizeof(conf),
-        "ws::addr=%s;lazy_connect=true;sender_pool_min=1;pool_reap=manual;close_flush_timeout_millis=0;",
+        conf,
+        sizeof(conf),
+        "ws::addr=%s;lazy_connect=true;sender_pool_min=1;pool_reap=manual;"
+        "close_flush_timeout_millis=0;",
         addr);
     line_sender_error* err = NULL;
     questdb_db* db = questdb_db_connect(conf, strlen(conf), &err);
@@ -1075,8 +1133,7 @@ static qwp_sender* mock_borrow_sender_frames(
 }
 
 static qwp_sender* mock_borrow_sender(
-    qwp_mock_c** out_mock,
-    questdb_db** out_db)
+    qwp_mock_c** out_mock, questdb_db** out_db)
 {
     return mock_borrow_sender_frames(out_mock, out_db, 1);
 }
@@ -1119,8 +1176,8 @@ TEST(test_one_sender_flushes_buffer_and_chunk)
             "buffer published through unified sender");
     }
 
-    qwp_chunk* chunk = qwp_chunk_new(
-        "mixed_c_chunk", strlen("mixed_c_chunk"), &err);
+    qwp_chunk* chunk =
+        qwp_chunk_new("mixed_c_chunk", strlen("mixed_c_chunk"), &err);
     CHECK(chunk != NULL, "chunk constructed");
     if (chunk != NULL)
     {
@@ -1148,8 +1205,10 @@ TEST(test_one_sender_flushes_buffer_and_chunk)
 }
 
 static void run_arrow_flush(
-    struct ArrowArray* arr, struct ArrowSchema* sch,
-    const char* table, const char* label)
+    struct ArrowArray* arr,
+    struct ArrowSchema* sch,
+    const char* table,
+    const char* label)
 {
     qwp_mock_c* mock;
     questdb_db* db;
@@ -1165,8 +1224,8 @@ static void run_arrow_flush(
     }
     line_sender_error* err = NULL;
     line_sender_table_name tbl = make_table(table);
-    bool ok = qwp_sender_flush_arrow_batch_at_now(
-        conn, tbl, arr, sch, NULL, 0, &err);
+    bool ok =
+        qwp_sender_flush_arrow_batch_at_now(conn, tbl, arr, sch, NULL, 0, &err);
     if (!ok)
     {
         CHECK(err != NULL, "err_out populated on failure");
@@ -1230,8 +1289,7 @@ TEST(test_mock_ingress_at_column_empty_name_via_real_conn)
     if (err)
     {
         CHECK(
-            line_sender_error_get_code(err) ==
-                line_sender_error_invalid_name,
+            line_sender_error_get_code(err) == line_sender_error_invalid_name,
             "empty column name → invalid_name");
         line_sender_error_free(err);
     }
@@ -1285,14 +1343,16 @@ TEST(test_mock_ingress_float32_float64_columns)
         struct ArrowArray arr;
         struct ArrowSchema sch;
         build_primitive(3, sizeof(float), values, "f", "f3", &arr, &sch);
-        run_arrow_flush(&arr, &sch, "f32_t", "float32 accepted/structured-error");
+        run_arrow_flush(
+            &arr, &sch, "f32_t", "float32 accepted/structured-error");
     }
     {
         double values[3] = {1.5, -2.5, 3.14159};
         struct ArrowArray arr;
         struct ArrowSchema sch;
         build_primitive(3, sizeof(double), values, "g", "f6", &arr, &sch);
-        run_arrow_flush(&arr, &sch, "f64_t", "float64 accepted/structured-error");
+        run_arrow_flush(
+            &arr, &sch, "f64_t", "float64 accepted/structured-error");
     }
 }
 
@@ -1305,7 +1365,8 @@ TEST(test_mock_ingress_timestamp_microseconds)
     /* Designated TS comes from the column itself via the at_column
      * variant; here we use the no-ts variant so the server stamps each
      * row on arrival. */
-    run_arrow_flush(&arr, &sch, "ts_t", "timestamp(µs) accepted/structured-error");
+    run_arrow_flush(
+        &arr, &sch, "ts_t", "timestamp(µs) accepted/structured-error");
 }
 
 TEST(test_mock_ingress_both_designated_timestamp_variants)
@@ -1323,7 +1384,8 @@ TEST(test_mock_ingress_both_designated_timestamp_variants)
         struct ArrowArray arr;
         struct ArrowSchema sch;
         build_primitive(2, sizeof(int64_t), values, "l", "v", &arr, &sch);
-        run_arrow_flush(&arr, &sch, "dts_t_now", "no-ts accepted/structured-error");
+        run_arrow_flush(
+            &arr, &sch, "dts_t_now", "no-ts accepted/structured-error");
     }
 
     /* At-column variant — pass a non-existent column name. The impl
@@ -1355,9 +1417,8 @@ TEST(test_mock_ingress_both_designated_timestamp_variants)
         if (err)
         {
             int code = (int)line_sender_error_get_code(err);
-            int accepted =
-                code == line_sender_error_arrow_ingest ||
-                code == line_sender_error_invalid_api_call;
+            int accepted = code == line_sender_error_arrow_ingest ||
+                           code == line_sender_error_invalid_api_call;
             CHECK(accepted, "missing ts column → structured error");
             line_sender_error_free(err);
         }
@@ -1420,9 +1481,8 @@ TEST(test_mock_ingress_arrow_release_contract)
         if (err)
         {
             int code = (int)line_sender_error_get_code(err);
-            int accepted =
-                code == line_sender_error_arrow_ingest ||
-                code == line_sender_error_invalid_api_call;
+            int accepted = code == line_sender_error_arrow_ingest ||
+                           code == line_sender_error_invalid_api_call;
             CHECK(accepted, "malformed +l → structured error (not abort)");
             line_sender_error_free(err);
         }
@@ -1458,11 +1518,136 @@ TEST(test_mock_ingress_arrow_release_contract)
     mock_return_close(mock, db, conn);
 }
 
+#define NATIVE_CHECK(expr)                                                     \
+    do                                                                         \
+    {                                                                          \
+        bool pass_ = (expr);                                                   \
+        CHECK(pass_, #expr);                                                   \
+        if (!pass_)                                                            \
+            return;                                                            \
+    } while (0)
+#define NATIVE_OK(expr)                                                        \
+    do                                                                         \
+    {                                                                          \
+        NATIVE_CHECK(expr);                                                    \
+        NATIVE_CHECK(err == NULL);                                             \
+    } while (0)
+#define NATIVE_BAD(expr)                                                       \
+    do                                                                         \
+    {                                                                          \
+        NATIVE_CHECK(!(expr));                                                 \
+        NATIVE_CHECK(err != NULL);                                             \
+        NATIVE_CHECK(                                                          \
+            line_sender_error_get_code(err) ==                                 \
+            line_sender_error_invalid_api_call);                               \
+        line_sender_error_free(err);                                           \
+        err = NULL;                                                            \
+    } while (0)
+
+TEST(test_native_decimal_and_array_columns)
+{
+    line_sender_error* err = NULL;
+    qwp_chunk* chunk = qwp_chunk_new("native_columns", 14, &err);
+    NATIVE_CHECK(chunk != NULL && err == NULL);
+    const int64_t decimals[] = {12345, 0, -12345};
+    /* Offsets deliberately remove any int128 alignment guarantee. */
+    uint8_t wide128[49] = {0};
+    uint8_t wide256[97] = {0};
+    wide128[1] = 1;
+    wide256[1] = 1;
+    memset(wide128 + 33, 0xff, 16);
+    memset(wide256 + 65, 0xff, 32);
+    const uint8_t bits[] = {5};
+    const qwp_validity valid = {bits, 3};
+    const qwp_validity wrong_validity = {bits, 2};
+    const double arrays[] = {
+        100.25, NAN, 10, 20, 0, 0, 0, 0, 101, 100.5, 30, 40};
+    const uint32_t shape[] = {2, 2};
+    const uint32_t zero_shape[] = {2, 0};
+
+    NATIVE_BAD(qwp_chunk_column_decimal64(
+        chunk, "d64", 3, decimals, 3, 19, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal128(
+        chunk, "d128", 4, wide128 + 1, 3, 39, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal256(
+        chunk, "d256", 4, wide256 + 1, 3, 77, NULL, &err));
+    NATIVE_BAD(
+        qwp_chunk_column_decimal64(chunk, "d64", 3, NULL, 3, 2, NULL, &err));
+    NATIVE_BAD(
+        qwp_chunk_column_decimal128(chunk, "d128", 4, NULL, 3, 9, NULL, &err));
+    NATIVE_BAD(
+        qwp_chunk_column_decimal256(chunk, "d256", 4, NULL, 3, 76, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal128(
+        NULL, "d128", 4, wide128 + 1, 3, 9, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal256(
+        chunk, "d256", 4, wide256 + 1, SIZE_MAX, 0, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, 12, 3, shape, 0, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, 12, 3, shape, 33, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, 12, 3, zero_shape, 2, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, 11, 3, shape, 2, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, NULL, 12, 3, shape, 2, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, 12, 3, NULL, 2, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, SIZE_MAX, 3, shape, 2, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal64(
+        chunk, "d64", 3, decimals, 3, 2, &wrong_validity, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal128(
+        chunk, "d128", 4, wide128 + 1, 3, 9, &wrong_validity, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal256(
+        chunk, "d256", 4, wide256 + 1, 3, 76, &wrong_validity, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, 12, 3, shape, 2, &wrong_validity, &err));
+    NATIVE_CHECK(qwp_chunk_row_count(chunk, &err) == 0 && err == NULL);
+
+    NATIVE_OK(qwp_chunk_column_decimal64(
+        chunk, "d64", 3, decimals, 3, 18, &valid, &err));
+    NATIVE_OK(qwp_chunk_column_decimal128(
+        chunk, "d128", 4, wide128 + 1, 3, 38, &valid, &err));
+    NATIVE_OK(qwp_chunk_column_decimal256(
+        chunk, "d256", 4, wide256 + 1, 3, 76, &valid, &err));
+    NATIVE_OK(qwp_chunk_column_f64_array(
+        chunk, "a", 1, arrays, 12, 3, shape, 2, &valid, &err));
+    NATIVE_CHECK(qwp_chunk_row_count(chunk, &err) == 3 && err == NULL);
+    NATIVE_BAD(qwp_chunk_column_decimal64(
+        chunk, "d64", 3, decimals, 3, 0, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_decimal128(
+        chunk, "other", 5, wide128 + 1, 2, 0, NULL, &err));
+    NATIVE_BAD(qwp_chunk_column_f64_array(
+        chunk, "other", 5, arrays, 4, 1, shape, 2, NULL, &err));
+    qwp_chunk_free(chunk);
+
+    chunk = qwp_chunk_new("empty", 5, &err);
+    NATIVE_CHECK(chunk != NULL && err == NULL);
+    NATIVE_OK(
+        qwp_chunk_column_decimal64(chunk, "d64", 3, NULL, 0, 0, NULL, &err));
+    NATIVE_OK(
+        qwp_chunk_column_decimal128(chunk, "d128", 4, NULL, 0, 0, NULL, &err));
+    NATIVE_OK(
+        qwp_chunk_column_decimal256(chunk, "d256", 4, NULL, 0, 0, NULL, &err));
+    NATIVE_OK(qwp_chunk_column_f64_array(
+        chunk, "a", 1, NULL, 0, 0, shape, 2, NULL, &err));
+    qwp_chunk_free(chunk);
+}
+
+#undef NATIVE_CHECK
+#undef NATIVE_OK
+#undef NATIVE_BAD
+
 int main(void)
 {
     RUN(test_tristate_egress_enum_values);
+    RUN(test_native_decimal_and_array_columns);
     RUN(test_appended_query_error_codes_have_distinct_values);
     RUN(test_appended_sender_error_codes_exist);
+    RUN(test_symbol_dict_full_is_a_distinct_appended_code);
+    RUN(test_query_timeout_is_a_distinct_appended_code);
+    RUN(test_query_set_timeout_ms_null_query_is_tolerated);
     RUN(test_egress_null_cursor_returns_error_tristate);
     RUN(test_egress_null_out_array_returns_error_tristate);
     RUN(test_ingress_null_conn_returns_false);

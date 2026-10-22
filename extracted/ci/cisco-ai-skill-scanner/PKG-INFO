@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cisco-ai-skill-scanner
-Version: 2.3.0
+Version: 2.3.1
 Summary: Security scanner for Agent Skills packages - Detects prompt injection, data exfiltration, and malicious code
 Project-URL: Homepage, https://github.com/cisco-ai-defense/skill-scanner
 Project-URL: Documentation, https://github.com/cisco-ai-defense/skill-scanner#readme
@@ -35,7 +35,7 @@ Requires-Dist: click>=8.3.3
 Requires-Dist: confusable-homoglyphs<4,>=3.3
 Requires-Dist: fastapi<1,>=0.115
 Requires-Dist: httpx<1,>=0.27
-Requires-Dist: litellm<2,>=1.89.7
+Requires-Dist: litellm!=1.107.0,<2,>=1.89.7
 Requires-Dist: magika<2,>=1.0
 Requires-Dist: oletools<1,>=0.60
 Requires-Dist: openai<3,>=2.0
@@ -146,6 +146,7 @@ Deep-dive pages live in [`docs/`](docs/README.md).
 | [Architecture](docs/architecture/index.md) | System design and components |
 | [CEL Decision Layer](docs/architecture/cel-decision-layer.md) | Typed facts, safety bounds, rollout modes, and telemetry |
 | [Threat Taxonomy](docs/architecture/threat-taxonomy.md) | Complete AITech threat taxonomy with examples |
+| [Taxonomy Reference](docs/architecture/taxonomy-reference.md) | Definitions of every AITech and AISubtech code |
 | [LLM Analyzer](docs/architecture/analyzers/llm-analyzer.md) | LLM configuration and usage |
 | [System One Analyzer](docs/architecture/analyzers/system-one-analyzer.md) | Optional advisory screening tier, and why it cannot gate |
 | [Meta-Analyzer](docs/architecture/analyzers/meta-analyzer.md) | Optional second-pass review (off by default; measured cost) |

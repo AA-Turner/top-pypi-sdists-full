@@ -272,17 +272,7 @@ def get_renderer(
         )
 
     if _is_qwen35_template(name_lower):
-        # Flash-Next's text-only worker consumes flat training datums. The VL
-        # renderer emits model_input chunks, which require a vision processor.
-        renderer_type = (
-            Qwen35Renderer
-            if re.search(
-                r"(?:^|[^a-z0-9])qwen3[._]8[-_]flash[-_]next(?:$|[^a-z0-9])",
-                name_lower,
-            )
-            else Qwen35VLRenderer
-        )
-        return renderer_type(
+        return Qwen35VLRenderer(
             tokenizer,
             # 3.8 defaults ``preserve_thinking`` on, which is the inverse of
             # this flag; 3.5/3.6 default it off.

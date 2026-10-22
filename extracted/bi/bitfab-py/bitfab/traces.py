@@ -560,8 +560,8 @@ class TracesClient:
 
         Returns once the text is saved. Each entry with assertion text comes
         back with ``rewrite["status"] == "pending"`` while Bitfab checks it
-        against the trace in the background and, when it breaks the writing
-        rules, rewrites it in place, usually within a minute. Read the result
+        against the writing rules in the background and, when it breaks
+        one, rewrites it in place, usually within a minute. Read the result
         later with ``get_assertions``, whose rows carry ``rewrite``. Pass
         ``skip_guided_rewrite=True`` to save the text exactly as sent with no
         check.
@@ -582,8 +582,8 @@ class TracesClient:
         """Save assertions on several traces in one request.
 
         Returns once the text is saved as sent. Bitfab then checks each entry's
-        assertion text against its trace in the background and, when it breaks
-        the writing rules (two claims in one, a condition, a value pointed at
+        assertion text against the writing rules in the background and, when it
+        breaks one (two claims in one, a condition, a value pointed at
         instead of stated, an id from the recorded run, or wording that cannot
         be measured), rewrites it in place into one well-formed assertion,
         usually within a minute.

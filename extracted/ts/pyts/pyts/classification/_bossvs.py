@@ -4,7 +4,7 @@
 # License: BSD-3-Clause
 
 from math import ceil
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -17,10 +17,10 @@ from sklearn.utils.validation import check_array, check_is_fitted, check_X_y
 
 from pyts._base import UnivariateClassifierMixin
 from pyts.approximation import SymbolicFourierApproximation
-from pyts.utils._utils import _windowed_view
+from pyts.utils._utils import _windowed_view, _word_vectorizer_params
 
 
-class BOSSVS(BaseEstimator, UnivariateClassifierMixin):
+class BOSSVS(UnivariateClassifierMixin, BaseEstimator):
     """Bag-of-SFA Symbols in Vector Space.
 
     Each time series is transformed into an histogram using the
@@ -69,7 +69,7 @@ class BOSSVS(BaseEstimator, UnivariateClassifierMixin):
         - 'normal': Bin edges are quantiles from a standard normal distribution
         - 'entropy': Bin edges are computed using information gain
 
-    alphabet : None, 'ordinal' or array-like, shape = (n_bins,)
+    alphabet : None or array-like, shape = (n_bins,)
         Alphabet to use. If None, the first `n_bins` letters of the Latin
         alphabet are used.
 
@@ -216,6 +216,7 @@ class BOSSVS(BaseEstimator, UnivariateClassifierMixin):
             use_idf=self.use_idf,
             smooth_idf=self.smooth_idf,
             sublinear_tf=self.sublinear_tf,
+            **_word_vectorizer_params(),
         )
         # sklearn has no py.typed stubs, so TfidfVectorizer.fit_transform's
         # return type is inferred from source as the generic `spmatrix`
@@ -250,7 +251,7 @@ class BOSSVS(BaseEstimator, UnivariateClassifierMixin):
 
         """
         check_is_fitted(self, ['vocabulary_', 'tfidf_', 'idf_', '_tfidf'])
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         n_samples, n_timestamps = X.shape
 
         X_windowed = _windowed_view(
@@ -298,6 +299,19 @@ class BOSSVS(BaseEstimator, UnivariateClassifierMixin):
         return self.classes_[self.decision_function(X).argmax(axis=1)]
 
     def _check_params(self, n_timestamps: int) -> tuple[int, int]:
+        # Words are built by joining symbols into space-separated tokens, so
+        # the integer symbols of ``alphabet='ordinal'`` cannot be supported:
+        # once there are more than 10 bins, joined integers are ambiguous
+        # (``'1' + '11'`` and ``'11' + '1'`` give the same word). It is
+        # rejected here with a clear error, as in SAXVSM and BagOfWords.
+        if not (
+            self.alphabet is None
+            or isinstance(self.alphabet, (list, tuple, np.ndarray))
+        ):
+            raise TypeError(
+                "'alphabet' must be None or array-like "
+                f"with shape (n_bins,) (got {self.alphabet})."
+            )
         if not isinstance(self.word_size, (int, np.integer)):
             raise TypeError("'word_size' must be an integer.")
         if not self.word_size >= 1:

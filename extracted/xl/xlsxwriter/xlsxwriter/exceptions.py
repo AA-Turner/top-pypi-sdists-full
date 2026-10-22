@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 
@@ -54,3 +54,7 @@ class FileCreateError(XlsxFileError):
 
 class FileSizeError(XlsxFileError):
     """Filesize would require ZIP64 extensions. Use workbook.use_zip64()."""
+
+
+class ThemeFileError(XlsxFileError):
+    """Error when processing a custom theme file."""

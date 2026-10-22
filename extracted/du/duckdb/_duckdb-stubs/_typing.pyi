@@ -8,7 +8,7 @@ from collections.abc import Mapping, Iterator, Sequence, Callable
 
 if TYPE_CHECKING:
     import pyarrow as pa
-    from ._expression import Expression
+    from duckdb._expression import Expression
     from ._sqltypes import DuckDBPyType
 
 # Numpy protocols
@@ -133,7 +133,7 @@ Note:
     We use lowercase here to be able to reuse this `Literal` in the `DTypeIdentifiers` `Literal`.
 """
 
-NestedIds: TypeAlias = Literal["list", "struct", "array", "enum", "map", "decimal", "union"]
+NestedIds: TypeAlias = Literal["list", "struct", "tuple", "array", "enum", "map", "decimal", "union"]
 """Identifiers for nested types in `DuckDBPyType.id`."""
 
 PyTypeIds: TypeAlias = Builtins | NestedIds

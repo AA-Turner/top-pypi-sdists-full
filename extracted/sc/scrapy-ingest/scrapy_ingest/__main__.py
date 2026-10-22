@@ -1,4 +1,5 @@
 """Allow ``python -m scrapy_ingest`` when the ``scrapy-ingest.exe`` shim is blocked."""
+
 import sys
 
 from scrapy_ingest.cli import main

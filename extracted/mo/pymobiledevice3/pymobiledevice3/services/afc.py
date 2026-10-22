@@ -47,7 +47,6 @@ from pygnuutils.ls import Ls, LsStub
 from pymobiledevice3.common import get_home_folder
 from pymobiledevice3.exceptions import AfcException, AfcFileNotFoundError, ArgumentError, ConnectionTerminatedError
 from pymobiledevice3.interactive_shell import Arg, CompletionContext, InteractiveShell, shell_command
-from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.progress import BYTES_UNIT, ProgressBar
 from pymobiledevice3.safe_paths import device_file_path, validate_device_filename
@@ -290,8 +289,6 @@ class AfcService(LockdownService):
         :param lockdown: Lockdown service provider for establishing connection
         :param service_name: Optional service name override. Auto-detected if None
         """
-        if service_name is None:
-            service_name = self.SERVICE_NAME if isinstance(lockdown, LockdownClient) else self.RSD_SERVICE_NAME
         super().__init__(lockdown, service_name)
         self.packet_num = 0
         # Demux state — populated in __aenter__, torn down in __aexit__
@@ -689,7 +686,7 @@ class AfcService(LockdownService):
         if undeleted_items:
             # AfcException mis-annotates `status` as str; it accepts AfcError/None at runtime
             raise AfcException(
-                f"Failed to delete paths: {undeleted_items}",
+                f"Failed to delete: {', '.join(undeleted_items)}",
                 None,
             )
 
@@ -769,7 +766,7 @@ class AfcService(LockdownService):
         except AfcException as e:
             if e.status != AfcError.READ_ERROR:
                 raise
-            raise AfcFileNotFoundError(e.args[0], e.status) from e
+            raise AfcFileNotFoundError(f"No such file on the device: {filename}", e.status, filename) from e
 
         stat["st_size"] = int(stat["st_size"])
         stat["st_blocks"] = int(stat["st_blocks"])
@@ -845,7 +842,7 @@ class AfcService(LockdownService):
         :raises AfcException: if the file could not be opened.
         """
         if mode not in AFC_FOPEN_TEXTUAL_MODES:
-            raise ArgumentError(f"mode can be only one of: {AFC_FOPEN_TEXTUAL_MODES.keys()}")
+            raise ArgumentError(f"Invalid file mode {mode!r}; use one of: {', '.join(AFC_FOPEN_TEXTUAL_MODES)}")
 
         data = await self._do_operation(
             AfcOpcode.FILE_OPEN,
@@ -882,7 +879,7 @@ class AfcService(LockdownService):
             if await self.exists(source):
                 raise
             raise AfcFileNotFoundError(
-                f"Failed to rename {source} into {target}. Got status: {e.status}", e.args[0], str(e.status)
+                f"Failed to rename {source} to {target}: {source} no longer exists.", e.status, source
             ) from e
 
     async def fread(self, handle: int, sz: int) -> bytes:
@@ -906,7 +903,7 @@ class AfcService(LockdownService):
                 AfcOpcode.READ, AfcFreadRequest(handle=handle, size=to_read).build()
             )
             if status != AfcError.SUCCESS:
-                raise AfcException("fread error", status)
+                raise AfcException("Failed to read from the file.", status)
             sz -= to_read
             data += chunk
         return data
@@ -944,13 +941,13 @@ class AfcService(LockdownService):
             chunk = data[i * chunk_size : (i + 1) * chunk_size]
             status, _ = await self._send_and_wait(AfcOpcode.WRITE, file_handle + chunk, this_length=48)
             if status != AfcError.SUCCESS:
-                raise AfcException(f"failed to write chunk: {status}", status)
+                raise AfcException("Failed to write to the file.", status)
 
         if len(data) % chunk_size:
             chunk = data[chunks_count * chunk_size :]
             status, _ = await self._send_and_wait(AfcOpcode.WRITE, file_handle + chunk, this_length=48)
             if status != AfcError.SUCCESS:
-                raise AfcException(f"failed to write last chunk: {status}", status)
+                raise AfcException("Failed to write to the file.", status)
 
     @path_to_str()
     async def resolve_path(self, filename: str) -> str:
@@ -988,11 +985,11 @@ class AfcService(LockdownService):
         info = await self.stat(filename)
 
         if info["st_ifmt"] != "S_IFREG":
-            raise AfcException(f"{filename} isn't a file", AfcError.INVALID_ARG, filename)
+            raise AfcException(f"Not a regular file: {filename}", AfcError.INVALID_ARG, filename)
 
         h = await self.fopen(filename)
         if not h:
-            raise AfcException(f"failed to open {filename}", AfcError.INTERNAL_ERROR, filename)
+            raise AfcException(f"Failed to open {filename}", AfcError.INTERNAL_ERROR, filename)
         d = await self.fread(h, int(info["st_size"]))
         await self.fclose(h)
         return d
@@ -1101,32 +1098,6 @@ class AfcService(LockdownService):
         self.packet_num += 1
         await self.service.sendall(header + data)
         return pkt_num
-
-    async def _receive_data(self):
-        """
-        Receive an AFC protocol response packet from the device.
-
-        .. deprecated::
-            Internal use only. External callers should use `_do_operation` or
-            `_send_and_wait` which use the background demux reader.
-
-        :return: Tuple of (status_code, response_data)
-        """
-        header_bytes = await self.service.recvall(AFC_HEADER_SIZE)
-        status = AfcError.SUCCESS
-        data = b""
-        if header_bytes:
-            header = AfcHeader.parse(header_bytes)
-            assert header.entire_length >= AFC_HEADER_SIZE
-            length = header.entire_length - AFC_HEADER_SIZE
-            data = await self.service.recvall(length)
-            if header.operation == AfcOpcode.STATUS:
-                if length != 8:
-                    self.logger.error("Status length != 8")
-                status = parse_afc_status(data)
-            elif header.operation != AfcOpcode.DATA:
-                self.logger.debug("Unexpected AFC opcode %s", header.operation)
-        return status, data
 
     async def _send_and_wait(self, operation: AfcOpcode, data: bytes, this_length: int = 0):
         """
@@ -1450,7 +1421,7 @@ class AfcShell(InteractiveShell):
         directory = self.relative_path(directory)
         directory = posixpath.normpath(directory)
         if not await self.afc.exists(directory):
-            raise ArgumentError(f"{directory} does not exist")
+            raise ArgumentError(f"No such directory: {directory}")
         self.cwd = directory
 
     @shell_command(raw=True, completer=path_completer)

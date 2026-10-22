@@ -3,6 +3,7 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 
 use super::{DetectionConfig, env_non_empty};
+use crate::tls::RootStoreProvider;
 
 /// Abstraction over the STS `GetCallerIdentity` lookup used by `has_aws_identity`,
 /// so tests can inject a canned ARN, `None`, or a delay instead of hitting live
@@ -11,10 +12,13 @@ pub(crate) trait CallerIdentityProvider: Send + Sync {
     fn caller_identity_arn(&self) -> BoxFuture<'_, Option<String>>;
 }
 
-pub(crate) struct StsCallerIdentityProvider;
+pub(crate) struct StsCallerIdentityProvider {
+    pub(crate) roots: RootStoreProvider,
+}
 
 impl CallerIdentityProvider for StsCallerIdentityProvider {
     fn caller_identity_arn(&self) -> BoxFuture<'_, Option<String>> {
+        let roots = self.roots.clone();
         async move {
             // Route the SDK through the driver's reqwest transport rather than
             // aws-smithy-http-client's bundled TLS stack, for the same reason
@@ -25,7 +29,9 @@ impl CallerIdentityProvider for StsCallerIdentityProvider {
             // redirects/gzip/HTTP2 -- see `tls::aws_http_client`); default TLS
             // matches the plain client platform detection already uses.
             let sdk_http =
-                match crate::tls::aws_http_client::AwsSdkReqwestClient::with_default_tls() {
+                match crate::tls::aws_http_client::AwsSdkReqwestClient::with_default_tls(roots)
+                    .await
+                {
                     Ok(sdk_http) => sdk_http,
                     Err(err) => {
                         // `warn`, not `debug`: the probe reports absence of an

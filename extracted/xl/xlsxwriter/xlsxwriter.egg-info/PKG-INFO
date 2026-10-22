@@ -1,13 +1,15 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: xlsxwriter
-Version: 3.2.9
+Version: 3.3.0
 Summary: A Python module for creating Excel XLSX files.
-Home-page: https://github.com/jmcnamara/XlsxWriter
-Author: John McNamara
-Author-email: jmcnamara@cpan.org
-License: BSD-2-Clause
+Author-email: John McNamara <jmcnamara@cpan.org>
+License-Expression: BSD-2-Clause
+Project-URL: Homepage, https://github.com/jmcnamara/XlsxWriter
+Project-URL: Documentation, https://xlsxwriter.readthedocs.io
+Project-URL: Repository, https://github.com/jmcnamara/XlsxWriter
+Project-URL: Issues, https://github.com/jmcnamara/XlsxWriter/issues
+Project-URL: Changelog, https://github.com/jmcnamara/XlsxWriter/blob/main/Changes
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
@@ -17,16 +19,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: home-page
-Dynamic: license
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 XlsxWriter
 ==========

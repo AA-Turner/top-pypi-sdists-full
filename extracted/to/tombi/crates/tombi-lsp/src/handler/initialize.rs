@@ -1,18 +1,21 @@
 use tombi_text::EncodingKind;
 use tower_lsp_server::gen_lsp_types::{
-    ChangeNotifications, ClientCapabilities, ClientInfo, CodeActionProvider, CompletionOptions, DeclarationProvider,
-    DefinitionProvider, DiagnosticOptions, DiagnosticProvider, DocumentFormattingProvider, DocumentLinkOptions,
-    DocumentSymbolProvider, FileOperationFilter, FileOperationOptions, FileOperationPattern, FileOperationPatternKind,
-    FileOperationRegistrationOptions, FoldingRangeProvider, Full, HoverProvider, InitializeParams, InitializeResult,
-    InlayHintOptions, InlayHintProvider, ReferencesProvider, Save, SemanticTokensLegend, SemanticTokensOptions,
-    ServerCapabilities, ServerCompletionItemOptions, ServerInfo, TextDocumentSync, TextDocumentSyncKind,
-    TextDocumentSyncOptions, TypeDefinitionProvider, WorkDoneProgressOptions, WorkspaceFoldersServerCapabilities,
+    ChangeNotifications, ClientCapabilities, ClientInfo, CodeActionProvider, CompletionOptions,
+    DeclarationProvider, DefinitionProvider, DiagnosticOptions, DiagnosticProvider,
+    DocumentFormattingProvider, DocumentLinkOptions, DocumentSymbolProvider, FileOperationFilter,
+    FileOperationOptions, FileOperationPattern, FileOperationPatternKind,
+    FileOperationRegistrationOptions, FoldingRangeProvider, Full, HoverProvider, InitializeParams,
+    InitializeResult, InlayHintOptions, InlayHintProvider, ReferencesProvider, Save,
+    SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities, ServerCompletionItemOptions,
+    ServerInfo, TextDocumentSync, TextDocumentSyncKind, TextDocumentSyncOptions,
+    TypeDefinitionProvider, WorkDoneProgressOptions, WorkspaceFoldersServerCapabilities,
     WorkspaceOptions,
 };
 
 use crate::{
     Backend,
     backend::{BackendCapabilities, DiagnosticMode},
+    initialization_options::InitializationOptions,
     semantic_tokens::SUPPORTED_TOKEN_TYPES,
 };
 
@@ -26,6 +29,7 @@ pub async fn handle_initialize(
     let InitializeParams {
         capabilities: client_capabilities,
         client_info,
+        initialization_options,
         ..
     } = params;
 
@@ -42,6 +46,14 @@ pub async fn handle_initialize(
         .and_then(|workspace| workspace.diagnostics.as_ref())
         .and_then(|diagnostic| diagnostic.refresh_support)
         .unwrap_or_default();
+    backend_capabilities.multiline_token_support = client_capabilities
+        .text_document
+        .as_ref()
+        .and_then(|text_document| text_document.semantic_tokens.as_ref())
+        .and_then(|semantic_tokens| semantic_tokens.multiline_token_support)
+        .unwrap_or_default();
+    backend_capabilities.semantic_tokens_settings =
+        InitializationOptions::from_value(initialization_options).semantic_tokens;
     if let Some(text_document_capabilities) = client_capabilities.text_document.as_ref()
         && let Some(diagnostic_capabilities) = text_document_capabilities.diagnostic.as_ref()
         && diagnostic_capabilities.dynamic_registration == Some(true)

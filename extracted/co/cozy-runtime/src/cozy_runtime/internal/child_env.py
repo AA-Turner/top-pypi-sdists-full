@@ -63,11 +63,15 @@ ERASED_PREFIXES: tuple[str, ...] = (
     # compiler cache out of the worker-boot scope that owns and deletes it.
     "FLASH_ATTENTION_",
     "TMPDIR",
+    # The machine's TensorFS store is imposed as the machine's own, never an inherited one.
+    "TENSORFS_",
 )
 
 #: The fill plane's capture directory, named here because the allowlist row and the config
 #: authority's reader must spell it identically and this is the table both read.
 FILL_FORENSICS_DIR = "COZY_FILL_FORENSICS_DIR"
+#: The machine's TensorFS store, which the executor reads and writes itself (owner D5).
+TENSORFS_HOME = "TENSORFS_HOME"
 EXECUTOR_SCOPE_ENV = "COZY_EXECUTOR_SCOPE"
 JIT_CACHE_ENV: tuple[tuple[str, str], ...] = (
     ("CUDA_CACHE_PATH", "cuda"),
@@ -114,22 +118,6 @@ CHILD_ENV_ALLOWLIST: tuple[ProjectedVar, ...] = (
         "lack, and the first all-to-all then dies with CUDA error 401. Ulysses never uses "
         "it. Erased then imposed, so no image or operator export can turn it back on; the "
         "executor's process on every GPU refuses to form a communicator under any other value",
-    ),
-    ProjectedVar(
-        "NCCL_P2P_LEVEL",
-        "parallel.links",
-        "REPORTED, never projected: a group sets it itself before its communicator forms, from "
-        "its GPUs' measured links (`parallel/links.py`): SYS when every pair copied directly "
-        "faster than through host memory, else NVL (peer memory over NVLink only; two A40s "
-        "over PCI hung at formation 4 times in 10, runs 2852/2909). An older machine still "
-        "imposes NVL and refuses an executor whose seal report lacks it, so the report keeps it",
-    ),
-    ProjectedVar(
-        "PYTORCH_CUDA_ALLOC_CONF",
-        "plan.allocator_policy",
-        "REPORTED, never projected: torch's allocator is set in code at the accelerator's init "
-        "(`accel.ALLOCATOR`). An older machine still imposes this name and refuses an executor "
-        "whose seal report lacks it, so the report keeps it; nothing here reads it",
     ),
     ProjectedVar(
         "OMP_NUM_THREADS",
@@ -196,6 +184,12 @@ CHILD_ENV_ALLOWLIST: tuple[ProjectedVar, ...] = (
         "the worker's own namespace of the same store, read-only to an isolated executor, "
         "so objects the Runtime built are shared without any placement writing where "
         "another placement reads",
+    ),
+    ProjectedVar(
+        TENSORFS_HOME,
+        "worker.tensorfs_home",
+        "the machine's TensorFS store: the executor opens its models there by header ref and "
+        "writes its derived weights there, the one store TensorD prefetches into. A location",
     ),
     ProjectedVar(
         FILL_FORENSICS_DIR,

@@ -37,7 +37,7 @@ function(ibd_add_auto_demo demo_cpp_file optional_prefix)
     # Creates a demo app, and provides main() automatically
     # Usage:
     #     ibd_add_auto_demo(demo_file.cpp)
-    # (demo_file.cpp should provide a function named according to the containing file, e.g. `void demo_file()`)
+    # (demo_file.cpp should provide a function named after the file, with the prefix gui_: `void gui_demo_file()`)
     get_filename_component(demo_cpp_file "${demo_cpp_file}" NAME)
     get_filename_component(demo_name "${demo_cpp_file}" NAME_WE)
     ibd_add_demo_cpp(${optional_prefix}${demo_name} ${demo_cpp_file})
@@ -103,11 +103,17 @@ endfunction()
 
 
 function(ibd_add_this_folder_as_demos_library)
-    file(GLOB sources *.cpp)
+    # The demos of this folder, compiled together for the explorer: all its cpp files, or only those given
+    if (ARGN)
+        set(sources ${ARGN})
+    else()
+        file(GLOB sources *.cpp)
+    endif()
     get_filename_component(folder_name "${CMAKE_CURRENT_LIST_DIR}" NAME_WE)
     set(demos_library_name ${folder_name})
     add_library(${demos_library_name} ${sources})
     target_link_libraries(${demos_library_name} PRIVATE imgui_bundle)
     target_link_libraries(${demos_library_name} PUBLIC demo_utils)
     target_compile_definitions(${demos_library_name} PRIVATE IMGUI_BUNDLE_BUILD_DEMO_AS_LIBRARY)
+    target_compile_options(${demos_library_name} PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/utf-8>)  # as imgui_bundle_add_app
 endfunction()

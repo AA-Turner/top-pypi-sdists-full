@@ -11,9 +11,9 @@ use super::heartbeat::{HeartbeatHandle, compute_heartbeat_interval, spawn_heartb
 use super::query_submit::{query_context, submit_query, update_caches};
 use super::spcs_token::read_spcs_token;
 use super::validation::{
-    ValidationIssue, ValidationSeverity, canonicalize_setting_key, collect_unknown_settings,
-    normalize_host_underscores, resolve_options, validate_connection_seed_write,
-    validate_session_override_write,
+    ValidationIssue, ValidationSeverity, canonicalize_setting_key,
+    collect_login_session_parameters, normalize_host_underscores, resolve_options,
+    validate_connection_seed_write, validate_session_override_write,
 };
 use super::{Setting, WrapperPresets, logout};
 use crate::apis::operation_ctx::OperationCtx;
@@ -268,6 +268,15 @@ impl DatabaseDriverV1 {
         .await
     }
 
+    fn apply_unset_use_proxy_env_preset(resolved: &mut ParamStore, preset: bool) {
+        if resolved.get_bool(param_names::USE_PROXY_ENV).is_none() {
+            resolved.insert(
+                param_names::USE_PROXY_ENV.as_str().to_owned(),
+                Setting::Bool(preset),
+            );
+        }
+    }
+
     async fn connection_init_inner(
         &self,
         conn_handle: Handle,
@@ -304,6 +313,10 @@ impl DatabaseDriverV1 {
                         &mut resolved,
                         self.xp_slot.running_inside_xp(),
                     );
+                    Self::apply_unset_use_proxy_env_preset(
+                        &mut resolved,
+                        self.wrapper_presets.use_proxy_env_default,
+                    );
                     let config = ConnectionConfig::build(&resolved).context(ConfigurationSnafu)?;
                     let host = resolved.get_string(param_names::HOST);
                     let port = resolved.get_int(param_names::PORT);
@@ -313,53 +326,8 @@ impl DatabaseDriverV1 {
                     let init_params = conn.init_session_parameters.clone();
                     let resolved_snapshot = resolved.clone();
 
-                    // Session parameters to send in the login request. Seeded
-                    // with unrecognized connection options (so drivers can set
-                    // arbitrary Snowflake session params via regular connection
-                    // options), then augmented below with registered session
-                    // params that belong in SESSION_PARAMETERS
-                    // (CLIENT_SESSION_KEEP_ALIVE, its heartbeat frequency,
-                    // CLIENT_PREFETCH_THREADS, QUERY_TAG) to match the Python connector.
-                    let mut login_session_params = collect_unknown_settings(&effective_seed);
-                    if let Some(v) = resolved.get_bool(param_names::CLIENT_SESSION_KEEP_ALIVE) {
-                        login_session_params.insert(
-                            param_names::CLIENT_SESSION_KEEP_ALIVE.as_str().to_string(),
-                            v.to_string(),
-                        );
-                    }
-                    if let Some(v) =
-                        resolved.get_int(param_names::CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY)
-                    {
-                        let clamped_frequency =
-                            compute_heartbeat_interval(None, u64::try_from(v).ok()).as_secs();
-                        login_session_params.insert(
-                            param_names::CLIENT_SESSION_KEEP_ALIVE_HEARTBEAT_FREQUENCY
-                                .as_str()
-                                .to_string(),
-                            clamped_frequency.to_string(),
-                        );
-                    }
-                    if let Some(v) = resolved.get_int(param_names::CLIENT_PREFETCH_THREADS) {
-                        login_session_params.insert(
-                            param_names::CLIENT_PREFETCH_THREADS.as_str().to_string(),
-                            v.to_string(),
-                        );
-                    }
-                    if resolved
-                        .get_bool(param_names::VALIDATE_DEFAULT_PARAMETERS)
-                        .unwrap_or(false)
-                    {
-                        login_session_params.insert(
-                            "CLIENT_VALIDATE_DEFAULT_PARAMETERS".to_string(),
-                            "true".to_string(),
-                        );
-                    }
-                    // QUERY_TAG is a registered session parameter (also
-                    // statement-overridable), so it isn't "unknown"; mirror a
-                    // connection-level value into the login session parameters.
-                    if let Some(v) = resolved.get_string(param_names::QUERY_TAG) {
-                        login_session_params.insert("QUERY_TAG".to_string(), v);
-                    }
+                    let login_session_params =
+                        collect_login_session_parameters(&effective_seed, &resolved);
                     let init_params = match init_params {
                         Some(explicit) => {
                             // Normalize explicit keys to uppercase so precedence
@@ -1705,18 +1673,6 @@ pub struct RefreshContext {
     external_session_id: Option<SensitiveString>,
 }
 
-/// Whether `err` is an ordinary failed query or heartbeat whose GS code means
-/// the session cannot be recovered. Those answers have no `RestError` variant
-/// of their own.
-fn reports_session_gone(err: &RestError) -> bool {
-    let code = match err {
-        RestError::QueryFailed { code, .. } => *code,
-        RestError::Heartbeat { code, .. } => Some(*code),
-        _ => return false,
-    };
-    code.is_some_and(snowflake::is_unrecoverable_session)
-}
-
 impl RefreshContext {
     /// Create a `RefreshContext` for a query operation.
     ///
@@ -1815,7 +1771,7 @@ impl RefreshContext {
 
     /// Records a server answer that takes the session away, and reports whether it did.
     fn record_session_gone(&self, err: &RestError) -> bool {
-        if !reports_session_gone(err) {
+        if !snowflake::reports_session_gone(err) {
             return false;
         }
         tracing::error!("Server reported the session no longer exists");
@@ -3238,6 +3194,7 @@ async fn cleanup_connection(conn_ptr: &Arc<Mutex<Connection>>) -> Result<(), Api
 mod tests {
     use super::*;
     use crate::apis::database_driver_v1::global_state::DriverProviders;
+    use crate::apis::database_driver_v1::validation::collect_unknown_settings;
     use crate::config::ParamStore;
     use crate::config::param_registry::param_names;
     use crate::rest::snowflake::TokenExpiry;
@@ -3248,6 +3205,21 @@ mod tests {
             conn.connection_seed.insert(key.to_string(), value);
         }
         conn
+    }
+
+    #[test]
+    fn unset_use_proxy_env_takes_the_preset_and_an_explicit_value_wins() {
+        let mut unset = ParamStore::new();
+        DatabaseDriverV1::apply_unset_use_proxy_env_preset(&mut unset, true);
+        assert_eq!(unset.get_bool(param_names::USE_PROXY_ENV), Some(true));
+
+        let mut explicit = ParamStore::new();
+        explicit.insert(
+            param_names::USE_PROXY_ENV.as_str().to_owned(),
+            Setting::Bool(false),
+        );
+        DatabaseDriverV1::apply_unset_use_proxy_env_preset(&mut explicit, true);
+        assert_eq!(explicit.get_bool(param_names::USE_PROXY_ENV), Some(false));
     }
 
     #[test]
@@ -5144,7 +5116,7 @@ mod tests {
             .expect_err("a gone session leaves nothing to refresh");
 
         assert!(
-            matches!(&err, ApiError::Query { source, .. } if reports_session_gone(source)),
+            matches!(&err, ApiError::Query { source, .. } if snowflake::reports_session_gone(source)),
             "the server's own error must propagate, got {err:?}"
         );
         assert!(session_terminated.load(Ordering::SeqCst));
@@ -5204,6 +5176,93 @@ mod tests {
 
         assert!(!refresh, "a gone session must not be refreshed");
         assert!(session_terminated.load(Ordering::SeqCst));
+    }
+
+    fn reads_terminated(ctx: &RefreshContext) -> bool {
+        ctx.session_terminated.load(Ordering::SeqCst)
+            || ctx.is_master_token_expired.load(Ordering::SeqCst)
+    }
+
+    fn terminated_after(record: impl FnOnce(&RefreshContext)) -> bool {
+        let ctx = session_gone_context(&Arc::new(AtomicBool::new(false)), "http://127.0.0.1:1");
+        record(&ctx);
+        reads_terminated(&ctx)
+    }
+
+    fn master_token_terminal() -> RestError {
+        RestError::MasterTokenTerminal {
+            code: snowflake::MASTER_TOKEN_EXPIRED,
+            location: snafu::Location::default(),
+        }
+    }
+
+    fn server_answers() -> Vec<RestError> {
+        vec![
+            query_failed_with(snowflake::SESSION_GONE),
+            query_failed_with(snowflake::SESSION_CLOSED),
+            query_failed_with(1003),
+            master_token_terminal(),
+            RestError::SessionExpired {
+                location: snafu::Location::default(),
+            },
+        ]
+    }
+
+    #[test]
+    fn should_mark_the_session_terminated_exactly_when_a_query_error_says_so() {
+        use crate::refresh::Refresher;
+
+        for source in server_answers() {
+            let err = ApiError::Query {
+                source: Box::new(source),
+                location: snafu::Location::default(),
+            };
+
+            let terminated = terminated_after(|ctx| {
+                Refresher::<SensitiveString, ApiError>::should_refresh(ctx, &err);
+            });
+
+            assert_eq!(terminated, err.terminates_session(), "{err:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn should_mark_the_session_terminated_exactly_when_a_refresh_error_says_so() {
+        let answers = server_answers()
+            .into_iter()
+            .filter(|answer| !matches!(answer, RestError::SessionExpired { .. }));
+        for answer in answers {
+            let mut ctx =
+                session_gone_context(&Arc::new(AtomicBool::new(false)), "http://127.0.0.1:1");
+            ctx.refresh_token(None).await.unwrap();
+
+            let err = ctx
+                .refresh_token(Some(answer))
+                .await
+                .expect_err("no answer here leaves a token to retry with");
+
+            assert_eq!(reads_terminated(&ctx), err.terminates_session(), "{err:?}");
+        }
+    }
+
+    #[test]
+    fn should_mark_the_session_terminated_exactly_when_a_renewal_refusal_says_so() {
+        let refusals = [
+            refresh_failed_with(snowflake::SESSION_GONE),
+            refresh_failed_with(snowflake::SESSION_CLOSED),
+            refresh_failed_with(390104),
+            master_token_terminal(),
+        ];
+
+        for source in refusals {
+            let terminated = terminated_after(|ctx| ctx.record_failed_renewal(&source));
+            let err = ApiError::SessionRefresh {
+                source: Box::new(source),
+                location: snafu::Location::default(),
+            };
+
+            assert_eq!(terminated, err.terminates_session(), "{err:?}");
+        }
     }
 
     #[tokio::test]
@@ -5323,7 +5382,7 @@ mod tests {
             .expect_err("a closed session leaves nothing to refresh");
 
         assert!(
-            matches!(&err, ApiError::Query { source, .. } if reports_session_gone(source)),
+            matches!(&err, ApiError::Query { source, .. } if snowflake::reports_session_gone(source)),
             "the server's own error must propagate, got {err:?}"
         );
         assert!(session_terminated.load(Ordering::SeqCst));

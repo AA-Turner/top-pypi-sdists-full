@@ -102,6 +102,10 @@ _MAX_PYTHON_PROJECTS = 32
 _SHELLCHECK_BATCH_SIZE = 250
 _SHELLCHECK_VERSION: Final = "0.11.0"
 _SHELLCHECK_VERSION_RE: Final = re.compile(r"^version:\s*(?P<version>\S+)\s*$", re.MULTILINE)
+_BASEDPYRIGHT_BASELINE_SHRINK_RE: Final = re.compile(
+    r"updated [^\r\n]+ with (?:1 error|(?:0|[2-9]|[1-9][0-9]+) errors) "
+    r"\(went down by [1-9][0-9]*\)"
+)
 _DEPTRY_ANNOTATION_RE: Final = re.compile(
     r"^::warning file=(?P<file>.*?),line=(?P<line>[1-9][0-9]*)"
     r"(?:,col=(?P<column>[1-9][0-9]*))?,title=(?P<code>DEP00[123])::(?P<message>.*)$"
@@ -235,8 +239,13 @@ class _ReactDoctorProject(_ReactDoctorProtocolModel):
     complete: bool
     diagnostics: tuple[_ReactDoctorDiagnostic, ...] = ()
     skipped_checks: tuple[object, ...] | None = Field(default=None, alias="skippedChecks")
+    skipped_check_reasons: dict[str, str] = Field(default_factory=dict, alias="skippedCheckReasons")
     analyzed_file_count: int | None = Field(default=None, alias="analyzedFileCount", ge=0)
     scanned_file_count: int | None = Field(default=None, alias="scannedFileCount", ge=0)
+
+
+class _ReactDoctorIncompleteError(ValueError):
+    pass
 
 
 class _ReactDoctorDiff(_ReactDoctorProtocolModel):
@@ -528,13 +537,11 @@ def analyze_external(
                         pass_on_unpruned_suppressions=pass_on_unpruned_eslint_suppressions,
                     )
                     if rule_ids is not None or upstream_rules.ids
-                    else _local_eslint_argv(
-                        _eslint_json_argv(
-                            command.argv,
-                            pass_on_unpruned_suppressions=pass_on_unpruned_eslint_suppressions,
-                        ),
-                        command.cwd,
-                        root,
+                    else _selected_eslint_argv(
+                        command,
+                        frozenset(),
+                        full=True,
+                        pass_on_unpruned_suppressions=pass_on_unpruned_eslint_suppressions,
                     )
                     if runner is None
                     else _eslint_json_argv(
@@ -1934,31 +1941,31 @@ def _invoke_ruff_projects(
             invocation_id=project_id,
             file_count=len(scoped_files),
         )
-        cast_files = _ruff_cast_files(scoped_files)
-        if cast_files:
+        required_files = _ruff_required_files(scoped_files)
+        if required_files:
             cast_report = _invoke(
                 "ruff",
-                _ruff_cast_argv(cast_files),
+                _ruff_required_argv(required_files),
                 cwd=project,
                 root=root,
                 runner=runner,
                 parser=parse_ruff,
                 invocation_id=project_id,
-                file_count=len(cast_files),
+                file_count=len(required_files),
             )
-            cast_report = _with_indirect_cast_findings(cast_report, cast_files, root=root)
+            cast_report = _with_indirect_cast_findings(cast_report, required_files, root=root)
             report = _merge_ruff_reports(report, cast_report)
         reports.append(report)
     return tuple(reports)
 
 
-def _ruff_cast_files(files: Sequence[str]) -> tuple[str, ...]:
+def _ruff_required_files(files: Sequence[str]) -> tuple[str, ...]:
     selected: list[str] = []
     for raw_path in files:
         try:
-            # This is only a cheap prefilter; native Ruff owns imports, aliases and scopes.
+            # Native Ruff owns binding and suppression syntax; retain every comment-bearing source.
             source = Path(raw_path).read_bytes()
-            if source.isascii() and b"cast" not in source and b"typing" not in source:
+            if source.isascii() and b"cast" not in source and b"typing" not in source and b"#" not in source:
                 continue
         except OSError:
             pass
@@ -1969,8 +1976,16 @@ def _ruff_cast_files(files: Sequence[str]) -> tuple[str, ...]:
 def _merge_ruff_reports(report: ToolReport, cast_report: ToolReport) -> ToolReport:
     complete = report.completion is cast_report.completion is Completion.COMPLETE
     protected = tuple(
-        replace(finding, tags=(*finding.tags, "non-baselineable", "required-cast-policy"))
-        if finding.rule_id in {"TID251", "banned-api"}
+        replace(
+            finding,
+            tags=(
+                *finding.tags,
+                "non-baselineable",
+                "required-source-policy",
+                *(("required-cast-policy",) if finding.rule_id in {"TID251", "banned-api"} else ()),
+            ),
+        )
+        if finding.rule_id in {"TID251", "banned-api", "PGH003", "PGH004", "blanket-type-ignore", "blanket-noqa"}
         else finding
         for finding in cast_report.diagnostics
     )
@@ -2020,6 +2035,8 @@ def _indirect_cast_findings(files: Sequence[str], *, root: Path) -> tuple[Diagno
     for raw_path in files:
         path = Path(raw_path)
         raw = path.read_bytes()
+        if raw.isascii() and b"typing" not in raw:
+            continue
         encoding, _ = tokenize.detect_encoding(io.BytesIO(raw).readline)
         source = raw.decode(encoding)
         document = SourceDocument(path, source)
@@ -2725,6 +2742,12 @@ def _invoke_unchecked(
         return ToolReport(name, Completion.FAILED, issues=(issue,))
     try:
         diagnostics = parser(output.stdout, root=root)
+    except _ReactDoctorIncompleteError as exc:
+        message = redact_message(str(exc), root)[:700]
+        if stderr := output.stderr.strip():
+            message += f"; stderr: {redact_message(stderr, root)[:300]}"
+        issue = ExecutionIssue(name, "tool-failure", message, output.returncode)
+        return ToolReport(name, Completion.FAILED, issues=(issue,))
     except json.JSONDecodeError as exc:
         stderr = output.stderr.strip()
         message = stderr or f"{name} returned invalid structured JSON at line {exc.lineno}, column {exc.colno}"
@@ -3040,6 +3063,11 @@ def parse_sarif(  # ruff: ignore[too-many-locals] -- protocol normalization keep
 
 
 def parse_basedpyright(payload: str, *, root: Path) -> tuple[Diagnostic, ...]:
+    # Native auto-shrink mode prints this notice before --outputjson, without a quiet flag.
+    # Strip only its complete framing; arbitrary logs and malformed JSON remain protocol failures.
+    notice, separator, report_payload = payload.partition("\n\n")
+    if separator and _BASEDPYRIGHT_BASELINE_SHRINK_RE.fullmatch(notice):
+        payload = report_payload
     report = _BasedPyrightReport.model_validate_json(payload)
     documents: dict[Path, SourceDocument | None] = {}
     diagnostics: list[Diagnostic] = []
@@ -3229,7 +3257,7 @@ def _parse_react_doctor_report(
     documents: dict[Path, SourceDocument | None] = {}
     diagnostics: list[Diagnostic] = []
     for project in report.projects:
-        _validate_react_project_completion(project, expected_projects)
+        _validate_react_project_completion(project, expected_projects, root=root)
         directory = _contained_report_directory(project, root)
         for item in project.diagnostics:
             # The 0.9.x compact JSON protocol can retain warning diagnostics
@@ -3308,7 +3336,7 @@ def _ruff_argv(files: Sequence[str], *, config: Path | None = None) -> tuple[str
     return ("ruff", "check", "--output-format", "json", *config_args, "--", *files)
 
 
-def _ruff_cast_argv(files: Sequence[str]) -> tuple[str, ...]:
+def _ruff_required_argv(files: Sequence[str]) -> tuple[str, ...]:
     return (
         "ruff",
         "check",
@@ -3316,7 +3344,7 @@ def _ruff_cast_argv(files: Sequence[str]) -> tuple[str, ...]:
         "json",
         "--ignore-noqa",
         "--config",
-        str(_PACKAGED_MOBILE_CONFIGS / "ruff.cast.toml"),
+        str(_PACKAGED_MOBILE_CONFIGS / "ruff.required.toml"),
         "--",
         *files,
     )
@@ -3500,6 +3528,7 @@ def _selected_eslint_argv(
     *,
     upstream_rules: UpstreamESLintRules = _NO_UPSTREAM_ESLINT_RULES,
     pass_on_unpruned_suppressions: bool = False,
+    full: bool = False,
 ) -> tuple[str, ...]:
     boundary = max(index for index, value in enumerate(command.argv) if value == "--")
     config = command.argv[command.argv.index("--config") + 1] if "--config" in command.argv else None
@@ -3510,6 +3539,7 @@ def _selected_eslint_argv(
             "upstreamAdvisories": sorted(upstream_rules.ids) if upstream_rules.warning_only else [],
             "config": config,
             "passOnUnpruned": pass_on_unpruned_suppressions,
+            **({"full": True} if full else {}),
         },
         separators=(",", ":"),
     )
@@ -3743,6 +3773,7 @@ def _parse_eslint_message(
         "eslint",
         location,
         rule_id=rule,
+        tags=("non-baselineable", "required-source-policy") if item.get("sarjRequiredSourcePolicy") is True else (),
     )
 
 
@@ -3852,13 +3883,15 @@ def _validate_mobsfscan_coverage(report: dict[str, object], root: Path, expected
         raise ValueError(msg)
 
 
-def _validate_react_project_completion(project: _ReactDoctorProject, expected_projects: frozenset[Path] | None) -> None:
+def _validate_react_project_completion(
+    project: _ReactDoctorProject, expected_projects: frozenset[Path] | None, *, root: Path
+) -> None:
     if not project.complete:
-        msg = f"React Doctor project did not complete: {project.directory!r}"
-        raise ValueError(msg)
-    if project.skipped_checks:
-        msg = f"React Doctor skipped checks for project: {project.directory!r}"
-        raise ValueError(msg)
+        message = f"React Doctor project did not complete: {project.directory!r}"
+        raise _ReactDoctorIncompleteError(_react_project_incompleteness(project, message, root=root))
+    if project.skipped_checks or project.skipped_check_reasons:
+        message = f"React Doctor skipped checks for project: {project.directory!r}"
+        raise _ReactDoctorIncompleteError(_react_project_incompleteness(project, message, root=root))
     if expected_projects is not None and (
         project.skipped_checks is None or project.analyzed_file_count is None or project.scanned_file_count is None
     ):
@@ -3867,6 +3900,15 @@ def _validate_react_project_completion(project: _ReactDoctorProject, expected_pr
     if project.analyzed_file_count == 0 or project.scanned_file_count == 0:
         msg = f"React Doctor analyzed no files for project: {project.directory!r}"
         raise ValueError(msg)
+
+
+def _react_project_incompleteness(project: _ReactDoctorProject, message: str, *, root: Path) -> str:
+    skipped_count = None if project.skipped_checks is None else len(project.skipped_checks)
+    coverage = (
+        f"analyzed={project.analyzed_file_count}, scanned={project.scanned_file_count}, skipped_checks={skipped_count}"
+    )
+    reasons = redact_message(json.dumps(project.skipped_check_reasons or {}, sort_keys=True), root)[:384]
+    return f"{redact_message(message, root)[:200]}; {coverage}; skipped_check_reasons={reasons}"
 
 
 def _validate_react_report_status(report: _ReactDoctorReport, *, require_react_detection: bool) -> None:

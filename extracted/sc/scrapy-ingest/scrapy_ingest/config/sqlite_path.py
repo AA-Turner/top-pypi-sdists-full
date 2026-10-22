@@ -1,4 +1,5 @@
 """Resolve SQLite database file paths from URLs and settings."""
+
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 

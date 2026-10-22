@@ -1,4 +1,5 @@
 """Flush collector batches into PostgreSQL or MySQL tables."""
+
 from ..exceptions import DatabaseError
 from ..utils.metrics import compute_errors_count, sql_standalone_log_errors_clause
 from ..utils.serialization import serialize_item_data

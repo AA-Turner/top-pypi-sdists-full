@@ -47,6 +47,7 @@ from matrx_ai.processing.blocks.fence_nesting import (
     trim_fence_line,
 )
 from matrx_ai.processing.blocks.gfm_table_lines import is_html_block_tag_name
+from matrx_ai.processing.blocks.html_elements import html_element_is_markup, html_opener_is_markup, html_root_of
 from matrx_ai.processing.blocks.tree_line import MIN_TREE_LINES, is_tree_line
 
 __all__ = ["SourceIsland", "list_islands", "BLOCK_ISLAND_TYPES", "INLINE_ISLAND_TYPES"]
@@ -183,6 +184,8 @@ _CALLOUT_OPEN = re.compile(r">[ \t]*\[!([A-Za-z][A-Za-z0-9_-]*)\]")
 _FOOTNOTE_DEF = re.compile(f"\\[\\^[^\\]{_WS}]+\\]:")
 _INDENTED = re.compile(r"(?: {4}|\t)")
 _QUOTE_LINE = re.compile(r" {0,3}>")
+_QUOTE_PREFIX_RUN = re.compile(r" {0,3}>(?: ?>)* ?")
+_QUOTED_JSON_FENCE_LANGS = frozenset({"", "json", "jsonc", "json5"})
 _LIST_CONTINUATION = re.compile(r"[ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t]")
 _HEADING = re.compile(f"#{{1,6}}{_S}")
 _GENERIC_XML_PREFIX = re.compile(f"<([A-Za-z_][A-Za-z0-9_.:-]*)(?={_S}|/|\\Z)")
@@ -1060,7 +1063,8 @@ def _is_unclosed_generic_xml_opening(source: str) -> bool:
     if not m:
         return False
     name = m.group(1)
-    if name in KNOWN_XML_TAG_NAMES or name.lower() in ALLOWED_RAW_HTML_TAGS:
+    # HTML markup is never a custom section (html_elements.py, the order).
+    if name in KNOWN_XML_TAG_NAMES or name.lower() in ALLOWED_RAW_HTML_TAGS or html_opener_is_markup(text):
         return False
     quote: str | None = None
     for i in range(m.end(), len(text)):
@@ -1088,7 +1092,6 @@ class _Tokenizer:
         self.brace_net: list[int] | None = None
         self.occurrences: dict[str, list[int]] = {}
         self.math_pairs = _pair_display_math(text)
-        self.overflow_complete = True
         start = 0
         nl = text.find("\n")
         while nl != -1:
@@ -1213,6 +1216,9 @@ class _Tokenizer:
             callout = self.callout(p, li, t)
             if callout is not None:
                 return callout
+            lifted = self.quoted_json_fence(p, li, seg)
+            if lifted is not None:
+                return lifted
         if at_para_start and indent <= 3 and t.startswith("[^"):
             footnote = self.footnote_definition(p, li, t)
             if footnote is not None:
@@ -1233,6 +1239,10 @@ class _Tokenizer:
             region = self.xml_region(p, tp, t)
             if region is not None:
                 return region
+            # THE ORDER (html_elements.py): real HTML before any custom XML section.
+            html_root = self.html_root(p, li, seg, indent)
+            if html_root is not None:
+                return html_root
             container = self.generic_xml(p, li, seg, indent)
             if container is not None:
                 return container
@@ -1366,38 +1376,45 @@ class _Tokenizer:
         return _Raw("fence", p, self.n, False)
 
     def tilde_fence(self, p: int, li: int, opener: _FenceOpener) -> _Raw:
+        # A tilde island ends at its closer: the renderer's splitter reads ``~~~`` as a real fence, so
+        # nothing that starts inside one runs past the closer (content-ir 0.21.1).
         line, closed = _close_fence(self.line_count, self.line_reader, li, opener)
         if closed:
-            tilde_end = self.content_ends[line]
-            end = self.renderer_overflow(li + 1, line, tilde_end)
-            return _Raw("fence", p, end, self.overflow_complete if end == self.n else True)
+            return _Raw("fence", p, self.content_ends[line], True)
         return _Raw("fence", p, self.n, False)
 
-    def renderer_overflow(self, first_line: int, close_line: int, tilde_end: int) -> int:
-        end = tilde_end
-        self.overflow_complete = True
-        j = first_line
-        while j <= close_line and j < self.line_count:
-            start = self.line_starts[j]
-            if self.line_is_blank(j):
-                j += 1
+    def quoted_json_fence(self, p: int, li: int, seg: str) -> _Raw | None:
+        """A JSON-family fence opening on a quoted line: the renderer lifts it out of the quote, so the
+        island runs to its own closer, found on the lines with their quote prefix removed."""
+        m = _QUOTE_PREFIX_RUN.match(seg)
+        if not m:
+            return None
+        opener = _fence_opener_of(seg[m.end() :])
+        if opener is None or opener.char != "`" or opener.lang.lower() not in _QUOTED_JSON_FENCE_LANGS:
+            return None
+
+        def lines(k: int) -> str:
+            text = self.line_reader(k)
+            q = _QUOTE_PREFIX_RUN.match(text)
+            return text[q.end() :] if q else text
+
+        first = li
+        while first > 0 and li - first < 400 and _QUOTE_PREFIX_RUN.match(self.line_text(first - 1)):
+            first -= 1
+        k = first
+        while k < li:
+            o = _fence_opener_of(lines(k))
+            if o is None or o.char != "`" or o.lang.lower() in _QUOTED_JSON_FENCE_LANGS:
+                k += 1
                 continue
-            opener = _fence_opener_of(self.line_text(j))
-            if opener is not None and opener.char == "~":
-                j += 1
-                continue
-            inner = self.detect_block_uncached(start, j, False)
-            if inner is None:
-                j += 1
-                continue
-            if inner.end > end:
-                end = inner.end
-                self.overflow_complete = inner.complete
-            last_line = self.line_of(max(start, inner.end - 1))
-            if last_line > j:
-                j = last_line
-            j += 1
-        return end
+            line, closed = _close_fence(self.line_count, lines, k, o)
+            if not closed or line >= li:
+                return None
+            k = line + 1
+        line, closed = _close_fence(self.line_count, lines, li, opener)
+        if closed:
+            return _Raw("fence", p, self.content_ends[line], True)
+        return _Raw("fence", p, self.n, False)
 
     def math_block(self, p: int, tp: int) -> _Raw | None:
         close = self.math_pairs.get(tp)
@@ -1458,12 +1475,44 @@ class _Tokenizer:
             return _Raw("xml_region", p, close + len(closer), True)
         return None
 
+    def html_root(self, p: int, li: int, seg: str, indent: int) -> _Raw | None:
+        # Line-leading real HTML (twin of content-ir tokenize ``htmlRoot``): one html_block island,
+        # balanced by the section tracker. A document or <svg> not closed yet owns the rest; any
+        # other element that never closes stays prose (GFM, verify-RC-B4 round 9).
+        first = seg[indent:]
+        root = html_root_of(first, ALLOWED_RAW_HTML_TAGS)
+        if root is None:
+            return None
+        kind, root_tag = root
+        if kind == "document" and not re.match(r"<html", first, re.IGNORECASE):
+            found = re.compile(r"<(html)(?=[\s>])", re.IGNORECASE).search(self.text, p)
+            root_tag = found[1] if found else "html"
+        tracker = _XmlContainerTracker(root_tag)
+        end: int | None = None
+        first_end = tracker.consume_line(seg, indent)
+        if first_end is not None:
+            end = p + first_end
+        k = li + 1
+        while end is None and k < self.line_count:
+            line_end = tracker.consume_line(self.line_text(k))
+            if line_end is not None:
+                end = self.line_starts[k] + line_end
+            k += 1
+        if end is not None:
+            # A bare HTML-named wrapper around plain words is not markup: it stays a section.
+            if kind == "fragment" and not html_element_is_markup(self.text[p + indent : end]):
+                return None
+            return _Raw("html_block", p, end, True)
+        if kind == "fragment":
+            return None
+        return _Raw("html_block", p, self.n, False)
+
     def generic_xml(self, p: int, li: int, seg: str, indent: int) -> _Raw | None:
         first = seg[indent:]
         opening = _read_xml_tag(first, 0)
         if opening is not None and not opening.is_closing:
             root = opening.tag_name
-            if root in KNOWN_XML_TAG_NAMES or root.lower() in ALLOWED_RAW_HTML_TAGS:
+            if root in KNOWN_XML_TAG_NAMES or root.lower() in ALLOWED_RAW_HTML_TAGS or html_opener_is_markup(first):
                 return None
             tracker = _XmlContainerTracker(root)
             first_end = tracker.consume_line(seg, indent)

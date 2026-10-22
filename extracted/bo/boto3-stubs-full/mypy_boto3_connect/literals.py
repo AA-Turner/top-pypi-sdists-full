@@ -285,6 +285,7 @@ __all__ = (
     "SearchWorkspaceAssociationsPaginatorName",
     "SearchWorkspacesPaginatorName",
     "SearchableQueueTypeType",
+    "SecurityProfileTypeType",
     "ServiceName",
     "SingleSelectQuestionRuleCategoryAutomationConditionType",
     "SlaAssignmentTypeType",
@@ -1141,6 +1142,7 @@ SearchVocabulariesPaginatorName = Literal["search_vocabularies"]
 SearchWorkspaceAssociationsPaginatorName = Literal["search_workspace_associations"]
 SearchWorkspacesPaginatorName = Literal["search_workspaces"]
 SearchableQueueTypeType = Literal["STANDARD"]
+SecurityProfileTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
 SingleSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 SlaAssignmentTypeType = Literal["CASES"]
 SlaTypeType = Literal["CaseField"]
@@ -1401,8 +1403,6 @@ ServiceName = Literal[
     "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -1656,7 +1656,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

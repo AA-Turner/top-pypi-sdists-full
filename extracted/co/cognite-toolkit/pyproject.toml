@@ -1,6 +1,6 @@
 [project]
 name = "cognite_toolkit"
-version = "0.9.13"
+version = "0.9.15"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 license = "Apache-2.0"
 readme = "README.md"
@@ -123,7 +123,6 @@ include = [
 exclude = [
     "tests/data/",
     "tests/test_unit/test_cdf_tk/approval_client",
-    "tests/test_unit/test_cdf_tk/test_client",
     "tests/test_unit/test_cdf_tk/test_commands",
     "tests/test_unit/test_cdf_tk/test_utils",
 ]

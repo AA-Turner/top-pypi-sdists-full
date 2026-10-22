@@ -71,9 +71,9 @@ class WordEmbeddings(InputModule):
     def preprocess(self, inputs: list[str], prompt: str | None = None, **kwargs):
         if prompt:
             inputs = self._prepend_prompt(inputs, prompt)
-        tokenized_texts = [self.tokenizer.tokenize(text, **kwargs) for text in inputs]
+        tokenized_texts = [self.tokenizer.tokenize(text, **kwargs)[: self.max_seq_length] for text in inputs]
         sentence_lengths = [len(tokens) for tokens in tokenized_texts]
-        max_len = max(sentence_lengths)
+        max_len = max(1, max(sentence_lengths))
 
         input_ids = []
         attention_masks = []
@@ -148,10 +148,13 @@ class WordEmbeddings(InputModule):
         embeddings_file_path: str,
         update_embeddings: bool = False,
         item_separator: str = " ",
-        tokenizer=WhitespaceTokenizer(),
+        tokenizer: WordTokenizer | None = None,
         max_vocab_size: int | None = None,
     ):
         logger.info(f"Read in embeddings file {embeddings_file_path}")
+
+        if tokenizer is None:
+            tokenizer = WhitespaceTokenizer()
 
         if not os.path.exists(embeddings_file_path):
             logger.info(f"{embeddings_file_path} does not exist, try to download from server")

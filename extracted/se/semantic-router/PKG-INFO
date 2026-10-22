@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: semantic-router
-Version: 1.1.0
+Version: 1.1.1
 Summary: Super fast semantic router for AI decision making
 Author-email: Aurelio AI <hello@aurelio.ai>
 License-Expression: MIT
@@ -27,7 +27,7 @@ Requires-Dist: botocore<2,>=1.34.110; extra == 'all'
 Requires-Dist: fastembed<1,>=0.7.0; extra == 'all'
 Requires-Dist: gliner2[local]>=2.1.0; (python_version < '3.13') and extra == 'all'
 Requires-Dist: google-cloud-aiplatform<2,>=1.45.0; extra == 'all'
-Requires-Dist: litellm>=1.84.0; extra == 'all'
+Requires-Dist: litellm!=1.107.0,>=1.84.0; extra == 'all'
 Requires-Dist: ollama>=0.1.7; extra == 'all'
 Requires-Dist: pillow>=10.2.0; (python_version < '3.13') and extra == 'all'
 Requires-Dist: pinecone[asyncio]<8.0.0,>=7.0.0; extra == 'all'
@@ -47,7 +47,7 @@ Requires-Dist: fastembed<1,>=0.7.0; extra == 'fastembed'
 Provides-Extra: google
 Requires-Dist: google-cloud-aiplatform<2,>=1.45.0; extra == 'google'
 Provides-Extra: litellm
-Requires-Dist: litellm>=1.84.0; extra == 'litellm'
+Requires-Dist: litellm!=1.107.0,>=1.84.0; extra == 'litellm'
 Provides-Extra: local
 Requires-Dist: gliner2[local]>=2.1.0; (python_version < '3.13') and extra == 'local'
 Requires-Dist: sentence-transformers>=5.0.0; (python_version < '3.13') and extra == 'local'
@@ -91,7 +91,7 @@ Semantic Router is a superfast decision-making layer for your LLMs and agents. R
 
 ## Versions
 
-Semantic Router has two release lines. The **1.x line** (`main` branch) rebuilds the routing layer around calibrated confidence, decision models and composable routers. The **0.x line** (`v0` branch) finishes at 0.2.0 and receives bug fixes only.
+Semantic Router has two release lines. The **1.x line** (`main` branch) rebuilds the routing layer around calibrated confidence, decision models and composable routers. The **0.x line** (`v0` branch) finishes at 0.3.0 and receives bug fixes only.
 
 ```
 pip install -qU "semantic-router>=1,<2"   # 1.x

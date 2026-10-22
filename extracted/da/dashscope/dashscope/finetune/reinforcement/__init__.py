@@ -5,8 +5,8 @@ try:
     import yaml  # noqa: F401
 except ImportError as _rl_dep_err:
     raise ImportError(
-        "Agentic RL fine-tuning needs optional dependencies. "
-        "Install them with: pip install 'dashscope[rl]'",
+        "Agentic RL fine-tuning dependencies are missing from this "
+        "install. Reinstall with: pip install -U dashscope",
     ) from _rl_dep_err
 
 from dashscope.finetune.reinforcement.common.constants import (

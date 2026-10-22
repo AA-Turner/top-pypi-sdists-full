@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import laya  # noqa: E402
 from laya import Agent, AsyncHook, BaseHook, OptionStabilityHook, PredictContext, PredictHook, Router, load  # noqa: E402
-from laya.hooks import HOOK_EVENTS, Hook  # noqa: E402
+from laya.hooks import HOOK_EVENTS, Hook, calibrate_reliability, decide_reliability  # noqa: E402
 from laya.onnx_agent import ONNXAgent  # noqa: E402
 from laya.router import _question_schema  # noqa: E402
 
@@ -71,6 +71,7 @@ HOOK_KEYS = {
 
 # --------------------------------------------------------------- constructors
 check("HTTP SDK stays outside core exports", "LayaClient" in laya.__all__, False)
+check("HTTP batch response stays outside core exports", "BatchPrediction" in laya.__all__, False)
 check("core does not import the HTTP SDK", "laya_client" in sys.modules, False)
 
 for label, fn in (("Agent.__init__", Agent.__init__), ("load", load),
@@ -172,6 +173,16 @@ check_param("AsyncHook.__init__", AsyncHook.__init__, "loop", None)
 # OptionStabilityHook (issue #635)
 check_true("OptionStabilityHook is a BaseHook", issubclass(OptionStabilityHook, BaseHook))
 
+# Public calibration cuts retain input precision through JSON serialization. Replaying
+# the cuts must not merge distinct scores that happen to share a four-place display.
+_precise_scores = json.loads(json.dumps([0.80001, 0.80002]))
+_precise_cuts = calibrate_reliability(_precise_scores, [False, True], target_accuracy=1.0)
+_precise_cuts = json.loads(json.dumps(_precise_cuts))
+check("calibrate_reliability returns an observed full-precision cut", _precise_cuts[0], 0.80002)
+check("serialized calibration cuts preserve accepted membership",
+      [decide_reliability(score, *_precise_cuts) for score in _precise_scores],
+      ["VERIFY", "ACCEPT"])
+
 # --------------------------------------------------------------- predict surfaces
 from laya.mcp.remote import RemoteRouter  # noqa: E402
 
@@ -242,6 +253,19 @@ check("predict_tournament/positional prefix",
       ["agent", "state", "questions", "group_size"])
 check_param("predict_tournament", laya.predict_tournament, "predict_kwargs", inspect.Parameter.empty,
             inspect.Parameter.VAR_KEYWORD)
+
+# Detection diagnostics are opt-in and do not replace existing analysis fields.
+from laya.lang import analyse, latin_profile  # noqa: E402
+
+for label, fn in (("analyse", analyse), ("Router.route", Router.route),
+                  ("Router.route_batch", Router.route_batch)):
+    check_param(label, fn, "explain", False, inspect.Parameter.KEYWORD_ONLY)
+check("latin_profile keeps its signature", list(sig(latin_profile)), ["text"])
+_plain_analysis = analyse("Turn lights off")
+_explained_analysis = analyse("Turn lights off", explain=True)
+check("analyse opts into one extra key", set(_explained_analysis) - set(_plain_analysis), {"diagnostic"})
+check("analyse diagnostic fields", set(_explained_analysis.pop("diagnostic")), {"stage", "reason", "source"})
+check("analyse retains original fields", _explained_analysis, _plain_analysis)
 
 # route() and route_batch() take per-call hooks so a hook can pin a checkpoint for one call
 for label, fn in (("Router.route", Router.route),
@@ -1593,6 +1617,14 @@ check("README route_batch clause names exactly its hooks kwargs",
 from laya import hooks as _hooks_mod  # noqa: E402
 
 check_true("hooks module exports compose_hooks", callable(_hooks_mod.compose_hooks))
+
+# The local TypeScript stability port consumes these reference helper contracts.
+check("stability/make_variants reference parameters", list(sig(_hooks_mod.make_variants)),
+      ["labels", "seed_key", "n_shuffles", "relabel", "include", "reorder"])
+check("stability/calibrate_reliability reference parameters", list(sig(_hooks_mod.calibrate_reliability)),
+      ["soft_scores", "correct", "target_accuracy", "max_escalate_accuracy"])
+check("stability/decide_reliability reference parameters", list(sig(_hooks_mod.decide_reliability)),
+      ["soft_stability", "accept", "escalate"])
 
 _patterns_md = os.path.join(REPO, "docs", "hooks", "patterns.md")
 with open(_patterns_md, encoding="utf-8", newline="") as _pmf:

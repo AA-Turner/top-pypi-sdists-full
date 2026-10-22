@@ -33,6 +33,46 @@ from .ops_log import run_traced
 _CHANGELOG = """\
 # HeyLead Changelog
 
+## v0.10.470 (2026-10-21)
+- Fix: reopen the installed generation after taking its lock
+- Fix: enforce initial review holds in model GitHub calls
+- Fix: keep privileged bootstrap changes outside runtime admission
+- Fix: pause on install errors and use portable runtime locks
+- Fix: replace runtime files atomically during deployment
+- Fix: include phase retries in runtime lock coverage
+- Fix: keep the persistent proxy outside the phase lock
+- partner-followup: capture clock once and add grace to relative labels
+- Fix: preserve repository identity in claim file checks
+- Fix: skip outcomes held by a live claim in pick.py (#3662)
+- Fix: serialize shared timer authentication refreshes
+- Fix: restore credit-funded devflow and proof runners
+- New: the night's main_blocked_hours in stats, and the PostgreSQL log no longer buries FAILURES
+- New: a red main at night is the night fixer's too: re-run a flake, or open a hotfix
+
+## v0.10.469 (2026-10-21)
+- New: batches are quiet too — port heylead-api #3692 into the one copy (api #3730)
+- Fix: do not quote prod-proof marker in shepherd merged_event checklist
+- Fix: a waiter's heartbeat changes its comment, so a chat waiting over 20 min still reads as live
+- the night fixer reads parks and live waiters through the shepherd
+- merge queue: a repair of CI or the queue goes first, merges on a blocked main without hotfix (api #3715)
+- New: WIP_LIMIT_STEPS, a dated step-down for the WIP limit (#3731)
+- Fix: install merge_batch.py beside merge_queue.py, which imports it now (api #3730)
+- Fix: status.py reads a proof by its first line; the shepherd's live comment no longer quotes the marker
+- New: a PR whose chat waits on it (#3727 waiter, state waiting) stays the chat's
+- New: nightfix seed runs the done-when's cases with the real session; report via slack-bot-token
+- New: the night fixer: parked PRs fixed on heylead-ci 22:00-07:00 London, within bounds
+- wip(#3730): one copy of the merge queue — batches + claims gate move here, per-repo switches, tests read heylead-api's files
+- Fix: a wake run that cannot read a repository exits 1
+- move the WIP section clear of #3727's insert point (#3731)
+- New: WIP gate, at most 6 build chats with open PRs (#3731)
+- New: the shepherd wakes a chat on park, conflict, red check or merge; pr_wait.py replaces polling
+- New: a merge no longer waits for a deploy in flight (D4umak/heylead-api#3710)
+- Fix: a heylead-ci run closed skipped/superseded is not a verdict (#3702)
+- Fix: every queue:* label keeps the shepherd away (queue:bisect, api #3684)
+- New: the PR shepherd labels green PRs, follows merges to live, cuts the client release; status.py answers 'did we finish?'
+- New: record happy-path markers in PR body instead of comments (#3683)
+- the claim command runs main's claims.py from any worktree (api #3659)
+
 ## v0.10.468 (2026-10-20)
 - Fix: our own CI server and devflow lines stay out of the changelog
 - Fix: no voice from zero posts, never the "Could not analyze" default, a failed read is not zero posts

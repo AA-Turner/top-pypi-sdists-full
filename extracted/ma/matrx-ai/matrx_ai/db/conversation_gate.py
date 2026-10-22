@@ -2099,7 +2099,12 @@ def _with_mandate_attribution(metadata: dict[str, Any], ctx: Any) -> dict[str, A
         return metadata
 
 
-_RESERVATION_IDENTITY_KEYS = ("mandate_key", "workflow_node_id")
+# A conversation can span several phone calls; keep call provenance at reservation,
+# before cancellation or handoff can prevent completion metadata from being stored.
+_RESERVATION_IDENTITY_KEYS = (
+    "mandate_key", "workflow_node_id", "voice_session_id",
+    "voice_interaction_id", "voice_provider_call_id",
+)
 
 
 def _run_identity_metadata(ctx: Any) -> dict[str, Any]:

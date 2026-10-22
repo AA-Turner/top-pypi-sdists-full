@@ -27,10 +27,10 @@ def _bind(value: Any) -> None:
     knobs.configure_parser_knobs(reader)
 
 
-def test_default_is_stealth_when_installed_and_unbound_host_uses_the_mirror(monkeypatch) -> None:
+def test_default_is_current_so_a_host_without_a_knob_reader_stays_on_the_pool(monkeypatch) -> None:
     monkeypatch.setattr(stealth_browser, "stealth_available", lambda: True)
-    assert stealth_browser.browser_engine() == "stealth"
-    assert stealth_browser.use_stealth() is True
+    assert stealth_browser.browser_engine() == "current"
+    assert stealth_browser.use_stealth() is False
 
 
 def test_unknown_engine_value_falls_back_to_the_default() -> None:

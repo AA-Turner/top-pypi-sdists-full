@@ -141,6 +141,27 @@ class CreateCloudComponentVpcResponse(_message.Message):
     vpc: CloudComponentVpcResponse
     def __init__(self, vpc: _Optional[_Union[CloudComponentVpcResponse, _Mapping]] = ...) -> None: ...
 
+class UpdateCloudComponentVpcRequest(_message.Message):
+    __slots__ = ("id", "vpc", "update_mask")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    VPC_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    vpc: CloudComponentVpcRequest
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        vpc: _Optional[_Union[CloudComponentVpcRequest, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateCloudComponentVpcResponse(_message.Message):
+    __slots__ = ("vpc",)
+    VPC_FIELD_NUMBER: _ClassVar[int]
+    vpc: CloudComponentVpcResponse
+    def __init__(self, vpc: _Optional[_Union[CloudComponentVpcResponse, _Mapping]] = ...) -> None: ...
+
 class GetCloudComponentVpcRequest(_message.Message):
     __slots__ = ("id",)
     ID_FIELD_NUMBER: _ClassVar[int]

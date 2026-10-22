@@ -15,6 +15,7 @@ fn test_detection_config() -> DetectionConfig {
     let unreachable_url = "http://127.0.0.1:1".to_string();
     DetectionConfig {
         caller_identity_provider: Arc::new(FakeCallerIdentityProvider::new(None)),
+        root_store_provider: crate::tls::RootStoreProvider::new(),
         aws_metadata_base_url: unreachable_url.clone(),
         azure_metadata_base_url: unreachable_url.clone(),
         gce_metadata_root_url: unreachable_url.clone(),

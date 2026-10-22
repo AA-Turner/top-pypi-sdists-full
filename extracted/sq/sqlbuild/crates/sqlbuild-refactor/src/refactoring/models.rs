@@ -125,15 +125,30 @@ pub struct MigrationDeclaration {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RefactorPlan {
     pub request: RefactorRequest,
+    /// Every resolved move of a batch, in order, the first being `request`; empty otherwise.
+    #[serde(default)]
+    pub batch: Vec<RefactorRequest>,
     pub changes: Vec<FileChange>,
     pub manual: Vec<ManualLocation>,
     pub blocking: Vec<ManualLocation>,
     pub migrations: Vec<MigrationDeclaration>,
     pub renamed_columns: Vec<(String, String, String)>,
     pub help: Option<String>,
+    /// Files the refactoring deliberately leaves in place, and why.
+    #[serde(default)]
+    pub notes: Vec<ManualLocation>,
 }
 
 impl RefactorPlan {
+    /// Every request the plan carries out: the batch, or the one request.
+    pub fn requests(&self) -> &[RefactorRequest] {
+        if self.batch.is_empty() {
+            std::slice::from_ref(&self.request)
+        } else {
+            &self.batch
+        }
+    }
+
     /// The number of text edits the plan writes, over every changed file.
     pub fn edit_count(&self) -> usize {
         self.changes.iter().map(|change| change.edits.len()).sum()
@@ -234,6 +249,16 @@ pub struct AuthoredFile {
     pub texts: Vec<String>,
 }
 
+/// One compiled unit test, the file that declares it and the models it targets.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UnitTestFacts {
+    /// The project-relative POSIX path of the test file.
+    pub path: String,
+    /// The `name` its `TEST` header declares, if any.
+    pub name: Option<String>,
+    pub target_model_names: Vec<String>,
+}
+
 /// Declaration files a model move takes along, and what blocks the move.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeclarationMoves {
@@ -257,6 +282,9 @@ pub struct PlacedDeclaration {
 pub struct RelocatedDeclaration {
     pub key: String,
     pub path: String,
+    /// The destination role keeps its files in groups, but this file is not in one.
+    #[serde(default)]
+    pub requires_group: bool,
 }
 
 /// The scope placement answer for a model move across folders.
@@ -286,6 +314,9 @@ pub struct RefactorFacts {
     pub authored_files: Vec<AuthoredFile>,
     /// Discovered source and seed YAML declaration files, in discovery order.
     pub yaml_files: Vec<DiscoveredFile>,
+    /// Compiled unit tests, which follow a renamed or moved model they target alone.
+    #[serde(default)]
+    pub unit_tests: Vec<UnitTestFacts>,
     /// Python strings naming the renamed model or column, found by the Python host.
     pub python_locations: Vec<ManualLocation>,
 }

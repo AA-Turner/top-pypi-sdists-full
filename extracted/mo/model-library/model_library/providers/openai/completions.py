@@ -4,6 +4,7 @@ import logging
 from collections.abc import AsyncIterator, Sequence
 from typing import TYPE_CHECKING, Any, cast
 
+from openai import AsyncStream
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -198,6 +199,7 @@ async def build_body(
     *,
     tools: list[ToolDefinition],
     output_schema: dict[str, Any] | type[BaseModel] | None = None,
+    sampling: dict[str, object],
     **kwargs: object,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {
@@ -244,14 +246,14 @@ async def build_body(
         # require explicitly setting reasoning effort to disable thinking
         body["reasoning_effort"] = model.reasoning_effort
 
-    await apply_common_body(model, body, input, kwargs)
+    await apply_common_body(model, body, input, kwargs, sampling)
 
-    # top_k isn't a standard chat-completions field; forward it via
+    # Configured top_k isn't a standard chat-completions field; forward it via
     # extra_body so non-OpenAI backends (e.g. Gemini OpenAI-compat)
     # receive it while the OpenAI SDK doesn't reject it client-side.
-    if model.supports_temperature and model.top_k is not None:
+    if "top_k" in sampling:
         extra_body = cast(dict[str, Any], body.setdefault("extra_body", {}))
-        extra_body.setdefault("top_k", model.top_k)
+        extra_body.setdefault("top_k", sampling["top_k"])
 
     if output_schema is not None:
         schema = output_schema_value(output_schema)
@@ -265,7 +267,7 @@ async def build_body(
         }
 
     # Merge rather than replace extra_body: delegates pass their own via
-    # kwargs, which would otherwise discard entries set above (notably top_k).
+    # kwargs, which would otherwise discard configured entries (notably top_k).
     extra_body_kwarg = kwargs.pop("extra_body", None)
     body.update(kwargs)
     if extra_body_kwarg:
@@ -514,6 +516,12 @@ async def query(
             if chunk.usage:
                 # NOTE: see _calculate_cost
                 metadata = metadata_from_usage(chunk.usage)
+        if model.provider == "kimi":
+            headers = cast(
+                AsyncStream[ChatCompletionChunk], completion
+            ).response.headers
+            if (write_1h := headers.get("msh-usage-cache-write-tokens-1h")) is not None:
+                metadata.cache_write_1h_tokens = int(write_1h)
 
     if model.stream_completions:
         raw_tool_calls = [tool_call for tool_call in raw_tool_calls if tool_call.id]

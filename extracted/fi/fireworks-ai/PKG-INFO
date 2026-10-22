@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: fireworks-ai
-Version: 1.2.28
+Version: 1.2.30
 Summary: The official Python library for the fireworks API
 Project-URL: Homepage, https://github.com/fw-ai-external/python-sdk
 Project-URL: Repository, https://github.com/fw-ai-external/python-sdk
@@ -24,6 +24,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: aiohttp
 Requires-Dist: anyio<5,>=3.5.0
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: httpx-aiohttp>=0.1.9
 Requires-Dist: httpx<1,>=0.23.0

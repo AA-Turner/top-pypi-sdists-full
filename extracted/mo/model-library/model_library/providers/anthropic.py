@@ -162,10 +162,12 @@ class AnthropicConfig(ProviderConfig):
 
 @register_provider("anthropic")
 class AnthropicModel(LLM):
+    api_key_setting = "ANTHROPIC_API_KEY"
+
     provider_config = AnthropicConfig()
 
     def _get_default_api_key(self) -> str:
-        return model_library_settings.ANTHROPIC_API_KEY
+        return self._api_key_from(model_library_settings)
 
     @override
     def get_client(
@@ -341,7 +343,7 @@ class AnthropicModel(LLM):
         flush_content_user()
 
         # cache control
-        if new_input:
+        if new_input and self.prompt_caching != "off":
             last_msg = new_input[-1]
             if not isinstance(last_msg, dict):
                 return new_input
@@ -486,7 +488,11 @@ class AnthropicModel(LLM):
             mime=mime,
         )
 
-    cache_control = {"type": "ephemeral"}  # 5 min cache
+    @property
+    def cache_control(self) -> dict[str, str]:
+        if self.prompt_caching == "1h" and self.provider == "anthropic":
+            return {"type": "ephemeral", "ttl": "1h"}
+        return {"type": "ephemeral"}
 
     @override
     async def build_body(
@@ -512,13 +518,10 @@ class AnthropicModel(LLM):
             body["container"] = container_id
 
         if system_text is not None:
-            body["system"] = [
-                {
-                    "type": "text",
-                    "text": system_text,
-                    "cache_control": self.cache_control,
-                }
-            ]
+            system_block: dict[str, Any] = {"type": "text", "text": system_text}
+            if self.prompt_caching != "off":
+                system_block["cache_control"] = self.cache_control
+            body["system"] = [system_block]
 
         if not self.max_tokens:
             raise Exception("Anthropic models require a max_tokens parameter")
@@ -558,12 +561,11 @@ class AnthropicModel(LLM):
         if output_config:
             body["output_config"] = output_config
 
-        # Thinking models don't support temperature: https://docs.claude.com/en/docs/build-with-claude/extended-thinking#feature-compatibility
-        if self.supports_temperature:
-            if not self.reasoning and self.temperature is not None:
-                body["temperature"] = self.temperature
-            if self.provider == "minimax" and self.top_p is not None:
-                body["top_p"] = self.top_p
+        # Extended thinking excludes temperature; MiniMax also accepts top_p.
+        eligible_sampling = ("temperature",) if not self.reasoning else ()
+        if self.provider == "minimax":
+            eligible_sampling += ("top_p",)
+        body.update(self._sampling_from_config(eligible_sampling))
 
         if output_schema is not None:
             schema = transform_schema(output_schema)
@@ -576,7 +578,7 @@ class AnthropicModel(LLM):
 
         parsed_tools = await self.parse_tools(tools)
         if parsed_tools:
-            if "system" not in body:
+            if self.prompt_caching != "off" and "system" not in body:
                 parsed_tools[-1]["cache_control"] = self.cache_control
             body["tools"] = parsed_tools
 
@@ -619,6 +621,19 @@ class AnthropicModel(LLM):
                 is_anthropic_endpoint = "api.anthropic.com" in str(client_base_url)
 
         stream_kwargs: dict[str, Any] = {**body}
+        # The SDK no longer exposes sampling fields as keyword arguments.
+        sampling_fields = ("temperature", "top_p", "top_k")
+        extra_body = cast(dict[str, Any] | None, stream_kwargs.get("extra_body"))
+        request_extra_body = dict(extra_body) if extra_body is not None else None
+        if request_extra_body is not None:
+            stream_kwargs["extra_body"] = request_extra_body
+        if any(key in stream_kwargs for key in sampling_fields):
+            if request_extra_body is None:
+                request_extra_body = {}
+                stream_kwargs["extra_body"] = request_extra_body
+            for key in sampling_fields:
+                if key in stream_kwargs:
+                    request_extra_body.setdefault(key, stream_kwargs.pop(key))
         if is_anthropic_endpoint:
             betas = [ANTHROPIC_FILES_BETA]
             if not self.provider_config.supports_auto_thinking:
@@ -633,15 +648,15 @@ class AnthropicModel(LLM):
             fallback_models = self._fallback_models_for_request()
             if fallback_models:
                 betas.append(ANTHROPIC_SERVER_SIDE_FALLBACK_BETA)
-                extra_body = cast(
-                    dict[str, Any], stream_kwargs.setdefault("extra_body", {})
-                )
+                if request_extra_body is None:
+                    request_extra_body = {}
+                    stream_kwargs["extra_body"] = request_extra_body
                 fallback_overrides: dict[str, Any] = {}
                 # fallback entries are validated against their own model, which
                 # may not accept between_tools
                 if body.get("thinking") == BETWEEN_TOOLS_THINKING:
                     fallback_overrides["thinking"] = {"type": "disabled"}
-                extra_body["fallbacks"] = [
+                request_extra_body["fallbacks"] = [
                     {"model": model, **fallback_overrides} for model in fallback_models
                 ]
 
@@ -823,6 +838,9 @@ class AnthropicModel(LLM):
                         out_tokens=iteration.output_tokens,
                         cache_read_tokens=iteration.cache_read_input_tokens,
                         cache_write_tokens=iteration.cache_creation_input_tokens,
+                        cache_write_1h_tokens=iteration.cache_creation.ephemeral_1h_input_tokens
+                        if iteration.cache_creation
+                        else None,
                     ),
                 )
             )
@@ -846,6 +864,15 @@ class AnthropicModel(LLM):
                 reasoning_tokens=reasoning_tokens,
                 cache_read_tokens=usage.cache_read_input_tokens,
                 cache_write_tokens=usage.cache_creation_input_tokens,
+                # server-tool loops report writes beyond the split; bill them at the requested ttl
+                cache_write_1h_tokens=(
+                    (usage.cache_creation_input_tokens or 0)
+                    - usage.cache_creation.ephemeral_5m_input_tokens
+                    if self.prompt_caching == "1h"
+                    else usage.cache_creation.ephemeral_1h_input_tokens
+                )
+                if usage.cache_creation
+                else None,
                 fallback=fallback,
                 extra={"anthropic_response_model": message.model},
             ),
@@ -985,8 +1012,6 @@ class AnthropicModel(LLM):
         Free:
         - Web Fetch
         """
-        # prompt caching manually enabled
-        # assumed that cache tokens are ephemeral_5m_input_tokens
         # a server-side fallback response is billed at the serving model's price
         return await super()._calculate_cost(
             metadata,

@@ -54,8 +54,7 @@ def test_hint_uses_locked_callable_without_reserving_a_call_or_future_payload() 
         ]
         assert broker.calls == {} and broker.next_index == 0
         selected = author.ModelArtifact(
-            "earlier-native-output", "model", author.ObjectRef("sha256:" + "b" * 64, 123),
-            "sha256:" + "c" * 64,
+            "earlier-native-output", "model", "sha256:" + "b" * 64, "sha256:" + "c" * 64
         )
         author.prefetch(next_model, models={"model": selected, "vae": None})
         assert msgspec.json.decode(received[-1][1]["payload"]) == {
@@ -71,12 +70,11 @@ def test_hint_uses_locked_callable_without_reserving_a_call_or_future_payload() 
         _current.reset(token)
 
 
-@pytest.mark.parametrize("code", ["unknown_durable_request", "model_prefetch_unsupported"])
-def test_old_worker_can_decline_optional_hint(code: str) -> None:
+def test_the_machine_can_decline_the_optional_hint() -> None:
     binding = _CallType("sha256:" + "a" * 64, __name__, "next_model", Payload, Result)
     def decline(request: Request) -> Answer:
         assert isinstance(request, ModelPrefetch)
-        return Answer(ok=False, code=code)
+        return Answer(ok=False, code="model_prefetch_unsupported")
 
     broker = _Broker("parent", {(__name__, "next_model"): binding}, seam(decline))
     broker.bind(author.Context("parent", time.monotonic() + 60))

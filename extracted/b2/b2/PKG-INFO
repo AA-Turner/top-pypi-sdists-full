@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: b2
-Version: 5.0.0
+Version: 5.0.1
 Summary: Command Line Tool for Backblaze B2
 Project-URL: Homepage, https://github.com/Backblaze/B2_Command_Line_Tool
 Author-email: Backblaze Inc <support@backblaze.com>
@@ -20,7 +20,8 @@ Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.10
 Requires-Dist: argcomplete<4,>=3.5.2
 Requires-Dist: arrow<2.0.0,>=1.0.2
-Requires-Dist: b2sdk<3,>=2.13.0
+Requires-Dist: b2sdk<3,>=2.13.2
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: docutils<0.22,>=0.18.1
 Requires-Dist: idna~=3.4; platform_system == 'Java'
 Requires-Dist: platformdirs<5,>=3.11.0
@@ -31,7 +32,7 @@ Provides-Extra: full
 Requires-Dist: pydantic<3,>=2.0.1; extra == 'full'
 Provides-Extra: license
 Requires-Dist: pip-licenses~=5.0; extra == 'license'
-Requires-Dist: pip>=26.1; extra == 'license'
+Requires-Dist: pip>=26.2.2; extra == 'license'
 Requires-Dist: pipdeptree<3,>=2.9; extra == 'license'
 Requires-Dist: prettytable~=3.9; extra == 'license'
 Description-Content-Type: text/markdown
@@ -117,7 +118,7 @@ b2 version                Print the version number of this tool.
 
 The environment variable `B2_ACCOUNT_INFO` specifies the SQLite
 file to use for caching authentication information.
-The default file to use is: `~/.b2_account_info`.
+Run `b2 account get` to see the file currently in use; its location depends on your profile and environment (see `b2 --help` for the resolution rules).
 
 To get more details on a specific command use `b2 <command> --help`.
 
@@ -203,3 +204,4 @@ Please refer to the [changelog](CHANGELOG.md).
 ## Developer Info
 
 Please see our [contributing guidelines](CONTRIBUTING.md).
+See [Authorization realm](doc/authorization_realm.md) for `B2_ENVIRONMENT` and related development flags.

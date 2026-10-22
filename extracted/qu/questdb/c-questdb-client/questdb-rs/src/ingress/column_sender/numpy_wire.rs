@@ -34,6 +34,7 @@
 
 use std::slice;
 
+use crate::ingress::buffer::geohash_precision_needs_bitmap;
 use crate::ingress::{MAX_ARRAY_DIMS, MAX_NDARRAY_LEAF_ELEMS};
 use crate::{Result, error};
 
@@ -43,7 +44,7 @@ use super::wire::{
     QWP_TYPE_CHAR, QWP_TYPE_DATE, QWP_TYPE_DECIMAL64, QWP_TYPE_DECIMAL128, QWP_TYPE_DECIMAL256,
     QWP_TYPE_DOUBLE, QWP_TYPE_DOUBLE_ARRAY, QWP_TYPE_FLOAT, QWP_TYPE_GEOHASH, QWP_TYPE_INT,
     QWP_TYPE_IPV4, QWP_TYPE_LONG, QWP_TYPE_LONG256, QWP_TYPE_SHORT, QWP_TYPE_TIMESTAMP,
-    QWP_TYPE_TIMESTAMP_NANOS, QWP_TYPE_UUID, write_qwp_varint,
+    QWP_TYPE_TIMESTAMP_NANOS, QWP_TYPE_UUID, reverse_uuid_bytes, write_qwp_varint,
 };
 
 /// Numpy source-dtype tag. The chunk's `NumpyDeferred` variant stores
@@ -136,6 +137,16 @@ pub enum NumpyDtype {
 }
 
 impl NumpyDtype {
+    pub(crate) fn geohash_precision_bits(&self) -> Option<u8> {
+        match self {
+            Self::GeohashI8 { bits }
+            | Self::GeohashI16 { bits }
+            | Self::GeohashI32 { bits }
+            | Self::GeohashI64 { bits } => Some(*bits),
+            _ => None,
+        }
+    }
+
     /// QWP wire-type byte for the column slot this dtype produces.
     pub fn wire_type(&self) -> u8 {
         use NumpyDtype as D;
@@ -452,7 +463,7 @@ pub(crate) unsafe fn emit_into_wire(
         D::Ipv4Direct => unsafe {
             emit_bitmap_le::<u32, 4>(out, data, row_count, validity, u32::to_le_bytes)
         },
-        D::UuidDirect => unsafe { emit_bitmap_fsb::<16>(out, data, row_count, validity) },
+        D::UuidDirect => unsafe { emit_uuid_bitmap(out, data, row_count, validity) },
         D::Long256Direct => unsafe { emit_bitmap_fsb::<32>(out, data, row_count, validity) },
 
         // ---- Direct narrow signed integers (sentinel LE) ----
@@ -705,6 +716,39 @@ unsafe fn emit_bitmap_le<T, const N: usize>(
                 if unsafe { v.is_valid(i) } {
                     let value = unsafe { typed.add(i).read_unaligned() };
                     out.extend_from_slice(&to_le(value));
+                }
+            }
+        }
+    }
+}
+
+/// UUID rows: source is canonical RFC-4122 big-endian (`S16` numpy
+/// bytes); the QWP wire wants (lo LE, hi LE) — each 16-byte row is
+/// written fully reversed.
+#[inline]
+unsafe fn emit_uuid_bitmap(
+    out: &mut Vec<u8>,
+    data: *const u8,
+    row_count: usize,
+    validity: Option<&ValidityDescriptor>,
+) {
+    match validity.filter(|v| v.has_nulls()) {
+        None => {
+            out.push(0);
+            out.reserve(16 * row_count);
+            for i in 0..row_count {
+                let row = unsafe { slice::from_raw_parts(data.add(i * 16), 16) };
+                out.extend_from_slice(&reverse_uuid_bytes(row));
+            }
+        }
+        Some(v) => {
+            out.push(1);
+            unsafe { write_qwp_bitmap_from_validity(out, v) };
+            out.reserve(16 * v.non_null_count);
+            for i in 0..row_count {
+                if unsafe { v.is_valid(i) } {
+                    let row = unsafe { slice::from_raw_parts(data.add(i * 16), 16) };
+                    out.extend_from_slice(&reverse_uuid_bytes(row));
                 }
             }
         }
@@ -1127,6 +1171,11 @@ fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
 /// `N`-byte mantissas (only non-nulls when bitmap present, full row
 /// count otherwise). Reproduces the arrow-side `write_decimal*_payload`
 /// shape exactly: the scale byte is written **after** the bitmap.
+/// `data` holds little-endian mantissas, matching all supported hosts.
+///
+/// # Safety
+/// `data` must cover `row_count * N` bytes; any validity bitmap must cover
+/// `row_count` rows. `N` must be 8, 16, or 32.
 #[inline]
 unsafe fn emit_decimal<const N: usize>(
     out: &mut Vec<u8>,
@@ -1168,8 +1217,8 @@ unsafe fn emit_decimal<const N: usize>(
 /// which is always `<= SRC`.
 ///
 /// The encoder writes the low `elem` bytes of each source int, matching
-/// `arrow_batch::write_geohash_payload`. Caller has validated `bits` is
-/// within the source dtype's representable range.
+/// `arrow_batch::write_geohash_payload`. `bits` must fit the source dtype,
+/// but values are deliberately not range-checked against `bits`.
 #[inline]
 unsafe fn emit_geohash<const SRC: usize>(
     out: &mut Vec<u8>,
@@ -1185,9 +1234,27 @@ unsafe fn emit_geohash<const SRC: usize>(
             "numpy geohash bits ({bits}) exceeds source dtype width ({SRC} bytes)"
         ));
     }
-    match validity.filter(|v| v.has_nulls()) {
-        None => {
+    let sparse_validity = validity.filter(|v| v.has_nulls());
+    let force_bitmap = geohash_precision_needs_bitmap(bits);
+    match sparse_validity {
+        None if !force_bitmap => {
             out.push(0);
+            out.reserve(1 + elem * row_count);
+            write_qwp_varint(out, bits as u64);
+            if elem == SRC && row_count > 0 {
+                let bytes = unsafe { slice::from_raw_parts(data, SRC * row_count) };
+                out.extend_from_slice(bytes);
+            } else {
+                for i in 0..row_count {
+                    let row_start = unsafe { data.add(i * SRC) };
+                    let row = unsafe { slice::from_raw_parts(row_start, elem) };
+                    out.extend_from_slice(row);
+                }
+            }
+        }
+        None => {
+            out.push(1);
+            out.resize(out.len() + row_count.div_ceil(8), 0);
             out.reserve(1 + elem * row_count);
             write_qwp_varint(out, bits as u64);
             if elem == SRC && row_count > 0 {
@@ -1376,6 +1443,72 @@ mod tests {
     }
 
     #[test]
+    fn uuid_direct_swaps_canonical_to_wire_order() {
+        // `S16` UUID source rows are canonical RFC-4122 big-endian; the
+        // wire wants (lo LE, hi LE) — the full 16-byte reversal. Forwarding
+        // the bytes unchanged would corrupt every UUID, so check the swap
+        // directly.
+        let canonical: [u8; 16] = [
+            0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x12, 0xd3, 0xa4, 0x56, 0x42, 0x66, 0x14, 0x17,
+            0x40, 0x00,
+        ];
+        let ts = [1i64];
+        let mut chunk = Chunk::new("t");
+        unsafe {
+            chunk
+                .push_numpy_deferred("u", NumpyDtype::UuidDirect, canonical.as_ptr(), 1, None)
+                .unwrap();
+        }
+        chunk.at_nanos(&ts).unwrap();
+        let out = encode(&chunk);
+        let mut wire = canonical;
+        wire.reverse();
+        assert!(
+            out.windows(16).any(|w| w == wire),
+            "UUID bytes must appear byte-reversed in the wire frame"
+        );
+        assert!(
+            !out.windows(16).any(|w| w == canonical),
+            "canonical bytes must not appear verbatim"
+        );
+    }
+
+    #[test]
+    fn uuid_direct_with_nulls_swaps_non_null_values() {
+        let rows: [[u8; 16]; 3] = [
+            core::array::from_fn(|i| i as u8),
+            core::array::from_fn(|i| 0x20 + i as u8),
+            core::array::from_fn(|i| 0x40 + i as u8),
+        ];
+        let bits = [0b0000_0101u8]; // row 1 null
+        let validity = Validity::from_bitmap(&bits, rows.len()).unwrap();
+        let ts = [1i64, 2, 3];
+        let mut chunk = Chunk::new("t");
+        unsafe {
+            chunk
+                .push_numpy_deferred(
+                    "u",
+                    NumpyDtype::UuidDirect,
+                    rows.as_ptr().cast(),
+                    rows.len(),
+                    Some(&validity),
+                )
+                .unwrap();
+        }
+        chunk.at_nanos(&ts).unwrap();
+        let out = encode(&chunk);
+
+        // Column body: null flag + QWP null bitmap + dense non-null UUIDs.
+        let mut expected = vec![1, 0b0000_0010];
+        expected.extend(rows[0].iter().rev());
+        expected.extend(rows[2].iter().rev());
+        assert!(
+            out.windows(expected.len()).any(|w| w == expected),
+            "non-null UUIDs in a column containing nulls must appear byte-reversed in the wire frame"
+        );
+    }
+
+    #[test]
     fn source_elem_size_matches_read_stride() {
         use NumpyDtype as D;
         // Source-read stride per row (what emit_into_wire dereferences),
@@ -1417,6 +1550,97 @@ mod tests {
         assert!(NumpyDtype::GeohashI64 { bits: 61 }.validate().is_err());
         assert!(NumpyDtype::GeohashI8 { bits: 8 }.validate().is_ok());
         assert!(NumpyDtype::GeohashI64 { bits: 60 }.validate().is_ok());
+    }
+
+    #[test]
+    fn numpy_geohash_forwards_out_of_range_values() {
+        let values = [0u8, 31, 32];
+        let mut out = Vec::new();
+        unsafe {
+            emit_into_wire(
+                &mut out,
+                NumpyDtype::GeohashI8 { bits: 5 },
+                values.as_ptr(),
+                values.len(),
+                None,
+            )
+            .unwrap();
+        }
+        assert_eq!(out, vec![0, 5, 0, 31, 32]);
+    }
+
+    #[test]
+    fn numpy_geohash_does_not_validate_null_storage() {
+        let values = [255u8, 31];
+        let validity_bits = [0b0000_0010u8];
+        let validity = Validity::from_bitmap(&validity_bits, values.len()).unwrap();
+        let ts = [1i64, 2];
+        let mut chunk = Chunk::new("t");
+        unsafe {
+            chunk
+                .push_numpy_deferred(
+                    "position",
+                    NumpyDtype::GeohashI8 { bits: 5 },
+                    values.as_ptr(),
+                    values.len(),
+                    Some(&validity),
+                )
+                .unwrap();
+        }
+        chunk.at_nanos(&ts).unwrap();
+        encode(&chunk);
+    }
+
+    #[test]
+    fn byte_aligned_numpy_geohash_uses_bitmap_to_preserve_max_value() {
+        let value = [-1i8];
+        let mut out = Vec::new();
+        unsafe {
+            emit_into_wire(
+                &mut out,
+                NumpyDtype::GeohashI8 { bits: 8 },
+                value.as_ptr().cast(),
+                value.len(),
+                None,
+            )
+            .unwrap();
+        }
+        assert_eq!(out, vec![1, 0, 8, 0xff]);
+    }
+
+    #[test]
+    fn numpy_geohash_explicit_validity_has_exact_bitmap() {
+        for bits in [8u8, 16, 24, 32, 40, 48, 56] {
+            let max = (1i64 << bits) - 1;
+            let values = [max; 9];
+            for sparse in [false, true] {
+                // Unused validity bits are deliberately set, not null rows.
+                let validity_bits = [if sparse { 0xef } else { 0xff }, 0xff];
+                let validity = Validity::from_bitmap(&validity_bits, values.len()).unwrap();
+                let descriptor = ValidityDescriptor {
+                    bits: validity_bits.as_ptr(),
+                    bit_len: values.len(),
+                    non_null_count: validity.non_null_count(),
+                };
+                let mut out = vec![0xaa];
+                // SAFETY: values and validity cover all rows and outlive encode.
+                unsafe {
+                    emit_into_wire(
+                        &mut out,
+                        NumpyDtype::GeohashI64 { bits },
+                        values.as_ptr().cast(),
+                        values.len(),
+                        Some(&descriptor),
+                    )
+                    .unwrap();
+                }
+                let mut expected = vec![0xaa, 1, if sparse { 0x10 } else { 0 }, 0, bits];
+                for _ in 0..9 - usize::from(sparse) {
+                    expected.extend_from_slice(&max.to_le_bytes()[..usize::from(bits / 8)]);
+                }
+                assert_eq!(out, expected, "bits={bits}, sparse={sparse}");
+            }
+        }
     }
 
     #[test]
@@ -2067,7 +2291,7 @@ mod tests {
         // column body subsequence appears exactly once.
         let mut body: Vec<u8> = Vec::new();
         body.push(0u8); // null_flag = 0 (no validity)
-        for row_chunk in rows.chunks_exact(3) {
+        for row_chunk in rows.as_chunks::<3>().0 {
             body.push(1u8); // ndim
             body.extend_from_slice(&3u32.to_le_bytes()); // dim
             for &v in row_chunk {

@@ -10,7 +10,8 @@ Rule home: ``common-docs/systems/agents/agent-variable-binding/FEATURE.md``.
 What this module owns
 ---------------------
 ``place_before_typed_text`` decides the order of the newest person turn on the wire, for every
-chat provider (``BaseTranslator.messages_for_wire`` is its only wire caller):
+chat provider. Its only wire caller is the send boundary (``send_boundary.order_for_wire``,
+stored on ``SendPrep.wire_messages``); translators render that list and never reorder:
 
 1. the agent's authored text (a template the person's words complete) stays first;
 2. this turn's platform block (``MessageList.render_turn_context`` — live date, selection,
@@ -28,7 +29,8 @@ the ledger keeps the person's message exactly as stored.
 ``typed_text_problem`` is the guard: given the message list a send will render, it names what
 rides after the person's typed text, or returns ``None``. ``prepare_for_send`` runs it on every
 loop send (announced, never fatal), and the release-gate test
-``tests/test_request_ends_with_what_the_person_typed.py`` runs it through every translator.
+``tests/test_request_ends_with_what_the_person_typed.py`` runs the boundary's order through every
+translator.
 The live twin: ``aidream/scripts/check_request_ends_with_typed_text.py``.
 """
 
@@ -171,6 +173,24 @@ def host_turn(person_message: Any, block: str) -> Any:
     turn = UnifiedMessage(role=getattr(person_message, "role", "user"), content=[TextContent(text=block)])
     turn.metadata = {HOST_TURN_KEY: True}
     return turn
+
+
+def refresh_host_turn(messages: list[Any], block: str | None) -> list[Any]:
+    """``messages`` with the platform's host turn re-rendered to carry ``block``.
+
+    For a per-turn slot joined AFTER the send boundary placed the block (a converted prefill's
+    instruction, ``providers/unified_client._apply_message_flags``): the turn keeps its place,
+    only its text follows the block. No host turn, or no block → the same list.
+    """
+    if not block:
+        return messages
+    out = list(messages)
+    for index, message in enumerate(out):
+        metadata = getattr(message, "metadata", None)
+        if isinstance(metadata, dict) and metadata.get(HOST_TURN_KEY):
+            out[index] = host_turn(message, block)
+            return out
+    return messages
 
 
 def typed_text_problem(messages: list[Any]) -> str | None:

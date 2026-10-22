@@ -2,12 +2,14 @@
 
 import json
 from collections.abc import Callable
+from dataclasses import asdict
 
 import numpy as np
 
 from river_client.losses import CustomLoss
 
 from .checkpoint import fingerprint
+from .requirements import LossRequirements
 
 
 _INPUTS = {
@@ -31,10 +33,20 @@ def validate_custom_loss_inputs(loss: CustomLoss, custom_loss_inputs: Callable |
         )
 
 
-def loss_contract(loss: CustomLoss, custom_loss_inputs: Callable | None):
+def loss_contract(
+    loss: CustomLoss,
+    custom_loss_inputs: Callable | None,
+    *,
+    requirements=LossRequirements(),
+):
     from river_client._loss_capture import _graph_formula
 
     return {
+        **(
+            {"requirements": asdict(requirements)}
+            if requirements != LossRequirements()
+            else {}
+        ),
         "graph": fingerprint(_graph_formula(json.loads(loss._graph))),
         "inputs": None if custom_loss_inputs is None else custom_loss_inputs.contract(),
     }
@@ -73,6 +85,7 @@ def custom_batch(data, loss: CustomLoss, custom_loss_inputs: Callable | None):
             if custom_loss_inputs is not None
             else {name: columns[name] for name in loss.inputs}
         )
+        converted.pop("sampling_metadata", None)
         converted["loss_data"] = {
             name: np.asarray(values).tolist() for name, values in columns.items()
         }

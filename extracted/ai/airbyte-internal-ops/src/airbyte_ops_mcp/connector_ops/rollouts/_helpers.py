@@ -6,9 +6,11 @@ Includes registry lookups, rollout filtering, tier logic, and health gates.
 
 from __future__ import annotations
 
+import copy
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
     ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfiguration as RolloutConfiguration,
@@ -37,6 +39,7 @@ from airbyte_ops_mcp.connector_ops.rollouts.models import ConnectorRolloutRecord
 from airbyte_ops_mcp.prod_db_access.queries import (
     query_connections_by_connector,
     query_connections_by_destination_connector,
+    query_latest_rc_counterpart_failures,
 )
 from airbyte_ops_mcp.tier_cache import enrich_rows_by_org, filter_rows_by_tier
 
@@ -277,6 +280,7 @@ class HealthGateResult:
     num_pinned: int = 0
     light_evidence: bool = False
     tier: str = ""
+    excluded_counterpart_failures: int = 0
 
 
 _PACIFIC_TIME = ZoneInfo("America/Los_Angeles")
@@ -365,10 +369,79 @@ def _succeeded_sync_count(actor_stats: dict) -> int:
     return actor_stats.get("numSucceeded") or actor_stats.get("num_succeeded") or 0
 
 
+def exclude_counterpart_failures(
+    rollout: ConnectorRolloutRecord, sync_info: dict
+) -> tuple[dict, int]:
+    """Exclude latest-RC failures caused by the other side of the connection.
+
+    The lookup considers each connection's latest sync job since rollout creation
+    when it failed on the RC. If the query is unavailable, all failures remain
+    counted.
+    """
+    data = sync_info.get("data", sync_info)
+    syncs = data.get("syncs", {})
+    failing_actor_ids = [
+        str(actor_id)
+        for actor_id, actor_stats in syncs.items()
+        if _failed_sync_count(actor_stats) > 0
+    ]
+    rc_version_id = rollout.release_candidate_version_id
+    created_at_start = parse_db_timestamp(rollout.created_at)
+    if not failing_actor_ids or not rc_version_id or created_at_start is None:
+        return sync_info, 0
+
+    actor_type: Literal["source", "destination"] = (
+        "destination" if rollout.connector_name.startswith("destination-") else "source"
+    )
+    try:
+        excluded_rows = query_latest_rc_counterpart_failures(
+            actor_type=actor_type,
+            actor_ids=failing_actor_ids,
+            rc_version_id=rc_version_id,
+            created_at_start=created_at_start.astimezone(timezone.utc),
+        )
+    except Exception as exc:
+        logger.warning(
+            "Could not query counterpart-origin failures for rollout %s; "
+            "counting all failures: %s",
+            rollout.rollout_id,
+            exc,
+        )
+        return sync_info, 0
+
+    actor_ids_by_normalized = {str(actor_id).casefold(): actor_id for actor_id in syncs}
+    excluded_by_actor: dict[str, int] = {}
+    for row in excluded_rows:
+        actor_id = row.get("actor_id")
+        normalized_actor_id = str(actor_id).casefold() if actor_id is not None else ""
+        if normalized_actor_id in actor_ids_by_normalized:
+            excluded_by_actor[normalized_actor_id] = (
+                excluded_by_actor.get(normalized_actor_id, 0) + 1
+            )
+
+    adjusted_sync_info = copy.deepcopy(sync_info)
+    adjusted_data = adjusted_sync_info.get("data", adjusted_sync_info)
+    adjusted_syncs = adjusted_data.get("syncs", {})
+    excluded_count = 0
+    for normalized_actor_id, excluded in excluded_by_actor.items():
+        actor_id = actor_ids_by_normalized[normalized_actor_id]
+        actor_stats = adjusted_syncs[actor_id]
+        new_failed_count = max(_failed_sync_count(actor_stats) - excluded, 0)
+        if "numFailed" in actor_stats:
+            actor_stats["numFailed"] = new_failed_count
+        elif "num_failed" in actor_stats:
+            actor_stats["num_failed"] = new_failed_count
+        excluded_count += excluded
+
+    return adjusted_sync_info, excluded_count
+
+
 def check_health_gate(
     rollout: ConnectorRolloutRecord,
     sync_info: dict,
     strategy: str | RolloutStrategy,
+    *,
+    excluded_counterpart_failures: int = 0,
 ) -> HealthGateResult:
     """Evaluate health gate for a rollout at 100%.
 
@@ -391,10 +464,16 @@ def check_health_gate(
     sufficient. If signal is insufficient but MAX_SOAK_TIME is exceeded,
     we promote regardless.
 
+    Counterpart-origin failures should be removed from `sync_info` by the caller.
+    This function performs no database I/O; `excluded_counterpart_failures` is
+    included in the result and in failure-count reasons for attribution.
+
     Args:
         rollout: The rollout record (must be at 100%).
         sync_info: Response dict from `get_actor_sync_info`.
         strategy: Autopilot strategy key or `RolloutStrategy` enum value.
+        excluded_counterpart_failures: Count of counterpart-origin failed connections
+            already removed from `sync_info`.
 
     Returns:
         `HealthGateResult` with `passed=True` if promotion is allowed,
@@ -422,6 +501,7 @@ def check_health_gate(
             reason="Cannot evaluate soak time: rollout has no updated_at timestamp",
             num_pinned=num_pinned,
             tier=rollout.tier,
+            excluded_counterpart_failures=excluded_counterpart_failures,
         )
 
     if isinstance(updated_at, str):
@@ -465,6 +545,13 @@ def check_health_gate(
         if actors_with_sync_signal > 0
         else "failures: no sync signal reported yet"
     )
+    counterpart_exclusion_summary = (
+        f" ({excluded_counterpart_failures} counterpart-origin failures excluded)"
+        if excluded_counterpart_failures > 0
+        else ""
+    )
+    if counterpart_exclusion_summary:
+        failure_summary += counterpart_exclusion_summary
 
     def _result(
         *,
@@ -488,6 +575,7 @@ def check_health_gate(
             num_pinned=num_pinned,
             light_evidence=light_evidence,
             tier=rollout.tier,
+            excluded_counterpart_failures=excluded_counterpart_failures,
         )
 
     # --- Gate: failure rate or absolute count (checked first, independent of
@@ -510,7 +598,7 @@ def check_health_gate(
                 f"Failure threshold hit: {failed_actor_count} of "
                 f"{actors_with_sync_signal} connectors failing "
                 f"({tripped_by}, floor={failure_count_floor}). "
-                f"Pause/rollback recommended."
+                f"Pause/rollback recommended.{counterpart_exclusion_summary}"
             ),
         )
 
@@ -572,6 +660,7 @@ def check_health_gate(
                 f"(>= {LIGHT_EVIDENCE_SIGNAL_COUNT_THRESHOLD}), "
                 f"{signal_percent:.1%} coverage (>= {percent_threshold:.0%}), "
                 f"0 failing. Soak: {elapsed_seconds:.0f}s"
+                f"{counterpart_exclusion_summary}"
             ),
             light_evidence=True,
         )

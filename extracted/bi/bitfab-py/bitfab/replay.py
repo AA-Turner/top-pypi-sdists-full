@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import functools
 import inspect
 import json
 import logging
@@ -17,8 +18,14 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, Protocol, TypedDict
 
 from typing_extensions import NotRequired
 
-from bitfab.constants import _replay_context, _seed_context
+from bitfab.constants import (
+    INTEGRATION_FIXTURES_KEY,
+    STREAM_RESULT_KEY,
+    _replay_context,
+    _seed_context,
+)
 from bitfab.git_command import run_git
+from bitfab.integration_fixture import extract_integration_fixtures
 from bitfab.mock_matching import MATCHER
 from bitfab.mock_override import (
     MockOverride,
@@ -768,6 +775,32 @@ def _resolve_dataset_ids(
     return list(dict.fromkeys(dataset_ids))
 
 
+def _stream_result(chunks: list[Any]) -> Any:
+    replay_context = _replay_context.get()
+    if replay_context is not None and STREAM_RESULT_KEY in replay_context:
+        return replay_context[STREAM_RESULT_KEY]
+    return chunks
+
+
+def _draining_streams(fn: Callable) -> Callable:
+    if inspect.isasyncgenfunction(fn):
+
+        @functools.wraps(fn)
+        async def drain_async_stream(*args: Any, **kwargs: Any) -> Any:
+            return _stream_result([chunk async for chunk in fn(*args, **kwargs)])
+
+        return drain_async_stream
+    if inspect.iscoroutinefunction(fn):
+        return fn
+
+    @functools.wraps(fn)
+    def drain_stream(*args: Any, **kwargs: Any) -> Any:
+        result = fn(*args, **kwargs)
+        return _stream_result(list(result)) if inspect.isgenerator(result) else result
+
+    return drain_stream
+
+
 def _resolve_replay_fn(
     client: Bitfab, fn: Callable, trace_function_key: str | None
 ) -> tuple[Callable, str, bool]:
@@ -809,7 +842,7 @@ def _resolve_replay_fn(
                 name=trace_function_key,
                 type="agent",
                 surface=None,
-            )(fn),
+            )(_draining_streams(fn)),
             trace_function_key,
             True,
         )
@@ -2676,6 +2709,7 @@ def _extract_span_data(span: dict[str, Any]) -> dict[str, Any]:
         "output": span_data.get("output"),
         "inputSerialized": span_data.get("input_serialized"),
         "outputSerialized": span_data.get("output_serialized"),
+        "integrationFixtures": extract_integration_fixtures(span_data),
     }
 
 
@@ -2786,6 +2820,8 @@ async def _execute_item_async(
         replay_ctx["input_source_span_id"] = input_source_span_id
     if input_source_trace_id is not None:
         replay_ctx["input_source_trace_id"] = input_source_trace_id
+    if item.get("integrationFixtures"):
+        replay_ctx[INTEGRATION_FIXTURES_KEY] = item["integrationFixtures"]
     # The mock context is active when either the base strategy needs a tree
     # ("all"/"marked") or overrides are present. Overrides can fire under
     # mock="none" with no recorded tree, so the tree defaults to an empty dict

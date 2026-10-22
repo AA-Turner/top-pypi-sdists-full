@@ -60,16 +60,20 @@ using namespace std::string_literals;
 using namespace questdb::ingress::literals;
 
 constexpr auto qwp_decimal256_max_positive =
-    "57896044618658097711785492504343953926634992332820282019728792003956564819967";
+    "57896044618658097711785492504343953926634992332820282019728792003956564819"
+    "967";
 constexpr auto qwp_decimal256_min_negative =
-    "-57896044618658097711785492504343953926634992332820282019728792003956564819968";
+    "-5789604461865809771178549250434395392663499233282028201972879200395656481"
+    "9968";
 constexpr auto qwp_decimal256_positive_overflow =
-    "57896044618658097711785492504343953926634992332820282019728792003956564819968";
+    "57896044618658097711785492504343953926634992332820282019728792003956564819"
+    "968";
 constexpr uint8_t qwp_test_type_boolean = 0x01;
 constexpr uint8_t qwp_test_type_long = 0x05;
 constexpr uint8_t qwp_test_type_double = 0x07;
 constexpr uint8_t qwp_test_type_symbol = 0x09;
 constexpr uint8_t qwp_test_type_timestamp = 0x0A;
+constexpr uint8_t qwp_test_type_geohash = 0x0E;
 constexpr uint8_t qwp_test_type_varchar = 0x0F;
 constexpr uint8_t qwp_test_type_timestamp_nanos = 0x10;
 constexpr size_t qwp_test_message_header_size = 12;
@@ -170,12 +174,13 @@ public:
         FD_SET(_socket, &read_set);
 
         timeval timeout{};
-        timeout.tv_sec = static_cast<decltype(timeout.tv_sec)>(wait_timeout_sec);
+        timeout.tv_sec =
+            static_cast<decltype(timeout.tv_sec)>(wait_timeout_sec);
         timeout.tv_usec = static_cast<decltype(timeout.tv_usec)>(
-            1000000.0 * (wait_timeout_sec - static_cast<double>(timeout.tv_sec)));
+            1000000.0 *
+            (wait_timeout_sec - static_cast<double>(timeout.tv_sec)));
         const int nfds = static_cast<int>(_socket) + 1;
-        const int ready =
-            ::select(nfds, &read_set, nullptr, nullptr, &timeout);
+        const int ready = ::select(nfds, &read_set, nullptr, nullptr, &timeout);
         REQUIRE(ready >= 0);
         REQUIRE(ready == 1);
 
@@ -201,12 +206,13 @@ public:
         FD_SET(_socket, &read_set);
 
         timeval timeout{};
-        timeout.tv_sec = static_cast<decltype(timeout.tv_sec)>(wait_timeout_sec);
+        timeout.tv_sec =
+            static_cast<decltype(timeout.tv_sec)>(wait_timeout_sec);
         timeout.tv_usec = static_cast<decltype(timeout.tv_usec)>(
-            1000000.0 * (wait_timeout_sec - static_cast<double>(timeout.tv_sec)));
+            1000000.0 *
+            (wait_timeout_sec - static_cast<double>(timeout.tv_sec)));
         const int nfds = static_cast<int>(_socket) + 1;
-        const int ready =
-            ::select(nfds, &read_set, nullptr, nullptr, &timeout);
+        const int ready = ::select(nfds, &read_set, nullptr, nullptr, &timeout);
         REQUIRE(ready >= 0);
         return ready == 1;
     }
@@ -218,8 +224,7 @@ private:
 
 bool datagram_starts_with_qwp1(const std::vector<std::byte>& datagram)
 {
-    return datagram.size() >= 4 &&
-        std::memcmp(datagram.data(), "QWP1", 4) == 0;
+    return datagram.size() >= 4 && std::memcmp(datagram.data(), "QWP1", 4) == 0;
 }
 
 struct qwp_test_decoded_column
@@ -257,6 +262,7 @@ enum class qwp_test_decoded_value_kind
     string,
     timestamp_micros,
     timestamp_nanos,
+    geohash,
 };
 
 struct qwp_test_decoded_value
@@ -266,6 +272,8 @@ struct qwp_test_decoded_value
     int64_t i64_value{0};
     double f64_value{0.0};
     std::string string_value;
+    uint64_t geohash_bits{0};
+    uint8_t geohash_precision{0};
 };
 
 struct qwp_test_decoded_scalar_column
@@ -314,11 +322,10 @@ public:
         std::array<uint8_t, 4> raw{};
         for (size_t i = 0; i < raw.size(); ++i)
             raw[i] = std::to_integer<uint8_t>(bytes[i]);
-        return
-            static_cast<uint32_t>(raw[0]) |
-            (static_cast<uint32_t>(raw[1]) << 8) |
-            (static_cast<uint32_t>(raw[2]) << 16) |
-            (static_cast<uint32_t>(raw[3]) << 24);
+        return static_cast<uint32_t>(raw[0]) |
+               (static_cast<uint32_t>(raw[1]) << 8) |
+               (static_cast<uint32_t>(raw[2]) << 16) |
+               (static_cast<uint32_t>(raw[3]) << 24);
     }
 
     uint64_t read_u64()
@@ -327,15 +334,14 @@ public:
         std::array<uint8_t, 8> raw{};
         for (size_t i = 0; i < raw.size(); ++i)
             raw[i] = std::to_integer<uint8_t>(bytes[i]);
-        return
-            static_cast<uint64_t>(raw[0]) |
-            (static_cast<uint64_t>(raw[1]) << 8) |
-            (static_cast<uint64_t>(raw[2]) << 16) |
-            (static_cast<uint64_t>(raw[3]) << 24) |
-            (static_cast<uint64_t>(raw[4]) << 32) |
-            (static_cast<uint64_t>(raw[5]) << 40) |
-            (static_cast<uint64_t>(raw[6]) << 48) |
-            (static_cast<uint64_t>(raw[7]) << 56);
+        return static_cast<uint64_t>(raw[0]) |
+               (static_cast<uint64_t>(raw[1]) << 8) |
+               (static_cast<uint64_t>(raw[2]) << 16) |
+               (static_cast<uint64_t>(raw[3]) << 24) |
+               (static_cast<uint64_t>(raw[4]) << 32) |
+               (static_cast<uint64_t>(raw[5]) << 40) |
+               (static_cast<uint64_t>(raw[6]) << 48) |
+               (static_cast<uint64_t>(raw[7]) << 56);
     }
 
     int32_t read_i32()
@@ -373,9 +379,7 @@ public:
     {
         const auto len = static_cast<size_t>(read_varint());
         const auto bytes = read_exact(len);
-        return {
-            reinterpret_cast<const char*>(bytes.data()),
-            bytes.size()};
+        return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
     }
 
     double read_f64()
@@ -417,7 +421,8 @@ std::vector<std::byte> qwp_test_payload_from_datagram(
         (static_cast<uint32_t>(std::to_integer<uint8_t>(datagram[11])) << 24);
     REQUIRE(datagram.size() == qwp_test_message_header_size + payload_len);
     return {
-        datagram.begin() + static_cast<std::ptrdiff_t>(qwp_test_message_header_size),
+        datagram.begin() +
+            static_cast<std::ptrdiff_t>(qwp_test_message_header_size),
         datagram.end()};
 }
 
@@ -451,8 +456,7 @@ qwp_test_decoded_value qwp_test_f64_value(double value)
 }
 
 qwp_test_decoded_value qwp_test_string_value(
-    qwp_test_decoded_value_kind kind,
-    std::string value)
+    qwp_test_decoded_value_kind kind, std::string value)
 {
     qwp_test_decoded_value out{};
     out.kind = kind;
@@ -461,8 +465,7 @@ qwp_test_decoded_value qwp_test_string_value(
 }
 
 qwp_test_decoded_value qwp_test_timestamp_value(
-    qwp_test_decoded_value_kind kind,
-    int64_t value)
+    qwp_test_decoded_value_kind kind, int64_t value)
 {
     qwp_test_decoded_value out{};
     out.kind = kind;
@@ -484,23 +487,22 @@ size_t qwp_test_non_null_count(const std::vector<bool>& has_value)
 std::vector<qwp_test_decoded_value> qwp_test_read_column_values(
     qwp_test_decoder& decoder,
     uint8_t type_code,
-    const std::vector<bool>& has_value)
+    const std::vector<bool>& has_value,
+    bool has_null_bitmap)
 {
     const size_t row_count = has_value.size();
     const size_t non_null_count = qwp_test_non_null_count(has_value);
 
     switch (type_code)
     {
-    case qwp_test_type_boolean:
-    {
+    case qwp_test_type_boolean: {
         const size_t packed_size = (non_null_count + 7) / 8;
         const auto bytes = decoder.read_exact(packed_size);
         std::vector<bool> raw_values;
         raw_values.reserve(non_null_count);
         for (size_t value_idx = 0; value_idx < non_null_count; ++value_idx)
         {
-            const uint8_t byte =
-                std::to_integer<uint8_t>(bytes[value_idx / 8]);
+            const uint8_t byte = std::to_integer<uint8_t>(bytes[value_idx / 8]);
             raw_values.push_back((byte & (1u << (value_idx % 8))) != 0);
         }
 
@@ -518,8 +520,7 @@ std::vector<qwp_test_decoded_value> qwp_test_read_column_values(
         }
         return values;
     }
-    case qwp_test_type_symbol:
-    {
+    case qwp_test_type_symbol: {
         const size_t dict_size = static_cast<size_t>(decoder.read_varint());
         std::vector<std::string> dict;
         dict.reserve(dict_size);
@@ -544,13 +545,11 @@ std::vector<qwp_test_decoded_value> qwp_test_read_column_values(
             const size_t idx = indexes[next_index++];
             REQUIRE(idx < dict.size());
             values.push_back(qwp_test_string_value(
-                qwp_test_decoded_value_kind::symbol,
-                dict[idx]));
+                qwp_test_decoded_value_kind::symbol, dict[idx]));
         }
         return values;
     }
-    case qwp_test_type_long:
-    {
+    case qwp_test_type_long: {
         std::vector<qwp_test_decoded_value> raw_values;
         raw_values.reserve(non_null_count);
         for (size_t i = 0; i < non_null_count; ++i)
@@ -566,8 +565,7 @@ std::vector<qwp_test_decoded_value> qwp_test_read_column_values(
         }
         return values;
     }
-    case qwp_test_type_double:
-    {
+    case qwp_test_type_double: {
         std::vector<qwp_test_decoded_value> raw_values;
         raw_values.reserve(non_null_count);
         for (size_t i = 0; i < non_null_count; ++i)
@@ -583,15 +581,15 @@ std::vector<qwp_test_decoded_value> qwp_test_read_column_values(
         }
         return values;
     }
-    case qwp_test_type_varchar:
-    {
+    case qwp_test_type_varchar: {
         std::vector<int32_t> offsets;
         offsets.reserve(non_null_count + 1);
         for (size_t i = 0; i < non_null_count + 1; ++i)
             offsets.push_back(decoder.read_i32());
         REQUIRE(!offsets.empty());
         REQUIRE(offsets.back() >= 0);
-        const auto data = decoder.read_exact(static_cast<size_t>(offsets.back()));
+        const auto data =
+            decoder.read_exact(static_cast<size_t>(offsets.back()));
 
         size_t next_offset = 0;
         std::vector<qwp_test_decoded_value> values;
@@ -620,16 +618,45 @@ std::vector<qwp_test_decoded_value> qwp_test_read_column_values(
         }
         return values;
     }
+    case qwp_test_type_geohash: {
+        const auto precision = decoder.read_varint();
+        REQUIRE(precision >= 1);
+        REQUIRE(precision <= 60);
+        const size_t width = (precision + 7) / 8;
+        std::vector<qwp_test_decoded_value> values;
+        values.reserve(row_count);
+        for (bool present : has_value)
+        {
+            if (!present)
+            {
+                values.push_back(qwp_test_null_value());
+                continue;
+            }
+            qwp_test_decoded_value value{};
+            value.kind = qwp_test_decoded_value_kind::geohash;
+            value.geohash_precision = static_cast<uint8_t>(precision);
+            for (size_t byte = 0; byte < width; ++byte)
+                value.geohash_bits |= static_cast<uint64_t>(decoder.read_u8())
+                                      << (byte * 8);
+            const auto null_sentinel =
+                std::numeric_limits<uint64_t>::max() >> ((8 - width) * 8);
+            values.push_back(
+                !has_null_bitmap && value.geohash_bits == null_sentinel
+                    ? qwp_test_null_value()
+                    : value);
+        }
+        return values;
+    }
     case qwp_test_type_timestamp:
-    case qwp_test_type_timestamp_nanos:
-    {
-        const auto kind = type_code == qwp_test_type_timestamp ?
-            qwp_test_decoded_value_kind::timestamp_micros :
-            qwp_test_decoded_value_kind::timestamp_nanos;
+    case qwp_test_type_timestamp_nanos: {
+        const auto kind = type_code == qwp_test_type_timestamp
+                              ? qwp_test_decoded_value_kind::timestamp_micros
+                              : qwp_test_decoded_value_kind::timestamp_nanos;
         std::vector<qwp_test_decoded_value> raw_values;
         raw_values.reserve(non_null_count);
         for (size_t i = 0; i < non_null_count; ++i)
-            raw_values.push_back(qwp_test_timestamp_value(kind, decoder.read_i64()));
+            raw_values.push_back(
+                qwp_test_timestamp_value(kind, decoder.read_i64()));
 
         size_t next_value = 0;
         std::vector<qwp_test_decoded_value> values;
@@ -687,9 +714,7 @@ qwp_test_decoded_scalar_datagram decode_single_scalar_qwp_datagram(
             }
         }
         column_values.push_back(qwp_test_read_column_values(
-            decoder,
-            column.type_code,
-            has_value));
+            decoder, column.type_code, has_value, column.nullable));
     }
 
     decoded.rows.assign(row_count, {});
@@ -707,8 +732,7 @@ qwp_test_decoded_scalar_datagram decode_single_scalar_qwp_datagram(
 }
 
 size_t qwp_test_column_index(
-    const qwp_test_decoded_scalar_datagram& decoded,
-    const std::string& name)
+    const qwp_test_decoded_scalar_datagram& decoded, const std::string& name)
 {
     for (size_t i = 0; i < decoded.columns.size(); ++i)
     {
@@ -731,8 +755,7 @@ void qwp_check_column(
 }
 
 void qwp_check_column_count(
-    const qwp_test_decoded_scalar_datagram& decoded,
-    size_t expected)
+    const qwp_test_decoded_scalar_datagram& decoded, size_t expected)
 {
     CHECK(decoded.columns.size() == expected);
     for (const auto& row : decoded.rows)
@@ -757,8 +780,7 @@ void qwp_expect_bool(const qwp_test_decoded_value& value, bool expected)
 }
 
 void qwp_expect_symbol(
-    const qwp_test_decoded_value& value,
-    const std::string& expected)
+    const qwp_test_decoded_value& value, const std::string& expected)
 {
     REQUIRE(value.kind == qwp_test_decoded_value_kind::symbol);
     CHECK(value.string_value == expected);
@@ -783,24 +805,21 @@ void qwp_expect_f64_nan(const qwp_test_decoded_value& value)
 }
 
 void qwp_expect_string(
-    const qwp_test_decoded_value& value,
-    const std::string& expected)
+    const qwp_test_decoded_value& value, const std::string& expected)
 {
     REQUIRE(value.kind == qwp_test_decoded_value_kind::string);
     CHECK(value.string_value == expected);
 }
 
 void qwp_expect_timestamp_micros(
-    const qwp_test_decoded_value& value,
-    int64_t expected)
+    const qwp_test_decoded_value& value, int64_t expected)
 {
     REQUIRE(value.kind == qwp_test_decoded_value_kind::timestamp_micros);
     CHECK(value.i64_value == expected);
 }
 
 void qwp_expect_timestamp_nanos(
-    const qwp_test_decoded_value& value,
-    int64_t expected)
+    const qwp_test_decoded_value& value, int64_t expected)
 {
     REQUIRE(value.kind == qwp_test_decoded_value_kind::timestamp_nanos);
     CHECK(value.i64_value == expected);
@@ -822,9 +841,7 @@ qwp_test_decoded_array_datagram decode_single_array_qwp_datagram(
         (static_cast<uint32_t>(std::to_integer<uint8_t>(datagram[11])) << 24);
     REQUIRE(datagram.size() == 12u + payload_len);
 
-    std::vector<std::byte> payload{
-        datagram.begin() + 12,
-        datagram.end()};
+    std::vector<std::byte> payload{datagram.begin() + 12, datagram.end()};
     qwp_test_decoder decoder{payload};
     qwp_test_decoded_array_datagram decoded{};
     decoded.table_name = decoder.read_string();
@@ -872,16 +889,15 @@ std::vector<uint8_t> trim_signed_be_bytes(const std::vector<uint8_t>& bytes)
     {
         const uint8_t current = bytes[keep_from];
         const uint8_t next = bytes[keep_from + 1];
-        const bool should_trim = negative ?
-            (current == 0xffu && (next & 0x80u) != 0) :
-            (current == 0x00u && (next & 0x80u) == 0);
+        const bool should_trim =
+            negative ? (current == 0xffu && (next & 0x80u) != 0)
+                     : (current == 0x00u && (next & 0x80u) == 0);
         if (!should_trim)
             break;
         ++keep_from;
     }
     return {
-        bytes.begin() + static_cast<std::ptrdiff_t>(keep_from),
-        bytes.end()};
+        bytes.begin() + static_cast<std::ptrdiff_t>(keep_from), bytes.end()};
 }
 
 std::vector<uint8_t> trimmed_signed_i64_be(int64_t value)
@@ -928,9 +944,7 @@ qwp_test_decoded_decimal_datagram decode_single_decimal_qwp_datagram(
         (static_cast<uint32_t>(std::to_integer<uint8_t>(datagram[11])) << 24);
     REQUIRE(datagram.size() == 12u + payload_len);
 
-    std::vector<std::byte> payload{
-        datagram.begin() + 12,
-        datagram.end()};
+    std::vector<std::byte> payload{datagram.begin() + 12, datagram.end()};
     qwp_test_decoder decoder{payload};
     qwp_test_decoded_decimal_datagram decoded{};
     decoded.table_name = decoder.read_string();
@@ -948,9 +962,7 @@ qwp_test_decoded_decimal_datagram decode_single_decimal_qwp_datagram(
     REQUIRE(decimal_type_ok);
 
     decoded.nullable = decoder.read_u8() != 0;
-    std::vector<bool> has_value(
-        static_cast<size_t>(decoded.row_count),
-        true);
+    std::vector<bool> has_value(static_cast<size_t>(decoded.row_count), true);
     if (decoded.nullable)
     {
         const size_t bitmap_len = (has_value.size() + 7) / 8;
@@ -964,8 +976,10 @@ qwp_test_decoded_decimal_datagram decode_single_decimal_qwp_datagram(
     }
 
     decoded.scale = decoder.read_u8();
-    const size_t width = decoded.column.type_code == qwp_type_decimal64 ? 8 :
-        (decoded.column.type_code == qwp_type_decimal128 ? 16 : 32);
+    const size_t width =
+        decoded.column.type_code == qwp_type_decimal64
+            ? 8
+            : (decoded.column.type_code == qwp_type_decimal128 ? 16 : 32);
 
     decoded.values.reserve(has_value.size());
     for (bool present : has_value)
@@ -1023,12 +1037,12 @@ public:
         // single-threaded test code and the value is immediately
         // copied into a std::string, so it's safe here.
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable: 4996)
+#    pragma warning(push)
+#    pragma warning(disable : 4996)
 #endif
         if (const char* old_value = std::getenv(name))
 #ifdef _MSC_VER
-#pragma warning(pop)
+#    pragma warning(pop)
 #endif
             _old_value = old_value;
         REQUIRE(qdb_test_set_env_var(name, value.c_str()));
@@ -1555,7 +1569,7 @@ TEST_CASE("One column only - server.accept() after flush, before close")
     CHECK(server.msgs(0) == "test t1=\"v1\"\n");
 }
 
-TEST_CASE("Symbol after column")
+TEST_CASE("ILP rejects symbol after column")
 {
     questdb::ingress::test::mock_server server;
     questdb::ingress::line_sender sender{questdb::ingress::opts{
@@ -2102,8 +2116,7 @@ TEST_CASE("Test Bookmark")
     buffer.table("test").symbol("a", "c").at_now();
 
     CHECK_THROWS_AS(
-        buffer.rewind_to_bookmark(stale),
-        questdb::ingress::line_sender_error);
+        buffer.rewind_to_bookmark(stale), questdb::ingress::line_sender_error);
 
     buffer.rewind_to_bookmark(current);
     CHECK(buffer.peek() == "test,a=b\n");
@@ -2266,7 +2279,9 @@ TEST_CASE("line sender protocol throws after close")
     sender.close();
 
     CHECK_THROWS_WITH_AS(
-        sender.protocol(), "Sender closed.", questdb::ingress::line_sender_error);
+        sender.protocol(),
+        "Sender closed.",
+        questdb::ingress::line_sender_error);
 }
 
 TEST_CASE("line sender protocol version v2")
@@ -2308,8 +2323,8 @@ TEST_CASE("line_sender c api udp basics")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -2366,8 +2381,8 @@ TEST_CASE("line_sender c api standalone udp buffer")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -2408,8 +2423,8 @@ TEST_CASE("line_sender c api udp f64 array column")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -2429,13 +2444,7 @@ TEST_CASE("line_sender c api udp f64 array column")
     CHECK(::line_sender_buffer_table(buffer, table, &err));
     CHECK(
         ::line_sender_buffer_column_f64_arr_c_major(
-            buffer,
-            arr_col,
-            2,
-            shape,
-            arr_data.data(),
-            arr_data.size(),
-            &err));
+            buffer, arr_col, 2, shape, arr_data.data(), arr_data.size(), &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
     CHECK(::line_sender_flush(sender, buffer, &err));
     CHECK(::line_sender_buffer_row_count(buffer) == 0);
@@ -2460,8 +2469,8 @@ TEST_CASE("line_sender c api udp decimal column")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -2478,7 +2487,8 @@ TEST_CASE("line_sender c api udp decimal column")
     const uint8_t neg_345[] = {0xfe, 0xa7};
 
     CHECK(::line_sender_buffer_table(buffer, table, &err));
-    CHECK(::line_sender_buffer_column_dec_str(buffer, price, "1.5e-3", 6, &err));
+    CHECK(
+        ::line_sender_buffer_column_dec_str(buffer, price, "1.5e-3", 6, &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
 
     CHECK(::line_sender_buffer_table(buffer, table, &err));
@@ -2488,12 +2498,7 @@ TEST_CASE("line_sender c api udp decimal column")
     CHECK(::line_sender_buffer_table(buffer, table, &err));
     CHECK(
         ::line_sender_buffer_column_dec(
-            buffer,
-            price,
-            2,
-            neg_345,
-            sizeof(neg_345),
-            &err));
+            buffer, price, 2, neg_345, sizeof(neg_345), &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
 
     CHECK(::line_sender_buffer_table(buffer, table, &err));
@@ -2531,8 +2536,8 @@ TEST_CASE("line_sender c api udp decimal signed boundaries")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -2595,8 +2600,8 @@ TEST_CASE("line_sender c api udp decimal rejects signed overflow")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -2677,7 +2682,8 @@ TEST_CASE("line_sender c api udp max name len and peek")
             ::line_sender_error_free(err);
     }};
 
-    ::line_sender_buffer* buffer = ::line_sender_buffer_new_qwp_with_max_name_len(4);
+    ::line_sender_buffer* buffer =
+        ::line_sender_buffer_new_qwp_with_max_name_len(4);
     REQUIRE(buffer != nullptr);
     on_scope_exit buffer_free_guard{[&] { ::line_sender_buffer_free(buffer); }};
 
@@ -2719,8 +2725,8 @@ TEST_CASE("line_sender c api udp from env")
 {
     udp_capture receiver;
     const std::string conf = "udp::addr=127.0.0.1:"s +
-        std::to_string(receiver.port()) +
-        ";max_datagram_size=256;multicast_ttl=1;";
+                             std::to_string(receiver.port()) +
+                             ";max_datagram_size=256;multicast_ttl=1;";
     scoped_env_var env_var{"QDB_CLIENT_CONF", conf};
 
     ::line_sender_error* err = nullptr;
@@ -2838,7 +2844,9 @@ TEST_CASE("line_sender_error c++ can carry qwpws diagnostic")
     CHECK(
         error.qwp_ws_diagnostic()->applied_policy ==
         questdb::ingress::qwp_ws_error_policy::terminal);
-    CHECK(error.qwp_ws_diagnostic()->status == std::optional<uint8_t>{uint8_t{2}});
+    CHECK(
+        error.qwp_ws_diagnostic()->status ==
+        std::optional<uint8_t>{uint8_t{2}});
     CHECK(error.qwp_ws_diagnostic()->message == "bad line");
     CHECK(
         error.qwp_ws_diagnostic()->message_sequence ==
@@ -2937,18 +2945,21 @@ TEST_CASE("line_sender c++ udp decimal column")
     buffer.table("cpp_decimals")
         .column(
             "price",
-            questdb::ingress::decimal::decimal_str_view{std::string_view{"1.5e-3"}})
+            questdb::ingress::decimal::decimal_str_view{
+                std::string_view{"1.5e-3"}})
         .at_now();
     buffer.table("cpp_decimals")
         .column(
             "price",
-            questdb::ingress::decimal::decimal_str_view{std::string_view{"NaN"}})
+            questdb::ingress::decimal::decimal_str_view{
+                std::string_view{"NaN"}})
         .at_now();
     buffer.table("cpp_decimals").column("price", neg_345_decimal).at_now();
     buffer.table("cpp_decimals")
         .column(
             "price",
-            questdb::ingress::decimal::decimal_str_view{std::string_view{"1.2"}})
+            questdb::ingress::decimal::decimal_str_view{
+                std::string_view{"1.2"}})
         .at_now();
 
     sender.flush(buffer);
@@ -3084,7 +3095,9 @@ TEST_CASE("line_sender c++ udp decimal rejects signed overflow")
     catch (const questdb::ingress::line_sender_error& ex)
     {
         threw = true;
-        CHECK(std::string{ex.what()}.find("signed DECIMAL256 range") != std::string::npos);
+        CHECK(
+            std::string{ex.what()}.find("signed DECIMAL256 range") !=
+            std::string::npos);
     }
     CHECK(threw);
     CHECK(buffer.row_count() == 1);
@@ -3100,14 +3113,12 @@ TEST_CASE("line_sender c++ udp rejects flush with incomplete row")
     questdb::ingress::line_sender sender{opts};
 
     questdb::ingress::line_sender_buffer buffer = sender.new_buffer();
-    buffer.table("trades")
-        .symbol("sym", "ETH-USD")
-        .column("qty", int64_t{4});
+    buffer.table("trades").symbol("sym", "ETH-USD").column("qty", int64_t{4});
 
     CHECK_THROWS_WITH_AS(
         sender.flush(buffer),
-        "State error: Bad call to `flush`, should have called `column` or "
-        "`at` instead.",
+        "State error: Bad call to `flush`, should have called `symbol`, "
+        "`column` or `at` instead.",
         questdb::ingress::line_sender_error);
 }
 
@@ -3126,7 +3137,8 @@ TEST_CASE("line_sender c++ udp rejects ilp buffer")
 
     CHECK_THROWS_WITH_AS(
         sender.flush(buffer),
-        "QWP/UDP sender requires a QWP buffer created by `Sender::new_buffer()`.",
+        "QWP/UDP sender requires a QWP buffer created by "
+        "`Sender::new_buffer()`.",
         questdb::ingress::line_sender_error);
 }
 
@@ -3192,8 +3204,9 @@ TEST_CASE("line_sender c api err_out may be null on failure")
 {
     ::line_sender_utf8 utf8{0, nullptr};
     const char invalid_utf8[] = {static_cast<char>(0xff)};
-    CHECK_FALSE(::line_sender_utf8_init(
-        &utf8, sizeof(invalid_utf8), invalid_utf8, nullptr));
+    CHECK_FALSE(
+        ::line_sender_utf8_init(
+            &utf8, sizeof(invalid_utf8), invalid_utf8, nullptr));
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
     ::line_sender_opts* opts =
@@ -3209,13 +3222,15 @@ TEST_CASE("line_sender c api err_out may be null on failure")
     on_scope_exit buffer_free_guard{[&] { ::line_sender_buffer_free(buffer); }};
 
     const auto col = QDB_COLUMN_NAME_LITERAL("x");
-    CHECK_FALSE(::line_sender_buffer_column_dec_str(
-        buffer, col, "not_decimal?", 12, nullptr));
+    CHECK_FALSE(
+        ::line_sender_buffer_column_dec_str(
+            buffer, col, "not_decimal?", 12, nullptr));
 
     uintptr_t shape[] = {1};
     double data[] = {1.0};
-    CHECK_FALSE(::line_sender_buffer_column_f64_arr_c_major(
-        buffer, col, 0, shape, data, 1, nullptr));
+    CHECK_FALSE(
+        ::line_sender_buffer_column_f64_arr_c_major(
+            buffer, col, 0, shape, data, 1, nullptr));
 
     ::line_sender_bookmark bookmark{};
     CHECK(::line_sender_buffer_bookmark(buffer, &bookmark, nullptr));
@@ -3284,13 +3299,17 @@ TEST_CASE("line_sender c api max_datagram_size rejected for tcp opts")
 
     CHECK_FALSE(::line_sender_opts_max_datagram_size(opts, 256, &err));
     REQUIRE(err != nullptr);
-    CHECK(line_sender_error_message(err).find("only supported for QWP/UDP") != std::string::npos);
+    CHECK(
+        line_sender_error_message(err).find("only supported for QWP/UDP") !=
+        std::string::npos);
     ::line_sender_error_free(err);
     err = nullptr;
 
     CHECK_FALSE(::line_sender_opts_multicast_ttl(opts, 3, &err));
     REQUIRE(err != nullptr);
-    CHECK(line_sender_error_message(err).find("only supported for QWP/UDP") != std::string::npos);
+    CHECK(
+        line_sender_error_message(err).find("only supported for QWP/UDP") !=
+        std::string::npos);
 }
 
 TEST_CASE("line_sender c api udp opts reject invalid datagram settings")
@@ -3340,8 +3359,9 @@ TEST_CASE("line_sender c api udp array rank bounds are rejected")
 
     uintptr_t shape_one[] = {1};
     double data[] = {1.0};
-    CHECK_FALSE(::line_sender_buffer_column_f64_arr_c_major(
-        buffer, col, 0, shape_one, data, 1, &err));
+    CHECK_FALSE(
+        ::line_sender_buffer_column_f64_arr_c_major(
+            buffer, col, 0, shape_one, data, 1, &err));
     REQUIRE(err != nullptr);
     CHECK(
         line_sender_error_message(err).find("Zero-dimensional arrays") !=
@@ -3351,8 +3371,9 @@ TEST_CASE("line_sender c api udp array rank bounds are rejected")
 
     std::array<uintptr_t, 33> shape_33{};
     shape_33.fill(1);
-    CHECK_FALSE(::line_sender_buffer_column_f64_arr_c_major(
-        buffer, col, shape_33.size(), shape_33.data(), data, 1, &err));
+    CHECK_FALSE(
+        ::line_sender_buffer_column_f64_arr_c_major(
+            buffer, col, shape_33.size(), shape_33.data(), data, 1, &err));
     REQUIRE(err != nullptr);
     CHECK(
         line_sender_error_message(err).find("expected at most") !=
@@ -3390,8 +3411,7 @@ TEST_CASE("line_sender c++ udp bookmark rewind and clear")
     buffer.table("t").symbol("s", "d").column("x", int64_t{4}).at_now();
     buffer.clear_bookmark(bm2);
     CHECK_THROWS_AS(
-        buffer.rewind_to_bookmark(bm2),
-        questdb::ingress::line_sender_error);
+        buffer.rewind_to_bookmark(bm2), questdb::ingress::line_sender_error);
 }
 
 TEST_CASE("line_sender c api flush empty udp buffer is noop")
@@ -3404,8 +3424,8 @@ TEST_CASE("line_sender c api flush empty udp buffer is noop")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -3457,8 +3477,8 @@ TEST_CASE("line_sender c api qwp buffer rejected by tcp sender")
     CHECK_FALSE(::line_sender_flush(sender, buffer, &err));
     REQUIRE(err != nullptr);
     CHECK(
-        line_sender_error_message(err).find("ILP sender requires an ILP buffer") !=
-        std::string::npos);
+        line_sender_error_message(err).find(
+            "ILP sender requires an ILP buffer") != std::string::npos);
 }
 
 TEST_CASE("line_sender c++ udp opts reusable after protocol_version error")
@@ -3480,6 +3500,35 @@ TEST_CASE("line_sender c++ udp opts reusable after protocol_version error")
     questdb::ingress::line_sender_buffer buffer = sender.new_buffer();
     buffer.table("test").column("x", int64_t{1}).at_now();
     sender.flush(buffer);
+}
+
+TEST_CASE("line_sender c++ qwp udp allows symbols after columns")
+{
+    udp_capture receiver;
+    questdb::ingress::opts opts{
+        questdb::ingress::protocol::udp,
+        std::string("127.0.0.1"),
+        std::to_string(receiver.port())};
+    questdb::ingress::line_sender sender{opts};
+
+    questdb::ingress::line_sender_buffer buffer = sender.new_buffer();
+    buffer.table("trades")
+        .column("qty", int64_t{4})
+        .symbol("sym", "ETH-USD")
+        .column("active", true)
+        .symbol("venue", "XNAS")
+        .at_now();
+
+    sender.flush(buffer);
+    const auto datagram = receiver.recv_datagram();
+    const auto decoded = decode_single_scalar_qwp_datagram(datagram);
+    CHECK(decoded.table_name == "trades");
+    CHECK(decoded.row_count == 1);
+    qwp_check_column_count(decoded, 4);
+    qwp_expect_i64(qwp_cell(decoded, 0, "qty"), 4);
+    qwp_expect_symbol(qwp_cell(decoded, 0, "sym"), "ETH-USD");
+    qwp_expect_bool(qwp_cell(decoded, 0, "active"), true);
+    qwp_expect_symbol(qwp_cell(decoded, 0, "venue"), "XNAS");
 }
 
 TEST_CASE("line_sender c++ udp all column types with designated timestamp")
@@ -3514,11 +3563,7 @@ TEST_CASE("line_sender c++ udp all column types with designated timestamp")
     qwp_check_column(decoded, "count", qwp_test_type_long, false);
     qwp_check_column(decoded, "temperature", qwp_test_type_double, false);
     qwp_check_column(decoded, "label", qwp_test_type_varchar, false);
-    qwp_check_column(
-        decoded,
-        "event_ts",
-        qwp_test_type_timestamp_nanos,
-        false);
+    qwp_check_column(decoded, "event_ts", qwp_test_type_timestamp_nanos, false);
     qwp_check_column(decoded, "sample_ts", qwp_test_type_timestamp, false);
     qwp_check_column(decoded, "", qwp_test_type_timestamp_nanos, false);
     qwp_expect_symbol(qwp_cell(decoded, 0, "location"), "NYC");
@@ -3606,8 +3651,7 @@ TEST_CASE("line_sender c++ udp sparse columns across rows")
     qwp_expect_f64_nan(qwp_cell(decoded, 0, "px"));
     qwp_expect_symbol(qwp_cell(decoded, 1, "sym"), "BTC-USD");
     qwp_expect_i64(
-        qwp_cell(decoded, 1, "qty"),
-        std::numeric_limits<int64_t>::min());
+        qwp_cell(decoded, 1, "qty"), std::numeric_limits<int64_t>::min());
     qwp_expect_bool(qwp_cell(decoded, 1, "active"), false);
     qwp_expect_f64(qwp_cell(decoded, 1, "px"), 45000.0);
     qwp_expect_symbol(qwp_cell(decoded, 2, "sym"), "SOL-USD");
@@ -3728,8 +3772,8 @@ TEST_CASE("line_sender c api udp marker rewind rows")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -3747,7 +3791,9 @@ TEST_CASE("line_sender c api udp marker rewind rows")
     const auto qty = QDB_COLUMN_NAME_LITERAL("qty");
 
     CHECK(::line_sender_buffer_table(buffer, trades, &err));
-    CHECK(::line_sender_buffer_symbol(buffer, sym, QDB_UTF8_LITERAL("ETH-USD"), &err));
+    CHECK(
+        ::line_sender_buffer_symbol(
+            buffer, sym, QDB_UTF8_LITERAL("ETH-USD"), &err));
     CHECK(::line_sender_buffer_column_i64(buffer, qty, 1, &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
     CHECK(::line_sender_buffer_row_count(buffer) == 1);
@@ -3755,7 +3801,9 @@ TEST_CASE("line_sender c api udp marker rewind rows")
 
     CHECK(::line_sender_buffer_set_marker(buffer, &err));
     CHECK(::line_sender_buffer_table(buffer, quotes, &err));
-    CHECK(::line_sender_buffer_symbol(buffer, sym, QDB_UTF8_LITERAL("BTC-USD"), &err));
+    CHECK(
+        ::line_sender_buffer_symbol(
+            buffer, sym, QDB_UTF8_LITERAL("BTC-USD"), &err));
     CHECK(::line_sender_buffer_column_i64(buffer, qty, 2, &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
     CHECK(::line_sender_buffer_row_count(buffer) == 2);
@@ -3765,7 +3813,9 @@ TEST_CASE("line_sender c api udp marker rewind rows")
     CHECK_FALSE(::line_sender_buffer_transactional(buffer));
 
     CHECK(::line_sender_buffer_table(buffer, trades, &err));
-    CHECK(::line_sender_buffer_symbol(buffer, sym, QDB_UTF8_LITERAL("SOL-USD"), &err));
+    CHECK(
+        ::line_sender_buffer_symbol(
+            buffer, sym, QDB_UTF8_LITERAL("SOL-USD"), &err));
     CHECK(::line_sender_buffer_column_i64(buffer, qty, 3, &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
     CHECK(::line_sender_buffer_row_count(buffer) == 2);
@@ -3780,8 +3830,7 @@ TEST_CASE("line_sender c api udp marker rewind rows")
     const auto datagram = receiver.recv_datagram();
     CHECK(datagram_starts_with_qwp1(datagram));
     const std::string datagram_text{
-        reinterpret_cast<const char*>(datagram.data()),
-        datagram.size()};
+        reinterpret_cast<const char*>(datagram.data()), datagram.size()};
     CHECK(datagram_text.find("trades") != std::string::npos);
     CHECK(datagram_text.find("ETH-USD") != std::string::npos);
     CHECK(datagram_text.find("SOL-USD") != std::string::npos);
@@ -3800,8 +3849,8 @@ TEST_CASE("line_sender c api udp bookmark rewind and stale rejection")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -3857,8 +3906,8 @@ TEST_CASE("line_sender c api udp flush_and_keep via c api")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -3904,8 +3953,8 @@ TEST_CASE("line_sender c api udp all column types with at_nanos")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -3933,7 +3982,9 @@ TEST_CASE("line_sender c api udp all column types with at_nanos")
     CHECK(::line_sender_buffer_column_i64(buffer, count, 100, &err));
     CHECK(::line_sender_buffer_column_f64(buffer, temp, 22.75, &err));
     CHECK(::line_sender_buffer_column_str(buffer, label, label_value, &err));
-    CHECK(::line_sender_buffer_column_ts_nanos(buffer, event_ts, 123456789, &err));
+    CHECK(
+        ::line_sender_buffer_column_ts_nanos(
+            buffer, event_ts, 123456789, &err));
     CHECK(::line_sender_buffer_at_nanos(buffer, 1000000000, &err));
 
     CHECK(::line_sender_flush(sender, buffer, &err));
@@ -3947,11 +3998,7 @@ TEST_CASE("line_sender c api udp all column types with at_nanos")
     qwp_check_column(decoded, "count", qwp_test_type_long, false);
     qwp_check_column(decoded, "temp", qwp_test_type_double, false);
     qwp_check_column(decoded, "label", qwp_test_type_varchar, false);
-    qwp_check_column(
-        decoded,
-        "event_ts",
-        qwp_test_type_timestamp_nanos,
-        false);
+    qwp_check_column(decoded, "event_ts", qwp_test_type_timestamp_nanos, false);
     qwp_check_column(decoded, "", qwp_test_type_timestamp_nanos, false);
     qwp_expect_symbol(qwp_cell(decoded, 0, "loc"), "NYC");
     qwp_expect_bool(qwp_cell(decoded, 0, "active"), true);
@@ -3972,8 +4019,8 @@ TEST_CASE("line_sender c api udp at_micros designated timestamp")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -4014,8 +4061,8 @@ TEST_CASE("line_sender c api udp sparse columns across rows")
     }};
 
     const auto host = QDB_UTF8_LITERAL("127.0.0.1");
-    ::line_sender_opts* opts =
-        ::line_sender_opts_new(::line_sender_protocol_udp, host, receiver.port());
+    ::line_sender_opts* opts = ::line_sender_opts_new(
+        ::line_sender_protocol_udp, host, receiver.port());
     REQUIRE(opts != nullptr);
     on_scope_exit opts_free_guard{[&] { ::line_sender_opts_free(opts); }};
 
@@ -4035,21 +4082,27 @@ TEST_CASE("line_sender c api udp sparse columns across rows")
 
     // Row 1: has qty and active, no px.
     CHECK(::line_sender_buffer_table(buffer, table, &err));
-    CHECK(::line_sender_buffer_symbol(buffer, sym, QDB_UTF8_LITERAL("ETH"), &err));
+    CHECK(
+        ::line_sender_buffer_symbol(
+            buffer, sym, QDB_UTF8_LITERAL("ETH"), &err));
     CHECK(::line_sender_buffer_column_i64(buffer, qty, 10, &err));
     CHECK(::line_sender_buffer_column_bool(buffer, active, true, &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
 
     // Row 2: has px and active, no qty.
     CHECK(::line_sender_buffer_table(buffer, table, &err));
-    CHECK(::line_sender_buffer_symbol(buffer, sym, QDB_UTF8_LITERAL("BTC"), &err));
+    CHECK(
+        ::line_sender_buffer_symbol(
+            buffer, sym, QDB_UTF8_LITERAL("BTC"), &err));
     CHECK(::line_sender_buffer_column_f64(buffer, px, 45000.0, &err));
     CHECK(::line_sender_buffer_column_bool(buffer, active, false, &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
 
     // Row 3: only qty.
     CHECK(::line_sender_buffer_table(buffer, table, &err));
-    CHECK(::line_sender_buffer_symbol(buffer, sym, QDB_UTF8_LITERAL("SOL"), &err));
+    CHECK(
+        ::line_sender_buffer_symbol(
+            buffer, sym, QDB_UTF8_LITERAL("SOL"), &err));
     CHECK(::line_sender_buffer_column_i64(buffer, qty, 99, &err));
     CHECK(::line_sender_buffer_at_now(buffer, &err));
 
@@ -4071,8 +4124,7 @@ TEST_CASE("line_sender c api udp sparse columns across rows")
     qwp_expect_f64_nan(qwp_cell(decoded, 0, "px"));
     qwp_expect_symbol(qwp_cell(decoded, 1, "sym"), "BTC");
     qwp_expect_i64(
-        qwp_cell(decoded, 1, "qty"),
-        std::numeric_limits<int64_t>::min());
+        qwp_cell(decoded, 1, "qty"), std::numeric_limits<int64_t>::min());
     qwp_expect_bool(qwp_cell(decoded, 1, "active"), false);
     qwp_expect_f64(qwp_cell(decoded, 1, "px"), 45000.0);
     qwp_expect_symbol(qwp_cell(decoded, 2, "sym"), "SOL");
@@ -4088,8 +4140,7 @@ TEST_CASE("line_sender c++ udp rejects duplicate column name")
 
     buffer.table("t").column("x", int64_t{1});
     CHECK_THROWS_AS(
-        buffer.column("x", int64_t{2}),
-        questdb::ingress::line_sender_error);
+        buffer.column("x", int64_t{2}), questdb::ingress::line_sender_error);
 }
 
 TEST_CASE("line_sender c++ udp new_buffer inherits max_name_len")
@@ -4105,8 +4156,7 @@ TEST_CASE("line_sender c++ udp new_buffer inherits max_name_len")
     questdb::ingress::line_sender_buffer buffer = sender.new_buffer();
     // Name with 17 chars should exceed the inherited max_name_len of 16.
     CHECK_THROWS_AS(
-        buffer.table("abcdefghijklmnopq"),
-        questdb::ingress::line_sender_error);
+        buffer.table("abcdefghijklmnopq"), questdb::ingress::line_sender_error);
 
     // Name with exactly 16 chars should be fine.
     buffer.table("abcdefghijklmnop").column("x", int64_t{1}).at_now();
@@ -4122,7 +4172,9 @@ TEST_CASE("line_sender c qwp narrow integer + decimal columns happy path")
     line_sender_utf8 host = QDB_UTF8_LITERAL("127.0.0.1");
     line_sender_utf8 port_str{0, nullptr};
     auto port_s = std::to_string(receiver.port());
-    CHECK(::line_sender_utf8_init(&port_str, port_s.size(), port_s.c_str(), &err));
+    CHECK(
+        ::line_sender_utf8_init(
+            &port_str, port_s.size(), port_s.c_str(), &err));
     line_sender_opts* opts = ::line_sender_opts_new_service(
         line_sender_protocol_udp, host, port_str);
     line_sender* sender = ::line_sender_build(opts, &err);
@@ -4141,15 +4193,20 @@ TEST_CASE("line_sender c qwp narrow integer + decimal columns happy path")
 
     CHECK(::line_sender_buffer_table(buffer, tbl, &err));
     CHECK(::line_sender_buffer_column_i8(buffer, b_name, int8_t{-12}, &err));
-    CHECK(::line_sender_buffer_column_i16(buffer, s_name, int16_t{12345}, &err));
-    CHECK(::line_sender_buffer_column_i32(buffer, i_name, int32_t{-1234567}, &err));
+    CHECK(
+        ::line_sender_buffer_column_i16(buffer, s_name, int16_t{12345}, &err));
+    CHECK(
+        ::line_sender_buffer_column_i32(
+            buffer, i_name, int32_t{-1234567}, &err));
 
     const char* d64_str = "1.25";
-    CHECK(::line_sender_buffer_column_dec64_str(
-        buffer, d64_name, const_cast<char*>(d64_str), 4, &err));
+    CHECK(
+        ::line_sender_buffer_column_dec64_str(
+            buffer, d64_name, const_cast<char*>(d64_str), 4, &err));
     const char* d128_str = "170141183460469231731687303715884105727";
-    CHECK(::line_sender_buffer_column_dec128_str(
-        buffer, d128_name, const_cast<char*>(d128_str), 39, &err));
+    CHECK(
+        ::line_sender_buffer_column_dec128_str(
+            buffer, d128_name, const_cast<char*>(d128_str), 39, &err));
 
     CHECK(::line_sender_buffer_at_nanos(buffer, 1000, &err));
     CHECK(::line_sender_flush(sender, buffer, &err));
@@ -4167,7 +4224,9 @@ TEST_CASE("line_sender c narrow column methods reject ilp buffer")
     line_sender_utf8 host = QDB_UTF8_LITERAL("127.0.0.1");
     line_sender_utf8 port_str{0, nullptr};
     auto port_s = std::to_string(server.port());
-    CHECK(::line_sender_utf8_init(&port_str, port_s.size(), port_s.c_str(), &err));
+    CHECK(
+        ::line_sender_utf8_init(
+            &port_str, port_s.size(), port_s.c_str(), &err));
     line_sender_opts* opts = ::line_sender_opts_new_service(
         line_sender_protocol_tcp, host, port_str);
     line_sender* sender = ::line_sender_build(opts, &err);
@@ -4185,8 +4244,9 @@ TEST_CASE("line_sender c narrow column methods reject ilp buffer")
     auto expect_qwp_only = [&](bool ok, const char* method) {
         CHECK_FALSE(ok);
         REQUIRE(err != nullptr);
-        CHECK(::line_sender_error_get_code(err)
-              == line_sender_error_invalid_api_call);
+        CHECK(
+            ::line_sender_error_get_code(err) ==
+            line_sender_error_invalid_api_call);
         size_t msg_len = 0;
         const char* msg = ::line_sender_error_msg(err, &msg_len);
         const std::string msg_str(msg, msg_len);
@@ -4240,9 +4300,8 @@ TEST_CASE("line_sender c++ narrow column methods reject ilp buffer")
         catch (const questdb::ingress::line_sender_error& e)
         {
             CHECK(
-                e.code()
-                == questdb::ingress::line_sender_error_code::
-                       invalid_api_call);
+                e.code() ==
+                questdb::ingress::line_sender_error_code::invalid_api_call);
             CHECK(std::string{e.what()}.find(method) != std::string::npos);
         }
     };
@@ -4256,12 +4315,14 @@ TEST_CASE("line_sender c++ narrow column methods reject ilp buffer")
     using questdb::ingress::decimal::decimal_str_view;
     expects_qwp_only(
         [&]() {
-            buffer.column_dec64("v", decimal_str_view{std::string_view{"1.25"}});
+            buffer.column_dec64(
+                "v", decimal_str_view{std::string_view{"1.25"}});
         },
         "column_dec64");
     expects_qwp_only(
         [&]() {
-            buffer.column_dec128("v", decimal_str_view{std::string_view{"1.25"}});
+            buffer.column_dec128(
+                "v", decimal_str_view{std::string_view{"1.25"}});
         },
         "column_dec128");
 }
@@ -4281,7 +4342,8 @@ TEST_CASE("line_sender c++ udp narrow integer + decimal happy path")
         .column_i32("i", int32_t{-1234567})
         .column_dec64(
             "d64",
-            questdb::ingress::decimal::decimal_str_view{std::string_view{"1.25"}})
+            questdb::ingress::decimal::decimal_str_view{
+                std::string_view{"1.25"}})
         .column_dec128(
             "d128",
             questdb::ingress::decimal::decimal_str_view{
@@ -4300,7 +4362,9 @@ TEST_CASE("line_sender c qwp uuid+long256+ipv4 happy path")
     line_sender_utf8 host = QDB_UTF8_LITERAL("127.0.0.1");
     line_sender_utf8 port_str{0, nullptr};
     auto port_s = std::to_string(receiver.port());
-    CHECK(::line_sender_utf8_init(&port_str, port_s.size(), port_s.c_str(), &err));
+    CHECK(
+        ::line_sender_utf8_init(
+            &port_str, port_s.size(), port_s.c_str(), &err));
     line_sender_opts* opts = ::line_sender_opts_new_service(
         line_sender_protocol_udp, host, port_str);
     line_sender* sender = ::line_sender_build(opts, &err);
@@ -4310,20 +4374,26 @@ TEST_CASE("line_sender c qwp uuid+long256+ipv4 happy path")
     line_sender_buffer* buffer = line_sender_buffer_new_for_sender(sender);
     REQUIRE(buffer != nullptr);
 
-    line_sender_table_name tbl = QDB_TABLE_NAME_LITERAL("qwp_uuid_long256_ipv4");
+    line_sender_table_name tbl =
+        QDB_TABLE_NAME_LITERAL("qwp_uuid_long256_ipv4");
     line_sender_column_name uuid_name = QDB_COLUMN_NAME_LITERAL("id");
     line_sender_column_name long256_name = QDB_COLUMN_NAME_LITERAL("hash");
     line_sender_column_name ipv4_name = QDB_COLUMN_NAME_LITERAL("addr");
 
     CHECK(::line_sender_buffer_table(buffer, tbl, &err));
-    CHECK(::line_sender_buffer_column_uuid(
-        buffer, uuid_name, uint64_t{0x0123456789abcdefULL},
-        uint64_t{0xfedcba9876543210ULL}, &err));
+    CHECK(
+        ::line_sender_buffer_column_uuid(
+            buffer,
+            uuid_name,
+            uint64_t{0x0123456789abcdefULL},
+            uint64_t{0xfedcba9876543210ULL},
+            &err));
 
     uint8_t hash[32];
     for (int i = 0; i < 32; ++i)
         hash[i] = static_cast<uint8_t>(i);
-    CHECK(::line_sender_buffer_column_long256(buffer, long256_name, hash, &err));
+    CHECK(
+        ::line_sender_buffer_column_long256(buffer, long256_name, hash, &err));
 
     uint32_t addr = (192u << 24) | (168u << 16) | (1u << 8) | 1u;
     CHECK(::line_sender_buffer_column_ipv4(buffer, ipv4_name, addr, &err));
@@ -4397,6 +4467,54 @@ TEST_CASE("line_sender c++ qwp geohash happy path")
     CHECK(datagram_starts_with_qwp1(datagram));
 }
 
+TEST_CASE("line_sender c++ qwp geohash maxima and omission round trip")
+{
+    udp_capture receiver;
+    questdb::ingress::line_sender sender{questdb::ingress::opts{
+        questdb::ingress::protocol::udp,
+        std::string("127.0.0.1"),
+        std::to_string(receiver.port())}};
+
+    auto buffer = sender.new_buffer();
+    for (int64_t row = 0; row < 3; ++row)
+    {
+        buffer.table("qwp_geohash_max_cpp")
+            .column_geohash("dense", uint64_t{0xFF}, uint8_t{8});
+        if (row != 1)
+            buffer.column_geohash("sparse", uint64_t{0xFFFF}, uint8_t{16});
+        buffer.at(questdb::ingress::timestamp_nanos{4000 + row * 1000});
+    }
+    sender.flush(buffer);
+
+    const auto decoded =
+        decode_single_scalar_qwp_datagram(receiver.recv_datagram());
+    CHECK(decoded.table_name == "qwp_geohash_max_cpp");
+    REQUIRE(decoded.row_count == 3);
+    qwp_check_column_count(decoded, 3);
+    // All wire bits are valid data at these precisions, even in a dense column.
+    qwp_check_column(decoded, "dense", qwp_test_type_geohash, true);
+    qwp_check_column(decoded, "sparse", qwp_test_type_geohash, true);
+    qwp_check_column(decoded, "", qwp_test_type_timestamp_nanos, false);
+    for (size_t row = 0; row < 3; ++row)
+    {
+        const auto dense = qwp_cell(decoded, row, "dense");
+        REQUIRE(dense.kind == qwp_test_decoded_value_kind::geohash);
+        CHECK(dense.geohash_precision == 8);
+        CHECK(dense.geohash_bits == 0xFF);
+        const auto sparse = qwp_cell(decoded, row, "sparse");
+        if (row == 1)
+            CHECK(sparse.kind == qwp_test_decoded_value_kind::null);
+        else
+        {
+            REQUIRE(sparse.kind == qwp_test_decoded_value_kind::geohash);
+            CHECK(sparse.geohash_precision == 16);
+            CHECK(sparse.geohash_bits == 0xFFFF);
+        }
+        qwp_expect_timestamp_nanos(
+            qwp_cell(decoded, row, ""), 4000 + row * 1000);
+    }
+}
+
 TEST_CASE("line_sender c++ qwp float happy path")
 {
     udp_capture receiver;
@@ -4432,8 +4550,8 @@ TEST_CASE("line_sender c++ float reject ilp buffer")
     catch (const questdb::ingress::line_sender_error& e)
     {
         CHECK(
-            e.code()
-            == questdb::ingress::line_sender_error_code::invalid_api_call);
+            e.code() ==
+            questdb::ingress::line_sender_error_code::invalid_api_call);
         CHECK(std::string{e.what()}.find("column_f32") != std::string::npos);
     }
 }
@@ -4475,9 +4593,10 @@ TEST_CASE("line_sender c++ geohash reject ilp buffer")
     catch (const questdb::ingress::line_sender_error& e)
     {
         CHECK(
-            e.code()
-            == questdb::ingress::line_sender_error_code::invalid_api_call);
-        CHECK(std::string{e.what()}.find("column_geohash") != std::string::npos);
+            e.code() ==
+            questdb::ingress::line_sender_error_code::invalid_api_call);
+        CHECK(
+            std::string{e.what()}.find("column_geohash") != std::string::npos);
     }
 }
 
@@ -4501,9 +4620,8 @@ TEST_CASE("line_sender c++ date+char+binary reject ilp buffer")
         catch (const questdb::ingress::line_sender_error& e)
         {
             CHECK(
-                e.code()
-                == questdb::ingress::line_sender_error_code::
-                       invalid_api_call);
+                e.code() ==
+                questdb::ingress::line_sender_error_code::invalid_api_call);
             CHECK(std::string{e.what()}.find(method) != std::string::npos);
         }
     };
@@ -4525,7 +4643,9 @@ TEST_CASE("line_sender c uuid+long256+ipv4 reject ilp buffer")
     line_sender_utf8 host = QDB_UTF8_LITERAL("127.0.0.1");
     line_sender_utf8 port_str{0, nullptr};
     auto port_s = std::to_string(server.port());
-    CHECK(::line_sender_utf8_init(&port_str, port_s.size(), port_s.c_str(), &err));
+    CHECK(
+        ::line_sender_utf8_init(
+            &port_str, port_s.size(), port_s.c_str(), &err));
     line_sender_opts* opts = ::line_sender_opts_new_service(
         line_sender_protocol_tcp, host, port_str);
     line_sender* sender = ::line_sender_build(opts, &err);
@@ -4542,8 +4662,9 @@ TEST_CASE("line_sender c uuid+long256+ipv4 reject ilp buffer")
     auto expect_qwp_only = [&](bool ok, const char* method) {
         CHECK_FALSE(ok);
         REQUIRE(err != nullptr);
-        CHECK(::line_sender_error_get_code(err)
-              == line_sender_error_invalid_api_call);
+        CHECK(
+            ::line_sender_error_get_code(err) ==
+            line_sender_error_invalid_api_call);
         size_t msg_len = 0;
         const char* msg = ::line_sender_error_msg(err, &msg_len);
         CHECK(std::string(msg, msg_len).find(method) != std::string::npos);

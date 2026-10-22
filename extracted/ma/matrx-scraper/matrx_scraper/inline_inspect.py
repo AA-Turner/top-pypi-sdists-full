@@ -111,6 +111,27 @@ _RUN_SCRIPT_JS = r"""async (src) => {
 }"""
 
 
+async def run_measure_script(page: Any, measure_script: str, *, timeout_ms: int) -> tuple[Any, str | None]:
+    """Evaluate a measure script in an open page: ``(measurements, None)`` or ``(None, error)``.
+
+    The ONE runner for both /browser-inspect modes (inline html and url). The script is one
+    expression or an async function body that ``return``s — so it may await the page's own
+    readiness signal before measuring."""
+    try:
+        outcome = await asyncio.wait_for(page.evaluate(_RUN_SCRIPT_JS, measure_script), timeout=timeout_ms / 1000)
+    except TimeoutError:
+        return None, f"measure_script did not finish within {timeout_ms} ms"
+    except Exception as exc:  # noqa: BLE001 — reported to the caller, never silent
+        return None, f"measure_script could not run: {type(exc).__name__}: {exc}"
+    if not outcome.get("ok"):
+        return None, str(outcome.get("error") or "measure_script failed")
+    if len(outcome["json"]) > INLINE_MAX_MEASUREMENT_CHARS:
+        return None, (
+            f"measure_script result is {len(outcome['json'])} chars; the limit is {INLINE_MAX_MEASUREMENT_CHARS}"
+        )
+    return json.loads(outcome["json"]), None
+
+
 async def _capture_one(
     context: Any,
     *,
@@ -138,25 +159,9 @@ async def _capture_one(
             return capture
 
         if measure_script is not None:
-            try:
-                outcome = await asyncio.wait_for(
-                    page.evaluate(_RUN_SCRIPT_JS, measure_script),
-                    timeout=script_timeout_ms / 1000,
-                )
-            except TimeoutError:
-                capture.error = f"measure_script did not finish within {script_timeout_ms} ms"
-            except Exception as exc:  # noqa: BLE001
-                capture.error = f"measure_script could not run: {type(exc).__name__}: {exc}"
-            else:
-                if not outcome.get("ok"):
-                    capture.error = str(outcome.get("error") or "measure_script failed")
-                elif len(outcome["json"]) > INLINE_MAX_MEASUREMENT_CHARS:
-                    capture.error = (
-                        f"measure_script result is {len(outcome['json'])} chars; "
-                        f"the limit is {INLINE_MAX_MEASUREMENT_CHARS}"
-                    )
-                else:
-                    capture.measurements = json.loads(outcome["json"])
+            capture.measurements, capture.error = await run_measure_script(
+                page, measure_script, timeout_ms=script_timeout_ms
+            )
 
         if screenshot:
             try:

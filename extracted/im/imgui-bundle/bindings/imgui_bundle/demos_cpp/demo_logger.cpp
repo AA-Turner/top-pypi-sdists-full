@@ -1,5 +1,5 @@
 // Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
-#include "imgui_md_wrapper/imgui_md_wrapper.h"
+#include "imgui_rich_md/rich_md.h"
 #include "immapp/immapp.h"
 #include "hello_imgui/hello_imgui.h"
 #include "demo_utils/api_demos.h"
@@ -8,7 +8,7 @@
 #include <string>
 
 
-void demo_logger()
+void gui_demo_logger()
 {
     static std::vector<std::string> fortunes {
         "If at first you don't succeed, skydiving is not for you.",
@@ -48,7 +48,7 @@ void demo_logger()
         addedLogs = true;
     }
 
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # Graphical logger for ImGui
         This logger is adapted from [ImGuiAl](https://github.com/leiradel/ImGuiAl)
 

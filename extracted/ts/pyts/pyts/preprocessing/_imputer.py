@@ -3,7 +3,7 @@
 # Author: Johann Faouzi <johann.faouzi@gmail.com>
 # License: BSD-3-Clause
 
-from typing import Self
+from typing import Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -114,10 +114,13 @@ class InterpolationImputer(BaseEstimator, UnivariateTransformerMixin):
         # check_array is wrapped by sklearn's @validate_params decorator,
         # which hides its real keyword-only parameters (including
         # ensure_all_finite) from pyrefly's source-based inference.
-        X = check_array(
-            X,
-            dtype=np.float64,
-            ensure_all_finite=ensure_all_finite,  # pyrefly: ignore[unexpected-keyword]
+        X = cast(
+            npt.NDArray[np.float64],
+            check_array(
+                X,
+                dtype=np.float64,
+                ensure_all_finite=ensure_all_finite,  # pyrefly: ignore[unexpected-keyword]
+            ),
         )
         n_samples, n_timestamps = X.shape
 
@@ -244,8 +247,11 @@ def _step_interpolate(
     following the ``numpy.searchsorted``-based recipe from scipy's own
     "1-D interpolation" tutorial (the documented replacement for
     ``interp1d``, which is considered legacy). Points before the first (or
-    after the last) known index extrapolate by holding the boundary value,
-    matching ``interp1d``'s behavior for these strategies.
+    after the last) known index extrapolate by holding the boundary value.
+    For 'nearest' this matches ``interp1d``; for 'previous' (before the
+    first known index) and 'next' (after the last one), ``interp1d``
+    returns NaN instead, which would leave missing values in the output, so
+    the boundary value is deliberately used.
     """
     last = len(idx) - 1
     if strategy == 'previous':

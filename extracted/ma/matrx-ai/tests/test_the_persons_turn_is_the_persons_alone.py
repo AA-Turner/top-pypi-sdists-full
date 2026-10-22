@@ -39,10 +39,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from matrx_ai.config import MessageList, TextContent, UnifiedConfig, UnifiedMessage
+from matrx_ai.config.send_boundary import order_for_wire
 from matrx_ai.providers.anthropic.translator import AnthropicTranslator
 from matrx_ai.testing.profile_factory import make_profile
 
@@ -50,6 +52,11 @@ FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "cold_walk_21_turn5.json").read_text()
 )
 
+
+def _render(translator: Any, config: Any, profile: Any) -> Any:
+    """A real send: the send boundary orders the person's turn once, the translator renders it."""
+    prep = order_for_wire(config, profile)
+    return translator.build_request(prep.wire_config if prep.wire_config is not None else config, profile)
 
 def _the_real_turn() -> tuple[UnifiedConfig, str]:
     """The walk-21 turn, rebuilt: her words, and the two blocks that turn staged."""
@@ -72,7 +79,7 @@ def _the_real_turn() -> tuple[UnifiedConfig, str]:
 
 def _assembled() -> tuple[dict, str]:
     config, typed = _the_real_turn()
-    request = AnthropicTranslator().build_request(config, make_profile(model_name=config.model, wire_format="anthropic"))
+    request = _render(AnthropicTranslator(), config, make_profile(model_name=config.model, wire_format="anthropic"))
     return request, typed
 
 
@@ -262,8 +269,7 @@ def test_the_walk_22_first_turn_really_was_merged() -> None:
 
 def test_her_first_turn_reaches_the_model_as_exactly_what_she_typed() -> None:
     config, typed = _the_first_turn()
-    request = AnthropicTranslator().build_request(
-        config, make_profile(model_name=config.model, wire_format="anthropic")
+    request = _render(AnthropicTranslator(), config, make_profile(model_name=config.model, wire_format="anthropic")
     )
 
     assert _user_wire_text(request) == typed
@@ -272,8 +278,7 @@ def test_her_first_turn_reaches_the_model_as_exactly_what_she_typed() -> None:
 
 def test_the_opening_turn_is_delivered_as_instructions() -> None:
     config, _ = _the_first_turn()
-    request = AnthropicTranslator().build_request(
-        config, make_profile(model_name=config.model, wire_format="anthropic")
+    request = _render(AnthropicTranslator(), config, make_profile(model_name=config.model, wire_format="anthropic")
     )
     system = _system_wire_text(request)
 
@@ -388,8 +393,7 @@ def _the_designer_turn() -> tuple[UnifiedConfig, str]:
 
 def test_run_context_stays_in_the_user_turn_not_the_instructions() -> None:
     config, typed = _the_designer_turn()
-    request = AnthropicTranslator().build_request(
-        config, make_profile(model_name=config.model, wire_format="anthropic")
+    request = _render(AnthropicTranslator(), config, make_profile(model_name=config.model, wire_format="anthropic")
     )
     system = _system_wire_text(request)
     user = _user_wire_text(request)

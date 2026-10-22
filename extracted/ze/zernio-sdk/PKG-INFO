@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: zernio-sdk
-Version: 1.4.1287
+Version: 1.4.1305
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -244,6 +244,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `posts.delete_post()` | Delete post |
 | `posts.edit_post()` | Edit published post |
 | `posts.retry_post()` | Retry failed post |
+| `posts.review_post()` | Approve or reject a post |
 | `posts.unpublish_post()` | Unpublish post |
 
 ### Accounts
@@ -360,6 +361,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | Method | Description |
 |--------|-------------|
 | `media.get_media_presigned_url()` | Get upload URL |
+| `media.prepare_media()` | Prepare media for a platform |
 | `media.upload()` | Upload a file from path |
 | `media.upload_bytes()` | Upload file from bytes |
 | `media.upload_large()` | Upload large file with multipart |
@@ -419,6 +421,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.get_shopify_connect_url()` | Get Shopify OAuth connect URL |
 | `connect.get_subreddit_rules()` | Get subreddit rules |
 | `connect.get_telegram_connect_status()` | Generate Telegram code |
+| `connect.get_webflow_connect_url()` | Get Webflow OAuth URL |
 | `connect.get_whats_app_sdk_config()` | Get Embedded Signup SDK config |
 | `connect.get_wix_connect_url()` | Get Wix site install URL |
 | `connect.get_word_press_auth_url()` | Get WordPress.com OAuth connect URL |
@@ -442,6 +445,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.connect_open_ai_ads_credentials()` | Connect an OpenAI Ads account |
 | `connect.connect_shopify_with_token()` | Connect a Shopify store with a custom-app Admin token |
 | `connect.connect_slack_channel()` | Connect a Slack channel |
+| `connect.connect_webflow_with_site_token()` | Connect Webflow with a site API token |
 | `connect.connect_whats_app_credentials()` | Connect WhatsApp via credentials |
 | `connect.connect_whats_app_embedded_signup()` | Connect WhatsApp from Embedded Signup |
 | `connect.connect_whop_ads_credentials()` | Connect a Whop account |
@@ -517,6 +521,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.create_custom_conversion()` | Create custom conversion |
 | `ad_accounts.create_high_demand_period()` | Schedule a budget increase |
 | `ad_accounts.create_value_rule_set()` | Create a value rule set |
+| `ad_accounts.get_ad_account_billing()` | Get ad account billing |
 | `ad_accounts.get_ad_account_finance()` | Ad account finances |
 | `ad_accounts.get_ad_account_hierarchy()` | Get manager account hierarchy |
 | `ad_accounts.get_ad_account_live_entities()` | Read an ad account's campaigns and ad sets live |
@@ -557,6 +562,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_accounts.replace_ad_negative_keyword_list_keywords()` | Replace negative list keywords |
 | `ad_accounts.reply_to_ad_comment()` | Reply to an ad comment |
 | `ad_accounts.revoke_ad_account_user_invitation()` | Revoke a user access invitation |
+| `ad_accounts.set_up_ad_account_billing()` | Set up ad account billing (monthly invoicing) |
 | `ad_accounts.withdraw_ad_account_user_invitation_approval()` | Withdraw an invitation awaiting multi-party approval |
 
 ### Ad Audiences
@@ -603,6 +609,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `ad_campaigns.get_campaign_conversion_goals()` | Get campaign conversion goals |
 | `ad_campaigns.get_campaign_targeting()` | Read a Google campaign's device, location, excluded location, and language targeting |
 | `ad_campaigns.get_google_asset_group()` | Get a Performance Max asset group |
+| `ad_campaigns.get_tik_tok_smart_plus_ad_review()` | Review status of each creative in a TikTok Smart+ ad |
 | `ad_campaigns.update_ad()` | Update ad |
 | `ad_campaigns.update_ad_campaign()` | Update a campaign |
 | `ad_campaigns.update_ad_campaign_status()` | Pause or resume a campaign |
@@ -1093,6 +1100,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `instagram.list_instagram_live_media()` | List the live broadcasts of an Instagram account |
 | `instagram.list_instagram_media_collaborators()` | List the collaborators of an Instagram post |
 | `instagram.list_instagram_stories()` | List active Instagram stories |
+| `instagram.list_instagram_tagged_media()` | List the posts an Instagram account is tagged in |
 | `instagram.get_instagram_audio()` | Get Instagram audio metadata |
 | `instagram.get_instagram_business_discovery()` | Look up a public Instagram Business account |
 | `instagram.get_instagram_publishing_limit()` | Get Instagram publishing limit |
@@ -1108,6 +1116,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `lead_gen.create_lead_form()` | Create a lead form |
 | `lead_gen.create_test_lead()` | Create a test lead |
 | `lead_gen.get_lead_form()` | Get a lead form |
+| `lead_gen.update_lead()` | Update a lead's status |
 | `lead_gen.delete_test_lead()` | Delete a test lead |
 | `lead_gen.archive_lead_form()` | Archive a lead form |
 
@@ -1316,8 +1325,8 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `tracking_tags.delete_tracking_tag_event()` | Delete a conversion event |
 | `tracking_tags.add_tracking_tag_shared_account()` | Share with an ad account |
 | `tracking_tags.assign_tracking_tag_user()` | Assign a user to a tag |
-| `tracking_tags.install_tracking_tag_on_store()` | Install on a Shopify store or WordPress site |
-| `tracking_tags.remove_tracking_tag_from_store()` | Remove from a Shopify store or WordPress site |
+| `tracking_tags.install_tracking_tag_on_store()` | Install on a Shopify, WordPress, Wix or Webflow site |
+| `tracking_tags.remove_tracking_tag_from_store()` | Remove from a Shopify, WordPress, Wix or Webflow site |
 | `tracking_tags.remove_tracking_tag_shared_account()` | Stop sharing with an account |
 | `tracking_tags.remove_tracking_tag_user()` | Remove a user from a tag |
 

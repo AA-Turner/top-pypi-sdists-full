@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 import logging
-import math
-import queue
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
-from multiprocessing import Queue
 from typing import Any, Literal, overload
 
 import numpy as np
 import torch
-from torch import nn
+import torch.nn.functional as F
+from torch import Tensor, nn
 from tqdm.autonotebook import trange
 from transformers import AutoConfig, PretrainedConfig, PreTrainedModel, is_datasets_available
+from transformers.utils import is_peft_available
 from transformers.utils import logging as transformers_logging
 from typing_extensions import TypeIs, deprecated
 
@@ -30,6 +29,12 @@ from sentence_transformers.util.decorators import (
 
 # NOTE: transformers wraps the regular logging module for e.g. warning_once
 logger = transformers_logging.get_logger(__name__)
+
+
+class _Float32Linear(nn.Linear):
+    def forward(self, input: Tensor) -> Tensor:
+        with torch.autocast(device_type=input.device.type, enabled=False):
+            return F.linear(input.float(), self.weight.float(), self.bias.float() if self.bias is not None else None)
 
 
 class CrossEncoder(BaseModel, FitMixin):
@@ -66,8 +71,9 @@ class CrossEncoder(BaseModel, FitMixin):
             commit id, for a stored model on Hugging Face. Defaults to None.
         local_files_only (bool, optional): Whether to only look at local files (i.e., do not try to download
             the model). Defaults to False.
-        token (bool or str, optional): Hugging Face authentication token to download private models.
-            Defaults to None.
+        token (bool or str, optional): Hugging Face authentication token for higher Hub rate limits and access to
+            private or gated models your account can read. Defaults to None, which uses ``HF_TOKEN`` or
+            credentials saved with ``hf auth login``, if available.
         model_kwargs (dict[str, Any], optional): Keyword arguments passed to the underlying Hugging Face
             Transformers model via ``AutoModel.from_pretrained``. Particularly useful options include:
 
@@ -114,6 +120,11 @@ class CrossEncoder(BaseModel, FitMixin):
         activation_fn (Callable, optional): Activation function applied on top of the model's logits during
             :meth:`predict`. If None, ``nn.Sigmoid()`` is used when ``num_labels=1``, else ``nn.Identity()``.
             Defaults to None.
+        keep_in_fp32_modules (list[str], optional): Paths to plain linear layers that compute and return
+            fp32, including under autocast. Parameter storage is unchanged. None inherits the saved
+            selection, or selects nothing for a model without one. Pass [] to disable a saved selection.
+            This feature is experimental. Its API and behavior may change, and it may be removed in a future release.
+            See :meth:`~sentence_transformers.cross_encoder.model.CrossEncoder.set_keep_in_fp32_modules`.
 
     Example:
         ::
@@ -169,9 +180,11 @@ class CrossEncoder(BaseModel, FitMixin):
         num_labels: int | None = None,
         max_length: int | None = None,
         activation_fn: Callable | None = None,
+        keep_in_fp32_modules: list[str] | None = None,
     ) -> None:
-        # Set before super().__init__() so _parse_model_config can check these
-        self.activation_fn = None
+        # Preserve an explicit activation before parsing the saved configuration.
+        self.activation_fn = activation_fn
+        self.keep_in_fp32_modules = keep_in_fp32_modules
 
         if num_labels is not None:
             if config_kwargs is None:
@@ -202,12 +215,63 @@ class CrossEncoder(BaseModel, FitMixin):
         )
         self.model_card_data: CrossEncoderModelCardData
 
-        # If an activation function is provided, use it. Otherwise, load the default one/from backwards compatibility
-        # if it wasn't set during super().__init__()
-        if activation_fn is not None:
-            self.activation_fn = activation_fn
-        elif self.activation_fn is None:
+        if self.activation_fn is None:
             self.activation_fn = self.get_default_activation_fn()
+        self.set_keep_in_fp32_modules([] if self.keep_in_fp32_modules is None else self.keep_in_fp32_modules)
+
+    def set_keep_in_fp32_modules(self, module_names: list[str]) -> None:
+        """Run selected linear layers in fp32, even when autocast is enabled.
+
+        Selected layers return fp32 outputs during inference and training, while their stored
+        weights retain their dtype. This requires the torch backend.
+
+        The selection is saved with the model and restored when loading. Accelerate device
+        placement and offloading hooks are preserved.
+
+        Note:
+            This feature is experimental. Its API and behavior may change, and it may be removed
+            in a future release.
+
+        Args:
+            module_names: Paths to ``torch.nn.Linear`` layers from ``named_modules()``, such as
+                ``"2.linear"`` or ``"0.model.classifier"``. Replaces the previous selection.
+                Pass an empty list to disable fp32 computation for previously selected layers.
+        """
+        if not isinstance(module_names, (list, tuple)) or any(not isinstance(name, str) for name in module_names):
+            raise ValueError("keep_in_fp32_modules must be a list of module paths.")
+        if module_names and self.backend != "torch":
+            raise ValueError("keep_in_fp32_modules is supported only by the torch backend.")
+
+        names = list(dict.fromkeys(module_names))
+        selected = {self.get_submodule(name) for name in names}
+        previous = {self.get_submodule(name) for name in self.keep_in_fp32_modules or []}
+        if (selected or previous) and is_peft_available():
+            from peft.utils import ModulesToSaveWrapper
+
+            for modules in (selected, previous):
+                for module in list(modules):
+                    if isinstance(module, ModulesToSaveWrapper):
+                        modules.remove(module)
+                        modules.update([module.original_module, *module.modules_to_save.values()])
+
+        forward_names = {}
+        for module in selected | previous:
+            if type(module) not in (nn.Linear, _Float32Linear):
+                raise ValueError("keep_in_fp32_modules supports only plain nn.Linear layers.")
+            forward_name = "_old_forward" if hasattr(module, "_hf_hook") else "forward"
+            forward = getattr(module, forward_name, None)
+            if getattr(forward, "__self__", None) is not module or getattr(forward, "__func__", None) not in (
+                nn.Linear.forward,
+                _Float32Linear.forward,
+            ):
+                raise ValueError("keep_in_fp32_modules does not support custom forwards on selected layers.")
+            forward_names[module] = forward_name
+        for module, forward_name in forward_names.items():
+            cls = _Float32Linear if module in selected else nn.Linear
+            module.__class__ = cls
+            if forward_name in module.__dict__:
+                setattr(module, forward_name, cls.forward.__get__(module))
+        self.keep_in_fp32_modules = names
 
     def _load_default_modules(
         self,
@@ -279,118 +343,6 @@ class CrossEncoder(BaseModel, FitMixin):
             backend=self.backend,
         )
         return [transformer_model], {}
-
-    def _multi_process(
-        self,
-        inputs: Sequence[PairInput],
-        show_progress_bar: bool | None = True,
-        pool: dict[Literal["input", "output", "processes"], Any] | None = None,
-        device: str | list[str | torch.device] | None = None,
-        chunk_size: int | None = None,
-        **predict_kwargs,
-    ):
-        convert_to_tensor = predict_kwargs.get("convert_to_tensor", False)
-        convert_to_numpy = predict_kwargs.get("convert_to_numpy", True)
-        predict_kwargs["show_progress_bar"] = False
-
-        created_pool = False
-        if pool is None and isinstance(device, list) and len(device) > 0:
-            pool = self.start_multi_process_pool(device)
-            created_pool = True
-
-        # Create a pool if is not provided, but a list of devices is
-        try:
-            # Determine chunk size if not provided. As a default, aim for 10 chunks per process, with a maximum of 5000 sentences per chunk.
-            if chunk_size is None:
-                chunk_size = min(math.ceil(len(inputs) / len(pool["processes"]) / 10), 5000)
-                chunk_size = max(chunk_size, 1)  # Ensure at least 1
-
-            input_queue: torch.multiprocessing.Queue = pool["input"]
-            output_queue: torch.multiprocessing.Queue = pool["output"]
-
-            # Send inputs to the input queue in chunks
-            chunk_id = -1  # We default to -1 to handle empty input gracefully
-            for chunk_id, chunk_start in enumerate(range(0, len(inputs), chunk_size)):
-                chunk = inputs[chunk_start : chunk_start + chunk_size]
-                input_queue.put([chunk_id, chunk, predict_kwargs])
-
-            # Collect results from output queue
-            output_list = sorted(
-                [output_queue.get() for _ in trange(chunk_id + 1, desc="Chunks", disable=not show_progress_bar)],
-                key=lambda x: x[0],  # Sort by chunk_id
-            )
-
-            # Handle the various output formats: torch tensors, numpy arrays, or
-            # list of dictionaries, also when empty.
-            scores = [output[1] for output in output_list]
-
-            # Check for errors in results
-            if any(len(output) > 2 and output[2] is not None for output in output_list):
-                # Error occurred in worker
-                error_output = next(output for output in output_list if len(output) > 2 and output[2])
-                raise RuntimeError(f"Error in worker process: {error_output[2]}")
-
-            if scores:
-                if isinstance(scores[0], torch.Tensor):
-                    scores = torch.cat(scores)
-                elif isinstance(scores[0], np.ndarray):
-                    scores = np.concatenate(scores, axis=0)
-                elif isinstance(scores[0], list):
-                    scores = sum(scores, [])
-                else:
-                    scores = sum(scores, [])
-
-            elif convert_to_tensor:
-                scores = torch.tensor([], device=self.device)
-            elif convert_to_numpy:
-                scores = np.array([])
-            else:
-                scores = []
-            return scores
-
-        finally:
-            # Clean up the pool if we created it
-            if created_pool:
-                self.stop_multi_process_pool(pool)
-
-    @staticmethod
-    def _multi_process_worker(
-        target_device: str,
-        model: CrossEncoder,
-        input_queue: Queue,
-        results_queue: Queue,
-    ) -> None:
-        """
-        Internal working process to predict input pairs in a multi-process setup.
-
-        """
-        while True:
-            chunk_id = None
-            try:
-                chunk_id, sentence_pairs, kwargs = input_queue.get()
-                scores = model.predict(sentence_pairs, device=target_device, **kwargs)
-
-                # If multi-process scores are not on CPUs, move them to CPU, so they can all be concatenated later
-                if isinstance(scores, torch.Tensor) and scores.device.type != "cpu":
-                    scores = scores.cpu()
-                elif isinstance(scores, np.ndarray):
-                    scores = np.asarray(scores)
-                elif isinstance(scores, list):
-                    scores = [
-                        score.cpu() if isinstance(score, torch.Tensor) and score.device.type != "cpu" else score
-                        for score in scores
-                    ]
-                results_queue.put([chunk_id, scores])
-
-            except queue.Empty:
-                break
-            except Exception as e:
-                logger.error(f"Error in worker process on {target_device}: {e}")
-                try:
-                    results_queue.put([chunk_id, None, str(e)])
-                except Exception:
-                    pass
-                break
 
     def _resolve_activation_fn(self, activation_fn_path: str) -> Callable | None:
         """Instantiate an activation function from a dotted path string, respecting trust_remote_code."""
@@ -607,8 +559,9 @@ class CrossEncoder(BaseModel, FitMixin):
             convert_to_tensor (bool, optional): Whether the output should be one large tensor. Overwrites `convert_to_numpy`.
                 Defaults to False.
             device (Union[str, List[str]], optional): Device(s) to use for computation. Can be a single device string
-                (e.g., "cuda:0", "cpu") or a list of devices (e.g., ["cuda:0", "cuda:1"]). If a list is provided,
-                multiprocessing will be used automatically. Defaults to None.
+                (e.g., "cuda:0", "cpu"), which moves the model there unless a `device_map` or Accelerate hooks control placement,
+                or a list of devices (e.g., ["cuda:0", "cuda:1"]), which uses multiprocessing automatically.
+                If None, uses the model's current device. Defaults to None.
             pool (Dict[str, Any], optional): A pool of workers created with :meth:`start_multi_process_pool`. If provided,
                 multiprocessing will be used. If None and ``device`` is a list, a pool will be created automatically.
                 Defaults to None.
@@ -668,40 +621,58 @@ class CrossEncoder(BaseModel, FitMixin):
             materialized: list[PairInput] = inputs.tolist() if isinstance(inputs, np.ndarray) else list(inputs)
             inputs = materialized
 
-        # If pool or a list of devices is provided, use multi-process prediction
-        if pool is not None or (isinstance(device, list) and len(device) > 0):
-            pred_scores = self._multi_process(
-                inputs=inputs,
-                # Utility and post-processing parameters
-                show_progress_bar=show_progress_bar,
-                # Multi-process encoding parameters
-                pool=pool,
-                device=device,
-                chunk_size=chunk_size,
-                # Prediction parameters
-                prompt=prompt,
-                prompt_name=prompt_name,
-                batch_size=batch_size,
-                activation_fn=activation_fn,
-                apply_softmax=apply_softmax,
-                convert_to_numpy=convert_to_numpy,
-                convert_to_tensor=convert_to_tensor,
-                **kwargs,
-            )
-            if is_singular_input:
-                pred_scores = pred_scores[0]
-            return pred_scores
-
         prompt = self._resolve_prompt(prompt, prompt_name)
+        if activation_fn is None:
+            activation_fn = self.activation_fn
 
-        # Here, device is either a single device string (e.g., "cuda:0", "cpu") for single-process encoding or None
-        if device is None:
-            device = str(self.device)
+        inference_kwargs = dict(
+            prompt=prompt,
+            batch_size=batch_size,
+            show_progress_bar=show_progress_bar,
+            activation_fn=activation_fn,
+            apply_softmax=apply_softmax,
+            **kwargs,
+        )
+        use_multi_process = pool is not None or (isinstance(device, list) and len(device) > 0)
+        if use_multi_process:
+            pred_scores = self._multi_process(
+                inputs, pool=pool, device=device, chunk_size=chunk_size, **inference_kwargs
+            )
+        elif self._distributed_inference is not None and device is None:
+            pred_scores = self._distributed_inference(inputs, **inference_kwargs)
+        else:
+            pred_scores = self._inference(inputs, device=device, **inference_kwargs)
 
-        self.to(device)
+        if convert_to_tensor:
+            if not isinstance(pred_scores, torch.Tensor):
+                pred_scores = torch.tensor([], device="cpu" if use_multi_process else self.device)
+        elif convert_to_numpy:
+            pred_scores = pred_scores.float().cpu().numpy() if len(pred_scores) else np.array([])
+        else:
+            pred_scores = list(pred_scores)
+
+        if is_singular_input:
+            pred_scores = pred_scores[0]
+
+        return pred_scores
+
+    @torch.inference_mode()
+    def _inference(
+        self,
+        inputs: list,
+        *,
+        prompt: str | None,
+        batch_size: int,
+        show_progress_bar: bool,
+        activation_fn: Callable | None,
+        apply_softmax: bool | None,
+        device: str | torch.device | None = None,
+        **kwargs,
+    ) -> torch.Tensor:
+        """Run local inference on normalized inputs with resolved arguments."""
+        device = self._resolve_inference_device(device)
 
         self.eval()
-        activation_fn = activation_fn or self.activation_fn
         num_labels = self.num_labels
 
         pred_scores = []
@@ -724,29 +695,18 @@ class CrossEncoder(BaseModel, FitMixin):
             if activation_fn is not None:
                 scores = activation_fn(scores)
 
-            if apply_softmax and scores.ndim > 1:
-                scores = torch.nn.functional.softmax(scores, dim=1)
-
             # Squeeze [batch_size, 1] -> [batch_size] for single-label models
             if num_labels == 1 and scores.ndim > 1:
                 scores = scores.squeeze(-1)
+
+            if apply_softmax and scores.ndim > 1:
+                scores = torch.nn.functional.softmax(scores, dim=1)
 
             pred_scores.extend(scores)
 
         pred_scores = [pred_scores[idx] for idx in np.argsort(length_sorted_idx)]
 
-        if convert_to_tensor:
-            if len(pred_scores):
-                pred_scores = torch.stack(pred_scores)
-            else:
-                pred_scores = torch.tensor([], device=device)
-        elif convert_to_numpy:
-            pred_scores = np.asarray([score.cpu().detach().float().numpy() for score in pred_scores])
-
-        if is_singular_input:
-            pred_scores = pred_scores[0]
-
-        return pred_scores
+        return torch.stack(pred_scores) if pred_scores else torch.tensor([], device=device)
 
     @cross_encoder_predict_rank_args_decorator
     def rank(
@@ -760,7 +720,6 @@ class CrossEncoder(BaseModel, FitMixin):
         batch_size: int = 32,
         show_progress_bar: bool | None = None,
         activation_fn: Callable | None = None,
-        apply_softmax=False,
         device: str | list[str | torch.device] | None = None,
         pool: dict[Literal["input", "output", "processes"], Any] | None = None,
         chunk_size: int | None = None,
@@ -784,10 +743,10 @@ class CrossEncoder(BaseModel, FitMixin):
             batch_size (int, optional): Batch size for encoding. Defaults to 32.
             show_progress_bar (bool, optional): Output progress bar. Defaults to None.
             activation_fn ([type], optional): Activation function applied on the logits output of the CrossEncoder. If None, nn.Sigmoid() will be used if num_labels=1, else nn.Identity. Defaults to None.
-            apply_softmax (bool, optional): If there are more than 2 dimensions and apply_softmax=True, applies softmax on the logits output. Defaults to False.
             device (Union[str, List[str]], optional): Device(s) to use for computation. Can be a single device string
-                (e.g., "cuda:0", "cpu") or a list of devices (e.g., ["cuda:0", "cuda:1"]). If a list is provided,
-                multiprocessing will be used automatically. Defaults to None.
+                (e.g., "cuda:0", "cpu"), which moves the model there unless a `device_map` or Accelerate hooks control placement,
+                or a list of devices (e.g., ["cuda:0", "cuda:1"]), which uses multiprocessing automatically.
+                If None, uses the model's current device. Defaults to None.
             pool (Dict[str, Any], optional): A pool of workers created with :meth:`start_multi_process_pool`. If provided,
                 multiprocessing will be used. If None and ``device`` is a list, a pool will be created automatically.
                 Defaults to None.
@@ -849,7 +808,6 @@ class CrossEncoder(BaseModel, FitMixin):
             batch_size=batch_size,
             show_progress_bar=show_progress_bar,
             activation_fn=activation_fn,
-            apply_softmax=apply_softmax,
             convert_to_tensor=True,
             device=device,
             pool=pool,
@@ -894,13 +852,18 @@ class CrossEncoder(BaseModel, FitMixin):
         return True
 
     def _get_model_config(self) -> dict[str, Any]:
-        return super()._get_model_config() | {
+        config = super()._get_model_config() | {
             "activation_fn": fullname(self.activation_fn),
         }
+        if self.keep_in_fp32_modules:
+            config["keep_in_fp32_modules"] = self.keep_in_fp32_modules
+        return config
 
     def _parse_model_config(self, model_config: dict[str, Any]) -> None:
         super()._parse_model_config(model_config)
-        if "activation_fn" in model_config:
+        if self.keep_in_fp32_modules is None:
+            self.keep_in_fp32_modules = model_config.get("keep_in_fp32_modules")
+        if self.activation_fn is None and "activation_fn" in model_config:
             activation_fn_path = model_config["activation_fn"]
             if activation_fn_path is not None:
                 resolved = self._resolve_activation_fn(activation_fn_path)

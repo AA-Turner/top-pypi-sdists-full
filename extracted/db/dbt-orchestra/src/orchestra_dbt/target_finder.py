@@ -1,4 +1,8 @@
 import os
+from pathlib import Path
+
+from .compatibility import is_dbt_v2
+from .utils import load_yaml
 
 
 def find_target_in_args(args: list[str]) -> str | None:
@@ -35,3 +39,41 @@ def find_flag_value(args: list[str], flag: str) -> str | None:
         elif arg.startswith(f"{flag}="):
             value = arg.removeprefix(f"{flag}=")
     return value
+
+
+def _dbt_setting(args: list[str], flag: str, name: str) -> str | None:
+    return (
+        find_flag_value(args, flag)
+        or os.environ.get(f"DBT_ENGINE_{name}")
+        or os.environ.get(f"DBT_{name}")
+        or None
+    )
+
+
+def find_project_dir(args: list[str]) -> Path:
+    """The dbt project dir: the flag beats DBT_ENGINE_* beats DBT_*."""
+    return Path(_dbt_setting(args, "--project-dir", "PROJECT_DIR") or ".")
+
+
+def find_target_dir(args: list[str], project_dir: Path) -> Path:
+    """Where dbt writes artifacts; a relative target path sits under the project dir."""
+    return project_dir / (
+        _dbt_setting(args, "--target-path", "TARGET_PATH") or "target"
+    )
+
+
+def find_packages_install_path(args: list[str], project_dir: Path) -> Path:
+    """Where dbt installs packages, relative to the project dir unless absolute.
+
+    Only dbt 2.x takes a flag or env var for this; dbt 1.x reads dbt_project.yml alone.
+    """
+    if is_dbt_v2() and (
+        configured := _dbt_setting(
+            args, "--packages-install-path", "PACKAGES_INSTALL_PATH"
+        )
+    ):
+        return Path(configured)
+    return Path(
+        load_yaml(project_dir / "dbt_project.yml").get("packages-install-path")
+        or "dbt_packages"
+    )

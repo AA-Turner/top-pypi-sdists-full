@@ -1,4 +1,5 @@
 """Write flattened rows to CSV."""
+
 from __future__ import annotations
 
 import csv

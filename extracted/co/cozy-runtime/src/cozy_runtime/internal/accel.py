@@ -140,6 +140,18 @@ def _nvml_library() -> ctypes.CDLL | None:
         return library
 
 
+def nvml_index(uuid: str) -> int:
+    """nvidia-smi's number for a `GPU-…` UUID; -1 when NVML cannot say."""
+    library = _nvml_library() if uuid else None
+    handle = _nvml_handle(library, uuid) if library is not None else None
+    index = ctypes.c_uint()
+    if handle is None or library is None:
+        return -1
+    if library.nvmlDeviceGetIndex(handle, ctypes.byref(index)) != _NVML_SUCCESS:
+        return -1
+    return int(index.value)
+
+
 def _nvml_handle(library: ctypes.CDLL, device: str) -> ctypes.c_void_p | None:
     """One envelope entry's handle: an index by index, anything else by UUID."""
     handle = ctypes.c_void_p()
@@ -197,6 +209,14 @@ def _nvml_compute_table() -> dict[int, int] | None:
             return None
         table.update(rows)
     return table
+
+
+def compute_processes(device: str) -> dict[int, int] | None:
+    """`device`'s compute processes as NVML counts them: pid -> used bytes (-1 unaccounted).
+    None where the driver will not say."""
+    library = _nvml_library()
+    handle = _nvml_handle(library, device) if library is not None and device else None
+    return _nvml_device_compute_table(library, handle) if library is not None and handle is not None else None
 
 
 def _table_rows(pids: set[int], table: dict[int, int]) -> dict[int, ProcessMemory]:
@@ -401,6 +421,16 @@ def synchronize(torch: Any, kind: str) -> None:
         torch.cuda.synchronize()
 
 
+def healthy(torch: ModuleType, kind: str) -> bool:
+    """Whether the device still answers a fence: a fault is sticky (an illegal address, a copy
+    engine's), and every later call of this process fails with it."""
+    try:
+        synchronize(torch, kind)
+    except Exception:  # the fault itself, whatever torch calls it
+        return False
+    return True
+
+
 def drain(torch: Any, kind: str) -> None:
     """Wait for the CURRENT stream only: the caller's own queued work, not other streams'.
     MPS has one command queue per process: its drain is a synchronize."""
@@ -419,7 +449,10 @@ ALLOCATOR = "expandable_segments:True"
 
 def initialize(torch: Any, kind: str) -> None:
     """Bring the accelerator context up EAGERLY, so its cost is a measured prepare step
-    rather than a surprise inside the first kernel. torch's allocator is configured first."""
+    rather than a surprise inside the first kernel. torch's allocator is configured first.
+    A CPU executor has no accelerator to bring up."""
+    if kind == "cpu":
+        return
     if sees_no_gpu():
         raise RuntimeError("this process sees no GPU (CUDA_VISIBLE_DEVICES is empty)")
     if kind == "mps" and not torch.backends.mps.is_available():
@@ -671,6 +704,19 @@ def memory_class(kind: str) -> Literal["discrete", "unified"]:
     Apple GPUs are unified; CUDA cards are discrete here (coherent and integrated CUDA
     machines are TensorD's to detect)."""
     return "unified" if kind == "mps" else "discrete"
+
+
+#: torch's own MPS high watermark, as a fraction of Metal's recommended working set
+MPS_WATERMARK = 1.7
+
+
+def hold_pool(torch: ModuleType, cap: int) -> None:
+    """Hold MPS's allocator, which also holds a unified plane's regions, to an owner's cap of
+    `cap` bytes; -1 gives torch its own watermark back (past the budget the system pages)."""
+    recommended = max(int(torch.mps.recommended_max_memory()), 1)
+    torch.mps.set_per_process_memory_fraction(
+        min(cap / recommended, 2.0) if cap >= 0 else MPS_WATERMARK
+    )
 
 
 def unified_budget(torch: ModuleType) -> int:

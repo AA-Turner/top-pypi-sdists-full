@@ -28,6 +28,11 @@ MODEL_TOKENIZER_ALIASES: dict[str, str] = {
     # Maps to itself so dedicated-deployment suffixes resolve here rather than
     # being passed to the hub as a repo that does not exist.
     "deepseek-ai/DeepSeek-V4.1-Flash": "deepseek-ai/DeepSeek-V4.1-Flash",
+    # Its own root, not a suffix of the line above: the 1017 refresh publishes
+    # its own (today byte-identical) tokenizer, and longest-root matching keeps
+    # a run against 1017 off the base repo -- which an offline cache holding
+    # only the 1017 snapshot does not have.
+    "deepseek-ai/DeepSeek-V4.1-Flash-1017": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
 }
 
 

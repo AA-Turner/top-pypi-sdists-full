@@ -438,6 +438,22 @@ class RealtimeEntryDatacenter(ModelComposed):
             'ddos_challenges_failed': (int,),  # noqa: E501
             'ddos_challenges_pats_issued': (int,),  # noqa: E501
             'ddos_challenges_pats_succeeded': (int,),  # noqa: E501
+            'arc_ai_firewall_requests': (int,),  # noqa: E501
+            'arc_ai_firewall_blocked': (int,),  # noqa: E501
+            'bot_edge_challenge_complete_tokens_issued': (int,),  # noqa: E501
+            'bot_edge_challenges_issued': (int,),  # noqa: E501
+            'bot_edge_challenges_succeeded': (int,),  # noqa: E501
+            'bot_edge_challenges_failed': (int,),  # noqa: E501
+            'bot_edge_challenges_pats_issued': (int,),  # noqa: E501
+            'bot_edge_challenges_pats_succeeded': (int,),  # noqa: E501
+            'netprotect_gre_sent_bytes': (int,),  # noqa: E501
+            'netprotect_gre_sent_packets': (int,),  # noqa: E501
+            'netprotect_received_bytes': (int,),  # noqa: E501
+            'netprotect_received_packets': (int,),  # noqa: E501
+            'netprotect_firewall_dropped_bytes': (int,),  # noqa: E501
+            'netprotect_firewall_dropped_packets': (int,),  # noqa: E501
+            'api_enforcement_allowed_requests_count': (int,),  # noqa: E501
+            'api_enforcement_flagged_requests_count': (int,),  # noqa: E501
         }
 
     @cached_property
@@ -799,6 +815,22 @@ class RealtimeEntryDatacenter(ModelComposed):
         'ddos_challenges_failed': 'ddos_challenges_failed',  # noqa: E501
         'ddos_challenges_pats_issued': 'ddos_challenges_pats_issued',  # noqa: E501
         'ddos_challenges_pats_succeeded': 'ddos_challenges_pats_succeeded',  # noqa: E501
+        'arc_ai_firewall_requests': 'arc_ai_firewall_requests',  # noqa: E501
+        'arc_ai_firewall_blocked': 'arc_ai_firewall_blocked',  # noqa: E501
+        'bot_edge_challenge_complete_tokens_issued': 'bot_edge_challenge_complete_tokens_issued',  # noqa: E501
+        'bot_edge_challenges_issued': 'bot_edge_challenges_issued',  # noqa: E501
+        'bot_edge_challenges_succeeded': 'bot_edge_challenges_succeeded',  # noqa: E501
+        'bot_edge_challenges_failed': 'bot_edge_challenges_failed',  # noqa: E501
+        'bot_edge_challenges_pats_issued': 'bot_edge_challenges_pats_issued',  # noqa: E501
+        'bot_edge_challenges_pats_succeeded': 'bot_edge_challenges_pats_succeeded',  # noqa: E501
+        'netprotect_gre_sent_bytes': 'netprotect_gre_sent_bytes',  # noqa: E501
+        'netprotect_gre_sent_packets': 'netprotect_gre_sent_packets',  # noqa: E501
+        'netprotect_received_bytes': 'netprotect_received_bytes',  # noqa: E501
+        'netprotect_received_packets': 'netprotect_received_packets',  # noqa: E501
+        'netprotect_firewall_dropped_bytes': 'netprotect_firewall_dropped_bytes',  # noqa: E501
+        'netprotect_firewall_dropped_packets': 'netprotect_firewall_dropped_packets',  # noqa: E501
+        'api_enforcement_allowed_requests_count': 'api_enforcement_allowed_requests_count',  # noqa: E501
+        'api_enforcement_flagged_requests_count': 'api_enforcement_flagged_requests_count',  # noqa: E501
     }
 
     read_only_vars = {
@@ -1193,6 +1225,22 @@ class RealtimeEntryDatacenter(ModelComposed):
             ddos_challenges_failed (int): Number of failed challenge solutions processed as a result of a DDoS action. For example, an incorrect CAPTCHA solution.. [optional]  # noqa: E501
             ddos_challenges_pats_issued (int): Number of Private Access Token challenges issued as a result of a DDoS action.. [optional]  # noqa: E501
             ddos_challenges_pats_succeeded (int): Number of successful Private Access Token challenge solutions processed as a result of a DDoS action.. [optional]  # noqa: E501
+            arc_ai_firewall_requests (int): Number of requests received by AI Firewall in AI Runtime Control.. [optional]  # noqa: E501
+            arc_ai_firewall_blocked (int): Number of requests blocked by AI Firewall in AI Runtime Control.. [optional]  # noqa: E501
+            bot_edge_challenge_complete_tokens_issued (int): The number of challenge-complete tokens issued as a result of a ContentGuard action. For example, issuing a challenge-complete token after a series of CAPTCHA challenges ending in success.. [optional]  # noqa: E501
+            bot_edge_challenges_issued (int): The number of challenges issued as a result of a ContentGuard action.. [optional]  # noqa: E501
+            bot_edge_challenges_succeeded (int): The number of successful challenge solutions processed as a result of a ContentGuard action. For example, a correct CAPTCHA solution.. [optional]  # noqa: E501
+            bot_edge_challenges_failed (int): The number of failed challenge solutions processed as a result of a ContentGuard action. For example, an incorrect CAPTCHA solution.. [optional]  # noqa: E501
+            bot_edge_challenges_pats_issued (int): The number of Private Access Token challenges issued as a result of a ContentGuard action.. [optional]  # noqa: E501
+            bot_edge_challenges_pats_succeeded (int): The number of successful Private Access Token challenge solutions processed as a result of a ContentGuard action.. [optional]  # noqa: E501
+            netprotect_gre_sent_bytes (int): Number of bytes sent via GRE tunnel.. [optional]  # noqa: E501
+            netprotect_gre_sent_packets (int): Number of packets sent via GRE tunnel.. [optional]  # noqa: E501
+            netprotect_received_bytes (int): Number of ingress bytes received for network protection.. [optional]  # noqa: E501
+            netprotect_received_packets (int): Number of ingress packets received for network protection.. [optional]  # noqa: E501
+            netprotect_firewall_dropped_bytes (int): Number of bytes dropped by network protection firewall.. [optional]  # noqa: E501
+            netprotect_firewall_dropped_packets (int): Number of packets dropped by network protection firewall.. [optional]  # noqa: E501
+            api_enforcement_allowed_requests_count (int): Number of requests allowed after evaluation by the API Enforcement engine.. [optional]  # noqa: E501
+            api_enforcement_flagged_requests_count (int): Number of requests flagged after evaluation by the API Enforcement engine.. [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
@@ -1645,6 +1693,22 @@ class RealtimeEntryDatacenter(ModelComposed):
             ddos_challenges_failed (int): Number of failed challenge solutions processed as a result of a DDoS action. For example, an incorrect CAPTCHA solution.. [optional]  # noqa: E501
             ddos_challenges_pats_issued (int): Number of Private Access Token challenges issued as a result of a DDoS action.. [optional]  # noqa: E501
             ddos_challenges_pats_succeeded (int): Number of successful Private Access Token challenge solutions processed as a result of a DDoS action.. [optional]  # noqa: E501
+            arc_ai_firewall_requests (int): Number of requests received by AI Firewall in AI Runtime Control.. [optional]  # noqa: E501
+            arc_ai_firewall_blocked (int): Number of requests blocked by AI Firewall in AI Runtime Control.. [optional]  # noqa: E501
+            bot_edge_challenge_complete_tokens_issued (int): The number of challenge-complete tokens issued as a result of a ContentGuard action. For example, issuing a challenge-complete token after a series of CAPTCHA challenges ending in success.. [optional]  # noqa: E501
+            bot_edge_challenges_issued (int): The number of challenges issued as a result of a ContentGuard action.. [optional]  # noqa: E501
+            bot_edge_challenges_succeeded (int): The number of successful challenge solutions processed as a result of a ContentGuard action. For example, a correct CAPTCHA solution.. [optional]  # noqa: E501
+            bot_edge_challenges_failed (int): The number of failed challenge solutions processed as a result of a ContentGuard action. For example, an incorrect CAPTCHA solution.. [optional]  # noqa: E501
+            bot_edge_challenges_pats_issued (int): The number of Private Access Token challenges issued as a result of a ContentGuard action.. [optional]  # noqa: E501
+            bot_edge_challenges_pats_succeeded (int): The number of successful Private Access Token challenge solutions processed as a result of a ContentGuard action.. [optional]  # noqa: E501
+            netprotect_gre_sent_bytes (int): Number of bytes sent via GRE tunnel.. [optional]  # noqa: E501
+            netprotect_gre_sent_packets (int): Number of packets sent via GRE tunnel.. [optional]  # noqa: E501
+            netprotect_received_bytes (int): Number of ingress bytes received for network protection.. [optional]  # noqa: E501
+            netprotect_received_packets (int): Number of ingress packets received for network protection.. [optional]  # noqa: E501
+            netprotect_firewall_dropped_bytes (int): Number of bytes dropped by network protection firewall.. [optional]  # noqa: E501
+            netprotect_firewall_dropped_packets (int): Number of packets dropped by network protection firewall.. [optional]  # noqa: E501
+            api_enforcement_allowed_requests_count (int): Number of requests allowed after evaluation by the API Enforcement engine.. [optional]  # noqa: E501
+            api_enforcement_flagged_requests_count (int): Number of requests flagged after evaluation by the API Enforcement engine.. [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)

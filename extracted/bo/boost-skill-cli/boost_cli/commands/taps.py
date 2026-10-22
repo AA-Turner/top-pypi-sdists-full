@@ -467,6 +467,10 @@ def cmd_outdated(argv) -> int:
 
     results = []
     heads = {}  # tap name -> HEAD commit ("" when unknown)
+    # Read once and passed to every lookup: `find(name)` alone re-validates
+    # every tap's cache per call, which over 308 installed skills and 460
+    # taps was a third of this command.
+    entries = catalog.all_entries()
     # Both locks: a `--local` skill is recorded only in the repo's own, and
     # walking the user lock alone answered "everything up to date" in the
     # directory where `boost info` said the same skill had an update.
@@ -474,7 +478,7 @@ def cmd_outdated(argv) -> int:
         tap_name = lk.get("tap", "local")
         if tap_name == "local":
             continue
-        matches = [e for e in catalog.find(name) if e["tap"] == tap_name]
+        matches = [e for e in catalog.find(name, entries=entries) if e["tap"] == tap_name]
         if not matches:
             # The tap is untapped, or dropped this entry entirely — same
             # condition the rule/workflow loop below reports honestly, so a
@@ -503,7 +507,7 @@ def cmd_outdated(argv) -> int:
             head = heads[tap_name]
             if head and head != lk.get("commit"):
                 try:
-                    src_sha = util.sha256_dir(store.source_dir_for(entry))
+                    src_sha = store.skill_source_sha(entry)
                 except BoostError:
                     src_missing = True
         base = {"name": name, "kind": "skill", "installed": installed_v,
@@ -549,7 +553,7 @@ def cmd_outdated(argv) -> int:
                 continue
             if hashlib.sha256(raw.encode("utf-8")).hexdigest() == lk.get("sha256"):
                 continue
-            matches = [e for e in catalog.find(name)
+            matches = [e for e in catalog.find(name, entries=entries)
                        if e["tap"] == tap_name
                        and e.get("kind", "skill") == kind]
             entry, _warning = catalog.select_lock_source(matches, lk)
@@ -574,6 +578,8 @@ def cmd_outdated(argv) -> int:
     # A missing row whose tap is still configured lost the item upstream;
     # re-tapping it would restore nothing, so it is worded and counted apart.
     configured = frozenset(t.name for t in registry.list_taps())
+    # Both version columns are a tap's frontmatter: display copies only.
+    results = out.plain_fields(results)
     rows = [(r["name"] + _outdated_qualifier(r),
              r["installed"] + (" (pinned)" if r["pinned"] else ""),
              _outdated_display(r, configured), r["tap"]) for r in results]

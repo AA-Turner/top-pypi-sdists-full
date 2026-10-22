@@ -10,7 +10,7 @@ to explore different patterns.
 """
 
 import numpy as np
-from imgui_bundle import imgui, implot, immapp, hello_imgui, imgui_md, imgui_knobs, imgui_toggle, icons_fontawesome_4
+from imgui_bundle import imgui, implot, immapp, hello_imgui, rich_md, imgui_knobs, imgui_toggle, icons_fontawesome_4
 from imgui_bundle import ImVec2, ImVec4
 import time
 
@@ -215,7 +215,7 @@ def gui(state: AppState):
     # Controls (left column)
     imgui.begin_child("controls", ImVec2(em * 20, 0))
 
-    imgui_md.render(__doc__)
+    rich_md.render(__doc__)
     imgui.spacing()
 
     # Wavelength, Speed and Decay knobs
@@ -329,6 +329,7 @@ def gui(state: AppState):
     imgui.pop_style_var()
 
     imgui.end_child()
+    hello_imgui.set_item_is_live(not state.paused)  # the animation moves on its own, unless paused
 
 
 def main():
@@ -339,7 +340,6 @@ def main():
         window_size=(1200, 750),
         with_implot=True,
         with_markdown=True,
-        fps_idle=0,
         ini_disable=True
     )
 

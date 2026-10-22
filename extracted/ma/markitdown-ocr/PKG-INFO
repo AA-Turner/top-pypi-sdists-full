@@ -1,6 +1,6 @@
-Metadata-Version: 2.5
+Metadata-Version: 2.4
 Name: markitdown-ocr
-Version: 0.1.1
+Version: 0.1.2
 Summary: OCR plugin for MarkItDown - Extracts text from images in PDF, DOCX, PPTX, and XLSX via LLM Vision
 Project-URL: Documentation, https://github.com/microsoft/markitdown#readme
 Project-URL: Issues, https://github.com/microsoft/markitdown/issues
@@ -17,14 +17,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10
-Requires-Dist: mammoth~=1.11.0
-Requires-Dist: markitdown<0.2.0,>=0.1.8
+Requires-Dist: mammoth<2,>=1.12.2
+Requires-Dist: markitdown<0.2.0,>=0.1.9
 Requires-Dist: openpyxl
 Requires-Dist: pandas
 Requires-Dist: pdfminer-six>=20251230
 Requires-Dist: pdfplumber>=0.11.9
-Requires-Dist: pillow>=9.0.0
-Requires-Dist: pymupdf>=1.24.0
+Requires-Dist: pillow>=12.1.1
+Requires-Dist: pymupdf<2,>=1.24.0
 Requires-Dist: python-docx
 Requires-Dist: python-pptx
 Provides-Extra: llm

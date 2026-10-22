@@ -20,6 +20,7 @@ from matrx_scraper.read_judge import (
     FETCH_ERROR,
     HTTP_ERROR,
     JS_SHELL,
+    NOT_FOUND,
     SIGN_IN_WALL,
     judge_read,
 )
@@ -411,3 +412,89 @@ async def test_research_scrape_collects_a_walled_page_with_its_coverage(monkeypa
     assert f["verdict"]["reason"] == CHALLENGE and f["coverage"][0]["service"] == "unlocker"
     assert "cloudflare" not in f["verdict"]["detail"].lower()
     assert cov.hint_line([(f["url"], f["coverage"])]).startswith("1 page failed")
+
+
+# ── soft 404s, browser-rendered HTTP errors, login walls: ONE judge on the finished result ──────────────
+
+_LINKEDIN_NOT_FOUND = (
+    "# This page doesn\u2019t exist\nPlease check your URL or return to LinkedIn home.\n"
+    + "Esta p\u00e1gina no existe. Cette page n\u2019existe pas. Diese Seite existiert nicht. " * 30
+)
+_OPTI_404 = "# Oops!\nThat page can't be found.\nIt looks like nothing was found at this location. Try a search?"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"status": 200, "title": "Page not found | LinkedIn", "text": _LINKEDIN_NOT_FOUND},
+        {"status": 200, "title": "LinkedIn", "text": _LINKEDIN_NOT_FOUND},
+        {"status": 200, "title": "Page not found \u2013 Opti-Club", "text": _OPTI_404},
+        {"status": 200, "title": "Opti-Club", "text": _OPTI_404},
+        {"status": 200, "title": "404 Not Found", "text": "nginx"},
+        {"status": 200, "title": "Error 404", "text": "Something went wrong. Return home."},
+        {"status": 200, "title": "Instagram", "text": "Sorry, this page isn't available.\nThe link you followed may be "
+                                                      "broken, or the page may have been removed. Go back to Instagram."},
+        {"status": 200, "title": "Facebook", "text": "This content isn't available right now. Go to News Feed."},
+    ],
+)
+def test_soft_404_is_failed_with_a_reason(kwargs: dict[str, Any]):
+    v = judge_read(**kwargs)
+    assert v.failed and v.reason == NOT_FOUND and v.detail and v.coverable, v
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        # a long article about 404s is an article
+        {"status": 200, "title": "How to fix a 'Page not found' error", "text": "word " * 1500},
+        {"status": 200, "title": "404 ways to cook an egg", "text": "Recipes. " * 40},
+        # a real page that mentions the phrase deep inside
+        {"status": 200, "title": "Help center", "text": "Welcome to the help center. " * 30 + " If you see page not found, retry."},
+        {"status": 200, "title": "Contact us", "text": "Our store is open daily. " * 20},
+    ],
+)
+def test_pages_that_only_mention_not_found_still_pass(kwargs: dict[str, Any]):
+    assert not judge_read(**kwargs).failed
+
+
+def _build(status: int, html: str, title: str):
+    """The finished result the way the BROWSER leg builds it: a hand-made Response, ``failed`` never set."""
+    from matrx_scraper.orchestrator import _apply_content_sanity, _build_result_from_response
+    from matrx_scraper.scraper import ContentType, RequestType, Response
+
+    resp = Response(request_url="https://opti-club.com/x", proxy_used=False, request_type=RequestType.BROWSER,
+                    content_type=ContentType.HTML, extension="", content_type_raw="text/html",
+                    response_url="https://opti-club.com/x", response_headers={}, title=title, status_code=status,
+                    content=html)
+    result = _build_result_from_response(resp)
+    assert result.success, "the hand-built browser Response carries no failure of its own - that is the defect"
+    _apply_content_sanity(result)
+    return result
+
+
+_PAGE = "<html><head><title>{t}</title></head><body><main><h1>{h}</h1><p>{p}</p></main></body></html>"
+
+
+def test_a_browser_rendered_http_404_is_a_failed_read():
+    r = _build(404, _PAGE.format(t="Opti-Club", h="Oops!", p="Something is here, but it is an error shell. " * 10), "Opti-Club")
+    assert r.success is False and r.failure_reason == "bad_status" and r.status_code == 404
+    assert "HTTP 404" in (r.failure_message or "")
+
+
+def test_a_browser_rendered_soft_404_is_a_failed_read():
+    r = _build(200, _PAGE.format(t="Page not found - Opti-Club", h="Page not found", p="That page can't be found."),
+               "Page not found - Opti-Club")
+    assert r.success is False and r.failure_reason == NOT_FOUND
+
+
+def test_a_browser_rendered_login_wall_is_a_failed_read():
+    r = _build(200, _PAGE.format(t="Sign in | LinkedIn", h="Sign in", p="Sign in to view the full profile."),
+               "Sign in | LinkedIn")
+    assert r.success is False and r.failure_reason == SIGN_IN_WALL
+
+
+def test_a_good_page_still_reads_fine():
+    body = " ".join(f"Opti-Club sells quality eyewear and fits glasses in about an hour, sentence {i}." for i in range(30))
+    r = _build(200, _PAGE.format(t="Opti-Club - Quality eyewear in about an hour", h="Opti-Club", p=body),
+               "Opti-Club - Quality eyewear in about an hour")
+    assert r.success is True and r.failure_reason is None

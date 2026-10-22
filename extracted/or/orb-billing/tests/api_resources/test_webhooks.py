@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import hmac
+import hashlib
 from typing import Any, cast
 from datetime import datetime, timezone, timedelta
 
@@ -12,6 +14,13 @@ import time_machine
 from orb import Orb, AsyncOrb
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
+
+
+def _signed_headers(payload: str, timestamp: str, secret: str) -> dict[str, str]:
+    signature = hmac.new(
+        secret.encode("utf-8"), f"v1:{timestamp}:{payload}".encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+    return {"X-Orb-Timestamp": timestamp, "X-Orb-Signature": f"v1={signature}"}
 
 
 class TestWebhooks:
@@ -24,8 +33,8 @@ class TestWebhooks:
         fake_now_dt = fake_now_dt.replace(tzinfo=timezone.utc)
     fake_now = fake_now_dt.astimezone()
 
-    payload = """{"id": "o4mmewpfNNTnjfZc", "created_at": "2024-03-27T15:42:29+00:00", "type": "resource_event.test", "properties": {"message": "A test webhook from Orb. Happy testing!"}}"""
-    signature = "9d25de966891ab0bc18754faf8d83d0980b44ae330fcc130b41a6cf3daf1f391"
+    payload = """{"id": "o4mmewpfNNTnjfZc", "created_at": "2024-03-27T15:42:29+00:00", "type": "resource_event.test", "payload_style": "expanded", "properties": {"message": "A test webhook from Orb. Happy testing!"}}"""
+    signature = "34c51e7436aca75f9c6799d3e1e5a0066265d8e5512df552aaa7e8464f2b8454"
     headers = {
         "X-Orb-Timestamp": timestamp,
         "X-Orb-Signature": f"v1={signature}",
@@ -42,6 +51,45 @@ class TestWebhooks:
 
         assert event.type == "resource_event.test"
         assert event.properties.message == "A test webhook from Orb. Happy testing!"
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_standard(self, client: Orb) -> None:
+        payload = self.payload.replace('"payload_style": "expanded"', '"payload_style": "standard"')
+        headers = _signed_headers(payload, self.timestamp, self.secret)
+
+        event = client.webhooks.standard.unwrap_standard(payload, headers, secret=self.secret)
+
+        assert event.type == "resource_event.test"
+        assert event.payload_style == "standard"
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_standard_on_webhooks(self, client: Orb) -> None:
+        payload = self.payload.replace('"payload_style": "expanded"', '"payload_style": "standard"')
+        headers = _signed_headers(payload, self.timestamp, self.secret)
+
+        event = client.webhooks.unwrap_standard(payload, headers, secret=self.secret)
+
+        assert event.payload_style == "standard"
+        with pytest.raises(ValueError, match="None of the given webhook signatures match"):
+            client.webhooks.unwrap_standard(payload, {**headers, "X-Orb-Signature": "v1=00"}, secret=self.secret)
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_rejects_a_payload_in_the_other_style(self, client: Orb) -> None:
+        standard = self.payload.replace('"payload_style": "expanded"', '"payload_style": "standard"')
+
+        with pytest.raises(ValueError, match="Use `webhooks.standard.unwrap_standard`"):
+            client.webhooks.unwrap(standard, _signed_headers(standard, self.timestamp, self.secret), secret=self.secret)
+        with pytest.raises(ValueError, match="Use `webhooks.unwrap` "):
+            client.webhooks.standard.unwrap_standard(self.payload, self.headers, secret=self.secret)
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_reads_a_payload_without_a_style_as_expanded(self, client: Orb) -> None:
+        payload = self.payload.replace(', "payload_style": "expanded"', "")
+        headers = _signed_headers(payload, self.timestamp, self.secret)
+
+        event = client.webhooks.unwrap(payload, headers, secret=self.secret)
+
+        assert event.type == "resource_event.test"
 
     @time_machine.travel(fake_now)
     def test_verify_signature(self, client: Orb) -> None:
@@ -206,8 +254,8 @@ class TestAsyncWebhooks:
         fake_now_dt = fake_now_dt.replace(tzinfo=timezone.utc)
     fake_now = fake_now_dt.astimezone()
 
-    payload = """{"id": "o4mmewpfNNTnjfZc", "created_at": "2024-03-27T15:42:29+00:00", "type": "resource_event.test", "properties": {"message": "A test webhook from Orb. Happy testing!"}}"""
-    signature = "9d25de966891ab0bc18754faf8d83d0980b44ae330fcc130b41a6cf3daf1f391"
+    payload = """{"id": "o4mmewpfNNTnjfZc", "created_at": "2024-03-27T15:42:29+00:00", "type": "resource_event.test", "payload_style": "expanded", "properties": {"message": "A test webhook from Orb. Happy testing!"}}"""
+    signature = "34c51e7436aca75f9c6799d3e1e5a0066265d8e5512df552aaa7e8464f2b8454"
     headers = {
         "X-Orb-Timestamp": timestamp,
         "X-Orb-Signature": f"v1={signature}",
@@ -224,6 +272,47 @@ class TestAsyncWebhooks:
 
         assert event.type == "resource_event.test"
         assert event.properties.message == "A test webhook from Orb. Happy testing!"
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_standard(self, async_client: AsyncOrb) -> None:
+        payload = self.payload.replace('"payload_style": "expanded"', '"payload_style": "standard"')
+        headers = _signed_headers(payload, self.timestamp, self.secret)
+
+        event = async_client.webhooks.standard.unwrap_standard(payload, headers, secret=self.secret)
+
+        assert event.type == "resource_event.test"
+        assert event.payload_style == "standard"
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_standard_on_webhooks(self, async_client: AsyncOrb) -> None:
+        payload = self.payload.replace('"payload_style": "expanded"', '"payload_style": "standard"')
+        headers = _signed_headers(payload, self.timestamp, self.secret)
+
+        event = async_client.webhooks.unwrap_standard(payload, headers, secret=self.secret)
+
+        assert event.payload_style == "standard"
+        with pytest.raises(ValueError, match="None of the given webhook signatures match"):
+            async_client.webhooks.unwrap_standard(payload, {**headers, "X-Orb-Signature": "v1=00"}, secret=self.secret)
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_rejects_a_payload_in_the_other_style(self, async_client: AsyncOrb) -> None:
+        standard = self.payload.replace('"payload_style": "expanded"', '"payload_style": "standard"')
+
+        with pytest.raises(ValueError, match="Use `webhooks.standard.unwrap_standard`"):
+            async_client.webhooks.unwrap(
+                standard, _signed_headers(standard, self.timestamp, self.secret), secret=self.secret
+            )
+        with pytest.raises(ValueError, match="Use `webhooks.unwrap` "):
+            async_client.webhooks.standard.unwrap_standard(self.payload, self.headers, secret=self.secret)
+
+    @time_machine.travel(fake_now)
+    def test_unwrap_reads_a_payload_without_a_style_as_expanded(self, async_client: AsyncOrb) -> None:
+        payload = self.payload.replace(', "payload_style": "expanded"', "")
+        headers = _signed_headers(payload, self.timestamp, self.secret)
+
+        event = async_client.webhooks.unwrap(payload, headers, secret=self.secret)
+
+        assert event.type == "resource_event.test"
 
     @time_machine.travel(fake_now)
     def test_verify_signature(self, async_client: Orb) -> None:

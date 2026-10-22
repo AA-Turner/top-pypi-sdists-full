@@ -1,4 +1,5 @@
 """Command-line helpers for scrapy-ingest."""
+
 from __future__ import annotations
 
 import argparse
@@ -114,7 +115,9 @@ def run_check_config(db_url=None, search_url=None, use_spinner=True):
 
     try:
         run("Validating configuration", lambda: validate_settings(settings) or True)
-        rows.append(("config", "destinations", "OK", "at least one destination configured"))
+        rows.append(
+            ("config", "destinations", "OK", "at least one destination configured")
+        )
         finish("Validating configuration", "OK")
     except ConfigurationError as exc:
         rows.append(("config", "destinations", "FAIL", _truncate(exc)))
@@ -122,24 +125,24 @@ def run_check_config(db_url=None, search_url=None, use_spinner=True):
         return False, rows
 
     for kind, enabled, url, skip, ping, ok_msg, info_row in (
-            (
-                    "database",
-                    settings.ingest_to_database,
-                    settings.db_url,
-                    "Database ping",
-                    lambda: _ping_db(settings),
-                    "connected",
-                    ("tables", settings.db_jobs_table),
-            ),
-            (
-                    "search",
-                    settings.ingest_to_search,
-                    settings.search_url,
-                    "Search ping",
-                    lambda: _ping_search(settings),
-                    "cluster responded",
-                    ("indexes", settings.db_jobs_table),
-            ),
+        (
+            "database",
+            settings.ingest_to_database,
+            settings.db_url,
+            "Database ping",
+            lambda: _ping_db(settings),
+            "connected",
+            ("tables", settings.db_jobs_table),
+        ),
+        (
+            "search",
+            settings.ingest_to_search,
+            settings.search_url,
+            "Search ping",
+            lambda: _ping_search(settings),
+            "cluster responded",
+            ("indexes", settings.db_jobs_table),
+        ),
     ):
         if not enabled:
             rows.append(("config", kind, "-", "not configured"))
@@ -162,13 +165,13 @@ def run_check_config(db_url=None, search_url=None, use_spinner=True):
 
 
 def run_jobs_show(
-        job_id=None,
-        db_url=None,
-        search_url=None,
-        limit=50,
-        status=None,
-        spider=None,
-        use_spinner=True,
+    job_id=None,
+    db_url=None,
+    search_url=None,
+    limit=50,
+    status=None,
+    spider=None,
+    use_spinner=True,
 ):
     """Load job(s) from SQL or search; return ``(job, report, error)``."""
     run, finish = _steps(use_spinner)
@@ -207,13 +210,13 @@ def run_jobs_show(
 
 
 def run_export_items(
-        output_path,
-        *,
-        job_id=None,
-        spider=None,
-        fields=None,
-        utf8_sig=False,
-        use_spinner=True,
+    output_path,
+    *,
+    job_id=None,
+    spider=None,
+    fields=None,
+    utf8_sig=False,
+    use_spinner=True,
 ):
     """Export items to CSV; return ``(count, error)``."""
     run, finish = _steps(use_spinner)
@@ -293,7 +296,11 @@ def check_config_command(args):
     info("")
     info(
         "scrapy-ingest check-config: "
-        + ("all configured destinations are reachable." if ok else "one or more checks failed.")
+        + (
+            "all configured destinations are reachable."
+            if ok
+            else "one or more checks failed."
+        )
     )
     return 0 if ok else 1
 
@@ -301,7 +308,9 @@ def check_config_command(args):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="scrapy-ingest")
     sub = parser.add_subparsers(dest="command", required=True)
-    check = sub.add_parser("check-config", help="Validate DB_URL / SEARCH_URL and ping destinations")
+    check = sub.add_parser(
+        "check-config", help="Validate DB_URL / SEARCH_URL and ping destinations"
+    )
     check.add_argument("--db-url", help="Override DB_URL from Scrapy settings")
     check.add_argument("--search-url", help="Override SEARCH_URL from Scrapy settings")
     check.set_defaults(func=check_config_command)
@@ -360,8 +369,56 @@ def main(argv=None):
     )
     export_items.set_defaults(func=export_items_command)
 
+    dashboard = sub.add_parser(
+        "dashboard", help="Start the read-only web dashboard (FastAPI)"
+    )
+    dashboard.add_argument(
+        "--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)"
+    )
+    dashboard.add_argument(
+        "--port", type=int, default=8765, help="HTTP port (default: 8765)"
+    )
+    dashboard.add_argument("--db-url", help="Override DB_URL from Scrapy settings")
+    dashboard.add_argument(
+        "--search-url", help="Override SEARCH_URL from Scrapy settings"
+    )
+    dashboard.add_argument(
+        "--reload", action="store_true", help="Auto-reload (development)"
+    )
+    dashboard.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not open the dashboard in a browser",
+    )
+    dashboard.set_defaults(func=dashboard_command)
+
     args = parser.parse_args(argv)
     return args.func(args)
+
+
+def dashboard_command(args):
+    try:
+        from ingest_dashboard.cli import run_server
+    except ImportError:
+        info(
+            'scrapy-ingest dashboard: install optional deps with pip install "scrapy-ingest[dashboard]"'
+        )
+        return 1
+    try:
+        run_server(
+            host=args.host,
+            port=args.port,
+            db_url=args.db_url,
+            search_url=args.search_url,
+            reload=args.reload,
+            open_browser=not args.no_browser,
+        )
+    except ImportError:
+        info(
+            'scrapy-ingest dashboard: install optional deps with pip install "scrapy-ingest[dashboard]"'
+        )
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

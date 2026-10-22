@@ -31,9 +31,11 @@ with a compact augmented preview that tells the model the original
 output is recoverable — and, when
 ``TrimPolicy.trim_tool_call_arguments`` is on (the default), the
 ``arguments`` of any tool_call block far enough back and large enough
-(measured as ``len(json.dumps(arguments))``) with a compact stub naming
-the top-level keys and the original size. The tool's stored state is
-authoritative; the model re-reads it (e.g. ``get_workflow``) when needed.
+(measured as ``len(json.dumps(arguments))``) is trimmed IN ITS OWN SHAPE:
+every key and short value stays, each long string or list is cut and ends in
+a note saying the rest was trimmed. The tool's stored state is authoritative;
+the model re-reads it (e.g. ``get_workflow``) when needed. A new call carrying
+that note is refused by the tool executor (``arguments_carry_trim_marker``).
 
 Two tiers (Arman's ruling 2026-09-09, from the re-fetch measurements in
 ``chat.vw_tool_refetch``; the 2026-06 defaults of 5/500 and 15/200 cleared a
@@ -99,10 +101,29 @@ _DEFAULT_SUBSTITUTE = (
     "[tool result cleared] Replaced with keys and chars -- Fetch again when necessary"
 )
 
+# A stale call keeps its REAL shape: every key and every short value stays,
+# and only a long string (or a long list) is cut, with this note in place of
+# the rest. It used to become ``{"result": "[tool arguments cleared] …",
+# "keys": […], "chars": N}`` — a fake argument object the model then copied as
+# its own arguments on new calls (conversation 9b224bf5, 2026-10-21: two
+# ``agent`` calls and one ``shell_python`` call sent that object and were
+# refused). ``{n}`` is the count removed; the note names its own kind.
 _DEFAULT_ARGUMENTS_SUBSTITUTE = (
-    "[tool arguments cleared] Large arguments removed from context after this call scrolled "
-    "back -- the tool's stored state is authoritative; re-read it (e.g. get_workflow) when needed"
+    "…[{n} more {unit} trimmed from context; the call ran with the full value — "
+    "never copy this text into a new call]"
 )
+
+# The words every note carries. The tool executor refuses a NEW call whose
+# arguments contain them (``arguments_carry_trim_marker``): the model copied
+# trimmed history, and running it would send a truncated value.
+TRIMMED_ARGUMENT_MARKER = "trimmed from context; the call ran with the full value"
+# The retired stub's words — still refused if a model reproduces them.
+_RETIRED_ARGUMENT_STUB_MARKER = "[tool arguments cleared]"
+
+# How much of a long string value a trimmed call keeps, and how many items
+# of a long list.
+ARGUMENT_STRING_KEEP_CHARS = 240
+ARGUMENT_LIST_KEEP_ITEMS = 8
 
 # Phase 2: cache-aware gate constants.
 #
@@ -215,7 +236,8 @@ class TrimPolicy:
     # gate; set False to restore the result-only behavior.
     trim_tool_call_arguments: bool = True
 
-    # Marker text inserted as the stub's ``result`` key.
+    # The note that replaces the cut part of a long argument value; ``{n}``
+    # and ``{unit}`` are filled per value. Must contain TRIMMED_ARGUMENT_MARKER.
     substitute_arguments_message: str = _DEFAULT_ARGUMENTS_SUBSTITUTE
 
     def to_snapshot(self) -> dict[str, Any]:
@@ -905,37 +927,57 @@ def _tool_call_argument_chars(block: Any) -> int:
 
 
 def _already_trimmed_arguments(block: Any) -> bool:
-    """True if this call's arguments were already replaced by an earlier pass."""
-    arguments = _get_arguments(block)
-    if not isinstance(arguments, dict):
-        return False
-    marker = arguments.get("result")
-    return isinstance(marker, str) and marker.startswith("[tool arguments cleared]")
+    """True if this call's arguments were already trimmed by an earlier pass."""
+    return arguments_carry_trim_marker(_get_arguments(block)) is not None
 
 
-def _rewrite_tool_call_arguments(block: Any, marker: str) -> None:
-    """Replace a stale tool call's ``arguments`` with a compact stub.
+def arguments_carry_trim_marker(arguments: Any) -> str | None:
+    """The trim note found anywhere in ``arguments``, or None.
 
-    Shape (a plain dict — NOT a JSON string — so ``to_anthropic`` keeps an
-    object ``input``, ``to_openai`` keeps ``json.dumps(...)`` of an object,
-    and ``to_google`` keeps an object ``args``)::
+    Used twice: here, so a trimmed call is never trimmed again; and by the tool
+    executor, which refuses a NEW call carrying it (the model copied history).
+    """
+    try:
+        text = json.dumps(arguments, default=str, ensure_ascii=False)
+    except (TypeError, ValueError):
+        text = str(arguments)
+    for marker in (TRIMMED_ARGUMENT_MARKER, _RETIRED_ARGUMENT_STUB_MARKER):
+        if marker in text:
+            return marker
+    return None
 
-        {"result": "<marker>", "keys": [...top-level keys...], "chars": <before>}
 
-    The block's id / call_id / name / type / metadata are untouched, so the
-    provider's tool_use ↔ tool_result pairing survives intact.
+def _trim_argument_value(value: Any, note: str) -> Any:
+    """``value`` with every long string and long list cut, shape kept."""
+    if isinstance(value, str):
+        if len(value) <= ARGUMENT_STRING_KEEP_CHARS:
+            return value
+        cut = len(value) - ARGUMENT_STRING_KEEP_CHARS
+        return value[:ARGUMENT_STRING_KEEP_CHARS] + note.format(n=cut, unit="characters")
+    if isinstance(value, dict):
+        return {k: _trim_argument_value(v, note) for k, v in value.items()}
+    if isinstance(value, list):
+        kept = [_trim_argument_value(v, note) for v in value[:ARGUMENT_LIST_KEEP_ITEMS]]
+        if len(value) > ARGUMENT_LIST_KEEP_ITEMS:
+            kept.append(note.format(n=len(value) - ARGUMENT_LIST_KEEP_ITEMS, unit="items"))
+        return kept
+    return value
+
+
+def _rewrite_tool_call_arguments(block: Any, note: str) -> None:
+    """Trim a stale tool call's ``arguments`` in place of themselves.
+
+    Every key stays and every short value stays; a long string keeps its first
+    ``ARGUMENT_STRING_KEEP_CHARS`` characters and a long list its first
+    ``ARGUMENT_LIST_KEEP_ITEMS`` items, each followed by ``note``. The result
+    is still a plain dict (an object for every provider), and the block's
+    id / call_id / name / type / metadata are untouched, so the provider's
+    tool_use ↔ tool_result pairing survives intact.
     """
     arguments = _get_arguments(block)
-    before_chars = _tool_call_argument_chars(block)
-    keys = [str(k) for k in arguments.keys()] if isinstance(arguments, dict) else []
-    _set_arguments(
-        block,
-        {
-            "result": marker,
-            "keys": keys,
-            "chars": before_chars,
-        },
-    )
+    if not isinstance(arguments, dict):
+        return
+    _set_arguments(block, _trim_argument_value(arguments, note))
 
 
 def _get_call_identifier(block: Any) -> str:

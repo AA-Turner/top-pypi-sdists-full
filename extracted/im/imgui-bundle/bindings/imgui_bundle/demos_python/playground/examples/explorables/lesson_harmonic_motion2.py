@@ -2,7 +2,7 @@
 
 import numpy as np
 import time
-from imgui_bundle import imgui, implot, immapp, hello_imgui, imgui_md, imgui_knobs
+from imgui_bundle import imgui, implot, immapp, hello_imgui, rich_md, imgui_knobs
 from imgui_bundle import ImVec2, ImVec4
 
 
@@ -279,7 +279,7 @@ def gui(state: AppState):
     imgui.begin_child("lesson", ImVec2(0, 0), imgui.ChildFlags_.none)
 
     # ---- INTRODUCTION ----
-    imgui_md.render(INTRO)
+    rich_md.render(INTRO)
     imgui.spacing()
 
     # ---- INTERACTIVE: Free oscillation ----
@@ -342,13 +342,14 @@ def gui(state: AppState):
         else:
             implot.setup_axes_limits(0, 10, -2.5, 2.5, imgui.Cond_.always)
         implot.end_plot()
+        hello_imgui.set_item_is_live()  # the oscillation moves on its own: no idling while it is visible
 
     imgui.spacing()
     imgui.spacing()
 
     # ---- DAMPING SECTION ----
     if imgui.collapsing_header("Damping", imgui.TreeNodeFlags_.default_open):
-        imgui_md.render(DAMPING_INTRO)
+        rich_md.render(DAMPING_INTRO)
         imgui.spacing()
 
         if imgui.button("Disable damping" if state.damping_enabled else "Enable damping"):
@@ -375,7 +376,7 @@ def gui(state: AppState):
 
     # ---- RESONANCE SECTION ----
     if imgui.collapsing_header("Driven Oscillation & Resonance"):
-        imgui_md.render(RESONANCE_INTRO)
+        rich_md.render(RESONANCE_INTRO)
         imgui.spacing()
 
         if imgui.button("Disable driving force" if state.driving_enabled else "Enable driving force"):
@@ -442,7 +443,6 @@ def main():
     params.callbacks.show_gui = lambda: gui(state)
     params.app_window_params.window_geometry.size = (1000, 800)
     params.app_window_params.window_title = "Lesson: Simple Harmonic Motion"
-    params.fps_idling.fps_idle = 25
     addons = immapp.AddOnsParams(with_markdown=True, with_implot= True, with_latex=True)
     immapp.run(params, addons)
 

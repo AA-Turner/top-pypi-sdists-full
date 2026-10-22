@@ -22,10 +22,7 @@ if TYPE_CHECKING:
 
     from google.protobuf import message
 
-    from .api_pb2 import (  # type: ignore[attr-defined]
-        BluetoothLEAdvertisementResponse,
-        HomeassistantServiceMap,
-    )
+    from .api_pb2 import BluetoothLEAdvertisementResponse, HomeassistantServiceMap  # type: ignore[attr-defined]
 
 # All fields in here should have defaults set
 # Home Assistant depends on these fields being constructible
@@ -251,11 +248,19 @@ class AreaInfo(APIModelBase):
         return cls.from_pb(value)
 
 
+class DeviceRelation(APIIntEnum):
+    VIA = 0
+    CHILD = 1
+
+
 @_frozen_dataclass_decorator
 class SubDeviceInfo(APIModelBase):
     device_id: int = 0
     name: str = ""
     area_id: int = 0
+    relation: DeviceRelation | None = converter_field(
+        default=DeviceRelation.VIA, converter=DeviceRelation.convert
+    )
 
 
 class SerialProxyPortType(APIIntEnum):
@@ -624,9 +629,11 @@ class BinarySensorState(EntityState):
 class CoverInfo(EntityInfo):
     assumed_state: bool = False
     supports_stop: bool = False
+    supports_toggle: bool = False
     supports_position: bool = False
     supports_tilt: bool = False
     device_class: str = ""
+    supports_stop_tilt: bool = False
 
 
 class LegacyCoverState(APIIntEnum):
@@ -1325,6 +1332,7 @@ class MediaPlayerSupportedFormat(APIModelBase):
         converter=MediaPlayerFormatPurpose.convert,
     )
     sample_bytes: int = 0
+    bitrate: int = 0
 
 
 @_frozen_dataclass_decorator
@@ -2451,6 +2459,7 @@ __all__ = (
     "DateTimeState",
     "DeviceCapabilities",
     "DeviceInfo",
+    "DeviceRelation",
     "DeviceWizard",
     "DisconnectReason",
     "ESPHomeBluetoothGATTServices",

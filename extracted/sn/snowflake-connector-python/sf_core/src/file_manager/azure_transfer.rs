@@ -509,7 +509,7 @@ async fn azure_get_with_refresh(
     policy: &RetryPolicy,
     refresher: Option<&dyn StageInfoRefresher>,
 ) -> Result<reqwest::Response, AzureDownloadError> {
-    let client = create_azure_client(stage_info, None)?;
+    let client = create_azure_client(stage_info, None).await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
     let attempt = |creds: CloudCredentials| {
         let stage_info = with_creds(stage_info, creds);
@@ -604,7 +604,7 @@ pub(super) async fn upload_to_azure_or_skip(
 
     // Build the client once — TLS config is creds-independent; only the SAS in
     // `stage_info.creds` rotates on refresh — and clone it into each attempt.
-    let client = create_azure_client(stage_info, tx.http_client)?;
+    let client = create_azure_client(stage_info, tx.http_client).await?;
     // On-cloud byte count (ciphertext length under CSE) decides single-PUT vs
     // multipart; computed once, outside the per-attempt closure.
     let body_len = multipart::upload_body_len(&prepared.prepared)
@@ -1275,17 +1275,21 @@ fn map_http_error(e: HttpError) -> AzureRequestError {
 
 // --- Helpers ---
 
-fn create_azure_client(
+async fn create_azure_client(
     stage_info: &StageInfo,
     shared: Option<&reqwest::Client>,
 ) -> Result<reqwest::Client, AzureRequestError> {
-    cloud_http::shared_or_build_client(shared, || cloud_http::build_azure_client(stage_info))
-        .map_err(|e| {
-            HttpSnafu {
-                detail: e.to_string(),
-            }
-            .build()
-        })
+    match shared {
+        Some(client) => Ok(client.clone()),
+        None => cloud_http::build_azure_client(stage_info)
+            .await
+            .map_err(|e| {
+                HttpSnafu {
+                    detail: e.to_string(),
+                }
+                .build()
+            }),
+    }
 }
 
 /// Constructs the Azure Blob Storage URL and extracts the SAS token from stage info.
@@ -1511,7 +1515,7 @@ pub async fn download_from_azure_streaming(
 ) -> Result<CloudStreamingDownload, AzureDownloadError> {
     // Build the client once (TLS config is creds-independent); only the SAS in
     // `stage_info.creds` rotates on refresh.
-    let client = create_azure_client(stage_info, tx.http_client)?;
+    let client = create_azure_client(stage_info, tx.http_client).await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
 
     // The routing HEAD + the ranged/single GET all run INSIDE the refresh

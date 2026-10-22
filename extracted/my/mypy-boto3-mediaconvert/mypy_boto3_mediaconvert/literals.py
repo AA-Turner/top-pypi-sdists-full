@@ -71,6 +71,7 @@ __all__ = (
     "Av1FramerateControlType",
     "Av1FramerateConversionAlgorithmType",
     "Av1RateControlModeType",
+    "Av1SceneChangeDetectType",
     "Av1SpatialAdaptiveQuantizationType",
     "AvcIntraClassType",
     "AvcIntraFramerateControlType",
@@ -138,6 +139,7 @@ __all__ = (
     "CommitmentType",
     "ContainerTypeType",
     "CopyProtectionActionType",
+    "DashAdaptationSetGroupingType",
     "DashIsoGroupAudioChannelConfigSchemeIdUriType",
     "DashIsoHbbtvComplianceType",
     "DashIsoImageBasedTrickPlayType",
@@ -641,7 +643,8 @@ Av1FramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 Av1FramerateConversionAlgorithmType = Literal[
     "DUPLICATE_DROP", "FRAMEFORMER", "INTERPOLATE", "MAINTAIN_FRAME_COUNT"
 ]
-Av1RateControlModeType = Literal["QVBR"]
+Av1RateControlModeType = Literal["CBR", "QVBR"]
+Av1SceneChangeDetectType = Literal["DISABLED", "ENABLED", "TRANSITION_DETECTION"]
 Av1SpatialAdaptiveQuantizationType = Literal["DISABLED", "ENABLED"]
 AvcIntraClassType = Literal["CLASS_100", "CLASS_200", "CLASS_4K_2K", "CLASS_50"]
 AvcIntraFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
@@ -837,6 +840,7 @@ ContainerTypeType = Literal[
     "Y4M",
 ]
 CopyProtectionActionType = Literal["PASSTHROUGH", "STRIP"]
+DashAdaptationSetGroupingType = Literal["CODEC"]
 DashIsoGroupAudioChannelConfigSchemeIdUriType = Literal[
     "DOLBY_CHANNEL_CONFIGURATION", "MPEG_CHANNEL_CONFIGURATION"
 ]
@@ -1446,7 +1450,16 @@ NielsenUniqueTicPerAudioTrackTypeType = Literal[
 NoiseFilterPostTemporalSharpeningStrengthType = Literal["HIGH", "LOW", "MEDIUM"]
 NoiseFilterPostTemporalSharpeningType = Literal["AUTO", "DISABLED", "ENABLED"]
 NoiseReducerFilterType = Literal[
-    "BILATERAL", "CONSERVE", "GAUSSIAN", "LANCZOS", "MEAN", "SHARPEN", "SPATIAL", "TEMPORAL"
+    "BILATERAL",
+    "CONSERVE",
+    "GAUSSIAN",
+    "LANCZOS",
+    "MEAN",
+    "NONE",
+    "PERCEPTUAL",
+    "SHARPEN",
+    "SPATIAL",
+    "TEMPORAL",
 ]
 OrderType = Literal["ASCENDING", "DESCENDING"]
 OutputGroupTypeType = Literal[
@@ -1848,12 +1861,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -1921,6 +1934,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -2055,6 +2069,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -2105,7 +2120,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

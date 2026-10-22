@@ -1,6 +1,6 @@
 # pip install imgui-bundle numpy
 import numpy as np
-from imgui_bundle import imgui, implot, immapp, imgui_md
+from imgui_bundle import imgui, implot, immapp, rich_md
 
 
 # Plain Python state — no callbacks, no widget objects
@@ -20,7 +20,7 @@ def fourier_square(x, n_terms):
 
 
 def gui():
-    imgui_md.render(r"""
+    rich_md.render(r"""
 ### Fourier series of a square wave
 $$ f(x) = \frac{4}{\pi}\sum_{k=1}^{N}\frac{\sin((2k-1)x)}{2k-1} $$
 Adjust $N$ to add more harmonics.
@@ -40,7 +40,7 @@ Adjust $N$ to add more harmonics.
     if implot.begin_plot("Square wave approximation", size=(-1, 400)):
         implot.setup_axes("x", "f(x)")
         implot.setup_axes_limits(-2*np.pi, 2*np.pi, -1.5, 1.5,
-                                 cond=implot.Cond_.once.value)
+                                 cond=implot.Cond_.once)
         implot.plot_line("square wave", x, y_true)
         implot.plot_line(f"approx N={n}", x, y_approx)
 

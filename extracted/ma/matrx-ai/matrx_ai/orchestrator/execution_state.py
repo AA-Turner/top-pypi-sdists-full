@@ -203,6 +203,17 @@ class ExecutionState:
     loop_guard_intervened: bool = False
     loop_guard_warned: bool = False
 
+    # THE CEILING NEVER ENDS WITHOUT AN ANSWER (2026-10-21). When the run reaches
+    # its iteration ceiling after a tool round, it does not just stop on a tool
+    # call: tools are switched off and the model gets ONE more turn to write its
+    # result (what is done, what is left, where it stopped). ``ceiling_wrap_up``
+    # marks that turn — the completion path records it as
+    # ``max_iterations_exceeded`` (never a clean 'completed'), and the loop allows
+    # exactly one iteration past the ceiling for it. ``ceiling_warned`` makes the
+    # "few rounds left" notice fire at most once.
+    ceiling_wrap_up: bool = False
+    ceiling_warned: bool = False
+
     # THE CEILINGS IN FORCE FOR THIS RUN. Resolved once, from the org's
     # ``orchestration.loop_guard`` settings rows, and reused every iteration —
     # a per-iteration read would put a Postgres round trip on the hot loop for
@@ -258,6 +269,11 @@ class ExecutionState:
     # — live: Gemini Pro after tool results) gets ONE continuation turn that
     # asks for the answer before the run is failed. One-shot per run.
     empty_reply_continuations: int = 0
+
+    # A TOOL CALL WRITTEN AS TEXT (``orchestrator/text_tool_calls.py``). A turn
+    # whose text carried tool-call markup and made no real call is re-asked ONCE
+    # with a host notice; a second time ends with the markup removed and a note.
+    text_tool_call_reasks: int = 0
 
     def snapshot(self) -> ExecutionStateSnapshot:
         """Return a frozen copy safe to hand to a background task."""

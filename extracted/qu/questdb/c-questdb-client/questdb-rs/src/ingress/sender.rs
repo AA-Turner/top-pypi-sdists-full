@@ -44,7 +44,7 @@ use crate::ingress::SenderBuilder;
 use crate::ingress::{Buffer, Protocol, ProtocolVersion};
 use std::fmt::{Debug, Formatter};
 #[cfg(feature = "sync-sender-qwp-ws")]
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::Ordering;
 #[cfg(feature = "sync-sender-qwp-ws")]
 use std::time::{Duration, Instant};
 
@@ -85,6 +85,9 @@ mod qwp_ws_queue;
 mod qwp_ws_sfa_segment;
 
 #[cfg(feature = "_sender-qwp-ws")]
+pub(crate) mod qwp_ws_sfa_manifest;
+
+#[cfg(feature = "_sender-qwp-ws")]
 mod qwp_ws_sfa_queue;
 
 #[cfg(feature = "_sender-qwp-ws")]
@@ -98,6 +101,9 @@ pub(crate) mod qwp_ws_sfa_symbol_dict;
 
 #[cfg(feature = "_sender-qwp-ws")]
 mod qwp_ws_sfa_catchup;
+
+#[cfg(all(test, feature = "_sender-qwp-ws"))]
+pub(crate) use qwp_ws_sfa_catchup::fail_next_catch_up_allocation_for_test;
 
 #[cfg(feature = "_sender-qwp-ws")]
 pub(crate) use qwp_ws_ownership::QwpWsRoleReject;
@@ -128,13 +134,44 @@ mod http;
 #[cfg(feature = "sync-sender-http")]
 pub(crate) use http::*;
 
+/// The binding per-frame cap of a store-and-forward QWP/WebSocket publication:
+/// the configured `max_buf_size`, clamped to the server's advertised
+/// `X-QWP-Max-Batch-Size` (0 = not advertised) and to the queue's segment
+/// payload capacity, which rejects any larger frame. Also reports whether the
+/// server advertised a cap, whether or not it is the binding one.
 #[cfg(feature = "sync-sender-qwp-ws")]
-fn effective_qwp_ws_max_buf_size(configured: usize, server_max: &AtomicUsize) -> usize {
-    let server = server_max.load(Ordering::Relaxed);
-    if server > 0 {
-        configured.min(server)
+pub(crate) fn effective_hard_frame_cap(
+    max_buf_size: usize,
+    server_max_batch_size: usize,
+    sfa_frame_payload_cap: usize,
+) -> (usize, bool) {
+    let configured_cap = if server_max_batch_size == 0 {
+        max_buf_size
     } else {
-        configured
+        max_buf_size.min(server_max_batch_size)
+    };
+    (
+        configured_cap.min(sfa_frame_payload_cap),
+        server_max_batch_size != 0,
+    )
+}
+
+/// Name the limit that [`effective_hard_frame_cap`] returns, so a size error
+/// points at the setting that actually binds.
+#[cfg(feature = "sync-sender-qwp-ws")]
+fn effective_hard_frame_cap_source(
+    max_buf_size: usize,
+    server_max_batch_size: usize,
+    sfa_frame_payload_cap: usize,
+) -> &'static str {
+    let (cap, _) =
+        effective_hard_frame_cap(max_buf_size, server_max_batch_size, sfa_frame_payload_cap);
+    if server_max_batch_size != 0 && cap == server_max_batch_size {
+        "the server's advertised X-QWP-Max-Batch-Size"
+    } else if cap == max_buf_size {
+        "max_buf_size"
+    } else {
+        "the sf_max_segment_bytes segment payload capacity"
     }
 }
 
@@ -361,17 +398,14 @@ impl Sender {
             ));
         }
 
+        let (server_max, sfa_frame_payload_cap) = self
+            .qwp_ws_frame_cap_inputs()
+            .expect("QWP/WebSocket handler was checked above");
+        let (max, _) =
+            effective_hard_frame_cap(self.max_buf_size, server_max, sfa_frame_payload_cap);
         let result = match &mut self.handler {
-            SyncProtocolHandler::SyncQwpWs(state) => {
-                let max =
-                    effective_qwp_ws_max_buf_size(self.max_buf_size, &state.server_max_batch_size);
-                flush_qwp_ws(state, qwp, max)
-            }
-            SyncProtocolHandler::ManualQwpWs(state) => {
-                let max =
-                    effective_qwp_ws_max_buf_size(self.max_buf_size, &state.server_max_batch_size);
-                flush_qwp_ws_manual(state, qwp, max)
-            }
+            SyncProtocolHandler::SyncQwpWs(state) => flush_qwp_ws(state, qwp, max),
+            SyncProtocolHandler::ManualQwpWs(state) => flush_qwp_ws_manual(state, qwp, max),
             _ => unreachable!("QWP/WebSocket handler was checked above"),
         };
         if result
@@ -380,7 +414,38 @@ impl Sender {
         {
             self.connected = false;
         }
-        result
+        result.map_err(|err| {
+            if err.code() == crate::ErrorCode::BatchTooLarge {
+                let source = effective_hard_frame_cap_source(
+                    self.max_buf_size,
+                    server_max,
+                    sfa_frame_payload_cap,
+                );
+                crate::Error::new(
+                    crate::ErrorCode::BatchTooLarge,
+                    format!("{} The cap is set by {}.", err.msg(), source),
+                )
+            } else {
+                err
+            }
+        })
+    }
+
+    /// The server's advertised cap (0 = not advertised) and the queue's segment
+    /// payload capacity, or `None` for a sender that is not QWP/WebSocket.
+    #[cfg(feature = "sync-sender-qwp-ws")]
+    fn qwp_ws_frame_cap_inputs(&self) -> Option<(usize, usize)> {
+        match &self.handler {
+            SyncProtocolHandler::SyncQwpWs(state) => Some((
+                state.server_max_batch_size.load(Ordering::Acquire),
+                state.sfa_frame_payload_cap,
+            )),
+            SyncProtocolHandler::ManualQwpWs(state) => Some((
+                state.server_max_batch_size.load(Ordering::Acquire),
+                state.sfa_frame_payload_cap,
+            )),
+            _ => None,
+        }
     }
 
     #[allow(unused_variables)]
@@ -607,7 +672,8 @@ impl Sender {
     ///
     /// Use this when you need non-blocking/pipelined progress tracking on this
     /// sender stream: keep the returned FSN and compare it with
-    /// [`Self::acked_fsn`]. Use [`Self::wait`] instead when you only need a
+    /// [`Self::acked_fsn`], or with [`Self::completed_fsn`] to pick the
+    /// completion level. Use [`Self::wait`] instead when you only need a
     /// blocking barrier for everything published so far.
     #[cfg(feature = "sync-sender-qwp-ws")]
     pub fn flush_and_get_fsn(&mut self, buf: &mut Buffer) -> Result<Option<u64>> {
@@ -624,6 +690,31 @@ impl Sender {
     #[cfg(feature = "sync-sender-qwp-ws")]
     pub fn flush_and_keep_and_get_fsn(&mut self, buf: &Buffer) -> Result<Option<u64>> {
         self.flush_qwp_ws_buffer(buf, false)
+    }
+
+    /// Return the binding per-frame cap of this QWP/WebSocket sender and whether
+    /// the current connection advertised `X-QWP-Max-Batch-Size`, whether or not
+    /// that value is the binding limit.
+    ///
+    /// The cap is the smallest of `max_buf_size`, the server's advertised cap
+    /// and the store-and-forward segment payload capacity. A flush whose
+    /// encoded frame exceeds it fails with
+    /// [`ErrorCode::BatchTooLarge`](crate::ErrorCode::BatchTooLarge) and
+    /// publishes nothing. The value can change after a reconnect.
+    #[cfg(feature = "sync-sender-qwp-ws")]
+    pub fn effective_frame_cap(&self) -> Result<(usize, bool)> {
+        let (server_max, sfa_frame_payload_cap) =
+            self.qwp_ws_frame_cap_inputs().ok_or_else(|| {
+                error::fmt!(
+                    InvalidApiCall,
+                    "effective_frame_cap is only supported for QWP/WebSocket senders."
+                )
+            })?;
+        Ok(effective_hard_frame_cap(
+            self.max_buf_size,
+            server_max,
+            sfa_frame_payload_cap,
+        ))
     }
 
     /// Return the highest frame sequence number published locally by this
@@ -644,13 +735,18 @@ impl Sender {
 
     /// Return the highest frame sequence number completed by server ACK or
     /// server-side reject-and-continue, or `None` if no frame has completed.
-    /// In QWP/WebSocket durable ACK mode, ordinary OK frames only release send
-    /// window pressure; this watermark advances after durable ACK coverage.
+    /// In QWP/WebSocket durable ACK mode, ordinary OK frames do not advance
+    /// this watermark; it advances once durable ACKs cover the frame.
     ///
     /// After [`Self::flush_and_get_fsn`] returns `Some(fsn)`, that publication
     /// boundary has completed once this method returns a value greater than or
     /// equal to `fsn`. Use [`Self::wait`] when you need an explicit
-    /// [`AckLevel::Ok`] or [`AckLevel::Durable`] barrier.
+    /// [`AckLevel::Ok`] or [`AckLevel::Durable`] barrier, or
+    /// [`Self::completed_fsn`] to poll either level without blocking. This
+    /// method reports the watermark at the sender's configured level: with
+    /// `request_durable_ack=on` it equals `completed_fsn(AckLevel::Durable)`;
+    /// without it, it reports acceptance coverage whereas an explicit
+    /// `Durable` poll is rejected.
     #[cfg(feature = "sync-sender-qwp-ws")]
     pub fn acked_fsn(&self) -> Result<Option<u64>> {
         match &self.handler {
@@ -661,6 +757,56 @@ impl Sender {
                 "acked_fsn is only supported for QWP/WebSocket senders."
             )),
         }
+    }
+
+    /// Non-blocking completion watermark for `ack_level`: the polling
+    /// counterpart to [`Self::wait`].
+    ///
+    /// * [`AckLevel::Ok`] reports the highest FSN completed by server ACK or
+    ///   server-side reject-and-continue, as [`Self::acked_fsn`] describes it
+    ///   (background progress mode; see below for manual mode). A covered
+    ///   frame can therefore have been rejected: check
+    ///   [`Self::poll_qwp_ws_error`] before treating coverage as delivery.
+    /// * [`AckLevel::Durable`] reports durable-ACK coverage. Like
+    ///   [`Self::wait`] it requires QuestDB Enterprise and a sender opened with
+    ///   `request_durable_ack=on`; otherwise the call is rejected up front,
+    ///   ahead of any terminal error the sender holds, so a caller polling
+    ///   for durability cannot silently read acceptance coverage instead.
+    ///   [`Self::acked_fsn`] reports the watermark at the sender's configured
+    ///   level instead and is equivalent only under that opt-in.
+    ///
+    /// In background progress mode with durable ACKs `Ok` advances ahead of
+    /// `Durable`. Manual progress mode has no separate OK tracker, so there
+    /// both levels report the completed watermark even under
+    /// `request_durable_ack=on`.
+    ///
+    /// An `Ok` read is never below a `Durable` read taken before it, but two
+    /// calls are two snapshots: the background runner can advance `Durable`
+    /// in between. Read `Durable` first if you need the pair ordered.
+    ///
+    /// Use this instead of [`Self::wait`] to keep doing other work rather
+    /// than block until a boundary. It makes no progress itself: in manual
+    /// mode the watermark only moves if the caller interleaves
+    /// [`Self::drive_once`]. It also does not dispatch buffered server
+    /// rejections to an installed error handler; that happens on
+    /// [`Self::flush`], [`Self::flush_and_keep`], [`Self::flush_and_get_fsn`],
+    /// [`Self::flush_and_keep_and_get_fsn`], [`Self::wait`],
+    /// [`Self::drive_once`] and [`Self::close_drain`], and a caller that only
+    /// polls between those can read them with [`Self::poll_qwp_ws_error`].
+    /// QWP/WebSocket only; other protocols return `InvalidApiCall`.
+    #[cfg(feature = "sync-sender-qwp-ws")]
+    pub fn completed_fsn(&self, ack_level: AckLevel) -> Result<Option<u64>> {
+        if !matches!(
+            &self.handler,
+            SyncProtocolHandler::SyncQwpWs(_) | SyncProtocolHandler::ManualQwpWs(_)
+        ) {
+            return Err(error::fmt!(
+                InvalidApiCall,
+                "completed_fsn is only supported for QWP/WebSocket senders."
+            ));
+        }
+        self.check_durable_ack_opt_in(ack_level)?;
+        self.qwp_ws_completed_fsn(ack_level)
     }
 
     /// Wait until every QWP/WebSocket frame published so far on this sender
@@ -711,20 +857,7 @@ impl Sender {
             ));
         }
 
-        if ack_level == AckLevel::Durable {
-            let request_durable_ack = match &self.handler {
-                SyncProtocolHandler::SyncQwpWs(state) => state.request_durable_ack,
-                SyncProtocolHandler::ManualQwpWs(state) => state.request_durable_ack,
-                _ => unreachable!("QWP/WebSocket handler was checked above"),
-            };
-            if !request_durable_ack {
-                return Err(error::fmt!(
-                    InvalidApiCall,
-                    "AckLevel::Durable requires the pool to be opened with \
-                     `request_durable_ack=on` in the connect string."
-                ));
-            }
-        }
+        self.check_durable_ack_opt_in(ack_level)?;
 
         let Some(boundary) = self.published_fsn()? else {
             return Ok(());
@@ -760,26 +893,43 @@ impl Sender {
         }
     }
 
+    /// Without `request_durable_ack=on` the durable watermark degrades to
+    /// acceptance coverage, so an explicit durable request is refused rather
+    /// than answered with a weaker guarantee.
+    #[cfg(feature = "sync-sender-qwp-ws")]
+    fn check_durable_ack_opt_in(&self, ack_level: AckLevel) -> Result<()> {
+        if ack_level != AckLevel::Durable {
+            return Ok(());
+        }
+        let request_durable_ack = match &self.handler {
+            SyncProtocolHandler::SyncQwpWs(state) => state.request_durable_ack,
+            SyncProtocolHandler::ManualQwpWs(state) => state.request_durable_ack,
+            _ => unreachable!("QWP/WebSocket handler was checked above"),
+        };
+        if !request_durable_ack {
+            return Err(error::fmt!(
+                InvalidApiCall,
+                "AckLevel::Durable requires `request_durable_ack=on` in the connect string."
+            ));
+        }
+        Ok(())
+    }
+
     /// Completion watermark for `ack_level` across both QWP/WebSocket progress
-    /// modes. `Ok` tracks server acceptance; `Durable` tracks durable-ACK
-    /// coverage. Terminal failures surface here as an `Err`.
+    /// modes. `Ok` tracks completion at the OK level; `Durable` tracks
+    /// durable-ACK coverage. Terminal failures surface here as an `Err`.
     #[cfg(feature = "sync-sender-qwp-ws")]
     fn qwp_ws_completed_fsn(&self, ack_level: AckLevel) -> Result<Option<u64>> {
-        match (&self.handler, ack_level) {
-            (SyncProtocolHandler::SyncQwpWs(state), AckLevel::Ok) => {
-                qwp_ws_ok_fsn_background(state)
-            }
-            (SyncProtocolHandler::SyncQwpWs(state), AckLevel::Durable) => {
-                qwp_ws_acked_fsn_background(state)
-            }
-            (SyncProtocolHandler::ManualQwpWs(state), AckLevel::Ok) => qwp_ws_ok_fsn_manual(state),
-            (SyncProtocolHandler::ManualQwpWs(state), AckLevel::Durable) => {
-                qwp_ws_acked_fsn_manual(state)
-            }
-            _ => Err(error::fmt!(
-                InvalidApiCall,
-                "wait is only supported for QWP/WebSocket senders."
-            )),
+        match &self.handler {
+            SyncProtocolHandler::SyncQwpWs(state) => match ack_level {
+                AckLevel::Ok => qwp_ws_ok_fsn_background(state),
+                AckLevel::Durable => qwp_ws_acked_fsn_background(state),
+            },
+            SyncProtocolHandler::ManualQwpWs(state) => match ack_level {
+                AckLevel::Ok => qwp_ws_ok_fsn_manual(state),
+                AckLevel::Durable => qwp_ws_acked_fsn_manual(state),
+            },
+            _ => unreachable!("QWP/WebSocket handler was checked above"),
         }
     }
 
@@ -967,31 +1117,23 @@ impl Sender {
     /// Non-QWP/WebSocket handlers and terminal background handlers report
     /// `true`. Retained for the standalone sender regression test after the
     /// pooled row reaper that consumed it was removed.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "sync-sender-qwp-ws"))]
     pub(crate) fn sfa_fully_delivered(&self, durable: bool) -> bool {
-        #[cfg(feature = "sync-sender-qwp-ws")]
-        {
-            let SyncProtocolHandler::SyncQwpWs(state) = &self.handler else {
-                return true;
-            };
-            if qwp_ws_is_terminal_background(state) {
-                return true;
-            }
-            let Ok(Some(published)) = qwp_ws_published_fsn_background(state) else {
-                return true;
-            };
-            let watermark = if durable {
-                qwp_ws_acked_fsn_background(state)
-            } else {
-                qwp_ws_ok_fsn_background(state)
-            };
-            matches!(watermark, Ok(Some(w)) if w >= published)
+        let SyncProtocolHandler::SyncQwpWs(state) = &self.handler else {
+            return true;
+        };
+        if qwp_ws_is_terminal_background(state) {
+            return true;
         }
-        #[cfg(not(feature = "sync-sender-qwp-ws"))]
-        {
-            let _ = durable;
-            true
-        }
+        let Ok(Some(published)) = qwp_ws_published_fsn_background(state) else {
+            return true;
+        };
+        let watermark = if durable {
+            qwp_ws_acked_fsn_background(state)
+        } else {
+            qwp_ws_ok_fsn_background(state)
+        };
+        matches!(watermark, Ok(Some(w)) if w >= published)
     }
 
     /// Returns the sender's configured transport protocol.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: bracex
-Version: 3.1
+Version: 3.2
 Summary: Bash style brace expander.
 Project-URL: Homepage, https://github.com/facelessuser/bracex
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -21,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 [![Donate via PayPal][donate-image]][donate-link]

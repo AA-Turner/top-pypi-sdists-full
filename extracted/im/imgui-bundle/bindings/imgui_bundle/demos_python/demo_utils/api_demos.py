@@ -1,6 +1,6 @@
 import os
 from typing import Callable
-from imgui_bundle import immapp, imgui, imgui_md
+from imgui_bundle import immapp, imgui, rich_md, hello_imgui
 from imgui_bundle.demos_python.demo_utils.functional_utils import memoize
 
 
@@ -68,6 +68,18 @@ def show_python_vs_cpp_code(python_code: str, cpp_code: str, nb_lines: int = 0):
     imgui.pop_id()
 
 
+def code_language_pref() -> str:
+    """The code's language that the reader chose last: "Python", "C++", or "" (never chosen). A lasting pref of the
+    app (hello_imgui.load_lasting_pref), shared by its views: the launcher, the intro, the ImGui Explorer's code."""
+    lang = hello_imgui.load_lasting_pref("code_language")  # its values are those of the ImGui Explorer, which shares it
+    return {"python": "Python", "cpp": "C++"}.get(lang, "")
+
+
+def set_code_language_pref(language: str) -> None:
+    """language: "Python" or "C++\""""
+    hello_imgui.save_lasting_pref("code_language", "python" if language == "Python" else "cpp")
+
+
 def show_python_vs_cpp_and_run(
     python_gui_function, cpp_code: str, nb_lines: int = 0
 ) -> None:
@@ -86,7 +98,7 @@ def show_python_vs_cpp_file(demo_file_path: str, nb_lines: int = 0) -> None:
 
 def show_markdown_file(doc_filename: str) -> None:
     code = read_markdown_code(doc_filename)
-    imgui_md.render_unindented(code)
+    rich_md.render(code)
 
 
 @memoize  # type: ignore
@@ -123,10 +135,17 @@ def can_run_subprocess() -> bool:
 
 def spawn_demo_file(demo_file_path: str) -> None:
     if can_run_subprocess():
+        import shutil
         import subprocess
         import sys
-        subprocess.Popen(
-            [sys.executable, demo_file_path]
-        )
+        import tempfile
+        # The demo runs in a folder of its own, emptied first: what it writes (its settings, its screenshots) does not
+        # land where the launcher was started, and each run looks like a user's first run. Its own files are still
+        # found: Python puts the demo's folder first on sys.path, and the assets folders are absolute.
+        stem = os.path.splitext(os.path.basename(demo_file_path))[0]
+        cwd = os.path.join(tempfile.gettempdir(), "imgui_bundle_demos", stem)
+        shutil.rmtree(cwd, ignore_errors=True)
+        os.makedirs(cwd, exist_ok=True)
+        subprocess.Popen([sys.executable, demo_file_path], cwd=cwd)
     else:
         print("Cannot run subprocess in this environment.")

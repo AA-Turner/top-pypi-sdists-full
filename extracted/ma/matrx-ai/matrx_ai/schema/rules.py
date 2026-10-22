@@ -346,6 +346,138 @@ def hoist_discriminator_first(node: Any, key: str = KIND_KEY) -> Any:
     return out
 
 
+#: Fewest non-pinned properties for an object's key order to count as a storage
+#: collation rather than a choice: with 4 keys a random authored order matches one
+#: of the two collations 1 time in 12; below that the accident rate is too high.
+GENERATION_ORDER_MIN_KEYS = 4
+
+
+def _jsonb_collation(key: str) -> tuple[int, bytes]:
+    """Postgres jsonb object-key order: shorter key first, then bytewise."""
+    raw = key.encode("utf-8")
+    return (len(raw), raw)
+
+
+def key_order_is_storage_collation(keys: list[str]) -> bool:
+    """Whether ``keys`` sits in an order that a STORE produced, not an author.
+
+    Two collations erase authored order on their way through the platform: a
+    jsonb round trip (length, then bytewise — the ``content_ir`` kind registry and
+    ``agent.declare_output_schema_kind_marker`` both cast through jsonb) and
+    ``json.dumps(sort_keys=True)`` (alphabetical). Measured 2026-10-22 over the 351
+    live agent output schemas with 4+ properties: 232 sit in exact jsonb order and
+    26 in exact alphabetical order — none of them chosen.
+    """
+    if len(keys) < GENERATION_ORDER_MIN_KEYS:
+        return False
+    return keys == sorted(keys) or keys == sorted(keys, key=_jsonb_collation)
+
+
+def _holds_records(node: Any) -> bool:
+    """A value the model writes as a structure (an array or an object), looking
+    through ``type`` lists, nullable unions and ``$ref`` (a ref names a $def,
+    which is a structure in every schema the platform stores)."""
+    if not isinstance(node, dict):
+        return False
+    if "$ref" in node:
+        return True
+    declared = node.get("type")
+    declared_types = declared if isinstance(declared, list) else [declared]
+    if any(t in ("array", "object") for t in declared_types):
+        return True
+    if "properties" in node or "items" in node:
+        return True
+    for key in ("anyOf", "oneOf"):
+        branches = node.get(key)
+        if isinstance(branches, list) and any(
+            _holds_records(branch) for branch in branches if isinstance(branch, dict)
+        ):
+            return True
+    return False
+
+
+#: The keyword that RECORDS an author's property order where key order itself
+#: cannot travel: a jsonb store (``content_ir.kind_definition.emitted_json_schema``)
+#: or a client transport that re-serializes with sorted keys (an MCP call from
+#: Claude Code arrived fully alphabetical on 2026-10-22 although every server hop
+#: preserves order). An ARRAY survives both. Gemini's own name for the same thing
+#: (``providers/google/batch_schema.py`` already knows it), so no second mechanism.
+PROPERTY_ORDER_KEY = "propertyOrdering"
+
+
+def declared_property_order(node: Any) -> list[str] | None:
+    """The ``propertyOrdering`` list an object schema node declares, or None when it
+    declares none (or something that is not a list of names beside ``properties``)."""
+    if not isinstance(node, dict) or not isinstance(node.get("properties"), dict):
+        return None
+    declared = node.get(PROPERTY_ORDER_KEY)
+    if not isinstance(declared, list) or not all(isinstance(k, str) for k in declared):
+        return None
+    return declared
+
+
+def restore_generation_order(node: Any) -> Any:
+    """Return a deep copy in which every object whose ``properties`` order is a
+    STORAGE COLLATION (see :func:`key_order_is_storage_collation`) is put back in a
+    generation order: pinned values (``const`` / one-member ``enum`` — ``__kind``)
+    first, then every scalar property, then every property that holds a structure
+    (an array or an object), each group in its stored order. An object whose order
+    an author chose is never touched. The input is never mutated.
+
+    WHY THIS EXISTS — measured live 2026-10-22 on claude-sonnet-5-5 at
+    ``reasoning_effort: low`` (adaptive thinking, 0 thinking tokens). A
+    constrained decoder writes keys in ``properties`` order (Anthropic documents
+    it; :func:`hoist_discriminator_first` measured it on Gemini). The Memory
+    Reviewer's edit item was authored ``command, path, file_text, …, why,
+    evidence`` and stored ALPHABETICAL, so the model had to write ``evidence`` —
+    a list of verbatim quotes grounding an edit it had not written yet — second.
+    It wrote ``[]`` and the rest of the object collapsed: ``file_text: null``,
+    ``path: null``, ``why: "x"`` (or ``"placeholder"``). Same agent, same input,
+    four runs per arm: stored order 1/4 full answers; the author's own order 4/4;
+    this rule's order 4/4; every optional field forced non-null instead of
+    nullable 0/4 — so the required-and-nullable widening and the null pruning are
+    not the cause; the order is.
+
+    AN EXPLICIT ORDER WINS: an object that declares ``propertyOrdering`` (see
+    :data:`PROPERTY_ORDER_KEY`) is put in exactly that order (an unlisted pinned
+    property first, unlisted others last, in stored order) whatever its stored
+    order looks like, and the keyword is consumed here so no provider ever sees it.
+
+    Lossless: JSON objects are unordered, validation never reads key order, and
+    ``required`` is untouched. A REQUEST-BOUNDARY normalization in the same family
+    as :func:`hoist_discriminator_first` — the stored schema keeps what it holds.
+    Idempotent: the restored order is a stable partition, so a second pass moves
+    nothing.
+    """
+    if isinstance(node, list):
+        return [restore_generation_order(item) for item in node]
+    if not isinstance(node, dict):
+        return node
+    declared = declared_property_order(node)
+    out: dict[str, Any] = {}
+    for name, value in node.items():
+        if name == PROPERTY_ORDER_KEY and declared is not None:
+            continue  # consumed below; no provider is ever sent the keyword
+        if name in _SCHEMA_NAME_MAP_KEYS and isinstance(value, dict):
+            children = {child: restore_generation_order(sub) for child, sub in value.items()}
+            if name == "properties":
+                pinned = [k for k, v in children.items() if pins_one_value(v)]
+                rest = [k for k in children if k not in pinned]
+                if declared is not None:
+                    listed = [k for k in declared if k in children]
+                    first = [k for k in pinned if k not in listed]
+                    tail = [k for k in children if k not in listed and k not in first]
+                    children = {k: children[k] for k in (*first, *listed, *tail)}
+                elif key_order_is_storage_collation(rest):
+                    scalars = [k for k in rest if not _holds_records(children[k])]
+                    records = [k for k in rest if _holds_records(children[k])]
+                    children = {k: children[k] for k in (*pinned, *scalars, *records)}
+            out[name] = children
+        else:
+            out[name] = restore_generation_order(value)
+    return out
+
+
 def rewrite_oneof_as_anyof(node: Any) -> Any:
     """Return a deep copy of ``node`` with every ``oneOf`` keyword rewritten to
     ``anyOf``, recursively (property/defs NAMES preserved verbatim — only the
@@ -3100,6 +3232,10 @@ __all__ = [
     "hoist_nested_defs",
     "hoist_root_recursion",
     "hoist_discriminator_first",
+    "key_order_is_storage_collation",
+    "PROPERTY_ORDER_KEY",
+    "declared_property_order",
+    "restore_generation_order",
     "is_object_node",
     "is_root_object",
     "normalize_array_items",

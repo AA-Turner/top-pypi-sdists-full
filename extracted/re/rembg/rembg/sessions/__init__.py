@@ -14,6 +14,10 @@ from .birefnet_general_lite import BiRefNetSessionGeneralLite
 
 sessions[BiRefNetSessionGeneralLite.name()] = BiRefNetSessionGeneralLite
 
+from .birefnet_general_fp16 import BiRefNetSessionGeneralFP16
+
+sessions[BiRefNetSessionGeneralFP16.name()] = BiRefNetSessionGeneralFP16
+
 from .birefnet_portrait import BiRefNetSessionPortrait
 
 sessions[BiRefNetSessionPortrait.name()] = BiRefNetSessionPortrait
@@ -85,6 +89,10 @@ sessions[BenCustomSession.name()] = BenCustomSession
 from .withoutbg import WithoutBgSession
 
 sessions[WithoutBgSession.name()] = WithoutBgSession
+
+from .atlascloud import AtlasCloudSession
+
+sessions[AtlasCloudSession.name()] = AtlasCloudSession
 
 sessions_names = list(sessions.keys())
 sessions_class = list(sessions.values())

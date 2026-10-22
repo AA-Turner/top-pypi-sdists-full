@@ -108,6 +108,12 @@ class ClientContext(BaseModel):
     state: dict[str, dict[str, Any]] = Field(default_factory=dict)
     amendments: SurfaceAmendments | None = None
     mcp: list[str] = Field(default_factory=list)
+    device_id: str | None = None
+    """The computer this chat is attached to (``public.app_instances.id``), named whether or not it
+    can be reached this turn. The desktop app sends its own row; a web chat bound to a computer sends
+    that computer's. Carries no capability and arms no tools (``sandbox-fs`` does that, only when the
+    computer is connected); the server reads the row to tell the agent which computer it is
+    (``desktop_chat_framing``), after checking the caller may see it."""
     apply_policy: Literal["auto", "ask", "off"] | None = None
     """Surface layer of the output-directive apply cascade (agent → SURFACE →
     user). The calling surface's policy for model-emitted side effects; overrides

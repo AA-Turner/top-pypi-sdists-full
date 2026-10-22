@@ -1,4 +1,5 @@
 """Shared flusher: batch collector data into SQL and/or search indexes."""
+
 import logging
 
 from scrapy import signals
@@ -106,6 +107,9 @@ class IngestFlusher:
         data = self.collector.get_and_clear()
         if not data:
             return
+
+        if spider is None:
+            spider = getattr(self.crawler, "spider", None)
 
         if spider is not None and self.job_id is None:
             self.job_id = self.settings.get_identifier_value(spider)

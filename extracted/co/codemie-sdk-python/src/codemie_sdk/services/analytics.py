@@ -550,7 +550,9 @@ class AnalyticsService:
             wrap_response=False,
         )
 
-    def send_cli_hook_events(self, events: list[dict]) -> dict:
+    def send_cli_hook_events(
+        self, events: list[dict], project: str | None = None
+    ) -> dict:
         """POST /v1/analytics/cli-analytics/event-hooks — ingest CLI plugin hook events.
 
         The events are sent as NDJSON (one JSON object per line), the format the
@@ -559,16 +561,23 @@ class AnalyticsService:
 
         Args:
             events: Hook events, e.g. ``{"type": "agent.session.start", "session_id": ...}``
+            project: Project name sent as ``X-CodeMie-Project``; the server discards
+                the batch (HTTP 200) when it is missing, unknown or has CLI analytics
+                disabled. None sends no header.
 
         Returns:
-            Ingest response body (an empty object on success)
+            Ingest response body: an empty object on success, or the discard body
+            ``{"accepted": 0, "dropped": N, "reason": ...}`` (never raised on)
         """
         body = "\n".join(json.dumps(event) for event in events) + "\n"
+        headers = {"Content-Type": "application/x-ndjson"}
+        if project is not None:
+            headers["X-CodeMie-Project"] = project
         return self._api.post(
             "/v1/analytics/cli-analytics/event-hooks",
             dict,
             data=body.encode("utf-8"),
-            extra_headers={"Content-Type": "application/x-ndjson"},
+            extra_headers=headers,
             wrap_response=False,
         )
 
@@ -591,7 +600,9 @@ class AnalyticsService:
 
     # ── CLI Analytics: /v1/analytics/cli-analytics/* ─────────────────────────
 
-    def ingest_cli_analytics_event_hooks(self, events: list[dict]) -> None:
+    def ingest_cli_analytics_event_hooks(
+        self, events: list[dict], project: str | None = None
+    ) -> None:
         """POST /v1/analytics/cli-analytics/event-hooks — send CLI hook events.
 
         The endpoint takes NDJSON (one event per line); each event is posted as
@@ -599,26 +610,38 @@ class AnalyticsService:
 
         Args:
             events: Hook events, e.g. ``agent.session.start``, ``agent.usage.request``
+            project: Project name sent as ``X-CodeMie-Project``. The server stores the
+                batch only for an existing project with CLI analytics enabled that the
+                sender may use; otherwise it answers HTTP 200 and discards it.
         """
+        headers = {"Content-Type": "application/x-ndjson"}
+        if project is not None:
+            headers["X-CodeMie-Project"] = project
         for event in events:
             self._api.post(
                 "/v1/analytics/cli-analytics/event-hooks",
                 dict,
                 json_data=event,
                 wrap_response=False,
-                extra_headers={"Content-Type": "application/x-ndjson"},
+                extra_headers=headers,
             )
 
-    def ingest_cli_analytics_logs(self, payload: dict) -> None:
+    def ingest_cli_analytics_logs(
+        self, payload: dict, project: str | None = None
+    ) -> None:
         """POST /v1/analytics/cli-analytics/logs — send OTLP logs as JSON.
 
         Args:
             payload: An OTLP ``ExportLogsServiceRequest`` in its JSON form
+            project: Project name sent as ``X-CodeMie-Project`` (see
+                ``ingest_cli_analytics_event_hooks`` for the server behaviour)
         """
+        headers = {"X-CodeMie-Project": project} if project is not None else None
         self._api.post(
             "/v1/analytics/cli-analytics/logs",
             dict,
             json_data=payload,
+            extra_headers=headers,
             wrap_response=False,
         )
 

@@ -1,14 +1,21 @@
-"""DuckDB Python versioning utilities. This will only work on Python >= 3.3 and on non-mobile platforms.
+"""DuckDB Python versioning utilities.
 
-This module provides utilities for version management including:
-- Version bumping (major, minor, patch, post)
-- Git tag creation and management
-- Version parsing and validation
+Version parsing and formatting, the git tag spelling of a version, the release
+version declared in pyproject.toml, and the git primitives a build identity is
+derived from.
 """
 
+import datetime
+import os
 import pathlib
 import re
 import subprocess
+import sys
+
+import tomllib
+
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
+PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
 
 # Accepts the PEP440 alternative pre-release spellings and separators, see
 # https://packaging.python.org/en/latest/specifications/version-specifiers/#pre-release-spelling
@@ -20,6 +27,10 @@ VERSION_RE = re.compile(
 )
 
 PRE_RELEASE_KINDS = ("a", "b", "rc")
+
+# The post component of a version in git tag form. The only part we strip
+# before handing a forced version to DuckDB, see duckdb_describe_from_override.
+POST_COMPONENT_RE = re.compile(r"-post[0-9]+", re.IGNORECASE)
 
 # PEP440 alternative pre-release spellings and their canonical form
 _PRE_KIND_ALIASES = {
@@ -132,92 +143,147 @@ def pep440_to_git_tag(version: str) -> str:
     return tag
 
 
-def get_current_version() -> str | None:
-    """Get the current version from git tags.
+def release_version(pyproject_path: pathlib.Path = PYPROJECT_PATH) -> str:
+    """The version this branch releases next, declared in pyproject.toml.
 
-    Returns:
-        Current version string or None if no tags exist
-    """
-    try:
-        # Get the latest tag
-        result = subprocess.run(["git", "describe", "--tags", "--abbrev=0"], capture_output=True, text=True, check=True)
-        tag = result.stdout.strip()
-        return git_tag_to_pep440(tag)
-    except subprocess.CalledProcessError:
-        return None
-
-
-def create_git_tag(version: str, message: str | None = None, repo_path: pathlib.Path | None = None) -> None:
-    """Create a git tag for the given version.
+    Read from ``[tool.duckdb_packaging] release_version``. A release build must
+    force exactly this version, a dev build appends its dev segment to it.
 
     Args:
-        version: Version string (PEP440 format)
-        message: Optional tag message
-        repo_path: Optional path to git repository (defaults to current directory)
+        pyproject_path: The pyproject.toml to read
+
+    Returns:
+        The declared version in canonical PEP440 form
 
     Raises:
-        subprocess.CalledProcessError: If git command fails
+        ValueError: If the setting is missing or is not a valid version
+        TypeError: If the setting is not a string
     """
-    tag_name = pep440_to_git_tag(version)
+    with pyproject_path.open("rb") as f:
+        data = tomllib.load(f)
+    try:
+        value = data["tool"]["duckdb_packaging"]["release_version"]
+    except KeyError:
+        msg = f"[tool.duckdb_packaging].release_version is missing from {pyproject_path}"
+        raise ValueError(msg) from None
+    if not isinstance(value, str):
+        msg = f"[tool.duckdb_packaging].release_version must be a string, got {value!r}"
+        raise TypeError(msg)
+    major, minor, patch, post, pre = parse_version(value)
+    return format_version(major, minor, patch, post=post, pre=pre)
 
-    cmd = ["git", "tag"]
-    if message:
-        cmd.extend(["-a", tag_name, "-m", message])
-    else:
-        cmd.append(tag_name)
 
-    # If a repository path is provided, use it as the working directory
-    cwd = repo_path if repo_path is not None else None
-    subprocess.run(cmd, check=True, cwd=cwd)
+def next_release_version(version: str) -> str:
+    """The version a branch moves to after releasing the given one.
 
-
-def duckdb_tag_from_pep440(version: str) -> str:
-    """Map a forced package version to a DuckDB version tag.
-
-    Post releases repackage the stable engine, so the post suffix is dropped.
-    Pre-release suffixes pass through: DuckDB's build validates what it
-    supports and fails on versions it does not (yet) accept.
+    A final or post release moves to the next patch. A pre-release moves to its
+    next number, since whether the next step is another phase or the final is a
+    human decision.
 
     Args:
-        version: PEP440 version string of the Python package
+        version: The version just released, e.g. "2.0.0", "2.0.1.post1", "2.0.0a1"
 
     Returns:
-        DuckDB git tag (e.g. "v1.3.1", "v1.3.1-rc2" or "v1.3.1-a1")
+        The next version, e.g. "2.0.1", "2.0.2", "2.0.0a2"
     """
     major, minor, patch, _post, pre = parse_version(version)
-    return pep440_to_git_tag(format_version(major, minor, patch, pre=pre))
+    if pre is not None:
+        kind, num = pre
+        return format_version(major, minor, patch, pre=(kind, num + 1))
+    return format_version(major, minor, patch + 1)
 
 
-def get_git_describe(
-    repo_path: pathlib.Path | None = None,
-    since_major: bool = False,  # noqa: FBT001
-    since_minor: bool = False,  # noqa: FBT001
-) -> str:
-    """Get git describe output for version determination.
-
-    Returns:
-        Git describe output
-
-    Raises:
-        subprocess.CalledProcessError: If git describe fails (e.g. no tags exist)
-        RuntimeError: If the git executable can't be found
-    """
-    cwd = repo_path if repo_path is not None else None
-    pattern = "v*.*.*"
-    if since_major:
-        pattern = "v*.0.0"
-    elif since_minor:
-        pattern = "v*.*.0"
+def _git(repo_path: pathlib.Path, *args: str) -> str:
     try:
-        result = subprocess.run(
-            ["git", "describe", "--tags", "--long", "--match", pattern],
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=cwd,
-        )
-        result.check_returncode()
-        return result.stdout.strip()
+        result = subprocess.run(["git", *args], capture_output=True, text=True, check=True, cwd=repo_path)
     except FileNotFoundError as e:
         msg = "git executable can't be found"
         raise RuntimeError(msg) from e
+    return result.stdout.strip()
+
+
+def commit_hash(repo_path: pathlib.Path) -> str:
+    """The full hash of HEAD in the given repository.
+
+    Raises:
+        subprocess.CalledProcessError: If the path is not a git repository
+        RuntimeError: If the git executable can't be found
+    """
+    return _git(repo_path, "rev-parse", "HEAD")
+
+
+def commit_time(repo_path: pathlib.Path) -> int:
+    """The committer time of HEAD in the given repository, as a unix timestamp.
+
+    The committer time, not the author time: rebases and merges keep the author
+    time, so only the committer time reflects when a commit landed on a branch.
+
+    Raises:
+        subprocess.CalledProcessError: If the path is not a git repository
+        RuntimeError: If the git executable can't be found
+    """
+    return int(_git(repo_path, "log", "-1", "--format=%ct", "HEAD"))
+
+
+def dev_number(*commit_times: int) -> int:
+    """The dev segment of a build made from commits with the given committer times.
+
+    The latest of the times, formatted as yymmddhhmm in UTC. A build of the same
+    commits always yields the same number, and any later commit in either
+    repository yields a larger one.
+
+    Args:
+        commit_times: Committer times as unix timestamps, at least one
+
+    Returns:
+        The dev number, e.g. 2609031653 for 2026-09-03 16:53 UTC
+    """
+    latest = datetime.datetime.fromtimestamp(max(commit_times), tz=datetime.UTC)
+    return int(latest.strftime("%y%m%d%H%M"))
+
+
+# DuckDB's version script honours these itself. They never reach it: a forced
+# package version must not leak into the engine version derived from the submodule.
+_DUCKDB_VERSION_SCRIPT_ENV_VARS = ("OVERRIDE_GIT_DESCRIBE", "DUCKDB_VERSION", "DUCKDB_COMMIT")
+
+
+def duckdb_dev_version(submodule_path: pathlib.Path) -> str:
+    """The version DuckDB gives itself at the submodule's HEAD, e.g. "v2.0.0-dev14120".
+
+    Computed by DuckDB's own ``scripts/ci/version.py``, so that DuckDB stays
+    the single authority on its version string.
+
+    Raises:
+        subprocess.CalledProcessError: If the script fails
+    """
+    env = {name: value for name, value in os.environ.items() if name not in _DUCKDB_VERSION_SCRIPT_ENV_VARS}
+    result = subprocess.run(
+        [sys.executable, "scripts/ci/version.py"],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=submodule_path,
+        env=env,
+    )
+    return result.stdout.strip()
+
+
+def duckdb_describe_from_override(override: str) -> str:
+    """Map a forced package version to the version string DuckDB gets built with.
+
+    The value passes through untouched apart from a post component. Post
+    releases repackage the same engine, so DuckDB never sees the post suffix.
+
+    Everything else reaches DuckDB byte for byte. Its CMake is the only
+    authority on which version strings are valid, and it fails loud on the ones
+    it does not support. Normalizing here would corrupt them: PEP440 spells an
+    alpha "a1", DuckDB only accepts "alpha1" and rejects "a1".
+
+    Args:
+        override: Forced version in git tag form (e.g. "v1.3.1", "v1.3.1-post1",
+            "v1.3.1-alpha1", "v1.3.1-rc2-5-g1234567")
+
+    Returns:
+        The version string for DuckDB's build (e.g. "v1.3.1", "v1.3.1-alpha1")
+    """
+    return POST_COMPONENT_RE.sub("", override, count=1)

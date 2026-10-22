@@ -2189,6 +2189,19 @@ class ProviderConfig_SinkTrimedx(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_SsfOkta(UncheckedBaseModel):
+    type: typing.Literal["ssf_okta"] = "ssf_okta"
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_StorageAwsS3(UncheckedBaseModel):
     type: typing.Literal["storage_aws_s3"] = "storage_aws_s3"
     bucket: str
@@ -2716,6 +2729,7 @@ class ProviderConfig_VulnerabilitiesNucleus(UncheckedBaseModel):
 class ProviderConfig_VulnerabilitiesPentera(UncheckedBaseModel):
     type: typing.Literal["vulnerabilities_pentera"] = "vulnerabilities_pentera"
     credential: PenteraCredential
+    skip_tls_verify: typing.Optional[bool] = None
     url: str
 
     if IS_PYDANTIC_V2:
@@ -3032,6 +3046,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_SinkSumoLogic,
         ProviderConfig_SinkSwimlane,
         ProviderConfig_SinkTrimedx,
+        ProviderConfig_SsfOkta,
         ProviderConfig_StorageAwsS3,
         ProviderConfig_StorageAzureBlob,
         ProviderConfig_StorageGcs,

@@ -119,6 +119,22 @@ def find_degenerate_strings(data: Any, path: str = "$") -> list[str]:
     return hits
 
 
+def degenerate_output_error(data: Any) -> str | None:
+    """THE one verdict on a parsed structured answer: ``None`` when clean, else the
+    ``DegenerateOutputError: …`` message every path (AgentExecutor's parse helper,
+    ``parse_agent_output`` and so the orchestrator / agent route / agent service)
+    reports for it."""
+    paths = find_degenerate_strings(data)
+    if not paths:
+        return None
+    shown = ", ".join(paths[:8])
+    return (
+        f"DegenerateOutputError: {len(paths)} field(s) contain "
+        f"literal placeholder filler ({shown}) — the model abandoned "
+        "the generation; the run must be retried, not persisted"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Low-level parsing helpers
 # ---------------------------------------------------------------------------

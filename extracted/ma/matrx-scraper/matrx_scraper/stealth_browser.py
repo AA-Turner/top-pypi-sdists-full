@@ -1,6 +1,6 @@
 """The stealth BROWSER step: Scrapling's StealthyFetcher behind ``knowledge.scraper.browser_engine``.
 
-``browser_engine`` is ``stealth`` (default since 2026-10-16) or ``current`` (our Playwright pool)
+``browser_engine`` is ``current`` (our Playwright pool; default again since 2026-10-21) or ``stealth``
 (patchright with ~90 anti-detection flags, run HEADFUL, plus Scrapling's Cloudflare
 Turnstile / interstitial solver; BSD-3). One path, chosen by the knob, at the single
 place the orchestrator performs a browser round-trip. Only the fetcher is used - never
@@ -18,6 +18,8 @@ headless and says so once - never silently.
 from __future__ import annotations
 
 import atexit
+import contextlib
+import contextvars
 import logging
 import os
 import shutil
@@ -33,9 +35,10 @@ logger = logging.getLogger(__name__)
 ENGINE_CURRENT = "current"
 ENGINE_STEALTH = "stealth"
 _ENGINES = (ENGINE_CURRENT, ENGINE_STEALTH)
-#: Flipped to stealth 2026-10-16 after the local 40-URL run (22 -> 32 passes), a successful image
-#: build and an in-container smoke run. `current` stays one knob turn away.
-DEFAULT_ENGINE = ENGINE_STEALTH
+#: `current` again (2026-10-21): the hosted A/B showed stealth reads more hard pages (33 vs 26 of 41) but p90 is 2.8x
+#: slower, so it runs as a RETRY after a failed read (`knowledge.scraper.stealth_retry`), not as the default engine.
+#: A host with no knob reader stays on `current`; the live registry row is "current" too.
+DEFAULT_ENGINE = ENGINE_CURRENT
 
 _xvfb_lock = threading.Lock()
 _xvfb: subprocess.Popen[bytes] | None = None
@@ -43,10 +46,10 @@ _announced_headless = False
 
 
 def browser_engine() -> str:
-    """``knowledge.scraper.browser_engine`` - ``stealth`` (default) or ``current``."""
+    """``knowledge.scraper.browser_engine`` - ``current`` (default) or ``stealth``."""
     from matrx_scraper.parser.knobs import parser_knob
 
-    # KNOB MIRROR: knowledge.scraper.browser_engine = "stealth"
+    # KNOB MIRROR: knowledge.scraper.browser_engine = "current"
     value = str(parser_knob("browser_engine", DEFAULT_ENGINE) or DEFAULT_ENGINE).strip().lower()
     if value not in _ENGINES:
         logger.warning("browser_engine %r is not one of %s; using %r", value, _ENGINES, DEFAULT_ENGINE)
@@ -171,3 +174,60 @@ async def stealth_fetch(
     title = str(title_nodes[0]).strip() if title_nodes else ""
     headers = {str(k): str(v) for k, v in dict(getattr(page, "headers", {}) or {}).items()}
     return content, str(page.url), int(page.status), headers, title
+
+
+#: KNOB MIRROR: knowledge.scraper.stealth_retry = false  (born OFF until the deployed A/B proves it; Arman 2026-10-21)
+STEALTH_RETRY_DEFAULT = False
+#: KNOB MIRROR: knowledge.scraper.stealth_retry_min_seconds = 20
+STEALTH_RETRY_MIN_SECONDS_DEFAULT = 20
+
+
+def stealth_retry_enabled() -> bool:
+    """``knowledge.scraper.stealth_retry`` AND Scrapling installed (without it: no retry, nothing announced per page)."""
+    from matrx_scraper.parser.knobs import parser_knob
+
+    value = parser_knob("stealth_retry", STEALTH_RETRY_DEFAULT)
+    if isinstance(value, str):
+        value = value.strip().lower() not in ("false", "0", "off", "no", "")
+    return bool(value) and stealth_available()
+
+
+def stealth_retry_min_seconds() -> float:
+    from matrx_scraper.parser.knobs import parser_knob
+
+    try:
+        return float(parser_knob("stealth_retry_min_seconds", STEALTH_RETRY_MIN_SECONDS_DEFAULT))
+    except (TypeError, ValueError):
+        return float(STEALTH_RETRY_MIN_SECONDS_DEFAULT)
+
+
+#: KNOB MIRROR: knowledge.scraper.chat_read_budget_seconds = 15
+CHAT_READ_BUDGET_SECONDS_DEFAULT = 15
+
+#: The time budget of the read in progress, as a ``time.monotonic()`` deadline. A chat / agent read sets it
+#: (``chat_read_budget``); ``scrape()`` falls back to it when its caller passed no ``deadline``.
+_read_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar("matrx_scraper_read_deadline", default=None)
+
+
+def current_read_deadline() -> float | None:
+    return _read_deadline.get()
+
+
+@contextlib.contextmanager
+def chat_read_budget():
+    """Mark every ``scrape()`` inside as a chat-origin read with a short budget
+    (``knowledge.scraper.chat_read_budget_seconds``), so the optional stealth retry is skipped
+    unless that budget leaves ``stealth_retry_min_seconds``. Screen runs and jobs do not use it."""
+    import time
+
+    from matrx_scraper.parser.knobs import parser_knob
+
+    try:
+        seconds = float(parser_knob("chat_read_budget_seconds", CHAT_READ_BUDGET_SECONDS_DEFAULT))
+    except (TypeError, ValueError):
+        seconds = float(CHAT_READ_BUDGET_SECONDS_DEFAULT)
+    token = _read_deadline.set(time.monotonic() + seconds)
+    try:
+        yield
+    finally:
+        _read_deadline.reset(token)

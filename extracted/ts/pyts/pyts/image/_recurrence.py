@@ -4,7 +4,7 @@
 # License: BSD-3-Clause
 
 from math import ceil
-from typing import Self
+from typing import Any, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -17,8 +17,8 @@ from pyts._base import UnivariateTransformerMixin
 
 
 def _trajectories(
-    X: npt.NDArray[np.float64], dimension: int, time_delay: int
-) -> npt.NDArray[np.float64]:
+    X: npt.NDArray[np.float64 | np.int64], dimension: int, time_delay: int
+) -> npt.NDArray[np.float64 | np.int64]:
     n_samples, n_timestamps = X.shape
     shape_new = (
         n_samples,
@@ -106,16 +106,17 @@ class RecurrencePlot(BaseEstimator, UnivariateTransformerMixin):
     ----------
     dimension : int or float (default = 1)
         Dimension of the trajectory. If float, it represents a
-        percentage of the size of each time series and must be between
-        0 and 1.
+        percentage of the size of each time series and must be greater
+        than 0 and lower than or equal to 1.
 
     time_delay : int or float (default = 1)
         Time gap between two back-to-back points of the trajectory. If
         float, it represents a percentage of the size of each time
-        series and must be between 0 and 1.
+        series and must be greater than 0 and lower than or equal to 1.
 
     threshold : float, 'point', 'distance' or None (default = None)
-        Threshold for the minimum distance. If None, the recurrence plots
+        Threshold for the minimum distance. If a float or an integer, it
+        must be greater than 0. If None, the recurrence plots
         are not binarized. If 'point', the threshold is computed such as
         `percentage` percents of the points are smaller than the threshold.
         If 'distance', the threshold is computed as the `percentage` of the
@@ -218,7 +219,22 @@ class RecurrencePlot(BaseEstimator, UnivariateTransformerMixin):
             `(n_samples, image_size * image_size)`.
 
         """
-        X = check_array(X)
+        X = cast(npt.NDArray[Any], check_array(X))
+        if X.dtype.kind == 'f' and np.can_cast(X.dtype, np.float64, casting='safe'):
+            X = X.astype(np.float64, copy=False)
+        elif np.can_cast(X.dtype, np.int64, casting='safe'):
+            # Smaller integers are exactly representable in float64; floating
+            # arithmetic avoids overflow when squaring their differences.
+            if X.dtype.itemsize < np.dtype(np.int64).itemsize:
+                X = X.astype(np.float64, copy=False)
+            else:
+                X = X.astype(np.int64, copy=False)
+        else:
+            # Remaining numeric dtypes (e.g. uint64, whose range exceeds
+            # int64, or extended-precision floats) have no compiled kernel
+            # and are not safely castable to either supported dtype, so fall
+            # back to float64 rather than failing inside numba.
+            X = X.astype(np.float64)
         n_samples, n_timestamps = X.shape
         dimension, time_delay = self._check_params(n_timestamps)
 
@@ -260,7 +276,7 @@ class RecurrencePlot(BaseEstimator, UnivariateTransformerMixin):
                 )
             dimension = self.dimension
         else:
-            if not 0 < self.dimension < 1.0:
+            if not 0 < self.dimension <= 1.0:
                 raise ValueError(
                     "If 'dimension' is a float, it must be greater "
                     "than 0 and lower than or equal to 1 "
@@ -279,7 +295,7 @@ class RecurrencePlot(BaseEstimator, UnivariateTransformerMixin):
                 )
             time_delay = self.time_delay
         else:
-            if not 0 < self.time_delay < 1.0:
+            if not 0 < self.time_delay <= 1.0:
                 raise ValueError(
                     "If 'time_delay' is a float, it must be greater "
                     "than 0 and lower than or equal to 1 "
@@ -308,8 +324,7 @@ class RecurrencePlot(BaseEstimator, UnivariateTransformerMixin):
             and self.threshold <= 0
         ):
             raise ValueError(
-                "If 'threshold' is a float or an integer, "
-                "it must be greater than or equal to 0."
+                "If 'threshold' is a float or an integer, it must be greater than 0."
             )
 
         if not isinstance(self.percentage, (int, np.integer, float, np.floating)):

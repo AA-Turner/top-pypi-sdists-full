@@ -32,6 +32,7 @@ from typing import Any
 import pytest
 
 from matrx_ai.config import MessageList, TextContent, UnifiedConfig, UnifiedMessage
+from matrx_ai.config.send_boundary import order_for_wire
 from matrx_ai.instructions.core import SystemInstruction
 from matrx_ai.providers.anthropic.translator import AnthropicTranslator
 from matrx_ai.providers.openai.translator import OpenAITranslator
@@ -40,6 +41,11 @@ from matrx_ai.testing.profile_factory import make_profile
 SYSTEM = "You are a careful assistant. " * 40
 CATALOG = '<org_catalog condensed="true">Acme, Beta, Gamma</org_catalog>'
 
+
+def _render(translator: Any, config: Any, profile: Any) -> Any:
+    """A real send: the send boundary orders the person's turn once, the translator renders it."""
+    prep = order_for_wire(config, profile)
+    return translator.build_request(prep.wire_config if prep.wire_config is not None else config, profile)
 
 def _msg(role: str, text: str) -> UnifiedMessage:
     return UnifiedMessage(role=role, content=[TextContent(text=text)])
@@ -56,7 +62,7 @@ def _turn(history: list[UnifiedMessage], live_date: str, model: str) -> UnifiedC
 
 def _anthropic(config: UnifiedConfig) -> dict[str, Any]:
     profile = make_profile(model_name=config.model, wire_format="anthropic")
-    return AnthropicTranslator().build_request(config, profile)
+    return _render(AnthropicTranslator(), config, profile)
 
 
 def _strip_cache_control(value: Any) -> Any:
@@ -142,7 +148,7 @@ def test_openai_turn_context_is_a_user_item_before_her_words() -> None:
     model = "gpt-5"
     config = _turn([_msg("user", "HER WORDS")], "09:00", model)
     profile = make_profile(model_name=model, wire_format="openai")
-    request = OpenAITranslator().build_request(config, profile)
+    request = _render(OpenAITranslator(), config, profile)
     items = request["input"]
     assert items[0]["role"] == "developer"
     assert "<turn_context" not in items[0]["content"][0]["text"]
@@ -168,9 +174,9 @@ def test_chat_completions_turn_one_is_an_exact_prefix_of_turn_two(module: str, c
 
     translator = getattr(importlib.import_module(module), cls)()
     profile = make_profile(model_name="m", wire_format=wire_format)
-    turn_one = translator.build_request(_turn([_msg("user", "first question")], "09:00", "m"), profile)
+    turn_one = _render(translator, _turn([_msg("user", "first question")], "09:00", "m"), profile)
     history = [_msg("user", "first question"), _msg("assistant", "first answer")]
-    turn_two = translator.build_request(_turn([*history, _msg("user", "second question")], "09:05", "m"), profile)
+    turn_two = _render(translator, _turn([*history, _msg("user", "second question")], "09:05", "m"), profile)
 
     one, two = turn_one["messages"], turn_two["messages"]
     assert one[0]["role"] == "system" and "<turn_context" not in str(one[0])

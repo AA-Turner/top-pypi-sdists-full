@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 CSV_FORMULA_PREFIXES = ("=", "+", "-", "@")
 # Leading whitespace/control characters can be used to obscure a formula prefix
 # in some CSV consumers; treat these as dangerous when checking cell content.
-CSV_DANGEROUS_LEADING = " \t\r\n"
+CSV_DANGEROUS_LEADING = " \t\r\n\x0b\x0c"
 TERMINAL_CONTROL_REPLACEMENTS = {
     "\a": r"\a",
     "\b": r"\b",
@@ -35,6 +35,21 @@ TERMINAL_C0_START = 0x00
 TERMINAL_C0_END_EXCLUSIVE = 0x20
 TERMINAL_C1_START = 0x80
 TERMINAL_C1_END_EXCLUSIVE = 0xA0
+# Unicode characters that can invisibly alter the visual ordering or identity of
+# terminal text. Keep this explicit so behavior does not vary with the Unicode
+# database bundled with Python.
+TERMINAL_UNICODE_CONTROL_CODEPOINTS = frozenset(
+    {
+        0x00AD,
+        0x061C,
+        0x200B,
+        *range(0x200E, 0x2010),
+        *range(0x202A, 0x202F),
+        *range(0x2060, 0x2065),
+        *range(0x2066, 0x206A),
+        0xFEFF,
+    }
+)
 
 ValueT = TypeVar("ValueT")
 
@@ -82,6 +97,10 @@ def escape_terminal_text(value: str) -> str:
             or TERMINAL_C1_START <= code < TERMINAL_C1_END_EXCLUSIVE
         ):
             escaped.append(f"\\x{code:02x}")
+            continue
+
+        if code in TERMINAL_UNICODE_CONTROL_CODEPOINTS:
+            escaped.append(f"\\u{code:04x}")
             continue
 
         escaped.append(char)

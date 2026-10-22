@@ -117,9 +117,11 @@ def _document_invoke_payload(
     params_by_name = {param['name']: param for param in operation.get('params', [])}
 
     for name, value in normalized_params.items():
-        if value is None or name in {'doc', 'sessionId', 'out', 'force'}:
+        if name in {'doc', 'sessionId', 'out', 'force'}:
             continue
         param = params_by_name.get(name)
+        if value is None and (param is None or param.get('kind') != 'jsonFlag'):
+            continue
         if param is None:
             raise _unsupported(
                 f'Structured document RPC does not support {operation_id} field {name}.',

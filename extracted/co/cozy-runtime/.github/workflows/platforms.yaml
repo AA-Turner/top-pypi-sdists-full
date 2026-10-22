@@ -2,10 +2,12 @@ name: platforms
 # A published Runtime on every desktop platform, Linux x86_64 as the control: does it install
 # (TensorFS has only a linux-x86_64 wheel, so elsewhere it builds from the sdist), which modules
 # import, do the CLI verbs run, and on macOS what MPS serves (SDXL-width UNet, VAE, attention vs
-# CPU fp32). `mps` runs this ref's Apple-GPU tests on macos-15 (`sdxl`: the SDXL spike too).
+# CPU fp32). `mps` runs this ref's Apple-GPU tests on macos-15 (`sdxl`: the SDXL spike too);
+# `windows` its executor-path tests on windows-2025.
 # Manual only: macOS bills 10x and Windows 2x.
-#   gh workflow run platforms.yaml -R cozy-creator/cozy-runtime --ref <branch> [-f os='["macos-15"]'] [-f runtime=0.25.1]
+#   gh workflow run platforms.yaml -R cozy-creator/cozy-runtime --ref <branch> [-f os='["macos-15"]'] [-f runtime=<version>]
 #   gh workflow run platforms.yaml -R cozy-creator/cozy-runtime --ref <branch> -f os='[]' -f mps=true [-f sdxl=true]
+#   gh workflow run platforms.yaml -R cozy-creator/cozy-runtime --ref <branch> -f os='[]' -f windows=true
 on:
   workflow_dispatch:
     inputs:
@@ -14,9 +16,9 @@ on:
         type: string
         default: '["ubuntu-24.04", "ubuntu-24.04-arm", "macos-15", "windows-2025"]'
       runtime:
-        description: Published cozy-runtime version
+        description: Published cozy-runtime version; empty takes the newest
         type: string
-        default: 0.25.1
+        default: ''
       tensorfs_ref:
         description: TensorFS branch, tag or SHA built from source and installed first; empty takes PyPI's (mps builds cross-platform-probe)
         type: string
@@ -27,6 +29,10 @@ on:
         default: false
       sdxl:
         description: With mps, the SDXL spike (fidika/sdxl from tensorhub.com, ~7 GB)
+        type: boolean
+        default: false
+      windows:
+        description: This ref's executor-path tests on windows-2025
         type: boolean
         default: false
 
@@ -77,15 +83,15 @@ jobs:
         continue-on-error: true
         run: uv pip install --python "$PY" ./.tensorfs 2>&1 | tee tensorfs.txt; exit "${PIPESTATUS[0]}"
 
-      - name: Install cozy-runtime ${{ inputs.runtime }}
+      - name: Install cozy-runtime ${{ inputs.runtime || '(newest)' }}
         id: install
         continue-on-error: true
-        run: uv pip install --python "$PY" "cozy-runtime==${{ inputs.runtime }}" 2>&1 | tee install.txt; exit "${PIPESTATUS[0]}"
+        run: uv pip install --python "$PY" "cozy-runtime${{ inputs.runtime && format('=={0}', inputs.runtime) || '' }}" 2>&1 | tee install.txt; exit "${PIPESTATUS[0]}"
 
       # Without TensorFS the rest of the probe still says what imports.
       - name: Install without TensorFS
         if: steps.install.outcome != 'success'
-        run: uv pip install --python "$PY" --no-deps "cozy-runtime==${{ inputs.runtime }}" && uv pip install --python "$PY" cryptography msgspec numpy packaging pillow
+        run: uv pip install --python "$PY" --no-deps "cozy-runtime${{ inputs.runtime && format('=={0}', inputs.runtime) || '' }}" && uv pip install --python "$PY" cryptography msgspec numpy packaging pillow
 
       - name: Torch and the Diffusers group
         run: |
@@ -211,7 +217,7 @@ jobs:
 
       - name: Tests
         run: |
-          .venv/bin/python -m pytest -q -rs -s --real-gpu tests/test_unified_plane.py tests/test_mps.py \
+          .venv/bin/python -m pytest -q -rs -s --real-gpu tests/test_mps.py tests/test_parent_watch.py \
             ${{ !inputs.sdxl && '-k "not sdxl"' || '' }}
 
       - uses: actions/upload-artifact@v4
@@ -221,3 +227,24 @@ jobs:
           path: ${{ runner.temp }}/mps-results
           if-no-files-found: ignore
           retention-days: 30
+
+  windows:
+    if: inputs.windows
+    name: windows (windows-2025)
+    runs-on: windows-2025
+    # Hang bound, not a work budget.
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v7
+
+      # This ref with its dependencies (TensorFS's win_amd64 wheel), no torch: the executor imports.
+      - name: Tests
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv/Scripts/python.exe -e . pytest
+          .venv/Scripts/python.exe -m pytest -q -rs tests/test_windows_executor_path.py

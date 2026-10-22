@@ -99,10 +99,19 @@ async def _settle_spine(
     *,
     error: str | None = None,
     meters: dict[str, Any] | None = None,
+    usage_history: list[Any] | None = None,
 ) -> None:
-    """Await a terminal settle without letting caller cancellation cancel it."""
+    """Await a terminal settle without letting caller cancellation cancel it.
+
+    A host settle that sets ``accepts_usage_history = True`` also receives the
+    run's per-call ``usage_history``: such a host meters calls live onto the
+    run's execution and settles per call, recording only the calls that did not
+    land live (the aggregate ``meters`` alone cannot say which ones did)."""
+    kwargs: dict[str, Any] = {"error": error, "meters": meters}
+    if getattr(settle, "accepts_usage_history", False):
+        kwargs["usage_history"] = list(usage_history or [])
     task = asyncio.create_task(
-        settle(status, error=error, meters=meters),
+        settle(status, **kwargs),
         name="internal_agent_run_spine_settle",
     )
     _SPINE_SETTLE_TASKS.add(task)
@@ -200,6 +209,36 @@ class AgentRunResult(BaseModel, Generic[ParsedT]):
     # the consumer (``agent_call``) turns it back into a real content block that the
     # provider resolves to bytes at send time.
     media: list[dict[str, Any]] = Field(default_factory=list)
+
+    # The tool call(s) the run's LAST assistant turn ended on when that turn wrote
+    # no answer text — a run cut off mid-tool-call (cancelled, out of rounds, its
+    # process replaced). ``output`` is then empty: a tool call is not an answer.
+    # Each item is ``{"name": str, "arguments": dict}``. A relay (agent_call) uses
+    # it to say plainly "stopped before writing an answer; last action: …"
+    # instead of passing the raw call on as if it were the report.
+    stopped_on_tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+
+
+def unanswered_tool_calls(message: Any) -> list[dict[str, Any]]:
+    """The tool calls ``message`` ended on, when it wrote no answer text.
+
+    Empty when the message is missing, has answer text, or made no call. Never
+    raises — this only shapes how a stopped run is reported.
+    """
+    if message is None:
+        return []
+    try:
+        if (message.get_output() or "").strip():
+            return []
+        from matrx_ai.config.tools_config import ToolCallContent
+
+        return [
+            {"name": c.name, "arguments": dict(c.arguments or {})}
+            for c in (getattr(message, "content", None) or [])
+            if isinstance(c, ToolCallContent)
+        ]
+    except Exception:  # noqa: BLE001 — reporting aid only
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -336,23 +375,18 @@ def _parse_with_schema(
     # "placeholder" while still satisfying the schema (feedback 0788c8a5).
     # Accepting that silently persists corrupt content into live surfaces —
     # fail the parse LOUDLY instead so the caller retries or surfaces an error.
-    from matrx_ai.agents.response_parser import find_degenerate_strings
+    from matrx_ai.agents.response_parser import degenerate_output_error
 
-    degenerate_paths = find_degenerate_strings(data)
-    if degenerate_paths:
+    degenerate = degenerate_output_error(data)
+    if degenerate:
         vcprint(
             raw_output,
             f"[AgentExecutor:{label}] DEGENERATE structured output — the model "
-            f"filled {len(degenerate_paths)} field(s) with literal placeholder "
-            "filler and gave up mid-generation. Result REJECTED, never persisted.",
+            "filled field(s) with literal placeholder filler and gave up "
+            "mid-generation. Result REJECTED, never persisted.",
             color="red",
         )
-        shown = ", ".join(degenerate_paths[:8])
-        return None, (
-            f"DegenerateOutputError: {len(degenerate_paths)} field(s) contain "
-            f"literal placeholder filler ({shown}) — the model abandoned the "
-            "generation; the run must be retried, not persisted"
-        )
+        return None, degenerate
 
     return parsed, None
 
@@ -859,6 +893,7 @@ async def run_agent(
                     _spine_settle,
                     "cancelled",
                     meters=_early_exit_meters(_spent, label=label),
+                    usage_history=_spent,
                 )
             except Exception:  # noqa: BLE001 — the host's reaper is the backstop
                 pass
@@ -879,6 +914,7 @@ async def run_agent(
                     "failed",
                     error=str(exc) or type(exc).__name__,
                     meters=_early_exit_meters(_spent, label=label),
+                    usage_history=_spent,
                 )
             except Exception:  # noqa: BLE001 — the host's reaper is the backstop
                 pass
@@ -983,6 +1019,7 @@ async def run_agent(
                 _settle_status,
                 error=_settle_error,
                 meters=meters or None,
+                usage_history=list(execute_result.usage_history or []),
             )
         except Exception as _settle_exc:  # noqa: BLE001 — the host's reaper is the backstop
             vcprint(
@@ -1007,6 +1044,9 @@ async def run_agent(
             else ("execution" if execution_failed else None)
         ),
         media=collect_media_refs(getattr(execute_result, "assistant_response", None)),
+        stopped_on_tool_calls=unanswered_tool_calls(
+            getattr(execute_result, "assistant_response", None)
+        ),
     )
     if _child_conversation_id:
         result.metadata.setdefault("conversation_id", _child_conversation_id)

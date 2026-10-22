@@ -18,15 +18,19 @@ Features:
 - Version 0.11.*: Completely remodeled API (backward compatibility is maintained, though)
 - Version 0.12.*: Periodic boundary conditions for differential operators and PDEs
 - Version 0.13.*: Compact finite difference schemes for interior and boundary points
+- Version 0.14.*: Time-dependent PDEs, eigenvalue problems, iterative solvers, error estimation, GPU / JAX / CuPy backends
+- Version 0.15.*: Compact schemes on non-uniform grids, optimal and spectral-like compact schemes
+- Version 0.16.*: Wave equations, time-dependent boundary values and sources, stable high-order operators
 """
 
-__version__ = "0.13.1"
+__version__ = "0.16.0"
 
 
 from .coefs import coefficients
 from .compact import CompactScheme
 from .compatible import Coef, Coefficient, FinDiff, Id
 from .interface import Diff
+from .ivp import MOLSolution, TimeDependentPDE
 from .operators import ErrorEstimate, Identity
 from .pde import PDE, BoundaryConditions
 from .symbolic import SymbolicDiff, SymbolicMesh
@@ -42,8 +46,10 @@ __all__ = [
     "Id",
     "Diff",
     "Identity",
+    "MOLSolution",
     "PDE",
     "BoundaryConditions",
+    "TimeDependentPDE",
     "SymbolicDiff",
     "SymbolicMesh",
     "Curl",

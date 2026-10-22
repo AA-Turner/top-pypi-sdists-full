@@ -65,6 +65,7 @@ from xhtml2pdf.util import (
     toList,
 )
 from xhtml2pdf.w3c import css
+from xhtml2pdf.w3c.generated_content import Counters
 from xhtml2pdf.xhtml2pdf_reportlab import (
     DeepCopiedDirectly,
     PmlFrame,
@@ -952,6 +953,12 @@ class pisaContext:
         #: declared here because addTOC reads it before the walk has set it.
         self.cssAttr: CSSAttrs = CSSAttrs()
         self.cssAttrCache: dict = {}
+        #: The same for ::before and ::after, keyed by (that key, pseudo),
+        #: holding None for a pseudo-element with no content. See
+        #: parser.CSSCollectPseudo.
+        self.cssPseudoCache: dict = {}
+        #: The CSS counters in scope where the walk of the document is.
+        self.counters = Counters()
         #: The font size of <html>, which `rem` is relative to; None until
         #: <html> has been styled. See parser.resolveRootEm.
         self.rootFontSize: float | None = None
@@ -1231,6 +1238,10 @@ class pisaContext:
                 "tocLeader",
             ),
         )
+
+        # How a line wider than the paragraph ends: cut ("clip"), cut with a
+        # mark ("ellipsis"), or left to stick out (None).
+        style.textOverflow = None if first.overflow == "visible" else first.textOverflow
 
         style.leading = max(first.leading + first.leadingSpace, first.fontSize * 1.25)
         style.bulletFontName = first.bulletFontName or first.fontName

@@ -1,4 +1,5 @@
 """Bulk index ingest batches to Elasticsearch or OpenSearch."""
+
 import logging
 import warnings
 from contextlib import contextmanager
@@ -205,7 +206,9 @@ class SearchWriter:
         self.client.bulk(self._index(self.settings.db_logs_table), logs)
         self._counts["items_count"] += len(items)
         self._counts["requests_count"] += len(requests)
-        self._counts["success_requests"] += sum(1 for req in requests if req.get("success"))
+        self._counts["success_requests"] += sum(
+            1 for req in requests if req.get("success")
+        )
         self._counts["failed_requests"] += sum(
             1 for req in requests if req.get("success") is False
         )

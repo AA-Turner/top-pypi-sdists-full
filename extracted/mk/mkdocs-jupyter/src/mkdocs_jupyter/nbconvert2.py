@@ -4,14 +4,21 @@ It provides a cleaner / more self-contained version of the HTML content
 that can be embedded into existing HTML pages without breaking existing styles
 """
 
+import base64
+import hashlib
 import io
 import json
 import logging
 import os
 import re
+from html import escape
+from pathlib import Path
+from urllib.parse import urlsplit
 
 import jupytext
 import mistune
+from defusedxml import ElementTree
+from jinja2 import FileSystemLoader, pass_context
 from nbconvert.exporters.html import HTMLExporter
 from nbconvert.exporters.markdown import MarkdownExporter
 from nbconvert.exporters.templateexporter import default_filters
@@ -24,6 +31,17 @@ from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
 
 from mkdocs_jupyter.config import settings
+from mkdocs_jupyter.exporter_options import (
+    MANAGED_OPTIONS,
+    validate_html_exporter_options,
+)
+from mkdocs_jupyter.metadata import NotebookMetadataMixin
+from mkdocs_jupyter.mathjax import (
+    DEFAULT_MATHJAX_URL as DEFAULT_MATHJAX_URL,
+    mathjax_script,
+    mathjax_url,
+    normalize_latex_output,
+)
 from mkdocs_jupyter.preprocessors import SubCell
 
 logger = logging.getLogger("mkdocs.mkdocs-jupyter")
@@ -33,6 +51,81 @@ kernel_lang = "python"
 
 # We use this to tag each div with code with an unique ID for the copy-to-clipboard
 cell_id = 0
+
+
+class NotebookHTMLExporter(NotebookMetadataMixin, HTMLExporter):
+    """HTML export without the notebook's page frontmatter."""
+
+    @pass_context
+    def markdown2html(self, context, source):
+        legacy_math = (
+            context.get("resources", {}).get("mkdocs", {}).get("mathjax_version", 4)
+            == 2
+        )
+        if legacy_math and not self.embed_images:
+            return super().markdown2html(context, source)
+        cell = context.get("cell", {})
+        renderer_class = ImageDependencyRenderer if legacy_math else ModernMathRenderer
+        renderer = renderer_class(
+            escape=False,
+            attachments=cell.get("attachments", {}),
+            embed_images=self.embed_images,
+            image_dependencies=getattr(self, "_image_dependencies", None),
+            path=context.get("resources", {}).get("metadata", {}).get("path", ""),
+            anchor_link_text=self.anchor_link_text,
+            exclude_anchor_links=self.exclude_anchor_links,
+        )
+        return MarkdownWithMath(renderer=renderer).render(source)
+
+
+class ImageDependencyRenderer(IPythonRenderer):
+    """Record the exact local bytes embedded by nbconvert's image renderer."""
+
+    def __init__(self, *args, image_dependencies=None, **kwargs):
+        self.image_dependencies = image_dependencies
+        super().__init__(*args, **kwargs)
+
+    def _src_to_base64(self, src):
+        embedded = super()._src_to_base64(src)
+        if self.image_dependencies is None:
+            return embedded
+        # Keep the lookup path so replacing a symlink also invalidates the cache.
+        if embedded is None:
+            try:
+                scheme = urlsplit(src).scheme
+            except ValueError:
+                return embedded
+            if (scheme and not os.path.isabs(src)) or src.startswith("//"):
+                return embedded
+        path = os.path.abspath(os.path.join(self.path, src))
+        digest = (
+            hashlib.sha256(base64.b64decode(embedded.split(",", 1)[1])).hexdigest()
+            if embedded is not None
+            else None
+        )
+        self.image_dependencies[path] = digest
+        return embedded
+
+
+class ModernMathRenderer(ImageDependencyRenderer):
+    """Emit explicit math regions compatible with site-owned arithmatex setups."""
+
+    def inline_math(self, body):
+        return '<span class="arithmatex">\\(' + self.escape_html(body) + "\\)</span>"
+
+    def block_math(self, body):
+        return '<div class="arithmatex">\\[' + self.escape_html(body) + "\\]</div>"
+
+    def latex_environment(self, name, body):
+        return (
+            '<div class="arithmatex">'
+            + super().latex_environment(name, body)
+            + "</div>"
+        )
+
+
+class NotebookMarkdownExporter(NotebookMetadataMixin, MarkdownExporter):
+    """TOC export without the notebook's page frontmatter."""
 
 
 def nb2html(
@@ -49,7 +142,14 @@ def nb2html(
     remove_tag_config: dict = {},
     highlight_extra_classes: str = "",
     include_requirejs: bool = False,
-    custom_mathjax_url: str = "https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS_CHTML-full,Safe",
+    custom_mathjax_url: str = "",
+    include_mermaidjs: bool = True,
+    custom_template: str | None = None,
+    mathjax_version: int = 4,
+    include_mathjax: bool = True,
+    html_exporter_options: dict | None = None,
+    image_dependencies: dict | None = None,
+    markdown_cell_processor: str = "jupyter",
 ):
     """
     Convert a notebook to HTML
@@ -82,6 +182,9 @@ def nb2html(
     -------
         HTML content
     """
+    exporter_options = validate_html_exporter_options(html_exporter_options)
+    if markdown_cell_processor not in ("jupyter", "mkdocs"):
+        raise ValueError("markdown_cell_processor must be jupyter or mkdocs")
     logger.info(f"Converting notebook (execute={execute}): {nb_path}")
 
     global cell_id, kernel_lang
@@ -102,6 +205,15 @@ def nb2html(
     # Use the templates included in this package
     template_file = "mkdocs_html/notebook.html.j2"
     extra_template_paths = [settings.templates_dir]
+    template_options = {}
+    if custom_template:
+        template_path = Path(custom_template).absolute()
+        if not template_path.is_file():
+            raise FileNotFoundError(
+                f"Custom notebook template not found: {template_path}"
+            )
+        template_file = template_path.name
+        template_options["extra_loaders"] = [FileSystemLoader(template_path.parent)]
 
     # Customize NBConvert App
     preprocessors_ = [SubCell]
@@ -109,7 +221,7 @@ def nb2html(
         "highlight_code": mk_custom_highlight_code(
             extra_css_classes=highlight_extra_classes
         ),
-        # "markdown2html": custom_markdown2html,
+        "normalize_latex_output": normalize_latex_output,
     }
 
     # Ensures SVG rendered with data and rdkit exit with NOOP
@@ -119,30 +231,53 @@ def nb2html(
 
     default_filters["clean_html"] = custom_clean_html
 
-    exporter = HTMLExporter(
+    # Dedicated plugin settings and package-owned templates take precedence.
+    options = {
+        name: value
+        for name, value in exporter_options.items()
+        if name not in MANAGED_OPTIONS
+    }
+    if exporter_options:
+        options["exclude_input"] = no_input or not show_input
+        if no_input or no_prompt:
+            options["exclude_input_prompt"] = True
+            options["exclude_output_prompt"] = True
+    exporter = NotebookHTMLExporter(
+        **options,
         config=app.config,
         template_file=template_file,
         extra_template_paths=extra_template_paths,
         preprocessors=preprocessors_,
         filters=filters,
         theme=theme,
-        mathjax_url=custom_mathjax_url,
+        mathjax_url=mathjax_url(mathjax_version, custom_mathjax_url),
+        **template_options,
     )
+    exporter._image_dependencies = image_dependencies
+    if custom_template:
+        # nbconvert's binary asset fallback uses paths rather than Jinja loaders.
+        exporter.template_paths = [str(template_path.parent), *exporter.template_paths]
 
+    resources = {
+        "metadata": {"path": os.path.dirname(os.path.abspath(nb_path))},
+        "mkdocs": {
+            "markdown_cell_processor": markdown_cell_processor,
+            "include_requirejs": include_requirejs,
+            "include_mermaidjs": include_mermaidjs,
+            "mathjax_version": mathjax_version,
+            "mathjax_script": (
+                mathjax_script(mathjax_version, custom_mathjax_url)
+                if include_mathjax and mathjax_version != 2
+                else ""
+            ),
+        },
+    }
     _, extension = os.path.splitext(nb_path)
 
     if extension in (".py", ".md"):
         nb = jupytext.read(nb_path)
         nb_file = io.StringIO(jupytext.writes(nb, fmt="ipynb"))
-        content, resources = exporter.from_file(
-            nb_file,
-            resources={
-                "mkdocs": {
-                    "test": "value",
-                    "include_requirejs": include_requirejs,
-                }
-            },
-        )
+        content, resources = exporter.from_file(nb_file, resources=resources)
     else:
         try:
             with open(nb_path, "r", encoding="utf-8") as f:
@@ -150,15 +285,7 @@ def nb2html(
                 kernel_lang = nb_json["metadata"]["kernelspec"]["language"]
         except KeyError:
             pass
-        content, resources = exporter.from_filename(
-            nb_path,
-            resources={
-                "mkdocs": {
-                    "test": "value",
-                    "include_requirejs": include_requirejs,
-                }
-            },
-        )
+        content, resources = exporter.from_filename(nb_path, resources=resources)
         content = (
             content
             + f"""
@@ -177,18 +304,37 @@ def nb2html(
     return content
 
 
-def _strip_if_no_heading(m):
-    """Strip `m` of headings, check the pattern {1-6}#<space>, does not strip, e.g., "#incldue"."""
-    if re.search(r"^#{1,6} ", m.group(), re.MULTILINE):
-        return m.group()  # keep it
-    return ""
+def _extract_toc_headings(source):
+    """Extract one cell's headings using the notebook HTML Markdown parser."""
+    headings = []
+
+    class HeadingRenderer(IPythonRenderer):
+        def heading(self, text, level, **attrs):
+            html = super().heading(text, level)
+            try:
+                heading = ElementTree.fromstring(html)
+            except Exception:
+                # The HTML exporter also omits anchors for invalid heading HTML.
+                return ""
+            heading_id = heading.get("id")
+            if heading_id is not None:
+                # Preserve literal visible text and the HTML exporter's exact ID.
+                heading.remove(heading[-1])
+                label = "".join(heading.itertext()).replace("\n", " ")
+                label = escape(label, quote=False)
+                label = re.sub(r"([\\`*_{}\[\]()#+.!>-])", r"\\\1", label)
+                headings.append(f"{'#' * level} {label} {{#{heading_id}}}\n")
+            return ""
+
+    MarkdownWithMath(renderer=HeadingRenderer(escape=False)).render(source)
+    return "\n".join(headings)
 
 
 def nb2md(nb_path, start=0, end=None, execute=False, kernel_name=""):
-    """Convert a notebook to markdown
+    """Extract notebook headings as Markdown for the MkDocs table of contents.
 
-    We use a template that removed all code cells because if the body
-    is to big ( with javascript and CSS) it takes to long to read and parse
+    The template omits code cells and parses each Markdown cell independently
+    using the same parser as HTML export, retaining only its actual headings.
     """
 
     app = get_nbconvert_app(
@@ -199,10 +345,11 @@ def nb2md(nb_path, start=0, end=None, execute=False, kernel_name=""):
     template_file = "mkdocs_md/md-no-codecell.md.j2"
     extra_template_paths = [settings.templates_dir]
 
-    exporter = MarkdownExporter(
+    exporter = NotebookMarkdownExporter(
         config=app.config,
         template_file=template_file,
         extra_template_paths=extra_template_paths,
+        filters={"extract_toc_headings": _extract_toc_headings},
     )
 
     _, extension = os.path.splitext(nb_path)
@@ -213,20 +360,6 @@ def nb2md(nb_path, start=0, end=None, execute=False, kernel_name=""):
         body, resources = exporter.from_file(nb_file)
     else:
         body, resources = exporter.from_filename(nb_path)
-
-    # Code cells can also be created using backquotes (text surrounded by up to three backquotes `)
-    # So it needs to be removed, also to not mess the table of contents (for more see "test_toc.py")
-
-    # Remove fenced code blocks (``` ... ```) including their content (may span lines)
-    body = re.sub(r"```.*?```", "", body, flags=re.DOTALL)
-
-    # Remove inline code spans (`...`) without crossing newlines to avoid
-    # destroying headings when backticks are unmatched across cells
-    body = re.sub(r"`[^`\n]*`", "", body)
-
-    # Remove remaining backtick-wrapped spans that may cross lines,
-    # but only if they don't contain markdown headings
-    body = re.sub(r"`[^`]*`", _strip_if_no_heading, body)
 
     return body
 
@@ -266,12 +399,10 @@ def get_nbconvert_app(
         )
 
     if no_prompt:
-        template_exported_conf.update(
+        template_exported_conf["TemplateExporter"].update(
             {
-                "TemplateExporter": {
-                    "exclude_output_prompt": True,
-                    "exclude_input_prompt": True,
-                }
+                "exclude_output_prompt": True,
+                "exclude_input_prompt": True,
             }
         )
 

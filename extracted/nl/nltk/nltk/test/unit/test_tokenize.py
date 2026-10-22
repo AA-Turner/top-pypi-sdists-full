@@ -4,12 +4,12 @@ See also nltk/test/tokenize.doctest
 """
 
 import hashlib
-import multiprocessing
 import os
 from typing import List, Tuple
 
 import pytest
 
+from nltk.test.unit import timing
 from nltk.tokenize import (
     LegalitySyllableTokenizer,
     StanfordSegmenter,
@@ -22,6 +22,8 @@ from nltk.tokenize import (
 )
 from nltk.tokenize.simple import CharTokenizer
 from nltk.tokenize.treebank import TreebankWordDetokenizer
+
+from . import _mp_ctx
 
 
 def load_stanford_segmenter():
@@ -69,6 +71,20 @@ class TestTokenize:
             "français",
         ]
         assert tokens == expected
+
+    def test_tweet_tokenizer_ellipsis_newline(self):
+        """
+        Ellipsis tokens must not span newlines (#1954).
+        """
+        tokenizer = TweetTokenizer()
+        assert tokenizer.tokenize("hello...\n...world") == [
+            "hello",
+            "...",
+            "...",
+            "world",
+        ]
+        # spaces between ellipsis dots are still allowed
+        assert tokenizer.tokenize("a.. .b") == ["a", ".. .", "b"]
 
     @pytest.mark.parametrize(
         "test_input, expecteds",
@@ -368,20 +384,18 @@ class TestTokenize:
         """
         The URL/email regexes used to backtrack catastrophically on long
         dotted strings, so a tiny input could hang the tokenizer for many
-        seconds. Run pathological inputs in a spawned process with a hard
+        seconds. Run pathological inputs in a separate process with a hard
         timeout so a regression fails fast instead of hanging the suite.
         """
-        ctx = multiprocessing.get_context("spawn")
-        proc = ctx.Process(target=_tweet_tokenizer_redos_worker)
-        proc.start()
-        proc.join(60)
-        if proc.is_alive():
-            proc.terminate()
-            proc.join()
+        ctx = _mp_ctx()
+        run = timing.run_in_process(
+            _tweet_tokenizer_redos_worker, (), budget=60, context=ctx, cpu_bound=True
+        )
+        if not run.within_budget:
             raise AssertionError(
                 "TweetTokenizer did not finish in time, possible ReDoS"
             )
-        assert proc.exitcode == 0, f"worker failed (exit code {proc.exitcode})"
+        assert run.exitcode == 0, f"worker failed (exit code {run.exitcode})"
 
     def test_tweet_tokenizer_reduce_len_preserves_non_latin(self):
         """
@@ -469,6 +483,12 @@ class TestTokenize:
         expected = ["<3", "🇨🇦", "🤝", "🇵🇱", "<3"]
         result = tokenizer.tokenize(test6)
         assert result == expected
+
+    def test_tweet_tokenizer_zwj_does_not_capture_whitespace(self):
+        """Whitespace next to a ZWJ remains a token boundary."""
+        tokenizer = TweetTokenizer()
+        assert tokenizer.tokenize("a\t\u200db") == ["a", "\u200db"]
+        assert tokenizer.tokenize("a\u200d\tb") == ["a\u200d", "b"]
 
     def test_pad_asterisk(self):
         """

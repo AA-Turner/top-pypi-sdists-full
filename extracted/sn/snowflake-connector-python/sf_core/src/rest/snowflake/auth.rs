@@ -41,8 +41,6 @@ pub struct AuthRequestClientEnvironment {
     pub os: String,
     #[serde(rename = "OS_VERSION")]
     pub os_version: String,
-    #[serde(rename = "OCSP_MODE", skip_serializing_if = "Option::is_none")]
-    pub ocsp_mode: Option<String>,
     #[serde(rename = "CERT_REVOCATION_CHECK_MODE")]
     pub cert_revocation_check_mode: String,
     #[serde(rename = "RUNTIME_VERSION", skip_serializing_if = "Option::is_none")]
@@ -63,6 +61,10 @@ pub struct AuthRequestClientEnvironment {
     pub is_fips: bool,
     #[serde(rename = "APPLICATION_PATH")]
     pub application_path: String,
+    #[serde(rename = "LIBC_FAMILY", skip_serializing_if = "Option::is_none")]
+    pub libc_family: Option<String>,
+    #[serde(rename = "LIBC_VERSION", skip_serializing_if = "Option::is_none")]
+    pub libc_version: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Default)]
@@ -231,7 +233,6 @@ mod tests {
             application: "JDBC".to_string(),
             os: "Linux".to_string(),
             os_version: "Linux-5.10-aarch64-64bit".to_string(),
-            ocsp_mode: Some("FAIL_OPEN".to_string()),
             runtime_version: Some("21.0.1".to_string()),
             runtime_name: Some("OpenJDK".to_string()),
             compiler: Some("javac 21.0.1".to_string()),
@@ -241,7 +242,10 @@ mod tests {
         assert_eq!(json["APPLICATION"], "JDBC");
         assert_eq!(json["OS"], "Linux");
         assert_eq!(json["OS_VERSION"], "Linux-5.10-aarch64-64bit");
-        assert_eq!(json["OCSP_MODE"], "FAIL_OPEN");
+        assert!(
+            json.get("OCSP_MODE").is_none(),
+            "login environment does not include OCSP_MODE"
+        );
         assert_eq!(json["RUNTIME_VERSION"], "21.0.1");
         assert_eq!(json["RUNTIME_NAME"], "OpenJDK");
         assert_eq!(json["COMPILER"], "javac 21.0.1");
@@ -271,10 +275,6 @@ mod tests {
         assert!(
             json.get("RELEASE_TYPE").is_none(),
             "None RELEASE_TYPE should be skipped"
-        );
-        assert!(
-            json.get("OCSP_MODE").is_none(),
-            "None OCSP_MODE should be skipped"
         );
         assert!(
             json.get("PLATFORM").is_none(),

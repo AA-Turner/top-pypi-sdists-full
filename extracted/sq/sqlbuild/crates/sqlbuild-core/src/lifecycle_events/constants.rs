@@ -183,7 +183,8 @@ pub const OPERATION_KINDS: [&str; 10] = [
     "subprocess",
     "warehouse",
 ];
-pub const OPERATION_NAMES: [&str; 55] = [
+pub const OPERATION_NAMES: [&str; 56] = [
+    "adbc_driver_install",
     "audit_evaluation",
     "clone_execution",
     "clone_finalization",
@@ -300,6 +301,7 @@ pub(crate) const LIFECYCLE_EVENT_CATALOG_V1: [EventDefinition; 20] = [
             "command",
             "duration_ms",
             "error_code",
+            "error_message",
             "error_type",
             "exit_code",
         ],
@@ -661,6 +663,7 @@ pub(crate) const LIFECYCLE_EVENT_CATALOG_V2: [EventDefinition; 23] = [
             "command",
             "duration_ms",
             "error_code",
+            "error_message",
             "error_type",
             "exit_code",
         ],

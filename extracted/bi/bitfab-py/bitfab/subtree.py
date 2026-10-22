@@ -15,6 +15,7 @@ import site
 import sys
 import sysconfig
 import threading
+import time
 import uuid
 from collections.abc import Iterator
 from contextvars import ContextVar
@@ -160,10 +161,66 @@ class _Open:
     error: str | None = None
     closed: bool = False
     framework_span: bool = False
+    records_llm_call: bool = False
     resume_beneath: tuple[_Open, ...] = ()
     declared: bool = False
     claimed: bool = False
     details: dict[str, Any] | None = None
+    started_monotonic: float = field(default_factory=time.monotonic)
+    usage_recorded_beneath: bool = False
+
+
+@dataclass(frozen=True)
+class ResultReader:
+    read: Callable[[Any, int], dict[str, Any] | None]
+    span_type: str
+    recorded: Callable[[Any], None]
+
+
+_result_readers: dict[str, ResultReader] = {}
+
+
+def read_results_of(name: str, reader: ResultReader) -> None:
+    _result_readers[name] = reader
+
+
+def mark_usage_recorded() -> None:
+    for stack in (_open.get() or {}).values():
+        for entry in stack:
+            entry.usage_recorded_beneath = True
+
+
+def _elapsed_ms(entry: _Open) -> int:
+    return round((time.monotonic() - entry.started_monotonic) * 1000)
+
+
+def _read_result(reader: ResultReader, entry: _Open, result: Any) -> Any:
+    try:
+        return reader.read(result, _elapsed_ms(entry))
+    except Exception:
+        return None
+
+
+def _attach_read_context(
+    entry: _Open, reader: ResultReader, context: dict[str, Any], written: list[Any]
+) -> bool:
+    if entry.span_id is None:
+        return False
+    if entry.emit and not entry.mirror:
+        details = entry.details or {}
+        entry.details = {
+            **details,
+            "contexts": [*(details.get("contexts") or []), context],
+        }
+        entry.span_type = reader.span_type
+        return True
+    details = entry.details
+    if details is None:
+        return False
+    if not any(done is details for done in written):
+        details["contexts"] = [*(details.get("contexts") or []), context]
+        written.append(details)
+    return True
 
 
 @dataclass(eq=False)
@@ -182,6 +239,7 @@ class Session:
     mock_on_replay_default: bool = False
     root_code: Any = None
     root_span_context: Any = None
+    owner: Any = None
     link_pending: bool = False
     captured_subtree_count: int = 0
     truncated: bool = False
@@ -376,6 +434,17 @@ def _without(stack: tuple[_Open, ...], index: int) -> tuple[_Open, ...]:
         for position, entry in enumerate(stack)
         if position != index and not (entry.framework_span and entry.closed)
     )
+
+
+def admits_discovered_call(session: Session, span_name: str) -> bool:
+    stack = (_open.get() or {}).get(session, ())
+    depth = sum(entry.counts_toward_depth for entry in stack)
+    if session.exceeds_depth(depth):
+        session.refuse_for_depth()
+        return False
+    if session.hidden_by_sim_plan(span_name):
+        return True
+    return session.take_discovery_budget()
 
 
 def _allocate(
@@ -671,6 +740,10 @@ def _close(code: Any, result: Any, error: str | None) -> Any:
                 if _suspended.get(session) == {}:
                     del _suspended[session]
 
+        reader = _result_readers.get(code.co_name) if error is None else None
+        context: Any = None
+        written: list[Any] = []
+        recorded = False
         for session in sessions:
             entry = suspended_entries[session]
             stack = stacks.get(session, ())
@@ -681,6 +754,14 @@ def _close(code: Any, result: Any, error: str | None) -> Any:
                 entry = stack[index]
                 updated[session] = _without(stack, index)
 
+            if reader is not None and not entry.usage_recorded_beneath:
+                if context is None:
+                    context = _read_result(reader, entry, result)
+                if context is not None and _attach_read_context(
+                    entry, reader, context, written
+                ):
+                    recorded = True
+
             if entry.mirror:
                 entry.result = result
                 entry.error = error
@@ -690,6 +771,9 @@ def _close(code: Any, result: Any, error: str | None) -> Any:
                 continue
             _emit_entry(session, entry, result, error)
         _open.set(updated)
+        if recorded and reader is not None:
+            mark_usage_recorded()
+            reader.recorded(result)
     except Exception:
         pass
     finally:
@@ -895,6 +979,7 @@ class BorrowedSpan:
                 inputs={},
                 started_at="",
                 emit=False,
+                details=self._details,
             )
         if self._name is None:
             return None
@@ -1035,7 +1120,9 @@ def current_parent_span_id(session: Session) -> str:
     return parent.span_id if parent is not None else session.root_span_id
 
 
-def enter_framework_span(trace_id: str, span_id: str | None) -> _Open | None:
+def enter_framework_span(
+    trace_id: str, span_id: str | None, *, records_llm_call: bool = False
+) -> _Open | None:
     sessions = [session for session in _session.get() if session.trace_id == trace_id]
     if not sessions:
         return None
@@ -1049,6 +1136,7 @@ def enter_framework_span(trace_id: str, span_id: str | None) -> _Open | None:
         emit=False,
         counts_toward_depth=False,
         framework_span=True,
+        records_llm_call=records_llm_call,
     )
     stacks = _open.get() or {}
     updated = dict(stacks)
@@ -1056,6 +1144,11 @@ def enter_framework_span(trace_id: str, span_id: str | None) -> _Open | None:
         updated[session] = (*stacks.get(session, ()), entry)
     _open.set(updated)
     return entry
+
+
+def framework_llm_call_open(session: Session) -> bool:
+    stack = (_open.get() or {}).get(session, ())
+    return any(entry.records_llm_call and not entry.closed for entry in stack)
 
 
 def exit_framework_span(entry: _Open) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: strands-agents
-Version: 1.61.1
+Version: 1.62.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/harness-sdk
 Project-URL: Bug Tracker, https://github.com/strands-agents/harness-sdk/issues
@@ -57,7 +57,7 @@ Requires-Dist: fastapi<1.0.0,>=0.133.0; extra == 'all'
 Requires-Dist: google-genai<3.0.0,>=1.68.0; extra == 'all'
 Requires-Dist: google-genai<3.0.0,>=2.0.0; extra == 'all'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'all'
-Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'all'
+Requires-Dist: litellm<1.107.0,>=1.75.9; extra == 'all'
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'all'
 Requires-Dist: markdownify<2.0.0,>=1.1.0; extra == 'all'
 Requires-Dist: mistralai<4.0.0,>=2.0.0; extra == 'all'
@@ -120,6 +120,8 @@ Requires-Dist: prompt-toolkit<4.0.0,>=3.0.0; extra == 'bidi-io'
 Requires-Dist: rich<16.0.0,>=15.0.0; extra == 'bidi-io'
 Provides-Extra: bidi-openai
 Requires-Dist: websockets<17.0.0,>=16.0.0; extra == 'bidi-openai'
+Provides-Extra: bidi-openai-live
+Requires-Dist: openai[realtime]<4.0.0,>=3.35.1; extra == 'bidi-openai-live'
 Provides-Extra: bidi-pyaudio
 Requires-Dist: pyaudio<0.3.0,>=0.2.0; extra == 'bidi-pyaudio'
 Provides-Extra: cedar
@@ -145,7 +147,7 @@ Requires-Dist: sphinx<10.0.0,>=5.0.0; extra == 'docs'
 Provides-Extra: gemini
 Requires-Dist: google-genai<3.0.0,>=1.68.0; extra == 'gemini'
 Provides-Extra: litellm
-Requires-Dist: litellm<2.0.0,>=1.75.9; extra == 'litellm'
+Requires-Dist: litellm<1.107.0,>=1.75.9; extra == 'litellm'
 Requires-Dist: openai<3.0.0,>=1.68.0; extra == 'litellm'
 Provides-Extra: llamaapi
 Requires-Dist: llama-api-client<1.0.0,>=0.1.0; extra == 'llamaapi'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: httpcore2
-Version: 2.15.1
+Version: 2.16.0
 Summary: A minimal low-level HTTP client.
 Project-URL: Changelog, https://github.com/pydantic/httpx2/blob/main/src/httpcore2/CHANGELOG.md
 Project-URL: Homepage, https://github.com/pydantic/httpx2
@@ -150,6 +150,10 @@ pip install 'httpcore2==2.*'
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## 2.16.0 (October 21st, 2026)
+
+No changes since `2.15.1`. Version bumped to stay in lockstep with `httpx2`.
 
 ## 2.15.1 (October 19th, 2026)
 

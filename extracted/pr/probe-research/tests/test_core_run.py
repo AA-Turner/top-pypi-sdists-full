@@ -539,7 +539,7 @@ def test_done_is_the_last_line_of_a_core_run(noisy_core_update):
         (["configure"], '{"agents": []}'),
         (["configure"], '{"agents": ["claude"], "captur": false}'),  # a typo must not turn capture on
         (["configure"], '{"agents": ["claude"], "capture": 0}'),
-        (["configure"], '{"agents": ["kimi"]}'),
+        (["configure"], '{"agents": ["not_a_registered_agent"]}'),
         (["recorder"], "{}"),
         (["recorder"], '{"who_records": "both"}'),
         (["session_default"], '{"state": "inline"}'),
@@ -723,9 +723,15 @@ def test_a_configure_that_leaves_capture_out_keeps_it_off(device):
     assert ("claude_code", "capture") not in device.installed
 
 
-@pytest.mark.parametrize(("agent", "source"), [(Agent.CLAUDE, "claude_code"), (Agent.CODEX, "codex"), (Agent.PI, "pi")])
-def test_every_agent_word_is_one_the_wizard_takes(agent, source):
-    assert main._explicit_agent_sources([agent.value]) == (source,)  # noqa: SLF001
+def test_every_registry_agent_and_alias_can_be_configured_through_the_service():
+    from probe.harness import get_registry
+
+    for harness in get_registry().installable():
+        for word in dict.fromkeys((harness.cli_flag, *harness.names)):
+            if not word:
+                continue
+            request = requests.parse(ActionName.CONFIGURE, {"agents": [word]})
+            assert main._explicit_agent_sources([request.agents[0].value]) == (harness.id,)  # noqa: SLF001
 
 
 def test_a_repeated_agent_is_configured_once():
@@ -736,7 +742,7 @@ def test_a_repeated_agent_is_configured_once():
     "build",
     [
         lambda: ConfigureRequest(agents=()),
-        lambda: ConfigureRequest(agents=("kimi",)),
+        lambda: ConfigureRequest(agents=("not_a_registered_agent",)),
         lambda: ConfigureRequest(agents=(Agent.CLAUDE,), capture="false"),  # a truthy string
         lambda: RecorderRequest("both"),
         lambda: SessionDefaultRequest("daemon"),

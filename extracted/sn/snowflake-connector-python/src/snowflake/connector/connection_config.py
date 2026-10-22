@@ -215,9 +215,6 @@ class ConnectionConfig(ConnectionConfigMixin):
     Default: False
     """
 
-    oauth_disable_console_login: bool | None = False
-    """Disable EXTERNALBROWSER console-login (JDBC parity; does not gate OAuth). Default: False"""
-
     oauth_disable_pkce: bool | None = False
     """Disable PKCE S256 challenge for OAUTH_AUTHORIZATION_CODE (Python-compatible escape hatch). Default: False"""
 
@@ -388,14 +385,16 @@ class ConnectionConfig(ConnectionConfigMixin):
     Default: False
     """
 
-    use_proxy_env: bool | None = True
-    """Honour HTTP_PROXY/HTTPS_PROXY/NO_PROXY env vars when no explicit proxy is set. Default: True"""
+    use_proxy_env: bool | None = None
+    """Honour HTTP_PROXY/HTTPS_PROXY/NO_PROXY env vars when no explicit proxy is set. Unset uses the wrapper preset
+    (true for Python and Node.js, false otherwise)
+    """
 
     user: str | None = None
     """Login username. Required"""
 
-    validate_default_parameters: bool | None = False
-    """Validate that the default database, schema, and warehouse exist on the server at connect time. Default: False"""
+    validate_default_parameters: bool | None = None
+    """Validate that the default database, schema, and warehouse exist on the server at connect time"""
 
     verify_certificates: bool | None = True
     """Whether to verify TLS certificates. Default: True"""
@@ -424,17 +423,32 @@ class ConnectionConfig(ConnectionConfigMixin):
     client_memory_limit: int | None = 1536
     """Memory budget in MB for chunk prefetch buffer (0 = unlimited). Default: 1536"""
 
-    client_prefetch_threads: int | None = 4
-    """Number of concurrent chunk prefetch threads for result set downloading. Default: 4"""
+    client_prefetch_threads: int | None = None
+    """Number of concurrent chunk prefetch threads for result set downloading"""
 
-    client_session_keep_alive: bool | None = False
-    """Keep the session alive with periodic heartbeat requests. Default: False"""
+    client_session_keep_alive: bool | None = None
+    """Keep the session alive with periodic heartbeat requests"""
 
     client_session_keep_alive_heartbeat_frequency: int | None = None
     """Heartbeat frequency in seconds (clamped to interval master_token_validity/16..master_token_validity/4)"""
 
+    autocommit: bool | None = None
+    """Session autocommit mode"""
+
+    client_metadata_request_use_connection_ctx: bool | None = None
+    """Use the connection context for metadata requests"""
+
+    client_out_of_band_telemetry_enabled: bool | None = None
+    """Enable out-of-band client telemetry"""
+
+    client_timestamp_type_mapping: str | None = None
+    """Timestamp type used for generic timestamp values"""
+
     database: str | None = None
     """Default database to use"""
+
+    gcs_use_downscoped_credential: bool | None = None
+    """Use downscoped credentials for GCS"""
 
     query_tag: str | None = None
     """String label attached to queries and surfaced in QUERY_HISTORY. Settable at the session level (connection option
@@ -446,6 +460,12 @@ class ConnectionConfig(ConnectionConfigMixin):
 
     schema: str | None = None
     """Default schema to use"""
+
+    service_name: str | None = None
+    """Snowflake service name"""
+
+    timezone: str | None = None
+    """Session timezone, overridable per statement"""
 
     use_s3_regional_url: bool | None = False
     """Force the S3 regional endpoint for PUT/GET (PrivateLink-to-S3). Default: False"""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tentaclio-postgres
-Version: 0.1.0
+Version: 0.2.0
 Summary: A python project containing all the dependencies for schema postgres for tentaclio.
 Author-email: Octopus Energy <nerds@octopus.energy>
 License-Expression: MIT
@@ -8,25 +8,18 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: tentaclio
+Requires-Dist: sqlalchemy<2.1
 Requires-Dist: psycopg2-binary
-Provides-Extra: dev
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-mock; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: Flake8-pyproject; extra == "dev"
-Requires-Dist: isort>=5.11.2; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pandas<3
 Dynamic: license-file
 
 

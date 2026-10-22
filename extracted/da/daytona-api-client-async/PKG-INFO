@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daytona_api_client_async
-Version: 0.225.0
+Version: 0.226.0
 Summary: Daytona
 Home-page: 
 Author: Daytona Platforms Inc.
@@ -12,9 +12,9 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: python-dateutil>=2.9.0.post0
-Requires-Dist: aiohttp>=3.14.4
+Requires-Dist: aiohttp>=3.14.5
 Requires-Dist: aiohttp-retry>=2.9.1
-Requires-Dist: pydantic>=2.14.0
+Requires-Dist: pydantic>=2.14.1
 Requires-Dist: typing-extensions>=4.16.0
 Dynamic: author
 Dynamic: license-file

@@ -15,8 +15,9 @@ class TDDFTSettings(ExcitedStateSettings):
 
     Attributes:
         tda: use Tamm-Dancoff approximation
-        num_excitations: number of excitations to calculate
-        target_root: root to target (for gradient/optimization)
+        num_excitations: positive number of excitations to calculate
+        target_root: positive root to target (for gradient/optimization); must not exceed `num_excitations` when set
+        settings_type: excited-state settings discriminator, fixed to `tddft_settings`
     """
 
     tda: bool = True

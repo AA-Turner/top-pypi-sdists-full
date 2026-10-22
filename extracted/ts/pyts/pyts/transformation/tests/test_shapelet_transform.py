@@ -427,3 +427,39 @@ def test_attributes_shape(params, X, y, fewer_shapelets, attr_expected):
         assert n_shapelets_actual == attr_expected['n_shapelets']
         assert shapelet.indices_.shape == attr_expected['indices_shape']
         assert shapelet.scores_.size == attr_expected['scores_size']
+
+
+@pytest.mark.parametrize('dtype', [np.int16, np.int32, np.uint32, np.int64])
+@pytest.mark.parametrize('with_steps', [False, True])
+def test_integer_window_dtypes(dtype, with_steps):
+    """Integer window sizes and steps of any dtype match plain lists."""
+    sizes, steps = [3, 5], [1, 2]
+    params = {'random_state': 42, 'sort': True}
+    reference = ShapeletTransform(
+        window_sizes=sizes, window_steps=steps if with_steps else None, **params
+    ).fit(X, y)
+    shapelet = ShapeletTransform(
+        window_sizes=np.array(sizes, dtype=dtype),
+        window_steps=np.array(steps, dtype=dtype) if with_steps else None,
+        **params,
+    ).fit(X, y)
+    np.testing.assert_allclose(shapelet.transform(X), reference.transform(X))
+    np.testing.assert_array_equal(shapelet.indices_, reference.indices_)
+
+
+def test_anova_ignores_constant_shapelets():
+    """Shapelets with the same distance to every sample are never preferred.
+
+    Their F-score is undefined; it used to be sorted above every real score.
+    """
+    rng = np.random.RandomState(0)
+    X_bump = rng.randn(20, 16) * 0.01
+    y_bump = np.repeat([0, 1], 10)
+    X_bump[:, :4] = 0
+    X_bump[y_bump == 1, 9:12] += 3
+    shapelet = ShapeletTransform(
+        n_shapelets=3, window_sizes=[3], criterion='anova', sort=True, random_state=0
+    ).fit(X_bump, y_bump)
+    assert np.all(np.isfinite(shapelet.scores_))
+    assert np.all(shapelet.scores_ > 0)
+    assert np.all(shapelet.transform(X_bump).std(axis=0) > 0)

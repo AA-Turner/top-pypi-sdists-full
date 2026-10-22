@@ -13,7 +13,9 @@ import numpy as np
 import numpy.typing as npt
 import polars as pl
 
-from numpy_groupies.aggregate_common import (
+from numpy_groupies.aggregate_numpy import aggregate as _aggregate_numpy
+from numpy_groupies.aggregate_numpy.base import _aggregate_base
+from numpy_groupies.common import (
     DEFAULT_FILL_VALUE,
     Registry,
     Resolved,
@@ -21,9 +23,10 @@ from numpy_groupies.aggregate_common import (
     custom_callable,
     funcs_no_separate_nan,
 )
-from numpy_groupies.aggregate_numpy import _aggregate_base
-from numpy_groupies.aggregate_numpy import aggregate as _aggregate_numpy
-from numpy_groupies.utils import (
+from numpy_groupies.utils_np import (
+    AFillValue,
+    AResult,
+    AScalar,
     RavelOrder,
     aliasing,
     check_dtype,
@@ -41,8 +44,16 @@ _EXPRESSIONS: dict[str, Callable[[], pl.Expr]] = {
     "max": lambda: pl.col("a").max(),
     "mean": lambda: pl.col("a").mean(),
     "median": lambda: pl.col("a").median(),
+    # polars interpolates the quantile to the nearest value by default, while
+    # numpy - and the package - interpolate it linearly
+    "quantile": lambda: pl.col("a").quantile(0.5, interpolation="linear"),
     "var": lambda: pl.col("a").var(),
     "std": lambda: pl.col("a").std(),
+    # the moments of the deviations from the mean: polars computes the
+    # biased ones (the moments of the population), the package - like pandas
+    # - the corrected ones, so the correction is applied further down
+    "skew": lambda: pl.col("a").skew(),
+    "kurt": lambda: pl.col("a").kurtosis(),
     "first": lambda: pl.col("a").first(),
     "last": lambda: pl.col("a").last(),
     "cumsum": lambda: pl.col("a").cum_sum(),
@@ -53,6 +64,9 @@ _EXPRESSIONS: dict[str, Callable[[], pl.Expr]] = {
     "any": lambda: pl.col("a").any(),
     # the length of a group is the number of its rows
     "len": lambda: pl.col("a").len(),
+    # the number of the distinct values of a group - polars counts the nans
+    # as a value of their own, like the package does
+    "nunique": lambda: pl.col("a").n_unique(),
     # polars has no nan-aware reductions: the nans are values there, so the
     # nan-functions ask the mask of them
     "anynan": lambda: pl.col("a").is_nan().any(),
@@ -68,14 +82,14 @@ _EXPRESSIONS: dict[str, Callable[[], pl.Expr]] = {
 # holding a nan poisons: polars skips the nans in the extremes and in the
 # median, while the package counts a nan as a value that makes the whole group
 # answer with the nan
-_POISONED_BY_NAN = frozenset(["min", "max", "median", "argmax", "argmin"])
+_POISONED_BY_NAN = frozenset(["min", "max", "median", "quantile", "percentile", "argmax", "argmin", "skew", "kurt"])
 
 # the reductions whose aggregation is faster in the in-memory engine than in
 # the streaming one: the product multiplies over the whole group and the
 # median sorts it, and the streaming engine keeps neither in one piece
 # (measured 6.5ms against 4.8ms for the product, 4.4ms against 4.0ms for the
 # median, of 500k values in 1000 groups)
-_IN_MEMORY = frozenset(["prod", "median"])
+_IN_MEMORY = frozenset(["prod", "median", "quantile", "percentile"])
 
 # the positions of the values in the input, per length: the arg-reductions
 # name them, and building them anew for every call costs 4MB of memory and
@@ -150,7 +164,7 @@ def _wrapper(
     a: npt.NDArray[np.number],
     size: int | tuple[int, ...] | None,
     fill_value: float,
-    func: str | Callable[..., Any] = "sum",
+    func: str | Callable[..., AScalar] = "sum",
     dtype: np.dtype | None = None,
     ddof: int = 0,
     **kwargs: Any,
@@ -203,14 +217,23 @@ def _wrapper(
     # the flag of the group in the same aggregation, which is cheaper than a
     # pass over the whole input in numpy (0.4ms of a cell of 4.6ms)
     poisoned = plain in _POISONED_BY_NAN and not is_nan_version and a.dtype.kind in "fc"
+    # the moments are corrected for the size of their group, so it comes with
+    # them - it is free, the aggregation counts the rows anyway
+    corrected = plain in ("skew", "kurt")
     # the groups come in no order of their own: the result is scattered into
     # the output by the labels, so the order of the groups does not matter -
     # and not keeping it is faster (2.2ms against 3.1ms for a sum)
     grouped = query.group_by("g", maintain_order=False)
+    # the columns of the aggregation: the moment itself, the flag of the
+    # groups a nan poisons, and the size of every group - the last two are
+    # only asked for when they are needed, and both come out of the same
+    # aggregation
+    columns_of_agg: list[pl.Expr] = [expression.alias("v")]
     if poisoned:
-        aggregated = grouped.agg(expression.alias("v"), pl.col("a").is_nan().any().alias("n"))
-    else:
-        aggregated = grouped.agg(expression.alias("v"))
+        columns_of_agg.append(pl.col("a").is_nan().any().alias("n"))
+    if corrected:
+        columns_of_agg.append(pl.len().alias("c"))
+    aggregated = grouped.agg(columns_of_agg)
     result = _collect(aggregated, _engine(plain))
 
     # the dtype of the output: the base has resolved it for the known functions
@@ -219,7 +242,17 @@ def _wrapper(
         dtype = check_dtype(dtype, plain, a, len(group_idx))
     ret = np.full(size, fill_value, dtype=dtype)
     labels = result["g"].to_numpy()
-    ret[labels] = result["v"].to_numpy()
+    values = result["v"].to_numpy()
+    if corrected:
+        # the correction for the size of the group that pandas applies, and
+        # that polars does not: the biased moments of the population become
+        # the unbiased ones of the sample
+        n = result["c"].to_numpy().astype(np.float64)
+        if plain == "skew":
+            values = values * np.sqrt(n * (n - 1)) / (n - 2)
+        else:
+            values = (n + 1) * (n - 1) * (values + 3) / ((n - 2) * (n - 3)) - 3 * (n - 1) ** 2 / ((n - 2) * (n - 3))
+    ret[labels] = values
     if poisoned:
         # the groups holding a nan: polars skips the nans in the extremes, the
         # package does not, so such a group has no extreme at all
@@ -241,8 +274,11 @@ _supported_funcs = [
     "max",
     "mean",
     "median",
+    "quantile",
     "var",
     "std",
+    "skew",
+    "kurt",
     "first",
     "last",
     "cumsum",
@@ -250,12 +286,13 @@ _supported_funcs = [
     "cummax",
     "cummin",
     "len",
+    "nunique",
     "anynan",
     "allnan",
     "argmax",
     "argmin",
 ]
-_op_dict: dict[str, Callable[..., Any]] = {fn: partial(_wrapper, func=fn) for fn in _supported_funcs}
+_op_dict: dict[str, Callable[..., AResult]] = {fn: partial(_wrapper, func=fn) for fn in _supported_funcs}
 _op_dict.update(
     ("nan" + fn, partial(_wrapper, func="nan" + fn)) for fn in _supported_funcs if fn not in funcs_no_separate_nan
 )
@@ -264,7 +301,7 @@ _op_dict.update(
 _op_dict["nancumsum"] = partial(_wrapper, func="nancumsum")
 
 
-def _custom_operation(func: Any) -> Resolved:
+def _custom_operation(func: Callable[..., AScalar]) -> Resolved:
     """The operation of a callable of the caller's own.
 
     polars' group_by machinery takes any callable, so the wrapper of this
@@ -280,9 +317,9 @@ _dispatch = Registry(_op_dict, aliasing, _custom_operation)
 def aggregate(
     group_idx: npt.NDArray[np.integer],
     a: npt.NDArray[np.number],
-    func: str | Callable[..., Any] = "sum",
+    func: str | Callable[..., AScalar] = "sum",
     size: int | Sequence[int] | None = None,
-    fill_value: Any = DEFAULT_FILL_VALUE,
+    fill_value: AFillValue = DEFAULT_FILL_VALUE,
     order: RavelOrder = "C",
     dtype: npt.DTypeLike = None,
     axis: int | None = None,

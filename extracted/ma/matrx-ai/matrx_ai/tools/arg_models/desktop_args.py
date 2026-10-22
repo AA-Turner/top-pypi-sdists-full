@@ -12,6 +12,9 @@ from pydantic import Field
 
 from matrx_ai.tools.declared import ToolArgs
 
+#: A list of names (aliased so a model with a field named ``list`` can still say it).
+NameList = list[str]
+
 
 class DesktopTranscribeArgs(ToolArgs):
     path: str = Field(
@@ -72,6 +75,9 @@ class ShellJobArgs(ToolArgs):
         default=None,
         description="start: the folder it runs in (absolute, or relative to the home folder).",
     )
+    env: dict[str, str] | None = Field(
+        default=None, description="start: extra environment variables, name to value."
+    )
     job_id: str | None = Field(
         default=None, description="output, stop: the job (from start or list)."
     )
@@ -85,6 +91,12 @@ class ShellJobArgs(ToolArgs):
         ge=0,
         le=25,
         description="output: wait up to this long for new output or the exit when none is waiting.",
+    )
+    max_bytes: int | None = Field(
+        default=None,
+        ge=1024,
+        le=1048576,
+        description="output: at most this many bytes per read (65536 by default).",
     )
     force: bool = Field(
         default=False, description="stop: end it at once instead of asking it to quit."
@@ -144,10 +156,17 @@ class DesktopScreenArgs(ToolArgs):
 
 class DesktopWindowArgs(ToolArgs):
     action: Literal["list", "focus", "move", "minimize"] = Field(
-        description="list: open windows; focus: bring one to the front; move: move or resize one; minimize: minimize one.",
+        description="list: open windows; focus: bring one to the front; move: move or resize one; minimize: minimize, maximize or restore one.",
     )
     title: str | None = Field(
         default=None, description="list: only windows whose title contains this text."
+    )
+    app: str | None = Field(
+        default=None, description="list: only windows of apps whose name contains this text."
+    )
+    mode: Literal["minimize", "maximize", "restore"] | None = Field(
+        default=None,
+        description="minimize: minimize (the default), maximize (fill its display) or restore (bring it back).",
     )
     id: int | None = Field(
         default=None, ge=0, description="focus, move, minimize: the window (its id from list)."
@@ -250,11 +269,20 @@ class DesktopAudioArgs(ToolArgs):
     )
     device_id: str | None = Field(
         default=None,
-        description="record: the microphone (its id from devices); the default one when omitted.",
+        description="record: the microphone; play: the speaker or output (its id from devices). The default one when omitted.",
     )
     path: str | None = Field(
         default=None,
         description="record: where to save the WAV (a temp file when omitted); play: the file to play. Absolute, or relative to the home folder.",
+    )
+    channels: int | None = Field(
+        default=None, ge=1, le=2, description="record: 1 (mono, the default) or 2 (stereo)."
+    )
+    sample_rate: int | None = Field(
+        default=None,
+        ge=8000,
+        le=192000,
+        description="record: samples per second, 16000 by default (the rate transcription reads).",
     )
 
 
@@ -283,6 +311,11 @@ class DesktopGitArgs(ToolArgs):
         default=None, description="commit: the message; stash push: an optional label."
     )
     amend: bool = Field(default=False, description="commit: amend the last commit.")
+    author: str | None = Field(
+        default=None,
+        max_length=512,
+        description="commit: the author as \"Name <email>\"; the computer's own git identity when omitted.",
+    )
     remote: str = Field(default="origin", description="push, pull: the remote.")
     branch: str | None = Field(
         default=None,
@@ -314,12 +347,13 @@ class DesktopGitArgs(ToolArgs):
 
 
 class DesktopWebArgs(ToolArgs):
-    action: Literal["fetch", "scrape", "browser_fetch", "search"] = Field(
+    action: Literal["fetch", "scrape", "browser_fetch", "search", "research"] = Field(
         description=(
             "fetch: one HTTP request from the user's computer (their IP), the raw answer; scrape: read "
             "pages as clean text through the platform scraper, from the user's computer; browser_fetch: "
             "render one page in a real browser on the user's computer (JavaScript pages); search: web "
-            "search through AI Matrx's own search provider."
+            "search through AI Matrx's own search provider; research: search, then read every result "
+            "on the user's computer and return the pages' text together."
         ),
     )
     url: str | None = Field(default=None, description="fetch, browser_fetch: the http(s) URL.")
@@ -333,6 +367,19 @@ class DesktopWebArgs(ToolArgs):
     body: str | None = Field(default=None, description="fetch: the request body.")
     timeout_s: int = Field(default=30, ge=1, le=300, description="fetch: seconds to wait.")
     get_links: bool = Field(default=False, description="scrape: also return each page's links.")
+    follow_redirects: bool | None = Field(
+        default=None, description="fetch: follow redirects (true by default)."
+    )
+    engine: Literal["auto", "browser", "server"] | None = Field(
+        default=None,
+        description="scrape: auto (the default), browser (render each page in the computer's browser first) or server.",
+    )
+    wait_timeout_ms: int | None = Field(
+        default=None,
+        ge=100,
+        le=120000,
+        description="browser_fetch: how long to wait for wait_for, in milliseconds (30000 by default).",
+    )
     use_cache: bool = Field(
         default=True, description="scrape: reuse a page read in the last 30 minutes."
     )
@@ -344,10 +391,18 @@ class DesktopWebArgs(ToolArgs):
         default=True,
         description="browser_fetch: true for readable text, false for the rendered HTML.",
     )
-    queries: list[str] | None = Field(default=None, description="search: 1 to 5 search queries.")
-    count: int = Field(default=5, ge=1, le=20, description="search: results per query.")
+    queries: list[str] | None = Field(
+        default=None, description="search, research: 1 to 5 search queries."
+    )
+    count: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="search: results per query; research: pages read per query.",
+    )
     freshness: Literal["pd", "pw", "pm", "py"] | None = Field(
-        default=None, description="search: only results from the past day, week, month or year."
+        default=None,
+        description="search, research: only results from the past day, week, month or year.",
     )
 
 
@@ -417,6 +472,9 @@ class DesktopNetArgs(ToolArgs):
         default=None,
         description="scan: true to scan a host on the public internet (only one you are allowed to scan).",
     )
+    timeout_ms: int | None = Field(
+        default=None, ge=50, le=10000, description="scan: milliseconds to wait on each port (800 by default)."
+    )
     url: str | None = Field(default=None, description="download: the http(s) URL.")
     path: str | None = Field(
         default=None,
@@ -424,6 +482,12 @@ class DesktopNetArgs(ToolArgs):
     )
     overwrite: bool | None = Field(
         default=None, description="download: replace a file already there."
+    )
+    max_bytes: int | None = Field(
+        default=None,
+        ge=1,
+        le=10737418240,
+        description="download: refuse a file larger than this many bytes (2 GB by default).",
     )
     timeout_s: int | None = Field(
         default=None, ge=1, le=3600, description="mdns, download: seconds to wait."
@@ -448,6 +512,7 @@ class DesktopMailArgs(ToolArgs):
     limit: int | None = Field(default=None, ge=1, le=200, description="list: at most this many.")
     to: list[str] | None = Field(default=None, description="send: recipient addresses.")
     cc: list[str] | None = Field(default=None, description="send: copied addresses.")
+    bcc: list[str] | None = Field(default=None, description="send: blind-copied addresses.")
     subject: str | None = Field(default=None, description="send: the subject.")
     body: str | None = Field(default=None, description="send: the plain-text body.")
     sender: str | None = Field(
@@ -494,11 +559,20 @@ class DesktopMessagesArgs(ToolArgs):
         description="chats: recent Messages chats; list: messages, newest first (one chat or all); send: send an iMessage or SMS."
     )
     chat_id: str | None = Field(default=None, description="list: one chat's chat_id (from chats).")
+    contact: str | None = Field(
+        default=None,
+        description="list: only messages with this phone, email or name in the chat (partial matches).",
+    )
+    unread_only: bool | None = Field(default=None, description="list: only messages not yet read.")
     limit: int | None = Field(
         default=None, ge=1, le=500, description="chats, list: at most this many."
     )
     to: str | None = Field(default=None, description="send: the phone number or email to message.")
     text: str | None = Field(default=None, description="send: the message.")
+    service: Literal["iMessage", "SMS"] | None = Field(
+        default=None,
+        description="send: force iMessage or SMS; omit to use iMessage, or SMS when they have none.",
+    )
 
 
 class DesktopContactsArgs(ToolArgs):
@@ -506,7 +580,8 @@ class DesktopContactsArgs(ToolArgs):
         description="search: find contacts; get: one contact's card."
     )
     query: str | None = Field(
-        default=None, description="search: a name, organization, email or phone number."
+        default=None,
+        description="search: a name, organization, email or phone number; omit to list the first contacts.",
     )
     limit: int | None = Field(default=None, ge=1, le=200, description="search: at most this many.")
     id: str | None = Field(default=None, description="get: the contact's id (from search).")
@@ -525,12 +600,18 @@ class DesktopCalendarArgs(ToolArgs):
     calendar: str | None = Field(
         default=None, description="events, create_event: one calendar's name."
     )
+    calendars: NameList | None = Field(
+        default=None, description="events: several calendars by name (with calendar, both count)."
+    )
     title: str | None = Field(default=None, description="create_event, create_reminder: the title.")
     all_day: bool | None = Field(default=None, description="create_event: an all-day event.")
     location: str | None = Field(default=None, description="create_event: where.")
     notes: str | None = Field(default=None, description="create_event, create_reminder: notes.")
     list: str | None = Field(
         default=None, description="reminders, create_reminder: one Reminders list's name."
+    )
+    lists: NameList | None = Field(
+        default=None, description="reminders: several Reminders lists by name (with list, both count)."
     )
     due: str | None = Field(default=None, description="create_reminder: when it is due (ISO 8601).")
     include_completed: bool | None = Field(
@@ -549,11 +630,20 @@ class DesktopPhotosArgs(ToolArgs):
     start: str | None = Field(default=None, description="search: taken on or after (ISO 8601).")
     end: str | None = Field(default=None, description="search: taken on or before (ISO 8601).")
     favorites_only: bool | None = Field(default=None, description="search: only favorites.")
+    media_type: Literal["image", "video", "all"] | None = Field(
+        default=None, description="search: only photos (image) or videos; all by default."
+    )
     limit: int | None = Field(default=None, ge=1, le=200, description="search: at most this many.")
     id: str | None = Field(default=None, description="get: the photo's id (from search).")
     export: bool | None = Field(
         default=None,
         description="get: copy the original to a file on the computer and return its path.",
+    )
+    thumbnail_size: int | None = Field(
+        default=None,
+        ge=64,
+        le=2048,
+        description="get: also return a thumbnail this many pixels on its longest side, which you see as an image.",
     )
 
 
@@ -567,7 +657,7 @@ class DesktopWindowsAdminArgs(ToolArgs):
     ] = Field(
         description=(
             "registry_read: a key's values and subkeys; registry_write: set or delete a value; services: "
-            "Windows services; service_control: start, stop or restart one; event_log: recent events; "
+            "Windows services; service_control: start, stop, restart, pause or resume one; event_log: recent events; "
             "features: optional Windows features."
         ),
     )
@@ -595,10 +685,19 @@ class DesktopWindowsAdminArgs(ToolArgs):
     delete: bool | None = Field(
         default=None, description="registry_write: delete the value instead."
     )
-    service_action: Literal["start", "stop", "restart"] | None = Field(
+    service_action: Literal["start", "stop", "restart", "pause", "resume"] | None = Field(
         default=None, description="service_control: what to do."
     )
     filter: str | None = Field(default=None, description="services, features: text in the name.")
+    status: Literal["running", "stopped", "paused"] | None = Field(
+        default=None, description="services: only services in this state."
+    )
+    installed_only: bool | None = Field(
+        default=None, description="features: only features that are on."
+    )
+    source: str | None = Field(
+        default=None, description="event_log: only events whose source name contains this."
+    )
     log: str | None = Field(
         default=None, description="event_log: System, Application, Security… (System by default)."
     )

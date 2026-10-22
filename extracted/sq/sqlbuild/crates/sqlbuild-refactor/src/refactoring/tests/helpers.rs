@@ -11,6 +11,7 @@ use crate::refactoring::_helpers::edits::header_edits::{
 };
 use crate::refactoring::_helpers::edits::text_edits::{apply_text_edits, file_changes, text_edit};
 use crate::refactoring::_helpers::edits::yaml_edits::{yaml_column_edits, yaml_model_edits};
+use crate::refactoring::_helpers::files::paths::stem;
 use crate::refactoring::_helpers::files::workspace::commit_changes;
 use crate::refactoring::_helpers::planning::column_planning::{
     column_rename_context, header_parts,
@@ -18,7 +19,7 @@ use crate::refactoring::_helpers::planning::column_planning::{
 use crate::refactoring::_helpers::planning::column_references::{
     BodyContext, BodyMapping, ColumnQuery, ResourceColumns, analyze_column, consumer_edits,
 };
-use crate::refactoring::_helpers::planning::declaration_moves::declaration_moves;
+use crate::refactoring::_helpers::planning::declaration_moves::{ModelMove, declaration_moves};
 use crate::refactoring::_helpers::planning::model_planning::{model_parts, model_target};
 use crate::refactoring::_helpers::scanning::chars::chars;
 use crate::refactoring::_helpers::scanning::scan_context::ScanContext;
@@ -27,7 +28,7 @@ use crate::refactoring::errors::{RefactorError, RefactorErrorKind};
 use crate::refactoring::models::{
     AuthoredFile, DeclarationMoves, DeclarationPlacement, DestinationFacts, DiscoveredFile,
     EditKind, ExpansionSpan, FileChange, ModelFacts, PlacedDeclaration, RefactorFacts,
-    RefactorOperation, RefactorRequest, RelocatedDeclaration, SqlFileRole, TextEdit,
+    RefactorOperation, RefactorRequest, RelocatedDeclaration, SqlFileRole, TextEdit, UnitTestFacts,
 };
 use crate::refactoring::tests::test_types::{ExpectedSpans, PlannedMoves, Spans};
 
@@ -292,6 +293,7 @@ pub(super) fn facts(project_dir: &str, models: Vec<ModelFacts>) -> RefactorFacts
         model_files: Vec::new(),
         authored_files: Vec::new(),
         yaml_files: Vec::new(),
+        unit_tests: Vec::new(),
         python_locations: Vec::new(),
     }
 }
@@ -321,13 +323,14 @@ pub(super) fn blocking_reasons(
     let context = ScanContext {
         backtick_identifiers: false,
     };
-    let host = |_: &str, _: &str| {
+    let host = |_: &[(String, String)]| {
         Ok(DeclarationPlacement {
             relocated: Some(Vec::new()),
             ..DeclarationPlacement::default()
         })
     };
-    let parts = model_parts(facts, &target, &context, &host)?;
+    let test_host = |_: &str, _: &str| Ok(Some(Vec::new()));
+    let parts = model_parts(facts, &target, &context, (&host, &test_host))?;
     Ok(parts
         .blocking
         .into_iter()
@@ -426,17 +429,26 @@ pub(super) fn relocated(label: &str, path: &str) -> RelocatedDeclaration {
     RelocatedDeclaration {
         key: label.to_owned(),
         path: path.to_owned(),
+        requires_group: false,
     }
 }
 
-/// The moves and `path:line reason` blockers of moving model `orders` with a fixed placement.
+/// The moves and `path:line reason` blockers of moving models together with a fixed placement.
 pub(super) fn planned_declaration_moves(
     root: &Path,
-    paths: (&str, &str),
+    paths: &[(&str, &str)],
     placement: &DeclarationPlacement,
 ) -> Result<PlannedMoves, RefactorError> {
-    let host = |_: &str, _: &str| Ok(placement.clone());
-    let moves: DeclarationMoves = declaration_moves(root, "orders", paths, &host)?;
+    let host = |_: &[(String, String)]| Ok(placement.clone());
+    let models: Vec<ModelMove<'_>> = paths
+        .iter()
+        .map(|(source, destination)| ModelMove {
+            model: stem(source),
+            source,
+            destination,
+        })
+        .collect();
+    let moves: DeclarationMoves = declaration_moves(root, &models, &BTreeSet::new(), &host)?;
     let blocking: Vec<String> = moves
         .blocking
         .iter()
@@ -645,4 +657,124 @@ pub(super) fn owner_header_parts(
         })
         .collect();
     Ok((described(&edits), manual))
+}
+
+/// Planned test file changes with their replacements, and the plan's notes.
+type FollowedTests = (Vec<(String, Vec<String>)>, Vec<String>);
+
+/// Planned test file changes and `path: reason` notes when the scope host reports `rebound`.
+pub(super) fn followed_unit_tests(
+    request: &RefactorRequest,
+    tests: &[(&str, &str, &[&str])],
+    rebound: &[&str],
+) -> Result<FollowedTests, RefactorError> {
+    let mut orders: ModelFacts = model("orders", Some("view"), "analytics");
+    orders.path = "models/marts/orders.sql".to_owned();
+    let mut project_facts = facts("/nonexistent/project", vec![orders]);
+    for (path, name, targets) in tests {
+        project_facts.authored_files.push(AuthoredFile {
+            role: SqlFileRole::Test,
+            path: (*path).to_owned(),
+            contents: format!("TEST (name \"{name}\");\n\nSELECT 1\n"),
+            texts: vec!["SELECT 1".to_owned()],
+        });
+        project_facts.unit_tests.push(UnitTestFacts {
+            path: (*path).to_owned(),
+            name: Some((*name).to_owned()),
+            target_model_names: targets.iter().map(|target| (*target).to_owned()).collect(),
+        });
+    }
+    let host = |_: &[(String, String)]| {
+        Ok(DeclarationPlacement {
+            relocated: Some(Vec::new()),
+            ..DeclarationPlacement::default()
+        })
+    };
+    let test_host = |_: &str, _: &str| {
+        Ok(Some(
+            rebound.iter().map(|item| (*item).to_owned()).collect(),
+        ))
+    };
+    let plan = crate::refactoring::main::plan_refactor::plan_refactor(
+        &project_facts,
+        std::slice::from_ref(request),
+        &host,
+        &test_host,
+    )?;
+    let notes: Vec<String> = plan
+        .notes
+        .iter()
+        .map(|note| format!("{}: {}", note.path, note.reason))
+        .collect();
+    let mut changes: Vec<(String, Vec<String>)> = plan
+        .changes
+        .into_iter()
+        .filter(|change| change.original_path.starts_with("tests/"))
+        .map(|change| {
+            (
+                format!("{} -> {}", change.original_path, change.path),
+                change
+                    .edits
+                    .into_iter()
+                    .map(|edit| edit.replacement)
+                    .collect(),
+            )
+        })
+        .collect();
+    changes.sort();
+    Ok((changes, notes))
+}
+
+/// Expected `original -> path` test file changes with their replacements, sorted by path.
+pub(super) fn followed_test_changes(changes: &[(&str, &[&str])]) -> Vec<(String, Vec<String>)> {
+    let mut expected = changes
+        .iter()
+        .map(|(path, edits)| {
+            (
+                (*path).to_owned(),
+                edits.iter().map(|edit| (*edit).to_owned()).collect(),
+            )
+        })
+        .collect::<Vec<_>>();
+    expected.sort();
+    expected
+}
+
+/// A move of `model` to `destination`.
+pub(super) fn move_request(model: &str, destination: &str) -> RefactorRequest {
+    RefactorRequest {
+        operation: RefactorOperation::MoveModel,
+        model_name: model.to_owned(),
+        new_name: String::new(),
+        column_name: None,
+        destination: Some(destination.to_owned()),
+        cascade: false,
+    }
+}
+
+/// The `path: reason` blockers and `original -> path` file moves of planning `requests` together.
+pub(super) fn planned_batch(
+    facts: &RefactorFacts,
+    requests: &[RefactorRequest],
+) -> Result<(Vec<String>, Vec<String>), RefactorError> {
+    let host = |_: &[(String, String)]| {
+        Ok(DeclarationPlacement {
+            relocated: Some(Vec::new()),
+            ..DeclarationPlacement::default()
+        })
+    };
+    let test_host = |_: &str, _: &str| Ok(Some(Vec::new()));
+    let plan =
+        crate::refactoring::main::plan_refactor::plan_refactor(facts, requests, &host, &test_host)?;
+    Ok((
+        plan.blocking
+            .iter()
+            .map(|item| format!("{}: {}", item.path, item.reason))
+            .collect(),
+        plan.changes
+            .iter()
+            .filter(|change| change.moved())
+            .map(|change| format!("{} -> {}", change.original_path, change.path))
+            .collect(),
+    ))
 }

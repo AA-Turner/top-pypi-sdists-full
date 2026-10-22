@@ -120,6 +120,139 @@ def _pattern_value(patterns: dict, module: str, default: float) -> float:
     return default
 
 
+def _export_fused_experts(pairs, shapes, config):
+    """Map independent expert updates to PEFT's 3D parameter adapters.
+
+    Qwen's fused expert Parameters are [experts, out, in]. PEFT 0.18
+    factors a 3D Parameter as einsum("ore,eri->eio"), so its factors
+    are the transposes of the ordinary Linear factors. Independent gate
+    and up updates occupy disjoint rank blocks; sharing A would change
+    the trained function.
+    """
+    groups = {}
+    for module in list(pairs):
+        match = re.fullmatch(r"(.+\.experts)\.(\d+)\.(gate|up|down)_proj", module)
+        if match is None or _matching_modules(module, shapes):
+            continue
+        owner, expert, projection = match.groups()
+        groups.setdefault(owner, {})[(int(expert), projection)] = (
+            module,
+            pairs.pop(module),
+        )
+    tensors, parameters, ranks, alphas = {}, [], {}, {}
+    for owner, experts in sorted(groups.items()):
+        if config.get("lora_dropout", 0):
+            raise ValueError(
+                "HF fused expert parameter adapters require lora_dropout=0"
+            )
+        targets = []
+        for parameter, projections in (
+            ("gate_up_proj", ("gate", "up")),
+            ("down_proj", ("down",)),
+        ):
+            if not any(projection in projections for expert, projection in experts):
+                continue
+            candidates = [
+                name
+                for name in shapes
+                if _text_path(name) == _text_path(f"{owner}.{parameter}")
+            ]
+            if len(candidates) != 1:
+                raise ValueError(
+                    f"Expected one fused HF expert parameter for {owner}.{parameter}, found {candidates}"
+                )
+            target = candidates[0]
+            shape = shapes[target]
+            if len(shape) != 3:
+                raise ValueError(f"Fused expert parameter must be 3D: {target}")
+            count, rows, columns = shape
+            block_rows = rows // len(projections)
+            factors = {}
+            projection_ranks = {}
+            for projection in projections:
+                projection_ranks[projection] = 0
+                for expert in range(count):
+                    source = experts.get((expert, projection))
+                    if source is None:
+                        continue
+                    module, pair = source
+                    if pair.keys() != {"A", "B"}:
+                        raise ValueError(f"Missing LoRA A/B pair for {module}")
+                    a, b = pair["A"], pair["B"]
+                    rank = _pattern_value(
+                        config.get("rank_pattern", {}), module, config["r"]
+                    )
+                    alpha = _pattern_value(
+                        config.get("alpha_pattern", {}), module, config["lora_alpha"]
+                    )
+                    if tuple(a.shape) != (rank, columns) or tuple(b.shape) != (
+                        block_rows,
+                        rank,
+                    ):
+                        raise ValueError(
+                            f"LoRA dimensions for {module} do not match fused HF base {target}: {shape}"
+                        )
+                    factors[(expert, projection)] = (a, b, rank, alpha)
+                    projection_ranks[projection] = max(
+                        projection_ranks[projection], rank
+                    )
+            if any(expert < 0 or expert >= count for expert, projection in experts):
+                raise ValueError(f"Expert id outside fused HF parameter: {target}")
+            rank = sum(projection_ranks.values())
+            if not rank:
+                raise ValueError(f"No adapter factors for fused HF parameter: {target}")
+            sample = next(iter(factors.values()))[0]
+            if any(
+                a.dtype != sample.dtype or b.dtype != sample.dtype
+                for a, b, rank, alpha in factors.values()
+            ):
+                raise ValueError(
+                    f"Mixed expert adapter dtypes for fused HF parameter: {target}"
+                )
+            a_peft = sample.new_zeros(count, rank, rows)
+            b_peft = sample.new_zeros(columns, rank, count)
+            denominator = rank ** (0.5 if config.get("use_rslora", False) else 1)
+            first = next(iter(factors.values()))
+            output_scale = first[3] / first[2] ** (
+                0.5 if config.get("use_rslora", False) else 1
+            )
+            output_scale = output_scale or 1.0
+            output_alpha = output_scale * denominator
+            offset = 0
+            for block, projection in enumerate(projections):
+                for expert in range(count):
+                    if (expert, projection) not in factors:
+                        continue
+                    a, b, source_rank, alpha = factors[(expert, projection)]
+                    source_scale = alpha / source_rank ** (
+                        0.5 if config.get("use_rslora", False) else 1
+                    )
+                    a_peft[
+                        expert,
+                        offset : offset + source_rank,
+                        block * block_rows : (block + 1) * block_rows,
+                    ] = b.T
+                    b_peft[:, offset : offset + source_rank, expert] = a.T * (
+                        source_scale / output_scale
+                    )
+                offset += projection_ranks[projection]
+            targets.append(
+                (target, a_peft.flatten(0, 1), b_peft.flatten(1, 2), rank, output_alpha)
+            )
+        # PEFT nests a wrapper for each target parameter on the same module,
+        # in Qwen's declaration order (gate/up then down), outermost last.
+        for index, (target, a, b, rank, alpha) in enumerate(targets):
+            module = target.rsplit(".", 1)[0] + ".base_layer" * (
+                len(targets) - index - 1
+            )
+            tensors[f"{_PEFT_PREFIX}{module}.lora_A.weight"] = a.contiguous()
+            tensors[f"{_PEFT_PREFIX}{module}.lora_B.weight"] = b.contiguous()
+            parameters.append(target)
+            ranks[target] = rank
+            alphas[target] = alpha
+    return tensors, parameters, ranks, alphas
+
+
 def export_hf_adapter(
     source_dir: str | Path,
     output_dir: str | Path,
@@ -186,10 +319,8 @@ def export_hf_adapter(
     if not pairs:
         raise ValueError("Adapter checkpoint has no LoRA tensors")
 
-    tensors = {}
+    tensors, parameters, ranks, alphas = _export_fused_experts(pairs, shapes, config)
     targets = set()
-    ranks = {}
-    alphas = {}
     for module, pair in pairs.items():
         if pair.keys() != {"A", "B"}:
             raise ValueError(f"Missing LoRA A/B pair for {module}")
@@ -250,6 +381,8 @@ def export_hf_adapter(
         exclude_modules=None,
         inference_mode=True,
     )
+    if parameters:
+        config["target_parameters"] = parameters
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(
         prefix=f".{output.name}-", dir=output.parent

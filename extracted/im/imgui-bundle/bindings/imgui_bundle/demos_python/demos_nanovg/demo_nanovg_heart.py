@@ -1,3 +1,9 @@
+"""NanoVG: a beating heart
+
+A heart drawn with [NanoVG](https://github.com/memononen/nanovg) beats in an ImGui image. NanoVG is a vector drawing
+library; the drawing goes into a framebuffer that the image shows, and a color picker changes the heart's color. The
+pattern for any NanoVG drawing inside a GUI: `nvg_imgui.render_nvg_to_frame_buffer()`.
+"""
 from imgui_bundle import hello_imgui, imgui, nanovg as nvg, ImVec2, ImVec4
 import math
 
@@ -127,21 +133,21 @@ def main():
     runner_params.callbacks.enqueue_before_exit(lambda: app_state.release())
 
     def gui():
-        imgui.text("This image below is rendered by NanoVG, via a framebuffer.")
+        imgui.text_wrapped("This image below is rendered by NanoVG, via a framebuffer.")
 
         # Render our drawing to a framebuffer, and use it as a texture for ImGui
         assert app_state.vg is not None
         assert app_state.nvg_framebuffer is not None
         nvg_imgui.render_nvg_to_frame_buffer(app_state.vg, app_state.nvg_framebuffer, draw_scene)
         assert app_state.nvg_framebuffer is not None
-        imgui.image(
-            imgui.ImTextureRef(app_state.nvg_framebuffer.texture_id),
-            hello_imgui.em_to_vec2(50, 30))
+        # 50 em wide at most (the window's width on a phone), with the framebuffer's aspect ratio (1000 x 600)
+        width = min(hello_imgui.em_size(50), imgui.get_content_region_avail().x)
+        imgui.image(imgui.ImTextureRef(app_state.nvg_framebuffer.texture_id), ImVec2(width, width * 0.6))
+        hello_imgui.set_item_is_live()  # the heart beats on its own: no idling while the image is visible
 
         _, gDrawingState.heart_color = imgui.color_edit4("Heart color", gDrawingState.heart_color)
 
     runner_params.callbacks.show_gui = gui
-    runner_params.fps_idling.enable_idling = False
 
     hello_imgui.run(runner_params)
 

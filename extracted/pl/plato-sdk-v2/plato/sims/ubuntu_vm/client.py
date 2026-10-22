@@ -361,6 +361,22 @@ _NO_CDP = "__NO_CDP__"
 
 _WINDOWS_CHROME_KILL_CMD = "Stop-Process -Name chrome -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2"
 
+_UBUNTU_CHROME_PROFILE_DIR = "/tmp/chrome-cdp-profile"
+_UBUNTU_CHROME_COMMS = "chrome|chromium|chromium-browse"
+_CHROME_STILL_RUNNING = "__CHROME_STILL_RUNNING__"
+
+# -x, not -f: a -f "chrome" pattern also kills this command's own shell. Chrome
+# is single-instance per profile, so the relaunch exits at once if the old one
+# (or its stale Singleton* lock) is still around: wait it out (<=10s), then
+# clear the lock.
+_UBUNTU_CHROME_KILL_CMD = (
+    f"pkill -9 -x '{_UBUNTU_CHROME_COMMS}' 2>/dev/null; "
+    f"for _ in $(seq 1 50); do pgrep -x '{_UBUNTU_CHROME_COMMS}' >/dev/null || break; sleep 0.2; done; "
+    f"pgrep -x '{_UBUNTU_CHROME_COMMS}' >/dev/null && echo {_CHROME_STILL_RUNNING}; "
+    f"rm -f {_UBUNTU_CHROME_PROFILE_DIR}/SingletonLock {_UBUNTU_CHROME_PROFILE_DIR}/SingletonSocket "
+    f"{_UBUNTU_CHROME_PROFILE_DIR}/SingletonCookie"
+)
+
 
 def _windows_cdp_probe_cmd(internal_port: int) -> str:
     """PowerShell probe of the loopback Chrome CDP port inside a Windows VM.
@@ -904,7 +920,9 @@ class Client:
 
         # Snapshot restore likely left Chrome with dead sockets — restart.
         logger.info("Chrome CDP unresponsive; restarting Chrome")
-        self.bash(BashRequest(command="pkill -9 -f 'chrome' 2>/dev/null; sleep 2"))
+        kill = self.bash(BashRequest(command=_UBUNTU_CHROME_KILL_CMD))
+        if _CHROME_STILL_RUNNING in (kill.output or ""):
+            logger.warning("Old Chrome still running 10s after kill; relaunching anyway")
 
         chrome_internal_port = 9225 if port == 9224 else port
         self.bash(
@@ -919,7 +937,7 @@ class Client:
                     # sims proxy's rotating TLS cert -> ERR_CERT_DATE_INVALID.
                     f"--ignore-certificate-errors "
                     f"--test-type --start-maximized --window-size=1280,720 "
-                    f"--user-data-dir=/tmp/chrome-cdp-profile "
+                    f"--user-data-dir={_UBUNTU_CHROME_PROFILE_DIR} "
                     f"--remote-debugging-port={chrome_internal_port} "
                     f"about:blank >/dev/null 2>&1 &"
                 )
@@ -1686,7 +1704,9 @@ class AsyncClient:
                 return self.get_cdp_url(port)
 
         logger.info("Chrome CDP unresponsive; restarting Chrome")
-        await self.bash(BashRequest(command="pkill -9 -f 'chrome' 2>/dev/null; sleep 2"))
+        kill = await self.bash(BashRequest(command=_UBUNTU_CHROME_KILL_CMD))
+        if _CHROME_STILL_RUNNING in (kill.output or ""):
+            logger.warning("Old Chrome still running 10s after kill; relaunching anyway")
 
         chrome_internal_port = 9225 if port == 9224 else port
         await self.bash(
@@ -1701,7 +1721,7 @@ class AsyncClient:
                     # sims proxy's rotating TLS cert -> ERR_CERT_DATE_INVALID.
                     f"--ignore-certificate-errors "
                     f"--test-type --start-maximized --window-size=1280,720 "
-                    f"--user-data-dir=/tmp/chrome-cdp-profile "
+                    f"--user-data-dir={_UBUNTU_CHROME_PROFILE_DIR} "
                     f"--remote-debugging-port={chrome_internal_port} "
                     f"about:blank >/dev/null 2>&1 &"
                 )

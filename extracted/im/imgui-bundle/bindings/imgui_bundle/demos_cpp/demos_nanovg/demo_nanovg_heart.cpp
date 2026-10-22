@@ -4,7 +4,11 @@
 #include "nanovg.h"
 #include "nvg_imgui/nvg_imgui.h"
 #include <math.h>
+#include <algorithm>
 
+
+namespace
+{
 
 struct DrawingState
 {
@@ -136,27 +140,35 @@ struct AppStateNvgHeart
 };
 
 
+}  // namespace
+
+
+void gui_demo_nanovg_heart()
+{
+    static AppStateNvgHeart appState;
+    if (appState.vg == nullptr)  // at the first call: the NanoVG context, and its release when the app exits
+    {
+        appState.Init();
+        HelloImGui::GetRunnerParams()->callbacks.EnqueueBeforeExit([] { appState.Release(); });
+    }
+
+    ImGui::TextWrapped("This image below is rendered by NanoVG, via a framebuffer.");
+    // Render our drawing to a framebuffer, and use it as a texture for ImGui
+    NvgImgui::RenderNvgToFrameBuffer(appState.vg, *appState.nvgFramebuffer, DrawScene);
+    // 50 em wide at most (the window's width on a phone), with the framebuffer's aspect ratio (1000 x 600)
+    float width = (std::min)(HelloImGui::EmSize(50.f), ImGui::GetContentRegionAvail().x);
+    ImGui::Image(appState.nvgFramebuffer->TextureId, ImVec2(width, width * 0.6f));
+    HelloImGui::SetItemIsLive();  // the heart beats on its own: no idling while the image is visible
+
+    ImGui::ColorEdit4("Heart color", &gDrawingState.HeartColor.x);
+}
+
+
+#ifndef IMGUI_BUNDLE_BUILD_DEMO_AS_LIBRARY
 int main(int, char**)
 {
-    AppStateNvgHeart appState;
-
     HelloImGui::RunnerParams runnerParams;
-
-    runnerParams.callbacks.EnqueuePostInit([&]() { appState.Init(); });
-    runnerParams.callbacks.EnqueueBeforeExit([&]() { appState.Release(); });
-
-
-    auto gui = [&]()
-    {
-        ImGui::Text("This image below is rendered by NanoVG, via a framebuffer.");
-        // Render our drawing to a framebuffer, and use it as a texture for ImGui
-        NvgImgui::RenderNvgToFrameBuffer(appState.vg, *appState.nvgFramebuffer, DrawScene);
-        ImGui::Image(appState.nvgFramebuffer->TextureId, HelloImGui::EmToVec2(50.f, 30.f));
-
-        ImGui::ColorEdit4("Heart color", &gDrawingState.HeartColor.x);
-    };
-    runnerParams.callbacks.ShowGui = gui;
-    runnerParams.fpsIdling.enableIdling = false;
-
+    runnerParams.callbacks.ShowGui = gui_demo_nanovg_heart;
     HelloImGui::Run(runnerParams);
 }
+#endif

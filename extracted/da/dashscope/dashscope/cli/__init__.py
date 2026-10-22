@@ -489,13 +489,13 @@ def _register_rl_app():
 
 def _rl_unavailable_detail(exception: Exception) -> str:
     """Render a deferred rl import failure as an actionable message."""
-    # The message quotes a literal 'dashscope[rl]'; unescaped, rich reads
-    # [rl] as a style tag and prints an install command with no extras.
+    # Unescaped, rich reads a bracketed run in the exception text as a style
+    # tag and drops it from the printed output.
     detail = escape(str(exception))
     if "pip install" not in detail:
         detail += (
-            ". Install the optional dependencies with: "
-            "[bold]pip install 'dashscope\\[rl]'[/bold]"
+            ". Reinstall to pull in the missing dependencies: "
+            "[bold]pip install -U dashscope[/bold]"
         )
     return detail
 

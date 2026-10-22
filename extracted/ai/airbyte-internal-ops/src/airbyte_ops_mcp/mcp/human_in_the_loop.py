@@ -278,7 +278,7 @@ def escalate_to_human(
         "Primary person to notify. Accepts an email address (e.g. 'aj@airbyte.io'), "
         "a GitHub handle prefixed with @ (e.g. '@aaronsteers'), "
         "a Slack user ID (e.g. 'U05AKF1BCC9'), or a Slack usergroup ID "
-        "(e.g. 'S0BKR63VAN5' for @oc-internal-ai). Plain usergroup handles, "
+        "(e.g. 'S0BJ4K3LC4X' for @oc-hydra). Plain usergroup handles, "
         "S-prefixed IDs, and pasted Slack subteam mentions all work; the ID "
         "form is the most precise.",
     ],
@@ -302,12 +302,15 @@ def escalate_to_human(
         "Optional list of additional people or Slack usergroups to tag on the "
         "message. Each entry uses the same identifier format as target_person. "
         "Plain usergroup handles, S-prefixed IDs, and pasted Slack subteam "
-        "mentions all work; the ID form (e.g. 'S0BKR63VAN5' for "
-        "@oc-internal-ai) is the most precise.",
+        "mentions all work; the ID form (e.g. 'S0BJ4K3LC4X' for "
+        "@oc-hydra) is the most precise.",
     ] = None,
     pr_url: Annotated[
         str | None,
-        "Optional URL to a related pull request for the 'View PR' button.",
+        "Optional URL to a related pull request for the 'View PR' button. "
+        "Takes one PR. When the message lists several PRs, pass each other PR "
+        "in `additional_actions` as `{'View PR #<number>': '<url>'}` so every "
+        "listed PR gets a button in the same escalation.",
     ] = None,
     issue_url: Annotated[
         str | None,
@@ -316,7 +319,13 @@ def escalate_to_human(
     additional_actions: Annotated[
         dict[str, str] | None,
         "Optional dictionary of label -> URL pairs for extra action buttons. "
-        "Example: {'Start Workflow': 'https://github.com/...actions/...'}.",
+        "Example: {'Start Workflow': 'https://github.com/...actions/...'}. "
+        "Use this for the second and later PRs or issues of a multi-item "
+        "escalation, e.g. {'View PR #89553': 'https://github.com/...'}. "
+        "Slack allows at most 25 buttons per message, counting the PR, issue, "
+        "approval, and session buttons; past that the post fails, so add "
+        "buttons only for items that need action and rely on inline links "
+        "for the rest.",
     ] = None,
     approval_requested: Annotated[
         bool,

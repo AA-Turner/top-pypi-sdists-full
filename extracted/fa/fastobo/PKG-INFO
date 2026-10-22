@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastobo
-Version: 0.14.1
+Version: 0.14.2
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
@@ -25,16 +26,16 @@ License-File: COPYING
 Summary: Faultless AST for Open Biomedical Ontologies in Python.
 Keywords: ontologies,ontology,obo,obofoundry,parser,syntax,ast
 Author-email: Martin Larralde <martin.larralde@embl.de>
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Homepage, https://github.com/fastobo/fastobo-py/
 Project-URL: Bug Tracker, https://github.com/fastobo/fastobo-py/issues
-Project-URL: Changelog, https://fastobo.readthedocs.io/en/latest/changes.html
-Project-URL: Documentation, https://fastobo.readthedocs.io/
 Project-URL: Builds, https://github.com/fastobo/fastobo-py/actions/
-Project-URL: PyPI, https://pypi.org/project/fastobo
+Project-URL: Changelog, https://fastobo.readthedocs.io/en/latest/changes.html
 Project-URL: Conda, https://anaconda.org/conda-forge/fastobo
+Project-URL: Documentation, https://fastobo.readthedocs.io/
+Project-URL: Homepage, https://github.com/fastobo/fastobo-py/
 Project-URL: PiWheels, https://www.piwheels.org/project/fastobo/
+Project-URL: PyPI, https://pypi.org/project/fastobo
 
 # `fastobo-py` [![Star me](https://img.shields.io/github/stars/fastobo/fastobo-py.svg?style=social&label=Star&maxAge=3600)](https://github.com/fastobo/fastobo-py/stargazers)
 
@@ -105,6 +106,7 @@ The following people have contributed to this project:
 
 - Alex Henrie ([@alexhenrie](https://github.com/alexhenrie))
 - Patrick Kalita ([@pkalita-lbl](https://github.com/pkalita-lbl))
+- Damien Goutte-Gattat ([@gouttegd](https://github.com/gouttegd))
 
 
 ## About

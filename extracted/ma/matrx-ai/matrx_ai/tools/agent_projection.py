@@ -336,13 +336,23 @@ def lookup_projected_tool(name: str) -> ToolDefinition | None:
     if not dumped:
         return None
     try:
-        return ToolDefinition.model_validate(dumped)
+        pinned = ToolDefinition.model_validate(dumped)
     except Exception as exc:
         vcprint(
             f"[agent_projection] Failed to rehydrate projected tool {name!r}: {exc}",
             color="red",
         )
         return None
+    # A request-pinned copy of a REGISTERED local tool (e.g. a per-request description,
+    # TOOL-SOURCES rule D's load_tools) keeps the registry's callable: the callable is a private
+    # attribute and never survives the dump, so dispatch would find nothing to run.
+    if pinned._callable is None:
+        from matrx_ai.tools.registry import ToolRegistry
+
+        base = ToolRegistry.get_instance()._tools.get(name)  # noqa: SLF001 — same package
+        if base is not None and base._callable is not None and base.function_path == pinned.function_path:
+            pinned._callable = base._callable
+    return pinned
 
 
 def list_projected_tool_names() -> list[str]:

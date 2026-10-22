@@ -1,3 +1,12 @@
+"""
+A command palette, as in VS Code or Sublime Text.
+
+A searchable list of commands, as in VS Code: press **Ctrl+Shift+P** (**Cmd+Shift+P** on macOS), or its button. Type
+a few letters to filter it. One command changes the theme in two steps, another writes to the log below. Learn how
+to register commands and their callbacks with
+[imgui-command-palette](https://github.com/hnOsmium0001/imgui-command-palette).
+"""
+
 from imgui_bundle import immapp, hello_imgui, imgui
 from imgui_bundle import imgui_command_palette as imcmd
 from imgui_bundle import icons_fontawesome, ImVec4
@@ -61,7 +70,10 @@ def main():
                 "CommandPalette", True
             )
 
-        imgui.text("Press Ctrl+Shift+P to bring up the command palette")
+        if imgui.button("Open the command palette"):  # a touch screen has no keyboard shortcut
+            app_state.show_command_palette = True
+        imgui.same_line()
+        imgui.text("or press Ctrl+Shift+P")
 
         imgui.set_cursor_pos_y(imgui.get_cursor_pos_y() + 100)
         imgui.separator()

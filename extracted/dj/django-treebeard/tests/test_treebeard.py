@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 import pytest
 from django.apps import apps
+from django.contrib.admin.options import ShowFacets
 from django.contrib.admin.sites import AdminSite
 from django.contrib.admin.views.main import ORDER_VAR, PAGE_VAR, SEARCH_VAR
 from django.contrib.auth.models import AnonymousUser, User
@@ -16,7 +17,7 @@ from django.contrib.messages.storage.fallback import FallbackStorage
 from django.core import checks
 from django.core.checks.model_checks import check_all_models
 from django.core.exceptions import PermissionDenied
-from django.db.models import Manager
+from django.db.models import Manager, ProtectedError
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.forms import ValidationError
@@ -1061,6 +1062,8 @@ class TestAddChild(TestNonEmptyTree):
         os.getenv("DATABASE_ENGINE", "sqlite") == "sqlite",
         reason="SQLite doesn't support row-level locking",
     )
+    # Deadlocks are very common on MSSQL, so add some retries
+    @pytest.mark.flaky(retries=2, condition=os.getenv("DATABASE_ENGINE") == "mssql")
     def test_add_child_concurrent(self, model_without_data):
         # 5 threads x 5 add_child each on same parent; no IntegrityError.
         num_threads = 5
@@ -1841,6 +1844,37 @@ class TestDelete(TestTreeBase):
         related_model.objects.add_root({"desc": "A", "related": related})
         num_deleted, _ = related_model.objects.prefetch_related("related_m2m").all().delete()
         assert num_deleted == 1
+
+    def test_delete_protected_node_mp(self):
+        # Regression test for https://github.com/django-treebeard/django-treebeard/issues/422
+        # If the deletion fails with a ProtectedError, any numchild updates made to ancestors
+        # must be rolled back.
+        models.MP_TestNode.objects.load_bulk(BASE_DATA)
+        node = models.MP_TestNode.objects.get(desc="231")
+        models.MP_TestNodeProtectedDep.objects.create(node=node)
+        with capture_signals() as signals:
+            with pytest.raises(ProtectedError):
+                node.delete()
+        assert self.got(models.MP_TestNode) == UNCHANGED
+        assert signals == []
+
+    def test_delete_rolls_back_if_gap_not_closed_ns(self):
+        # Equivalent of https://github.com/django-treebeard/django-treebeard/issues/422 for NS.
+        # If anything fails after the nodes are deleted but before the gaps are closed, the
+        # deletion must be rolled back so that lft/rgt values are not left inconsistent.
+        models.NS_TestNode.objects.load_bulk(BASE_DATA)
+        node = models.NS_TestNode.objects.get(desc="231")
+
+        def failing_handler(sender, **kwargs):
+            raise RuntimeError("receiver failed")
+
+        ns_nodes_deleted.connect(failing_handler, dispatch_uid="test_delete_rolls_back_ns")
+        try:
+            with pytest.raises(RuntimeError):
+                node.delete()
+        finally:
+            ns_nodes_deleted.disconnect(dispatch_uid="test_delete_rolls_back_ns")
+        assert self.got(models.NS_TestNode) == UNCHANGED
 
 
 @pytest.mark.django_db
@@ -3110,6 +3144,143 @@ class TestMoveBranch(TestNonEmptyTree):
             assert signals == [
                 ("subtree_moved", model, "D", "B.C.B", "default"),
             ]
+
+
+@pytest.mark.django_db
+class TestStaleNodes(TestTreeBase):
+    """
+    caveats.rst says add/move operations refresh the node being moved/created and its target.
+    These tests check that, and that those objects can be safely reused in later operations.
+    MP's move() also reloads the node and target first, and add_child() uses the target's current
+    row, so both currently work with objects that were already stale. This isn't a documented
+    guarantee. (AL's add_child() doesn't read the target, so its tree fields stay stale.)
+
+    See https://github.com/django-treebeard/django-treebeard/issues/425
+    """
+
+    def _assert_tree_fields_current(self, node):
+        fresh = type(node).objects.get(pk=node.pk)
+        fields = [field for field in node._TREE_FIELDS if hasattr(node, field)]  # Sorted AL models have no sib_order
+        assert {field: getattr(node, field) for field in fields} == {field: getattr(fresh, field) for field in fields}
+
+    def test_add_sibling_twice_to_same_target(self, model):
+        # Base data has root nodes ["1", "2", "3", "4"]
+        node = model.objects.get(desc="2")
+        model.objects.add_sibling(node, "left", {"desc": "a"})  # Insert "a" between "1" and "2"
+        model.objects.add_sibling(node, "left", {"desc": "b"})  # Insert "b" between "a" and "2"
+        assert [obj.desc for obj in model.objects.get_root_nodes()] == ["1", "a", "b", "2", "3", "4"]
+        self._assert_no_tree_problems(model)
+
+    def test_add_sibling_refreshes_target(self, model):
+        node = model.objects.get(desc="2")
+        model.objects.add_sibling(node, "left", {"desc": "a"})  # Insert "a" where "2" was
+        self._assert_tree_fields_current(node)  # Check the object's tree fields match the db
+
+    def test_add_child_with_stale_target(self, model):
+        stale_target = model.objects.get(desc="3")
+        model.objects.move(model.objects.get(desc="4"), model.objects.get(desc="3"), "left")  # Shifts "3"
+        model.objects.add_child(stale_target, {"desc": "31"})
+        assert [obj.desc for obj in model.objects.get_children(model.objects.get(desc="3"))] == ["31"]
+        assert [obj.desc for obj in model.objects.get_children(model.objects.get(desc="4"))] == ["41"]
+        if not issubclass(model, AL_Node):
+            # AL's add_child() doesn't read the target's row, so a target that was already out of date stays that way
+            self._assert_tree_fields_current(stale_target)
+        self._assert_no_tree_problems(model)
+
+    def test_add_child_refreshes_target(self, model):
+        target = model.objects.get(desc="2")  # Already has children
+        model.objects.add_child(target, {"desc": "25"})
+        self._assert_tree_fields_current(target)
+
+    def test_sorted_add_child_refreshes_target(self, sorted_model):
+        root = sorted_model.objects.add_root({"desc": "r", "val1": 1, "val2": 1})
+        sorted_model.objects.add_child(root, {"desc": "a", "val1": 1, "val2": 1})
+        sorted_model.objects.add_child(root, {"desc": "b", "val1": 2, "val2": 1})  # Root already has children
+        assert [obj.desc for obj in sorted_model.objects.get_children(sorted_model.objects.get(pk=root.pk))] == [
+            "a",
+            "b",
+        ]
+        self._assert_tree_fields_current(root)
+        self._assert_no_tree_problems(sorted_model)
+
+    def test_sorted_add_child_with_stale_target(self, sorted_model):
+        root = sorted_model.objects.add_root({"desc": "r", "val1": 1, "val2": 1})
+        stale_root = sorted_model.objects.get(pk=root.pk)
+        sorted_model.objects.add_child(root, {"desc": "a", "val1": 1, "val2": 1})
+        sorted_model.objects.add_child(root, {"desc": "b", "val1": 2, "val2": 1})  # stale_root still has 0 children
+        sorted_model.objects.add_child(stale_root, {"desc": "c", "val1": 3, "val2": 1})
+        fresh_root = sorted_model.objects.get(pk=root.pk)
+        assert [obj.desc for obj in sorted_model.objects.get_children(fresh_root)] == ["a", "b", "c"]
+        self._assert_tree_fields_current(stale_root)
+        self._assert_no_tree_problems(sorted_model)
+
+    def test_move_node_after_add_sibling(self, model):
+        # Base data has root nodes ["1", "2", "3", "4"]
+        node2 = model.objects.get(desc="2")
+        model.objects.add_sibling(node2, "left", {"desc": "a"})  # Expected ["1", "a", "2", "3", "4"]
+        model.objects.move(node2, model.objects.get(desc="4"), "right")  # Expected ["1", "a", "3", "4", "2"]
+        assert self.got(model) == [
+            ("1", 1, 0),
+            ("a", 1, 0),
+            ("3", 1, 0),
+            ("4", 1, 1),
+            ("41", 2, 0),
+            ("2", 1, 4),
+            ("21", 2, 0),
+            ("22", 2, 0),
+            ("23", 2, 1),
+            ("231", 3, 0),
+            ("24", 2, 0),
+        ]
+        self._assert_no_tree_problems(model)
+
+    def test_move_with_stale_siblings(self, model):
+        node1, node2, node3, node4 = (model.objects.get(desc=desc) for desc in ["1", "2", "3", "4"])
+        model.objects.move(node4, node1, "left")  # Expected ["4", "1", "2", "3"]; node2 and node3 are now stale
+        model.objects.move(node2, node3, "right")  # Expected ["4", "1", "3", "2"]
+        assert self.got(model) == [
+            ("4", 1, 1),
+            ("41", 2, 0),
+            ("1", 1, 0),
+            ("3", 1, 0),
+            ("2", 1, 4),
+            ("21", 2, 0),
+            ("22", 2, 0),
+            ("23", 2, 1),
+            ("231", 3, 0),
+            ("24", 2, 0),
+        ]
+        self._assert_no_tree_problems(model)
+
+    def test_move_to_stale_target_with_new_children(self, model):
+        stale_target = model.objects.get(desc="1")
+        model.objects.add_child(model.objects.get(desc="1"), {"desc": "11"})  # stale_target is still a leaf
+        node = model.objects.get(desc="3")
+        model.objects.move(node, stale_target, "first-child")
+        assert [obj.desc for obj in model.objects.get_children(model.objects.get(desc="1"))] == ["3", "11"]
+        self._assert_tree_fields_current(node)
+        self._assert_tree_fields_current(stale_target)
+        self._assert_no_tree_problems(model)
+
+    def test_move_refreshes_node_and_target(self, model):
+        node = model.objects.get(desc="4")
+        target = model.objects.get(desc="1")
+        model.objects.move(node, target, "left")  # Shifts target to the right
+        self._assert_tree_fields_current(node)
+        self._assert_tree_fields_current(target)
+
+    def test_move_within_parent_refreshes_target(self, model):
+        parent = model.objects.get(desc="2")
+        node = model.objects.get(desc="24")
+        model.objects.move(node, parent, "first-child")
+        assert [obj.desc for obj in model.objects.get_children(model.objects.get(desc="2"))] == [
+            "24",
+            "21",
+            "22",
+            "23",
+        ]
+        self._assert_tree_fields_current(node)
+        self._assert_tree_fields_current(parent)
 
 
 @pytest.mark.django_db
@@ -4567,6 +4738,37 @@ class TestTreeAdmin(TestNonEmptyTree, AdminTestMixin):
         cl = admin_obj.get_changelist_instance(request)
 
         assert [obj.desc for obj in cl.get_queryset(request)] == ["231"]
+
+    def test_list_filter_choices_include_descendant_values(self, model):
+        """An unfiltered changelist still offers filter values from deeper nodes."""
+        admin_obj = self._get_admin_obj(model)
+        admin_obj.list_filter = ("desc",)
+        request = RequestFactory().get("/")
+        request.user = self._create_user("test_filter_choices", is_superuser=True)
+        request._treebeard_parent_id = None
+
+        cl = admin_obj.get_changelist_instance(request)
+
+        assert "231" in cl.filter_specs[0].lookup_choices
+        assert "231" not in list(cl.queryset.values_list("desc", flat=True))
+
+    def test_list_filter_facet_counts_include_descendants(self, model):
+        """Show counts must count a value that only exists below the roots."""
+        admin_obj = self._get_admin_obj(model)
+        admin_obj.list_filter = ("desc",)
+        admin_obj.show_facets = ShowFacets.ALWAYS
+        request = RequestFactory().get("/")
+        request.user = self._create_user("test_filter_facets", is_superuser=True)
+        request._treebeard_parent_id = None
+
+        cl = admin_obj.get_changelist_instance(request)
+        spec = cl.filter_specs[0]
+        choices = list(spec.lookup_choices)
+        counts = spec.get_facet_queryset(cl)
+
+        assert list(cl.queryset.values_list("desc", flat=True)) == ["1", "2", "3", "4"]
+        assert counts[f"{choices.index('231')}__c"] == 1
+        assert counts[f"{choices.index('1')}__c"] == 1
 
     def test_get_queryset_ignores_paging_and_ordering(self, model):
         """Neither of those makes the list a filtered one, so the tree stays."""

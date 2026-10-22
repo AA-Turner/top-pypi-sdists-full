@@ -17,11 +17,27 @@ from river_client.renderers import ModelInputChunk
 from river_client.types import PolicySpan, PolicyVersion, Sample
 
 
+from .requirements import LossRequirements
+
+
 _RECOVERING_UNSET = object()
 
 
+def _readonly_array(value, dtype):
+    if (
+        isinstance(value, np.ndarray)
+        and value.dtype == dtype
+        and value.flags.c_contiguous
+        and not value.flags.writeable
+    ):
+        return value
+    array = np.array(value, dtype=dtype, copy=True, order="C")
+    array.flags.writeable = False
+    return array
+
+
 def encode_state(value):
-    """JSON-safe encoding, including image bytes in messages and environment state."""
+    """Encode image handles and bytes without copying numeric arrays."""
     if isinstance(value, ImageHandle):
         return {"__river_image_handle__": asdict(value)}
     if isinstance(value, bytes):
@@ -57,6 +73,8 @@ class Span:
     routing_num_tokens: int | None
     run: int
     logprobs: np.ndarray | None
+    sampler_topk_ids: np.ndarray | None
+    sampler_topk_logprobs: np.ndarray | None
     _chunks: tuple[dict, ...]
 
     def __init__(
@@ -73,6 +91,8 @@ class Span:
         kv_cache_policy_version=None,
         routing_handle=None,
         routing_num_tokens=None,
+        sampler_topk_ids=None,
+        sampler_topk_logprobs=None,
     ):
         if isinstance(kv_cache_policy_version, dict):
             kv_cache_policy_version = PolicyVersion(**kv_cache_policy_version)
@@ -99,8 +119,7 @@ class Span:
                     raise ValueError(
                         "token ids must be one-dimensional nonnegative int32 values"
                     )
-                ids = np.array(ids, dtype=np.int32, copy=True)
-                ids.flags.writeable = False
+                ids = _readonly_array(ids, np.int32)
                 stored.append({"type": "text", "tokens": ids})
             elif chunk["type"] == "image":
                 if kind == "generated" or int(chunk["expected_tokens"]) <= 0:
@@ -136,16 +155,39 @@ class Span:
         if kind == "generated":
             if policy_step is None or policy_step < 0:
                 raise ValueError("generated spans require a nonnegative policy_step")
-            lp = np.array(logprobs, dtype=np.float32, copy=True)
+            lp = _readonly_array(logprobs, np.float32)
             if lp.shape != (n,) or not np.all(np.isfinite(lp)):
                 raise ValueError("generated tokens require one finite logprob each")
-            lp.flags.writeable = False
         elif logprobs is not None or policy_step is not None:
             raise ValueError("only generated spans carry logprobs and policy_step")
+        head_ids = head_lp = None
+        if (sampler_topk_ids is None) != (sampler_topk_logprobs is None):
+            raise ValueError("top-k IDs and logprobs must be supplied together")
+        if sampler_topk_ids is not None:
+            ids = np.asarray(sampler_topk_ids)
+            head_lp = _readonly_array(sampler_topk_logprobs, np.float32)
+            if (
+                kind != "generated"
+                or ids.ndim != 2
+                or ids.shape[0] != n
+                or ids.shape[1] < 1
+                or head_lp.shape != ids.shape
+            ):
+                raise ValueError(
+                    "top-k arrays must have matching [generated tokens, K] shapes"
+                )
+            # Never narrow caller-supplied IDs; wire/checkpoint arrays are int32.
+            if ids.dtype.kind not in "iu" or not np.can_cast(
+                ids.dtype, np.int32, casting="safe"
+            ):
+                raise ValueError("top-k ID dtype must convert losslessly to int32")
+            head_ids = _readonly_array(ids, np.int32)
         for name, value in (
             ("kind", kind),
             ("_chunks", tuple(stored)),
             ("logprobs", lp),
+            ("sampler_topk_ids", head_ids),
+            ("sampler_topk_logprobs", head_lp),
             ("policy_step", policy_step),
             ("policy_version", policy_version),
             ("policy_spans", policy_spans),
@@ -171,23 +213,33 @@ class Span:
         )
 
     def state_dict(self):
-        return {
-            "kind": self.kind,
-            "chunks": self.chunks,
-            "logprobs": None if self.logprobs is None else self.logprobs.tolist(),
-            "policy_step": self.policy_step,
-            "retained_kv": self.retained_kv,
-            "routing_handle": self.routing_handle,
-            "routing_num_tokens": self.routing_num_tokens,
-            "kv_cache_policy_version": None
-            if self.kv_cache_policy_version is None
-            else asdict(self.kv_cache_policy_version),
-            "policy_spans": [asdict(span) for span in self.policy_spans],
-            "policy_version": None
-            if self.policy_version is None
-            else asdict(self.policy_version),
-            "run": self.run,
-        }
+        return encode_state(
+            {
+                **(
+                    {
+                        "sampler_topk_ids": self.sampler_topk_ids,
+                        "sampler_topk_logprobs": self.sampler_topk_logprobs,
+                    }
+                    if self.sampler_topk_ids is not None
+                    else {}
+                ),
+                "kind": self.kind,
+                "chunks": self.chunks,
+                "logprobs": None if self.logprobs is None else self.logprobs.tolist(),
+                "policy_step": self.policy_step,
+                "retained_kv": self.retained_kv,
+                "routing_handle": self.routing_handle,
+                "routing_num_tokens": self.routing_num_tokens,
+                "kv_cache_policy_version": None
+                if self.kv_cache_policy_version is None
+                else asdict(self.kv_cache_policy_version),
+                "policy_spans": [asdict(span) for span in self.policy_spans],
+                "policy_version": None
+                if self.policy_version is None
+                else asdict(self.policy_version),
+                "run": self.run,
+            }
+        )
 
 
 class Trajectory:
@@ -286,6 +338,16 @@ class Trajectory:
                 "generated",
                 [{"type": "text", "tokens": sample.tokens}],
                 logprobs=sample.logprobs,
+                sampler_topk_ids=(
+                    sample.top_logprobs.token_ids
+                    if sample.top_logprobs is not None
+                    else None
+                ),
+                sampler_topk_logprobs=(
+                    sample.top_logprobs.logprobs
+                    if sample.top_logprobs is not None
+                    else None
+                ),
                 policy_step=sample.model_step if policy_step is None else policy_step,
                 run=self.run,
                 policy_version=sample.policy_version,
@@ -319,6 +381,7 @@ class Trajectory:
         *,
         current_step: int | None = None,
         max_staleness: int | None = None,
+        requirements: LossRequirements | None = None,
     ) -> list[dict]:
         if not math.isfinite(advantage):
             raise ValueError("advantage must be finite")
@@ -342,6 +405,34 @@ class Trajectory:
             n = sum(map(len, spans))
             old = np.zeros(n, dtype=np.float32)
             adv = np.zeros(n, dtype=np.float32)
+            metadata = {}
+            if requirements is not None:
+                if requirements.policy_age:
+                    if current_step is None:
+                        raise ValueError("policy ages require current_step")
+                    metadata["policy_age_steps"] = np.zeros(n, dtype=np.int64)
+                width = requirements.top_logprobs
+                if width is not None:
+                    if any(
+                        s.sampler_topk_ids is None
+                        or s.sampler_topk_ids.shape[1] != width
+                        for s in spans
+                        if s.kind == "generated"
+                    ):
+                        raise ValueError(
+                            "every generated span must carry the required top-K width"
+                        )
+                    id_dtype = np.result_type(
+                        *(
+                            s.sampler_topk_ids.dtype
+                            for s in spans
+                            if s.kind == "generated"
+                        )
+                    )
+                    metadata["sampler_topk_ids"] = np.zeros((n, width), dtype=id_dtype)
+                    metadata["sampler_topk_logprobs"] = np.zeros(
+                        (n, width), dtype=np.float32
+                    )
             offset = 0
             for span in spans:
                 if span.kind == "generated":
@@ -353,6 +444,27 @@ class Trajectory:
                         raise ValueError(
                             "trajectory contains a policy step newer than the trainer"
                         )
+                    positions = slice(offset - 1, offset + len(span) - 1)
+                    if "policy_age_steps" in metadata:
+                        metadata["policy_age_steps"][positions] = age
+                        start = offset - 1
+                        for policy_span in span.policy_spans:
+                            policy = policy_span.policy_version
+                            if policy.lineage_id != span.policy_version.lineage_id:
+                                raise ValueError("policy spans must share a lineage")
+                            token_age = age - (policy.step - span.policy_version.step)
+                            if token_age < 0:
+                                raise ValueError(
+                                    "trajectory contains a policy step newer than the trainer"
+                                )
+                            end = offset - 1 + policy_span.end
+                            metadata["policy_age_steps"][start:end] = token_age
+                            start = end
+                    if "sampler_topk_ids" in metadata:
+                        metadata["sampler_topk_ids"][positions] = span.sampler_topk_ids
+                        metadata["sampler_topk_logprobs"][positions] = (
+                            span.sampler_topk_logprobs
+                        )
                     if max_staleness is None or age <= max_staleness:
                         keep = len(span)
                         if mask_end is not None:
@@ -362,6 +474,8 @@ class Trajectory:
                 offset += len(span)
             chunks = [c for s in spans for c in s.chunks]
             datum = {"old_logprobs": old.tolist(), "advantages": adv.tolist()}
+            if metadata:
+                datum["sampling_metadata"] = metadata
             if any(c["type"] == "image" for c in chunks):
                 datum["model_input"] = chunks
             else:
@@ -399,10 +513,11 @@ class Trajectory:
                 DeprecationWarning,
                 stacklevel=2,
             )
-        state = decode_state(copy.deepcopy(state))
+        state = decode_state(state)
         if state.pop("version") != 1:
             raise ValueError("unsupported trajectory state version")
         spans = [Span(**s) for s in state.pop("spans")]
+        state = copy.deepcopy(state)
         if not spans or spans[0].kind != "prompt" or spans[0].run != 0:
             raise ValueError("trajectory state must start with a prompt in run zero")
         previous = 0

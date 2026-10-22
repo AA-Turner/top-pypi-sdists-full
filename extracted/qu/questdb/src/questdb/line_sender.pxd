@@ -57,7 +57,7 @@ cdef extern from "questdb/ingress/line_sender.h":
         line_sender_error_failover_retry,
         line_sender_error_role_mismatch,
         line_sender_error_connect_timeout,
-        # Query / reader (egress) categories, unified into this enum (20..36).
+        # Query / reader error codes (20..34).
         line_sender_error_handshake_error,
         line_sender_error_unsupported_server,
         line_sender_error_protocol_error,
@@ -73,8 +73,14 @@ cdef extern from "questdb/ingress/line_sender.h":
         line_sender_error_schema_drift,
         line_sender_error_no_schema,
         line_sender_error_arrow_export,
+        # Client-side QWP/WebSocket sender error codes (35..37).
         line_sender_error_batch_too_large,
-        line_sender_error_store_resend_required
+        line_sender_error_store_resend_required,
+        line_sender_error_symbol_dict_full,
+        # QWP/WebSocket reader: the per-query timeout expired (38). A timeout
+        # requested against a server without CAP_QUERY_TIMEOUT is refused
+        # with line_sender_error_unsupported_server instead.
+        line_sender_error_query_timeout
 
     ctypedef line_sender_error_code questdb_error_code
 
@@ -334,6 +340,58 @@ cdef extern from "questdb/ingress/line_sender.h":
         line_sender_buffer* buffer,
         line_sender_column_name name,
         line_sender_utf8 value,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_buffer_column_uuid(
+        line_sender_buffer* buffer,
+        line_sender_column_name name,
+        uint64_t lo,
+        uint64_t hi,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_buffer_column_long256(
+        line_sender_buffer* buffer,
+        line_sender_column_name name,
+        const uint8_t* value,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_buffer_column_ipv4(
+        line_sender_buffer* buffer,
+        line_sender_column_name name,
+        uint32_t value,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_buffer_column_date(
+        line_sender_buffer* buffer,
+        line_sender_column_name name,
+        int64_t millis,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_buffer_column_char(
+        line_sender_buffer* buffer,
+        line_sender_column_name name,
+        uint16_t value,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_buffer_column_binary(
+        line_sender_buffer* buffer,
+        line_sender_column_name name,
+        const uint8_t* data,
+        size_t data_len,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_buffer_column_geohash(
+        line_sender_buffer* buffer,
+        line_sender_column_name name,
+        uint64_t bits,
+        uint8_t precision_bits,
         line_sender_error** err_out
         ) noexcept nogil
 
@@ -682,6 +740,13 @@ cdef extern from "questdb/ingress/line_sender.h":
     bint line_sender_qwpws_errors_dropped(
         const line_sender* sender,
         uint64_t* dropped_out,
+        line_sender_error** err_out
+        ) noexcept nogil
+
+    bint line_sender_qwpws_effective_frame_cap(
+        const line_sender* sender,
+        size_t* cap_out,
+        cbool* server_cap_known_out,
         line_sender_error** err_out
         ) noexcept nogil
 
@@ -1069,15 +1134,15 @@ cdef extern from "questdb/ingress/qwp_sender.h":
         qwp_numpy_f64_ndarray = 31
         qwp_numpy_datetime64_m = 32
         qwp_numpy_datetime64_h = 33
-        column_sender_numpy_datetime64_D = 34
-        column_sender_numpy_datetime64_M = 35
-        column_sender_numpy_datetime64_Y = 36
-        column_sender_numpy_datetime64_W = 37
+        qwp_numpy_datetime64_D = 34
+        qwp_numpy_datetime64_M = 35
+        qwp_numpy_datetime64_Y = 36
+        qwp_numpy_datetime64_W = 37
         qwp_numpy_timedelta64_m = 38
         qwp_numpy_timedelta64_h = 39
-        column_sender_numpy_timedelta64_D = 40
-        column_sender_numpy_timedelta64_M = 41
-        column_sender_numpy_timedelta64_Y = 42
+        qwp_numpy_timedelta64_D = 40
+        qwp_numpy_timedelta64_M = 41
+        qwp_numpy_timedelta64_Y = 42
 
     cdef struct qwp_numpy_extras:
         int8_t decimal_scale
@@ -1181,6 +1246,8 @@ cdef extern from "questdb/ingress/qwp_sender.h":
         qwp_arrow_override_char = 2
         qwp_arrow_override_geohash = 3
         qwp_arrow_override_not_symbol = 4
+        qwp_arrow_override_uuid = 5
+        qwp_arrow_override_long256 = 6
 
     cdef struct qwp_arrow_override:
         const char* column
@@ -1307,6 +1374,11 @@ cdef extern from "questdb/egress/qwp_reader.h":
         questdb_error** err_out
         ) noexcept nogil
 
+    void qwp_reader_query_set_timeout_ms(
+        qwp_reader_query* query,
+        uint64_t timeout_ms
+        ) noexcept nogil
+
     void qwp_reader_query_set_reset_symbol_dict(
         qwp_reader_query* query,
         cbool reset
@@ -1335,6 +1407,30 @@ cdef extern from "questdb/egress/qwp_reader.h":
     void qwp_reader_query_bind_timestamp_nanos(
         qwp_reader_query* query,
         int64_t v
+        ) noexcept nogil
+
+    void qwp_reader_query_bind_date_millis(
+        qwp_reader_query* query,
+        int64_t v
+        ) noexcept nogil
+
+    void qwp_reader_query_bind_decimal64(
+        qwp_reader_query* query,
+        int64_t v,
+        int8_t scale
+        ) noexcept nogil
+
+    void qwp_reader_query_bind_decimal128(
+        qwp_reader_query* query,
+        uint64_t mantissa_lo,
+        int64_t mantissa_hi,
+        int8_t scale
+        ) noexcept nogil
+
+    void qwp_reader_query_bind_decimal256(
+        qwp_reader_query* query,
+        const uint8_t* value,
+        int8_t scale
         ) noexcept nogil
 
     void qwp_reader_query_bind_varchar(
@@ -1424,6 +1520,14 @@ cdef extern from "questdb/egress/qwp_reader.h":
     bint qwp_reader_cursor_connection_reusable(
         const qwp_reader_cursor* cursor
         ) noexcept nogil
+
+    bint qwp_reader_cursor_terminal_exec_done(
+        const qwp_reader_cursor* cursor,
+        uint8_t* out_op_type,
+        uint64_t* out_rows_affected
+        ) noexcept nogil
+
+    const uint64_t QWP_READER_ROWS_AFFECTED_UNKNOWN
 
     qwp_reader_arrow_batch_result qwp_reader_cursor_next_arrow_batch(
         qwp_reader_cursor* cursor,

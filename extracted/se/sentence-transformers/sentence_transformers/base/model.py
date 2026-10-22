@@ -3,14 +3,19 @@ from __future__ import annotations
 import importlib
 import inspect
 import json
+import math
 import os
+import pickle
+import queue
 import shutil
 import sys
 import tempfile
 import traceback
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from functools import cached_property
+from itertools import chain
 from multiprocessing import Queue
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
@@ -27,6 +32,7 @@ import transformers
 from huggingface_hub import CardData, HfApi
 from packaging import version
 from torch import Tensor, nn
+from tqdm.autonotebook import trange
 from transformers import PreTrainedModel, is_datasets_available, is_torch_npu_available
 from transformers.dynamic_module_utils import get_relative_import_files
 from transformers.utils import logging as transformers_logging
@@ -39,6 +45,7 @@ from sentence_transformers.base.model_card import BaseModelCardData, generate_mo
 from sentence_transformers.base.modules import Module, Router, Transformer
 from sentence_transformers.base.peft_mixin import PeftAdapterMixin
 from sentence_transformers.util import (
+    _move_tensors_to_cpu,
     check_version_requirements,
     get_device_name,
     import_module_class,
@@ -46,9 +53,12 @@ from sentence_transformers.util import (
     load_file_path,
     save_to_hub_args_decorator,
 )
+from sentence_transformers.util.file_io import _resolve_model_revision, _validate_relative_path
 from sentence_transformers.util.misc import ORIGINAL_TRANSFORMER_MODELS
 
 if TYPE_CHECKING:
+    from accelerate.hooks import ModelHook
+    from mergekit.merge_methods import BatchOptions
     from transformers import PretrainedConfig
 
 logger = transformers_logging.get_logger(__name__)
@@ -86,6 +96,9 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
     model_type: str
     # Set per instance by `_load_with_module_classes` before `__init__` runs the loading, never mutated.
     _module_classes: Mapping[str, type[nn.Module]] = {}
+    _distributed_inference: Callable | None = None
+    # The `device_map` this model was loaded with, if any. Set per instance by `__init__`.
+    _device_map: str | dict[str, Any] | None = None
 
     def __init__(
         self,
@@ -134,8 +147,9 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
                 a commit id, for a stored model on Hugging Face. Defaults to None.
             local_files_only (bool, optional): Whether to only look at local files (i.e., do not try to download
                 the model). Defaults to False.
-            token (bool or str, optional): Hugging Face authentication token to download private models.
-                Defaults to None.
+            token (bool or str, optional): Hugging Face authentication token for higher Hub rate limits and access to
+                private or gated models your account can read. Defaults to None, which uses ``HF_TOKEN`` or
+                credentials saved with ``hf auth login``, if available.
             model_kwargs (dict[str, Any], optional): Keyword arguments passed to the underlying Hugging Face
                 Transformers model via ``AutoModel.from_pretrained``. Particularly useful options include:
 
@@ -192,16 +206,14 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
 
         # A `device_map` in `model_kwargs` makes accelerate control placement (not `device`), so we detect it
         # here to skip the `self.to(device)` below that would otherwise pull a `device_map="cuda:1"` model to cuda:0.
-        device_map = (model_kwargs or {}).get("device_map") if (backend == "torch" and model_name_or_path) else None
-        device_provided = device is not None
+        device_map = None
+        if backend == "torch" and model_name_or_path and model_kwargs:
+            device_map = model_kwargs.get("device_map")
         if device is None and device_map is None:
             device = get_device_name()
             logger.info(f"No device provided, using {device}")
-        elif device_provided and device_map is not None:
-            logger.warning(
-                "Both `device` and `model_kwargs['device_map']` were provided. `device_map` controls "
-                "device placement, so the `device` argument is ignored."
-            )
+        elif device is not None and device_map is not None:
+            logger.warning(f"Ignoring `device={device}` because `model_kwargs['device_map']` takes priority.")
 
         if device == "hpu" and importlib.util.find_spec("optimum") is not None:
             from optimum.habana.transformers.modeling_utils import adapt_transformers_to_gaudi
@@ -226,6 +238,14 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
                 and model_name_or_path.lower() not in ORIGINAL_TRANSFORMER_MODELS
             ):
                 model_name_or_path = f"{self.default_huggingface_organization}/{model_name_or_path}"
+
+            revision = _resolve_model_revision(
+                model_name_or_path,
+                revision,
+                token=token,
+                cache_folder=cache_folder,
+                local_files_only=local_files_only,
+            )
 
         if model_name_or_path and modules is not None:
             logger.warning(
@@ -256,24 +276,35 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
 
         super().__init__(modules)
 
-        # Cast non-input modules to match the first module's dtype for consistency.
-        # The first module (e.g. Transformer) is the dtype source of truth and downstream
-        # modules (Dense, Pooling, etc.) should match it.
-        first_param = next(self[0].parameters(), None)
-        if first_param is not None:
-            first_dtype = first_param.dtype
-            for module in list(self.children())[1:]:
-                module.to(first_dtype)
-
-        if device_map is not None:
-            # accelerate already placed the backbone, so leave it untouched and only move the remaining
-            # modules (Pooling, Dense, etc.) onto its device to keep the forward pass on one device.
-            backbone_device = self.device
-            for module in list(self.children())[1:]:
-                module.to(backbone_device)
+        self._device_map = device_map
+        self._modules_placed = False
+        if self._placement_is_delegated:
+            self._place_modules()
         else:
+            first_param = next(self[0].parameters(), None)
+            if first_param is not None:
+                for module in list(self.children())[1:]:
+                    module.to(first_param.dtype)
             self.to(device)
         self.is_hpu_graph_enabled = False
+
+        requested_dtype = (model_kwargs or {}).get("dtype") or (model_kwargs or {}).get("torch_dtype")
+        config_dtype = (config_kwargs or {}).get("dtype") or (config_kwargs or {}).get("torch_dtype")
+        if (
+            model_name_or_path
+            and backend == "torch"
+            and requested_dtype in (None, "auto")
+            and config_dtype in (None, "auto")
+            and self.transformers_model is not None
+            and self.dtype in (torch.float16, torch.bfloat16)
+            and self.device.type == "cpu"
+            and all(parameter.device.type == "cpu" for parameter in self.parameters())
+        ):
+            logger.warning_once(
+                f"This model was loaded in {self.dtype} on CPU. Depending on your CPU, inference may be significantly "
+                "slower than with torch.float32. Consider comparing inference speeds by loading with "
+                '`model_kwargs={"dtype": torch.float32}`.'
+            )
 
         # Validate prompts after model loading (which may have merged config prompts)
         self._validate_prompts()
@@ -337,8 +368,8 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
         if self.default_prompt_name:
             logger.warning_once(
                 f"Default prompt name is set to '{self.default_prompt_name}'. "
-                f"This prompt will be applied to all inference calls, except if "
-                f"a `prompt` or `prompt_name` parameter is provided."
+                "This prompt applies unless overridden by `prompt`, `prompt_name`, or a method-specific prompt, "
+                "including an empty prompt."
             )
 
     def _resolve_prompt(self, prompt: str | None, prompt_name: str | None) -> str | None:
@@ -800,6 +831,103 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
             safe_serialization=safe_serialization,
         )
 
+    @classmethod
+    def merge(
+        cls,
+        models: Sequence[str | Path | Self],
+        method: str = "linear",
+        *,
+        base_model: str | Path | Self | None = None,
+        parameters: dict[str, Any] | None = None,
+        dtype: str | torch.dtype | None = torch.float32,
+        out_dtype: str | torch.dtype | None = None,
+        device: str | torch.device = "cpu",
+        batch_options: BatchOptions | None = None,
+        **load_kwargs: Any,
+    ) -> Self:
+        """Merge compatible models using mergekit's in-memory API.
+
+        Requires ``mergekit>=0.1.5``, available through the ``merge`` extra.
+        All models, including an optional base, must have matching module configurations,
+        tokenizer vocabularies, state keys, and tied weights. Models should be fine-tunes
+        of a common ancestor. The chosen method applies to every floating-point tensor,
+        including projection and classification heads.
+
+        Compatibility is checked before merging. For example, different pooling modes,
+        transformer configurations, or token-to-ID mappings are rejected even if weight
+        shapes match. Saved transformer metadata and dtype declarations may differ, and
+        model-level prompts may differ because the first model supplies the output's
+        prompts, but successful validation does not guarantee improved task performance.
+
+        All input weights and the merged result are held in memory. The inputs are left
+        unchanged. Configuration, prompts, and processors are inherited from the first
+        model, and a fresh model card is generated when saving.
+
+        Args:
+            models: Two or more model instances, local paths, or Hugging Face model IDs.
+            method: A registered mergekit method. Supported built-in options are
+                ``arcee_fusion``, ``breadcrumbs``, ``breadcrumbs_ties``, ``dare_linear``,
+                ``dare_ties``, ``della``, ``della_linear``, ``karcher``, ``linear``,
+                ``model_stock``, ``multislerp``, ``nearswap``, ``nuslerp``, ``ram``,
+                ``ramplus_tl``, ``sce``, ``slerp``, ``task_arithmetic``, and ``ties``.
+                See `mergekit's merge methods documentation
+                <https://github.com/arcee-ai/mergekit/blob/main/docs/merge_methods.md>`_
+                for descriptions and method-specific parameters. Defaults to ``linear``.
+            base_model: Reference model for methods operating on task vectors. It can
+                be one of the inputs or a separate model with the same architecture.
+                SLERP defaults to the first input as its base.
+            parameters: Mergekit parameters, such as ``{"weight": [0.6, 0.4]}`` for
+                linear merging or ``{"t": 0.4}`` for SLERP. Weight defaults to 1 for
+                methods accepting it, and SLERP defaults to ``t=0.5``. Other defaults
+                come from mergekit. Per-input maps use the indices in ``models``.
+                A separate base has index ``len(models)``. For task-vector methods,
+                weight sequences cover only non-base inputs, in their original order.
+            dtype: Dtype of floating-point inputs passed to the merge method, as a torch
+                dtype or its name. Defaults to float32. With None, mergekit promotes
+                the input dtypes separately for each tensor. Method-specific internal
+                computations may use a different precision.
+            out_dtype: Optional dtype to cast merged floating-point tensors to. With
+                None, preserve the method's output dtypes. For example, keep dtype at
+                float32 and set out_dtype to float16 to cast only after merging.
+            device: Device on which to merge and return the result. Defaults to CPU.
+            batch_options: Optional ``mergekit.merge_methods.BatchOptions`` controlling
+                tensor packing through ``max_bytes`` and ``max_groups``. This does not
+                limit total memory usage. With None, mergekit's defaults apply.
+            **load_kwargs: Arguments passed to ``cls(...)`` when loading paths or IDs.
+
+        Returns:
+            A new model in evaluation mode. Call ``merged.save_pretrained(path)`` or
+            ``merged.push_to_hub(repo_id)`` to save it.
+
+        Example::
+
+            from sentence_transformers import SentenceTransformer
+
+            merged = SentenceTransformer.merge(
+                models=[
+                    "sentence-transformers/all-MiniLM-L6-v2",
+                    "sentence-transformers/multi-qa-MiniLM-L6-cos-v1",
+                ],
+                parameters={"weight": [0.6, 0.4]},
+            )
+            merged.save_pretrained("merged-MiniLM-L6")
+            embeddings = merged.encode(["Hello, world!"])
+        """
+        from sentence_transformers.base.merging import merge_models
+
+        return merge_models(
+            cls=cls,
+            models=models,
+            method=method,
+            base_model=base_model,
+            parameters=parameters,
+            dtype=dtype,
+            out_dtype=out_dtype,
+            device=device,
+            batch_options=batch_options,
+            **load_kwargs,
+        )
+
     def _update_default_model_id(self, model_card: str) -> str:
         """Update the default model ID in the model card."""
         if self.model_card_data.model_id:
@@ -871,6 +999,8 @@ class BaseModel(nn.Sequential, PeftAdapterMixin, ABC):
 
         Args:
             repo_id (str): Repository name for your model in the Hub, including the user or organization.
+            organization (str, optional): DEPRECATED, include the organization in ``repo_id`` instead
+                (e.g. ``"organization/repo_id"``).
             token (str, optional): An authentication token (See https://huggingface.co/settings/token)
             private (bool, optional): Set to true, for hosting a private model
             safe_serialization (bool, optional): If true, save the model using safetensors. If false, save the model the traditional PyTorch way
@@ -1206,6 +1336,9 @@ This pull request has been automatically generated to add {self.__class__.__name
         with open(modules_json_path, encoding="utf8") as fIn:
             modules_config = json.load(fIn)
 
+        for module_config in modules_config:
+            _validate_relative_path(module_config["path"])
+
         modules = OrderedDict()
         module_kwargs = OrderedDict()
         for module_config in modules_config:
@@ -1489,9 +1622,12 @@ This pull request has been automatically generated to add {self.__class__.__name
             os.makedirs(output_path, exist_ok=True)
         return evaluator(self, output_path)
 
-    def gradient_checkpointing_enable(self, gradient_checkpointing_kwargs: dict[str, Any] | None = None) -> None:
+    def gradient_checkpointing_enable(
+        self,
+        gradient_checkpointing_kwargs: dict[str, Any] | None = None,
+        **kwargs,
+    ) -> None:
         """Enable gradient checkpointing for the model."""
-        # Propagate the gradient checkpointing to the transformer model
         for module in self.modules():
             if module is not self and hasattr(module, "gradient_checkpointing_enable"):
                 if getattr(module, "supports_gradient_checkpointing", True) is False:
@@ -1501,38 +1637,172 @@ This pull request has been automatically generated to add {self.__class__.__name
                         f"{type(module).__name__} does not support gradient checkpointing, skipping it."
                     )
                     continue
-                try:
-                    module.gradient_checkpointing_enable(gradient_checkpointing_kwargs)
-                except TypeError:
-                    module.gradient_checkpointing_enable()
+                module.gradient_checkpointing_enable(gradient_checkpointing_kwargs, **kwargs)
+
+    def _place_modules(self) -> None:
+        """Align auxiliary modules without changing backbones or dispatched submodules."""
+        device = self.device
+        first_param = next(self[0].parameters(), None)
+        dtype = first_param.dtype if first_param is not None else None
+        modules = list(self.modules())
+        protected: set[nn.Module] = set()
+
+        def collect_hook(module: nn.Module, hook: ModelHook | None) -> None:
+            if getattr(hook, "execution_device", None) is not None:
+                if getattr(hook, "place_submodules", True):
+                    protected.update(module.modules())
+                else:
+                    protected.add(module)
+            for child in getattr(hook, "hooks", ()):
+                collect_hook(module, child)
+
+        for module in modules:
+            if self._device_map is not None and isinstance(module, Transformer):
+                protected.update(module.model.modules())
+            elif self._device_map is not None and isinstance(module, PreTrainedModel):
+                protected.update(module.modules())
+            collect_hook(module, module.__dict__.get("_hf_hook"))
+
+        def convert(tensor: Tensor) -> Tensor:
+            return tensor.to(device=device, dtype=dtype if tensor.is_floating_point() or tensor.is_complex() else None)
+
+        for module in reversed(modules):
+            if module not in protected:
+                if isinstance(module, BaseModel):
+                    super(BaseModel, module)._apply(convert, recurse=False)
+                else:
+                    module._apply(convert, recurse=False)
+
+    @torch.inference_mode(False)
+    def _resolve_inference_device(self, device: int | str | torch.device | None) -> torch.device:
+        """Resolve the input device and skip redundant or delegated model moves.
+
+        Delegated models align auxiliary modules during construction and again on first inference
+        to include modules added afterward. Finish assembling the model before that inference call,
+        or clear the placement cache to prepare it again.
+        """
+        if self._placement_is_delegated:
+            if device is not None:
+                override = (
+                    "To choose the device yourself, reload the model without a `device_map` or Accelerate hooks."
+                    if self._accelerate_placement_hook is not None
+                    else "Use `model.to(device)` to override it."
+                )
+                logger.warning_once(
+                    f"Ignoring `device={device}`, as a device map or Accelerate hooks control "
+                    f"this model's placement. {override}"
+                )
+            if not self._modules_placed:
+                self._place_modules()
+                self._modules_placed = True
+            return self.device
+
+        if device is None:
+            device = self.device
+            target_device = device
+        else:
+            # Tensor devices canonicalize aliases such as cpu:0 and an unindexed cuda device.
+            target_device = torch.empty(0, device=device).device
+        if any(tensor.device != target_device for tensor in chain(self.parameters(), self.buffers())):
+            self.to(device)
+        return target_device
+
+    def to(self, *args: Any, **kwargs: Any) -> Self:
+        """Move and/or cast the parameters and buffers, as :meth:`torch.nn.Module.to` does.
+
+        The warning mirrors the one accelerate patches onto the backbone's own ``to``, which the
+        ``nn.Module._apply`` recursion under this call never reaches.
+        """
+        target = args[0] if args else kwargs.get("device", kwargs.get("tensor"))
+        device_requested = target is not None and not isinstance(target, torch.dtype)
+        if device_requested and self._accelerate_placement_hook is not None:
+            logger.warning_once("You shouldn't move a model that is dispatched using accelerate hooks.")
+        result = super().to(*args, **kwargs)
+        if device_requested:
+            self._device_map = None
+        return result
+
+    def cpu(self) -> Self:
+        """Move the model to the CPU and override its saved device map."""
+        result = super().cpu()
+        self._device_map = None
+        return result
+
+    def cuda(self, device: int | torch.device | None = None) -> Self:
+        """Move the model to a CUDA device and override its saved device map."""
+        result = super().cuda(device=device)
+        self._device_map = None
+        return result
+
+    def _apply(self, *args: Any, **kwargs: Any) -> Self:
+        """Apply a function to every parameter and buffer, as :meth:`torch.nn.Module._apply` does.
+
+        accelerate patches ``to`` and ``cuda`` on the backbone to refuse moves that would strand the
+        weights it offloaded, but ``nn.Module._apply`` recurses past those patches, and ``cpu()`` and
+        ``half()`` never reach them at all. Every mover funnels through here, so the guard lives here.
+        """
+        if self._accelerate_placement_hook is not None and any(
+            tensor.device.type == "meta" for tensor in chain(self.parameters(), self.buffers())
+        ):
+            raise RuntimeError("You can't move a model that has some modules offloaded to cpu or disk.")
+        return super()._apply(*args, **kwargs)
+
+    def clear_placement_cache(self) -> None:
+        """Clear the cached Accelerate hook and repeat auxiliary alignment on the next inference.
+
+        Call this after attaching, replacing, or removing Accelerate hooks on an existing model.
+        It also prepares modules added after the first inference call.
+        """
+        self.__dict__.pop("_accelerate_placement_hook", None)
+        self._modules_placed = False
+
+    @cached_property
+    def _accelerate_placement_hook(self) -> ModelHook | None:
+        """The first placement hook, including hooks on ordinary modules and inside SequentialHook."""
+
+        def find_hook(hook: ModelHook | None) -> ModelHook | None:
+            if getattr(hook, "execution_device", None) is not None:
+                return hook
+            for child in getattr(hook, "hooks", ()):
+                if (found := find_hook(child)) is not None:
+                    return found
+            return None
+
+        for module in self.modules():
+            hook = module.__dict__.get("_hf_hook")
+            if hook is not None and (placement_hook := find_hook(hook)) is not None:
+                return placement_hook
+        return None
+
+    @property
+    def _placement_is_delegated(self) -> bool:
+        """Whether a requested device map or live placement hooks control inference placement."""
+        return self._device_map is not None or self._accelerate_placement_hook is not None
 
     @property
     def device(self) -> torch.device:
-        """
-        Get torch.device from module, assuming that the whole module has one device.
-        In case there are no PyTorch parameters, fall back to CPU.
-        """
-        if (transformers_model := self.transformers_model) is not None and hasattr(transformers_model, "device"):
-            return transformers_model.device
+        """Return the execution device, falling back to model tensors and then CPU."""
+        # An offloaded module keeps its parameters on ``meta`` until accelerate streams them in, so the
+        # first parameter is not where the model runs. accelerate resolved that when it dispatched.
+        if (execution_device := getattr(self._accelerate_placement_hook, "execution_device", None)) is not None:
+            return torch.device(execution_device)
 
-        if len(self._modules) and hasattr(self[0], "auto_model") and hasattr(self[0].auto_model, "device"):
-            return self[0].auto_model.device
+        transformers_model = self.transformers_model
+        if (device := getattr(transformers_model, "device", None)) is not None:
+            return device
 
-        try:
-            return next(self.parameters()).device
-        except StopIteration:
-            # Fallback for nn.DataParallel compatibility when parameters() is empty
+        if (parameter := next(self.parameters(), None)) is not None:
+            return parameter.device
+        if (buffer := next(self.buffers(), None)) is not None:
+            return buffer.device
 
-            def find_tensor_attributes(module: nn.Module) -> list[tuple[str, Tensor]]:
-                tuples = [(k, v) for k, v in module.__dict__.items() if torch.is_tensor(v)]
-                return tuples
+        # DataParallel replicas store their weights as ordinary tensor attributes.
+        for module in self.modules():
+            for value in vars(module).values():
+                if torch.is_tensor(value):
+                    return value.device
 
-            gen = self._named_members(get_members_fn=find_tensor_attributes)
-            try:
-                first_tuple = next(gen)
-                return first_tuple[1].device
-            except StopIteration:
-                return torch.device("cpu")
+        return torch.device("cpu")
 
     def start_multi_process_pool(
         self, target_devices: list[str] | None = None
@@ -1553,6 +1823,13 @@ This pull request has been automatically generated to add {self.__class__.__name
         Returns:
             Dict[str, Any]: A dictionary with the target processes, an input queue, and an output queue.
         """
+        if self._accelerate_placement_hook is not None:
+            raise ValueError(
+                "Multi-process encoding places the model on each target device itself, which a model "
+                "dispatched by accelerate does not allow. Load it without a `device_map` to encode "
+                "with a pool."
+            )
+
         if target_devices is None:
             if torch.cuda.is_available():
                 target_devices = [f"cuda:{i}" for i in range(torch.cuda.device_count())]
@@ -1602,27 +1879,116 @@ This pull request has been automatically generated to add {self.__class__.__name
             p.join()
             p.close()
 
+        pool["input"].cancel_join_thread()
         pool["input"].close()
         pool["output"].close()
 
-    def _multi_process(self, *args, **kwargs):
+    def _inference(self, inputs: list, **kwargs) -> Any:
+        """Run local inference on normalized inputs with resolved arguments."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
-    @staticmethod
+    def _multi_process(
+        self,
+        inputs: Sequence,
+        show_progress_bar: bool | None = True,
+        pool: dict[Literal["input", "output", "processes"], Any] | None = None,
+        device: str | torch.device | list[str | torch.device] | None = None,
+        chunk_size: int | None = None,
+        **kwargs,
+    ) -> list | Tensor:
+        """Run inference in a provided pool or a temporary pool created from a list of devices."""
+        if chunk_size is not None and chunk_size <= 0:
+            raise ValueError(f"chunk_size must be a positive integer, got {chunk_size}.")
+        if not inputs:
+            return []
+        kwargs["show_progress_bar"] = False
+
+        created_pool = False
+        if pool is None and isinstance(device, list):
+            pool = self.start_multi_process_pool(device)
+            created_pool = True
+
+        try:
+            if chunk_size is None:
+                chunk_size = max(1, min(math.ceil(len(inputs) / len(pool["processes"]) / 10), 5000))
+
+            input_queue: Queue = pool["input"]
+            chunk_starts = range(0, len(inputs), chunk_size)
+            num_chunks = len(chunk_starts)
+            for chunk_id, start in enumerate(chunk_starts):
+                input_queue.put([chunk_id, inputs[start : start + chunk_size], kwargs])
+
+            outputs = [None] * num_chunks
+            for _ in trange(num_chunks, desc="Chunks", disable=not show_progress_bar):
+                chunk_id, output = self._get_worker_result(pool)
+                outputs[chunk_id] = output
+
+            for output in outputs:
+                if isinstance(output, Exception):
+                    raise output
+
+            if isinstance(outputs[0], Tensor):
+                return torch.cat(outputs)
+            return [item for chunk in outputs for item in chunk]
+        finally:
+            if created_pool:
+                self.stop_multi_process_pool(pool)
+
+    @classmethod
     def _multi_process_worker(
+        cls,
         target_device: str,
         model: BaseModel,
         input_queue: Queue,
         results_queue: Queue,
     ) -> None:
-        """Worker function for multi-process inference. Must be overridden by subclasses.
+        """Run inference on queued chunks in a worker process.
 
-        This is called as the target function in each spawned process by
-        :meth:`start_multi_process_pool`. Subclasses should implement this to
-        read from ``input_queue``, run inference on ``target_device``, and write
-        results to ``results_queue``.
+        Workers are terminated externally via ``stop_multi_process_pool``.
         """
-        raise NotImplementedError("This method should be implemented in subclasses.")
+        while True:
+            chunk_id, inputs, kwargs = input_queue.get()
+            try:
+                outputs = model._inference(inputs, device=target_device, **kwargs)
+                outputs = _move_tensors_to_cpu(outputs)
+            except Exception as exc:
+                results_queue.put(cls._report_worker_failure(chunk_id, exc, target_device))
+            else:
+                results_queue.put([chunk_id, outputs])
+
+    @staticmethod
+    def _get_worker_result(
+        pool: dict[Literal["input", "output", "processes"], Any], poll_interval: float = 1.0
+    ) -> Any:
+        """Wait for a result, checking for dead workers whenever the queue is empty."""
+        while True:
+            try:
+                return pool["output"].get(timeout=poll_interval)
+            except queue.Empty:
+                pass
+            dead = [p for p in pool["processes"] if not p.is_alive()]
+            if dead:
+                details = ", ".join(f"pid {p.pid} (exit code {p.exitcode})" for p in dead)
+                raise RuntimeError(
+                    f"{len(dead)} multi-process pool worker(s) died unexpectedly: {details}. "
+                    "Stop the pool and start a new one before retrying."
+                )
+
+    @classmethod
+    def _report_worker_failure(cls, chunk_id: int, exc: Exception, target_device: str) -> list[int | Exception]:
+        """Log a chunk that a worker failed to process and build the result to enqueue for it.
+
+        :meth:`_multi_process` blocks for exactly one result per submitted chunk, so a worker that
+        dies without reporting leaves it waiting forever. The queue pickles in a feeder thread
+        after ``put`` returns, so an exception that cannot round-trip is replaced by its formatted
+        traceback rather than being dropped there.
+        """
+        logger.exception(f"Error in {cls.__name__} worker process on {target_device} for chunk {chunk_id}")
+        try:
+            pickle.loads(pickle.dumps(exc))
+        except Exception:
+            exc = RuntimeError("".join(traceback.format_exception(exc)))
+        return [chunk_id, exc]
 
     @property
     def tokenizer(self) -> Any:

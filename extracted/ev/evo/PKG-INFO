@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: evo
-Version: 1.38.0
+Version: 1.38.1
 Summary: Python package for the evaluation of odometry and SLAM
 Project-URL: Homepage, https://github.com/MichaelGrupp/evo
 Project-URL: Wiki, https://github.com/MichaelGrupp/evo/wiki
@@ -12,14 +12,14 @@ Keywords: SLAM,evaluation,laser,metric,odometry,robotics,trajectory,vision,visua
 Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: argcomplete
 Requires-Dist: colorama>=0.3
 Requires-Dist: matplotlib>=3.6.0
@@ -95,7 +95,7 @@ evo has several advantages over other public benchmarking tools:
 
 Installation is easy-peasy if you're familiar with this: https://xkcd.com/1987/#
 
-The latest version of evo supports **Python 3.10+**.
+The latest version of evo supports **Python 3.11+**.
 
 Please use `pip` only in a proper environment (e.g. `uv`/`uvx`, `pipx`, `venv`, Pixi or a classic [virtual environment](https://github.com/MichaelGrupp/evo/blob/master/doc/install_in_virtualenv.md)).
 > ⚠️ ☠️☠️☠️ ⚠️

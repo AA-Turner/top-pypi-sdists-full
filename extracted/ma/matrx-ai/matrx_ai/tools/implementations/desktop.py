@@ -8,6 +8,7 @@ op's schema (the tool ↔ op map is ``TOOL_CATALOG`` in the protocol package).
 
 from __future__ import annotations
 
+import json
 import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -256,17 +257,22 @@ async def shell_job(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             params: dict[str, Any] = {"command": a.command}
             if a.cwd:
                 params["cwd"] = _path(a.cwd)
+            if a.env:
+                params["env"] = dict(a.env)
             plan = ("exec.job.start", params, 60)
     elif a.action == "list":
         plan = ("exec.job.list", {}, 30)
     elif not a.job_id:
         plan = f"{a.action} needs the job_id (from start or list)"
     elif a.action == "output":
-        plan = (
-            "exec.job.output",
-            {"job_id": a.job_id, "offset": a.offset, "wait_ms": a.wait_seconds * 1000},
-            a.wait_seconds + 30,
-        )
+        output: dict[str, Any] = {
+            "job_id": a.job_id,
+            "offset": a.offset,
+            "wait_ms": a.wait_seconds * 1000,
+        }
+        if a.max_bytes is not None:
+            output["max_bytes"] = a.max_bytes
+        plan = ("exec.job.output", output, a.wait_seconds + 30)
     else:
         plan = ("exec.job.stop", {"job_id": a.job_id, "force": a.force}, 30)
     return await _call_ops("shell_job", ctx, started_at, plan, action=a.action)
@@ -361,6 +367,8 @@ async def desktop_window(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         params: dict[str, Any] = {"limit": a.limit}
         if a.title:
             params["title"] = a.title
+        if a.app:
+            params["app"] = a.app
         plan = ("window.list", params, 30)
     elif a.id is None:
         plan = f"{a.action} needs the window id (from list)"
@@ -375,6 +383,8 @@ async def desktop_window(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             if moved
             else "move needs x and y, width and height, or both"
         )
+    elif a.action == "minimize" and a.mode is not None:
+        plan = ("window.minimize", {"id": a.id, "mode": a.mode}, 30)
     else:
         plan = (f"window.{a.action}", {"id": a.id}, 30)
     return await _call_ops("desktop_window", ctx, started_at, plan, action=a.action)
@@ -470,9 +480,18 @@ async def desktop_audio(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
                 params["device_id"] = a.device_id
             if a.path:
                 params["path"] = _path(a.path)
+            if a.channels is not None:
+                params["channels"] = a.channels
+            if a.sample_rate is not None:
+                params["sample_rate"] = a.sample_rate
             plan = ("audio.record", params, a.seconds + 90)
+    elif not a.path:
+        plan = "play needs the path"
     else:
-        plan = ("audio.play", {"path": _path(a.path)}, 660) if a.path else "play needs the path"
+        play: dict[str, Any] = {"path": _path(a.path)}
+        if a.device_id:
+            play["device_id"] = a.device_id
+        plan = ("audio.play", play, 660)
     return await _call_ops("desktop_audio", ctx, started_at, plan, action=a.action)
 
 
@@ -510,7 +529,10 @@ def _git_plan(a: DesktopGitArgs) -> tuple[str, dict[str, Any], float] | str:
     if a.action == "commit":
         if not a.message:
             return "commit needs the message"
-        return ("git.commit", {"cwd": cwd, "message": a.message, "amend": a.amend}, 150)
+        commit: dict[str, Any] = {"cwd": cwd, "message": a.message, "amend": a.amend}
+        if a.author:
+            commit["author"] = a.author
+        return ("git.commit", commit, 150)
     if a.action in ("push", "pull"):
         net: dict[str, Any] = {"cwd": cwd, "remote": a.remote}
         if a.branch:
@@ -568,6 +590,8 @@ def _web_plan(
         }
         if a.body is not None:
             params["body"] = a.body
+        if a.follow_redirects is not None:
+            params["follow_redirects"] = a.follow_redirects
         return ("web.fetch", params, a.timeout_s + 30)
     if a.action == "scrape":
         if not a.urls:
@@ -578,6 +602,7 @@ def _web_plan(
                 "urls": a.urls,
                 "use_cache": a.use_cache,
                 "get_links": a.get_links,
+                **({"engine": a.engine} if a.engine else {}),
                 **_web_land(organization_id),
             },
             300,
@@ -591,7 +616,138 @@ def _web_plan(
     }
     if a.wait_for:
         browser["wait_for"] = a.wait_for
+    if a.wait_timeout_ms is not None:
+        browser["wait_timeout_ms"] = a.wait_timeout_ms
     return ("web.fetch_with_browser", browser, _WEB_BROWSER_TIMEOUT_S)
+
+
+#: research reads at most this many pages in one web.scrape op (the op's own limit).
+_RESEARCH_SCRAPE_BATCH = 20
+#: The compiled pages' text the model is shown, at most (the rest is said to be cut).
+_RESEARCH_TEXT_BUDGET = 60_000
+
+
+async def _research_hits(
+    query: str, count: int, freshness: str | None
+) -> list[dict[str, str]]:
+    """One query's web results from AI Matrx's own search provider (never the computer: it holds no
+    key), in rank order: ``[{title, url, description}]``. The scraper's own search, as web_search
+    reaches it (imported directly: it needs no matrx_ai.configure() extension registration)."""
+    from matrx_scraper.search import async_brave_search
+
+    found = await async_brave_search(
+        query=query, count=count, freshness=freshness, extra_snippets=False
+    )
+    if not found:
+        return []
+    rows = (found.get("web") or {}).get("results", []) + (found.get("news") or {}).get("results", [])
+    return [
+        {
+            "title": str(r.get("title") or ""),
+            "url": str(r["url"]),
+            "description": str(r.get("description") or ""),
+        }
+        for r in rows
+        if r.get("url")
+    ]
+
+
+async def _desktop_research(
+    a: DesktopWebArgs, ctx: ToolContext, started_at: float, organization_id: str | None
+) -> ToolResult:
+    """matrx-local's Research on Matrx 2: search on the server, then read every result on the
+    user's computer (``web.scrape``: its IP, its connection; each page saved as a Source like any
+    scrape), and hand back the pages' text together. No model call: the agent reads the pages."""
+    binding = get_active_sandbox()
+    if binding is None or binding.target_kind != "local_machine":
+        return _no_computer("desktop_web", ctx.call_id, started_at)
+    if not a.queries:
+        return _invalid("desktop_web", ctx.call_id, started_at, "research needs queries (1 to 5)")
+    queries = a.queries[:5]
+    urls: list[str] = []
+    hits_by_url: dict[str, dict[str, str]] = {}
+    searched: list[dict[str, Any]] = []
+    for query in queries:
+        try:
+            hits = await _research_hits(query, a.count, a.freshness)
+        except Exception as exc:  # noqa: BLE001 - said to the model per query, never swallowed
+            searched.append({"query": query, "results": 0, "error": f"{type(exc).__name__}: {exc}"})
+            continue
+        searched.append({"query": query, "results": len(hits), "error": None})
+        for hit in hits[: a.count]:
+            if hit["url"] not in hits_by_url:
+                hits_by_url[hit["url"]] = hit
+                urls.append(hit["url"])
+    if not urls:
+        errors = "; ".join(f"{q['query']}: {q['error']}" for q in searched if q["error"])
+        return ToolResult(
+            success=False,
+            error=ToolError(
+                error_type="execution",
+                message="research found no pages to read"
+                + (f" (search failed: {errors})" if errors else " (the search returned no results)"),
+                is_retryable=True,
+                suggested_action="Try other queries, or a wider freshness.",
+            ),
+            started_at=started_at,
+            completed_at=time.time(),
+            tool_name="desktop_web",
+            call_id=ctx.call_id,
+        )
+    pages: list[dict[str, Any]] = []
+    for i in range(0, len(urls), _RESEARCH_SCRAPE_BATCH):
+        batch = urls[i : i + _RESEARCH_SCRAPE_BATCH]
+        try:
+            read = await device_op(
+                binding,
+                "web.scrape",
+                {"urls": batch, "use_cache": True, "get_links": False, **_web_land(organization_id)},
+                timeout_s=300,
+            )
+        except SandboxProxyError as exc:
+            return _proxy_error(exc, tool_name="desktop_web", call_id=ctx.call_id, started_at=started_at)
+        pages.extend(read.get("pages") or [])
+    read_ok = [p for p in pages if p.get("ok") and (p.get("text") or "").strip()]
+    sections: list[str] = []
+    for p in read_ok:
+        hit = hits_by_url.get(str(p.get("url")), {})
+        title = p.get("title") or hit.get("title") or p.get("url")
+        sections.append(f"## {title}\n{p.get('url')}\n\n{(p.get('text') or '').strip()}")
+    text = "\n\n---\n\n".join(sections)
+    total = len(text)
+    cut = total > _RESEARCH_TEXT_BUDGET
+    if cut:
+        text = text[:_RESEARCH_TEXT_BUDGET] + (
+            f"\n\n[Cut at {_RESEARCH_TEXT_BUDGET:,} of {total:,} characters: read a page in"
+            " full with action scrape.]"
+        )
+    output: dict[str, Any] = {
+        "action": "research",
+        "queries": searched,
+        "pages_read": len(read_ok),
+        "pages_failed": len(pages) - len(read_ok),
+        "pages": [
+            {
+                "url": p.get("url"),
+                "title": p.get("title") or hits_by_url.get(str(p.get("url")), {}).get("title"),
+                "ok": bool(p.get("ok") and (p.get("text") or "").strip()),
+                "error": p.get("error") or (None if (p.get("text") or "").strip() else "no readable text"),
+                "via": p.get("via"),
+                **({"source": p["source"]} if p.get("source") else {}),
+            }
+            for p in pages
+        ],
+        "text": text,
+        "text_cut": cut,
+    }
+    return ToolResult(
+        success=True,
+        output=output,
+        started_at=started_at,
+        completed_at=time.time(),
+        tool_name="desktop_web",
+        call_id=ctx.call_id,
+    )
 
 
 async def desktop_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
@@ -599,7 +755,8 @@ async def desktop_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
 
     fetch, scrape and browser_fetch run ON the computer: its IP, its connection. search never does:
     the computer holds no provider key, so it runs here, on the server's own search provider, as the
-    person making this turn (the platform ``web_search`` tool, same context)."""
+    person making this turn (the platform ``web_search`` tool, same context). research is both:
+    search here, then every result read on the computer (matrx-local's Research)."""
     started_at = time.time()
     a = DesktopWebArgs(**args)
     if a.action == "search":
@@ -615,6 +772,8 @@ async def desktop_web(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return result
     from matrx_ai.tools.organization_hold import carried_organization_id
 
+    if a.action == "research":
+        return await _desktop_research(a, ctx, started_at, carried_organization_id(ctx))
     plan = _web_plan(a, carried_organization_id(ctx))
     return await _call_ops("desktop_web", ctx, started_at, plan, action=a.action)
 
@@ -762,9 +921,14 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
         "bluetooth": _Act("net.bluetooth", timeout_s=75),
         "devices": _Act("net.devices", timeout_s=40),
         "mdns": _Act("net.mdns", ("service_type", "timeout_s"), timeout_s=60),
-        "scan": _Act("net.scan", ("host", "ports", "allow_public"), ("host", "ports"), 300),
+        "scan": _Act(
+            "net.scan", ("host", "ports", "allow_public", "timeout_ms"), ("host", "ports"), 300
+        ),
         "download": _Act(
-            "net.download", ("url", "path", "overwrite", "timeout_s"), ("url", "path"), 3700
+            "net.download",
+            ("url", "path", "overwrite", "timeout_s", "max_bytes"),
+            ("url", "path"),
+            3700,
         ),
     },
     "desktop_automation": {
@@ -780,6 +944,7 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
             {
                 "to": "to",
                 "cc": "cc",
+                "bcc": "bcc",
                 "subject": "subject",
                 "body": "body",
                 "sender": "from",
@@ -801,17 +966,25 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
     },
     "desktop_messages": {
         "chats": _Act("messages.chats", ("limit",), timeout_s=60),
-        "list": _Act("messages.list", ("chat_id", "limit"), timeout_s=60),
-        "send": _Act("messages.send", ("to", "text"), ("to", "text"), 90),
+        "list": _Act(
+            "messages.list", ("chat_id", "contact", "unread_only", "limit"), timeout_s=60
+        ),
+        "send": _Act("messages.send", ("to", "text", "service"), ("to", "text"), 90),
     },
     "desktop_contacts": {
-        "search": _Act("contacts.search", ("query", "limit"), ("query",), 150),
+        "search": _Act("contacts.search", ("query", "limit"), timeout_s=150),
         "get": _Act("contacts.get", ("id",), ("id",), 90),
     },
     "desktop_calendar": {
         "events": _Act(
             "calendar.list",
-            {"start": "from_ms", "end": "to_ms", "calendar": "calendar", "limit": "limit"},
+            {
+                "start": "from_ms",
+                "end": "to_ms",
+                "calendar": "calendar",
+                "calendars": "calendars",
+                "limit": "limit",
+            },
             ("start", "end"),
             150,
         ),
@@ -829,7 +1002,9 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
             ("title", "start", "end"),
             90,
         ),
-        "reminders": _Act("reminders.list", ("list", "include_completed", "limit"), timeout_s=120),
+        "reminders": _Act(
+            "reminders.list", ("list", "lists", "include_completed", "limit"), timeout_s=120
+        ),
         "create_reminder": _Act(
             "reminders.create",
             {"title": "title", "due": "due_ms", "list": "list", "notes": "notes"},
@@ -845,11 +1020,12 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
                 "start": "from_ms",
                 "end": "to_ms",
                 "favorites_only": "favorites_only",
+                "media_type": "media_type",
                 "limit": "limit",
             },
             timeout_s=150,
         ),
-        "get": _Act("photos.get", ("id", "export"), ("id",), 210),
+        "get": _Act("photos.get", ("id", "export", "thumbnail_size"), ("id",), 210),
     },
     "desktop_location": {
         "get": _Act("location.get", ("timeout_s",), timeout_s=120),
@@ -859,7 +1035,7 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
         "registry_write": _Act(
             "windows.registry_write", ("key", "name", "type", "data", "delete"), ("key", "name"), 90
         ),
-        "services": _Act("windows.services", ("filter", "limit"), timeout_s=90),
+        "services": _Act("windows.services", ("filter", "status", "limit"), timeout_s=90),
         "service_control": _Act(
             "windows.service_control",
             {"name": "name", "service_action": "action"},
@@ -868,10 +1044,16 @@ SIDECAR_ACTIONS: dict[str, dict[str, _Act]] = {
         ),
         "event_log": _Act(
             "windows.event_log",
-            {"log": "log", "levels": "levels", "since": "since_ms", "limit": "limit"},
+            {
+                "log": "log",
+                "levels": "levels",
+                "since": "since_ms",
+                "source": "source",
+                "limit": "limit",
+            },
             timeout_s=120,
         ),
-        "features": _Act("windows.features", ("filter",), timeout_s=150),
+        "features": _Act("windows.features", ("filter", "installed_only"), timeout_s=150),
     },
     "desktop_notes": {
         "folders": _Act("notes.folders", timeout_s=60),
@@ -949,13 +1131,36 @@ def _sidecar_plan(tool: str, action: str, a: Any) -> tuple[str, dict[str, Any], 
     return (spec.op, params, spec.timeout_s)
 
 
+def _photo_thumbnail(output: dict[str, Any]) -> tuple[dict[str, Any], Any]:
+    """photos.get's thumbnail goes to the model as an image; the stored output keeps its size."""
+    from matrx_ai.config import ImageContent, TextContent
+
+    data = output.pop("thumbnail_png_base64", None)
+    if not data:
+        return output, None
+    output["thumbnail_bytes"] = len(data) * 3 // 4
+    facts = json.dumps(output, default=str)[:4000]
+    return output, [ImageContent(base64_data=data, mime_type="image/png"), TextContent(text=facts)]
+
+
+#: (tool, action) whose result carries a picture for the model.
+_SIDECAR_SHAPES: dict[tuple[str, str], Any] = {("desktop_photos", "get"): _photo_thumbnail}
+
+
 async def _sidecar(
     tool: str, model: Any, args: dict[str, Any], ctx: ToolContext, default_action: str | None = None
 ) -> ToolResult:
     started_at = time.time()
     a = model(**args)
     action = getattr(a, "action", None) or default_action or ""
-    return await _call_ops(tool, ctx, started_at, _sidecar_plan(tool, action, a), action=action)
+    return await _call_ops(
+        tool,
+        ctx,
+        started_at,
+        _sidecar_plan(tool, action, a),
+        action=action,
+        shape=_SIDECAR_SHAPES.get((tool, action)),
+    )
 
 
 async def desktop_net(args: dict[str, Any], ctx: ToolContext) -> ToolResult:

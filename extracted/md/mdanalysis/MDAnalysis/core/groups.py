@@ -122,6 +122,7 @@ from . import selection
 from ..exceptions import NoDataError
 from . import topologyobjects
 from ._get_readers import get_writer_for, get_converter_for
+from ..lib._cutil import inverse_int_index
 
 
 def _unpickle(u, ix):
@@ -912,10 +913,7 @@ class GroupBase(_MutableBase):
 
         indices = unique_int_1d_unsorted(self.ix)
         if set_mask:
-            mask = np.zeros_like(self.ix)
-            for i, x in enumerate(indices):
-                values = np.where(self.ix == x)[0]
-                mask[values] = i
+            mask = inverse_int_index(self.ix, indices)
             self._unique_restore_mask = mask
 
         issorted = int_array_is_sorted(indices)
@@ -1603,6 +1601,9 @@ class GroupBase(_MutableBase):
         rotateby : rotate around given axis and angle
         MDAnalysis.lib.transformations : module of all coordinate transforms
 
+
+        .. versionchanged:: 2.11.0
+           Also rotate velocities and forces if present in Timestep.
         """
         R = np.asarray(R)
         point = np.asarray(point)
@@ -1612,11 +1613,19 @@ class GroupBase(_MutableBase):
         require_translation = bool(np.count_nonzero(point))
         if require_translation:
             atomgroup.translate(-point)
-        x = atomgroup.universe.trajectory.ts.positions
+        ts = atomgroup.universe.trajectory.ts
+        R_T = R.T
+        x = ts.positions
         idx = atomgroup.indices
-        x[idx] = np.dot(x[idx], R.T)
+        x[idx] = np.dot(x[idx], R_T)
         if require_translation:
             atomgroup.translate(point)
+        if ts.has_velocities:
+            v = ts.velocities
+            v[idx] = np.dot(v[idx], R_T)
+        if ts.has_forces:
+            f = ts.forces
+            f[idx] = np.dot(f[idx], R_T)
 
         return self
 
@@ -1654,6 +1663,9 @@ class GroupBase(_MutableBase):
         MDAnalysis.lib.transformations.rotation_matrix :
             calculate :math:`\mathsf{R}`
 
+
+        .. versionchanged:: 2.11.0
+           Also rotate velocities and forces if present in Timestep.
         """
         alpha = np.radians(angle)
         axis = np.asarray(axis)
@@ -1899,13 +1911,17 @@ class GroupBase(_MutableBase):
             else:
                 compound_indices = atoms._get_compound_indices(comp)
 
-                # apply the shifts:
+                # Build mapping from compound index to shift index
                 unique_compound_indices = unique_int_1d(compound_indices)
-                shift_idx = 0
-                for i in unique_compound_indices:
-                    mask = np.where(compound_indices == i)
-                    positions[mask] += shifts[shift_idx]
-                    shift_idx += 1
+                index_to_shift = np.empty(
+                    compound_indices.max() + 1, dtype=int
+                )
+                index_to_shift[unique_compound_indices] = np.arange(
+                    len(unique_compound_indices)
+                )
+
+                # Apply shifts
+                positions += shifts[index_to_shift[compound_indices]]
 
         if inplace:
             atoms.positions = positions
@@ -3285,6 +3301,10 @@ class AtomGroup(GroupBase):
 
         **Simple selections**
 
+            all
+                selects all atoms in the current group; the resulting
+                :class:AtomGroup is unique and sorted by index. If the group
+                already corresponds to Universe.atoms, it is returned unchanged.
             protein, backbone, nucleic, nucleicbackbone
                 selects all atoms that belong to a standard set of residues;
                 a protein is identfied by a hard-coded set of residue names so

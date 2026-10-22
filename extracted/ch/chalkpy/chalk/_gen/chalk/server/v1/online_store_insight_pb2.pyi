@@ -254,15 +254,18 @@ class GetOnlineStoreUsageStatsRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class GetOnlineStoreUsageStatsResponse(_message.Message):
-    __slots__ = ("stats", "collected_at")
+    __slots__ = ("stats", "collected_at", "snapshot_uri")
     STATS_FIELD_NUMBER: _ClassVar[int]
     COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
+    SNAPSHOT_URI_FIELD_NUMBER: _ClassVar[int]
     stats: _containers.RepeatedCompositeFieldContainer[OnlineStoreUsageStat]
     collected_at: _timestamp_pb2.Timestamp
+    snapshot_uri: str
     def __init__(
         self,
         stats: _Optional[_Iterable[_Union[OnlineStoreUsageStat, _Mapping]]] = ...,
         collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        snapshot_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class OnlineStoreCleanupStat(_message.Message):
@@ -294,21 +297,24 @@ class GetOnlineStoreCleanupStatsRequest(_message.Message):
     def __init__(self) -> None: ...
 
 class GetOnlineStoreCleanupStatsResponse(_message.Message):
-    __slots__ = ("stats", "collected_at", "script_task_id", "job_started_at")
+    __slots__ = ("stats", "collected_at", "script_task_id", "job_started_at", "snapshot_uri")
     STATS_FIELD_NUMBER: _ClassVar[int]
     COLLECTED_AT_FIELD_NUMBER: _ClassVar[int]
     SCRIPT_TASK_ID_FIELD_NUMBER: _ClassVar[int]
     JOB_STARTED_AT_FIELD_NUMBER: _ClassVar[int]
+    SNAPSHOT_URI_FIELD_NUMBER: _ClassVar[int]
     stats: _containers.RepeatedCompositeFieldContainer[OnlineStoreCleanupStat]
     collected_at: _timestamp_pb2.Timestamp
     script_task_id: str
     job_started_at: _timestamp_pb2.Timestamp
+    snapshot_uri: str
     def __init__(
         self,
         stats: _Optional[_Iterable[_Union[OnlineStoreCleanupStat, _Mapping]]] = ...,
         collected_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         script_task_id: _Optional[str] = ...,
         job_started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        snapshot_uri: _Optional[str] = ...,
     ) -> None: ...
 
 class GetDynamoDBMetricsRequest(_message.Message):

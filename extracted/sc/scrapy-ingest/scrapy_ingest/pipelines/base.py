@@ -1,6 +1,7 @@
 """
 Base pipeline functionality for scrapy_ingest.
 """
+
 from ..config.settings import Settings, validate_settings
 
 
@@ -17,4 +18,7 @@ class BasePipeline:
         return cls(settings)
 
     def get_identifier_info(self, spider):
-        return self.settings.get_identifier_column(), self.settings.get_identifier_value(spider)
+        return (
+            self.settings.get_identifier_column(),
+            self.settings.get_identifier_value(spider),
+        )

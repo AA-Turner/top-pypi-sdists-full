@@ -1,4 +1,5 @@
 """Flatten nested item dicts for tabular export."""
+
 from __future__ import annotations
 
 import json

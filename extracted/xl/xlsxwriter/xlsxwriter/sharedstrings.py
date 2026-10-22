@@ -4,12 +4,12 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 # Package imports.
-from . import xmlwriter
-from .utility import _preserve_whitespace
+from xlsxwriter import xmlwriter
+from xlsxwriter.utility import _preserve_whitespace
 
 
 class SharedStrings(xmlwriter.XMLwriter):

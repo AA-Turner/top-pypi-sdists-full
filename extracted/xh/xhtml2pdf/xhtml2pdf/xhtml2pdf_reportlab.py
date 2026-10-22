@@ -38,6 +38,7 @@ from reportlab.lib.validators import isNumber
 from reportlab.pdfbase import pdfform
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus.doctemplate import (
+    ActionFlowable,
     BaseDocTemplate,
     IndexingFlowable,
     PageTemplate,
@@ -47,6 +48,7 @@ from reportlab.platypus.flowables import (
     CondPageBreak,
     Flowable,
     KeepInFrame,
+    PageBreak,
     ParagraphAndImage,
 )
 from reportlab.platypus.frames import Frame
@@ -129,6 +131,30 @@ class PageNumberReset(Flowable):
             doc.pageNumberResets.append((doc.page, self.value))
 
 
+class PdfInsertPage(Flowable):
+    """
+    A page that <pdf:insertpdf> fills with page `index` of `source`.
+
+    The page is laid out like any other, so it counts for the page numbers,
+    the page count and the table of contents; what is drawn on it is
+    replaced by the source page once the document is built
+    (xhtml2pdf.builders.inserts).
+    """
+
+    _ZEROSIZE = 1
+
+    def __init__(self, source: bytes, index: int) -> None:
+        super().__init__()
+        self.source = source
+        self.index = index
+
+    def draw(self) -> None:
+        doc = self.canv._doctemplate
+        if isinstance(doc, PmlBaseDoc):
+            doc.pdfInserts.append((doc.page, self.source, self.index))
+            doc.pageTaken = True
+
+
 def layout_moment(canv) -> tuple[int, int]:
     """
     The layout pass and the page a flowable is being laid out for.
@@ -151,6 +177,12 @@ class PmlBaseDoc(BaseDocTemplate):
     #: its content, so it can only be numbered from what an earlier pass
     #: found; the tag asks for a second pass.
     _knownResets: list[tuple[int, int]]
+    #: (page, source PDF, page index in it) for each page <pdf:insertpdf>
+    #: reserved in this pass.
+    pdfInserts: list[tuple[int, bytes, int]]
+    #: Whether the current page is an inserted one, which nothing else is
+    #: laid out on: what comes next starts a new page.
+    pageTaken = False
 
     def pageLabel(self, page: int) -> int:
         """The number page `page` shows, after the resets before it."""
@@ -204,6 +236,8 @@ class PmlBaseDoc(BaseDocTemplate):
         #: Counts the layout passes, for the containers' layout caches.
         self.layoutPass = getattr(self, "layoutPass", 0) + 1
         self.pageNumberResets = []
+        self.pdfInserts = []
+        self.pageTaken = False
 
         # The anchors of the positioned boxes fall where this pass puts them.
         from xhtml2pdf.builders.position import reset_positioned
@@ -274,6 +308,24 @@ class PmlBaseDoc(BaseDocTemplate):
                     getattr(flowable, "tocKey", None),
                 ),
             )
+
+    def handle_flowable(self, flowables) -> None:
+        """
+        Start a new page before what follows an inserted page.
+
+        Only before something laid out: a page template chosen after the
+        tag applies to that new page, and a page break of its own takes the
+        place of this one. Nothing is added when nothing follows, so the
+        document does not end on an empty page.
+        """
+        if self.pageTaken and flowables:
+            first = flowables[0]
+            if isinstance(first, PageBreak):
+                self.pageTaken = False
+            elif not isinstance(first, ActionFlowable | PmlPageCount):
+                self.pageTaken = False
+                flowables.insert(0, PageBreak())
+        super().handle_flowable(flowables)
 
     def handle_nextPageTemplate(self, pt: str | int | list | tuple) -> None:
         """If pt has also templates for even and odd page convert it to list."""
@@ -1195,22 +1247,23 @@ class PmlParagraph(DeepCopiedDirectly, Paragraph, PmlMaxHeightMixIn):
             if not getattr(self, "tocKey", None):
                 self.tocKey = uuid4().hex
 
-            # Check level and add all levels
-            last = getattr(self.canv, "outlineLast", -1) + 1
-            while last < self.outlineLevel:
-                # Filler entries for levels the document skipped. Nothing links
-                # to these, so their keys need not be stable.
-                key = uuid4().hex
-                self.canv.bookmarkPage(key)
-                self.canv.addOutlineEntry(self.text, key, last, not self.outlineOpen)
-                last += 1
-            self.canv.outlineLast = self.outlineLevel
+            # The entry goes under the nearest entry before it with a lower
+            # level, or at the top with none, as a browser nests a document's
+            # headings: an h3 straight after an h1 is the h1's child, and a
+            # document that starts at h2 has its h2s at the top. The stack
+            # holds the levels of the entries still open, so the depth is
+            # never more than one below the entry before, which is all
+            # ReportLab accepts.
+            levels = self.canv.__dict__.setdefault("outlineLevels", [])
+            while levels and levels[-1] >= self.outlineLevel:
+                levels.pop()
+            depth = len(levels)
+            levels.append(self.outlineLevel)
 
             self.canv.bookmarkPage(self.tocKey)
             self.canv.addOutlineEntry(
-                self.text, self.tocKey, self.outlineLevel, not self.outlineOpen
+                self.text, self.tocKey, depth, not self.outlineOpen
             )
-            last += 1
 
         # Draw the background and borders here before passing control on to
         # ReportLab. This is because ReportLab can't handle the individual
@@ -1303,6 +1356,16 @@ class _CellPart(PmlKeepInFrame):
 
 #: A height nothing is shrunk to, and that setMaxHeight does not record.
 _UNBOUNDED = 0xFFFFFFF
+
+
+class PmlFlowingCell(_CellPart):
+    """
+    A cell holding a table of its own, at its natural height.
+
+    A nested table taller than the page goes on from page to page in print
+    of its own size: the row holding it is cut wherever the page ends
+    (PmlTable.split), rather than the cell being shrunk to fit one page.
+    """
 
 
 def _cutContent(canv, content: list, width: float, height: float):
@@ -1475,8 +1538,13 @@ class PmlTable(Table, PmlMaxHeightMixIn):
                 if natural <= availHeight:
                     return []
             self.minHeight = None
-        parts = Table.split(self, availWidth - self._margins(), availHeight)
+        parts = []
         inRow = False
+        if self._flowsAt(availHeight):
+            parts = self._splitInsideRow(availWidth - self._margins(), availHeight)
+            inRow = bool(parts)
+        if not parts:
+            parts = Table.split(self, availWidth - self._margins(), availHeight)
         if not parts and self._mayCutInsideRow():
             parts = self._splitInsideRow(availWidth - self._margins(), availHeight)
             inRow = True
@@ -1494,6 +1562,20 @@ class PmlTable(Table, PmlMaxHeightMixIn):
         """How many header rows each fragment of the table repeats."""
         repeat = self.repeatRows
         return (len(repeat) if isinstance(repeat, (list, tuple)) else repeat) or 0
+
+    def _flowsAt(self, availHeight) -> bool:
+        """
+        Whether the first row that does not fit `availHeight` holds a
+        PmlFlowingCell, which is cut there rather than moved on whole.
+        """
+        n = self._getFirstPossibleSplitRowPosition(availHeight, ignoreSpans=1)
+        if n >= self._nrows or n < self._repeatCount():
+            return False
+        return any(
+            isinstance(flowable, PmlFlowingCell)
+            for cell in self._cellvalues[n]
+            for flowable in (cell if isinstance(cell, (list, tuple)) else [cell])
+        )
 
     def _mayCutInsideRow(self) -> bool:
         """
@@ -1592,7 +1674,8 @@ class PmlTable(Table, PmlMaxHeightMixIn):
             return (cell,), ()
         if not top:
             return []
-        return (_CellPart(top),), (_CellPart(rest),)
+        part = PmlFlowingCell if isinstance(cell, PmlFlowingCell) else _CellPart
+        return (part(top),), (part(rest),)
 
     def _placeRoundedBoxes(self) -> dict:
         """Each RoundedTableBox's rectangle in this table, by painter."""

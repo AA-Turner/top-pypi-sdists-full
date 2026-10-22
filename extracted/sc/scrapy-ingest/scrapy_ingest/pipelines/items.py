@@ -1,4 +1,5 @@
 """Items pipeline for collecting scraped items."""
+
 import time
 
 from itemadapter import ItemAdapter
@@ -25,17 +26,17 @@ class ItemsPipeline(BasePipeline):
         settings = Settings(crawler.settings)
         return cls(settings, crawler)
 
-    def open_spider(self, spider):
+    def open_spider(self):
         self.collector = ensure_collector(self.crawler)
-        get_flusher(self.crawler, self.settings).start(spider)
+        get_flusher(self.crawler, self.settings).start(self.crawler.spider)
 
-    def close_spider(self, spider):
+    def close_spider(self):
         get_flusher(self.crawler, self.settings).stop_periodic()
 
-    def process_item(self, item, spider):
+    def process_item(self, item):
         data = ItemAdapter(item).asdict()
         data["crawled_at"] = int(time.time())
         self.collector.add_item(data)
         if self.collector.size() >= self.settings.ingest_batch_size:
-            get_flusher(self.crawler, self.settings).flush(spider)
+            get_flusher(self.crawler, self.settings).flush()
         return item

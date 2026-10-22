@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numpy-groupies
-Version: 0.14.2
+Version: 0.15.0
 Summary: Optimised tools for group-indexing operations: aggregated sum and more.
 Author-email: Michael Löffler <ml@occam.com.ua>, Daniel Manson <danielmanson.uk@gmail.com>
 Maintainer-email: Deepak Cherian <dcherian@ucar.edu>
@@ -13,7 +13,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -21,7 +20,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: numpy
@@ -35,7 +34,7 @@ Requires-Dist: pandas; extra == "dev"
 Requires-Dist: polars; extra == "dev"
 Requires-Dist: numbagg; extra == "dev"
 Requires-Dist: mypy>=2.4; extra == "dev"
-Requires-Dist: pre-commit<4,>=3.8; extra == "dev"
+Requires-Dist: pre-commit>=4; extra == "dev"
 Requires-Dist: ruff>=0.17; extra == "dev"
 Dynamic: license-file
 
@@ -80,7 +79,7 @@ Group 2 never occurs in `group_idx`, so its slot is filled with `fill_value`.
 ## Why numpy-groupies?
 
 - **Fast.** With Numba installed, `aggregate` is the fastest group-by aggregation for plain NumPy arrays. See [Performance](#performance).
-- **One call, many functions.** The usual reductions plus `median`, `sort` (ascending or descending), `trapezoid`, the cumulative `cumsum`/`cumprod`/`cummin`/`cummax`, `argmin`/`argmax`, `array` (collect the members of each group) and any custom callable. Every reduction has a `nan…` variant.
+- **One call, many functions.** The usual reductions plus `median`, `quantile`/`percentile`, `skew`/`kurt`, `sort` (ascending or descending), `trapezoid`, the cumulative `cumsum`/`cumprod`/`cummin`/`cummax`, `argmin`/`argmax`, `array` (collect the members of each group) and any custom callable. Every reduction has a `nan…` variant.
 - **Array in, array out.** Plain NumPy arrays, no DataFrame and no index. The result is an array indexed by group label, with empty groups filled with the value you choose. Multi-dimensional output (N-D binning) and aggregation along an `axis` are built in.
 - **Usable inside your own jitted code.** Every Numba kernel is `@njit`-callable, so group statistics can sit inside your own compiled loops.
 - **Numerically careful.** Integer sums, means and variances accumulate in a dtype wide enough not to wrap around, NaN handling follows NumPy, and complex and `float16` input are supported.
@@ -95,8 +94,6 @@ conda install -c conda-forge numpy_groupies
 ```
 
 NumPy is the only declared dependency. Numba is optional and only the fastest implementation needs it; the pure-Python implementation runs without Numba but still imports NumPy (see [Implementations](#implementations)).
-
-If you only want one implementation, you can copy a single file (e.g. `aggregate_numpy.py`) into your project: paste the contents of `utils.py` at its top, replacing the `from .utils import (...)` line.
 
 ## Quickstart
 
@@ -208,7 +205,7 @@ Output size defaults to `max(group_idx) + 1` per dimension; pass `size=` to fix 
 
 | Category                        | Functions |
 | ------------------------------- | --------- |
-| Reductions                      | `sum` `prod` `mean` `median` `var` `std` `min` `max` `first` `last` `len` `sumofsquares` `trapezoid` |
+| Reductions                      | `sum` `prod` `mean` `median` `quantile` `percentile` `var` `std` `skew` `kurt` `min` `max` `first` `last` `len` `nunique` `sumofsquares` `trapezoid` |
 | Index of extremes               | `argmin` `argmax` |
 | Boolean                         | `all` `any` `allnan` `anynan` |
 | NaN-skipping variants           | `nansum` `nanmean` `nanvar` `nanmax` … — a `nan` prefix on every reduction above except `allnan`/`anynan` |
@@ -253,7 +250,7 @@ All implementations share the calling syntax and produce the same results up to 
 | **numpy**      | numpy        | Based on `np.bincount` and indexing tricks. Default without numba. |
 | **pure python** | numpy        | Plain Python loops, no Numba. Very slow; useful as a fallback or for porting. |
 | numpy ufunc    | numpy        | For benchmarking only: built on `ufunc.at` (`np.add.at`, …), in `numpy_groupies.benchmarks`. Incomplete. |
-| pandas         | numpy, pandas | For benchmarking only: wraps `groupby` (in `numpy_groupies.benchmarks`). Skips NaN even in the plain functions (except `median`, `cumsum`). |
+| pandas         | numpy, pandas | For benchmarking only: wraps `groupby` (in `numpy_groupies.benchmarks`). Skips NaN even in the plain functions (except `median`, `quantile`, `cumsum`). |
 | polars         | numpy, polars | For benchmarking only: wraps `group_by` (in `numpy_groupies.benchmarks`). |
 
 > **Gotchas:** with Numba installed, custom callables must be Numba-compilable (numeric code). For the cases that are not, call the NumPy implementation: `npg.aggregate_np(group_idx, a, func=my_callable)`.
@@ -264,16 +261,22 @@ Best of three passes of five timed runs each, in milliseconds, for 500,000 value
 
 | function        | numpy  | numba  | numbagg | polars | pandas |
 | --------------- | -----: | -----: | ------: | -----: | -----: |
-| `sum`            |   0.92 |   0.45 |   0.48 |   2.68 |   6.89 |
-| `mean`           |   1.49 |   0.48 |   0.55 |   2.69 |   7.32 |
-| `max`            |   1.64 |   0.60 |   0.86 |   2.81 |   6.61 |
-| `std`            |   3.03 |   0.66 |   0.69 |   2.17 |   7.64 |
-| `nansum`         |   4.05 |   0.44 |   1.75 |   5.88 |   8.25 |
-| `median`         |  11.01 |   9.28 |    --- |   3.72 |  15.60 |
-| `sort`           |  70.29 |  25.72 |    --- |    --- |    --- |
-| `cumsum`         |  14.48 |   0.60 |    --- |   7.94 |   7.23 |
-| `array`          |   7.54 |   1.90 |    --- |    --- |    --- |
-| custom callable  | 111.39 |   5.90 |    --- |  80.97 |  96.79 |
+| `sum`            |  0.917 |  0.454 |  0.463 |  2.421 |  6.960 |
+| `mean`           |  1.512 |  0.491 |  0.531 |  2.665 |  7.430 |
+| `max`            |  1.681 |  0.608 |  0.858 |  3.337 |  6.718 |
+| `std`            |  3.060 |  0.653 |  0.680 |  2.481 |  7.676 |
+| `nansum`         |  4.099 |  0.429 |  1.754 |  5.915 |  8.288 |
+| `median`         | 11.730 |  9.345 |   ---- |  3.675 | 16.229 |
+| `skew`            |  5.578 |  2.577 |   ---- |  3.349 |  9.642 |
+| `kurt`            |  5.591 |  2.434 |   ---- |  4.125 | 10.717 |
+| `quantile`       | 14.050 |  9.469 |   ---- |  4.180 | 22.721 |
+| `nunique`        | 14.921 |  8.296 |   ---- | 11.896 | 58.062 |
+| `sort`           | 70.184 | 24.658 |   ---- |   ---- |   ---- |
+| `cumsum`         | 14.042 |  0.551 |   ---- |  8.483 |  7.283 |
+| `array`          |  7.358 |  1.958 |   ---- |   ---- |   ---- |
+| custom callable  | 111.000 |  5.961 |   ---- | 79.490 | 95.918 |
+
+The `polars` column uses all the cores of the machine, the `numpy` and `numba` columns are single-threaded - the Numba kernels of this package do not use `prange`. That matters most for the order statistics: with a single thread polars needs 9.7ms for the quantile, against 4.0ms with six, which puts it level with the single-threaded Numba kernel (9.3ms).
 
 Absolute numbers depend on your machine, so compare the columns against each other rather than reading a single one as the price of the operation.
 
@@ -295,8 +298,6 @@ pytest
 ```
 
 The repository uses [pre-commit](https://pre-commit.com/) (`pre-commit install`). Release notes are on the [releases page](https://github.com/ml31415/numpy-groupies/releases).
-
-**Credits.** Started by [@ml31415](https://github.com/ml31415), who wrote the Numba implementation; the pure-Python and NumPy implementations were written by [@d1manson](https://github.com/d1manson). Currently maintained by Deepak Cherian ([@dcherian](https://github.com/dcherian)).
 
 ## License
 

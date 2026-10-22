@@ -76,6 +76,7 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
             DB2VectorStore,
         )
         from ibm_watsonx_ai.foundation_models.embeddings import Embeddings
+        from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingModels
 
         credentials = Credentials(
             api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
@@ -84,7 +85,8 @@ class DB2VectorStore(LangChainVectorStoreAdapter):
         api_client = APIClient(credentials, project_id="<PROJECT_ID>")
 
         embedding = Embeddings(
-            model_id=EmbeddingTypes.IBM_SLATE_30M_ENG, api_client=api_client
+            model_id=EmbeddingModels.SLATE_125M_ENGLISH_RTRVR_V2,
+            api_client=api_client,
         )
 
         vector_store = DB2VectorStore(

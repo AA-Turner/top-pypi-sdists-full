@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: questdb
-Version: 5.0.0
+Version: 6.0.0
 Summary: QuestDB client library for Python
 Author-email: Vlad Ilyushchenko <vlad@questdb.com>
 License-Expression: Apache-2.0
@@ -32,8 +32,13 @@ Requires-Dist: wheel; extra == "publish"
 Provides-Extra: ci
 Requires-Dist: cibuildwheel; extra == "ci"
 Provides-Extra: dataframe
-Requires-Dist: pandas>=1.3.5; extra == "dataframe"
-Requires-Dist: pyarrow>=10.0.1; extra == "dataframe"
+Requires-Dist: pandas>=2.2.0; extra == "dataframe"
+Requires-Dist: pyarrow>=14.0.1; extra == "dataframe"
+Provides-Extra: polars
+Requires-Dist: polars>=1.32.0; extra == "polars"
+Requires-Dist: pyarrow>=14.0.1; extra == "polars"
+Provides-Extra: duckdb
+Requires-Dist: duckdb>=1.2.0; extra == "duckdb"
 Dynamic: license-file
 Dynamic: platform
 Dynamic: requires-python
@@ -59,7 +64,7 @@ and full-connection encryption with
 Install
 =======
 
-The latest version of the library is 5.0.0 (`changelog <https://py-questdb-client.readthedocs.io/en/latest/changelog.html>`_).
+The latest version of the library is 6.0.0 (`changelog <https://py-questdb-client.readthedocs.io/en/latest/changelog.html>`_).
 
 ::
 

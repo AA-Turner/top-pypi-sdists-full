@@ -3,25 +3,112 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, tzinfo
+from datetime import date, datetime, timedelta, timezone, tzinfo
 from typing import TYPE_CHECKING, Any
 
 import recurring_ical_events
-from icalendar import Calendar, Component, Timezone
-from recurring_ical_events import DATE_MAX_DT, DATE_MIN_DT
+from icalendar import Calendar, Component, Timezone, error
 
 from . import comma_list
 from .collation import Collation, get_sort_key_function
 from .filters import FilterMixin
 from .utils import (
+    DT_MAX,
+    DT_MIN,
     PRESENCE_OPERATORS,
     SUPPORTED_OPERATORS,
     _iterable_or_false,
     _normalize_dt,
+    _shift,
     types_factory,
 )
+
+## recurring_ical_events widens the expansion window by the duration of an
+## occurrence (and by how far a modification moved), which overflows near the
+## ends of the datetime range.  Only search bounds this close to an end get
+## the window narrowed; ordinary searches are expanded as given.
+_EDGE_ZONE = timedelta(days=2 * 366)
+## The margin when a component is too odd to compute one from
+_FALLBACK_MARGIN = timedelta(days=366)
+
+
+def _as_kind_of(value: date | datetime, limit: datetime) -> date | datetime:
+    """The aware ``limit`` as the same kind as ``value``: aware, naive or date."""
+    if isinstance(value, datetime):
+        return limit if value.tzinfo else limit.replace(tzinfo=None)
+    return limit.date()
+
+
+def _recurs(component: Component) -> bool:
+    """Whether the component defines a recurrence set: RFC 5545 builds one from RRULE and RDATE."""
+    return "RRULE" in component or "RDATE" in component
+
+
+def _near_edge(value: date | datetime) -> bool:
+    return value < _as_kind_of(value, _shift(DT_MIN, _EDGE_ZONE)) or value > _as_kind_of(
+        value, _shift(DT_MAX, -_EDGE_ZONE)
+    )
+
+
+def _expansion_margin(components: list[Component]) -> timedelta:
+    """How far inside the ends of the datetime range to keep the window.
+
+    That is as far as recurring_ical_events may widen it, plus a day, since
+    naive and date bounds are read in the event's time zone.
+    """
+    margin = timedelta(0)
+    try:
+        for component in components:
+            start, end = _normalize_dt(component.start), _normalize_dt(component.end)
+            margin = max(margin, end - start)
+            recurrence_id = component.get("RECURRENCE-ID")
+            if recurrence_id is not None and recurrence_id.params.get("RANGE") == "THISANDFUTURE":
+                margin = max(margin, end - start + abs(start - _normalize_dt(recurrence_id.dt)))
+    except (error.IncompleteComponent, OverflowError, TypeError, ValueError):
+        return _FALLBACK_MARGIN
+    return margin + timedelta(days=1)
+
+
+def _alarm_reach(components: list[Component]) -> timedelta | None:
+    """How far from an occurrence its alarms may fire, or None if that is not known.
+
+    It is generous: the duration of the occurrence is always added, whether
+    the alarm is relative to its start or its end, plus a day, since naive
+    and date bounds are read in the event's time zone.
+    """
+    reach = timedelta(0)
+    try:
+        for component in components:
+            try:
+                duration = abs(_normalize_dt(component.end) - _normalize_dt(component.start))
+            except error.IncompleteComponent:
+                ## A task with only DUE, say: its alarms are relative to that
+                duration = timedelta(0)
+            for alarm in component.walk("VALARM"):
+                offset = alarm["TRIGGER"].dt
+                if not isinstance(offset, timedelta):
+                    ## An absolute alarm fires at the same time for every occurrence
+                    return None
+                repeats = timedelta(0)
+                if "REPEAT" in alarm:
+                    repeats = abs(int(alarm["REPEAT"]) * alarm["DURATION"].dt)
+                reach = max(reach, abs(offset) + repeats + duration)
+    except (error.IncompleteComponent, KeyError, OverflowError, TypeError, ValueError):
+        return None
+    return reach + timedelta(days=1)
+
+
+def _earliest_start(components: list[Component]) -> datetime | None:
+    """When the first occurrence starts, or None if that is not known."""
+    try:
+        starts = [component.start for component in components]
+        starts += [rdate for component in components for rdate, _ in component.rdates]
+        return min(_normalize_dt(x) for x in starts)
+    except (AttributeError, error.IncompleteComponent, OverflowError, TypeError, ValueError):
+        return None
+
 
 if TYPE_CHECKING:
     from caldav.calendarobjectresource import CalendarObjectResource
@@ -76,16 +163,18 @@ class Searcher(FilterMixin):
 
     If ``expand`` is set to True, recurring objects will be expanded
     into reccurence objects for the time period specified by ``start``
-    and ``end``.  Generators are used, so ``expand`` may even work
-    without ``start`` and ``end`` set if care is taken
-    (i.e. converting the generator to a list may cause problems)
+    and ``end``.  Without ``end``, a recurrence set is expanded into at
+    least ``max_occurrences`` occurrences (1825 by default), if it has
+    that many, but not many more: from ``start``, or without it, around
+    now, about a third of them before.  If a recurrence set gives that
+    many, there may be more.  ``max_occurrences=None`` expands without
+    limit.  An alarm search without ``end`` is expanded up to the end of
+    the alarm range instead, if every alarm is relative to its occurrence.
 
     Unless you now what you are doing, ``expand`` should probably be
     set to true, and start and end should be given and shouldn't be
-    too far away from each other.  Currently the sorting algorithm
-    will blow up if the expand yields infinite number of events.  It
-    may probably blow up even if expand yields millions of events.  Be
-    careful.
+    too far away from each other.  The sorting algorithm may blow up if
+    the expand yields millions of events.  Be careful.
 
     For filtering an icalendar instance ``mycal`` containing a
     VCALENDAR with multiple independent events, one may do
@@ -129,6 +218,7 @@ class Searcher(FilterMixin):
     include_completed: bool = None
 
     expand: bool = False
+    max_occurrences: int | None = 1825
 
     _sort_keys: list = field(default_factory=list)
     _sort_collation: dict = field(default_factory=dict)
@@ -429,7 +519,7 @@ class Searcher(FilterMixin):
         skip_undef_for_expanded = False
 
         first = orig_recurrence_set[0]
-        if not expand_only and "RRULE" in first and not _ignore_rrule_and_time:
+        if not expand_only and _recurs(first) and not _ignore_rrule_and_time:
             ## TODO: implement logic above
             base_element_match = self.check_component(first, _ignore_rrule_and_time=True)
             if not base_element_match:
@@ -472,7 +562,7 @@ class Searcher(FilterMixin):
         ## if expand_only, expand all comptypes, otherwise only the comptypes specified in the filters
         comptypes_for_expansion = ["VTODO", "VEVENT", "VJOURNAL"] if expand_only else comptypesu
 
-        if not _ignore_rrule_and_time and "RRULE" in first:
+        if not _ignore_rrule_and_time and _recurs(first):
             recurrence_set = self._expand_recurrences(recurrence_set, comptypes_for_expansion)
 
         if not expand_only:
@@ -883,7 +973,7 @@ class Searcher(FilterMixin):
         2.1) All components in the recurrence set should have the same UID
 
         2.2) Exactly one element ("master") of the recurrence set may
-        have the RRULE property set.  RFC 5545 does not mandate any
+        have the RRULE or RDATE property set.  RFC 5545 does not mandate any
         particular ordering inside a VCALENDAR, so the master may
         appear in any position; this method will move it to the head
         of the returned list so downstream expansion code can rely on
@@ -910,7 +1000,7 @@ class Searcher(FilterMixin):
         if not len(components):
             raise ValueError("Empty component?")
 
-        ## A recurrence set should be exactly one "master" (with RRULE) plus zero
+        ## A recurrence set should be exactly one "master" (with RRULE or RDATE) plus zero
         ## or more "exception recurrences" (with RECURRENCE-ID and without RRULE),
         ## OR zero masters plus one-or-more standalone occurrences (all with
         ## RECURRENCE-ID).  RFC 5545 does not mandate an ordering inside the
@@ -918,7 +1008,7 @@ class Searcher(FilterMixin):
         ## the head.  Some servers (notably calendar.mail.ru) emit overrides
         ## before the master.
         if len(components) > 1:
-            masters = [c for c in components if "rrule" in c and "recurrence-id" not in c]
+            masters = [c for c in components if _recurs(c) and "recurrence-id" not in c]
             non_masters = [c for c in components if c not in masters]
             if len(masters) > 1 or any("rrule" in c for c in non_masters):
                 raise ValueError(
@@ -955,13 +1045,98 @@ class Searcher(FilterMixin):
         :param comptypesu: Set of component type strings (e.g., {"VEVENT", "VTODO"})
         :return: Iterable of expanded component instances
         """
+        # Use local variables for start/end to avoid modifying searcher state
+        start = self.start
+        end = self.end
+        if (not start and self.alarm_start) or (not end and self.alarm_end):
+            ## Only occurrences within reach of the alarm range can match it
+            reach = _alarm_reach(recurrence_set)
+            if reach is not None:
+                if not start and self.alarm_start:
+                    start = _shift(_normalize_dt(self.alarm_start), -reach)
+                if not end and self.alarm_end:
+                    end = _shift(_normalize_dt(self.alarm_end), reach)
+        if not start and end:
+            ## Starting far before the first occurrence would only add work
+            earliest = _earliest_start(recurrence_set)
+            start = DT_MIN if earliest is None else _shift(earliest, -timedelta(days=1))
+
+        ## See _EDGE_ZONE.  Occurrences within the margin of the ends of the
+        ## datetime range are left out.
+        margin = _expansion_margin(recurrence_set)
+        low, high = _shift(DT_MIN, margin), _shift(DT_MAX, -margin)
+        if low >= high:
+            ## An occurrence lasts longer than the datetime range
+            return recurrence_set
+        if start and _near_edge(start):
+            start = max(start, _as_kind_of(start, low))
+        if end and _near_edge(end):
+            end = min(end, _as_kind_of(end, high))
+        try:
+            if start and end and start >= end:
+                return []
+        except TypeError:  ## a date and a datetime bound
+            pass
+
         cal = Calendar()
         for x in recurrence_set:
             cal.add_component(x)
-        recur = recurring_ical_events.of(cal, components=comptypesu)
+        try:
+            recur = recurring_ical_events.of(cal, components=comptypesu)
+            if end:
+                return recur.between(start, end)
+            return self._between_at_least(recur, recurrence_set, start, low, high)
+        except OverflowError:
+            ## recurring_ical_events widens the window by how long an
+            ## occurrence lasts, which may be beyond the datetime range
+            return recurrence_set
 
-        # Use local variables for start/end to avoid modifying searcher state
-        start = self.start if self.start else _normalize_dt(DATE_MIN_DT)
-        end = self.end if self.end else _normalize_dt(DATE_MAX_DT)
+    def _between_at_least(
+        self,
+        recur: recurring_ical_events.CalendarQuery,
+        recurrence_set: list[Component],
+        start: date | datetime | None,
+        low: datetime,
+        high: datetime,
+    ) -> Iterator[Component]:
+        """At least max_occurrences occurrences, unless there are fewer in the range.
 
-        return recur.between(start, end)
+        They are counted from ``start``, or without it, taken around now:
+        about a third before and the rest after.  The window grows until it
+        holds enough of them or reaches ``low`` and ``high``.  Occurrences are
+        generated window by window, so a caller that stops early saves the
+        rest.  If even the first window overflows, ``recurrence_set`` is
+        given unexpanded.
+        """
+        anchor = start or datetime.now(timezone.utc)
+        low, high = _as_kind_of(anchor, low), _as_kind_of(anchor, high)
+        seen = set()
+        span = high - low if self.max_occurrences is None else timedelta(days=1)
+        try:
+            while True:
+                window_start = anchor
+                if not start:
+                    window_start = low if span >= anchor - low else anchor - span
+                ahead = span if start else 2 * span
+                window_end = high if ahead >= high - anchor else anchor + ahead
+                occurrences = recur.between(window_start, window_end)
+                for occurrence in occurrences:
+                    key = (occurrence.get("RECURRENCE-ID") or occurrence["DTSTART"]).to_ical()
+                    if key not in seen:
+                        seen.add(key)
+                        yield occurrence
+                if (start or window_start == low) and window_end == high:
+                    return
+                if len(occurrences) >= self.max_occurrences:
+                    logging.debug(
+                        "Expansion of %s stopped at max_occurrences", recurrence_set[0].get("UID")
+                    )
+                    return
+                ## Grow it to about the size that holds enough, assuming they
+                ## are evenly spread, but at least by half
+                growth = 16 if not occurrences else 1.2 * self.max_occurrences / len(occurrences)
+                span = min(span * min(max(growth, 1.5), 16), DT_MAX - DT_MIN)
+        except OverflowError:
+            ## See _expand_recurrences
+            if not seen:
+                yield from recurrence_set

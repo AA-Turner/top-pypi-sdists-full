@@ -95,6 +95,7 @@ class Service:
         self.ingress_private = ingress_private
         self.invocation_retry_policy = invocation_retry_policy
         self.context_managers = invocation_context_managers
+        self.explicit_recovery = False
 
     @property
     def name(self):
@@ -163,7 +164,7 @@ class Service:
             Callable: The decorated function.
 
         Raises:
-            ValueError: If the handler name is not provided.
+            ValueError: If the handler name is not provided, or a handler with the same name is already registered.
 
         Example:
             @service.handler()
@@ -206,6 +207,8 @@ class Service:
                 invocation_retry_policy,
                 combined_context_managers,
             )
+            if handler.name in self.handlers:
+                raise ValueError(f"Handler {handler.name} already exists in {self.name}")
             self.handlers[handler.name] = handler
             return wrapped
 

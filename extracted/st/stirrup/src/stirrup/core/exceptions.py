@@ -1,10 +1,37 @@
 """Custom exceptions for agent framework."""
 
-__all__ = ["ContextOverflowError", "IncompleteResponseError", "OutputTokenLimitError"]
+from typing import Literal
+
+__all__ = [
+    "CompactionReason",
+    "CompactionRequiredError",
+    "ContextOverflowError",
+    "IncompleteResponseError",
+    "OutputTokenLimitError",
+]
+
+type CompactionReason = Literal["image_count", "request_size"]
+
+
+class CompactionRequiredError(Exception):
+    """Raised by an ``LLMClient`` when compacting the conversation could fix a rejected request.
+
+    For limits other than tokens: too many images (``"image_count"``) or too many request
+    bytes (``"request_size"``). The agent drops the latest turn, summarizes the rest and
+    retries the step once, as for ``ContextOverflowError``. ``reason`` is recorded as the
+    summary's ``trigger``.
+    """
+
+    def __init__(self, *args: object, reason: CompactionReason) -> None:
+        super().__init__(*args)
+        self.reason = reason
 
 
 class ContextOverflowError(Exception):
-    """Raised when request input exceeds the model's context capacity."""
+    """Raised when request input exceeds the model's context capacity.
+
+    The agent drops the latest turn, summarizes the rest and retries the step once.
+    """
 
 
 class IncompleteResponseError(Exception):

@@ -4,7 +4,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
     message(FATAL_ERROR "In-source builds are not allowed. Please use a separate build directory, e.g.:\n  mkdir build && cd build && cmake ..")
 endif()
 
-project(imgui_bundle VERSION "1.92.900") # Based on ImGui 1.92.9b - Remember to mirror changes to pyproject.toml! Version = ImGui patch × 100 + bundle release
+project(imgui_bundle VERSION "1.93.0") # Based on ImGui 1.93.0 (docking branch) - Remember to mirror changes to pyproject.toml! Version = ImGui patch × 100 + bundle release
 
 # imgui_bundle_build_lib contains the main logic to build imgui_bundle
 set(IMGUI_BUNDLE_PATH ${CMAKE_CURRENT_LIST_DIR} CACHE STRING "" FORCE)
@@ -162,14 +162,14 @@ endif()
 # UI Extensions:
 #   IMGUI_BUNDLE_WITH_IMMVISION,
 #   IMGUI_BUNDLE_WITH_IMPLOT, IMGUI_BUNDLE_WITH_IMPLOT3D,
-#   IMGUI_BUNDLE_WITH_IMGUI_NODE_EDITOR, IMGUI_BUNDLE_WITH_IMGUI_MD,
+#   IMGUI_BUNDLE_WITH_IMGUI_NODE_EDITOR, IMGUI_BUNDLE_WITH_IMGUI_RICH_MD,
 #   IMGUI_BUNDLE_WITH_IMFILEDIALOG, IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT
 #   IMGUI_BUNDLE_WITH_NANOVG, IMGUI_BUNDLE_WITH_IMGUIZMO,
 #   IMGUI_BUNDLE_WITH_MICROTEX
 # =============================================================================
 option(IMGUI_BUNDLE_WITH_HELLO_IMGUI "Build with hello_imgui (window management)" ON)
 option(IMGUI_BUNDLE_WITH_IMMAPP "Build with immapp (internal high-level app framework)" ON)
-option(IMGUI_BUNDLE_WITH_IMGUI_MD "Build with imgui_md (markdown renderer)" ON)
+option(IMGUI_BUNDLE_WITH_IMGUI_RICH_MD "Build with imgui_rich_md (markdown renderer; Python: rich_md)" ON)
 option(IMGUI_BUNDLE_WITH_MICROTEX "Build with MicroTeX (native LaTeX math rendering)" ON)
 option(IMGUI_BUNDLE_WITH_NANOVG "Build with nanovg" ON)
 option(IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT "Build with imgui_tex_inspect" ON)
@@ -188,7 +188,7 @@ option(IMGUI_BUNDLE_WITH_IMMVISION "Build with immvision" ON)
 # Hello ImGui provides windowing, rendering backends, and app lifecycle management.
 # Setting IMGUI_BUNDLE_WITH_HELLO_IMGUI=OFF automatically excludes these dependent modules:
 #   • immapp              (high-level application wrapper)
-#   • imgui_md            (markdown renderer wrapper)
+#   • rich_md             (markdown renderer)
 #   • im_file_dialog      (requires OpenGL context)
 #   • imgui_tex_inspect   (requires OpenGL context)
 #   • immvision           (requires OpenGL for image display)
@@ -203,8 +203,9 @@ option(IMGUI_BUNDLE_WITH_IMMVISION "Build with immvision" ON)
 #
 # Note about ImmVision (Computer Vision Widgets)
 # -----------------------------------------------------------------------------
-# ImmVision now works without OpenCV (and uses ImmVision::ImageBuffer as the main image type).
-# - For C++, if OpenCV is installed and findable via find_package(OpenCV), ImmVision will also accept cv::Mat (cv::Mat convert to ImageBuffer internally with zero copy when possible). You may set IMMVISION_FETCH_OPENCV to ON to automatically fetch and build OpenCV in the build directory if OpenCV is not found on the system.
+# ImmVision works without OpenCV, and never links it (it uses ImmVision::ImageBuffer as the main image type).
+# - For C++, applications that use OpenCV can define IMMVISION_HAS_OPENCV and link OpenCV themselves:
+#   ImmVision will then also accept cv::Mat (header-only conversion to ImageBuffer, zero copy when possible).
 # - For Python, OpenCV is not required at all (numpy arrays are supported and convert to ImageBuffer internally with zero copy).
 
 
@@ -212,6 +213,8 @@ option(IMGUI_BUNDLE_WITH_IMMVISION "Build with immvision" ON)
 imgui_bundle_translate_legacy_disable_options()
 # Apply environment variable overrides for Python builds
 imgui_bundle_apply_env_var_overrides()
+# Translate renamed options (e.g. IMGUI_BUNDLE_WITH_IMGUI_MD) to their new name
+imgui_bundle_translate_renamed_options()
 
 
 
@@ -259,6 +262,13 @@ if(PROJECT_IS_TOP_LEVEL)
 else()
     option(IMGUI_BUNDLE_BUILD_DEMOS "Build imgui_bundle C++ demos" OFF)
 endif()
+
+# IMGUI_BUNDLE_DEMOS_WITH_OPENCV: some immvision demos show more features with OpenCV (Sobel, blur, etc.)
+# -----------------------------------------------------------------------------
+# If ON, the demos define IMMVISION_HAS_OPENCV and link OpenCV themselves
+# (like any application that wants cv::Mat interop). OpenCV must then be findable:
+# install it, set OpenCV_DIR, or pass -DIMMVISION_FETCH_OPENCV=ON to fetch a minimal version.
+option(IMGUI_BUNDLE_DEMOS_WITH_OPENCV "Link the C++ immvision demos with OpenCV" OFF)
 
 # IMGUI_BUNDLE_BUILD_IMGUI_EXPLORER_APP: Build ImGui Explorer standalone exe
 # (the library imgui_explorer_lib is controlled by IMGUI_BUNDLE_WITH_IMGUI_EXPLORER_LIB)
@@ -407,13 +417,21 @@ if(NOT IMGUI_BUNDLE_BUILD_NUMBER)
     set(IMGUI_BUNDLE_BUILD_NUMBER "0")
 endif()
 add_library(imgui_bundle INTERFACE)
+add_library(imgui_bundle::imgui_bundle ALIAS imgui_bundle)
 target_compile_definitions(imgui_bundle INTERFACE
     IMGUI_BUNDLE_VERSION="${IMGUI_BUNDLE_VERSION}"
     IMGUI_BUNDLE_BUILD_NUMBER="${IMGUI_BUNDLE_BUILD_NUMBER}"
 )
 if(IMGUI_BUNDLE_INSTALL_CPP)
-    install(DIRECTORY imgui_bundle_cmake DESTINATION share/imgui-bundle)
-    install(DIRECTORY bindings/imgui_bundle/assets DESTINATION share/imgui-bundle)
+    # imgui_bundle_cmake is installed next to the config file, so that
+    # imgui_bundle-config.cmake can include it via ${CMAKE_CURRENT_LIST_DIR}
+    install(DIRECTORY imgui_bundle_cmake DESTINATION lib/cmake/imgui_bundle)
+    # Common assets (fonts, etc.), bundled into apps by imgui_bundle_add_app(): they are
+    # looked up as ${IMGUI_BUNDLE_PATH}/imgui_bundle_assets, and IMGUI_BUNDLE_PATH is
+    # lib/cmake/imgui_bundle from an install (see imgui_bundle_add_app.cmake)
+    install(DIRECTORY imgui_bundle_assets DESTINATION lib/cmake/imgui_bundle)
+    # imgui's IMGUI_USER_CONFIG refers to this header as "imgui_bundle_config.h" from an install
+    install(FILES imgui_bundle_cmake/imgui_bundle_config.h DESTINATION include)
     ibd_add_installable_dependency(imgui_bundle)
 endif()
 
@@ -438,7 +456,8 @@ if (IMGUI_BUNDLE_BUILD_PYTHON)
     include(imgui_bundle_cmake/internal/add_imgui_bundle_bindings.cmake)
     add_imgui_bundle_bindings()
 
-    if (HELLOIMGUI_WITH_TEST_ENGINE AND IMGUI_BUNDLE_WITH_HELLO_IMGUI)
+    # (Pyodide has one thread: its test engine coroutine is a Pyodide task, with no GIL to transfer)
+    if (HELLOIMGUI_WITH_TEST_ENGINE AND IMGUI_BUNDLE_WITH_HELLO_IMGUI AND NOT IMGUI_BUNDLE_BUILD_PYODIDE)
         include(${CMAKE_CURRENT_LIST_DIR}/external/hello_imgui/hello_imgui/src/hello_imgui_test_engine_integration/hello_imgui_test_engine_cmake.cmake)
         configure_imgui_test_engine_with_python_gil()
     endif()
@@ -475,17 +494,14 @@ if (MSVC AND IMGUI_BUNDLE_WITH_HELLO_IMGUI)
 endif()
 
 #------------------------------------------------------------------------------
-# CMake shenanigans so that find_package(imgui-bundle CONFIG REQUIRED) works
+# Install & export, so that find_package(imgui_bundle CONFIG REQUIRED) works
 #------------------------------------------------------------------------------
-# These elements are mainly used to build a vcpkg compatible package.
-# Important note:
-#     - the CMake package is named imgui-bundle (with a "-")
-#     - the CMake target is named imgui_bundle (with a "_")
-# To link with imgui_bundle, you need to use:
-#     find_package(imgui-bundle CONFIG REQUIRED)
-#     target_link_libraries(your_target PRIVATE imgui-bundle::imgui_bundle)  # note the variation "-" vs "_"
+# The CMake package, the namespace and the main target are all named imgui_bundle.
+# To link with imgui_bundle, you can use:
+#     find_package(imgui_bundle CONFIG REQUIRED)
+#     target_link_libraries(your_target PRIVATE imgui_bundle::imgui_bundle)
 # However, the simplest use is:
-#     find_package(imgui-bundle CONFIG REQUIRED)
+#     find_package(imgui_bundle CONFIG REQUIRED)
 #     imgui_bundle_add_app(test test.cpp) # this will automatically link with imgui_bundle
 #------------------------------------------------------------------------------
 if(IMGUI_BUNDLE_INSTALL_CPP AND IMGUI_BUNDLE_BUILD_PYTHON)
@@ -495,24 +511,36 @@ if(IMGUI_BUNDLE_INSTALL_CPP)
     # inspired from https://iamsorush.com/posts/cpp-cmake-config/
     message(STATUS "IMGUI_BUNDLE_INSTALLABLE_DEPENDENCIES=${IMGUI_BUNDLE_INSTALLABLE_DEPENDENCIES}")
     install(TARGETS ${IMGUI_BUNDLE_INSTALLABLE_DEPENDENCIES}
-        EXPORT imgui-bundle-targets
+        EXPORT imgui_bundle-targets
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib
         RUNTIME DESTINATION bin
         INCLUDES DESTINATION include)
 
-    install(EXPORT imgui-bundle-targets
-        FILE imgui-bundle-targets.cmake
-        NAMESPACE imgui-bundle::
+    install(EXPORT imgui_bundle-targets
+        FILE imgui_bundle-targets.cmake
+        NAMESPACE imgui_bundle::
         DESTINATION lib/cmake/imgui_bundle)
 
     include(CMakePackageConfigHelpers)
     write_basic_package_version_file(
-        "imgui-bundleConfigVersion.cmake"
+        "imgui_bundle-config-version.cmake"
         VERSION ${imgui_bundle_VERSION}
         COMPATIBILITY AnyNewerVersion)
 
-    install(FILES "imgui_bundle_cmake/imgui-bundleConfig.cmake" "${CMAKE_CURRENT_BINARY_DIR}/imgui-bundleConfigVersion.cmake"
+    # imgui_bundle-config.cmake is generated: its find_dependency() calls depend on the build options
+    foreach(_opt HELLOIMGUI_USE_FREETYPE HELLOIMGUI_USE_GLFW3 HELLOIMGUI_USE_SDL2 HELLOIMGUI_HAS_OPENGL3 IMGUI_BUNDLE_LINKS_CURL)
+        if(${_opt})
+            set(IBD_CFG_${_opt} ON)
+        else()
+            set(IBD_CFG_${_opt} OFF)
+        endif()
+    endforeach()
+    if(HELLOIMGUI_FREETYPE_DOWNLOADED)
+        set(IBD_CFG_HELLOIMGUI_USE_FREETYPE OFF)  # a downloaded freetype is part of the package: nothing to find
+    endif()
+    configure_file("imgui_bundle_cmake/imgui_bundle-config.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/imgui_bundle-config.cmake" @ONLY)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/imgui_bundle-config.cmake" "${CMAKE_CURRENT_BINARY_DIR}/imgui_bundle-config-version.cmake"
         DESTINATION lib/cmake/imgui_bundle)
 endif()
 
@@ -522,6 +550,10 @@ endif()
 # Log hello_imgui configuration (only if hello_imgui is enabled)
 if(IMGUI_BUNDLE_WITH_HELLO_IMGUI)
     him_log_configuration()
+endif()
+set(_richmd_download_images ${IMGUI_RICHMD_WITH_DOWNLOAD_IMAGES})
+if(IMGUI_RICHMD_WITH_DOWNLOAD_IMAGES AND NOT EMSCRIPTEN AND NOT IMGUI_RICHMD_LINKS_CURL)
+    set(_richmd_download_images "OFF: libcurl not found (Linux: apt install libcurl4-openssl-dev, Windows: vcpkg install curl)")
 endif()
 message(STATUS "
     ===========================================================================
@@ -542,7 +574,7 @@ message(STATUS "
 
     UI Extensions:
     ---------------------------------------------------------------------------
-    IMGUI_BUNDLE_WITH_IMMVISION:           ${IMGUI_BUNDLE_WITH_IMMVISION} (IMMVISION_HAS_OPENCV=${IMMVISION_HAS_OPENCV})
+    IMGUI_BUNDLE_WITH_IMMVISION:           ${IMGUI_BUNDLE_WITH_IMMVISION} (IMGUI_BUNDLE_DEMOS_WITH_OPENCV=${IMGUI_BUNDLE_DEMOS_WITH_OPENCV})
     IMGUI_BUNDLE_WITH_IMPLOT:              ${IMGUI_BUNDLE_WITH_IMPLOT}
     IMGUI_BUNDLE_WITH_IMPLOT3D:            ${IMGUI_BUNDLE_WITH_IMPLOT3D}
     IMGUI_BUNDLE_WITH_IMANIM:              ${IMGUI_BUNDLE_WITH_IMANIM}
@@ -550,10 +582,10 @@ message(STATUS "
     IMGUI_BUNDLE_WITH_NANOVG:              ${IMGUI_BUNDLE_WITH_NANOVG}
     IMGUI_BUNDLE_WITH_IMGUIZMO:            ${IMGUI_BUNDLE_WITH_IMGUIZMO}
     IMGUI_BUNDLE_WITH_IMGUI_NODE_EDITOR:   ${IMGUI_BUNDLE_WITH_IMGUI_NODE_EDITOR}
-    IMGUI_BUNDLE_WITH_IMGUI_MD:            ${IMGUI_BUNDLE_WITH_IMGUI_MD}
+    IMGUI_BUNDLE_WITH_IMGUI_RICH_MD:       ${IMGUI_BUNDLE_WITH_IMGUI_RICH_MD}
     IMGUI_BUNDLE_WITH_IMFILEDIALOG:        ${IMGUI_BUNDLE_WITH_IMFILEDIALOG}
     IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT:   ${IMGUI_BUNDLE_WITH_IMGUI_TEX_INSPECT}
     IMGUI_BUNDLE_WITH_MICROTEX:            ${IMGUI_BUNDLE_WITH_MICROTEX}
-    IMGUI_RICHMD_WITH_DOWNLOAD_IMAGES      ${IMGUI_RICHMD_WITH_DOWNLOAD_IMAGES}
+    IMGUI_RICHMD_WITH_DOWNLOAD_IMAGES      ${_richmd_download_images}
     ===========================================================================
 ")

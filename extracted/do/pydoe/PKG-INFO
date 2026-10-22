@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pydoe
-Version: 1.5.0
+Version: 1.6.0
 Summary: Design of Experiments for Python
 Project-URL: homepage, https://pydoe.github.io/pydoe/
 Project-URL: documentation, https://pydoe.github.io/pydoe/
@@ -25,16 +25,18 @@ Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: numpy>=2.2.6
+Requires-Dist: numpy>=2.5.4; python_version >= '3.15'
 Requires-Dist: scipy>=1.15.3
+Requires-Dist: scipy>=1.18.1; python_version >= '3.15'
 Description-Content-Type: text/markdown
 
 ![PyDOE](https://raw.githubusercontent.com/pydoe/pydoe/master/docs/assets/images/pydoe-banner.png)

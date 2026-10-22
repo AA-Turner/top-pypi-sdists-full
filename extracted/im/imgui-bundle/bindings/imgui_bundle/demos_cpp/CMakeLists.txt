@@ -24,20 +24,23 @@ ibd_add_this_folder_auto_demos("")
 ibd_add_this_folder_as_demos_library()
 
 target_link_libraries(demo_imguizmo_launcher PRIVATE demos_imguizmo)
-target_link_libraries(demo_node_editor_launcher PRIVATE demos_node_editor)
 target_link_libraries(demo_tex_inspect_launcher PRIVATE demos_tex_inspect)
 target_link_libraries(demo_imgui_bundle PRIVATE
     demos_cpp
+    demos_immapp
     demos_imguizmo
     demos_tex_inspect
     demos_node_editor
     demo_utils
 )
+if(IMGUI_BUNDLE_WITH_NANOVG)
+    target_link_libraries(demo_imgui_bundle PRIVATE demos_nanovg)
+endif()
 if (IMGUI_BUNDLE_WITH_IMMVISION)
     target_link_libraries(demo_immvision_launcher PRIVATE demos_immvision)
     target_link_libraries(demo_imgui_bundle PRIVATE demos_immvision)
 endif()
-if(IMMVISION_HAS_OPENCV)
+if(IMGUI_BUNDLE_WITH_IMMVISION AND IMGUI_BUNDLE_DEMOS_WITH_OPENCV)
     find_package(OpenCV REQUIRED)
     target_link_libraries(demo_immvision_launcher PUBLIC opencv_imgproc)
     target_link_libraries(demo_imgui_bundle PUBLIC opencv_imgproc)
@@ -69,6 +72,10 @@ if(EMSCRIPTEN)
     target_link_options(demo_imgui_bundle PRIVATE
         "SHELL:--preload-file ${_demos_root}/demos_cpp@/demos_cpp"
         "SHELL:--preload-file ${_demos_root}/demos_python@/demos_python"
+        # Not sources: what local runs leave in these folders (the Python caches, the imgui settings)
+        "SHELL:--exclude-file */__pycache__"
+        "SHELL:--exclude-file */.mypy_cache"
+        "SHELL:--exclude-file *.ini"
     )
 endif()
 

@@ -128,7 +128,7 @@ class SymbolicFourierApproximation(BaseEstimator, UnivariateTransformerMixin):
         """
         dft = DiscreteFourierTransform(
             n_coefs=self.n_coefs,
-            drop_sum=self.drop_sum,
+            drop_sum=self._drop_sum(),
             anova=self.anova,
             norm_mean=self.norm_mean,
             norm_std=self.norm_std,
@@ -137,7 +137,7 @@ class SymbolicFourierApproximation(BaseEstimator, UnivariateTransformerMixin):
             n_bins=self.n_bins, strategy=self.strategy, alphabet=self.alphabet
         )
         self._pipeline = Pipeline([('dft', dft), ('mcb', mcb)])
-        self._pipeline.fit(X, y)
+        self._pipeline.fit(X, y)  # pyrefly: ignore[bad-argument-type]
         self.support_ = self._pipeline.named_steps['dft'].support_
         self.bin_edges_ = self._pipeline.named_steps['mcb'].bin_edges_
         return self
@@ -157,6 +157,7 @@ class SymbolicFourierApproximation(BaseEstimator, UnivariateTransformerMixin):
 
         """
         check_is_fitted(self, ['support_', 'bin_edges_'])
+        # pyrefly: ignore[bad-return, bad-argument-type]
         return self._pipeline.transform(X)
 
     # This overrides UnivariateTransformerMixin.fit_transform with a fully
@@ -184,7 +185,7 @@ class SymbolicFourierApproximation(BaseEstimator, UnivariateTransformerMixin):
         """
         dft = DiscreteFourierTransform(
             n_coefs=self.n_coefs,
-            drop_sum=self.drop_sum,
+            drop_sum=self._drop_sum(),
             anova=self.anova,
             norm_mean=self.norm_mean,
             norm_std=self.norm_std,
@@ -193,7 +194,18 @@ class SymbolicFourierApproximation(BaseEstimator, UnivariateTransformerMixin):
             n_bins=self.n_bins, strategy=self.strategy, alphabet=self.alphabet
         )
         self._pipeline = Pipeline([('dft', dft), ('mcb', mcb)])
+        # pyrefly: ignore[bad-argument-type]
         X_sfa = self._pipeline.fit_transform(X, y)
         self.support_ = self._pipeline.named_steps['dft'].support_
         self.bin_edges_ = self._pipeline.named_steps['mcb'].bin_edges_
         return X_sfa
+
+    def _drop_sum(self) -> bool:
+        """Whether the first Fourier coefficient is dropped.
+
+        Once each series is centered (``norm_mean=True``), its first Fourier
+        coefficient (the sum of the series) is zero up to rounding errors.
+        Without the ANOVA selection, which discards constant coefficients,
+        it would be binned as is, so it is dropped as documented.
+        """
+        return bool(self.drop_sum or (self.norm_mean and not self.anova))

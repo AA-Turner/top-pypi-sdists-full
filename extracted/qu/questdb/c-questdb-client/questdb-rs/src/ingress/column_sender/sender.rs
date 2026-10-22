@@ -33,12 +33,14 @@ use crate::ErrorCode;
 use crate::ingress::AckLevel;
 use crate::ingress::QwpWsSenderError;
 use crate::ingress::buffer::{Buffer, QwpWsColumnarBuffer, QwpWsEncodeScratch, SymbolGlobalDict};
+use crate::ingress::sender::effective_hard_frame_cap;
 use crate::ingress::sender::qwp_ws::{
     SyncQwpWsHandlerState, publish_qwp_ws_payload_background, qwp_ws_acked_fsn_background,
     qwp_ws_begin_close_background, qwp_ws_check_error_background,
     qwp_ws_drain_to_deadline_background, qwp_ws_is_terminal_background, qwp_ws_ok_fsn_background,
     qwp_ws_poll_sender_error_background, qwp_ws_poll_sender_error_notification_background,
     qwp_ws_published_fsn_background, qwp_ws_sender_errors_dropped_background,
+    sfa_has_deferred_commit_slot,
 };
 use crate::ingress::sender::qwp_ws_sfa_publisher::{SfaForegroundPublisher, SfaPublishOutcome};
 #[cfg(feature = "arrow-ingress")]
@@ -87,16 +89,16 @@ struct ArrowFrameSpec<'a> {
     overrides: &'a [ArrowColumnOverride<'a>],
 }
 
-/// Split point for an oversize `row_count`: the largest multiple of 8 not
-/// exceeding `row_count / 2` (at least 8). `None` once the block is at the
-/// 8-row floor, which cannot be split further because bit-packed `Bool`
-/// columns and validity bitmaps are only byte-addressable.
+/// Keep multi-row slices byte-aligned for Boolean and validity bitmaps.
+/// Above eight rows, halve at an aligned boundary. At eight or fewer, peel off the
+/// last row: the prefix retains its aligned start and only singletons can
+/// start unaligned. A single oversized row cannot be split further.
 fn split_mid(row_count: usize) -> Option<usize> {
-    if row_count <= 8 {
-        return None;
+    match row_count {
+        0 | 1 => None,
+        2..=8 => Some(row_count - 1),
+        _ => Some(((row_count / 2) & !7).max(8)),
     }
-    let mid = (row_count / 2) & !7;
-    Some(if mid == 0 { 8 } else { mid })
 }
 
 /// Per-frame payload caps for the store-and-forward publish path, derived once
@@ -117,15 +119,10 @@ struct SfaFrameCaps {
 }
 
 impl SfaFrameCaps {
-    /// Cap for one publish attempt: the split target while the range can
-    /// still split; the hard cap at the 8-row floor, where splitting is no
-    /// longer an option and only the binding limit matters.
+    /// Use the packing target above eight rows. Smaller ranges split only
+    /// when the hard cap requires it, avoiding unnecessary singleton frames.
     fn for_range(self, row_count: usize) -> usize {
-        if split_mid(row_count).is_some() {
-            self.soft
-        } else {
-            self.hard
-        }
+        if row_count > 8 { self.soft } else { self.hard }
     }
 }
 
@@ -261,6 +258,15 @@ struct SfaBackend {
     state: SyncQwpWsHandlerState,
     buffer_scratch: QwpWsEncodeScratch,
     scratch: encoder::EncodeScratch,
+    /// True while the queue holds a deferred frame with no committing frame
+    /// after it. Only a split can create that state, and it normally ends
+    /// within the same flush -- the split's own last frame commits. It exists
+    /// so a split that fails part-way knows whether there is a group to close:
+    /// a split whose window valve was shut throughout published nothing
+    /// deferred, and publishing a committing frame for it would be pure waste.
+    /// It outlives the flush only when that close itself failed, so the next
+    /// `wait`, `flush`, or pool return can retry it.
+    sfa_deferred_group_open: bool,
     max_buf_size: usize,
     request_durable_ack: bool,
     /// No-progress deadline for the `sync` poll loop. Mirrors the direct
@@ -318,6 +324,15 @@ impl PooledSenderCore {
             // Take the recovered entries so the (potentially large) buffer is freed
             // after seeding rather than living dead in `state` -- which the backend
             // holds for its whole life -- for the connection's duration.
+            //
+            // Propagate a seed failure rather than degrading to dense: this is a
+            // producer, so a partially-seeded dictionary (which is what `seed`
+            // leaves behind) would hand the next interned symbol an id the stored
+            // frames already use. The orphan drainer deliberately does the
+            // opposite on the same error; both sides are argued in
+            // `SymbolGlobalDict::seed`'s docs. `SymbolDictFull` reaches the caller
+            // intact here, so a slot recovered by an under-capped client fails
+            // loudly and stays on disk.
             let recovered = std::mem::take(&mut state.recovered_dict_entries);
             foreground.seed(&recovered, state.recovered_dict_count)?;
         }
@@ -332,6 +347,7 @@ impl PooledSenderCore {
                 state,
                 buffer_scratch: QwpWsEncodeScratch::new(),
                 scratch: encoder::EncodeScratch::new(),
+                sfa_deferred_group_open: false,
                 max_buf_size,
                 request_durable_ack,
                 sync_timeout,
@@ -411,6 +427,25 @@ impl PooledSenderCore {
             qwp_ws_ok_fsn_background(&sfa.state)
         };
         matches!(watermark, Ok(Some(w)) if w >= published)
+    }
+
+    /// Publish a committing frame if a split left a deferred group open.
+    ///
+    /// Must run BEFORE [`Self::begin_close`], which stops accepting
+    /// publications: after that point the close itself is what makes the
+    /// publish fail, and the queue holds a tail nothing can commit -- the
+    /// server withholds the ack by design, so the drain burns its whole
+    /// timeout and the slot's bytes never become reclaimable.
+    ///
+    /// Best-effort: if the publish fails the flag stays set, so a later attempt
+    /// on this backend retries. It does not cover a process death mid-split;
+    /// that is why deferral is gated to memory mode, where the queue dies with
+    /// the process (see
+    /// [`sfa_split_deferral_enabled`](crate::ingress::sender::qwp_ws::SyncQwpWsHandlerState)).
+    pub(crate) fn close_open_deferred_group(&mut self) {
+        if self.backend.sfa_deferred_group_open {
+            self.backend.commit_orphaned_prefix();
+        }
     }
 
     /// Non-blocking: stop accepting new store-and-forward publications and wake
@@ -524,14 +559,12 @@ impl PooledSenderCore {
     /// `request_durable_ack=on`; otherwise the call is rejected up front
     /// (`InvalidApiCall`) before `chunk` is touched.
     ///
-    /// Failure contract: the ACK level is validated, then the frame is
-    /// published, then the wait runs. If publication itself fails the `chunk`
-    /// is untouched and retryable. Once publication succeeds `chunk` is cleared
-    /// even if the later ACK wait fails — at which point delivery of the just
-    /// published frame is **unknown** (it may be committed, rejected, or in
-    /// flight) and the borrow should be dropped/reborrowed per the error class.
-    /// There is no internal failover retry; replay is the caller's
-    /// responsibility.
+    /// Publication failure retains `chunk`, but splitting may already have
+    /// published a prefix. Check [`crate::Error::in_doubt`] before retrying.
+    ///
+    /// Successful publication clears `chunk`, even if the ACK wait then fails.
+    /// On an ACK error, delivery may be unknown; drop and reborrow the sender
+    /// as required by the error class. There is no internal failover retry.
     pub fn flush_and_wait(&mut self, chunk: &mut Chunk<'_>, ack_level: AckLevel) -> Result<()> {
         self.backend
             .flush_chunk(chunk, WaitForAck::Yes(ack_level))
@@ -815,6 +848,10 @@ impl PooledSenderCore {
     /// `Duration::ZERO` waits indefinitely. On expiry it returns a
     /// [`ErrorCode::FailoverRetry`](crate::ErrorCode::FailoverRetry)
     /// error and the queued frames are retained for replay.
+    ///
+    /// Without `sf_dir`, an oversize chunk's split frames are acked only once
+    /// its committing frame lands, so the watermark — and this deadline — do
+    /// not advance mid-chunk. Size `timeout` for the largest chunk flushed.
     pub fn wait(&mut self, ack_level: AckLevel, timeout: Duration) -> Result<()> {
         self.backend.wait(ack_level, timeout)
     }
@@ -867,6 +904,14 @@ impl DirectSenderCore {
 
     pub(crate) fn transport_dead(&self) -> bool {
         self.backend.conn.transport_dead()
+    }
+
+    /// `true` when a best-effort commit of the already-published deferred frames
+    /// can still succeed (transport alive, not hard-latched). A dictionary-full
+    /// (`spent`) connection stays drainable, so the drop-time commit preserves
+    /// its tail; see [`ColumnConn::can_drain_in_flight`].
+    pub(crate) fn can_drain_in_flight(&self) -> bool {
+        self.backend.conn.can_drain_in_flight()
     }
 
     pub(crate) fn endpoint_idx(&self) -> usize {
@@ -1113,11 +1158,7 @@ impl DirectColumnBackend {
                 let row_count = chunk.row_count();
                 match split_mid(row_count) {
                     Some(mid) => {
-                        // Splitting publishes deferred prefix frames as it goes.
-                        // If a later sub-range hits the floor, those frames sit
-                        // on the wire uncommitted; tear the connection down so
-                        // the drop-time best-effort commit discards them instead
-                        // of committing a partial chunk under a later boundary.
+                        let fsn_before_split = self.conn.next_fsn();
                         let mut committed = false;
                         let mut result = self.publish_split(chunk, 0, mid, true, &mut committed);
                         if result.is_ok() {
@@ -1130,7 +1171,11 @@ impl DirectColumnBackend {
                             );
                         }
                         if let Err(e) = result {
-                            self.conn.mark_must_close();
+                            // Discard this split's partial prefix, but preserve
+                            // earlier chunks if this split published nothing.
+                            if self.conn.next_fsn() != fsn_before_split {
+                                self.conn.mark_must_close();
+                            }
                             // A mid-split sync may already have committed a
                             // prefix. The deferred remainder is discarded on
                             // drop, but a committed prefix is real, so downgrade
@@ -1221,11 +1266,49 @@ impl DirectColumnBackend {
                 if e.code() != ErrorCode::SocketError {
                     self.symbol_dict.rollback(dict_mark);
                 }
+                self.latch_if_connection_is_spent(&e);
                 Err(direct_not_delivered(e))
             }
             // Bytes may be on the wire: do not roll back the dict, and report
             // delivery as unknown.
             Err(PublishError::DuringWrite(e)) => Err(direct_delivery_unknown(e)),
+        }
+    }
+
+    /// Marks the connection **spent** when `err` reports a condition that belongs
+    /// to the CONNECTION rather than to the call that surfaced it — one no later
+    /// call on this connection can clear.
+    ///
+    /// Today that is only [`SymbolDictFull`](ErrorCode::SymbolDictFull): the
+    /// connection-scoped symbol dictionary is owned by the connection, nothing
+    /// resets it in place (a reconnect re-registers it rather than clearing it),
+    /// and every later flush introducing a new symbol fails identically.
+    ///
+    /// Without the mark, [`reborrow_from_pool`] -- the documented failover
+    /// primitive, and the first thing a caller reaches for after a flush error --
+    /// is a silent no-op: its guard returns early on `in_flight() == 0 &&
+    /// !must_close() && !transport_dead()`, and a dictionary-full connection
+    /// satisfies all three (nothing reached the wire, the buffer rolled back, the
+    /// socket is healthy). The caller then retries into the same wall indefinitely
+    /// with no error escalation. Marked spent, the reborrow swaps in a fresh
+    /// connection and the pool return retires this one instead of recycling its
+    /// dictionary to the next borrower -- the free list is LIFO, so recycling
+    /// hands the same full connection straight back.
+    ///
+    /// [`mark_spent`](ColumnConn::mark_spent), NOT `mark_must_close`: the failing
+    /// frame never reached the wire and its dictionary mark was rolled back above,
+    /// but frames the caller flushed *earlier* (deferred, uncommitted) are still on
+    /// the wire and must not be stranded. `spent` retires the connection like
+    /// `must_close` yet leaves [`can_drain_in_flight`](ColumnConn::can_drain_in_flight)
+    /// `true`, so an explicit `commit()` — and the best-effort commit on plain
+    /// drop — still flush that tail (a symbol-less commit interns nothing, so the
+    /// full dictionary does not block it). Hard-latching would refuse both and
+    /// discard the tail; see the `SymbolDictFull` remedy docs.
+    ///
+    /// [`reborrow_from_pool`]: crate::db::BorrowedDirectColumnSender::reborrow_from_pool
+    fn latch_if_connection_is_spent(&mut self, err: &crate::Error) {
+        if err.code() == ErrorCode::SymbolDictFull {
+            self.conn.mark_spent();
         }
     }
 
@@ -1317,6 +1400,7 @@ impl DirectColumnBackend {
                 let row_count = batch.num_rows();
                 match split_mid(row_count) {
                     Some(mid) => {
+                        let fsn_before_split = self.conn.next_fsn();
                         let mut committed = false;
                         let mut result =
                             self.publish_arrow_split(&spec, 0, mid, true, &mut committed);
@@ -1330,7 +1414,9 @@ impl DirectColumnBackend {
                             );
                         }
                         if let Err(e) = result {
-                            self.conn.mark_must_close();
+                            if self.conn.next_fsn() != fsn_before_split {
+                                self.conn.mark_must_close();
+                            }
                             // See `flush_inner`: a mid-split sync may have
                             // committed a prefix, so a blind retry would
                             // duplicate it.
@@ -1414,6 +1500,7 @@ impl DirectColumnBackend {
                 if e.code() != ErrorCode::SocketError {
                     self.symbol_dict.rollback(dict_mark);
                 }
+                self.latch_if_connection_is_spent(&e);
                 Err(direct_not_delivered(e))
             }
             Err(PublishError::DuringWrite(e)) => Err(direct_delivery_unknown(e)),
@@ -1472,11 +1559,37 @@ impl SfaBackend {
         if ack_level == AckLevel::Durable && !self.request_durable_ack {
             return Err(error::fmt!(
                 InvalidApiCall,
-                "AckLevel::Durable requires the pool to be opened with \
-                 `request_durable_ack=on` in the connect string."
+                "AckLevel::Durable requires `request_durable_ack=on` in the connect string."
             ));
         }
         Ok(())
+    }
+
+    /// Marks the connection for retirement (`drop_on_return`) when `err` reports
+    /// [`SymbolDictFull`](ErrorCode::SymbolDictFull) — a full connection-scoped
+    /// symbol dictionary that no later flush can clear. The store-and-forward
+    /// analogue of the direct backend's
+    /// [`latch_if_connection_is_spent`](DirectColumnBackend::latch_if_connection_is_spent),
+    /// and it exists for the same reason: without it a naive pool return / drop
+    /// *recycles* the full connection, and the LIFO free list hands that same full
+    /// connection straight back to the next borrow, which fails identically —
+    /// an unbounded loop with no data to show for it. Latched, the pool return
+    /// retires it instead, and `return_sfa_to_pool` DRAINS the queue
+    /// (`drain_sfa_before_drop`, bounded by `close_flush_timeout`) before dropping,
+    /// so no queued frame is lost.
+    ///
+    /// `drop_on_return` does not gate the foreground publish path (which only
+    /// checks `qwp_ws_check_error_background`), so chunks referencing only
+    /// already-interned symbols keep flushing until the caller retires the
+    /// connection — matching the direct backend and the documented contract. With
+    /// `sf_dir`, `wait()` for the slot to drain before the return: a drop that
+    /// leaves the slot unresolved persists the dictionary too, and the next
+    /// borrower re-seeds from the side-file at the same size (see the
+    /// `SymbolDictFull` remedy docs).
+    fn latch_if_connection_is_spent(&mut self, err: &crate::Error) {
+        if err.code() == ErrorCode::SymbolDictFull {
+            self.drop_on_return = true;
+        }
     }
 
     fn publish_buffer(
@@ -1498,14 +1611,14 @@ impl SfaBackend {
         // A Buffer is one indivisible publication (no row-range slicing), so
         // only the hard cap applies — there is no split to soft-target.
         let frame_cap = self.effective_frame_caps().hard;
-        let Self {
-            foreground,
-            state,
-            buffer_scratch,
-            ..
-        } = self;
-        match foreground
-            .encode_persist_publish(
+        let result = {
+            let Self {
+                foreground,
+                state,
+                buffer_scratch,
+                ..
+            } = self;
+            foreground.encode_persist_publish(
                 frame_cap,
                 |payload, symbol_dict, delta_enabled| {
                     buffer.encode_ws_replay_message_with_defer(
@@ -1519,9 +1632,17 @@ impl SfaBackend {
                 },
                 |payload| publish_qwp_ws_payload_background(state, payload, frame_cap),
             )
-            .map_err(FlushFailure::NotDelivered)?
-        {
-            SfaPublishOutcome::Published(fsn) => Ok(Some(fsn)),
+        };
+        if let Err(err) = &result {
+            self.latch_if_connection_is_spent(err);
+        }
+        match result.map_err(FlushFailure::NotDelivered)? {
+            SfaPublishOutcome::Published(fsn) => {
+                // A buffer frame always commits, so it also closes a group a
+                // failed split could not.
+                self.sfa_deferred_group_open = false;
+                Ok(Some(fsn))
+            }
             SfaPublishOutcome::TooLarge {
                 encoded_len,
                 max_buf_size,
@@ -1563,15 +1684,29 @@ impl SfaBackend {
         }
         let caps = self.effective_frame_caps();
         // Whole-chunk fast path; only split when a single frame exceeds the cap.
-        // Each split frame commits on its own (never deferred) — the
-        // store-and-forward queue is frame-granular and at-least-once, so deferred
-        // (uncommitted) frames could be lost on a reconnect that trims them after
-        // their ack but before the commit. The boundary to wait for is the last
-        // frame's FSN; its cumulative ack covers the prefix. (In delta mode the
-        // frames are not individually self-sufficient; the driver re-registers the
-        // dictionary via a catch-up frame on reconnect.)
+        //
+        // A split chunk emits every frame but the last with FLAG_DEFER_COMMIT, so
+        // the whole chunk commits ONCE, at its final frame, instead of once per
+        // frame. The chunk stays the atomic commit boundary, which is also the
+        // store-and-forward replay unit.
+        //
+        // Safe against the reconnect-trim hazard because the server withholds a
+        // deferred frame's ack while its rows sit uncommitted in the WAL writers
+        // (QwpIngressProcessorState, questdb#7366, first shipped in 10.0.0;
+        // questdb#7440 adds an early ack once the rows are force-committed).
+        // questdb#7144 (9.4.1) introduced the flag but still acked deferred
+        // frames, so a 9.4.x server can trim a prefix the reconnect then never
+        // replays -- below the documented 10.0 floor, see doc/COMPATIBILITY.md.
+        // An unacknowledged frame is never trimmed, so a reconnect mid-group
+        // replays it -- at-least-once, as intended. The boundary to wait for is
+        // the last frame's FSN; its cumulative ack covers the prefix. (In delta
+        // mode the frames are not individually self-sufficient; the driver
+        // re-registers the dictionary via a catch-up frame on reconnect.)
+        //
+        // See `publish_split_sfa` for the window valve that keeps a long split
+        // from deferring more frames than the publication window can hold.
         let boundary =
-            match self.publish_chunk_sfa(chunk, None, caps.for_range(chunk.row_count()))? {
+            match self.publish_chunk_sfa(chunk, None, caps.for_range(chunk.row_count()), false)? {
                 SfaPublishOutcome::Published(fsn) => fsn,
                 SfaPublishOutcome::TooLarge {
                     encoded_len,
@@ -1581,12 +1716,22 @@ impl SfaBackend {
                     let row_count = chunk.row_count();
                     match split_mid(row_count) {
                         Some(mid) => {
-                            self.publish_split_sfa(chunk, 0, mid, caps)?;
-                            // The prefix is now durably queued (at-least-once); a
-                            // failure on the remainder leaves it enqueued, so the
-                            // chunk must not be reported as safe to blind-retry.
-                            self.publish_split_sfa(chunk, mid, row_count - mid, caps)
-                                .map_err(deny_retry_after_partial)?
+                            // Either half can fail after enqueueing deferred
+                            // frames -- the halves recurse, so the very first
+                            // call can publish a prefix and then fail on its own
+                            // remainder. Guard both together; see
+                            // `close_failed_split`.
+                            let published_before = self.sfa_published_fsn();
+                            let split = match self.publish_split_sfa(chunk, 0, mid, caps, true) {
+                                Ok(_) => {
+                                    self.publish_split_sfa(chunk, mid, row_count - mid, caps, false)
+                                }
+                                Err(e) => Err(e),
+                            };
+                            match split {
+                                Ok(fsn) => fsn,
+                                Err(e) => return Err(self.close_failed_split(published_before, e)),
+                            }
                         }
                         None => return Err(FlushFailure::NotDelivered(err)),
                     }
@@ -1601,6 +1746,99 @@ impl SfaBackend {
         Ok(boundary)
     }
 
+    /// The queue's published-FSN watermark.
+    ///
+    /// `Err` is kept distinct from `Ok(None)`: a read can fail because the
+    /// runner latched a durability or terminal error *during* the flush, i.e.
+    /// after frames were already appended. Collapsing that into `None` would
+    /// make an errored read look like a virgin queue.
+    fn sfa_published_fsn(&self) -> crate::Result<Option<u64>> {
+        qwp_ws_published_fsn_background(&self.state)
+    }
+
+    /// Handle a split that failed part-way: close the group if anything reached
+    /// the queue, and classify the error accordingly.
+    ///
+    /// A split recurses, so a failure in either half can leave deferred frames
+    /// enqueued -- including the very first call, which publishes its own prefix
+    /// before failing on its own remainder. Comparing the published watermark
+    /// tells the two cases apart: frames enqueued means the chunk partly reached
+    /// the server, so it needs a committing frame after it AND must not be
+    /// reported as safe to blind-retry. Nothing enqueued means the flush is a
+    /// clean rejection and stays one.
+    fn close_failed_split(
+        &mut self,
+        published_before: crate::Result<Option<u64>>,
+        err: FlushFailure,
+    ) -> FlushFailure {
+        // A pair of successful reads showing the SAME watermark proves nothing
+        // was enqueued. So does a failed read BEFORE the split: the terminal
+        // and durability latches are permanent and every publish checks them,
+        // so nothing could have been appended after. A read that fails only
+        // AFTER the split latched mid-flight, when frames may already have been
+        // appended: assume they were. Over-closing costs one empty frame and an
+        // in_doubt error, while under-closing strands a deferred prefix nothing
+        // can commit.
+        let unchanged = match (&published_before, &self.sfa_published_fsn()) {
+            (Ok(before), Ok(after)) => before == after,
+            (Err(_), _) => true,
+            (Ok(_), Err(_)) => false,
+        };
+        if unchanged {
+            return err;
+        }
+        // A committing frame is only needed if a deferred group is actually
+        // open. A split whose valve was closed throughout published nothing
+        // deferred, so there is nothing to close -- but its frames did reach the
+        // server, so the retry classification still applies.
+        if self.sfa_deferred_group_open {
+            self.commit_orphaned_prefix();
+            // Still open: the close itself failed. Retire the connection on
+            // return rather than park a queue whose tail nothing has committed
+            // -- the reaper cannot reclaim it, and the next borrower's first
+            // flush would commit this lease's prefix under its own boundary.
+            if self.sfa_deferred_group_open {
+                self.drop_on_return = true;
+            }
+        }
+        deny_retry_after_partial(err)
+    }
+
+    /// Publish an empty committing frame to close a deferred prefix the rest of
+    /// a split could not close.
+    ///
+    /// A deferred frame is never acked, so a prefix left with no committing
+    /// frame after it can never be acked, never trimmed, and never commits: the
+    /// slot's byte budget stays consumed, `wait()` can no longer succeed, and
+    /// `close()` burns its whole drain timeout before giving up. If the caller
+    /// then moves to another `sender_id` the slot becomes an orphan, and the
+    /// orphan queue is opened with no producer, so nothing can ever append the
+    /// committing frame it is waiting for.
+    ///
+    /// `DirectColumnBackend` handles the same case by marking the connection
+    /// must-close, so the deferred remainder dies with the connection (a prefix
+    /// its valve already force-committed stays committed). Store-and-forward
+    /// cannot discard -- the frames are already durably enqueued -- so it does
+    /// the opposite and commits them, which is the outcome
+    /// `deny_retry_after_partial` already reports to the caller: delivery
+    /// unknown, do not blind-retry.
+    ///
+    /// Best-effort by construction. The publish can itself fail (the same full
+    /// queue that failed the suffix), and there is nothing further to do about
+    /// it: the caller is already returning an error, and returning THIS error
+    /// instead would hide the size failure that actually explains the flush.
+    fn commit_orphaned_prefix(&mut self) {
+        let empty = Chunk::new("");
+        let frame_cap = self.effective_frame_caps().hard;
+        // Deliberately does NOT clear `sfa_deferred_group_open` itself.
+        // `publish_chunk_sfa` sets the flag from `defer_commit` on a successful
+        // publish, so success clears it and failure leaves it set -- which is
+        // what lets a later attempt on this backend try the close again. Clearing
+        // it up front would record "no group open" over a queue whose tail is
+        // still deferred, and nothing would ever retry.
+        let _ = self.publish_chunk_sfa(&empty, None, frame_cap, false);
+    }
+
     /// Encode `range` (`None` = whole chunk, no slice allocation) as a replay
     /// frame, check it against the cap, and append it to the queue. Returns
     /// [`SfaPublishOutcome::TooLarge`] (nothing queued, dict rolled back) when the
@@ -1610,6 +1848,7 @@ impl SfaBackend {
         chunk: &Chunk<'_>,
         range: Option<(usize, usize)>,
         frame_cap: usize,
+        defer_commit: bool,
     ) -> std::result::Result<SfaPublishOutcome, FlushFailure> {
         let view;
         let target = match range {
@@ -1619,40 +1858,84 @@ impl SfaBackend {
                 &view
             }
         };
-        let Self {
-            state,
-            foreground,
-            scratch,
-            ..
-        } = self;
-        foreground
-            .encode_persist_publish(
+        let result = {
+            let Self {
+                state,
+                foreground,
+                scratch,
+                ..
+            } = self;
+            foreground.encode_persist_publish(
                 frame_cap,
                 |payload, symbol_dict, delta_enabled| {
                     if delta_enabled {
-                        encoder::encode_chunk_into(payload, target, symbol_dict, scratch, false)
+                        encoder::encode_chunk_into(
+                            payload,
+                            target,
+                            symbol_dict,
+                            scratch,
+                            defer_commit,
+                        )
                     } else {
-                        encoder::encode_chunk_replay_into(payload, target, symbol_dict, scratch)
+                        encoder::encode_chunk_replay_into(
+                            payload,
+                            target,
+                            symbol_dict,
+                            scratch,
+                            defer_commit,
+                        )
                     }
                 },
                 |encoded| publish_qwp_ws_payload_background(state, encoded, frame_cap),
             )
-            .map_err(FlushFailure::NotDelivered)
+        };
+        if let Err(err) = &result {
+            self.latch_if_connection_is_spent(err);
+        }
+        if matches!(result, Ok(SfaPublishOutcome::Published(_))) {
+            // A committing frame closes whatever was open; a deferred one opens
+            // a group. `TooLarge` queued nothing, so it changes neither.
+            self.sfa_deferred_group_open = defer_commit;
+        }
+        result.map_err(FlushFailure::NotDelivered)
     }
 
     /// Append rows `[row_offset, row_offset + row_count)`, halving the range
     /// whenever a frame is still too large. Returns the last frame's FSN.
+    ///
+    /// `defer_commit` applies to the LAST frame this call emits; every earlier
+    /// frame is deferred unconditionally. So a split chunk commits once, at its
+    /// final frame, however many times the range has to halve — unless the
+    /// publication window runs out first, see below.
     fn publish_split_sfa(
         &mut self,
         chunk: &Chunk<'_>,
         row_offset: usize,
         row_count: usize,
         caps: SfaFrameCaps,
+        defer_commit: bool,
     ) -> std::result::Result<u64, FlushFailure> {
+        // Bounded deferred window. A deferred frame is never acked, so the
+        // queue bytes it occupies are never reclaimed; a split long enough to
+        // fill the slot's byte budget would leave the committing frame unable
+        // to submit at all — the foreground would block on back-pressure until
+        // `sf_append_deadline` and fail, with the deferred prefix durably queued
+        // and no frame to commit it.
+        //
+        // `DirectColumnBackend` bounds the same window with
+        // `has_sync_commit_slot()` and force-commits the prefix when it fills
+        // (see `publish_split`); the store-and-forward valve is to commit at
+        // THIS frame instead, which drains the window and starts a fresh
+        // deferred group. Rows are split whole, so an early-committed prefix is
+        // always complete — the cost is extra commits for an over-window chunk,
+        // not a partial row. The retry classification is unaffected: anything
+        // enqueued before a failure already denies a blind retry.
+        let defer_commit = defer_commit && sfa_has_deferred_commit_slot(&self.state);
         match self.publish_chunk_sfa(
             chunk,
             Some((row_offset, row_count)),
             caps.for_range(row_count),
+            defer_commit,
         )? {
             SfaPublishOutcome::Published(fsn) => Ok(fsn),
             SfaPublishOutcome::TooLarge {
@@ -1660,9 +1943,15 @@ impl SfaBackend {
                 max_buf_size,
             } => match split_mid(row_count) {
                 Some(mid) => {
-                    self.publish_split_sfa(chunk, row_offset, mid, caps)?;
-                    self.publish_split_sfa(chunk, row_offset + mid, row_count - mid, caps)
-                        .map_err(deny_retry_after_partial)
+                    self.publish_split_sfa(chunk, row_offset, mid, caps, true)?;
+                    self.publish_split_sfa(
+                        chunk,
+                        row_offset + mid,
+                        row_count - mid,
+                        caps,
+                        defer_commit,
+                    )
+                    .map_err(deny_retry_after_partial)
                 }
                 None => Err(FlushFailure::NotDelivered(sfa_frame_size_error(
                     encoded_len,
@@ -1719,10 +2008,12 @@ impl SfaBackend {
             ts,
             overrides,
         };
-        // Whole-batch fast path; split into self-sufficient frames only when one
-        // exceeds the cap (see the rationale on `flush_chunk`).
+        // Whole-batch fast path; only split when a single frame exceeds the cap.
+        // A split batch defers every frame but the last, so it commits once —
+        // see `flush_chunk_boundary` for the rationale and the bounded-window
+        // valve that keeps the deferred prefix from stranding.
         let boundary =
-            match self.publish_arrow_sfa(&spec, None, caps.for_range(batch.num_rows()))? {
+            match self.publish_arrow_sfa(&spec, None, caps.for_range(batch.num_rows()), false)? {
                 SfaPublishOutcome::Published(fsn) => fsn,
                 SfaPublishOutcome::TooLarge {
                     encoded_len,
@@ -1732,10 +2023,26 @@ impl SfaBackend {
                     let row_count = batch.num_rows();
                     match split_mid(row_count) {
                         Some(mid) => {
-                            self.publish_arrow_split_sfa(&spec, 0, mid, caps)?;
-                            // Prefix is durably queued; see `flush_chunk_boundary`.
-                            self.publish_arrow_split_sfa(&spec, mid, row_count - mid, caps)
-                                .map_err(deny_retry_after_partial)?
+                            // Both halves guarded together; see
+                            // `flush_chunk_boundary` and `close_failed_split`.
+                            let published_before = self.sfa_published_fsn();
+                            let split =
+                                match self.publish_arrow_split_sfa(&spec, 0, mid, caps, true) {
+                                    Ok(_) => self.publish_arrow_split_sfa(
+                                        &spec,
+                                        mid,
+                                        row_count - mid,
+                                        caps,
+                                        false,
+                                    ),
+                                    Err(e) => Err(e),
+                                };
+                            match split {
+                                Ok(fsn) => fsn,
+                                Err(e) => {
+                                    return Err(self.close_failed_split(published_before, e));
+                                }
+                            }
                         }
                         None => return Err(FlushFailure::NotDelivered(err)),
                     }
@@ -1755,6 +2062,7 @@ impl SfaBackend {
         spec: &ArrowFrameSpec<'_>,
         range: Option<(usize, usize)>,
         frame_cap: usize,
+        defer_commit: bool,
     ) -> std::result::Result<SfaPublishOutcome, FlushFailure> {
         let sliced;
         let batch = match range {
@@ -1764,11 +2072,11 @@ impl SfaBackend {
                 &sliced
             }
         };
-        let Self {
-            state, foreground, ..
-        } = self;
-        foreground
-            .encode_persist_publish(
+        let result = {
+            let Self {
+                state, foreground, ..
+            } = self;
+            foreground.encode_persist_publish(
                 frame_cap,
                 |payload, symbol_dict, delta_enabled| {
                     if delta_enabled {
@@ -1779,7 +2087,7 @@ impl SfaBackend {
                             spec.ts,
                             spec.overrides,
                             symbol_dict,
-                            false,
+                            defer_commit,
                         )
                     } else {
                         arrow_batch::encode_arrow_batch_replay_into(
@@ -1789,16 +2097,24 @@ impl SfaBackend {
                             spec.ts,
                             spec.overrides,
                             symbol_dict,
+                            defer_commit,
                         )
                     }
                 },
                 |payload| publish_qwp_ws_payload_background(state, payload, frame_cap),
             )
-            .map_err(FlushFailure::NotDelivered)
+        };
+        if let Err(err) = &result {
+            self.latch_if_connection_is_spent(err);
+        }
+        if matches!(result, Ok(SfaPublishOutcome::Published(_))) {
+            self.sfa_deferred_group_open = defer_commit;
+        }
+        result.map_err(FlushFailure::NotDelivered)
     }
 
-    /// Arrow counterpart of [`Self::publish_split_sfa`]. Returns the last
-    /// frame's FSN.
+    /// Arrow counterpart of [`Self::publish_split_sfa`], including its
+    /// bounded-deferred-window valve. Returns the last frame's FSN.
     #[cfg(feature = "arrow-ingress")]
     fn publish_arrow_split_sfa(
         &mut self,
@@ -1806,11 +2122,14 @@ impl SfaBackend {
         row_offset: usize,
         row_count: usize,
         caps: SfaFrameCaps,
+        defer_commit: bool,
     ) -> std::result::Result<u64, FlushFailure> {
+        let defer_commit = defer_commit && sfa_has_deferred_commit_slot(&self.state);
         match self.publish_arrow_sfa(
             spec,
             Some((row_offset, row_count)),
             caps.for_range(row_count),
+            defer_commit,
         )? {
             SfaPublishOutcome::Published(fsn) => Ok(fsn),
             SfaPublishOutcome::TooLarge {
@@ -1818,9 +2137,15 @@ impl SfaBackend {
                 max_buf_size,
             } => match split_mid(row_count) {
                 Some(mid) => {
-                    self.publish_arrow_split_sfa(spec, row_offset, mid, caps)?;
-                    self.publish_arrow_split_sfa(spec, row_offset + mid, row_count - mid, caps)
-                        .map_err(deny_retry_after_partial)
+                    self.publish_arrow_split_sfa(spec, row_offset, mid, caps, true)?;
+                    self.publish_arrow_split_sfa(
+                        spec,
+                        row_offset + mid,
+                        row_count - mid,
+                        caps,
+                        defer_commit,
+                    )
+                    .map_err(deny_retry_after_partial)
                 }
                 None => Err(FlushFailure::NotDelivered(sfa_frame_size_error(
                     encoded_len,
@@ -1836,6 +2161,12 @@ impl SfaBackend {
 
     fn wait(&mut self, ack_level: AckLevel, timeout: Duration) -> Result<()> {
         self.validate_ack_level(ack_level)?;
+        // A group a failed split could not close is un-ackable, so a wait on
+        // it can only time out. Retry the close first; on success the
+        // committing frame becomes the boundary.
+        if self.sfa_deferred_group_open {
+            self.commit_orphaned_prefix();
+        }
         let Some(boundary) = qwp_ws_published_fsn_background(&self.state)? else {
             return Ok(());
         };
@@ -1920,22 +2251,6 @@ impl SfaBackend {
     }
 }
 
-fn effective_hard_frame_cap(
-    max_buf_size: usize,
-    server_max_batch_size: usize,
-    sfa_frame_payload_cap: usize,
-) -> (usize, bool) {
-    let configured_cap = if server_max_batch_size == 0 {
-        max_buf_size
-    } else {
-        max_buf_size.min(server_max_batch_size)
-    };
-    (
-        configured_cap.min(sfa_frame_payload_cap),
-        server_max_batch_size != 0,
-    )
-}
-
 /// The store-and-forward `wait` poll loop made no progress toward `boundary`
 /// for `sync_timeout`. The connection is alive but the server is not advancing
 /// the ack/durable watermark (e.g. back-pressured WAL or a stuck commit).
@@ -1990,10 +2305,33 @@ mod tests {
     }
 
     #[test]
-    fn split_mid_floors_at_eight_rows() {
+    fn split_mid_stops_at_one_row() {
         assert_eq!(split_mid(0), None);
         assert_eq!(split_mid(1), None);
-        assert_eq!(split_mid(8), None);
+        for count in 2..=8 {
+            assert_eq!(split_mid(count), Some(count - 1));
+        }
+    }
+
+    #[test]
+    fn split_ranges_preserve_alignment_and_order_down_to_single_rows() {
+        for rows in 1..=4096 {
+            let mut pending = vec![(0usize, rows)];
+            let mut next_row = 0;
+            while let Some((offset, count)) = pending.pop() {
+                assert!(offset.is_multiple_of(8) || count == 1);
+                if let Some(mid) = split_mid(count) {
+                    assert!(mid > 0 && mid < count);
+                    pending.push((offset + mid, count - mid));
+                    pending.push((offset, mid));
+                } else {
+                    assert_eq!(count, 1);
+                    assert_eq!(offset, next_row);
+                    next_row += 1;
+                }
+            }
+            assert_eq!(next_row, rows);
+        }
     }
 
     #[test]
@@ -2014,18 +2352,18 @@ mod tests {
     }
 
     #[test]
-    fn sfa_frame_caps_use_split_target_only_while_range_can_split() {
+    fn sfa_frame_caps_keep_small_ranges_at_the_hard_cap() {
         use super::SfaFrameCaps;
 
         let caps = SfaFrameCaps {
             hard: 1000,
             soft: 400,
         };
-        // At or below the 8-row split floor there is no split left to aim
-        // for: only the binding (hard) cap matters.
-        assert_eq!(caps.for_range(1), 1000);
-        assert_eq!(caps.for_range(8), 1000);
-        // Splittable ranges aim for the two-frames-per-segment target.
+        // Small ranges may split, but only to satisfy the hard cap.
+        for rows in 0..=8 {
+            assert_eq!(caps.for_range(rows), 1000);
+        }
+        // Larger ranges aim for the two-frames-per-segment target.
         assert_eq!(caps.for_range(9), 400);
         assert_eq!(caps.for_range(10_000), 400);
     }

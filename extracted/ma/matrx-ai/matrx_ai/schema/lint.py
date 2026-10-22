@@ -36,6 +36,7 @@ from matrx_ai.schema.rules import (
     is_root_object,
     make_array_items_explicit,
     nullable_enum_violations,
+    restore_generation_order,
     rewrite_const_as_enum,
     split_enum_from_type_union,
 )
@@ -315,6 +316,12 @@ def make_portable(
     * :func:`dedupe_combinator_branches` — a union is the most expensive thing
       in a constrained grammar and a duplicated branch buys nothing.
     """
+    # FIRST, while every property is still in the order it was stored in: an
+    # object whose order a store produced (jsonb, sort_keys) is put back in a
+    # generation order, because a constrained decoder writes keys in that order
+    # (restore_generation_order — Sonnet 5.5 collapsed to a skeleton when the
+    # grounding list came before the content it grounds).
+    schema = restore_generation_order(schema)
     schema = rewrite_const_as_enum(schema)
     # After the const rewrite, so `{"type": ["T","null"], "const": X}` — now
     # `enum: [X]` beside a type array — is split too. Lossless; see
@@ -349,7 +356,7 @@ def _make_portable(schema: dict[str, Any]) -> dict[str, Any]:
     # Keep the lint report's portable copy on the same lossless nullable-enum
     # path as every translator. Without this, the report named Anthropic's
     # refusal but returned the original type-array form to its caller.
-    out = split_enum_from_type_union(schema)
+    out = split_enum_from_type_union(restore_generation_order(schema))
     out = enforce_additional_properties_false(out, maps="keep")
     # required + NULLABLE, never required alone. This copy is what the answer is
     # VALIDATED against, so forcing an optional field here refused an answer the

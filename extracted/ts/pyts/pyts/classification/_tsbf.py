@@ -4,7 +4,7 @@
 # License: BSD-3-Clause
 
 from math import ceil
-from typing import Any, Literal, Self
+from typing import Any, Literal, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -180,7 +180,7 @@ class IntervalFeatureExtractor(BaseEstimator, UnivariateTransformerMixin):
         self : object
 
         """
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         n_timestamps = X.shape[1]
 
         (min_subsequence_size, min_interval_size, n_subsequences, rng) = (
@@ -233,7 +233,7 @@ class IntervalFeatureExtractor(BaseEstimator, UnivariateTransformerMixin):
             Extracted features.
 
         """
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         n_samples = X.shape[0]
 
         # Extract the features from each interval
@@ -329,7 +329,7 @@ class IntervalFeatureExtractor(BaseEstimator, UnivariateTransformerMixin):
         return (min_subsequence_size, min_interval_size, n_subsequences, rng)
 
 
-class TSBF(BaseEstimator, UnivariateClassifierMixin):
+class TSBF(UnivariateClassifierMixin, BaseEstimator):
     """Time Series Bag-of-Features algorithm.
 
     Parameters
@@ -814,7 +814,9 @@ class TSBF(BaseEstimator, UnivariateClassifierMixin):
         if isinstance(self.bins, (int, np.integer)):
             bins = self.bins
         else:
-            bins = np.asarray(self.bins)
+            # ``histogram`` is only compiled for float64 bin edges, so
+            # integer-valued edges (e.g. ``[0, 1]``) must be converted.
+            bins = np.asarray(self.bins, dtype=np.float64)
             if (np.diff(bins) < 0).any():
                 raise ValueError(
                     "If 'bins' is array-like, the bin edges "
@@ -824,7 +826,7 @@ class TSBF(BaseEstimator, UnivariateClassifierMixin):
 
     def _transform(self, X: npt.ArrayLike) -> npt.NDArray[np.float64]:
         check_is_fitted(self)
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         n_samples = X.shape[0]
         n_subsequences = self.interval_indices_.shape[0]
         n_classes = len(self.classes_)

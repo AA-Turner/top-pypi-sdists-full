@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from matrx_ai.config import ToolCallContent, ToolResultContent, UnifiedMessage
-from matrx_ai.config.context_trim import trim_messages_context
+from matrx_ai.config.context_trim import TRIMMED_ARGUMENT_MARKER, trim_messages_context
 
 
 def _tool_result(chars: int, *, position: int | None = None) -> UnifiedMessage:
@@ -132,19 +132,48 @@ def test_stale_large_tool_call_arguments_are_rewritten() -> None:
     assert block.name == "workflow_author"
     assert block.type == "tool_call"
 
-    # The stub is a plain dict naming what was there, and serialises as a JSON
-    # object for every provider (Anthropic input, OpenAI arguments, Google args).
+    # The call keeps its REAL shape — the same keys, short values exact — so the
+    # model never sees a fake argument object it could copy as its own
+    # (conversation 9b224bf5, 2026-10-21). Only the long value is cut, with a
+    # note the executor refuses if a new call carries it.
     assert isinstance(block.arguments, dict)
-    assert block.arguments["keys"] == ["definition", "action"]
-    assert block.arguments["chars"] > 39_000
-    assert "[tool arguments cleared]" in block.arguments["result"]
+    assert list(block.arguments) == ["definition", "action"]
+    assert block.arguments["action"] == "save"
+    assert block.arguments["definition"].startswith("y" * 240)
+    assert TRIMMED_ARGUMENT_MARKER in block.arguments["definition"]
+    assert "39760 more characters" in block.arguments["definition"]
+    assert len(json.dumps(block.arguments)) < 600
     assert isinstance(json.loads(json.dumps(block.arguments)), dict)
     assert isinstance(block.to_anthropic()["input"], dict)
-    assert json.loads(block.to_openai()["arguments"])["keys"] == ["definition", "action"]
+    assert json.loads(block.to_openai()["arguments"])["action"] == "save"
     assert isinstance(block.to_google()["functionCall"]["args"], dict)
 
     # Result blocks were below threshold and must be untouched.
     assert messages[5].content[0].content == "x" * 100
+
+
+def test_a_long_list_argument_keeps_its_first_items_and_a_note() -> None:
+    messages = [
+        UnifiedMessage(
+            role="assistant",
+            content=[
+                ToolCallContent(
+                    id="call-rows",
+                    name="records",
+                    arguments={"action": "insert", "rows": [{"n": i, "pad": "z" * 900} for i in range(60)]},
+                )
+            ],
+        )
+    ]
+    messages.extend(_serial([_tool_result(100) for _ in range(30)]))
+
+    trim_messages_context(messages)
+
+    rows = messages[0].content[0].arguments["rows"]
+    assert messages[0].content[0].arguments["action"] == "insert"
+    assert [r["n"] for r in rows[:8]] == list(range(8))
+    assert TRIMMED_ARGUMENT_MARKER in rows[8] and "52 more items" in rows[8]
+    assert len(rows) == 9
 
 
 def test_fresh_large_tool_call_arguments_survive() -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 8.8.1
+Version: 8.8.3
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -94,6 +94,8 @@ Provides-Extra: tray
 Requires-Dist: pystray; extra == "tray"
 Requires-Dist: pillow; extra == "tray"
 Requires-Dist: cairosvg; extra == "tray"
+Provides-Extra: tracing
+Requires-Dist: langfuse; extra == "tracing"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

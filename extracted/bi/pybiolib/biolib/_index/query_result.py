@@ -2,10 +2,10 @@ import json
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 from biolib import api
-from biolib._internal.http_client import HttpResponse
 from biolib._internal.utils import base64_encode_string
 from biolib._internal.utils.auth import decode_jwt_without_checking_signature
 from biolib._runtime.runtime import Runtime
+from biolib._shared.http_client import HttpResponse
 from biolib.biolib_api_client import BiolibApiClient
 from biolib.biolib_errors import BioLibError
 

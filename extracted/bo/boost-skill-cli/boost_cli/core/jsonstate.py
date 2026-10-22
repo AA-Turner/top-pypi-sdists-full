@@ -18,11 +18,60 @@ before it writes the replacement.
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 
-def read_object(path: Path) -> tuple[dict | None, str | None]:
+def strip_comments(text: str) -> str:
+    """``text`` with ``//`` and ``/* */`` comments outside strings blanked.
+
+    The JSONC a host such as Gemini CLI accepts (it parses its settings with
+    ``strip-json-comments`` then ``JSON.parse``). Each comment character becomes
+    a space and every line break is kept, so a :class:`json.JSONDecodeError`
+    on the result still names the line and column of the original file, and
+    ``strip_comments(t) != t`` is exactly "``t`` has a comment in it". An
+    unterminated block comment runs to the end, as it does upstream.
+    """
+    out: list[str] = []
+    i, n = 0, len(text)
+    in_str = False
+    while i < n:
+        ch = text[i]
+        if in_str:
+            out.append(ch)
+            if ch == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if ch == '"':
+                in_str = False
+            i += 1
+            continue
+        nxt = text[i + 1] if i + 1 < n else ""
+        if ch == nxt == "/":
+            end = text.find("\n", i)
+            end = n if end == -1 else end
+            out.append(" " * (end - i))
+            i = end
+            continue
+        if ch == "/" and nxt == "*":
+            end = text.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.append("".join(c if c in "\r\n" else " " for c in text[i:end]))
+            i = end
+            continue
+        if ch == '"':
+            in_str = True
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def read_object(path: Path, jsonc: bool = False) -> tuple[dict | None, str | None]:
     """Parse `path` as a JSON object.
+
+    ``jsonc`` parses it the way a host that allows comments does, through
+    :func:`strip_comments` first.
 
     Returns ``(data, None)`` when the file is missing (``data`` is ``None``)
     or holds a valid JSON object. Returns ``(None, message)`` when the file
@@ -47,7 +96,7 @@ def read_object(path: Path) -> tuple[dict | None, str | None]:
     except UnicodeDecodeError as exc:
         return None, "%s: not valid UTF-8 (%s)" % (path, exc)
     try:
-        data = json.loads(text)
+        data = json.loads(strip_comments(text) if jsonc else text)
     except json.JSONDecodeError as exc:
         return None, "%s: invalid JSON (%s)" % (path, exc)
     if not isinstance(data, dict):
@@ -130,3 +179,31 @@ def quarantine(path: Path) -> Path:
         n += 1
     path.rename(dest)
     return dest
+
+
+def save(path: Path, text: str, *, corrupt: bool, noun: str = "file",
+         show=str, wrap: bool = False) -> None:
+    """Replace state file `path` with `text`, moving a `corrupt` one aside first.
+
+    Every small state writer (focus and context, policy, trusted keys,
+    cohorts, profiles, bmad) used to end in a bare ``write_text``: under a
+    ``~/.boost/state`` that refuses writes each one crashed at exit 70 with a
+    ``PermissionError`` traceback. Here the quarantine and the write share one
+    ``try``, so a refusal is a :class:`BoostError` naming the file and the
+    ``chmod`` that clears it (:func:`paths.save_refused`, the wording
+    ``config.save`` uses), and the write is atomic, so a reader never sees a
+    half-written file. `noun` and `show` word the quarantine warning the way
+    each caller always has.
+    """
+    from . import output, paths, util
+    paths.create_dirs((*paths.boost_dirs(), path.parent))
+    try:
+        if corrupt:
+            dest = quarantine(path)
+            output.warn("%s was corrupt and has been moved to %s before "
+                        "writing the new %s" % (show(path), show(dest), noun),
+                        stream=sys.stderr, wrap=wrap)
+        util.atomic_write_text(path, text)
+    except OSError as e:
+        raise paths.save_refused(path, e) from e
+

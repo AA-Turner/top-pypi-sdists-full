@@ -12,8 +12,7 @@ weight operand the plane has not mapped (`readable`).
 Also public here: the operand an encoded leaf takes already quantized (`PreQuantized`), a scope
 in which the leaves that read one activation quantize it once (`quantize_once`), a producer's
 norm, modulation and activation folded into that quantization (`int8_rows`), and the
-Runtime's compiled CUDA kernels (`rms_rope_split_half`), which ride its linux x86 cp312-abi3
-wheel.
+compiled CUDA kernels the native Runtime wheels carry (`rms_rope_split_half`).
 """
 
 from __future__ import annotations
@@ -24,7 +23,6 @@ from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from importlib.util import find_spec
 from typing import Any, cast
 
 from cozy_runtime import _kernels
@@ -119,11 +117,11 @@ class Plan:
     """Wait for this machine's build of the set for `device` (started when the executor did)
     and return its launcher. Raises `KernelsUnavailable`."""
     when_ready: Callable[[TritonKernels, Callable[[Launch], None]], bool] | None = None
-    """`install(launch)` now when the build is done (True), else at the start of the first
-    request after it is (False): a construction serves while its kernels compile, and a run
-    never waits for one. A group installs now. Raises `KernelsUnavailable` as `load` does;
-    a deferred install that fails leaves the construction as it was. None: `load`, then
-    install."""
+    """`install(launch)` once the set is built for every GPU of the construction, on each at
+    the same boundary: the end of its preparation, else the start of the first request after.
+    A construction serves while its kernels compile, and a run never waits for one. True when
+    this GPU's build is done now. Raises `KernelsUnavailable` as `load` does; an install that
+    fails leaves the construction as it was. None: `load`, then install."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,10 +204,8 @@ def int8_rows(
 
 
 def native() -> str:
-    """Why this Runtime has no compiled CUDA kernels here, or "" when it has them."""
-    if find_spec("cozy_runtime._kernels._C") is None:
-        return "this Runtime wheel carries no compiled kernels (cozy_runtime._kernels._C)"
-    return ""
+    """Why this machine has no compiled CUDA kernels, or "" when it has them."""
+    return _kernels.ABSENT
 
 
 @contextmanager
@@ -238,7 +234,7 @@ def rms_rope_split_half(
 ) -> tuple[Any, Any]:
     """Per-head RMSNorm of `q` and `k` (scaled by `q_scale`/`k_scale`), then split-half RoPE by
     the `[..., rot_dim // 2, 2, 2]` rotation matrix `freqs`, out of place, in one launch.
-    `native()` says why this Runtime cannot (only its linux x86 wheel carries the kernel).
+    `native()` says why this machine cannot (its Runtime wheel carries no kernels).
     """
     with readable(q, k, freqs, q_scale, k_scale) as (q, k, freqs, q_scale, k_scale):
         return _kernels.rms_rope_split_half(q, k, freqs, q_scale, k_scale, epsilon, rot_dim)

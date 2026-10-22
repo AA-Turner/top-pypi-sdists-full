@@ -33,6 +33,9 @@ from pydantic import BaseModel
 from temporalio import activity, workflow
 from temporalio.exceptions import FailureError
 
+from application_sdk._context_errors import (  # noqa: F401 — re-exported; defined in the api distribution
+    AppContextError,
+)
 from application_sdk._runtime.offload import run_best_effort, run_in_thread
 from application_sdk.app._ep_registration import (
     _apply_app_registration,
@@ -83,12 +86,7 @@ from application_sdk.contracts.storage import (
     VerifyRefsOutput,
 )
 from application_sdk.contracts.types import FileReference, StorageTier, StoreTarget
-from application_sdk.errors import (
-    APP_CONTEXT_ERROR,
-    APP_ERROR,
-    APP_NON_RETRYABLE,
-    ErrorCode,
-)
+from application_sdk.errors import APP_ERROR, APP_NON_RETRYABLE, ErrorCode
 from application_sdk.errors.base import AppError as _NewAppError
 from application_sdk.errors.leaves import InternalError as _InternalError
 from application_sdk.errors.leaves import InvalidInputError as _InvalidInputError
@@ -597,33 +595,6 @@ class AppError(_NewAppError):
         if self.cause:
             parts.append(f"caused_by={self.cause}")
         return " | ".join(parts)
-
-
-class AppContextError(_InternalError):
-    """Raised when App or task context is accessed outside of valid execution scope.
-
-    This is a programming error — it indicates that context-dependent methods
-    (e.g. ``self.context``, ``self.heartbeat()``) were called outside of a
-    workflow run or @task execution.
-    """
-
-    DEFAULT_ERROR_CODE: ClassVar[ErrorCode] = APP_CONTEXT_ERROR
-    code: ClassVar[str] = "INTERNAL_APP_CONTEXT"
-
-    def __init__(self, message: str, *, error_code: ErrorCode | None = None) -> None:
-        _InternalError.__init__(self, message=message)
-        self._legacy_error_code = error_code
-
-    @property
-    def error_code(self) -> ErrorCode:
-        return (
-            self._legacy_error_code
-            if self._legacy_error_code is not None
-            else self.DEFAULT_ERROR_CODE
-        )
-
-    def __str__(self) -> str:
-        return f"[{self.error_code.code}] {self.message}"
 
 
 class NonRetryableError(AppError):
@@ -2468,7 +2439,10 @@ class App(ABC):
                     import obstore as obs  # noqa: PLC0415 — lazy: heavy Rust ext; keep out of the workflow-sandbox import set
 
                     aliased = 0
-                    for batch in obs.list(resolved, prefix=storage_path):
+                    # async for: each page is fetched off the loop. A plain
+                    # ``for`` drives the same ListStream synchronously, blocking
+                    # the loop on every page's round trip (FND-4084).
+                    async for batch in obs.list(resolved, prefix=storage_path):
                         tasks = []
                         for item in batch:
                             key = str(item["path"])
@@ -2526,7 +2500,7 @@ class App(ABC):
             prefix = build_output_path() + "/"
             import obstore as obs  # noqa: PLC0415 — lazy: heavy Rust ext; keep out of the workflow-sandbox import set
 
-            for batch in obs.list(resolved, prefix=prefix):
+            async for batch in obs.list(resolved, prefix=prefix):
                 tasks = []
                 for item in batch:
                     key = str(item["path"])
@@ -4049,6 +4023,7 @@ def _create_task_activity_wrapper(
 
 # Keep FileReference accessible via base module for convenience
 __all__ = [
+    "AppContextError",
     "App",
     "AppError",
     "AppStateAccessor",

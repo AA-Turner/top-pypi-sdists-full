@@ -10,6 +10,7 @@ from chalk import DataFrame, Features, StaticOperator
 from chalk._gen.chalk.dataframe.v1 import dataframe_pb2
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk.client import ChalkError, ChalkException, ErrorCode, ErrorCodeCategory
+from chalk.client._chalkdf_import import is_chalkdf_dataframe
 from chalk.df.LazyFramePlaceholder import LazyFramePlaceholder
 from chalk.features.feature_field import Feature
 
@@ -125,10 +126,7 @@ def static_resolver_to_operator(
             not isinstance(static_operator, (StaticOperator, DfPlaceholder, LazyFramePlaceholder))
             and not static_operator.__class__.__name__ == "ChalkDataFrame"
             and not static_operator.__class__.__name__ == "LazyFrame"
-            and not any(
-                cls.__name__ == "DataFrame" and cls.__module__ == "chalkdf.dataframe"
-                for cls in type(static_operator).__mro__
-            )
+            and not is_chalkdf_dataframe(static_operator)
         ):
             raise _GetStaticOperatorError(
                 resolver_fqn=fqn,

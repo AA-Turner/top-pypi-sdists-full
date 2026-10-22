@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: fireblocks_sdk
-Version: 2.19.0
+Version: 2.19.1
 Summary: DEPRECATED — use the fireblocks package instead. Legacy Fireblocks python SDK, end-of-life November 1, 2026
 Home-page: https://github.com/fireblocks/fireblocks-sdk-py
-Download-URL: https://github.com/fireblocks/fireblocks-sdk-py/archive/v2.19.0.tar.gz
+Download-URL: https://github.com/fireblocks/fireblocks-sdk-py/archive/v2.19.1.tar.gz
 License: MIT
 Keywords: Fireblocks,SDK
 Classifier: Development Status :: 7 - Inactive
@@ -14,6 +14,7 @@ Classifier: Programming Language :: Python :: 3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: PyJWT>=2.8.0
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: cryptography>=2.7
 Requires-Dist: requests>=2.22.0
 Dynamic: classifier

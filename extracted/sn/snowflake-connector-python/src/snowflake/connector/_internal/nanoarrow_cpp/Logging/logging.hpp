@@ -1,6 +1,7 @@
 #ifndef PC_LOGGING_HPP
 #define PC_LOGGING_HPP
 
+#include <mutex>
 #include <string>
 
 #include "Python/Common.hpp"
@@ -25,6 +26,8 @@ class Logger {
 
  private:
   py::UniqueRef m_pyLogger;
+  // setupPyLogger assigns m_pyLogger; two threads can both observe it unset.
+  std::once_flag m_initOnceFlag;
   const char* const m_name;
   static constexpr int CRITICAL = 50;
   static constexpr int FATAL = CRITICAL;

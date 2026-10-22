@@ -104,7 +104,7 @@ class XAITranslator(BaseTranslator):
     """Translates between the unified format and the native xAI Grok SDK."""
 
     #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
-    TURN_CONTEXT_AFTER_CACHE_LINE = True
+    PROVIDER = "xai"
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)

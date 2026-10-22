@@ -1398,6 +1398,14 @@ async def upsert_parsed_skills(
                     and existing_cfg.get("ingested_at")
                     and existing_cfg.get("source_repo")
                     and all(existing_cfg.get(k) == v for k, v in p.extra_config.items())
+                    # Header fields live in columns, not the body hash: a header-only
+                    # edit (allowed_tools, triggers, auto-invocation) must still write.
+                    and [str(t) for t in (getattr(row, "allowed_tools", None) or [])]
+                    == [str(t) for t in p.allowed_tools]
+                    and [str(t) for t in (getattr(row, "trigger_patterns", None) or [])]
+                    == [str(t) for t in p.trigger_patterns]
+                    and bool(getattr(row, "disable_auto_invocation", False))
+                    == bool(p.disable_auto_invocation)
                     and (
                         ATTACH_WITH_TOOLS_KEY in p.extra_config
                         or ATTACH_WITH_TOOLS_KEY not in existing_cfg

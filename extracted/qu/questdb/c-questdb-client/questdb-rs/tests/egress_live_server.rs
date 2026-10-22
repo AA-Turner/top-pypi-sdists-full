@@ -389,14 +389,133 @@ fn uuid_round_trip() {
             let ColumnView::Uuid(c) = view.column(0).unwrap() else {
                 panic!("col 0")
             };
-            // 16 bytes — verify length and basic shape; exact byte order
-            // is QuestDB-internal. We just confirm it's non-zero and the
-            // round-trip ran end-to-end.
-            let bytes = c.value(0);
-            assert_eq!(bytes.len(), 16);
-            assert!(bytes.iter().any(|b| *b != 0));
+            // The reader hands out canonical RFC-4122 big-endian bytes,
+            // checked against the server's own text parser: they must be
+            // exactly the bytes of the SQL literal above. The Arrow egress
+            // path serves the same decoder buffer verbatim under the
+            // `arrow.uuid` label, so this covers that path too.
+            let canonical: [u8; 16] = [
+                0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4, 0xa7, 0x16, 0x44, 0x66, 0x55, 0x44,
+                0x00, 0x00,
+            ];
+            assert_eq!(c.value(0), &canonical);
         },
     );
+}
+
+// 123e4567-e89b-12d3-a456-426614174000, RFC-4122 big-endian.
+const UUID_CANONICAL: [u8; 16] = [
+    0x12, 0x3e, 0x45, 0x67, 0xe8, 0x9b, 0x12, 0xd3, 0xa4, 0x56, 0x42, 0x66, 0x14, 0x17, 0x40, 0x00,
+];
+const UUID_CANONICAL_STR: &str = "123e4567-e89b-12d3-a456-426614174000";
+
+/// Assert the server parsed the ingested UUID as `UUID_CANONICAL_STR`, then
+/// assert the reader hands the canonical bytes back. Server-side
+/// `cast(u as string)` is the reference point: no client-side byte-order
+/// code sits on that path, so it cannot cancel out an ingest bug.
+fn assert_uuid_round_trip(srv: &QuestDbServer, table: &str) {
+    select_one_batch(
+        srv,
+        &format!("select cast(u as string) as s, u from \"{table}\""),
+        |view| {
+            let ColumnView::Varchar(s) = view.column(0).unwrap() else {
+                panic!("col 0 not Varchar")
+            };
+            assert_eq!(s.value(0).unwrap(), UUID_CANONICAL_STR);
+            let ColumnView::Uuid(c) = view.column(1).unwrap() else {
+                panic!("col 1 not Uuid")
+            };
+            assert_eq!(c.value(0), &UUID_CANONICAL);
+        },
+    );
+}
+
+/// Round-trip for the chunk byte API: canonical bytes into `column_uuid`
+/// → server text → reader bytes. Each swap has its own unit test; this
+/// checks the whole chain against the server's own UUID parser.
+#[test]
+fn chunk_column_uuid_round_trip() {
+    use questdb::QuestDb;
+    use questdb::ingress::AckLevel;
+    use questdb::ingress::column_sender::Chunk;
+
+    let srv = server();
+    let table = unique_table("chunk_uuid");
+    let db = QuestDb::connect(&srv.qwp_conf()).expect("connect");
+    let mut sender = db.borrow_sender().expect("borrow");
+    let mut chunk = Chunk::new(table.as_str());
+    let uuids = [UUID_CANONICAL];
+    chunk.column_uuid("u", &uuids, None).expect("uuid col");
+    chunk.at_nanos(&[1_700_000_000_000_000_000]).expect("ts");
+    sender
+        .flush_and_wait(&mut chunk, AckLevel::Ok)
+        .expect("flush");
+    wait_for_rows(srv, &table, 1);
+    assert_uuid_round_trip(srv, &table);
+}
+
+/// Same composition through the numpy `S16` fast path.
+#[test]
+fn numpy_s16_uuid_round_trip() {
+    use questdb::QuestDb;
+    use questdb::ingress::AckLevel;
+    use questdb::ingress::column_sender::{Chunk, NumpyDtype};
+
+    let srv = server();
+    let table = unique_table("numpy_uuid");
+    let db = QuestDb::connect(&srv.qwp_conf()).expect("connect");
+    let mut sender = db.borrow_sender().expect("borrow");
+    let mut chunk = Chunk::new(table.as_str());
+    let uuids = [UUID_CANONICAL];
+    // SAFETY: `uuids` outlives the flush; 1 row of 16 bytes as declared.
+    unsafe {
+        chunk
+            .push_numpy_deferred("u", NumpyDtype::UuidDirect, uuids.as_ptr().cast(), 1, None)
+            .expect("numpy uuid col");
+    }
+    chunk.at_nanos(&[1_700_000_000_000_000_000]).expect("ts");
+    sender
+        .flush_and_wait(&mut chunk, AckLevel::Ok)
+        .expect("flush");
+    wait_for_rows(srv, &table, 1);
+    assert_uuid_round_trip(srv, &table);
+}
+
+/// The same chain, again checked against the server, through an
+/// `arrow.uuid`-labelled `FixedSizeBinary(16)` column — the path whose
+/// byte order prompted #185.
+#[test]
+fn arrow_uuid_extension_round_trip() {
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use arrow::array::{ArrayRef, FixedSizeBinaryBuilder, RecordBatch};
+    use arrow::datatypes::{DataType, Field, Schema};
+    use questdb::QuestDb;
+    use questdb::arrow_metadata::{ARROW_EXTENSION_NAME, EXT_ARROW_UUID};
+    use questdb::ingress::AckLevel;
+
+    let srv = server();
+    let table = unique_table("arrow_uuid");
+    let db = QuestDb::connect(&srv.qwp_conf()).expect("connect");
+    let mut sender = db.borrow_sender().expect("borrow");
+
+    let mut values = FixedSizeBinaryBuilder::new(16);
+    values.append_value(UUID_CANONICAL).expect("canonical UUID");
+    let field = Field::new("u", DataType::FixedSizeBinary(16), false).with_metadata(HashMap::from(
+        [(ARROW_EXTENSION_NAME.to_owned(), EXT_ARROW_UUID.to_owned())],
+    ));
+    let batch = RecordBatch::try_new(
+        Arc::new(Schema::new(vec![field])),
+        vec![Arc::new(values.finish()) as ArrayRef],
+    )
+    .expect("record batch");
+
+    sender
+        .flush_arrow_batch_at_now_and_wait(table.as_str(), &batch, &[], AckLevel::Ok)
+        .expect("flush");
+    wait_for_rows(srv, &table, 1);
+    assert_uuid_round_trip(srv, &table);
 }
 
 #[test]
@@ -579,9 +698,126 @@ fn date_round_trip() {
 // Decimals (require protocol V3 ILP for ingress, but server side is V3)
 // ---------------------------------------------------------------------------
 
-// QuestDB picks DECIMAL64 / DECIMAL128 / DECIMAL256 by precision:
-// <=18 -> 64, 19..=38 -> 128, 39..=76 -> 256. Inserts need an explicit
+// QWP uses DECIMAL64 / DECIMAL128 / DECIMAL256 wire types. SQL columns
+// with precision <=9 can use narrower storage. Inserts need an explicit
 // cast since DOUBLE -> DECIMAL is not auto-promoted.
+
+#[test]
+fn native_chunk_decimals_and_arrays_round_trip() {
+    use questdb::ingress::AckLevel;
+    use questdb::ingress::column_sender::{Chunk, Validity};
+
+    let srv = server();
+    let table = unique_table("native_columns");
+    assert_eq!(
+        srv.http_exec(&format!(
+            "CREATE TABLE {table} (d64 DECIMAL(18,9), d128 DECIMAL(38,9), \
+         d256 DECIMAL(76,38), book DOUBLE[][], ts TIMESTAMP_NS) \
+         TIMESTAMP(ts) PARTITION BY DAY WAL"
+        )),
+        200
+    );
+    let max64 = 10i64.pow(18) - 1;
+    let d64 = [max64, -max64, 0, 0];
+    let max128 = 10i128.pow(38) - 1;
+    let d128 = [max128, -max128, 0, 0];
+    // Build 10^76 - 1 without adding a big-integer dependency to the API.
+    let mut max256 = [0u8; 32];
+    for _ in 0..76 {
+        let mut carry = 9u16;
+        for byte in &mut max256 {
+            let next = u16::from(*byte) * 10 + carry;
+            *byte = next as u8;
+            carry = next >> 8;
+        }
+        assert_eq!(carry, 0);
+    }
+    let mut min256 = max256.map(|byte| !byte);
+    let mut carry = 1u16;
+    for byte in &mut min256 {
+        let next = u16::from(*byte) + carry;
+        *byte = next as u8;
+        carry = next >> 8;
+    }
+    let d256 = [max256, min256, [0; 32], [0; 32]];
+    let book: Vec<f64> = (0..4)
+        .flat_map(|_| [100.25, f64::NAN, 0.0, u32::MAX as f64])
+        .collect();
+    let bits = [0b0111];
+    let validity = Validity::from_bitmap(&bits, 4).unwrap();
+    let ts = [
+        1_726_401_600_123_456_789i64,
+        1_726_401_600_123_456_790,
+        1_726_401_600_123_456_791,
+        1_726_401_600_123_456_792,
+    ];
+    let db = questdb::QuestDb::connect(&srv.qwp_conf()).unwrap();
+    let mut sender = db.borrow_sender().unwrap();
+    let mut chunk = Chunk::new(&table);
+    chunk
+        .column_decimal64("d64", &d64, 9, Some(&validity))
+        .unwrap();
+    chunk
+        .column_decimal128("d128", &d128, 9, Some(&validity))
+        .unwrap();
+    chunk
+        .column_decimal256("d256", &d256, 38, Some(&validity))
+        .unwrap();
+    chunk
+        .column_f64_array("book", &book, 4, &[2, 2], Some(&validity))
+        .unwrap();
+    chunk.at_nanos(&ts).unwrap();
+    sender.flush_and_get_fsn(&mut chunk).unwrap();
+    sender.wait(AckLevel::Ok, Duration::from_secs(10)).unwrap();
+    wait_for_rows(srv, &table, 4);
+    select_one_batch(
+        srv,
+        &format!("SELECT d64,d128,d256,book,cast(ts as long) FROM {table} ORDER BY ts"),
+        |view| {
+            let ColumnView::Decimal64(c) = view.column(0).unwrap() else {
+                panic!("expected decimal64");
+            };
+            assert_eq!(c.scale(), 9);
+            for (row, expected) in d64[..3].iter().enumerate() {
+                assert_eq!(c.value(row), *expected);
+            }
+            assert!(c.is_null(3));
+            let ColumnView::Decimal128(c) = view.column(1).unwrap() else {
+                panic!("expected decimal128");
+            };
+            assert_eq!(c.scale(), 9);
+            for (row, expected) in d128[..3].iter().enumerate() {
+                assert_eq!(c.value(row), *expected);
+            }
+            assert!(c.is_null(3));
+            let ColumnView::Decimal256(c) = view.column(2).unwrap() else {
+                panic!("expected decimal256");
+            };
+            assert_eq!(c.scale(), 38);
+            for (row, expected) in d256[..3].iter().enumerate() {
+                assert_eq!(c.value(row), expected);
+            }
+            assert!(c.is_null(3));
+            let ColumnView::DoubleArray(c) = view.column(3).unwrap() else {
+                panic!("expected double array");
+            };
+            for row in 0..3 {
+                assert_eq!(c.shape(row), Some(&[2, 2][..]));
+                assert_eq!(c.element(row, 0), Some(100.25));
+                assert!(c.element(row, 1).unwrap().is_nan());
+                assert_eq!(c.element(row, 2), Some(0.0));
+                assert_eq!(c.element(row, 3), Some(u32::MAX as f64));
+            }
+            assert!(c.is_null(3));
+            let ColumnView::Long(c) = view.column(4).unwrap() else {
+                panic!("expected timestamp cast");
+            };
+            for (row, expected) in ts.iter().enumerate() {
+                assert_eq!(c.value(row), *expected);
+            }
+        },
+    );
+}
 
 #[test]
 fn decimal64_round_trip() {
@@ -1570,17 +1806,19 @@ fn bind_ipv4_rejected_client_side() {
 }
 
 #[test]
-fn bind_uuid_passthrough() {
+fn bind_uuid_round_trip() {
     let srv = server();
     let mut reader = make_reader(srv);
-    // 16 bytes. We bind raw bytes; the server stores them as a UUID.
-    // We just verify the round-trip matches what we sent.
+    // Canonical RFC-4122 bytes of 550e8400-e29b-41d4-a716-446655440000.
+    // Comparing the bytes alone would prove nothing, because the reversal
+    // on bind and the reversal on read cancel out. So also compare against
+    // the server's own text rendering of the bound value.
     let bytes: [u8; 16] = [
         0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4, 0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00,
         0x00,
     ];
     let mut cur = reader
-        .prepare("select $1::uuid as v")
+        .prepare("select $1::uuid as v, cast($1::uuid as string) as s")
         .bind_uuid(bytes)
         .execute()
         .expect("execute");
@@ -1589,6 +1827,13 @@ fn bind_uuid_passthrough() {
         panic!("col 0 not uuid: got {:?}", view.column(0).unwrap().kind())
     };
     assert_eq!(c.value(0), &bytes);
+    let ColumnView::Varchar(s) = view.column(1).unwrap() else {
+        panic!(
+            "col 1 not varchar: got {:?}",
+            view.column(1).unwrap().kind()
+        )
+    };
+    assert_eq!(s.value(0).unwrap(), "550e8400-e29b-41d4-a716-446655440000");
 }
 
 #[test]
@@ -3267,12 +3512,11 @@ fn cancel_does_not_replenish_credit_window() {
 /// done after a `QUERY_ERROR` terminal. Polling `is_finished()` lets
 /// the test fail with a useful message instead of hanging the CI run.
 ///
-/// `F` is **not** required to be `Send`. `Cursor` is intentionally
-/// `!Send` (the `on_failover_reset` callback can capture non-`Send`
-/// state — see the `_not_send` marker on `Cursor` / `ReaderQuery`) but
-/// the watchdog needs to spawn the operation on a side thread to be
-/// able to time it out. We bridge the two by wrapping `op` in a
-/// newtype that unsafely asserts `Send`.
+/// `Cursor` is `Send`, so the wrapper below is redundant for the current
+/// callers, whose operations capture only a cursor. `F` remains
+/// unconstrained so this watchdog can also time operations that capture
+/// other non-`Send` test state; only such additional state makes the
+/// local `ForceSend` assertion necessary.
 ///
 /// Safety: the only thing the main thread does while the side thread
 /// runs is poll `JoinHandle::is_finished()` and sleep — it never
@@ -3418,6 +3662,40 @@ fn cursor_short_circuits_after_query_error() {
         // `if self.done` short-circuit in cancel itself).
         cur.cancel().expect("second cancel is a no-op");
     }
+}
+
+#[test]
+#[ignore = "the pinned questdb submodule does not advertise CAP_QUERY_TIMEOUT yet"]
+fn query_timeout_ends_query_and_keeps_connection() {
+    let srv = server();
+    let mut reader = make_reader(srv);
+    let mut cur = reader
+        .prepare("sleep(10)")
+        .timeout(Duration::from_secs(1))
+        .execute()
+        .expect("execute");
+    let err = loop {
+        match cur.next_batch() {
+            Ok(Some(_)) => {}
+            Ok(None) => panic!("sleep(10) must not finish under a 1s timeout"),
+            Err(e) => break e,
+        }
+    };
+    assert_eq!(
+        err.code(),
+        questdb::ErrorCode::QueryTimeout,
+        "{}",
+        err.msg()
+    );
+    assert!(cur.connection_reusable());
+    drop(cur);
+
+    let mut cur = reader
+        .prepare("SELECT x FROM long_sequence(3)")
+        .execute()
+        .expect("execute after timeout");
+    let view = cur.next_batch().expect("next_batch").expect("Some batch");
+    assert_eq!(view.row_count(), 3);
 }
 
 #[test]

@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 import hashlib
@@ -14,9 +14,8 @@ from pathlib import Path
 from struct import unpack
 from typing import Tuple, Union
 
+from xlsxwriter.exceptions import UndefinedImageSize, UnsupportedImageFormat
 from xlsxwriter.url import Url
-
-from .exceptions import UndefinedImageSize, UnsupportedImageFormat
 
 DEFAULT_DPI = 96.0
 
@@ -44,7 +43,7 @@ class Image:
             self.image_data = source
             self.image_name = ""
         else:
-            raise ValueError("Source must be a filename (str) or a BytesIO object.")
+            raise TypeError("Source must be a filename (str) or a BytesIO object.")
 
         self._row: int = 0
         self._col: int = 0
@@ -184,6 +183,12 @@ class Image:
         # Get the image digest to check for duplicates.
         digest = hashlib.sha256(data).hexdigest()
 
+        # Ensure the data is large enough to hold the image markers.
+        if len(data) < 44:
+            raise UnsupportedImageFormat(
+                f"{self.filename}: image file is too small to be a valid image."
+            )
+
         # Look for some common image file markers.
         png_marker = unpack("3s", data[1:4])[0]
         jpg_marker = unpack(">H", data[:2])[0]
@@ -193,22 +198,22 @@ class Image:
         emf_marker1 = unpack("<L", data[:4])[0]
 
         if png_marker == b"PNG":
-            (image_type, width, height, x_dpi, y_dpi) = self._process_png(data)
+            image_type, width, height, x_dpi, y_dpi = self._process_png(data)
 
         elif jpg_marker == 0xFFD8:
-            (image_type, width, height, x_dpi, y_dpi) = self._process_jpg(data)
+            image_type, width, height, x_dpi, y_dpi = self._process_jpg(data)
 
         elif bmp_marker == b"BM":
-            (image_type, width, height) = self._process_bmp(data)
+            image_type, width, height = self._process_bmp(data)
 
         elif emf_marker1 == 0x9AC6CDD7:
-            (image_type, width, height, x_dpi, y_dpi) = self._process_wmf(data)
+            image_type, width, height, x_dpi, y_dpi = self._process_wmf(data)
 
         elif emf_marker1 == 1 and emf_marker == b" EMF":
-            (image_type, width, height, x_dpi, y_dpi) = self._process_emf(data)
+            image_type, width, height, x_dpi, y_dpi = self._process_emf(data)
 
         elif gif_marker == b"GIF8":
-            (image_type, width, height, x_dpi, y_dpi) = self._process_gif(data)
+            image_type, width, height, x_dpi, y_dpi = self._process_gif(data)
 
         else:
             raise UnsupportedImageFormat(
@@ -335,15 +340,16 @@ class Image:
         x_dpi = DEFAULT_DPI
         y_dpi = DEFAULT_DPI
 
-        width = unpack("<h", data[6:8])[0]
-        height = unpack("<h", data[8:10])[0]
+        width = unpack("<H", data[6:8])[0]
+        height = unpack("<H", data[8:10])[0]
 
         return "gif", width, height, x_dpi, y_dpi
 
     def _process_bmp(self, data: bytes) -> Tuple[str, float, float]:
-        # Extract width and height information from a BMP file.
-        width = unpack("<L", data[18:22])[0]
-        height = unpack("<L", data[22:26])[0]
+        # Extract width and height information from a BMP file. The height can
+        # be negative for a top-down bitmap so we take the absolute value.
+        width = unpack("<l", data[18:22])[0]
+        height = abs(unpack("<l", data[22:26])[0])
         return "bmp", width, height
 
     def _process_wmf(self, data: bytes) -> Tuple[str, float, float, float, float]:
@@ -360,6 +366,12 @@ class Image:
         # Read the number of logical units per inch. Used to scale the image.
         inch = unpack("<H", data[14:16])[0]
 
+        # Guard against a malformed file with a zero inch value.
+        if inch == 0:
+            raise UndefinedImageSize(
+                f"{self.filename}: no size data found in image file."
+            )
+
         # Convert to rendered height and width.
         width = float((x2 - x1) * x_dpi) / inch
         height = float((y2 - y1) * y_dpi) / inch
@@ -368,6 +380,8 @@ class Image:
 
     def _process_emf(self, data: bytes) -> Tuple[str, float, float, float, float]:
         # Extract width and height information from a EMF file.
+        x_dpi = DEFAULT_DPI
+        y_dpi = DEFAULT_DPI
 
         # Read the bounding box, measured in logical units.
         bound_x1 = unpack("<l", data[8:12])[0]
@@ -389,9 +403,12 @@ class Image:
         width_mm = 0.01 * (frame_x2 - frame_x1)
         height_mm = 0.01 * (frame_y2 - frame_y1)
 
-        # Get the dpi based on the logical size.
-        x_dpi = width * 25.4 / width_mm
-        y_dpi = height * 25.4 / height_mm
+        # Get the dpi based on the logical size but guard against a malformed
+        # file with a zero frame extent. Falls back to the default dpi.
+        if width_mm != 0:
+            x_dpi = width * 25.4 / width_mm
+        if height_mm != 0:
+            y_dpi = height * 25.4 / height_mm
 
         # This is to match Excel's calculation. It is probably to account for
         # the fact that the bounding box is inclusive-inclusive. Or a bug.

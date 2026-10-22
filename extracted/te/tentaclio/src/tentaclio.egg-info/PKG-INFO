@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tentaclio
-Version: 1.5.1
+Version: 1.6.0
 Summary: Unification of data connectors for distributed data tasks
 Author-email: Octopus Energy <nerds@octopus.energy>
 License-Expression: MIT
@@ -10,18 +10,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: urllib3>=1.24.2
 Requires-Dist: requests
-Requires-Dist: sqlalchemy>=1.4
+Requires-Dist: sqlalchemy<2.1,>=1.4
 Requires-Dist: paramiko<4.0.0,>=3.4.0
 Requires-Dist: pandas
 Requires-Dist: click

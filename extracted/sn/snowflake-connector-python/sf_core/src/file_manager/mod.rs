@@ -448,7 +448,7 @@ pub async fn upload_files(
     // See `BatchAbort` for why a flag rather than dropping the stream.
     let abort = BatchAbort::new(data.put_fastfail);
 
-    let batch = BatchTransport::for_command(tx, data.multipart, &data.stage_info)?;
+    let batch = BatchTransport::for_command(tx, data.multipart, &data.stage_info).await?;
     let tx = batch.join(tx);
 
     // The refresher owns the latest stage info (creds + presigned URLs) for
@@ -549,14 +549,16 @@ struct BatchTransport {
 }
 
 impl BatchTransport {
-    fn for_command(
+    async fn for_command(
         tx: TransferCtx<'_>,
         multipart: MultipartParams,
         stage_info: &StageInfo,
     ) -> Result<Self, FileManagerError> {
         Ok(Self {
             scheduler: scheduler_for(tx, multipart),
-            http: cloud_http::StorageHttp::for_stage(stage_info).context(BatchHttpClientSnafu)?,
+            http: cloud_http::StorageHttp::for_stage(stage_info)
+                .await
+                .context(BatchHttpClientSnafu)?,
             s3_client_cache: matches!(stage_info.location_type, LocationType::S3)
                 .then(s3_transfer::BatchS3ClientCache::new),
         })
@@ -1047,7 +1049,7 @@ pub async fn download_files(
     // allowed to finish rather than being dropped.
     let abort = BatchAbort::new(data.get_fastfail);
 
-    let batch = BatchTransport::for_command(tx, data.multipart, &data.stage_info)?;
+    let batch = BatchTransport::for_command(tx, data.multipart, &data.stage_info).await?;
     let tx = batch.join(tx);
 
     // Three-way zip: src_locations / encryption_materials / presigned_urls.

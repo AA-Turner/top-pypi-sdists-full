@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: mkdocs-jupyter
-Version: 0.26.3
+Version: 0.27.0
 Summary: Use Jupyter in mkdocs websites
 Project-URL: Documentation, https://github.com/danielfrg/mkdocs-jupyter#readme
 Project-URL: Issues, https://github.com/danielfrg/mkdocs-jupyter/issues
@@ -11,13 +11,14 @@ License-File: LICENSE.txt
 Keywords: documentation,jupyter,jupyterlab,mkdocs,notebooks
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.12
+Requires-Dist: beautifulsoup4<5,>=4.7
 Requires-Dist: ipykernel<8,>6.0.0
 Requires-Dist: jupytext<2,>1.13.8
 Requires-Dist: mkdocs-material>9.0.0
@@ -38,7 +39,7 @@ Description-Content-Type: text/markdown
         <img src="https://img.shields.io/pypi/pyversions/mkdocs-jupyter.svg">
     </a>
     <a href="https://github.com/danielfrg/mkdocs-jupyter/actions/workflows/test.yml">
-        <img src="https://github.com/danielfrg/mkdocs-jupyter/workflows/test/badge.svg">
+        <img src="https://github.com/danielfrg/mkdocs-jupyter/actions/workflows/test.yml/badge.svg">
     </a>
     <a href="https://codecov.io/gh/danielfrg/mkdocs-jupyter?branch=main">
         <img src="https://codecov.io/gh/danielfrg/mkdocs-jupyter/branch/main/graph/badge.svg">
@@ -63,11 +64,11 @@ Description-Content-Type: text/markdown
 -   Option to include notebook source
 
 <a
-href="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/master/docs/mkdocs-theme.png"><img
-src="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/master/docs/mkdocs-theme.png"
+href="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/main/docs/mkdocs-theme.png"><img
+src="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/main/docs/mkdocs-theme.png"
 alt="mkdocs-jupyter default theme"  width="300"></a> <a
-href="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/master/docs/material-theme.png"><img
-src="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/master/docs/material-theme.png"
+href="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/main/docs/material-theme.png"><img
+src="https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/main/docs/material-theme.png"
 alt="mkdocs-jupyter material theme"  width="300"></a>
 
 ## Installation
@@ -90,12 +91,37 @@ plugins:
     - mkdocs-jupyter
 ```
 
+### Markdown cell processor
+
+Markdown cells use Jupyter's nbconvert renderer by default
+(`markdown_cell_processor: jupyter`). To process them with MkDocs and its
+configured Markdown extensions, opt in with:
+
+```yaml
+plugins:
+    - mkdocs-jupyter:
+          markdown_cell_processor: mkdocs
+    - mkdocstrings
+```
+
+With mkdocstrings installed and configured, notebook Markdown cells can then
+reference documented API objects, for example
+`[Model.fit][my_package.Model.fit]`. Code cells and rich outputs still use
+nbconvert.
+
+In this mode, Markdown syntax, heading IDs and the table of contents follow
+MkDocs and your `markdown_extensions`. For notebook math, configure
+`pymdownx.arithmatex` with `generic: true`; Mermaid fences likewise need your
+site's configured Mermaid extension, such as Material's SuperFences setup.
+References and Markdown extensions are processed on every build, including
+when notebook conversion is cached.
+
 ### Titles and Table of Contents
 
 The first h1 header (`#`) in your notebook will be used as the title.
 
 ```md
-# This H1 header will be the the title.
+# This H1 header will be the title.
 ```
 
 This can be turned off in the configuration (in which case the filename will be
@@ -126,6 +152,45 @@ later in the same markdown cell or new bottom markdown cells:
 ### This one will be displayed inside the above level
 ```
 
+### Notebook page metadata
+
+Add YAML frontmatter at the start of the notebook's first Markdown cell to set
+standard MkDocs page metadata:
+
+```markdown
+---
+title: Analysis
+description: An overview of the analysis.
+hide:
+  - navigation
+  - toc
+search:
+  exclude: true
+---
+
+# Analysis
+
+Notebook content goes here.
+```
+
+The frontmatter is removed from the rendered notebook and exposed as `page.meta`
+to MkDocs plugins and templates. In Material, the example hides the page's
+navigation and table of contents and excludes it from search. Other metadata
+keys are passed through unchanged.
+
+Search exclusion uses Material's search plugin. With older MkDocs versions,
+select it explicitly as `material/search` in your `plugins` configuration.
+
+The first Markdown cell can contain only frontmatter, with content in later
+cells. Frontmatter must be a closed YAML mapping; YAML examples in code fences
+or later Markdown cells remain content. This also works in Jupytext notebooks.
+
+For notebooks with frontmatter, an explicit `nav` title takes precedence over
+the metadata title, followed by the first H1. Set `ignore_h1_titles: true` to
+ignore that H1 fallback. Themes may use the metadata title separately, such as
+for the browser tab title. Notebooks without frontmatter keep their existing
+title behavior.
+
 ### Including or Ignoring Files
 
 You can control which files are included or ignored via lists of glob patterns:
@@ -135,6 +200,21 @@ plugins:
     - mkdocs-jupyter:
           include: ["*.ipynb"] # Default: ["*.py", "*.ipynb"]
           ignore: ["some-irrelevant-files/*.ipynb"]
+```
+
+### Notebooks outside the docs directory
+
+Use `notebook_dirs` to mount source directories outside `docs_dir`:
+
+```yaml
+plugins:
+    - mkdocs-jupyter:
+          notebook_dirs:
+              examples: notebooks
+
+nav:
+    - Home: index.md
+    - Example: examples/tutorial.ipynb
 ```
 
 ### Execute Notebook
@@ -239,6 +319,84 @@ theme:
         scheme: slate
 ```
 
+If a Material-derived theme uses a different name for its dark color scheme,
+set `dark_scheme` to that name. The default is `slate`:
+
+```yml
+plugins:
+    - mkdocs-jupyter:
+          dark_scheme: dark
+          # Optionally pass the css class for the dark selectors
+          dark_selector: ".dark"
+```
+
+### Custom notebook templates
+
+Use `custom_template` to extend the bundled notebook HTML template. Paths are
+relative to `mkdocs.yml`; absolute paths also work.
+
+```yaml
+plugins:
+  - mkdocs-jupyter:
+      custom_template: overrides/notebook.html.j2
+      no_prompt: true
+```
+
+For example, `overrides/notebook.html.j2` can make cell outputs collapsible:
+
+```jinja
+{% extends "mkdocs_html/notebook.html.j2" %}
+
+{% block output_group %}
+<details>
+  <summary>Show output</summary>
+  {{ super() }}
+</details>
+{% endblock output_group %}
+```
+
+Includes and local assets are resolved from the custom template's directory
+before the bundled templates. Notebook heading extraction remains unchanged.
+Conversion caching is disabled with `custom_template` so edits to templates,
+includes, and assets take effect on each build. With `execute: true`, this also
+means notebooks execute on each build.
+
+### HTML exporter options
+
+Pass additional nbconvert HTML exporter options through `html_exporter_options`:
+
+```yaml
+plugins:
+    - mkdocs-jupyter:
+          html_exporter_options:
+              embed_images: true
+              anchor_link_text: "Link"
+```
+
+`embed_images` embeds local images referenced in Markdown cells as base64
+URLs, including Markdown images and HTML `<img>` tags. Paths resolve
+relative to the notebook, so the same references work in Jupyter and the
+built documentation. Existing image alt text and HTML attributes are retained.
+Remote images remain external, and missing local images keep their original
+URLs. Images in arbitrary HTML outputs are outside this nbconvert option's
+scope.
+
+Option names and value types are validated against nbconvert's configurable
+`HTMLExporter` traits. Use plain names such as `embed_images`, without an
+`HTMLExporter.` prefix. Unknown options and invalid values produce a
+configuration error.
+
+Dedicated plugin settings take precedence: `show_input` controls input
+visibility, and `no_input` / `no_prompt` keep their prompt-hiding behavior.
+Use the plugin's `custom_template`, `theme` and MathJax settings to configure
+those features; exporter options do not replace the package's templates,
+filters or preprocessing pipeline.
+
+Conversion caching remains enabled. Exporter options and the contents of
+referenced local images are checked before reusing cached HTML. Changing,
+removing or adding an image triggers reconversion; unchanged images reuse
+the cache. With `execute: true`, reconversion also reruns the notebook.
+
 ### Extra CSS classes
 
 This option will add a custom CSS class to the `div` container that highlights
@@ -247,7 +405,7 @@ the code cells. This can be useful to add custom styles to the code cells.
 ```yml
 plugins:
   - mkdocs-jupyter:
-      highlight_extra_classes: "custom-css-classes
+      highlight_extra_classes: "custom-css-classes"
 ```
 
 ### RequireJS
@@ -260,6 +418,38 @@ plugins:
     - mkdocs-jupyter:
           include_requirejs: true
 ```
+
+### MathJax
+
+Notebook math uses MathJax 4.1.3 by default, including inline equations, display
+math, AMS numbering and labels. Material's instant navigation is supported.
+MathJax loads when a notebook is opened; an existing MathJax 3 or 4 runtime is
+reused, preserving the site's configuration.
+
+To select another supported major version or host MathJax yourself:
+
+```yaml
+plugins:
+    - mkdocs-jupyter:
+          mathjax_version: 3 # Supported: 2, 3, 4. Default: 4.
+          # Optional: URL of the matching MathJax component and its assets.
+          custom_mathjax_url: /assets/mathjax/tex-mml-chtml.js
+```
+
+Without `custom_mathjax_url` (or with an empty value), the plugin uses a CDN
+URL for the selected version. Version 3 uses MathJax 3.2.2; version 2 keeps the
+legacy nbconvert configuration. If you already specify a MathJax 2 URL, add
+`mathjax_version: 2` to keep using it. Custom version 3/4 configuration uses
+`window.MathJax` and the promise API, rather than `MathJax.Hub`.
+
+When your site loads MathJax itself, its TeX and processing settings apply to
+notebooks too. Notebook equations use `arithmatex` regions with `\(` / `\)`
+and `\[` / `\]` delimiters, which Material's MathJax configuration recognizes.
+A site that manages rendering should perform one initial typeset: set
+`startup.typeset: false` when a navigation callback performs it. MathJax 3
+callbacks must serialize asynchronous work through `MathJax.startup.promise`;
+MathJax 4 serializes `typesetPromise` calls itself. The legacy version 2
+renderer supports full page loads.
 
 ### Download notebook link
 
@@ -293,7 +483,7 @@ you can create a `main.html` file like this:
 {% endblock content %}
 ```
 
-![Download Notebook button](https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/master/docs/download-button.png)
+![Download Notebook button](https://raw.githubusercontent.com/danielfrg/mkdocs-jupyter/main/docs/download-button.png)
 
 ### Caching
 

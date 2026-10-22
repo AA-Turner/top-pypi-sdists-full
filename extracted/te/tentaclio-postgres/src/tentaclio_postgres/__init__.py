@@ -14,7 +14,7 @@ except PackageNotFoundError:
     __version__ = "0.0.0"
 
 # Db registry
-DB_REGISTRY.register("postgresql", PostgresClient)  # type: ignore
+DB_REGISTRY.register("postgresql", PostgresClient)
 
 # postgres handler
 STREAM_HANDLER_REGISTRY.register("postgresql", PostgresURLHandler())  # type: ignore

@@ -4,6 +4,7 @@ import base64
 import io
 import json
 import logging
+import re
 from typing import Any, Literal, Sequence, cast
 
 import boto3
@@ -122,18 +123,25 @@ class AmazonModel(LLM):
         config: LLMConfig | None = None,
     ):
         super().__init__(model_name, provider, config=config)
-        self.supports_cache = "amazon" in self.model_name or "claude" in self.model_name
+        self.supports_cache = self.prompt_caching != "off" and (
+            "amazon" in self.model_name or "claude" in self.model_name
+        )
         self.supports_cache = (
             self.supports_cache and "v2" not in self.model_name
         )  # supported but no access yet
         self.supports_tool_cache = self.supports_cache and "claude" in self.model_name
+        # https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
+        if self.prompt_caching == "1h" and re.search(
+            r"claude-(opus|sonnet|haiku)-(4-[5-9]|[5-9])", self.model_name
+        ):
+            self.cache_control = {"type": "default", "ttl": "1h"}
 
         if config and config.custom_api_key:
             raise Exception(
                 "custom_api_key is not currently supported for Amazon models"
             )
 
-    cache_control = {"type": "default"}
+    cache_control: dict[str, str] = {"type": "default"}
 
     async def get_tool_call_ids(self, input: Sequence[InputItem]) -> list[str]:
         raw_responses = [x for x in input if isinstance(x, RawResponse)]
@@ -209,12 +217,12 @@ class AmazonModel(LLM):
                 case SystemInput():
                     raise UnexpectedSystemInputError()
 
-        if content_user and self.supports_cache:
-            if not isinstance(input[-1], FileBase):
-                # last item cannot be file
-                content_user.append({"cachePoint": self.cache_control})
-
         flush_content_user()
+
+        if (self.supports_cache and isinstance(input[-1], TextInput)) or (
+            self.supports_tool_cache and isinstance(input[-1], ToolResult)
+        ):
+            new_input[-1]["content"].append({"cachePoint": self.cache_control})
 
         return new_input
 
@@ -331,13 +339,11 @@ class AmazonModel(LLM):
         if self.max_tokens:
             inference["maxTokens"] = self.max_tokens
 
-        # Only set temperature for models where supports_temperature is True.
-        # For example, "thinking" models don't support temperature: https://docs.claude.com/en/docs/build-with-claude/extended-thinking#feature-compatibility
-        if self.supports_temperature:
-            if self.temperature is not None:
-                inference["temperature"] = self.temperature
-            if self.top_p is not None:
-                inference["topP"] = self.top_p
+        sampling = self._sampling_from_config(("temperature", "top_p"))
+        if "temperature" in sampling:
+            inference["temperature"] = sampling["temperature"]
+        if "top_p" in sampling:
+            inference["topP"] = sampling["top_p"]
 
         inference.update(
             kwargs
@@ -412,6 +418,12 @@ class AmazonModel(LLM):
                     metadata.cache_write_tokens = value["usage"].get(
                         "cacheWriteInputTokens", None
                     )
+                    if "cacheDetails" in value["usage"]:
+                        metadata.cache_write_1h_tokens = sum(
+                            detail["inputTokens"]
+                            for detail in value["usage"]["cacheDetails"]
+                            if detail["ttl"] == "1h"
+                        )
 
                 case "contentBlockStop":
                     result_builder.finish_current_segment()

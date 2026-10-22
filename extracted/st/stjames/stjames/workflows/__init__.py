@@ -37,7 +37,16 @@ from .multistage_opt import *
 from .nmr import *
 from .phonons import *
 from .pka import *
-from .pocket_detection import Pocket, PocketDetectionWorkflow
+from .pocket_detection import (
+    MixMDPocketDiagnostics,
+    MixMDReplicaDiagnostics,
+    MixMDResults,
+    MixMDSettings,
+    Pocket,
+    PocketDetectionSettings,
+    PocketDetectionWorkflow,
+    PocketeerSettings,
+)
 from .protein_binder_design import *
 from .protein_cofolding import *
 from .protein_md import *

@@ -337,6 +337,58 @@ class DocumentRpcProjectionTests(unittest.TestCase):
             'discard': True,
         }))
 
+    def test_omits_none_for_ordinary_document_inputs_and_options(self) -> None:
+        method, payload = build_document_invoke_request(
+            'session-1',
+            OPERATION_INDEX['doc.insert'],
+            {
+                'value': 'hello',
+                'type': None,
+                'sourcePartUri': None,
+                'changeMode': None,
+                'expectedRevision': None,
+                'dryRun': None,
+            },
+        )
+        self.assertEqual((method, payload), ('document.invoke', {
+            'sessionId': 'session-1',
+            'operationId': 'insert',
+            'input': {'value': 'hello'},
+        }))
+
+    def test_preserves_json_null_and_false_values(self) -> None:
+        _, payload = build_document_invoke_request(
+            'session-1',
+            OPERATION_INDEX['doc.styles.paragraph.setStyle'],
+            {'styleId': '', 'role': None, 'dryRun': False},
+        )
+        self.assertEqual(payload['input'], {'styleId': '', 'role': None})
+        self.assertEqual(payload['options'], {'dryRun': False})
+
+        _, payload = build_document_invoke_request(
+            'session-1',
+            OPERATION_INDEX['doc.tables.split'],
+            {'nodeId': 'table-1', 'atRowIndex': 0, 'dryRun': False},
+        )
+        self.assertEqual(payload['input'], {'nodeId': 'table-1', 'rowIndex': 0})
+        self.assertEqual(payload['options'], {'dryRun': False})
+
+        _, payload = build_document_invoke_request(
+            'session-1', INSERT_OPERATION, {'value': 'hello', 'supportCheck': None},
+        )
+        self.assertEqual(payload['options'], {'supportCheck': None})
+
+    def test_omits_none_options_absent_from_the_operation_contract(self) -> None:
+        operation = OPERATION_INDEX['doc.get']
+        expected = build_document_invoke_request('session-1', operation, {})
+        actual = build_document_invoke_request('session-1', operation, {
+            'changeMode': None,
+            'unknownOptional': None,
+        })
+        self.assertEqual(actual, expected)
+        with self.assertRaisesRegex(SuperDocError, 'field unknownOptional'):
+            build_document_invoke_request('session-1', operation, {'unknownOptional': 'value'})
+
     def test_uses_generated_document_api_routing_metadata(self) -> None:
         method, payload = build_document_invoke_request(
             'session-1',

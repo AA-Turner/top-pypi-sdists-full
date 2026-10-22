@@ -26,7 +26,7 @@ from chalk._gen.chalk.engine.v2 import query_values_pb2 as chalk_dot_engine_dot_
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n+chalk/engine/v2/offline_store_service.proto\x12\x0f\x63halk.engine.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a$chalk/engine/v2/feature_values.proto\x1a*chalk/engine/v2/feature_values_chart.proto\x1a+chalk/engine/v2/offline_store_metrics.proto\x1a\x1f\x63halk/engine/v2/query_log.proto\x1a"chalk/engine/v2/query_values.proto"\x1a\n\x18OfflineStoreServiceDummy2\xda\x04\n\x13OfflineStoreService\x12r\n\x12GetQueryLogEntries\x12*.chalk.engine.v2.GetQueryLogEntriesRequest\x1a+.chalk.engine.v2.GetQueryLogEntriesResponse"\x03\x80}\x04\x12\x66\n\x0eGetQueryValues\x12&.chalk.engine.v2.GetQueryValuesRequest\x1a\'.chalk.engine.v2.GetQueryValuesResponse"\x03\x80}\x04\x12\x99\x01\n\x1fGetFeatureValuesTimeSeriesChart\x12\x37.chalk.engine.v2.GetFeatureValuesTimeSeriesChartRequest\x1a\x38.chalk.engine.v2.GetFeatureValuesTimeSeriesChartResponse"\x03\x80}\x04\x12l\n\x10GetFeatureValues\x12(.chalk.engine.v2.GetFeatureValuesRequest\x1a).chalk.engine.v2.GetFeatureValuesResponse"\x03\x80}\x04\x12]\n\nGetMetrics\x12".chalk.engine.v2.GetMetricsRequest\x1a#.chalk.engine.v2.GetMetricsResponse"\x06\x90\x02\x01\x80}\x04\x42\x8d\x01\n\x13\x63om.chalk.engine.v2B\x18OfflineStoreServiceProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V2\xca\x02\x0f\x43halk\\Engine\\V2\xe2\x02\x1b\x43halk\\Engine\\V2\\GPBMetadata\xea\x02\x11\x43halk::Engine::V2b\x06proto3'
+    b'\n+chalk/engine/v2/offline_store_service.proto\x12\x0f\x63halk.engine.v2\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a$chalk/engine/v2/feature_values.proto\x1a*chalk/engine/v2/feature_values_chart.proto\x1a+chalk/engine/v2/offline_store_metrics.proto\x1a\x1f\x63halk/engine/v2/query_log.proto\x1a"chalk/engine/v2/query_values.proto"\x1a\n\x18OfflineStoreServiceDummy2\xa1\x06\n\x13OfflineStoreService\x12r\n\x12GetQueryLogEntries\x12*.chalk.engine.v2.GetQueryLogEntriesRequest\x1a+.chalk.engine.v2.GetQueryLogEntriesResponse"\x03\x80}\x04\x12\x66\n\x0eGetQueryValues\x12&.chalk.engine.v2.GetQueryValuesRequest\x1a\'.chalk.engine.v2.GetQueryValuesResponse"\x03\x80}\x04\x12\x99\x01\n\x1fGetFeatureValuesTimeSeriesChart\x12\x37.chalk.engine.v2.GetFeatureValuesTimeSeriesChartRequest\x1a\x38.chalk.engine.v2.GetFeatureValuesTimeSeriesChartResponse"\x03\x80}\x04\x12l\n\x10GetFeatureValues\x12(.chalk.engine.v2.GetFeatureValuesRequest\x1a).chalk.engine.v2.GetFeatureValuesResponse"\x03\x80}\x04\x12]\n\nGetMetrics\x12".chalk.engine.v2.GetMetricsRequest\x1a#.chalk.engine.v2.GetMetricsResponse"\x06\x90\x02\x01\x80}\x04\x12\x63\n\x0cGetMetricsV2\x12$.chalk.engine.v2.GetMetricsV2Request\x1a%.chalk.engine.v2.GetMetricsV2Response"\x06\x90\x02\x01\x80}\x04\x12`\n\x0bPollMetrics\x12#.chalk.engine.v2.PollMetricsRequest\x1a$.chalk.engine.v2.PollMetricsResponse"\x06\x90\x02\x01\x80}\x04\x42\x8d\x01\n\x13\x63om.chalk.engine.v2B\x18OfflineStoreServiceProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V2\xca\x02\x0f\x43halk\\Engine\\V2\xe2\x02\x1b\x43halk\\Engine\\V2\\GPBMetadata\xea\x02\x11\x43halk::Engine::V2b\x06proto3'
 )
 
 _globals = globals()
@@ -49,8 +49,12 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_OFFLINESTORESERVICE"].methods_by_name["GetFeatureValues"]._serialized_options = b"\200}\004"
     _globals["_OFFLINESTORESERVICE"].methods_by_name["GetMetrics"]._options = None
     _globals["_OFFLINESTORESERVICE"].methods_by_name["GetMetrics"]._serialized_options = b"\220\002\001\200}\004"
+    _globals["_OFFLINESTORESERVICE"].methods_by_name["GetMetricsV2"]._options = None
+    _globals["_OFFLINESTORESERVICE"].methods_by_name["GetMetricsV2"]._serialized_options = b"\220\002\001\200}\004"
+    _globals["_OFFLINESTORESERVICE"].methods_by_name["PollMetrics"]._options = None
+    _globals["_OFFLINESTORESERVICE"].methods_by_name["PollMetrics"]._serialized_options = b"\220\002\001\200}\004"
     _globals["_OFFLINESTORESERVICEDUMMY"]._serialized_start = 293
     _globals["_OFFLINESTORESERVICEDUMMY"]._serialized_end = 319
     _globals["_OFFLINESTORESERVICE"]._serialized_start = 322
-    _globals["_OFFLINESTORESERVICE"]._serialized_end = 924
+    _globals["_OFFLINESTORESERVICE"]._serialized_end = 1123
 # @@protoc_insertion_point(module_scope)

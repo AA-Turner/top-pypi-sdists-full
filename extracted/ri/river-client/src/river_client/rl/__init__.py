@@ -17,10 +17,28 @@ from .config import (
 from .engine import CompletedGroup, RolloutEngine
 from .env import Env, InfrastructureError, Tool, tool
 from .evaluation import CheckpointSampler, Evaluation, Evaluator, WandbSink
+from .losses import (
+    CISPO,
+    CustomLoss,
+    PPO,
+    DecoupledPPO,
+    ImportanceSampling,
+    PolicyGradient,
+    ScoreCentering,
+)
+from .requirements import LossRequirements
 from .trainer import AsyncTrainer, PolicyRewoundError, Step, run
 from .trajectory import Span, Trajectory
 
 __all__ = [
+    "CustomLoss",
+    "CISPO",
+    "PPO",
+    "DecoupledPPO",
+    "ImportanceSampling",
+    "PolicyGradient",
+    "ScoreCentering",
+    "LossRequirements",
     "Adam",
     "AsyncTrainer",
     "Batchwise",

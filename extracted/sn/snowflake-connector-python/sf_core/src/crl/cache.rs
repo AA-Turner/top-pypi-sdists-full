@@ -5,6 +5,7 @@ use crate::crl::error::{
     MutexPoisonedSnafu, TlsConfigBuildSnafu, VerificationTaskSnafu,
 };
 use crate::http::retry::{HttpContext, HttpError, execute_bytes_with_retry_capped};
+use crate::tls::RootStoreProvider;
 use crate::utils::sync::MutexRecoverExt;
 use aws_lc_rs::digest;
 use chrono::{DateTime, Utc};
@@ -349,8 +350,11 @@ impl CrlMetrics {
     }
 }
 
-fn crl_http_client_builder() -> Result<reqwest::ClientBuilder, CrlError> {
-    crate::tls::client::default_verified_client_builder().context(TlsConfigBuildSnafu)
+fn crl_http_client_builder(
+    roots: &crate::tls::RootStoreSnapshot<'_>,
+) -> Result<reqwest::ClientBuilder, CrlError> {
+    crate::tls::client::default_verified_client_builder_from_snapshot(roots)
+        .context(TlsConfigBuildSnafu)
 }
 
 impl CrlCache {
@@ -568,12 +572,15 @@ impl CrlCache {
         })
     }
 
-    pub(crate) fn open_cache(config: CrlConfig) -> Result<Arc<CrlCache>, CrlError> {
-        let cache = match CrlCache::new(config) {
+    pub(crate) fn open_cache(
+        config: CrlConfig,
+        roots: &crate::tls::RootStoreSnapshot<'_>,
+    ) -> Result<Arc<CrlCache>, CrlError> {
+        let cache = match CrlCache::from_snapshot(config, roots) {
             Ok(c) => c,
             Err(e) => {
                 tracing::error!(target: "sf_core::crl", "Failed to initialize CRL cache: {e}. Falling back to default config");
-                CrlCache::new(CrlConfig::default()).map_err(|e2| {
+                CrlCache::from_snapshot(CrlConfig::default(), roots).map_err(|e2| {
                     tracing::error!(target: "sf_core::crl", "Failed to initialize fallback CRL cache: {e2}");
                     e2
                 })?
@@ -859,13 +866,20 @@ impl CrlCache {
         }
     }
 
-    pub fn new(config: CrlConfig) -> Result<Self, CrlError> {
+    pub fn new(config: CrlConfig, roots: &RootStoreProvider) -> Result<Self, CrlError> {
+        Self::from_snapshot(config, &roots.snapshot())
+    }
+
+    pub(crate) fn from_snapshot(
+        config: CrlConfig,
+        roots: &crate::tls::RootStoreSnapshot<'_>,
+    ) -> Result<Self, CrlError> {
         let memory_cache = if config.enable_memory_caching {
             Some(Arc::new(Mutex::new(HashMap::new())))
         } else {
             None
         };
-        let http_client = crl_http_client_builder()?
+        let http_client = crl_http_client_builder(roots)?
             .timeout(std::time::Duration::from_secs(
                 config.http_timeout.num_seconds() as u64,
             ))
@@ -1588,7 +1602,7 @@ mod tests {
 
     #[test]
     fn put_prefers_higher_crl_number() {
-        let cache = CrlCache::new(test_config()).expect("cache");
+        let cache = CrlCache::new(test_config(), &RootStoreProvider::new()).expect("cache");
         let url = "http://example/crl".to_string();
         let future = Utc::now() + chrono::Duration::hours(1);
 
@@ -1615,7 +1629,7 @@ mod tests {
 
     #[test]
     fn put_ignores_lower_or_equal_crl_number() {
-        let cache = CrlCache::new(test_config()).expect("cache");
+        let cache = CrlCache::new(test_config(), &RootStoreProvider::new()).expect("cache");
         let url = "http://example/crl".to_string();
         let future = Utc::now() + chrono::Duration::hours(1);
 
@@ -1687,7 +1701,8 @@ mod tests {
 
     #[test]
     fn cancelled_refresher_thread_exits_and_clears_scheduler() {
-        let cache = Arc::new(CrlCache::new(test_config()).expect("cache"));
+        let cache =
+            Arc::new(CrlCache::new(test_config(), &RootStoreProvider::new()).expect("cache"));
         let refresher =
             CrlCache::spawn_background_refresher(cache.clone()).expect("refresher thread");
         cache.wait_for_scheduler(true);
@@ -1706,7 +1721,9 @@ mod tests {
     #[test]
     fn a_new_manager_publishes_a_new_scheduler_channel() {
         let first = crate::crl::CrlManager::new();
-        let first_cache = first.cache(test_config()).expect("first cache");
+        let first_cache = first
+            .cache(test_config(), &RootStoreProvider::new().snapshot())
+            .expect("first cache");
         first_cache.wait_for_scheduler(true);
         let first_tx = first_cache
             .scheduler_tx
@@ -1723,7 +1740,9 @@ mod tests {
         );
 
         let second = crate::crl::CrlManager::new();
-        let second_cache = second.cache(test_config()).expect("second cache");
+        let second_cache = second
+            .cache(test_config(), &RootStoreProvider::new().snapshot())
+            .expect("second cache");
         second_cache.wait_for_scheduler(true);
         let second_tx = second_cache
             .scheduler_tx
@@ -1740,7 +1759,7 @@ mod tests {
 
     #[test]
     fn scheduler_is_notified_on_put() {
-        let cache = CrlCache::new(test_config()).expect("cache");
+        let cache = CrlCache::new(test_config(), &RootStoreProvider::new()).expect("cache");
         let (tx, mut rx) = tokio::sync::mpsc::channel::<SchedulerMsg>(1);
         // Set scheduler sender for test
         *cache.scheduler_tx.lock_recover() = Some(tx);
@@ -1804,7 +1823,7 @@ mod tests {
             cache_dir: Some(dir.path().to_path_buf()),
             ..Default::default()
         };
-        let cache = CrlCache::new(cfg).unwrap();
+        let cache = CrlCache::new(cfg, &RootStoreProvider::new()).unwrap();
         cache.cleanup_on_disk_cache().await;
 
         // Unparseable and foreign files are preserved.
@@ -1812,23 +1831,29 @@ mod tests {
         assert!(foreign.exists(), "foreign file must not be removed");
 
         // Disabled disk caching → no-op even if a dir is configured.
-        let disabled = CrlCache::new(CrlConfig {
-            enable_disk_caching: false,
-            enable_memory_caching: false,
-            cache_dir: Some(dir.path().to_path_buf()),
-            ..Default::default()
-        })
+        let disabled = CrlCache::new(
+            CrlConfig {
+                enable_disk_caching: false,
+                enable_memory_caching: false,
+                cache_dir: Some(dir.path().to_path_buf()),
+                ..Default::default()
+            },
+            &RootStoreProvider::new(),
+        )
         .unwrap();
         disabled.cleanup_on_disk_cache().await;
         assert!(garbage.exists());
 
         // Missing directory → no panic.
-        let missing = CrlCache::new(CrlConfig {
-            enable_disk_caching: true,
-            enable_memory_caching: false,
-            cache_dir: Some(dir.path().join("does-not-exist")),
-            ..Default::default()
-        })
+        let missing = CrlCache::new(
+            CrlConfig {
+                enable_disk_caching: true,
+                enable_memory_caching: false,
+                cache_dir: Some(dir.path().join("does-not-exist")),
+                ..Default::default()
+            },
+            &RootStoreProvider::new(),
+        )
         .unwrap();
         missing.cleanup_on_disk_cache().await;
     }
@@ -1845,7 +1870,7 @@ mod tests {
             unsafe_skip_file_permissions_check: true,
             ..Default::default()
         };
-        let cache = CrlCache::new(cfg).unwrap();
+        let cache = CrlCache::new(cfg, &RootStoreProvider::new()).unwrap();
         let _ = cache.get("http://example/test.crl").await;
         assert!(logs_contain(
             "File permission check is disabled for CRL cache"
@@ -1869,10 +1894,13 @@ mod tests {
             .mount(&server)
             .await;
 
-        let cache = CrlCache::new(CrlConfig {
-            max_download_size,
-            ..test_config()
-        })
+        let cache = CrlCache::new(
+            CrlConfig {
+                max_download_size,
+                ..test_config()
+            },
+            &RootStoreProvider::new(),
+        )
         .expect("cache");
 
         let url = format!("{}/some.crl", server.uri());
@@ -1904,10 +1932,13 @@ mod tests {
             .mount(&server)
             .await;
 
-        let cache = CrlCache::new(CrlConfig {
-            max_download_size,
-            ..test_config()
-        })
+        let cache = CrlCache::new(
+            CrlConfig {
+                max_download_size,
+                ..test_config()
+            },
+            &RootStoreProvider::new(),
+        )
         .expect("cache");
 
         let url = format!("{}/some.crl", server.uri());
@@ -1942,12 +1973,15 @@ mod tests {
         let entry = dir.path().join(CrlCache::url_digest(url));
         symlink(&target, &entry).unwrap();
 
-        let cache = CrlCache::new(CrlConfig {
-            enable_disk_caching: true,
-            enable_memory_caching: false,
-            cache_dir: Some(dir.path().to_path_buf()),
-            ..Default::default()
-        })
+        let cache = CrlCache::new(
+            CrlConfig {
+                enable_disk_caching: true,
+                enable_memory_caching: false,
+                cache_dir: Some(dir.path().to_path_buf()),
+                ..Default::default()
+            },
+            &RootStoreProvider::new(),
+        )
         .unwrap();
 
         let got = cache

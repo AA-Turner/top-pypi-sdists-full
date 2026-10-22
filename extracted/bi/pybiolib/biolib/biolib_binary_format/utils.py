@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from multiprocessing.pool import ThreadPool
 from typing import Callable, Optional
 
-from biolib._internal.http_client import HttpClient
+from biolib._shared.http_client import HttpClient
 from biolib._shared.types.typing import Iterator
 from biolib.biolib_logging import logger
 

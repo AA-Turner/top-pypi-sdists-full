@@ -10,7 +10,7 @@ executors:
   standard:
     parameters:
       python-version:
-        default: "3.10"
+        default: "3.11"
         type: string
     docker:
       - image: cimg/python:<< parameters.python-version >>
@@ -18,7 +18,7 @@ executors:
   standard-postgres:
     parameters:
       python-version:
-        default: "3.10"
+        default: "3.11"
         type: string
     docker:
       - image: cimg/python:<< parameters.python-version >>
@@ -83,7 +83,7 @@ jobs:
   lint:
     parameters:
       python-version:
-        default: "3.10"
+        default: "3.11"
         type: string
     executor:
       name: standard
@@ -133,20 +133,20 @@ workflows:
   test-build-deploy:
     jobs:
       - lint:
-        filters:
-          tags:
-            only: /.*/
+          filters:
+            tags:
+              only: /.*/
       - unit:
           matrix:
             parameters:
-              python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+              python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
           filters:
             tags:
               only: /.*/
       - functional:
           matrix:
             parameters:
-              python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+              python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
           filters:
             tags:
               only: /.*/

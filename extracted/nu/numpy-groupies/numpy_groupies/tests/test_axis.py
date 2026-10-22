@@ -8,18 +8,32 @@ memory order and number of dimensions.
 
 import itertools
 import warnings
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 
-from numpy_groupies.aggregate_common import funcs_collecting
+from numpy_groupies.common import funcs_collecting
 from numpy_groupies.tests.helpers import (
     assert_same_result,
     func_list,
     random_group_idx,
     random_values,
 )
-from numpy_groupies.tests.reference import aggregate_ref, trapezoid_ref
+from numpy_groupies.tests.reference import _kurt_ref, _skew_ref, _skip_nans, aggregate_ref, trapezoid_ref
+
+
+def _quiet_reference(func: Callable[..., Any], a: npt.NDArray[Any], *args: Any, **kwargs: Any) -> Any:
+    """The numpy reference, without its warning about the all-nan slices.
+
+    Numpy warns when it averages or quantiles a slice that holds nothing but
+    nans - the reference is asked for exactly that here.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        return func(a, *args, **kwargs)
 
 
 @pytest.mark.parametrize(
@@ -81,6 +95,17 @@ def _collecting_shape(size, axis):
     return tuple(shape)
 
 
+def _distinct_of(values, count_nans):
+    """the number of the distinct values of a slice of an axis.
+
+    The nans are one value among themselves, and the nan variant of the
+    function leaves them out.
+    """
+    nans = np.isnan(values)
+    distinct = len(np.unique(values[~nans]))
+    return distinct + (1 if count_nans and nans.any() else 0)
+
+
 @pytest.mark.parametrize(
     ("size", "axis"),
     [((12,), 0), ((12, 5), 0), ((12, 5), 1)],
@@ -118,6 +143,26 @@ def test_along_axis(impl, rng, func, size, axis):
         # numpy has no nan-aware trapezoid - nantrapezoid integrates the
         # samples that are left, bridging over the gaps the nans leave
         expected = np.apply_along_axis(lambda v: trapezoid_ref(v[~np.isnan(v)]), axis, a)
+    elif func == "quantile":
+        expected = _quiet_reference(np.quantile, a, 0.5, axis=axis)
+    elif func == "nanquantile":
+        expected = _quiet_reference(np.nanquantile, a, 0.5, axis=axis)
+    elif func == "percentile":
+        expected = _quiet_reference(np.percentile, a, 50.0, axis=axis)
+    elif func == "nanpercentile":
+        expected = _quiet_reference(np.nanpercentile, a, 50.0, axis=axis)
+    elif func in ("skew", "kurt", "nanskew", "nankurt"):
+        # numpy has no skewness of its own - the reference of the package
+        # computes it, and the nan variants leave the nans out
+        ref = _skew_ref if "skew" in func else _kurt_ref
+        if func.startswith("nan"):
+            ref = _skip_nans(ref)
+        expected = np.apply_along_axis(lambda v: ref(v, np.zeros(v.size, dtype=np.intp)), axis, a)
+    elif func in ("nunique", "nannunique"):
+        # numpy has no count of the distinct values along an axis, so the
+        # slices are counted one by one - the nans are one value among
+        # themselves, and the nan variant leaves them out
+        expected = np.apply_along_axis(lambda v: _distinct_of(v, func == "nunique"), axis, a)
     elif func in funcs_collecting:
         # the values of every group, along the axis: the labels are all zero,
         # so the one group holds the values of one position along the axis
@@ -126,10 +171,7 @@ def test_along_axis(impl, rng, func, size, axis):
             where = index[:axis] + (slice(None),) + index[axis:]
             expected[index[:axis] + (0,) + index[axis:]] = a[where]
     else:
-        with warnings.catch_warnings():
-            # the numpy reference warns about the all-nan slices it averages
-            warnings.simplefilter("ignore", RuntimeWarning)
-            expected = getattr(np, func)(a, axis=axis)
+        expected = _quiet_reference(getattr(np, func), a, axis=axis)
 
     # no fill_value needed - the function specific defaults match numpy
     actual = impl.aggregate(group_idx, a, axis=axis, func=func)

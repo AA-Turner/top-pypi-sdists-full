@@ -3,6 +3,8 @@
 # Author: Johann Faouzi <johann.faouzi@gmail.com>
 # License: BSD-3-Clause
 
+from typing import cast
+
 import numpy as np
 import numpy.typing as npt
 from sklearn.utils import check_array, check_random_state
@@ -115,10 +117,10 @@ def make_cylinder_bell_funnel(
     if not n_samples > 0:
         raise ValueError("'n_samples' must be a positive integer.")
     if weights is None:
-        weights = [1.0 / 3] * 3
+        weights = cast(list[float], [1.0 / 3] * 3)
         weights[-1] = 1.0 - sum(weights[:-1])
     else:
-        weights = check_array(weights, ensure_2d=False)
+        weights = cast(npt.NDArray[np.float64], check_array(weights, ensure_2d=False))
         if len(weights) not in [2, 3]:
             raise ValueError(
                 "'weights' must be None or a list with 2 or "
@@ -162,10 +164,12 @@ def make_cylinder_bell_funnel(
     X = epsilon + additional_term
 
     if shuffle:
+        # The parameters are shuffled with the same permutation as X and y,
+        # so that they stay aligned with the samples they generated.
         # sklearn.utils.shuffle has no type stubs; pyrefly infers an
         # overly broad/incorrect signature from its unannotated source.
-        X, y = utils_shuffle(  # pyrefly: ignore[not-iterable]
-            X, y, random_state=rng
+        X, y, a, b, eta, epsilon = utils_shuffle(  # pyrefly: ignore[not-iterable]
+            X, y, a, b, eta, epsilon, random_state=rng
         )
 
     if return_params:

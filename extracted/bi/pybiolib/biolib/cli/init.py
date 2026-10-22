@@ -10,9 +10,9 @@ from biolib._internal import cli
 from biolib._internal.add_copilot_prompts import add_copilot_prompts
 from biolib._internal.add_gui_files import add_gui_files
 from biolib._internal.file_utils import copy_file_with_replacements
-from biolib._internal.http_client import HttpClient, HttpError
 from biolib._internal.string_utils import normalize_for_docker_tag
 from biolib._internal.templates import templates
+from biolib._shared.http_client import HttpClient, HttpError
 from biolib._shared.types.typing import Dict, List, Optional, Set
 from biolib.api import client as api_client
 from biolib.biolib_api_client.api_client import BiolibApiClient

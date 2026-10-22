@@ -40,6 +40,7 @@ from matrx_ai.config import (
     UnifiedConfig,
     UnifiedMessage,
 )
+from matrx_ai.config.send_boundary import order_for_wire
 from matrx_ai.testing.profile_factory import make_profile
 
 HER_WORDS = "HER WORDS exactly as typed."
@@ -81,10 +82,11 @@ def _config(history: list[UnifiedMessage], *, tail: bool = False) -> UnifiedConf
 def _build(
     module: str, cls: str, wire_format: str, config: UnifiedConfig, capabilities: dict | None = None
 ) -> Any:
+    # A real send: the send boundary orders the person's turn once, the translator renders it.
+    profile = make_profile(model_name="m", wire_format=wire_format, capabilities=capabilities)
+    prep = order_for_wire(config, profile)
     translator = getattr(importlib.import_module(module), cls)()
-    return translator.build_request(
-        config, make_profile(model_name="m", wire_format=wire_format, capabilities=capabilities)
-    )
+    return translator.build_request(prep.wire_config if prep.wire_config is not None else config, profile)
 
 
 def _texts_of(part: Any) -> list[str]:
@@ -242,7 +244,11 @@ def test_the_placement_is_recorded_for_the_request_snapshot(
 ) -> None:
     """The executor pops ``state.platform_text_placements`` with the wire payload into
     ``chat.request_snapshot.metadata.platform_text_placement``."""
-    from matrx_ai.orchestrator.execution_state import ExecutionState, _execution_state, set_execution_state
+    from matrx_ai.orchestrator.execution_state import (
+        ExecutionState,
+        _execution_state,
+        set_execution_state,
+    )
 
     state = ExecutionState()
     token = set_execution_state(state)

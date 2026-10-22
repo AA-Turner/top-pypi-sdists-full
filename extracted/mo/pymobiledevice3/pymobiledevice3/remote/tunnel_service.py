@@ -12,6 +12,7 @@ import platform
 import plistlib
 import secrets
 import select
+import signal
 import ssl
 import struct
 import sys
@@ -106,7 +107,7 @@ from pymobiledevice3.remote.siphash import compute_auth_tag, validate_auth_tag
 from pymobiledevice3.remote.utils import get_rsds, resume_remoted_if_required, stop_remoted_if_required
 from pymobiledevice3.remote.xpc_message import XpcInt64Type, XpcUInt64Type
 from pymobiledevice3.service_connection import ServiceConnection
-from pymobiledevice3.utils import asyncio_print_traceback
+from pymobiledevice3.utils import asyncio_print_traceback, sigint_handler
 from pymobiledevice3.utils import current_task_name as _current_task_name
 
 # These third-party helpers ship only partial type information (Unknown-typed parameters/returns);
@@ -212,11 +213,11 @@ class PairingErrorCode(OpenIntEnum):
 def _describe_pairing_error(tlv: dict[int, bytes]) -> str:
     """Describe the ERROR component of a decoded pairing TLV."""
     code = PairingErrorCode(ByteReader(tlv[PairingDataComponentType.ERROR]).read(1)[0])
-    message = f"device returned pairing error: {code.name}"
+    message = f"The device rejected pairing: {code.name}"
     retry_delay = tlv.get(PairingDataComponentType.RETRY_DELAY)
     if retry_delay:
         # little-endian seconds until the device accepts another attempt
-        message += f", retry in {int.from_bytes(retry_delay, 'little')} seconds"
+        message += f"; retry in {int.from_bytes(retry_delay, 'little')} seconds."
     return message
 
 
@@ -741,7 +742,7 @@ class RemotePairingProtocol(StartTcpTunnel):
 
         host = self.hostname
         if host is None:
-            raise NotConnectedError("hostname is not set; connect the tunnel service first")
+            raise NotConnectedError("The tunnel service has no device hostname; connect it first.")
         port = parameters["port"]
 
         self.logger.debug(f"Connecting to {host}:{port}")
@@ -774,7 +775,7 @@ class RemotePairingProtocol(StartTcpTunnel):
                     await client.stop_tunnel()
         except ConnectionError as e:
             raise QuicProtocolNotSupportedError(
-                "iOS 18.2+ removed QUIC protocol support. Use TCP instead (requires python3.13+)"
+                "iOS 18.2+ removed QUIC tunnel support. Use a TCP tunnel instead (requires Python 3.13+)."
             ) from e
 
     @staticmethod
@@ -929,7 +930,9 @@ class RemotePairingProtocol(StartTcpTunnel):
             # e.g. BACKOFF, sent without PUBLIC_KEY and SALT
             raise PairingError(_describe_pairing_error(data))
 
-        pin = input("Enter PIN: ") if ask_pin else None
+        # input() holds up the loop, so a cancellation would only be seen once it returns.
+        with sigint_handler(signal.default_int_handler):
+            pin = input("Enter PIN: ") if ask_pin else None
         return PairConsentResult(
             public_key=data[PairingDataComponentType.PUBLIC_KEY], salt=data[PairingDataComponentType.SALT], pin=pin
         )
@@ -1215,7 +1218,7 @@ class RemotePairingProtocol(StartTcpTunnel):
                 .get("userInfo", {})
                 .get("NSLocalizedDescription")
             )
-        raise PyMobileDevice3Exception(f"Got an unknown state message: {response}")
+        raise ProtocolError(f"The device sent an unexpected pairing message: {response}")
 
     async def _send_receive_plain_request(self, plain_request: dict[str, Any]):
         await self._send_plain_request(plain_request)
@@ -1277,6 +1280,12 @@ class CoreDeviceTunnelService(RemotePairingProtocol, RemoteService):
         if self._service is not None:
             await self._service.close()
 
+    def __repr__(self) -> str:
+        return (
+            f"<{self.__class__.__name__} PRODUCT:{self.rsd.product_type} VERSION:{self.rsd.product_version} "
+            f"UDID:{self.rsd.udid} ADDRESS:{self.rsd.service.address[0]}>"
+        )
+
     async def receive_response(self) -> dict[str, Any]:
         response = await self.service.receive_response()
         return response["value"]
@@ -1308,7 +1317,7 @@ class RemotePairingTunnelService(RemotePairingProtocol):
         :raises NotConnectedError: if accessed before ``connect()`` (or after ``close()``).
         """
         if self._reader is None:
-            raise NotConnectedError("RemotePairingTunnelService is not connected; call connect() first")
+            raise NotConnectedError("RemotePairingTunnelService is not connected; call connect() first.")
         return self._reader
 
     @property
@@ -1318,7 +1327,7 @@ class RemotePairingTunnelService(RemotePairingProtocol):
         :raises NotConnectedError: if accessed before ``connect()`` (or after ``close()``).
         """
         if self._writer is None:
-            raise NotConnectedError("RemotePairingTunnelService is not connected; call connect() first")
+            raise NotConnectedError("RemotePairingTunnelService is not connected; call connect() first.")
         return self._writer
 
     async def connect(self, autopair: bool = True) -> None:
@@ -1415,7 +1424,7 @@ class RemotePairingLockdownService(RemotePairingTunnelService):
     @classmethod
     async def create(cls, lockdown: LockdownServiceProvider) -> "RemotePairingLockdownService":
         if lockdown.udid is None:
-            raise NotConnectedError("lockdown provider has no udid; connect it before creating this service")
+            raise NotConnectedError("The lockdown connection has no UDID; connect it before creating this service.")
         return cls(await lockdown.start_lockdown_service(cls.SERVICE_NAME), lockdown.udid)
 
     def __init__(self, service: ServiceConnection, remote_identifier: str) -> None:
@@ -1442,7 +1451,7 @@ class CoreDeviceTunnelProxy(StartTcpTunnel):
     @classmethod
     async def create(cls, lockdown: LockdownServiceProvider) -> "CoreDeviceTunnelProxy":
         if lockdown.udid is None:
-            raise NotConnectedError("lockdown provider has no udid; connect it before creating this service")
+            raise NotConnectedError("The lockdown connection has no UDID; connect it before creating this service.")
         return cls(await lockdown.start_lockdown_service(cls.SERVICE_NAME), lockdown.udid)
 
     def __init__(self, service: ServiceConnection, remote_identifier: str) -> None:
@@ -1736,7 +1745,7 @@ class PeerDeviceInfo:
     def from_info_dict(cls, info: dict[str, Any]) -> "PeerDeviceInfo":
         alt_irk = info.get("altIRK")
         if not isinstance(alt_irk, bytes) or len(alt_irk) != 16:
-            raise PairingError(f"invalid altIRK in peer device info: {alt_irk!r}")
+            raise PairingError(f"The device sent an invalid identity key (altIRK) in its pairing info: {alt_irk!r}")
         try:
             return cls(
                 account_id=info["accountID"],
@@ -1746,7 +1755,7 @@ class PeerDeviceInfo:
                 udid=info.get("remotepairing_udid", ""),
             )
         except KeyError as e:
-            raise PairingError(f"missing field {e} in peer device info") from e
+            raise PairingError(f"The device's pairing info is missing the {e} field.") from e
 
 
 @dataclasses.dataclass
@@ -1828,10 +1837,12 @@ class PairableHost:
         try:
             handshake = request["request"]["_0"]["handshake"]["_0"]
         except (KeyError, TypeError) as e:
-            raise PairingError(f"missing request._0.handshake._0 in device handshake: {request}") from e
+            raise PairingError(f"The device sent an unexpected pairing handshake: {request}") from e
 
         if handshake.get("hostOptions", {}).get("attemptPairVerify"):
-            raise PairingError("device requested pair-verify; only device-initiated pair-setup is supported")
+            raise PairingError(
+                "The device asked to verify an existing pairing; only setting up a new pairing is supported."
+            )
 
         peer_device_info: dict[str, Any] = {
             "udid": self.host_info.udid,
@@ -1905,7 +1916,7 @@ class PairableHost:
         client_public = m3.get(PairingDataComponentType.PUBLIC_KEY)
         client_proof = m3.get(PairingDataComponentType.PROOF)
         if not client_public or not client_proof:
-            raise PairingError("pair-setup M3 missing public key or proof")
+            raise PairingError("The device's pairing reply is missing its public key or proof.")
 
         srp_server.process(client_public.hex(), salt_hex)
         # srptools compares against value_encode() output (a hex *bytes* object), so the proof
@@ -1918,7 +1929,7 @@ class PairableHost:
                     PairingDataComponentTLV8(PairingDataComponentType.ERROR, b"\x02"),  # kTLVError_Authentication
                 ])
             )
-            raise PairingError("SRP authentication failed (wrong PIN?)")
+            raise PairingError("Pairing failed: the PIN did not match.")
 
         session_key = binascii.unhexlify(srp_server.key)
 
@@ -2006,7 +2017,7 @@ class PairableHost:
     def save_pair_record(self) -> Path:
         """Persist a remote pairing record compatible with the host-initiated tooling."""
         if self.peer_device is None:
-            raise PairingError("cannot save pair record before a successful pairing")
+            raise PairingError("Cannot save the pair record before pairing succeeds.")
         path = self.pair_record_path
         path.write_bytes(
             plistlib.dumps({
@@ -2043,7 +2054,7 @@ class PairableHost:
     def _expect_state(tlv: dict[int, bytes], expected: int) -> None:
         state = tlv.get(PairingDataComponentType.STATE)
         if not state or state[0] != expected:
-            raise PairingError(f"unexpected pair-setup state: expected {expected}, got {state!r}")
+            raise PairingError(f"The device sent pairing steps out of order: expected step {expected}, got {state!r}")
 
     @staticmethod
     def _ensure_no_error(tlv: dict[int, bytes]) -> None:
@@ -2087,7 +2098,7 @@ class PairableHost:
                 .get("userInfo", {})
                 .get("NSLocalizedDescription")
             )
-        raise PyMobileDevice3Exception(f"Got an unknown state message: {response}")
+        raise ProtocolError(f"The device sent an unexpected pairing message: {response}")
 
     async def _send_plain(self, value: dict[str, Any]) -> None:
         envelope: dict[str, Any] = {

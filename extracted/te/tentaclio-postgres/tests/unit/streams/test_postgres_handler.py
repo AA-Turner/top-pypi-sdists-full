@@ -2,7 +2,7 @@ import csv
 import io
 
 import pytest
-from tentaclio import URL, api
+from tentaclio import URL, api  # type: ignore
 
 
 @pytest.fixture

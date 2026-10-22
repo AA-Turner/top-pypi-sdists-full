@@ -138,6 +138,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     UpdateCloudComponentContainerRegistryResponse,
     UpdateCloudComponentStorageRequest,
     UpdateCloudComponentStorageResponse,
+    UpdateCloudComponentVpcRequest,
+    UpdateCloudComponentVpcResponse,
 )
 from grpc import (
     Channel,
@@ -151,6 +153,10 @@ class CloudComponentsServiceStub:
     CreateCloudComponentVpc: UnaryUnaryMultiCallable[
         CreateCloudComponentVpcRequest,
         CreateCloudComponentVpcResponse,
+    ]
+    UpdateCloudComponentVpc: UnaryUnaryMultiCallable[
+        UpdateCloudComponentVpcRequest,
+        UpdateCloudComponentVpcResponse,
     ]
     GetCloudComponentVpc: UnaryUnaryMultiCallable[
         GetCloudComponentVpcRequest,
@@ -419,6 +425,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: CreateCloudComponentVpcRequest,
         context: ServicerContext,
     ) -> CreateCloudComponentVpcResponse: ...
+    @abstractmethod
+    def UpdateCloudComponentVpc(
+        self,
+        request: UpdateCloudComponentVpcRequest,
+        context: ServicerContext,
+    ) -> UpdateCloudComponentVpcResponse: ...
     @abstractmethod
     def GetCloudComponentVpc(
         self,

@@ -159,17 +159,23 @@ def coefficients_non_uni(deriv, acc, coords, idx):
     _validate_acc(acc)
 
     num_central = 2 * math.floor((deriv + 1) / 2) - 1 + acc
-    num_side = num_central // 2
 
     if deriv % 2 == 0:
         num_coef = num_central + 1
     else:
         num_coef = num_central
 
-    if idx < num_side:
-        matrix = _build_matrix_non_uniform(0, num_coef - 1, coords, idx)
+    # Non-uniform central stencils get no symmetry bonus, so size them like the
+    # one-sided schemes (num_coef points) to reach the requested order `acc`.
+    num_side = num_coef // 2
 
-        offsets = list(range(num_coef))
+    # Points near the boundary use the num_coef points closest to the boundary,
+    # which include the boundary point itself. This keeps time-dependent
+    # problems stable (unlike one-sided stencils starting at the point itself).
+    if idx < num_side:
+        matrix = _build_matrix_non_uniform(idx, num_coef - 1 - idx, coords, idx)
+
+        offsets = list(range(-idx, num_coef - idx))
         rhs = _build_rhs(offsets, deriv, alphas={0: 1})
 
         ret = {
@@ -178,9 +184,10 @@ def coefficients_non_uni(deriv, acc, coords, idx):
         }
 
     elif idx >= len(coords) - num_side:
-        matrix = _build_matrix_non_uniform(num_coef - 1, 0, coords, idx)
+        k = len(coords) - 1 - idx  # distance from the right boundary
+        matrix = _build_matrix_non_uniform(num_coef - 1 - k, k, coords, idx)
 
-        offsets = list(range(-num_coef + 1, 1))
+        offsets = list(range(-num_coef + 1 + k, k + 1))
         rhs = _build_rhs(offsets, deriv, alphas={0: 1})
 
         ret = {
@@ -213,35 +220,51 @@ def calc_coefs_non_uni_batched(deriv, acc, coords):
     :param acc:  even int > 0: The accuracy order.
     :param coords: 1D numpy.ndarray: the coordinates of the axis.
     :return: dict with 'forward', 'backward', 'center' keys plus 'num_bndry'.
-             Each scheme dict contains 'coefficients' (2D array) and 'offsets' (1D array).
+             Each scheme dict contains 'coefficients' (2D array) and 'offsets'. For
+             'center', the offsets are a 1D array shared by all points. For 'forward'
+             and 'backward' (the points near the boundary), they are a 2D array with
+             one row per point: these points use the num_coef points closest to the
+             boundary, which include the boundary point itself.
     """
     _validate_deriv(deriv)
     _validate_acc(acc)
 
     num_central = 2 * math.floor((deriv + 1) / 2) - 1 + acc
-    num_side = num_central // 2
     num_coef = num_central + 1 if deriv % 2 == 0 else num_central
+    # Non-uniform central stencils get no symmetry bonus, so size them like the
+    # one-sided schemes (num_coef points) to reach the requested order `acc`.
+    num_side = num_coef // 2
 
     N = len(coords)
 
     fwd_indices = np.arange(min(num_side, N))
-    fwd_weights = _solve_non_uni_batched(coords, fwd_indices, 0, num_coef - 1, deriv)
+    fwd_rows = [
+        _solve_non_uni_batched(coords, np.array([i]), i, num_coef - 1 - i, deriv)[0]
+        for i in fwd_indices
+    ]
+    fwd_offsets = [np.arange(-i, num_coef - i) for i in fwd_indices]
 
     bwd_start = max(num_side, N - num_side)
     bwd_indices = np.arange(bwd_start, N)
-    bwd_weights = _solve_non_uni_batched(coords, bwd_indices, num_coef - 1, 0, deriv)
+    bwd_rows, bwd_offsets = [], []
+    for idx in bwd_indices:
+        k = N - 1 - idx  # distance from the right boundary
+        bwd_rows.append(
+            _solve_non_uni_batched(coords, np.array([idx]), num_coef - 1 - k, k, deriv)[0]
+        )
+        bwd_offsets.append(np.arange(-num_coef + 1 + k, k + 1))
 
     ctr_indices = np.arange(num_side, max(num_side, N - num_side))
     ctr_weights = _solve_non_uni_batched(coords, ctr_indices, num_side, num_side, deriv)
 
     return {
         "forward": {
-            "coefficients": fwd_weights,
-            "offsets": np.arange(num_coef),
+            "coefficients": np.array(fwd_rows).reshape(-1, num_coef),
+            "offsets": np.array(fwd_offsets, dtype=int).reshape(-1, num_coef),
         },
         "backward": {
-            "coefficients": bwd_weights,
-            "offsets": np.arange(-num_coef + 1, 1),
+            "coefficients": np.array(bwd_rows).reshape(-1, num_coef),
+            "offsets": np.array(bwd_offsets, dtype=int).reshape(-1, num_coef),
         },
         "center": {
             "coefficients": ctr_weights,
@@ -458,20 +481,27 @@ class Solver:
     def calc_accuracy(self, deriv, offsets, coefs, alphas):
         n_plus_s = deriv + 1
         max_n = 999
-        break_condition = lambda b: abs(b) > self.atol  # noqa: E731
 
         while True:
+            # b is the Taylor coefficient of the truncation error at this order;
+            # compare it relative to the size of the terms that cancel in it, since
+            # high-order schemes have genuinely small but non-zero error terms.
             b = 0
+            scale = 0
             fac = 1 / math.factorial(n_plus_s)
             for o, coef in zip(offsets, coefs):
-                b += coef * o**n_plus_s * fac
+                term = coef * o**n_plus_s * fac
+                b += term
+                scale += abs(term)
 
             s = n_plus_s - deriv
             fac = 1 / math.factorial(s)
             for o, alpha in alphas.items():
-                b -= alpha * fac * o**s
+                term = alpha * fac * o**s
+                b -= term
+                scale += abs(term)
 
-            if break_condition(b):
+            if abs(b) > self.atol * scale:
                 break
 
             n_plus_s += 1

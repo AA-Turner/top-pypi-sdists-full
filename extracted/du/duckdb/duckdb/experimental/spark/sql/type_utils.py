@@ -19,6 +19,7 @@ from .types import (
     IntegerType,
     LongType,
     MapType,
+    NullType,
     ShortType,
     StringType,
     StructField,
@@ -27,6 +28,7 @@ from .types import (
     TimeNTZType,
     TimestampMillisecondNTZType,
     TimestampNanosecondNTZType,
+    TimestampNanosecondType,
     TimestampNTZType,
     TimestampSecondNTZType,
     TimestampType,
@@ -41,6 +43,7 @@ from .types import (
 )
 
 _sqltype_to_spark_class = {
+    "null": NullType,
     "boolean": BooleanType,
     "utinyint": UnsignedByteType,
     "tinyint": ByteType,
@@ -62,15 +65,17 @@ _sqltype_to_spark_class = {
     "time with time zone": TimeType,
     "timestamp": TimestampNTZType,
     "timestamp with time zone": TimestampType,
-    "timestamp_ms": TimestampNanosecondNTZType,
-    "timestamp_ns": TimestampMillisecondNTZType,
+    "timestamp_ms": TimestampMillisecondNTZType,
+    "timestamp_ns": TimestampNanosecondNTZType,
     "timestamp_s": TimestampSecondNTZType,
+    "timestamptz_ns": TimestampNanosecondType,
     "interval": DayTimeIntervalType,
     "list": ArrayType,
     "struct": StructType,
     "map": MapType,
     # union
-    # enum
+    # Spark has no enum type; a pandas categorical reads as string.
+    "enum": StringType,
     # null (???)
     "float": FloatType,
     "double": DoubleType,
@@ -90,7 +95,7 @@ def convert_nested_type(dtype: DuckDBPyType) -> DataType:  # noqa: D103
             "DuckDB union types cannot be directly mapped to PySpark types."
         )
         raise ContributionsAcceptedError(msg)
-    if id == "struct":
+    if id == "struct" or id == "tuple":
         children: list[tuple[str, DuckDBPyType]] = dtype.children
         fields = [StructField(x[0], convert_type(x[1])) for x in children]
         return StructType(fields)
@@ -101,7 +106,7 @@ def convert_nested_type(dtype: DuckDBPyType) -> DataType:  # noqa: D103
 
 def convert_type(dtype: DuckDBPyType) -> DataType:  # noqa: D103
     id = dtype.id
-    if id in ["list", "struct", "map", "array"]:
+    if id in ["list", "struct", "tuple", "map", "array"]:
         return convert_nested_type(dtype)
     if id == "decimal":
         children: list[tuple[str, DuckDBPyType]] = dtype.children

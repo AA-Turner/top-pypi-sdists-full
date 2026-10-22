@@ -314,7 +314,15 @@ class ExtPromote(str):
 
 
 class InvPlaceholder(str):
-    """Placeholder for inverse pattern !(...)."""
+    """Placeholder for inverse pattern `!(...)`."""
+
+
+class AtomicStar(str):
+    """Track `*` as needing to be an atomic `*`."""
+
+
+class ExtGroup(str):
+    """Track a top level extended glob group."""
 
 
 class PathNameException(Exception):
@@ -642,15 +650,14 @@ def translate(
             flags=flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE,
             limit=limit
         )[0]
-        limit -= len(negative)
 
     flags = (flags | _TRANSLATE) & FLAG_MASK
     is_unix = is_unix_style(flags)
     seen = set()
 
     try:
-        current_limit = limit
-        total = 0
+        total = len(negative)
+        current_limit = max(1, limit - total) if limit > 0 else limit
         for pattern in iter_patterns(patterns):
             pattern = util.norm_pattern(pattern, not is_unix, bool(flags & RAWCHARS))
             count = 0
@@ -665,7 +672,7 @@ def translate(
                         negative.append(WcParse(expanded[1:], flags | _NO_GLOBSTAR_CAPTURE | DOTMATCH).parse())
                     else:
                         positive.append(WcParse(expanded, flags).parse())
-            if limit:
+            if limit > 0:
                 current_limit -= count
                 if current_limit < 1:
                     current_limit = 1
@@ -707,14 +714,13 @@ def compile_pattern(
     if exclude is not None:
         flags = no_negate_flags(flags)
         negative = compile_pattern(exclude, flags=flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE, limit=limit)[0]
-        limit -= len(negative)
 
     is_unix = is_unix_style(flags)
     seen = set()
 
     try:
-        current_limit = limit
-        total = 0
+        total = len(negative)
+        current_limit = max(1, limit - total) if limit > 0 else limit
         for pattern in iter_patterns(patterns):
             pattern = util.norm_pattern(pattern, not is_unix, bool(flags & RAWCHARS))
             count = 0
@@ -729,7 +735,7 @@ def compile_pattern(
                         negative.append(_compile(expanded[1:], flags | _NO_GLOBSTAR_CAPTURE | DOTMATCH))
                     else:
                         positive.append(_compile(expanded, flags))
-            if limit:
+            if limit > 0:
                 current_limit -= count
                 if current_limit < 1:
                     current_limit = 1
@@ -941,6 +947,7 @@ class WcParse(Generic[AnyStr]):
         self.capture = self.translate and bool(flags & CAPTURE)
         self.case_sensitive = get_case(flags)
         self.in_list = False
+        self.emitted_star = -1
         self.inv_nest = False
         self.flags = flags
         self.inv_ext = 0
@@ -1011,18 +1018,24 @@ class WcParse(Generic[AnyStr]):
 
         return self.seq_path if self.pathname else ''
 
-    def _restrict_sequence(self) -> str:
+    def _restrict_sequence(self, current: list[str]) -> str:
         """Restrict sequence."""
 
+        # An extended group may consume nothing, leaving the wildcard at the start of a name.
+        after_ext = bool(current and isinstance(current[-1], ExtGroup))
         if self.pathname:
             if self.after_start and not self.dot:
                 value = self.seq_path_dot if not self.in_list else self.seq_path_group_dot
+            elif after_ext and not self.dot:
+                value = self.seq_path_group_dot + self.seq_path
             else:
                 value = self.seq_path
-            if self.after_start:
+            if self.after_start and not after_ext:
                 value = self.no_dir + value
         else:
             value = (_NO_DOT if not self.in_list else _GROUP_NO_DOT) if self.after_start and not self.dot else ""
+            if after_ext and not self.dot and not self.after_start:
+                value = _GROUP_NO_DOT
 
         self.reset_dir_track()
 
@@ -1210,7 +1223,7 @@ class WcParse(Generic[AnyStr]):
             return self.range_to_regex(int(start) if start else None, int(end) if end else None)
         return re.escape('<')
 
-    def _sequence(self, i: util.StringIter) -> str:
+    def _sequence(self, i: util.StringIter, current: list[str]) -> str:
         """Handle character group."""
 
         result = ['[']
@@ -1307,8 +1320,8 @@ class WcParse(Generic[AnyStr]):
             else:
                 result = [value]
 
-        if self.pathname or self.after_start:
-            return self._restrict_sequence() + ''.join(result)
+        if self.pathname or self.after_start or (current and isinstance(current[-1], ExtGroup)):
+            return self._restrict_sequence(current) + ''.join(result)
 
         return ''.join(result)
 
@@ -1406,6 +1419,7 @@ class WcParse(Generic[AnyStr]):
     def _handle_star(self, i: util.StringIter, current: list[str]) -> None:
         """Handle star."""
 
+        after_ext = bool(current and isinstance(current[-1], ExtGroup))
         if self.pathname:
             if self.after_start and not self.dot:
                 star = self.path_star_dot2
@@ -1415,11 +1429,16 @@ class WcParse(Generic[AnyStr]):
                 globstar = self.path_gstar_dot1
             else:
                 star = self.path_star
+                if after_ext and not self.dot:
+                    current.append(self.seq_path_group_dot)
                 globstar = self.path_gstar_dot1
             capture = self.globstar_capture
         else:
             if self.after_start and not self.dot:
                 star = _NO_DOT + _STAR
+            elif after_ext and not self.dot:
+                current.append(_GROUP_NO_DOT)
+                star = _STAR
             else:
                 star = _STAR
             globstar = ''
@@ -1429,7 +1448,7 @@ class WcParse(Generic[AnyStr]):
             skip = True
             try:
                 c = next(i)
-                if c != '*':
+                if c != '*' or (self.extend and i.match(RE_EXT_GROUP, False)):
                     i.rewind(1)
                     raise StopIteration
                 skip = False
@@ -1438,7 +1457,7 @@ class WcParse(Generic[AnyStr]):
                 # Capturing groups are used to filter out symlinks, but triple stars force symlinks.
                 if self.globstarlong:
                     c = next(i)
-                    if c != '*':
+                    if c != '*' or (self.extend and i.match(RE_EXT_GROUP, False)):
                         i.rewind(1)
                         raise StopIteration
                     capture = False
@@ -1484,10 +1503,10 @@ class WcParse(Generic[AnyStr]):
             if self.after_start:
                 value = self.need_char + value
 
-            # Consume duplicate starts
+            # Consume duplicate starts, but leave a star that opens an extended group
             try:
                 c = next(i)
-                while c == '*':
+                while c == '*' and not (self.extend and i.match(RE_EXT_GROUP, False)):
                     c = next(i)
                 i.rewind(1)
             except StopIteration:
@@ -1510,6 +1529,10 @@ class WcParse(Generic[AnyStr]):
                 current.append(sep)
             self.set_start_dir()
         else:
+            if not self.in_list:
+                if self.emitted_star == -1:
+                    self.emitted_star = len(current)
+                value = AtomicStar(value)
             current.append(value)
 
     def clean_up_inverse(self, current: list[str], nested: bool = False) -> None:
@@ -1540,8 +1563,8 @@ class WcParse(Generic[AnyStr]):
                     (''.join(content).replace('(?#)', '?:') if self.capture else ''.join(content)) +
                     (_EXCLA_GROUP_CLOSE.format(str(current[index])))
                 )
+                self.inv_ext -= 1
             index -= 1
-        self.inv_ext = 0
 
     def parse_extend(
         self,
@@ -1599,7 +1622,7 @@ class WcParse(Generic[AnyStr]):
                         self.match_dot_dir = self.dot and not self.nodotdir
                         self.reset_dir_track()
                 elif c == '?':
-                    extended.append(self._restrict_sequence() + _QMARK)
+                    extended.append(self._restrict_sequence(extended) + _QMARK)
                 elif c == '/':
                     if self.pathname:
                         extended.append(self._restrict_extended_slash())
@@ -1632,7 +1655,7 @@ class WcParse(Generic[AnyStr]):
                 elif c == '[' and (self.bad_sequence == -1 or i.index > self.bad_sequence):
                     subindex = i.index
                     try:
-                        extended.append(self._sequence(i))
+                        extended.append(self._sequence(i, extended))
                     except StopIteration:
                         self.bad_sequence = i.index
                         i.rewind(i.index - subindex)
@@ -1672,6 +1695,10 @@ class WcParse(Generic[AnyStr]):
                 list_type = t
                 self.inv_nest = t == '!'
 
+            # Extended groups cannot match `.` or `..` ever.
+            if not temp_in_list and temp_after_start:
+                current.append(self.no_dir)
+
             # Reduce child group into the parent and notify the parent type should change.
             # Groups must be compatible. e.g. `!(!(a|b))` -> `@(a|b)`.
             if not self.capture and only_child and list_type in promote_ext:
@@ -1694,18 +1721,27 @@ class WcParse(Generic[AnyStr]):
                     temp_ext_empty = True
 
             # Finalize groups of varying types.
+            # Groups at the top level are tracked so atomic `*` segments can avoid them.
             elif list_type == '?':
-                current.append((_QMARK_CAPTURE_GROUP if self.capture else _QMARK_GROUP).format(''.join(extended)))
+                current.append(
+                    ExtGroup((_QMARK_CAPTURE_GROUP if self.capture else _QMARK_GROUP).format(''.join(extended)))
+                )
             elif list_type == '*':
-                current.append((_STAR_CAPTURE_GROUP if self.capture else _STAR_GROUP).format(''.join(extended)))
+                current.append(
+                    ExtGroup((_STAR_CAPTURE_GROUP if self.capture else _STAR_GROUP).format(''.join(extended)))
+                )
             elif list_type == '+':
-                current.append((_PLUS_CAPTURE_GROUP if self.capture else _PLUS_GROUP).format(''.join(extended)))
+                current.append(
+                    ExtGroup((_PLUS_CAPTURE_GROUP if self.capture else _PLUS_GROUP).format(''.join(extended)))
+                )
             elif list_type == '@':
-                current.append((_CAPTURE_GROUP if self.capture else _GROUP).format(''.join(extended)))
+                current.append(ExtGroup((_CAPTURE_GROUP if self.capture else _GROUP).format(''.join(extended))))
             elif list_type == '!':
                 self.inv_ext += 1
                 # If pattern is at the end, anchor the match to the end.
-                current.append((_EXCLA_CAPTURE_GROUP if self.capture else _EXCLA_GROUP).format(''.join(extended)))
+                current.append(
+                    ExtGroup((_EXCLA_CAPTURE_GROUP if self.capture else _EXCLA_GROUP).format(''.join(extended)))
+                )
                 if self.pathname:
                     if not temp_after_start or self.match_dot_dir:
                         star = self.path_star
@@ -1772,6 +1808,50 @@ class WcParse(Generic[AnyStr]):
         except StopIteration:
             pass
 
+    def atomic_stars(self, parts: list[str]) -> None:
+        """
+        Wrap non-extended-glob single stars, except the last, in atomic groups.
+
+        Similar to CPython's `fnmatch` fix for multi-`*` backtracking.
+
+        A star and everything up to the next star is made atomic only if it is of fixed length.
+        Only then is the first match of the segment guaranteed to be as good as any other,
+        as the next star can absorb any difference.
+
+        Extended glob patterns are variable by nature, so if the segments contains
+        extended glob groups, the star is left as is.
+        """
+
+        # No stars were emitted; nothing to do.
+        if self.emitted_star == -1:
+            return
+
+        # Create atomic groups that contain the current star up to the next star
+        start = -1
+        for r in range(self.emitted_star, len(parts)):
+            part = parts[r]
+            # Start an atomic star
+            if start == -1:
+                if isinstance(part, AtomicStar):
+                    start = r
+            # Reject a segment if it contains extended glob groups
+            elif isinstance(part, ExtGroup):
+                parts[start] = str(parts[start])
+                start = -1
+            # Found next star; complete atomic group and start next atomic star
+            elif isinstance(part, AtomicStar):
+                end = r - 1
+                parts[start] = f'(?>{parts[start]}'
+                parts[end] = f'{parts[end]})'
+                start = r
+
+        # Current star is the last star; no need to create an atomic star
+        if start > -1:
+            parts[start] = str(parts[start])
+
+        # All valid atomic stars handled
+        self.emitted_star = -1
+
     def root(self, pattern: str, current: list[str]) -> None:
         """Start parsing the pattern."""
 
@@ -1816,10 +1896,11 @@ class WcParse(Generic[AnyStr]):
             elif c == '*':
                 self._handle_star(i, current)
             elif c == '?':
-                current.append(self._restrict_sequence() + _QMARK)
+                current.append(self._restrict_sequence(current) + _QMARK)
             elif c == '/':
                 if self.pathname:
                     self.set_start_dir()
+                    self.atomic_stars(current)
                     self.clean_up_inverse(current)
                     current.append(self.sep + _ONE_OR_MORE)
                     self.consume_path_sep(i)
@@ -1833,6 +1914,7 @@ class WcParse(Generic[AnyStr]):
                 try:
                     value = self._references(i)
                     if self.dir_start:
+                        self.atomic_stars(current)
                         self.clean_up_inverse(current)
                         self.consume_path_sep(i)
                         self.matchbase = False
@@ -1845,7 +1927,7 @@ class WcParse(Generic[AnyStr]):
             elif c == '[' and (self.bad_sequence == -1 or i.index > self.bad_sequence):
                 index = i.index
                 try:
-                    current.append(self._sequence(i))
+                    current.append(self._sequence(i, current))
                 except StopIteration:
                     self.bad_sequence = i.index
                     i.rewind(i.index - index)
@@ -1855,6 +1937,7 @@ class WcParse(Generic[AnyStr]):
 
             self.update_dir_state()
 
+        self.atomic_stars(current)
         self.clean_up_inverse(current)
 
         if self.pathname:

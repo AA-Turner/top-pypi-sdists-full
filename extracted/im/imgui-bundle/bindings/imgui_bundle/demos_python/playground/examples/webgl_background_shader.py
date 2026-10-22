@@ -1,10 +1,11 @@
 """
-Custom background using a shader, à la Shadertoy — runs on desktop AND in Pyodide
-from the same source file.
+Custom background using a shader, à la Shadertoy
 
-The shader is the famous "Seascape" by Alexander Alekseev (TDM, 2014). It's
-rendered as the application's background through hello_imgui's
-`custom_background` callback, with the ImGui parameter panel composited on top.
+One source file, two platforms: a shader behind the GUI, with OpenGL on desktop and WebGL in the browser. The
+shader is the famous "Seascape" from [Shadertoy](https://www.shadertoy.com/view/Ms2SD1), by Alexander
+Alekseev. In the browser, the app runs with [Pyodide](https://pyodide.org).
+
+It is rendered through hello_imgui's `custom_background` callback.
 
 Why this demo exists
 ====================
@@ -180,7 +181,7 @@ else:
     SHADER_HEADER = "#version 330 core\n"
 
 
-from imgui_bundle import hello_imgui, imgui, immapp, ImVec2, ImVec4, imgui_md
+from imgui_bundle import hello_imgui, imgui, immapp, ImVec2, ImVec4, rich_md
 
 from dataclasses import dataclass
 from typing import Dict, Any
@@ -828,59 +829,74 @@ def _docs_window():
     global _show_docs
     if not _show_docs:
         return
-    imgui.set_next_window_size(hello_imgui.em_to_vec2(48, 32), imgui.Cond_.first_use_ever)
+    # Centered, and at most the size of the screen (a phone)
+    viewport = imgui.get_main_viewport()
+    size = imgui.ImVec2(min(hello_imgui.em_size(48), viewport.work_size.x),
+                        min(hello_imgui.em_size(32), viewport.work_size.y))
+    imgui.set_next_window_pos(viewport.get_work_center(), imgui.Cond_.first_use_ever, imgui.ImVec2(0.5, 0.5))
+    imgui.set_next_window_size(size, imgui.Cond_.first_use_ever)
     expanded, _show_docs = imgui.begin("About this demo", _show_docs)  # type: ignore
     if expanded:
-        imgui_md.render_unindented(__doc__ or "")
+        rich_md.render(__doc__ or "")
     imgui.end()
 
 
 def gui(app_state: AppState):
-    """GUI for modifying shader parameters."""
+    """GUI for modifying shader parameters. On a phone, only the wave height shows at first: the sea stays visible."""
     global _show_docs
+    narrow = imgui.get_io().display_size.x < hello_imgui.em_size(50.0)
     imgui.set_next_window_pos(hello_imgui.em_to_vec2(0.0, 0.0), imgui.Cond_.appearing)
-    imgui.set_next_window_size(hello_imgui.em_to_vec2(31.0, 18.0), imgui.Cond_.appearing)
-    imgui.begin("Shader parameters")
+    # At most the width of the screen (a phone)
+    width = min(hello_imgui.em_size(31.0), imgui.get_main_viewport().work_size.x)
+    if narrow:  # as tall as its content
+        imgui.set_next_window_size_constraints(ImVec2(width, 0.0), ImVec2(width, imgui.get_main_viewport().work_size.y))
+        imgui.begin("Shader parameters", None, imgui.WindowFlags_.always_auto_resize)
+    else:
+        imgui.set_next_window_size(ImVec2(width, hello_imgui.em_size(19.5)), imgui.Cond_.appearing)
+        imgui.begin("Shader parameters")
 
-    imgui_md.render_unindented("""
+    rich_md.render("""
         Shader: "Seascape" by Alexander Alekseev aka TDM - 2014 - [Shadertoy](https://www.shadertoy.com/view/Ms2SD1)
     """)
     _, _show_docs = imgui.checkbox("Show docs", _show_docs)
     imgui.separator()
 
-    # Render-scale: lower = faster, blurrier. The seascape is ray-marched
-    # per pixel, so cost scales with the offscreen resolution.
-    _, app_state.render_scale = imgui.slider_float("Render scale", app_state.render_scale, 0.1, 1.0)
-    if app_state.offscreen is not None:
-        imgui.text(f"Shader resolution: {app_state.offscreen.w} x {app_state.offscreen.h}")
-
     # Modify the uniforms values
     uniforms = app_state.uniforms
+    imgui.push_item_width(-hello_imgui.em_size(7.5))  # room for the labels, on a phone too
 
     value = uniforms.get_uniform_value("SEA_HEIGHT")
     _, value = imgui.slider_float("SEA_HEIGHT", value, 0.1, 2.1)
     uniforms.set_uniform_value("SEA_HEIGHT", value)
 
-    value = uniforms.get_uniform_value("SEA_CHOPPY")
-    _, value = imgui.slider_float("SEA_CHOPPY", value, 0.1, 10.0)
-    uniforms.set_uniform_value("SEA_CHOPPY", value)
+    if not narrow or imgui.collapsing_header("More settings"):
+        value = uniforms.get_uniform_value("SEA_CHOPPY")
+        _, value = imgui.slider_float("SEA_CHOPPY", value, 0.1, 10.0)
+        uniforms.set_uniform_value("SEA_CHOPPY", value)
 
-    color_vec = uniforms.get_uniform_value("SEA_BASE")
-    color_list = ImVec4(color_vec.x, color_vec.y, color_vec.z, 1.0)
-    _, color_list = imgui.color_edit3("SEA_BASE", color_list)
-    color_vec = MyVec3(color_list[0], color_list[1], color_list[2])
-    uniforms.set_uniform_value("SEA_BASE", color_vec)
+        color_vec = uniforms.get_uniform_value("SEA_BASE")
+        color_list = ImVec4(color_vec.x, color_vec.y, color_vec.z, 1.0)
+        _, color_list = imgui.color_edit3("SEA_BASE", color_list)
+        color_vec = MyVec3(color_list[0], color_list[1], color_list[2])
+        uniforms.set_uniform_value("SEA_BASE", color_vec)
 
-    value = uniforms.get_uniform_value("SEA_SPEED")
-    _, value = imgui.slider_float("SEA_SPEED", value, 0.1, 3.0)
-    uniforms.set_uniform_value("SEA_SPEED", value)
+        value = uniforms.get_uniform_value("SEA_SPEED")
+        _, value = imgui.slider_float("SEA_SPEED", value, 0.1, 3.0)
+        uniforms.set_uniform_value("SEA_SPEED", value)
 
-    value = uniforms.get_uniform_value("SEA_FREQ")
-    _, value = imgui.slider_float("SEA_FREQ", value, 0.01, 0.5)
-    uniforms.set_uniform_value("SEA_FREQ", value)
+        value = uniforms.get_uniform_value("SEA_FREQ")
+        _, value = imgui.slider_float("SEA_FREQ", value, 0.01, 0.5)
+        uniforms.set_uniform_value("SEA_FREQ", value)
 
-    imgui.text(f"FPS: {hello_imgui.frame_rate():.1f}")
+        imgui.separator()
+        # Render-scale: lower = faster, blurrier. The seascape is ray-marched
+        # per pixel, so cost scales with the offscreen resolution.
+        _, app_state.render_scale = imgui.slider_float("Render scale", app_state.render_scale, 0.1, 1.0)
+        if app_state.offscreen is not None:
+            imgui.text(f"Shader resolution: {app_state.offscreen.w} x {app_state.offscreen.h}")
+        imgui.text(f"FPS: {hello_imgui.frame_rate():.1f}")
 
+    imgui.pop_item_width()
     imgui.end()
     _docs_window()
 
@@ -910,7 +926,7 @@ def main():
     runner_params.callbacks.custom_background = lambda: custom_background(app_state)
 
     # Let's go!
-    md_options = imgui_md.MarkdownOptions()
+    md_options = rich_md.MarkdownOptions()
     md_options.with_latex = True
     add_ons_params = immapp.AddOnsParams()
     add_ons_params.with_markdown = True

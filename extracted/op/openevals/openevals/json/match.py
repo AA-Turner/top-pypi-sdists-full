@@ -13,6 +13,13 @@ from openevals.llm import (
 from langchain_core.language_models.chat_models import BaseChatModel
 from langsmith import get_current_run_tree
 
+# Sentinel field name used to represent a list item that has no keys of its
+# own (an empty dict, e.g. `{}`). Matching and unmatched-item tracking below
+# is keyed on field presence, so a record with zero fields would otherwise be
+# invisible to scoring whether or not it was actually matched. This marker
+# guarantees such a record still contributes a scored key.
+_EMPTY_RECORD_KEY = "__openevals_empty_record"
+
 
 SYSTEM_PROMPT = """You are an LLM that evaluates the accuracy of structured outputs.
 Make sure to evaluate each key the users ask you to evaluate separately. Assign the score
@@ -98,9 +105,17 @@ def _prepare_parameters(
             for i in range(len(outputs)):
                 for key, value in outputs[i].items():
                     outputs_to_use[f"{key}_{i}"] = value
+                if not outputs[i] and i >= len(reference_outputs):
+                    # An extra empty item has no fields to score.
+                    outputs_to_use[f"{_EMPTY_RECORD_KEY}_{i}"] = outputs[i]
             for i in range(len(reference_outputs)):
                 for key, value in reference_outputs[i].items():
                     reference_outputs_to_use[f"{key}_{i}"] = value
+                if not reference_outputs[i] and i >= len(outputs):
+                    # An extra empty reference item has no fields to score.
+                    reference_outputs_to_use[f"{_EMPTY_RECORD_KEY}_{i}"] = (
+                        reference_outputs[i]
+                    )
 
         elif list_match_mode == "superset":
             # Match each reference output to the best matching output
@@ -108,6 +123,7 @@ def _prepare_parameters(
             matched_references = set()
 
             for i, ref_item in enumerate(reference_outputs):
+                best_match_idx = None
                 best_match_score = -1
 
                 # Try each available output item
@@ -142,36 +158,74 @@ def _prepare_parameters(
                     matched_references.add(i)
                 else:
                     # There were extra reference items
-                    for key, value in ref_item.items():
-                        reference_outputs_to_use[f"{key}_{i}"] = value
+                    if ref_item:
+                        for key, value in ref_item.items():
+                            reference_outputs_to_use[f"{key}_{i}"] = value
+                    else:
+                        # An extra item with no fields would otherwise leave
+                        # no trace in reference_outputs_to_use and be dropped.
+                        reference_outputs_to_use[f"{_EMPTY_RECORD_KEY}_{i}"] = ref_item
 
         else:  # "same_items" or "subset"
             # Match each output to the best matching reference
             available_references = list(range(len(reference_outputs)))
             matched_outputs = set()
 
+            exact_matches: Dict[int, int] = {}
+            if list_match_mode == "same_elements":
+                # Detect a full multiset match before applying the score-based
+                # greedy matching below. This keeps reordered records from
+                # consuming a partial match that leaves another exact pair
+                # impossible to form without changing partial-match scoring.
+                candidate_matches: Dict[int, int] = {}
+                candidate_references = list(available_references)
+                for i, output_item in enumerate(outputs):
+                    output_item_for_match = {
+                        key: value
+                        for key, value in output_item.items()
+                        if key not in exclude_keys and key not in rubric
+                    }
+                    for ref_idx in candidate_references:
+                        reference_item_for_match = {
+                            key: value
+                            for key, value in reference_outputs[ref_idx].items()
+                            if key not in exclude_keys and key not in rubric
+                        }
+                        if output_item_for_match == reference_item_for_match:
+                            candidate_matches[i] = ref_idx
+                            candidate_references.remove(ref_idx)
+                            break
+                if len(candidate_matches) == len(outputs) and len(outputs) == len(
+                    reference_outputs
+                ):
+                    exact_matches = candidate_matches
+                    available_references = candidate_references
+
             for i, output_item in enumerate(outputs):
-                best_match_idx = None
-                best_match_score = -1
+                if i in exact_matches:
+                    best_match_idx = exact_matches[i]
+                else:
+                    best_match_idx = None
+                    best_match_score = -1
 
-                # Try each available reference item
-                for ref_idx in available_references:
-                    ref_item = reference_outputs[ref_idx]
+                    # Try each available reference item
+                    for ref_idx in available_references:
+                        ref_item = reference_outputs[ref_idx]
 
-                    # Calculate match score based on exact matches of keys
-                    match_score = 0
-                    for key in output_item:
-                        if (
-                            key in ref_item
-                            and key not in exclude_keys
-                            and key not in rubric
-                        ):
-                            match_score += int(output_item[key] == ref_item[key])
+                        # Calculate match score based on exact matches of keys
+                        match_score = 0
+                        for key in output_item:
+                            if (
+                                key in ref_item
+                                and key not in exclude_keys
+                                and key not in rubric
+                            ):
+                                match_score += int(output_item[key] == ref_item[key])
 
-                    # If this is the best match so far, update
-                    if match_score > best_match_score:
-                        best_match_score = match_score
-                        best_match_idx = ref_idx
+                        # If this is the best match so far, update
+                        if match_score > best_match_score:
+                            best_match_score = match_score
+                            best_match_idx = ref_idx
 
                 # If we found a match, use it
                 if best_match_idx is not None:
@@ -181,21 +235,33 @@ def _prepare_parameters(
                     for key, value in reference_outputs[best_match_idx].items():
                         reference_outputs_to_use[f"{key}_{i}"] = value
 
-                    # Remove the used reference from available options
-                    available_references.remove(best_match_idx)
+                    if i not in exact_matches:
+                        # Remove the used reference from available options
+                        available_references.remove(best_match_idx)
                     matched_outputs.add(i)
                 else:
                     # There were extra output items
-                    for key, value in output_item.items():
-                        outputs_to_use[f"{key}_{i}"] = value
+                    if output_item:
+                        for key, value in output_item.items():
+                            outputs_to_use[f"{key}_{i}"] = value
+                    else:
+                        # An extra item with no fields would otherwise leave
+                        # no trace in outputs_to_use and be silently dropped.
+                        outputs_to_use[f"{_EMPTY_RECORD_KEY}_{i}"] = output_item
 
             # For "same_elements" mode: penalize unmatched references
             if list_match_mode == "same_elements":
                 for ref_idx in available_references:
                     ref_item = reference_outputs[ref_idx]
                     dummy_idx = len(outputs) + available_references.index(ref_idx)
-                    for key, value in ref_item.items():
-                        reference_outputs_to_use[f"{key}_{dummy_idx}"] = value
+                    if ref_item:
+                        for key, value in ref_item.items():
+                            reference_outputs_to_use[f"{key}_{dummy_idx}"] = value
+                    else:
+                        # Same as above, mirrored for an unmatched reference item.
+                        reference_outputs_to_use[f"{_EMPTY_RECORD_KEY}_{dummy_idx}"] = (
+                            ref_item
+                        )
 
         outputs = outputs_to_use
         reference_outputs = reference_outputs_to_use
@@ -427,11 +493,10 @@ def create_json_match_evaluator(
         judge (ModelClient or BaseChatModel): The judge to use for the evaluation.
         model (str): The model to use for the evaluation.
         use_reasoning (bool): Whether to use reasoning for the keys in `rubric`. Defaults to True.
-        match_mode (Literal["subset_of_output", "subset_of_reference", "exact"]): The mode to use for the evaluation.
-            Defaults to "exact". If "exact", the evaluation will match every element of the outputs with a corresponding
-            element of the reference outputs and vice versa. If "subset_of_reference", the evaluation will match every element
-            of the outputs with a corresponding element of the reference outputs. If "subset_of_output", the evaluation will match
-            every element of the reference outputs with a corresponding element of the outputs.
+        list_match_mode (Literal["superset", "subset", "same_elements", "ordered"]): The mode to use for matching list elements.
+            Defaults to "same_elements". If "same_elements", matches every element of outputs with reference_outputs and vice versa.
+            If "subset", matches elements of outputs with reference_outputs. If "superset", matches elements of reference_outputs
+            with outputs. If "ordered", matches elements by their index position.
 
     Returns:
         A function that takes in outputs and reference_outputs and returns an EvaluatorResult or list of EvaluatorResults.
@@ -764,11 +829,10 @@ def create_async_json_match_evaluator(
         judge (ModelClient or BaseChatModel): The judge to use for the evaluation.
         model (str): The model to use for the evaluation.
         use_reasoning (bool): Whether to use reasoning for the keys in `rubric`. Defaults to True.
-        match_mode (Literal["subset_of_output", "subset_of_reference", "exact"]): The mode to use for the evaluation.
-            Defaults to "exact". If "exact", the evaluation will match every element of the outputs with a corresponding
-            element of the reference outputs and vice versa. If "subset_of_reference", the evaluation will match every element
-            of the outputs with a corresponding element of the reference outputs. If "subset_of_output", the evaluation will match
-            every element of the reference outputs with a corresponding element of the outputs.
+        list_match_mode (Literal["superset", "subset", "same_elements", "ordered"]): The mode to use for matching list elements.
+            Defaults to "same_elements". If "same_elements", matches every element of outputs with reference_outputs and vice versa.
+            If "subset", matches elements of outputs with reference_outputs. If "superset", matches elements of reference_outputs
+            with outputs. If "ordered", matches elements by their index position.
 
     Returns:
         A function that takes in outputs and reference_outputs and returns an EvaluatorResult or list of EvaluatorResults.

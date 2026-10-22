@@ -202,22 +202,19 @@ def test_running_out_of_memory_decodes_through_transformers() -> None:
 
 
 @pytest.mark.skipif(DEVICE != "cuda", reason="CUDA graphs need a GPU")
-def test_a_kernel_building_at_capture_leaves_the_decode_eager() -> None:
-    """A kernel still building raises `Building` inside a capture (int8_linear on a fresh
-    machine): the steps run eagerly and the call gives Transformers' tokens."""
-    from cozy_runtime.author._model import Building
-
-    torch.manual_seed(6)
+def test_a_rebuilt_rotary_table_records_the_steps_anew() -> None:
+    """The steps read the model's own rotary table by address: one built again elsewhere (a
+    component placed again) must not leave the graphs reading the old one."""
+    torch.manual_seed(8)
     model = _qwen3_5()
-    layer = [m for m in model.modules() if type(m).__name__.endswith("DecoderLayer")][1]
-
-    def hook(*_: Any) -> None:
-        if torch.cuda.is_current_stream_capturing():
-            raise Building("cozy-int8")
-
-    layer.register_forward_pre_hook(hook)
-    ids = torch.randint(10, 290, (1, 60), device=DEVICE)
-    _same(model, {"input_ids": ids, "attention_mask": torch.ones_like(ids)}, 40)
+    ids = torch.randint(10, 290, (1, 40), device=DEVICE)
+    inputs = {"input_ids": ids, "attention_mask": torch.ones_like(ids)}
+    _same(model, inputs, 30)
+    rotary = model.get_decoder().rotary_emb
+    rotary.inv_freq = rotary.inv_freq.clone()  # the same values at a new address
+    del rotary  # the old table's memory goes back to the allocator
+    torch.cuda.empty_cache()
+    _same(model, inputs, 30)
 
 
 @pytest.mark.skipif(DEVICE != "cuda", reason="CUDA graphs need a GPU")

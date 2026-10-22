@@ -262,7 +262,7 @@ fn native_arrow_enabled() -> bool {
     cfg!(feature = "native-arrow")
 }
 
-#[pymodule]
+#[pymodule(gil_used = false)]
 fn sf_core_python(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(init, m)?)?;
     m.add_function(wrap_pyfunction!(log_event, m)?)?;

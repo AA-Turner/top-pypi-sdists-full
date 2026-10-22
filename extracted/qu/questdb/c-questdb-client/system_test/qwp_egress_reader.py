@@ -73,6 +73,8 @@ KIND_UNKNOWN = 0xFF
 # `Numbers.INT_NULL`, `Numbers.SHORT_NULL`. BYTE is non-nullable on the server,
 # but the wire still carries a slot per row.
 _LONG_NULL = -(1 << 63)
+# Long.MIN_VALUE reinterpreted as u64 (how `>QQ` unpacks it).
+_LONG_NULL_U64 = 1 << 63
 _INT_NULL = -(1 << 31)
 
 
@@ -258,9 +260,12 @@ _setsig(
 
 # Reader error handling.
 _setsig("questdb_error_get_code", _c_int32, ctypes.POINTER(_LineReaderError))
+# restype is a raw void pointer, not c_char_p: the message is a borrowed,
+# non-NUL-terminated slice with its length in the out-param. A c_char_p
+# restype would make ctypes scan for a NUL and read past the slice's end.
 _setsig(
     "questdb_error_msg",
-    _c_char_p,
+    _c_void_p,
     ctypes.POINTER(_LineReaderError),
     ctypes.POINTER(_c_size_t),
 )
@@ -290,7 +295,7 @@ def _take_error(err_ptr) -> ReaderError:
     msg_len = _c_size_t(0)
     raw = _DLL.questdb_error_msg(err_ptr, ctypes.byref(msg_len))
     msg = (
-        bytes(ctypes.string_at(raw, msg_len.value)).decode("utf-8", "replace")
+        ctypes.string_at(raw, msg_len.value).decode("utf-8", "replace")
         if raw and msg_len.value
         else ""
     )
@@ -487,9 +492,14 @@ def _decode_uuid(col: _LineReaderColumnData) -> Tuple[str, list]:
         if _is_null(validity, r):
             out.append(None)
             continue
-        lo, hi = struct.unpack_from("<QQ", raw, r * 16)
-        if lo == 0 and hi == _LONG_NULL & ((1 << 64) - 1):
-            # QuestDB UUID NULL sentinel — lo=0, hi=Long.MIN_VALUE.
+        # Reader values are canonical RFC-4122 big-endian: hi half
+        # first, both halves big-endian.
+        hi, lo = struct.unpack_from(">QQ", raw, r * 16)
+        if lo == _LONG_NULL_U64 and hi == _LONG_NULL_U64:
+            # QuestDB UUID NULL sentinel: BOTH halves are Long.MIN_VALUE
+            # (see the Rust decoder's `null_sentinel::UUID_LE`). Checking
+            # only one half would treat the legal UUID
+            # 80000000-0000-0000-0000-000000000000 as NULL.
             out.append(None)
             continue
         combined = (hi << 64) | lo
@@ -909,11 +919,17 @@ class QwpEgressReader:
             )
             if not ok:
                 raise _take_error(err_ref)
+            # The FFI hands back a borrowed, non-NUL-terminated slice with its
+            # length in `name_len`. Read the pointer's address via a void_p
+            # cast (no dereference) and copy exactly `name_len` bytes.
+            # `name_ptr.value` would instead scan for a NUL terminator and walk
+            # off the end of the slice into unmapped memory.
+            name_addr = ctypes.cast(name_ptr, ctypes.c_void_p).value
             name = (
                 ctypes.string_at(name_ptr, name_len.value).decode(
                     "utf-8", "replace"
                 )
-                if name_ptr.value and name_len.value
+                if name_addr and name_len.value
                 else ""
             )
             cols.append({"name": name, "type": ""})  # type filled in after decode

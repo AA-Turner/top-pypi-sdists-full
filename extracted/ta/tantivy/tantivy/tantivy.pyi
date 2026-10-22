@@ -33,6 +33,9 @@ class SchemaBuilder:
     ) -> SchemaBuilder:
         pass
 
+    def add_tie_breaker_field(self, name: str) -> SchemaBuilder:
+        pass
+
     def add_float_field(
         self,
         name: str,
@@ -156,6 +159,11 @@ class Document:
     def add_text(self, field_name: str, text: str) -> None:
         pass
 
+    def add_pre_tokenized_text(
+        self, field_name: str, pre_tokenized_text: PreTokenizedString
+    ) -> None:
+        pass
+
     def add_unsigned(self, field_name: str, value: int) -> None:
         pass
 
@@ -232,12 +240,26 @@ class Query:
         field_value: Any,
         index_option: str = "position",
     ) -> Query:
+        """Construct a TermQuery.
+
+        `field_name` accepts a JSON subpath (e.g. "attrs.user") to address a
+        key inside a JSON field. A literal field named "attrs.user" takes
+        precedence over the subpath interpretation. Values are not tokenized.
+
+        On a JSON subpath the Python type decides the term type: a str is
+        always the literal string (so "5" matches a string leaf, 5 an integer
+        leaf), and int, float, bool and datetime match the corresponding typed
+        leaf. Text is not tokenized, so for analyzed text pass the lowercased
+        token (the default tokenizer lowercases).
+        """
         pass
 
     @staticmethod
     def term_set_query(
         schema: Schema, field_name: str, field_values: Sequence[Any]
     ) -> Query:
+        """Construct a TermSetQuery. `field_name` accepts a JSON subpath the
+        same way `term_query` does."""
         pass
 
     @staticmethod
@@ -263,6 +285,8 @@ class Query:
         transposition_cost_one: bool = True,
         prefix=False,
     ) -> Query:
+        """Construct a FuzzyTermQuery. `field_name` accepts a JSON subpath the
+        same way `term_query` does; `text` is always matched as text."""
         pass
 
     @staticmethod
@@ -272,6 +296,9 @@ class Query:
         words: list[Union[str, tuple[int, str]]],
         slop: int = 0,
     ) -> Query:
+        """Construct a PhraseQuery. `field_name` accepts a JSON subpath the
+        same way `term_query` does; on a JSON subpath every word must be a
+        str, otherwise ValueError is raised."""
         pass
 
     @staticmethod
@@ -280,6 +307,9 @@ class Query:
         field_name: str,
         words: list[Union[str, tuple[int, str]]],
     ) -> Query:
+        """Construct a PhrasePrefixQuery. `field_name` accepts a JSON subpath
+        the same way `term_query` does; on a JSON subpath every word must be a
+        str, otherwise ValueError is raised."""
         pass
 
     @staticmethod
@@ -439,6 +469,9 @@ class Searcher:
         pass
 
     def doc_freq(self, field_name: str, field_value: Any) -> int:
+        """Return the overall number of documents containing the given term.
+        `field_name` accepts a JSON subpath the same way `Query.term_query`
+        does."""
         pass
 
     def terms_with_prefix(
@@ -505,7 +538,12 @@ class IndexWriter:
 
 class Index:
     def __new__(
-        cls, schema: Schema, path: Optional[str] = None, reuse: bool = True
+        cls,
+        schema: Schema,
+        path: Optional[str] = None,
+        reuse: bool = True,
+        sort_by_field: Optional[str] = None,
+        sort_order: Order = Order.Asc,
     ) -> Index:
         pass
 
@@ -590,6 +628,9 @@ class Snippet:
     def fragment(self) -> str:
         pass
 
+    def fragment_range(self) -> Range:
+        pass
+
 
 class SnippetGenerator:
     @staticmethod
@@ -671,6 +712,8 @@ class TextAnalyzer:
     def analyze(self, text: str) -> list[str]:
         pass
 
+    def pre_tokenize(self, text: str) -> PreTokenizedString:
+        pass
 
 class TextAnalyzerBuilder:
     def __init__(self, tokenizer: Tokenizer):
@@ -681,6 +724,44 @@ class TextAnalyzerBuilder:
 
     def build(self) -> TextAnalyzer:
         pass
+
+class Token:
+    def __init__(
+        self: Self,
+        text: str,
+        position: int,
+        char_offset_from: int,
+        char_offset_to: int | None = None,
+    ) -> None:
+        ...
+
+    @property
+    def text(self: Self) -> str:
+        ...
+
+    @property
+    def position(self: Self) -> int:
+        ...
+
+    @property
+    def char_offset_from(self: Self) -> int:
+        ...
+
+    @property
+    def char_offset_to(self: Self) -> int:
+        ...
+
+class PreTokenizedString:
+    def __init__(self: Self, text: str, tokens: Sequence[Token]) -> None:
+        ...
+
+    @property
+    def text(self: Self) -> str:
+        ...
+
+    @property
+    def tokens(self: Self) -> list[Token]:
+        ...
 
 def parse_query(query: str) -> dict[str, Any]:
     """
@@ -712,3 +793,5 @@ def parse_query_lenient(query: str) -> tuple[dict[str, Any], list[dict[str, Any]
     pass
 
 __version__: str
+MIN_DATETIME: datetime.datetime
+MAX_DATETIME: datetime.datetime

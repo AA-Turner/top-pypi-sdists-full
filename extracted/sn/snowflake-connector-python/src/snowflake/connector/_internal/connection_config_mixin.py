@@ -221,7 +221,6 @@ class ConnectionConfigMixin:
         "private_key_passphrase": "private_key_password",
         "oauth_socket_uri": "oauth_redirect_uri",
         "external_browser_timeout": "authentication_timeout",
-        "disable_console_login": "oauth_disable_console_login",
         # Old LinuxLocalFileCache internal toggle that leaked out as a
         # connection kwarg; renames to the ``unsafe_`` form so the fan-out
         # block below can handle both names uniformly.
@@ -276,6 +275,10 @@ class ConnectionConfigMixin:
             "not supported; PUT/GET worker exceptions are not swallowed by a Python thread pool."
         ),
         "iobound_tpe_limit": ("not supported; PUT/GET parallelism is not capped by a Python IO-bound thread pool."),
+        "disable_console_login": ("not supported; external browser login always requests the SSO URL from Snowflake."),
+        "oauth_disable_console_login": (
+            "not supported; external browser login always requests the SSO URL from Snowflake."
+        ),
     }
     """Legacy kwargs that are accepted for source compatibility but have no effect."""
 

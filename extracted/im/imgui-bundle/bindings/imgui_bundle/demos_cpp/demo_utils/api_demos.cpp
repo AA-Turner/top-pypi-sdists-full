@@ -1,10 +1,11 @@
 #include "api_demos.h"
-#include "imgui_md_wrapper.h"
+#include "imgui_rich_md/rich_md.h"
 #include "immapp/immapp.h"
 #include "immapp/code_utils.h"
 #include "immapp/snippets.h"
-#include "imgui_md_wrapper/imgui_md_wrapper.h"
+#include "imgui_rich_md/rich_md.h"
 #include "demo_utils/subprocess.h"
+#include "hello_imgui/hello_imgui.h"
 #include "hello_imgui/internal/whereami/whereami_cpp.h"
 
 #include <fplus/fplus.hpp>
@@ -160,6 +161,19 @@ void ShowPythonVsCppFile(const char* demo_file_path, int nbLines)
     ShowPythonVsCppCode(python_code.c_str(), cpp_code.c_str(), nbLines);
 }
 
+
+// The pref's values ("python", "cpp") are those of the ImGui Explorer (imgui_explorer.cpp), which shares it
+std::string CodeLanguagePref()
+{
+    std::string lang = HelloImGui::LoadLastingPref("code_language");
+    return lang == "python" ? "Python" : lang == "cpp" ? "C++" : "";
+}
+
+void SetCodeLanguagePref(const std::string& language)
+{
+    HelloImGui::SaveLastingPref("code_language", language == "Python" ? "python" : "cpp");
+}
+
 #ifndef __EMSCRIPTEN__
 std::string DemoExeFile(const std::string& demoName)
 {
@@ -226,7 +240,7 @@ bool SpawnDemo(const std::string& demoName)
 void ShowMarkdownDocFile(const std::string& doc_file_name)
 {
     auto code = ReadMarkdownDoc(doc_file_name);
-    ImGuiMd::RenderUnindented(code);
+    RichMd::Render(code);
 }
 
 
@@ -269,3 +283,4 @@ void BrowseToUrl(const std::string& url)
 {
     BrowseToUrl(url.c_str());
 }
+

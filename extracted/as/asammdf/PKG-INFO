@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: asammdf
-Version: 8.8.27
+Version: 8.8.28
 Summary: ASAM MDF measurement data file parser
 Keywords: read,reader,edit,editor,parse,parser,asam,mdf,measurement
 Author-Email: Daniel Hrisca <daniel.hrisca@gmail.com>
@@ -21,7 +21,7 @@ Project-URL: Issues, https://github.com/danielhrisca/asammdf/issues
 Project-URL: Source, https://github.com/danielhrisca/asammdf
 Requires-Python: >=3.10
 Requires-Dist: chardet>=7.0.0
-Requires-Dist: canmatrix[arxml,dbc]>=1.2
+Requires-Dist: canmatrix[arxml,dbc]==1.2
 Requires-Dist: isal; platform_machine == "x86_64" or platform_machine == "AMD64"
 Requires-Dist: deflate; platform_machine == "x86_64" or platform_machine == "AMD64"
 Requires-Dist: lxml>=4.9.3

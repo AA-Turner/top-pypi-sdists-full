@@ -171,7 +171,7 @@ async def wait_until_painted(
 def png_looks_blank(png: bytes, width: int, height: int) -> bool:
     """True when a screenshot is (nearly) a single flat color.
 
-    Pillow gives the real answer (dominant-colour share of a downscaled frame).
+    Pillow gives the real answer (dominant-color share of a downscaled frame).
     Without it, fall back to how well the PNG compressed — a flat frame is tiny.
     """
     try:

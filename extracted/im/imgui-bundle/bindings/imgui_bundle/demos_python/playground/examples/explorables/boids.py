@@ -1,21 +1,25 @@
 """Boids
 =====
 
-Three trivial local rules — **separation**, **alignment**, **cohesion** —
-and a flock emerges. No leader, no plan. Turn the knobs to re-weight the
-rules and watch order appear or dissolve. Send in **hunters** that chase
-the swarm down, or flip on the **cursor predator** and scatter it yourself.
+A flock of birds emerges from three simple local rules, with no leader and no plan. Each bird stays apart
+from its neighbors (**separation**), flies their way (**alignment**), and stays with them (**cohesion**).
+This is the [boids](https://en.wikipedia.org/wiki/Boids) model of Craig Reynolds (1986).
+
+**Try this**
+* Turn the knobs to change the weight of each rule, and watch order appear or dissolve
+* Send in **hunters** that chase the flock
+* Turn on the **cursor predator**, and scatter the flock with the mouse
 """
 
 import numpy as np
-from imgui_bundle import imgui, implot, immapp, hello_imgui, imgui_md, imgui_knobs, imgui_toggle, icons_fontawesome_4
+from imgui_bundle import imgui, implot, immapp, hello_imgui, rich_md, imgui_knobs, imgui_toggle, icons_fontawesome_4
 from imgui_bundle import ImVec2, ImVec4
 from typing import List, Optional, Tuple
 import colorsys
 import time
 
 # =============================================================================
-# Simulation (vectorized — every boid updated in one numpy pass)
+# Simulation (vectorized: every boid updated in one numpy pass)
 # =============================================================================
 
 MIN_SPEED = 45.0      # boids never freeze; keeps the flock alive
@@ -386,21 +390,13 @@ def draw_flock(draw_list, state: AppState, origin: ImVec2):
 FA_PLAY = icons_fontawesome_4.ICON_FA_PLAY
 FA_PAUSE = icons_fontawesome_4.ICON_FA_PAUSE
 FA_UNDO = icons_fontawesome_4.ICON_FA_UNDO
+NARROW_WIDTH_EM = 40  # Under this width (in em, a phone), the animation goes above the controls
 
 
-def gui(state: AppState):
-    state.compute_cursor_predator()
-    state.update()
-
+def gui_controls(state: AppState):
+    """The buttons, the knobs, the sliders, the toggles and the plot of the order"""
     em = hello_imgui.em_size()
     btn_size = ImVec2(em * 2.5, em * 2.0)
-    imgui.push_style_var(imgui.StyleVar_.frame_rounding, em * 0.5)
-
-    # ---- Controls (left column) ------------------------------------------
-    imgui.begin_child("controls", ImVec2(em * 20, 0))
-
-    imgui_md.render(__doc__)
-    imgui.separator()
 
     if imgui.button(FA_PAUSE if not state.paused else FA_PLAY, btn_size):
         state.paused = not state.paused
@@ -458,13 +454,10 @@ def gui(state: AppState):
 
     imgui.text(f"FPS: {hello_imgui.frame_rate():.1f}")
 
-    imgui.pop_style_var()
-    imgui.end_child()
 
-    imgui.same_line()
-
-    # ---- Animation (right area) ------------------------------------------
-    imgui.begin_child("animation", ImVec2(0, 0))
+def gui_animation(state: AppState, size: ImVec2):
+    """The flock, in a child window of the given size"""
+    imgui.begin_child("animation", size)
     avail = imgui.get_content_region_avail()
     origin = imgui.get_cursor_screen_pos()
 
@@ -476,6 +469,41 @@ def gui(state: AppState):
     draw_flock(draw_list, state, origin)
 
     imgui.end_child()
+    hello_imgui.set_item_is_live(not state.paused)  # the animation moves on its own, unless paused
+
+
+def gui(state: AppState):
+    state.compute_cursor_predator()
+    state.update()
+
+    em = hello_imgui.em_size()
+    imgui.push_style_var(imgui.StyleVar_.frame_rounding, em * 0.5)
+
+    if imgui.get_content_region_avail().x >= NARROW_WIDTH_EM * em:
+        # The controls at the left, the animation at the right
+        imgui.begin_child("controls", ImVec2(em * 20, 0))
+        rich_md.render(__doc__)
+        imgui.separator()
+        gui_controls(state)
+        imgui.end_child()
+        imgui.same_line()
+        gui_animation(state, ImVec2(0, 0))
+    else:
+        # A narrow screen (a phone): the animation at the top, always visible; below it, the text (folded at first)
+        # and the controls scroll
+        avail = imgui.get_content_region_avail()
+        side = min(avail.x, avail.y * 0.45)
+        imgui.set_cursor_pos_x(imgui.get_cursor_pos_x() + (avail.x - side) / 2)
+        gui_animation(state, ImVec2(side, side))
+        imgui.begin_child("text_and_controls")
+        about = rich_md.FoldingTextOptions()
+        about.start_folded = True
+        rich_md.render_folding("about", __doc__, about)
+        imgui.separator()
+        gui_controls(state)
+        imgui.end_child()
+
+    imgui.pop_style_var()
 
 
 def main():
@@ -486,7 +514,6 @@ def main():
         window_size=(1200, 750),
         with_implot=True,
         with_markdown=True,
-        fps_idle=0,
         ini_disable=True,
     )
 

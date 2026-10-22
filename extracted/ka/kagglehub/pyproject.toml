@@ -19,13 +19,15 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 keywords = ["Kaggle", "API"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "requests", 
+  # Floor for the emSign/eMudhra CA removal (GHSA-6q48-6c7w-9gw2); requests otherwise accepts any certifi.
+  "certifi>=2026.10.19",
   "tqdm",
   "packaging",
   "pyyaml",
-  "kagglesdk >= 0.1.22, < 1.0", # sync with kaggle-api
+  "kagglesdk >= 0.1.38, < 1.0", # sync with kaggle-cli
 ]
 
 [project.urls]
@@ -35,16 +37,9 @@ dependencies = [
 [project.optional-dependencies]
 hf-datasets = ["datasets", "kagglehub[pandas-datasets]"]
 pandas-datasets = ["pandas"]
-signing = [ "model_signing", "sigstore>=3.6.1", "betterproto>=2.0.0b6"]
+# model_signing imports OpenSSL without declaring pyOpenSSL as a dependency.
+signing = [ "model_signing", "sigstore>=3.6.1", "betterproto>=2.0.0b6", "pyopenssl"]
 polars-datasets = ["polars"]
-
-# twine 6.0.1 doesn't support metadata-version 2.4.
-# remove `core-metadata-version` pin once twine release a new version with: https://github.com/pypa/twine/pull/1180
-[tool.hatch.build.targets.wheel]
-core-metadata-version = "2.3" 
-
-[tool.hatch.build.targets.sdist]
-core-metadata-version = "2.3"
 
 [tool.hatch.version]
 path = "src/kagglehub/__init__.py"
@@ -59,16 +54,16 @@ dependencies = [
   "openpyxl",
   # Used for testing reading Excel file via polars
   "fastexcel",
-  "pip",
+  "pip>=26.2.2",
   "pyjwt[crypto]",
 ]
 features = ["hf-datasets", "signing", "polars-datasets"]
 
 [[tool.hatch.envs.hatch-test.matrix]]
-python = ["3.10", "3.11", "3.12"]
+python = ["3.11", "3.12"]
 
 [[tool.hatch.envs.all.matrix]]
-python = ["3.10", "3.11", "3.12"]
+python = ["3.11", "3.12"]
 
 [tool.hatch.envs.lint]
 detached = true
@@ -78,6 +73,7 @@ dependencies = [
   "pyjwt[crypto]",
   "pytest",
   "model_signing",
+  "pyopenssl",
   "black>=23.1.0",
   "mypy>=1.0.0",
   "ruff>=0.0.243",
@@ -142,12 +138,12 @@ features = [
 ]
 
 [tool.black]
-target-version = ["py310"]
+target-version = ["py311"]
 line-length = 120
 skip-string-normalization = true
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py311"
 line-length = 120
 extend-exclude = [
   # Ignore saved scripts for local kagglehub testing
@@ -237,6 +233,8 @@ exclude_lines = [
 ]
 
 [tool.mypy]
+# Check against the minimum supported Python, not whichever interpreter runs mypy.
+python_version = "3.11"
 mypy_path = "./stubs"
 
 # TODO(b/307576378): Generate type hints for kagglesdk

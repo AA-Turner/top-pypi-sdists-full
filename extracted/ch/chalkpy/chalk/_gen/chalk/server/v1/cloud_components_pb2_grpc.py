@@ -20,6 +20,11 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentVpcRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentVpcResponse.FromString,
         )
+        self.UpdateCloudComponentVpc = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/UpdateCloudComponentVpc",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentVpcRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentVpcResponse.FromString,
+        )
         self.GetCloudComponentVpc = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/GetCloudComponentVpc",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcRequest.SerializeToString,
@@ -346,6 +351,12 @@ class CloudComponentsServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def CreateCloudComponentVpc(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateCloudComponentVpc(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -745,6 +756,11 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentVpcRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentVpcResponse.SerializeToString,
         ),
+        "UpdateCloudComponentVpc": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateCloudComponentVpc,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentVpcRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentVpcResponse.SerializeToString,
+        ),
         "GetCloudComponentVpc": grpc.unary_unary_rpc_method_handler(
             servicer.GetCloudComponentVpc,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetCloudComponentVpcRequest.FromString,
@@ -1095,6 +1111,35 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/CreateCloudComponentVpc",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentVpcRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentVpcResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateCloudComponentVpc(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/UpdateCloudComponentVpc",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentVpcRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.UpdateCloudComponentVpcResponse.FromString,
             options,
             channel_credentials,
             insecure,

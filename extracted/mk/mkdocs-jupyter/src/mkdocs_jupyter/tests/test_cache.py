@@ -48,6 +48,7 @@ def base_config():
         "highlight_extra_classes": "",
         "include_requirejs": False,
         "custom_mathjax_url": "",
+        "mathjax_version": 4,
         "toc_depth": 6,
     }
 
@@ -82,6 +83,29 @@ class TestComputeCacheKey:
         config2 = {**base_config, "allow_errors": False}
         key2 = _compute_cache_key(str(sample_nb), config2, False)
         assert key1 != key2
+
+    @pytest.mark.parametrize("version", [2, 3, 4])
+    def test_empty_mathjax_url_uses_default_cache_key(
+        self, sample_nb, base_config, version
+    ):
+        from mkdocs_jupyter.mathjax import MATHJAX_URLS
+
+        base_config = {**base_config, "mathjax_version": version}
+        default_config = {
+            **base_config,
+            "custom_mathjax_url": MATHJAX_URLS[version],
+        }
+        assert _compute_cache_key(str(sample_nb), base_config, False) == (
+            _compute_cache_key(str(sample_nb), default_config, False)
+        )
+
+    @pytest.mark.parametrize("version", [2, 3])
+    def test_mathjax_version_invalidates_cache(self, sample_nb, base_config, version):
+        assert _compute_cache_key(str(sample_nb), base_config, False) != (
+            _compute_cache_key(
+                str(sample_nb), {**base_config, "mathjax_version": version}, False
+            )
+        )
 
     def test_different_exec_nb_different_key(self, sample_nb, base_config):
         """Resolved exec_nb (after execute_ignore) affects the key."""
@@ -198,3 +222,17 @@ class TestCacheIntegration:
             # But valid cache files should remain
             cache_files = list(pathlib.Path(cache_dir).glob("*.json"))
             assert len(cache_files) > 0
+
+
+def test_identical_notebooks_in_different_directories_have_distinct_cache_keys(
+    tmp_path, sample_nb, base_config
+):
+    first = tmp_path / "first" / "notebook.ipynb"
+    second = tmp_path / "second" / "notebook.ipynb"
+    for source in (first, second):
+        source.parent.mkdir()
+        source.write_bytes(sample_nb.read_bytes())
+
+    assert _compute_cache_key(first, base_config, True) != _compute_cache_key(
+        second, base_config, True
+    )

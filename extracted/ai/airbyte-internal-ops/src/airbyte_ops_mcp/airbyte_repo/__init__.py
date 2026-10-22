@@ -30,6 +30,8 @@ from airbyte_ops_mcp.airbyte_repo.list_connectors import (
     get_changed_files,
     get_connectors_by_language,
     get_connectors_with_local_cdk,
+    get_file_at_merge_base,
+    get_merge_base,
     get_modified_connectors,
     list_connectors,
 )
@@ -57,6 +59,8 @@ __all__ = [
     "get_changed_files",
     "get_connectors_by_language",
     "get_connectors_with_local_cdk",
+    "get_file_at_merge_base",
+    "get_merge_base",
     "get_modified_connectors",
     "list_connectors",
     "parse_pr_info",

@@ -1,4 +1,5 @@
 """Load items from SQL or search and export to CSV."""
+
 from __future__ import annotations
 
 import json
@@ -31,7 +32,9 @@ def export_items_to_csv(
     """Export scraped items to CSV. Returns ``(count, columns)``."""
     _require_destination(settings)
     if job_id and spider:
-        raise ConfigurationError("export items: use either --job-id or --spider, not both")
+        raise ConfigurationError(
+            "export items: use either --job-id or --spider, not both"
+        )
     if not job_id and not spider:
         raise ConfigurationError("export items requires --job-id or --spider")
 
@@ -41,12 +44,18 @@ def export_items_to_csv(
         if settings.ingest_to_database:
             rows = list(_iter_sql_rows_for_job(settings, job_id, batch_size=batch_size))
         else:
-            rows = list(_iter_search_rows_for_job(settings, job_id, batch_size=batch_size))
+            rows = list(
+                _iter_search_rows_for_job(settings, job_id, batch_size=batch_size)
+            )
     else:
         if settings.ingest_to_database:
-            rows = list(_iter_sql_rows_for_spider(settings, spider, batch_size=batch_size))
+            rows = list(
+                _iter_sql_rows_for_spider(settings, spider, batch_size=batch_size)
+            )
         else:
-            rows = list(_iter_search_rows_for_spider(settings, spider, batch_size=batch_size))
+            rows = list(
+                _iter_search_rows_for_spider(settings, spider, batch_size=batch_size)
+            )
         if not rows:
             _ensure_spider_has_jobs(settings, spider)
 

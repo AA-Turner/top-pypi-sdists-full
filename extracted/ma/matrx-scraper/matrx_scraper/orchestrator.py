@@ -488,8 +488,13 @@ async def _fetch_and_parse(
     browser_pool: Any,
     user_agent: str | None,
     proxy_override: str | None = None,
+    force_engine: str | None = None,
 ) -> ScrapeResult:
     """One transport round-trip, fully parsed, tagged with the engine used.
+
+    `force_engine="stealth"` runs the BROWSER step on the stealth engine regardless of the
+    `browser_engine` knob and WITHOUT falling back to the pool (the stealth retry owns that
+    decision); `None` follows the knob.
 
     `proxy_override`, when set, REPLACES the datacenter proxy pool for this one
     round-trip — it is the loopback address of a running `EgressAdapter`, so the
@@ -500,7 +505,7 @@ async def _fetch_and_parse(
         from matrx_scraper.stealth_browser import stealth_fetch, use_stealth
 
         response = None
-        if use_stealth():
+        if force_engine == "stealth" or (force_engine is None and use_stealth()):
             # knowledge.scraper.browser_engine = stealth: ONE path replaces both the
             # injected pool and the module-level browser fetch below. A stealth
             # failure (launch, timeout, closed target) is announced and the current
@@ -511,6 +516,8 @@ async def _fetch_and_parse(
                     url, proxy=proxy, user_agent=user_agent
                 )
             except Exception as exc:  # noqa: BLE001 - announced, then the current engine runs
+                if force_engine == "stealth":
+                    raise
                 logger.warning(
                     "stealth browser failed for %s (%s); falling back to current engine",
                     redact_url_secrets(url),
@@ -695,6 +702,100 @@ async def _maybe_escalate_to_browser(
         "We also opened this page in our server browser and it did not return more "
         "content, so this is the site's real answer."
     )
+    return result
+
+
+def _read_failed(result: ScrapeResult) -> bool:
+    """`read_judge.judge_read`'s verdict on a finished result (strong signals only; a page that is
+    missing everywhere - HTTP 404/410 - is failed but not coverable, so no other engine is tried)."""
+    from matrx_scraper.read_judge import judge_read
+
+    text = result.text_data or result.ai_research_content or ""
+    fetch_failure = result.failure_reason if not text else None
+    verdict = judge_read(
+        status=result.status_code or None,
+        text=text,
+        title=result.title,
+        fetch_failure=fetch_failure,
+    )
+    return verdict.failed and verdict.coverable
+
+
+async def _maybe_retry_with_stealth(
+    result: ScrapeResult,
+    *,
+    url: str,
+    use_proxy: bool,
+    fast: bool,
+    browser_pool: Any,
+    user_agent: str | None,
+    deadline: float | None,
+    force: bool | None = None,
+) -> ScrapeResult:
+    """ONE stealth-browser retry for a read the judge marks failed (`knowledge.scraper.stealth_retry`).
+
+    A read that is fine is returned untouched, byte for byte. The retry is skipped when the stealth
+    engine already ran for this page (`browser_engine=stealth`), when the content cannot be rendered,
+    when the knob is off, and when the caller's time budget (`deadline`, a `time.monotonic()` value)
+    has less than `stealth_retry_min_seconds` left. The stealth result replaces the original only when it
+    is usable and carries more text; otherwise the original answer stands, unchanged.
+    """
+    import time
+
+    from matrx_scraper.stealth_browser import (
+        current_read_deadline,
+        stealth_available,
+        stealth_retry_enabled,
+        stealth_retry_min_seconds,
+        use_stealth,
+    )
+
+    enabled = stealth_retry_enabled() if force is None else (force and stealth_available())
+    if not enabled or use_stealth():
+        return result
+    if result.content_type and not can_render(result.content_type):
+        return result
+    if not _read_failed(result):
+        return result
+    timeout: float | None = None
+    if deadline is None:
+        deadline = current_read_deadline()  # a chat / agent read carries its budget in the context
+    if deadline is not None:
+        remaining = deadline - time.monotonic()
+        if remaining < stealth_retry_min_seconds():
+            logger.info("stealth retry skipped for %s: %.0fs left", redact_url_secrets(url), remaining)
+            return result
+        timeout = remaining - 1.0
+    proxy_ok = use_proxy
+    try:
+        from matrx_scraper import proxy_health
+
+        proxy_ok = use_proxy and not (result.proxy_bypassed or proxy_health.pool_refuses(url))
+    except Exception:  # noqa: BLE001 - a health probe never blocks the retry
+        pass
+    try:
+        retry = _fetch_and_parse(
+            url,
+            request_type=RequestType.BROWSER,
+            use_proxy=proxy_ok,
+            fast=fast,
+            browser_pool=browser_pool,
+            user_agent=user_agent,
+            force_engine="stealth",
+        )
+        rendered = await (asyncio.wait_for(retry, timeout) if timeout else retry)
+    except Exception as exc:  # noqa: BLE001 - announced; the original answer stands
+        logger.warning("stealth retry FAILED for %s: %s", redact_url_secrets(url), redact_url_secrets(repr(exc)))
+        return result
+    _apply_content_sanity(rendered)
+    rendered.browser_attempted = True
+    if _usable(rendered) and not _read_failed(rendered) and rendered.content_chars > result.content_chars:
+        rendered.escalated = True
+        rendered.escalation_reason = result.failure_reason or result.content_warning or "read_failed"
+        rendered.escalation_note = (
+            "The first attempts did not return the page; a second pass with our stealth browser did."
+        )
+        return rendered
     return result
 
 
@@ -1161,8 +1262,14 @@ async def scrape(
     ladder_policy: LadderPolicy | None = None,
     organization_id: str | None = None,
     acting_user_id: str | None = None,
+    deadline: float | None = None,
+    stealth_retry: bool | None = None,
 ) -> ScrapeResult:
     """Fetch and fully parse a single URL. Always async — never blocks.
+
+    `deadline` (a `time.monotonic()` value) is the caller's time budget, e.g. a chat turn. When
+    little is left, the optional stealth retry is skipped; nothing else changes.
+    `stealth_retry` overrides `knowledge.scraper.stealth_retry` for this one call (None = follow the knob).
 
     `user_agent`, when set, overrides the User-Agent for whichever transport
     this call ends up using (HTTP or browser). `None` = no override.
@@ -1335,6 +1442,18 @@ async def scrape(
             user_agent=user_agent,
             escalate=escalate,
         )
+
+    # A read the judge still marks failed gets ONE stealth-browser retry (knob-gated, budget-aware).
+    result = await _maybe_retry_with_stealth(
+        result,
+        url=url,
+        use_proxy=use_proxy,
+        fast=fast,
+        browser_pool=pool,
+        user_agent=user_agent,
+        deadline=deadline,
+        force=stealth_retry,
+    )
 
     # The last exit we own: the acting person's own computer, once, for this
     # page only. It runs BEFORE the ladder is sealed so a page it rescues never

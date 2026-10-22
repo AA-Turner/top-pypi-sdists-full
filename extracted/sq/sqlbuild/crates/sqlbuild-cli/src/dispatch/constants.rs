@@ -420,7 +420,7 @@ pub(crate) const QUERY_ROUTE: Route = routed(
     },
 );
 
-const RECALL_ARGUMENTS: [Field; 13] = [
+const RECALL_ARGUMENTS: [Field; 14] = [
     PROJECT_DIR,
     SELECTED_TARGET,
     same("recall_command"),
@@ -434,6 +434,7 @@ const RECALL_ARGUMENTS: [Field; 13] = [
     attr("invocation", "recall_invocation"),
     attr("stream", "recall_stream"),
     attr("tail", "recall_tail"),
+    attr("ddl", "recall_ddl"),
 ];
 pub(crate) const RECALL_ROUTE: Route = routed(
     "run_recall",
@@ -504,11 +505,13 @@ pub(crate) const JANITOR_ROUTE: Route = routed(
     REQUEST_KEYWORD_SHAPE,
 );
 
-const REFACTOR_FIELDS: [Field; 9] = [
+const REFACTOR_FIELDS: [Field; 11] = [
     field("command", Source::Text("command")),
     attr("target", "refactor_target"),
     attr("new_name", "refactor_new_name"),
     attr("destination", "refactor_destination"),
+    field("more_moves", Source::TupleOf("refactor_more_moves")),
+    attr("from_file", "refactor_from_file"),
     PROJECT_DIR,
     attr("cascade", "refactor_cascade"),
     same("dry_run"),

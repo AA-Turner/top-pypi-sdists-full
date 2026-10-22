@@ -2,9 +2,9 @@ import os
 from datetime import datetime, timezone
 from json.decoder import JSONDecodeError
 
-from biolib._internal.http_client import HttpClient
 from biolib._internal.utils.auth import decode_jwt_without_checking_signature
 from biolib._runtime.runtime import Runtime
+from biolib._shared.http_client import HttpClient
 from biolib._shared.types.typing import Optional, TypedDict
 from biolib.biolib_errors import BioLibError
 from biolib.biolib_logging import logger, logger_no_user_data

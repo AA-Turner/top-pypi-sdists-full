@@ -489,6 +489,9 @@ class Testglob(_TestGlob):
         # Glob with braces and "unique" turned off
         [('{a*,a*}',), [('a',), ('aab',), ('aaa',), ('a',), ('aab',), ('aaa',)], glob.Q],
 
+        # Glob with braces and "unique" on while ignoring case
+        [('{E*,*F}',), [('EF',)], glob.I],
+
         # Test recursive glob logic with no symlink following.
         [
             ('**', '*'),
@@ -1404,6 +1407,15 @@ class TestCase(_TestGlob):
         else:
             assert len(glob.glob('*', root_dir=self.tempdir)) == 2
 
+    @pytest.mark.parametrize('patterns', ['*', ['a*', 'A*']], ids=['single', 'multiple'])
+    def test_case_unique(self, patterns):
+        """Test files that only differ by case are both returned when ignoring case."""
+
+        if len(os.listdir(self.tempdir)) == 1:
+            pytest.skip("Skipped")
+        else:
+            assert sorted(glob.glob(patterns, flags=glob.I, root_dir=self.tempdir)) == ['A', 'a']
+
 
 class TestGlobCornerCase(_TestGlob):
     """
@@ -1777,6 +1789,94 @@ class TestExpansionLimit(unittest.TestCase):
                     limit=10
                 )
             )
+
+
+@pytest.mark.parametrize('globber', [glob.glob, glob.iglob], ids=['glob', 'iglob'])
+@pytest.mark.parametrize('encode', [str, os.fsencode], ids=['str', 'bytes'])
+@pytest.mark.parametrize(
+    'patterns, exclude, flags, limit',
+    [
+        (['a'], ['b'], 0, 1),
+        (['a', 'b'], ['c'], 0, 2),
+        (['a'], ['b', 'c'], 0, 2),
+        (['a'], ['a'], 0, 1),
+        (['a', 'a'], ['b'], 0, 2),
+        (['{a,b}'], ['c'], glob.BRACE, 2),
+        (['a'], ['{b,c}'], glob.BRACE, 2),
+        (['a|b'], ['c'], glob.SPLIT, 2),
+        (['a'], ['b|c'], glob.SPLIT, 2)
+    ],
+    ids=['single', 'includes', 'excludes', 'overlap', 'duplicates',
+         'brace-includes', 'brace-excludes', 'split-includes', 'split-excludes']
+)
+def test_glob_exclude_shares_limit(globber, encode, patterns, exclude, flags, limit, tmp_path):
+    """Count include and exclude expansions against one budget before scanning."""
+
+    with pytest.raises(_wcparse.PatternLimitException):
+        list(globber(
+            [encode(p) for p in patterns],
+            exclude=[encode(p) for p in exclude],
+            root_dir=encode(str(tmp_path)),
+            flags=flags,
+            limit=limit
+        ))
+
+
+@pytest.mark.parametrize('globber', [glob.glob, glob.iglob], ids=['glob', 'iglob'])
+@pytest.mark.parametrize('encode', [str, os.fsencode], ids=['str', 'bytes'])
+@pytest.mark.parametrize('limit', [0, -1], ids=['zero', 'negative'])
+@pytest.mark.parametrize('exclude', [None, 'c'], ids=['without-exclude', 'with-exclude'])
+def test_glob_unlimited_multiple_patterns(globber, encode, limit, exclude, tmp_path):
+    """Keep unlimited brace expansion after processing an earlier pattern."""
+
+    for name in ('a', 'b', 'c'):
+        (tmp_path / name).touch()
+    results = list(globber(
+        [encode('a'), encode('{b,c}')],
+        exclude=encode(exclude) if exclude is not None else None,
+        root_dir=encode(str(tmp_path)),
+        flags=glob.BRACE,
+        limit=limit
+    ))
+    expected = ('a', 'b', 'c') if exclude is None else ('a', 'b')
+    assert sorted(results) == [encode(name) for name in expected]
+
+
+@pytest.mark.parametrize('globber', [glob.glob, glob.iglob], ids=['glob', 'iglob'])
+@pytest.mark.parametrize('encode', [str, os.fsencode], ids=['str', 'bytes'])
+@pytest.mark.parametrize('extra_flags', [0, glob.NODIR], ids=['default', 'nodir'])
+def test_glob_exclude_limit_boundary(globber, encode, extra_flags, tmp_path):
+    """Allow the exact budget and do not charge an implicit directory filter."""
+
+    for name in ('a', 'b', 'c'):
+        (tmp_path / name).touch()
+    assert list(globber(
+        encode('{a,b}'),
+        exclude=encode('b'),
+        root_dir=encode(str(tmp_path)),
+        flags=glob.BRACE | extra_flags,
+        limit=3
+    )) == [encode('a')]
+
+
+@pytest.mark.parametrize('as_bytes', [False, True])
+@pytest.mark.parametrize('dotmatch', [False, True])
+def test_optional_group_glob_directory(tmp_path, as_bytes, dotmatch):
+    """Directory scans omit hidden entries unless `DOTMATCH` is requested."""
+
+    for name in ['.hidden', 'a.hidden', 'visible']:
+        (tmp_path / name).touch()
+    flags = glob.EXTGLOB
+    expected = ['a.hidden', 'visible']
+    if dotmatch:
+        flags |= glob.DOTMATCH
+        expected.insert(0, '.hidden')
+    pattern, root_dir = '?(a)*', str(tmp_path)
+    if as_bytes:
+        pattern, root_dir = pattern.encode(), os.fsencode(root_dir)
+        expected = [name.encode() for name in expected]
+
+    assert sorted(glob.glob(pattern, root_dir=root_dir, flags=flags)) == expected
 
 
 class TestInputTypes(unittest.TestCase):

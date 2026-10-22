@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: MDAnalysis
-Version: 2.10.0
+Version: 2.11.0
 Summary: An object-oriented toolkit to analyze molecular dynamics trajectories.
 Author-email: MDAnalysis Development Team <mdanalysis@numfocus.org>
 Maintainer-email: MDAnalysis Core Developers <mdanalysis@numfocus.org>
@@ -1689,9 +1689,11 @@ Requires-Dist: netCDF4>=1.0; extra == "extra-formats"
 Requires-Dist: h5py>=2.10; extra == "extra-formats"
 Requires-Dist: chemfiles>=0.10; extra == "extra-formats"
 Requires-Dist: parmed; extra == "extra-formats"
+Requires-Dist: pooch; extra == "extra-formats"
 Requires-Dist: pyedr>=0.7.0; extra == "extra-formats"
 Requires-Dist: pytng>=0.2.3; extra == "extra-formats"
 Requires-Dist: gsd>3.0.0; extra == "extra-formats"
+Requires-Dist: gemmi>=0.7.5; extra == "extra-formats"
 Requires-Dist: rdkit>=2022.09.1; extra == "extra-formats"
 Requires-Dist: imdclient>=0.2.2; extra == "extra-formats"
 Provides-Extra: analysis

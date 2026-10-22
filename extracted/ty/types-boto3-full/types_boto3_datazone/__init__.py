@@ -21,6 +21,7 @@ Usage::
         ListDataSourceRunActivitiesPaginator,
         ListDataSourceRunsPaginator,
         ListDataSourcesPaginator,
+        ListDesignationsPaginator,
         ListDomainUnitsForParentPaginator,
         ListDomainsPaginator,
         ListEntityOwnersPaginator,
@@ -66,6 +67,7 @@ Usage::
     list_data_source_run_activities_paginator: ListDataSourceRunActivitiesPaginator = client.get_paginator("list_data_source_run_activities")
     list_data_source_runs_paginator: ListDataSourceRunsPaginator = client.get_paginator("list_data_source_runs")
     list_data_sources_paginator: ListDataSourcesPaginator = client.get_paginator("list_data_sources")
+    list_designations_paginator: ListDesignationsPaginator = client.get_paginator("list_designations")
     list_domain_units_for_parent_paginator: ListDomainUnitsForParentPaginator = client.get_paginator("list_domain_units_for_parent")
     list_domains_paginator: ListDomainsPaginator = client.get_paginator("list_domains")
     list_entity_owners_paginator: ListEntityOwnersPaginator = client.get_paginator("list_entity_owners")
@@ -111,6 +113,7 @@ from .paginator import (
     ListDataSourceRunActivitiesPaginator,
     ListDataSourceRunsPaginator,
     ListDataSourcesPaginator,
+    ListDesignationsPaginator,
     ListDomainsPaginator,
     ListDomainUnitsForParentPaginator,
     ListEntityOwnersPaginator,
@@ -159,6 +162,7 @@ __all__ = (
     "ListDataSourceRunActivitiesPaginator",
     "ListDataSourceRunsPaginator",
     "ListDataSourcesPaginator",
+    "ListDesignationsPaginator",
     "ListDomainUnitsForParentPaginator",
     "ListDomainsPaginator",
     "ListEntityOwnersPaginator",

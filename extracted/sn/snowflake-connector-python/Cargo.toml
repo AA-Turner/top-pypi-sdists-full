@@ -21,3 +21,8 @@ resolver = "2"
 strip = true
 opt-level = "z"
 lto = false
+
+# Same override as the main workspace Cargo.toml. The sdist workspace does
+# not inherit that patch.
+[patch.crates-io]
+rustls-webpki = { path = "sf_core/third_party/rustls-webpki" }

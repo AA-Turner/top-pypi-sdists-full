@@ -7,13 +7,15 @@
 # and is generally very close to the C++ version. Comments, docs are identical.
 ###############################################################################
 
-"""ImGui Test Engine python bindings
+"""Dear ImGui Test Engine: automate and test an app, by scripting mouse and keyboard actions on its widgets.
 
-Note: Integrating ImGui TestEngine directly from python, and without using HelloImGui and ImmApp is very difficult:
-         ImGui Test Engine uses two different threads (one for the main gui, and one for the scenario runner).
-         Your python code will be called from two separate threads, and this breaks the GIL!
-         HelloImGui and ImmApp handle this well by transferring the GIL between threads (from C++)
-     For gory details, see https://github.com/pthom/imgui_test_engine/blob/imgui_bundle/imgui_test_engine/imgui_te_python_gil.jpg
+A test drives the GUI as a user would: it clicks a button by its label, types text, checks a value. Run it inside
+Hello ImGui or ImmApp: set `runner_params.use_imgui_test_engine = True`, and register the tests in
+`runner_params.callbacks.register_tests`.
+
+In Python, the test engine runs the tests on a second thread, and Hello ImGui and ImmApp hand the GIL between the
+two threads. Using it without them is very difficult (details:
+https://github.com/pthom/imgui_test_engine/blob/imgui_bundle/imgui_test_engine/imgui_te_python_gil.jpg).
 """
 
 # ruff: noqa: B008, F821
@@ -138,6 +140,7 @@ ImVector_Window = ImVector_Window_ptr
 # Types
 # -------------------------------------------------------------------------
 
+# enum ImGuiTestEngineExportFormat    /* original C++ signature */
 class TestEngineExportFormat(enum.IntFlag):
     # ImGuiTestEngineExportFormat_None = 0,    /* original C++ signature */
     none = enum.auto()  # (= 0)
@@ -195,6 +198,7 @@ def export_ex(engine: TestEngine, format: TestEngineExportFormat, filename: str)
 # Types
 # -------------------------------------------------------------------------
 
+# enum ImGuiTestActiveFunc    /* original C++ signature */
 class TestActiveFunc(enum.IntFlag):
     """Stored in ImGuiTestContext: where we are currently running GuiFunc or TestFunc"""
 
@@ -207,6 +211,7 @@ class TestActiveFunc(enum.IntFlag):
     # ImGuiTestActiveFunc_TeardownFunc,           /* original C++ signature */
     teardown_func = enum.auto()  # (= 3)  # == TeardownFunc() handler
 
+# enum ImGuiTestRunSpeed    /* original C++ signature */
 class TestRunSpeed(enum.IntFlag):
     # ImGuiTestRunSpeed_Fast          = 0,        /* original C++ signature */
     fast = enum.auto()  # (= 0)  # Run tests as fast as possible (teleport mouse, skip delays, etc.)
@@ -218,6 +223,7 @@ class TestRunSpeed(enum.IntFlag):
     # }
     count = enum.auto()  # (= 3)
 
+# enum ImGuiTestVerboseLevel    /* original C++ signature */
 class TestVerboseLevel(enum.IntFlag):
     # ImGuiTestVerboseLevel_Silent    = 0,        /* original C++ signature */
     silent = enum.auto()  # (= 0)  # -v0
@@ -235,6 +241,7 @@ class TestVerboseLevel(enum.IntFlag):
     # }
     count = enum.auto()  # (= 6)
 
+# enum ImGuiTestStatus    /* original C++ signature */
 class TestStatus(enum.IntFlag):
     """Test status (stored in ImGuiTest)"""
 
@@ -254,6 +261,7 @@ class TestStatus(enum.IntFlag):
     # }
     count = enum.auto()  # (= 6)
 
+# enum ImGuiTestGroup    /* original C++ signature */
 class TestGroup(enum.IntFlag):
     """Test group: this is mostly used to categorize tests in our testing UI. (Stored in ImGuiTest)"""
 
@@ -267,6 +275,7 @@ class TestGroup(enum.IntFlag):
     # }
     count = enum.auto()  # (= 2)
 
+# enum ImGuiTestFlags_    /* original C++ signature */
 class TestFlags_(enum.IntFlag):
     """Flags (stored in ImGuiTest)"""
 
@@ -286,6 +295,7 @@ class TestFlags_(enum.IntFlag):
     )  # (= 1 << 2)  # Error/recovery warnings (missing End/Pop calls etc.) will be displayed as normal debug entries, for tests which may rely on those.
     # ImGuiTestFlags_RequireViewports   = 1 << 10
 
+# enum ImGuiTestCheckFlags_    /* original C++ signature */
 class TestCheckFlags_(enum.IntFlag):
     """Flags for IM_CHECK* macros."""
 
@@ -295,6 +305,7 @@ class TestCheckFlags_(enum.IntFlag):
     # }
     silent_success = enum.auto()  # (= 1 << 0)
 
+# enum ImGuiTestLogFlags_    /* original C++ signature */
 class TestLogFlags_(enum.IntFlag):
     """Flags for ImGuiTestContext::Log* functions."""
 
@@ -303,6 +314,7 @@ class TestLogFlags_(enum.IntFlag):
     # ImGuiTestLogFlags_NoHeader          = 1 << 0        /* original C++ signature */
     no_header = enum.auto()  # (= 1 << 0)  # Do not display frame count and depth padding
 
+# enum ImGuiTestRunFlags_    /* original C++ signature */
 class TestRunFlags_(enum.IntFlag):
     # ImGuiTestRunFlags_None              = 0,    /* original C++ signature */
     none = enum.auto()  # (= 0)
@@ -336,6 +348,7 @@ class TestRunFlags_(enum.IntFlag):
     )  # (= 1 << 12)  # Share ImGuiTestContext instead of creating a new one (unsure what purpose this may be useful for yet)
     # TODO: Add GuiFunc options
 
+# struct ImGuiTestEngineResultSummary    /* original C++ signature */
 class TestEngineResultSummary:
     # int     CountTested = 0;    /* original C++ signature */
     count_tested: int = 0  # Number of tests executed
@@ -343,7 +356,6 @@ class TestEngineResultSummary:
     count_success: int = 0  # Number of tests succeeded
     # int     CountInQueue = 0;    /* original C++ signature */
     count_in_queue: int = 0  # Number of tests remaining in queue (e.g. aborted, crashed)
-    # ImGuiTestEngineResultSummary(int CountTested = 0, int CountSuccess = 0, int CountInQueue = 0);    /* original C++ signature */
     def __init__(self, count_tested: int = 0, count_success: int = 0, count_in_queue: int = 0) -> None:
         """Auto-generated default constructor with named params"""
         pass
@@ -518,6 +530,7 @@ def crash_handler() -> None:
 # IO structure to configure the test engine
 # -----------------------------------------------------------------------------
 
+# struct ImGuiTestEngineIO    /* original C++ signature */
 class TestEngineIO:
     # -------------------------------------------------------------------------
     # Functions
@@ -602,7 +615,7 @@ class TestEngineIO:
     # ImGuiTestEngineExportFormat ExportResultsFormat = (ImGuiTestEngineExportFormat)0;    /* original C++ signature */
     export_results_format: TestEngineExportFormat = TestEngineExportFormat.j_unit_xml
 
-    #                                                     #ifdef IMGUI_BUNDLE_PYTHON_API
+    # #ifdef IMGUI_BUNDLE_PYTHON_API
     #
     # void ExportResultsFilename_Set(const char* filename);    /* original C++ signature */
     def export_results_filename_set(self, filename: str) -> None:
@@ -610,7 +623,7 @@ class TestEngineIO:
         (private API)
         """
         pass
-    #                                                     #endif
+    # #endif
     #
 
     # Options: Sanity Checks
@@ -632,7 +645,6 @@ class TestEngineIO:
     )
     # bool                        IsCapturing = false;    /* original C++ signature */
     is_capturing: bool = False  # Capture is in progress
-    # ImGuiTestEngineIO(bool ConfigSavedSettings = true, ImGuiTestRunSpeed ConfigRunSpeed = ImGuiTestRunSpeed_Fast, bool ConfigStopOnError = false, bool ConfigBreakOnError = false, bool ConfigKeepGuiFunc = false, bool ConfigRestoreFocusAfterTests = true, bool ConfigCaptureEnabled = true, bool ConfigCaptureOnError = false, bool ConfigNoThrottle = false, bool ConfigMouseDrawCursor = true, float ConfigFixedDeltaTime = 0.0f, int PerfStressAmount = 1, ImGuiTestVerboseLevel ConfigVerboseLevel = ImGuiTestVerboseLevel_Warning, ImGuiTestVerboseLevel ConfigVerboseLevelOnError = ImGuiTestVerboseLevel_Info, bool ConfigLogToTTY = false, bool ConfigLogToDebugger = false, float MouseSpeed = 600.0f, float MouseWobble = 0.25f, float ScrollSpeed = 1400.0f, float TypingSpeed = 20.0f, float ActionDelayShort = 0.15f, float ActionDelayStandard = 0.40f, float ConfigWatchdogWarning = 30.0f, float ConfigWatchdogKillTest = 60.0f, float ConfigWatchdogKillApp = FLT_MAX, ImGuiTestEngineExportFormat ExportResultsFormat = (ImGuiTestEngineExportFormat)0, bool CheckDrawDataIntegrity = false, bool IsRunningTests = false, bool IsRequestingMaxAppSpeed = false, bool IsCapturing = false);    /* original C++ signature */
     def __init__(
         self,
         config_saved_settings: bool = True,
@@ -673,6 +685,7 @@ class TestEngineIO:
 # ImGuiTestItemInfo
 # -------------------------------------------------------------------------
 
+# struct ImGuiTestItemInfo    /* original C++ signature */
 class TestItemInfo:
     """Information about a given item or window, result of an ItemInfo() or WindowInfo() query"""
 
@@ -698,51 +711,52 @@ class TestItemInfo:
         0  # Item Status flags (fully updated for some items only, compare TimestampStatus to FrameCount)
     )
 
-    # ImGuiTestItemInfo()         { memset(this, 0, sizeof(*this)); }    /* original C++ signature */
+    # ImGuiTestItemInfo();    /* original C++ signature */
     def __init__(self) -> None:
         pass
 
+# struct ImGuiTestItemList    /* original C++ signature */
 class TestItemList:
     """Result of an GatherItems() query"""
 
-    # void                        Clear()                 { Pool.Clear(); }    /* original C++ signature */
+    # void                        Clear();    /* original C++ signature */
     def clear(self) -> None:
         """(private API)"""
         pass
-    # void                        Reserve(int capacity)   { Pool.Reserve(capacity); }    /* original C++ signature */
+    # void                        Reserve(int capacity);    /* original C++ signature */
     def reserve(self, capacity: int) -> None:
         """(private API)"""
         pass
-    # int                         GetSize() const         { return Pool.GetMapSize(); }    /* original C++ signature */
+    # int                         GetSize() const;    /* original C++ signature */
     def get_size(self) -> int:
         """(private API)"""
         pass
-    # const ImGuiTestItemInfo*    GetByIndex(int n)       { return Pool.GetByIndex(n); }    /* original C++ signature */
+    # const ImGuiTestItemInfo*    GetByIndex(int n);    /* original C++ signature */
     def get_by_index(self, n: int) -> TestItemInfo:
         """(private API)"""
         pass
-    # const ImGuiTestItemInfo*    GetByID(ImGuiID id)     { return Pool.GetByKey(id); }    /* original C++ signature */
+    # const ImGuiTestItemInfo*    GetByID(ImGuiID id);    /* original C++ signature */
     def get_by_id(self, id_: ID) -> TestItemInfo:
         """(private API)"""
         pass
     # For range-for
-    # size_t                      size() const            { return (size_t)Pool.GetMapSize(); }    /* original C++ signature */
+    # size_t                      size() const;    /* original C++ signature */
     def size(self) -> int:
         """(private API)"""
         pass
-    # const ImGuiTestItemInfo*    begin() const           { return Pool.Buf.begin(); }    /* original C++ signature */
+    # const ImGuiTestItemInfo*    begin() const;    /* original C++ signature */
     def begin(self) -> TestItemInfo:
         """(private API)"""
         pass
-    # const ImGuiTestItemInfo*    end() const             { return Pool.Buf.end(); }    /* original C++ signature */
+    # const ImGuiTestItemInfo*    end() const;    /* original C++ signature */
     def end(self) -> TestItemInfo:
         """(private API)"""
         pass
-    # const ImGuiTestItemInfo*    operator[] (size_t n)   { return &Pool.Buf[(int)n]; }    /* original C++ signature */
+    # const ImGuiTestItemInfo*    operator[] (size_t n);    /* original C++ signature */
     def __getitem__(self, n: int) -> TestItemInfo:
         """(private API)"""
         pass
-    # ImGuiTestItemList();    /* original C++ signature */
+
     def __init__(self) -> None:
         """Auto-generated default constructor"""
         pass
@@ -751,33 +765,34 @@ class TestItemList:
 # ImGuiTestLog: store textual output of one given Test.
 # -------------------------------------------------------------------------
 
+# struct ImGuiTestLogLineInfo    /* original C++ signature */
 class TestLogLineInfo:
     # ImGuiTestVerboseLevel           Level;    /* original C++ signature */
     level: TestVerboseLevel
     # int                             LineOffset;    /* original C++ signature */
     line_offset: int
-    # ImGuiTestLogLineInfo(ImGuiTestVerboseLevel Level = ImGuiTestVerboseLevel(), int LineOffset = int());    /* original C++ signature */
     def __init__(self, level: TestVerboseLevel = TestVerboseLevel.warning, line_offset: int = int()) -> None:
         """Auto-generated default constructor with named params"""
         pass
 
+# struct ImGuiTestLog    /* original C++ signature */
 class TestLog:
     # ImGuiTextBuffer                 Buffer;    /* original C++ signature */
     buffer: TextBuffer
 
-    # ImGuiTestLog() {}    /* original C++ signature */
+    # ImGuiTestLog();    /* original C++ signature */
     def __init__(self) -> None:
         """Functions"""
         pass
-    # bool        IsEmpty() const     { return Buffer.empty(); }    /* original C++ signature */
+    # bool        IsEmpty() const;    /* original C++ signature */
     def is_empty(self) -> bool:
         """(private API)"""
         pass
-    # const char* GetText()           { return Buffer.c_str(); }    /* original C++ signature */
+    # const char* GetText();    /* original C++ signature */
     def get_text(self) -> str:
         """(private API)"""
         pass
-    # int         GetTextLen()        { return Buffer.size(); }    /* original C++ signature */
+    # int         GetTextLen();    /* original C++ signature */
     def get_text_len(self) -> int:
         """(private API)"""
         pass
@@ -814,6 +829,7 @@ class TestLog:
 
 # Wraps a placement new of a given type (where 'buffer' is the allocated memory)
 
+# struct ImGuiTestOutput    /* original C++ signature */
 class TestOutput:
     """Storage for the output of a test run"""
 
@@ -825,7 +841,6 @@ class TestOutput:
     start_time: ImU64 = 0
     # ImU64                           EndTime = 0;    /* original C++ signature */
     end_time: ImU64 = 0
-    # ImGuiTestOutput(ImGuiTestStatus Status = ImGuiTestStatus_Unknown, ImGuiTestLog Log = ImGuiTestLog(), ImU64 StartTime = 0, ImU64 EndTime = 0);    /* original C++ signature */
     def __init__(
         self,
         status: TestStatus = TestStatus_Unknown,
@@ -840,6 +855,7 @@ class TestOutput:
         """
         pass
 
+# struct ImGuiTest    /* original C++ signature */
 class Test:
     """Storage for one test"""
 
@@ -893,17 +909,18 @@ class Test:
     # void*                           VarsPostConstructorUserFn = nullptr;    /* original C++ signature */
     vars_post_constructor_user_fn: Optional[Any] = None
 
-    # ImGuiTest() {}    /* original C++ signature */
+    # ImGuiTest();    /* original C++ signature */
     def __init__(self) -> None:
         """Functions"""
         pass
-    # void SetOwnedName(const char* name) { Name = name; }    /* original C++ signature */
+    # void SetOwnedName(const char* name);    /* original C++ signature */
     def set_owned_name(self, name: str) -> None:
         """[Bundle] Compatibility with upstream API: Name is owning here (Str30), no separate copy needed.
         (private API)
         """
         pass
 
+# struct ImGuiTestRunTask    /* original C++ signature */
 class TestRunTask:
     """Stored in test queue"""
 
@@ -911,7 +928,6 @@ class TestRunTask:
     test: Optional[Test] = None
     # ImGuiTestRunFlags   RunFlags = ImGuiTestRunFlags_None;    /* original C++ signature */
     run_flags: TestRunFlags = TestRunFlags_None
-    # ImGuiTestRunTask(ImGuiTestRunFlags RunFlags = ImGuiTestRunFlags_None);    /* original C++ signature */
     def __init__(self, run_flags: TestRunFlags = TestRunFlags_None) -> None:
         """Auto-generated default constructor with named params"""
         pass
@@ -963,6 +979,7 @@ class TestRunTask:
 # [SECTION] ImGuiTestRef
 # -------------------------------------------------------------------------
 
+# struct ImGuiTestRef    /* original C++ signature */
 class TestRef:
     """Weak reference to an Item/Window given an hashed ID _or_ a string path ID.
     This is most often passed as argument to function and generally has a very short lifetime.
@@ -973,29 +990,30 @@ class TestRef:
     # ImGuiID         ID;    /* original C++ signature */
     id_: ID  # Pre-hashed ID
 
-    # ImGuiTestRef()                  { ID = 0; Path = Str(""); }    /* original C++ signature */
+    # ImGuiTestRef();    /* original C++ signature */
     @overload
     def __init__(self) -> None:
         pass
-    # ImGuiTestRef(ImGuiID id)        { ID = id; Path = Str(""); }    /* original C++ signature */
+    # ImGuiTestRef(ImGuiID id);    /* original C++ signature */
     @overload
     def __init__(self, id_: ID) -> None:
         pass
-    # ImGuiTestRef(const char* path)  { ID = 0; Path = Str(path); }    /* original C++ signature */
+    # ImGuiTestRef(const char* path);    /* original C++ signature */
     @overload
     def __init__(self, path: str) -> None:
         pass
-    # bool IsEmpty() const            { return ID == 0 && Path.length() == 0; }    /* original C++ signature */
+    # bool IsEmpty() const;    /* original C++ signature */
     def is_empty(self) -> bool:
         """(private API)"""
         pass
 
+# struct ImGuiTestRefDesc    /* original C++ signature */
 class TestRefDesc:
     """Debug helper to output a string showing the Path, ID or Debug Label based on what is available (some items only have ID as we couldn't find/store a Path)
     (The size is arbitrary, this is only used for logging info the user/debugger)
     """
 
-    # const char* c_str()             { return Buf; }    /* original C++ signature */
+    # const char* c_str();    /* original C++ signature */
     def c_str(self) -> str:
         """(private API)"""
         pass
@@ -1012,6 +1030,7 @@ class TestRefDesc:
 # [SECTION] ImGuiTestContext related Flags/Enumerations
 # -------------------------------------------------------------------------
 
+# enum ImGuiTestAction    /* original C++ signature */
 class TestAction(enum.IntFlag):
     """Named actions. Generally you will call the named helpers e.g. ItemClick(). This is used by shared/low-level functions such as ItemAction()."""
 
@@ -1045,6 +1064,7 @@ class TestAction(enum.IntFlag):
     # }
     count = enum.auto()  # (= 10)
 
+# enum ImGuiTestOpFlags_    /* original C++ signature */
 class TestOpFlags_(enum.IntFlag):
     """Generic flags for many ImGuiTestContext functions
     Some flags are only supported by a handful of functions. Check function headers for list of supported flags.
@@ -1088,7 +1108,12 @@ class TestOpFlags_(enum.IntFlag):
     move_to_edge_d = enum.auto()  # (= 1 << 11)
     # ImGuiTestOpFlags_NoScroll           = 1 << 12,      /* original C++ signature */
     no_scroll = enum.auto()  # (= 1 << 12)  # Disable automatically scrolling to reach an item.
+    # ImGuiTestOpFlags_NoWaitWhenMoving   = 1 << 13,      /* original C++ signature */
+    no_wait_when_moving = (
+        enum.auto()
+    )  # (= 1 << 13)  # Avoid waiting for item to be stable, lock current position and aim.
 
+# struct ImGuiTestActionFilter    /* original C++ signature */
 class TestActionFilter:
     """Advanced filtering for ItemActionAll()"""
 
@@ -1103,7 +1128,7 @@ class TestActionFilter:
     # ImGuiItemStatusFlags    RequireAnyStatusFlags;    /* original C++ signature */
     require_any_status_flags: ItemStatusFlags
 
-    # ImGuiTestActionFilter() { MaxDepth = -1; MaxPasses = -1; MaxItemCountPerDepth = nullptr; RequireAllStatusFlags = RequireAnyStatusFlags = 0; }    /* original C++ signature */
+    # ImGuiTestActionFilter();    /* original C++ signature */
     def __init__(self) -> None:
         pass
 
@@ -1111,6 +1136,7 @@ class TestActionFilter:
 # [SECTION] ImGuiTestGenericVars, ImGuiTestGenericItemStatus
 # -------------------------------------------------------------------------
 
+# struct ImGuiTestGenericItemStatus    /* original C++ signature */
 class TestGenericItemStatus:
     """Helper struct to store various query-able state of an item.
     This facilitate interactions between GuiFunc and TestFunc, since those state are frequently used.
@@ -1139,26 +1165,27 @@ class TestGenericItemStatus:
     # int     DeactivatedAfterEdit;    /* original C++ signature */
     deactivated_after_edit: int  # result of IsItemDeactivatedAfterEdit()
 
-    # ImGuiTestGenericItemStatus()        { Clear(); }    /* original C++ signature */
+    # ImGuiTestGenericItemStatus();    /* original C++ signature */
     def __init__(self) -> None:
         pass
-    # void Clear()                        { memset(this, 0, sizeof(*this)); }    /* original C++ signature */
+    # void Clear();    /* original C++ signature */
     def clear(self) -> None:
         """(private API)"""
         pass
-    # void QuerySet(bool ret_val = false) { Clear(); QueryInc(ret_val); }    /* original C++ signature */
+    # void QuerySet(bool ret_val = false);    /* original C++ signature */
     def query_set(self, ret_val: bool = False) -> None:
         """(private API)"""
         pass
-    # void QueryInc(bool ret_val = false) { RetValue += ret_val; Hovered += ImGui::IsItemHovered(); HoveredAllowDisabled += ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled); Active += ImGui::IsItemActive(); Focused += ImGui::IsItemFocused(); Clicked += ImGui::IsItemClicked(); Visible += ImGui::IsItemVisible(); Edited += ImGui::IsItemEdited(); Activated += ImGui::IsItemActivated(); Deactivated += ImGui::IsItemDeactivated(); DeactivatedAfterEdit += ImGui::IsItemDeactivatedAfterEdit(); }    /* original C++ signature */
+    # void QueryInc(bool ret_val = false);    /* original C++ signature */
     def query_inc(self, ret_val: bool = False) -> None:
         """(private API)"""
         pass
-    # void Draw()                         { ImGui::Text("Ret: %d, Hovered: %d, Active: %d, Focused: %d\nClicked: %d, Visible: %d, Edited: %d\nActivated: %d, Deactivated: %d, DeactivatedAfterEdit: %d", RetValue, Hovered, Active, Focused, Clicked, Visible, Edited, Activated, Deactivated, DeactivatedAfterEdit); }    /* original C++ signature */
+    # void Draw();    /* original C++ signature */
     def draw(self) -> None:
         """(private API)"""
         pass
 
+# struct ImGuiTestGenericVars    /* original C++ signature */
 class TestGenericVars:
     """Generic structure with various storage fields.
     This is useful for tests to quickly share data between GuiFunc and TestFunc without creating custom data structure.
@@ -1194,6 +1221,8 @@ class TestGenericVars:
     use_clipper: bool
     # bool                    UseViewports;    /* original C++ signature */
     use_viewports: bool
+    # bool                    UseMixedValue;    /* original C++ signature */
+    use_mixed_value: bool
     # float                   Width;    /* original C++ signature */
     width: float
     # ImVec2                  Pos;    /* original C++ signature */
@@ -1231,10 +1260,10 @@ class TestGenericVars:
     # IdArray[10];    /* original C++ signature */
     id_array: np.ndarray  # ndarray[type=ImGuiID, size=10]
 
-    # ImGuiTestGenericVars()  { Clear(); }    /* original C++ signature */
+    # ImGuiTestGenericVars();    /* original C++ signature */
     def __init__(self) -> None:
         pass
-    # void Clear()            { memset(this, 0, sizeof(*this)); }    /* original C++ signature */
+    # void Clear();    /* original C++ signature */
     def clear(self) -> None:
         """(private API)"""
         pass
@@ -1245,6 +1274,7 @@ class TestGenericVars:
 # This is the interface that most tests will interact with.
 # -------------------------------------------------------------------------
 
+# struct ImGuiTestContext    /* original C++ signature */
 class TestContext:
     # User variables
     # ImGuiTestGenericVars    GenericVars;    /* original C++ signature */
@@ -1341,29 +1371,29 @@ class TestContext:
         """
         pass
     # Main status queries
-    # bool        IsError() const             { return TestOutput->Status == ImGuiTestStatus_Error || Abort; }    /* original C++ signature */
+    # bool        IsError() const;    /* original C++ signature */
     def is_error(self) -> bool:
         """(private API)"""
         pass
-    # bool        IsWarmUpGuiFrame() const    { return FrameCount < FirstTestFrameCount; }        /* original C++ signature */
+    # bool        IsWarmUpGuiFrame() const;    /* original C++ signature */
     def is_warm_up_gui_frame(self) -> bool:
         """(private API)
 
         Unless test->Flags has ImGuiTestFlags_NoGuiWarmUp, we run GuiFunc() twice before running TestFunc(). Those frames are called "WarmUp" frames.
         """
         pass
-    # bool        IsFirstGuiFrame() const     { return FirstGuiFrame; }    /* original C++ signature */
+    # bool        IsFirstGuiFrame() const;    /* original C++ signature */
     def is_first_gui_frame(self) -> bool:
         """(private API)"""
         pass
-    # bool        IsFirstTestFrame() const    { return FrameCount == FirstTestFrameCount; }       /* original C++ signature */
+    # bool        IsFirstTestFrame() const;    /* original C++ signature */
     def is_first_test_frame(self) -> bool:
         """(private API)
 
         First frame where TestFunc is running (after warm-up frame).
         """
         pass
-    # bool        IsGuiFuncOnly() const       { return (RunFlags & ImGuiTestRunFlags_GuiFuncOnly) != 0; }    /* original C++ signature */
+    # bool        IsGuiFuncOnly() const;    /* original C++ signature */
     def is_gui_func_only(self) -> bool:
         """(private API)"""
         pass
@@ -1381,7 +1411,7 @@ class TestContext:
         """(private API)"""
         pass
     # void        LogToTTY(ImGuiTestVerboseLevel level, const char* message, const char* message_end = nullptr);    /* original C++ signature */
-    def log_to_tty(self, level: TestVerboseLevel, message: str, message_end: Optional[str] = None) -> None:
+    def log_to_tty(self, level: TestVerboseLevel, message: str) -> None:
         """(private API)"""
         pass
     # void        LogToDebugger(ImGuiTestVerboseLevel level, const char* message);    /* original C++ signature */
@@ -1594,7 +1624,7 @@ class TestContext:
         Set capture file format (otherwise for video this default to EngineIO->VideoCaptureExtension)
         """
         pass
-    #                                                                     #ifdef IMGUI_BUNDLE_PYTHON_API
+    # #ifdef IMGUI_BUNDLE_PYTHON_API
     #
     # void        CaptureSetFilename(const char* filename);    /* original C++ signature */
     def capture_set_filename(self, filename: str) -> None:
@@ -1603,7 +1633,7 @@ class TestContext:
         (private API)
         """
         pass
-    #                                                                     #endif
+    # #endif
     #
     # bool        CaptureAddWindow(ImGuiTestRef ref);                                     /* original C++ signature */
     def capture_add_window(self, ref: Union[TestRef, str]) -> bool:
@@ -1682,11 +1712,11 @@ class TestContext:
     def mouse_wheel(self, delta: ImVec2Like) -> None:
         """(private API)"""
         pass
-    # void        MouseWheelX(float dx) { MouseWheel(ImVec2(dx, 0.0f)); }    /* original C++ signature */
+    # void        MouseWheelX(float dx);    /* original C++ signature */
     def mouse_wheel_x(self, dx: float) -> None:
         """(private API)"""
         pass
-    # void        MouseWheelY(float dy) { MouseWheel(ImVec2(0.0f, dy)); }     /* original C++ signature */
+    # void        MouseWheelY(float dy);    /* original C++ signature */
     def mouse_wheel_y(self, dy: float) -> None:
         """(private API)
 
@@ -1814,11 +1844,11 @@ class TestContext:
         (private API)
         """
         pass
-    # void        ScrollToX(ImGuiTestRef ref, float scroll_x) { ScrollTo(ref, ImGuiAxis_X, scroll_x); }    /* original C++ signature */
+    # void        ScrollToX(ImGuiTestRef ref, float scroll_x);    /* original C++ signature */
     def scroll_to_x(self, ref: Union[TestRef, str], scroll_x: float) -> None:
         """(private API)"""
         pass
-    # void        ScrollToY(ImGuiTestRef ref, float scroll_y) { ScrollTo(ref, ImGuiAxis_Y, scroll_y); }    /* original C++ signature */
+    # void        ScrollToY(ImGuiTestRef ref, float scroll_y);    /* original C++ signature */
     def scroll_to_y(self, ref: Union[TestRef, str], scroll_y: float) -> None:
         """(private API)"""
         pass
@@ -1872,12 +1902,10 @@ class TestContext:
         """(private API)"""
         pass
     # ImGuiID             ItemInfoHandleWildcardSearch(const char* wildcard_prefix_start, const char* wildcard_prefix_end, const char* wildcard_suffix_start);    /* original C++ signature */
-    def item_info_handle_wildcard_search(
-        self, wildcard_prefix_start: str, wildcard_prefix_end: str, wildcard_suffix_start: str
-    ) -> ID:
+    def item_info_handle_wildcard_search(self, wildcard_prefix_start: str, wildcard_suffix_start: str) -> ID:
         """(private API)"""
         pass
-    # ImGuiTestItemInfo   ItemInfoNull() { return ImGuiTestItemInfo(); }    /* original C++ signature */
+    # ImGuiTestItemInfo   ItemInfoNull();    /* original C++ signature */
     def item_info_null(self) -> TestItemInfo:
         """(private API)"""
         pass
@@ -1893,35 +1921,35 @@ class TestContext:
         (private API)
         """
         pass
-    # void        ItemClick(ImGuiTestRef ref, ImGuiMouseButton button = 0, ImGuiTestOpFlags flags = 0) { ItemAction(ImGuiTestAction_Click, ref, flags, (void*)(size_t)button); }    /* original C++ signature */
+    # void        ItemClick(ImGuiTestRef ref, ImGuiMouseButton button = 0, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_click(self, ref: Union[TestRef, str], button: MouseButton = 0, flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
-    # void        ItemDoubleClick(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0)           { ItemAction(ImGuiTestAction_DoubleClick, ref, flags); }    /* original C++ signature */
+    # void        ItemDoubleClick(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_double_click(self, ref: Union[TestRef, str], flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
-    # void        ItemCheck(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0)                 { ItemAction(ImGuiTestAction_Check, ref, flags); }    /* original C++ signature */
+    # void        ItemCheck(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_check(self, ref: Union[TestRef, str], flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
-    # void        ItemUncheck(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0)               { ItemAction(ImGuiTestAction_Uncheck, ref, flags); }    /* original C++ signature */
+    # void        ItemUncheck(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_uncheck(self, ref: Union[TestRef, str], flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
-    # void        ItemOpen(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0)                  { ItemAction(ImGuiTestAction_Open, ref, flags); }    /* original C++ signature */
+    # void        ItemOpen(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_open(self, ref: Union[TestRef, str], flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
-    # void        ItemClose(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0)                 { ItemAction(ImGuiTestAction_Close, ref, flags); }    /* original C++ signature */
+    # void        ItemClose(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_close(self, ref: Union[TestRef, str], flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
-    # void        ItemInput(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0)                 { ItemAction(ImGuiTestAction_Input, ref, flags); }    /* original C++ signature */
+    # void        ItemInput(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_input(self, ref: Union[TestRef, str], flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
-    # void        ItemNavActivate(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0)           { ItemAction(ImGuiTestAction_NavActivate, ref, flags); }    /* original C++ signature */
+    # void        ItemNavActivate(ImGuiTestRef ref, ImGuiTestOpFlags flags = 0);    /* original C++ signature */
     def item_nav_activate(self, ref: Union[TestRef, str], flags: TestOpFlags = 0) -> None:
         """(private API)"""
         pass
@@ -1991,6 +2019,10 @@ class TestContext:
     def item_is_visible(self, ref: Union[TestRef, str]) -> bool:
         """(private API)"""
         pass
+    # void        ItemMakeVisible(ImGuiTestRef ref, ImGuiTestOpFlags flags);    /* original C++ signature */
+    def item_make_visible(self, ref: Union[TestRef, str], flags: TestOpFlags) -> None:
+        """(private API)"""
+        pass
     # void        ItemVerifyCheckedIfAlive(ImGuiTestRef ref, bool checked);    /* original C++ signature */
     def item_verify_checked_if_alive(self, ref: Union[TestRef, str], checked: bool) -> None:
         """(private API)"""
@@ -2014,7 +2046,11 @@ class TestContext:
     ) -> None:
         """(private API)"""
         pass
-    # void        ItemDragWithDelta(ImGuiTestRef ref_src, ImVec2 pos_delta);    /* original C++ signature */
+    # void        ItemDragToPos(ImGuiTestRef ref_src, const ImVec2& pos);    /* original C++ signature */
+    def item_drag_to_pos(self, ref_src: Union[TestRef, str], pos: ImVec2Like) -> None:
+        """(private API)"""
+        pass
+    # void        ItemDragWithDelta(ImGuiTestRef ref_src, const ImVec2& pos_delta);    /* original C++ signature */
     def item_drag_with_delta(self, ref_src: Union[TestRef, str], pos_delta: ImVec2Like) -> None:
         """(private API)"""
         pass
@@ -2034,23 +2070,23 @@ class TestContext:
     def menu_action_all(self, action: TestAction, ref_parent: Union[TestRef, str]) -> None:
         """(private API)"""
         pass
-    # void        MenuClick(ImGuiTestRef ref)                 { MenuAction(ImGuiTestAction_Click, ref); }    /* original C++ signature */
+    # void        MenuClick(ImGuiTestRef ref);    /* original C++ signature */
     def menu_click(self, ref: Union[TestRef, str]) -> None:
         """(private API)"""
         pass
-    # void        MenuCheck(ImGuiTestRef ref)                 { MenuAction(ImGuiTestAction_Check, ref); }    /* original C++ signature */
+    # void        MenuCheck(ImGuiTestRef ref);    /* original C++ signature */
     def menu_check(self, ref: Union[TestRef, str]) -> None:
         """(private API)"""
         pass
-    # void        MenuUncheck(ImGuiTestRef ref)               { MenuAction(ImGuiTestAction_Uncheck, ref); }    /* original C++ signature */
+    # void        MenuUncheck(ImGuiTestRef ref);    /* original C++ signature */
     def menu_uncheck(self, ref: Union[TestRef, str]) -> None:
         """(private API)"""
         pass
-    # void        MenuCheckAll(ImGuiTestRef ref_parent)       { MenuActionAll(ImGuiTestAction_Check, ref_parent); }    /* original C++ signature */
+    # void        MenuCheckAll(ImGuiTestRef ref_parent);    /* original C++ signature */
     def menu_check_all(self, ref_parent: Union[TestRef, str]) -> None:
         """(private API)"""
         pass
-    # void        MenuUncheckAll(ImGuiTestRef ref_parent)     { MenuActionAll(ImGuiTestAction_Uncheck, ref_parent); }    /* original C++ signature */
+    # void        MenuUncheckAll(ImGuiTestRef ref_parent);    /* original C++ signature */
     def menu_uncheck_all(self, ref_parent: Union[TestRef, str]) -> None:
         """(private API)"""
         pass
@@ -2101,7 +2137,7 @@ class TestContext:
     # Those are mostly useful to simulate OS actions and testing of viewport-specific features, may not be useful to most users.
 
     # Docking
-    #                                                                     #ifdef IMGUI_HAS_DOCK
+    # #ifdef IMGUI_HAS_DOCK
     #
     # void        DockClear(const char* window_name, ...);    /* original C++ signature */
     def dock_clear(self, window_name: str) -> None:
@@ -2142,7 +2178,7 @@ class TestContext:
         """(private API)"""
         pass
     # ImVec2    GetDockNodeTitlebarPos(ImGuiDockNode* node);
-    #                                                                     #endif
+    # #endif
     #
 
     # Performances Measurement (use along with Dear ImGui Perf Tool)
@@ -2177,7 +2213,7 @@ class TestContext:
         FIXME: Aim to remove this system...
         """
         pass
-    # ImGuiTestContext(ImGuiTestGenericVars GenericVars = ImGuiTestGenericVars(), ImGuiTestOpFlags OpFlags = ImGuiTestOpFlags_None, int PerfStressAmount = 0, int FrameCount = 0, int FirstTestFrameCount = 0, bool FirstGuiFrame = false, bool HasDock = false, ImGuiTestRunFlags RunFlags = ImGuiTestRunFlags_None, ImGuiTestActiveFunc ActiveFunc = ImGuiTestActiveFunc_None, double RunningTime = 0.0, int ActionDepth = 0, int CaptureCounter = 0, int ErrorCounter = 0, bool Abort = false, double PerfRefDt = -1.0, int PerfIterations = 400, ImGuiID RefID = 0, ImGuiID RefWindowID = 0, ImGuiInputSource InputMode = ImGuiInputSource_Mouse, ImVector<char> TempString = ImVector<char>(), ImVector<char> Clipboard = ImVector<char>(), ImVector<ImGuiWindow*> ForeignWindowsToHide = ImVector<ImGuiWindow*>(), ImGuiTestItemInfo DummyItemInfoNull = ImGuiTestItemInfo(), bool CachedLinesPrintedToTTY = false);    /* original C++ signature */
+
     def __init__(
         self,
         generic_vars: Optional[TestGenericVars] = None,
@@ -2259,6 +2295,7 @@ class TestContext:
 # DATA STRUCTURES
 # -------------------------------------------------------------------------
 
+# struct ImGuiTestInfoTask    /* original C++ signature */
 class TestInfoTask:
     """Query item position/window/state given ID."""
 
@@ -2271,7 +2308,6 @@ class TestInfoTask:
     # ImGuiTestItemInfo       Result;    /* original C++ signature */
     # Output
     result: TestItemInfo
-    # ImGuiTestInfoTask(ImGuiID ID = 0, int FrameCount = -1, ImGuiTestItemInfo Result = ImGuiTestItemInfo());    /* original C++ signature */
     def __init__(self, id_: ID = 0, frame_count: int = -1, result: Optional[TestItemInfo] = None) -> None:
         """Auto-generated default constructor with named params
 
@@ -2280,6 +2316,7 @@ class TestInfoTask:
         """
         pass
 
+# struct ImGuiTestGatherTask    /* original C++ signature */
 class TestGatherTask:
     """Gather item list in given parent ID."""
 
@@ -2297,15 +2334,16 @@ class TestGatherTask:
     # ImGuiTestItemInfo*      LastItemInfo = nullptr;    /* original C++ signature */
     last_item_info: Optional[TestItemInfo] = None
 
-    # void Clear() { memset(this, 0, sizeof(*this)); }    /* original C++ signature */
+    # void Clear();    /* original C++ signature */
     def clear(self) -> None:
         """(private API)"""
         pass
-    # ImGuiTestGatherTask(ImGuiID InParentID = 0, int InMaxDepth = 0, short InLayerMask = 0);    /* original C++ signature */
+
     def __init__(self, in_parent_id: ID = 0, in_max_depth: int = 0, in_layer_mask: int = 0) -> None:
         """Auto-generated default constructor with named params"""
         pass
 
+# struct ImGuiTestFindByLabelTask    /* original C++ signature */
 class TestFindByLabelTask:
     """Find item ID given a label and a parent id
     Usually used by queries with wildcards such as ItemInfo("hello/**/foo/bar")
@@ -2334,7 +2372,6 @@ class TestFindByLabelTask:
     # Output
     # ImGuiID                 OutItemId = 0;    /* original C++ signature */
     out_item_id: ID = 0  # Result item ID
-    # ImGuiTestFindByLabelTask(ImGuiID InPrefixId = 0, int InSuffixDepth = 0, ImGuiID InSuffixLastItemHash = 0, ImGuiItemStatusFlags InFilterItemStatusFlags = 0, ImGuiID OutItemId = 0);    /* original C++ signature */
     def __init__(
         self,
         in_prefix_id: ID = 0,
@@ -2346,6 +2383,7 @@ class TestFindByLabelTask:
         """Auto-generated default constructor with named params"""
         pass
 
+# enum ImGuiTestInputType    /* original C++ signature */
 class TestInputType(enum.IntFlag):
     # ImGuiTestInputType_None,    /* original C++ signature */
     none = enum.auto()  # (= 0)
@@ -2363,6 +2401,7 @@ class TestInputType(enum.IntFlag):
     # }
     viewport_close = enum.auto()  # (= 6)
 
+# struct ImGuiTestInput    /* original C++ signature */
 class TestInput:
     """FIXME: May want to strip further now that core imgui is using its own input queue"""
 
@@ -2379,76 +2418,37 @@ class TestInput:
     # ImVec2                  ViewportPosSize;    /* original C++ signature */
     viewport_pos_size: ImVec2
 
-    # static ImGuiTestInput   ForKeyChord(ImGuiKeyChord key_chord, bool down)    /* original C++ signature */
-    #     {
-    #         ImGuiTestInput inp;
-    #         inp.Type = ImGuiTestInputType_Key;
-    #         inp.KeyChord = key_chord;
-    #         inp.Down = down;
-    #         return inp;
-    #     }
+    # static ImGuiTestInput   ForKeyChord(ImGuiKeyChord key_chord, bool down);    /* original C++ signature */
     @staticmethod
     def for_key_chord(key_chord: KeyChord, down: bool) -> TestInput:
         """(private API)"""
         pass
-    # static ImGuiTestInput   ForChar(ImWchar v)    /* original C++ signature */
-    #     {
-    #         ImGuiTestInput inp;
-    #         inp.Type = ImGuiTestInputType_Char;
-    #         inp.Char = v;
-    #         return inp;
-    #     }
+    # static ImGuiTestInput   ForChar(ImWchar v);    /* original C++ signature */
     @staticmethod
     def for_char(v: ImWchar) -> TestInput:
         """(private API)"""
         pass
-    # static ImGuiTestInput   ForViewportFocus(ImGuiID viewport_id)    /* original C++ signature */
-    #     {
-    #         ImGuiTestInput inp;
-    #         inp.Type = ImGuiTestInputType_ViewportFocus;
-    #         inp.ViewportId = viewport_id;
-    #         return inp;
-    #     }
+    # static ImGuiTestInput   ForViewportFocus(ImGuiID viewport_id);    /* original C++ signature */
     @staticmethod
     def for_viewport_focus(viewport_id: ID) -> TestInput:
         """(private API)"""
         pass
-    # static ImGuiTestInput   ForViewportSetPos(ImGuiID viewport_id, const ImVec2& pos)    /* original C++ signature */
-    #     {
-    #         ImGuiTestInput inp;
-    #         inp.Type = ImGuiTestInputType_ViewportSetPos;
-    #         inp.ViewportId = viewport_id;
-    #         inp.ViewportPosSize = pos;
-    #         return inp;
-    #     }
+    # static ImGuiTestInput   ForViewportSetPos(ImGuiID viewport_id, const ImVec2& pos);    /* original C++ signature */
     @staticmethod
     def for_viewport_set_pos(viewport_id: ID, pos: ImVec2Like) -> TestInput:
         """(private API)"""
         pass
-    # static ImGuiTestInput   ForViewportSetSize(ImGuiID viewport_id, const ImVec2& size)    /* original C++ signature */
-    #     {
-    #         ImGuiTestInput inp;
-    #         inp.Type = ImGuiTestInputType_ViewportSetSize;
-    #         inp.ViewportId = viewport_id;
-    #         inp.ViewportPosSize = size;
-    #         return inp;
-    #     }
+    # static ImGuiTestInput   ForViewportSetSize(ImGuiID viewport_id, const ImVec2& size);    /* original C++ signature */
     @staticmethod
     def for_viewport_set_size(viewport_id: ID, size: ImVec2Like) -> TestInput:
         """(private API)"""
         pass
-    # static ImGuiTestInput   ForViewportClose(ImGuiID viewport_id)    /* original C++ signature */
-    #     {
-    #         ImGuiTestInput inp;
-    #         inp.Type = ImGuiTestInputType_ViewportClose;
-    #         inp.ViewportId = viewport_id;
-    #         return inp;
-    #     }
+    # static ImGuiTestInput   ForViewportClose(ImGuiID viewport_id);    /* original C++ signature */
     @staticmethod
     def for_viewport_close(viewport_id: ID) -> TestInput:
         """(private API)"""
         pass
-    # ImGuiTestInput(ImGuiTestInputType Type = ImGuiTestInputType_None, ImGuiKeyChord KeyChord = ImGuiKey_None, ImWchar Char = 0, bool Down = false, ImGuiID ViewportId = 0, ImVec2 ViewportPosSize = ImVec2());    /* original C++ signature */
+
     def __init__(
         self,
         type: TestInputType = TestInputType_None,
@@ -2467,6 +2467,7 @@ class TestInput:
         """
         pass
 
+# struct ImGuiTestInputs    /* original C++ signature */
 class TestInputs:
     # ImVec2                      MousePosValue;    /* original C++ signature */
     mouse_pos_value: ImVec2  # Own non-rounded copy of MousePos in order facilitate simulating mouse movement very slow speed and high-framerate
@@ -2482,7 +2483,6 @@ class TestInputs:
     host_esc_down_duration: float = -1.0  # Maintain our own DownDuration for host/backend ESC key so we can abort.
     # ImVec2                      HostMousePos;    /* original C++ signature */
     host_mouse_pos: ImVec2
-    # ImGuiTestInputs(ImVec2 MousePosValue = ImVec2(), ImVec2 MouseWheel = ImVec2(), ImGuiID MouseHoveredViewport = 0, int MouseButtonsValue = 0x00, bool HostEscDown = false, float HostEscDownDuration = -1.0f, ImVec2 HostMousePos = ImVec2());    /* original C++ signature */
     def __init__(
         self,
         mouse_pos_value: Optional[ImVec2Like] = None,
@@ -2503,27 +2503,20 @@ class TestInputs:
         """
         pass
 
+# struct ImGuiTestEnginePerfRecord    /* original C++ signature */
 class TestEnginePerfRecord:
     # double                      RawValueMs;    /* original C++ signature */
     raw_value_ms: float  # For current frame
 
-    # ImGuiTestEnginePerfRecord()    /* original C++ signature */
-    #     {
-    #         Average100.Init(100);
-    #         Average500.Init(500);
-    #     }
+    # ImGuiTestEnginePerfRecord();    /* original C++ signature */
     def __init__(self) -> None:
         pass
-    # void UpdateValueForCurrentFrame(double v_ms)    /* original C++ signature */
-    #     {
-    #         RawValueMs = v_ms;
-    #         Average100.AddSample(v_ms);
-    #         Average500.AddSample(v_ms);
-    #     }
+    # void UpdateValueForCurrentFrame(double v_ms);    /* original C++ signature */
     def update_value_for_current_frame(self, v_ms: float) -> None:
         """(private API)"""
         pass
 
+# struct ImGuiTestEngine    /* original C++ signature */
 class TestEngine:
     """[Internal] Test Engine Context"""
 
@@ -2746,6 +2739,7 @@ def open_source_file(engine: TestEngine, source_filename: str, source_line_no: i
 
 # -----------------------------------------------------------------------------
 
+# enum ImGuiCaptureFlags_    /* original C++ signature */
 class CaptureFlags_(enum.IntFlag):
     # ImGuiCaptureFlags_None                      = 0,    /* original C++ signature */
     none = enum.auto()  # (= 0)
@@ -2770,6 +2764,7 @@ class CaptureFlags_(enum.IntFlag):
     # ImGuiCaptureFlags_NoSave                    = 1 << 5        /* original C++ signature */
     no_save = enum.auto()  # (= 1 << 5)  # Do not save output image.
 
+# struct ImGuiCaptureArgs    /* original C++ signature */
 class CaptureArgs:
     """Defines input and output arguments for capture process.
     When capturing from tests you can usually use the ImGuiTestContext::CaptureXXX() helpers functions.
@@ -2796,7 +2791,6 @@ class CaptureArgs:
     # [Output]
     # ImVec2                  OutImageSize;    /* original C++ signature */
     out_image_size: ImVec2  # Produced image size.
-    # ImGuiCaptureArgs(ImGuiCaptureFlags InFlags = 0, ImVector<ImGuiWindow*> InCaptureWindows = ImVector<ImGuiWindow*>(), ImRect InCaptureRect = ImRect(), float InPadding = 16.0f, int InRecordFPSTarget = 30, int InSizeAlign = 0, ImVec2 OutImageSize = ImVec2());    /* original C++ signature */
     def __init__(
         self,
         in_flags: CaptureFlags = 0,
@@ -2817,6 +2811,7 @@ class CaptureArgs:
         """
         pass
 
+# enum ImGuiCaptureStatus    /* original C++ signature */
 class CaptureStatus(enum.IntFlag):
     # ImGuiCaptureStatus_InProgress,    /* original C++ signature */
     in_progress = enum.auto()  # (= 0)
@@ -2826,6 +2821,7 @@ class CaptureStatus(enum.IntFlag):
     # }
     error = enum.auto()  # (= 2)
 
+# struct ImGuiCaptureWindowData    /* original C++ signature */
 class CaptureWindowData:
     # ImGuiWindow*            Window;    /* original C++ signature */
     window: Window
@@ -2833,7 +2829,6 @@ class CaptureWindowData:
     backup_rect: ImRect
     # ImVec2                  PosDuringCapture;    /* original C++ signature */
     pos_during_capture: ImVec2
-    # ImGuiCaptureWindowData(ImRect BackupRect = ImRect(), ImVec2 PosDuringCapture = ImVec2());    /* original C++ signature */
     def __init__(self, backup_rect: Optional[ImRect] = None, pos_during_capture: Optional[ImVec2Like] = None) -> None:
         """Auto-generated default constructor with named params
 

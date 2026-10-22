@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ag2
-Version: 1.1.2
+Version: 1.2.1
 Summary: A programming framework for agentic AI
 Keywords: ai,agent,autogen,ag2,ag2.ai,ag2ai,agentic
 Author: Chi Wang & Qingyun Wu
@@ -31,7 +31,7 @@ Requires-Dist: httpx>=0.28.1,<1
 Requires-Dist: anyio>=4.0.0,<5.0.0
 Requires-Dist: pyyaml>=6.0.2
 Requires-Dist: fast-depends[pydantic]>=3.0.8,<4.0.0
-Requires-Dist: a2a-sdk>=1.1.0,<2 ; extra == 'a2a'
+Requires-Dist: a2a-sdk>=1.2.0,<2 ; extra == 'a2a'
 Requires-Dist: jsonschema>=4.18.0,<5 ; extra == 'a2ui'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'a2ui'
 Requires-Dist: agent-client-protocol>=0.12.1,<0.13 ; extra == 'acp'
@@ -39,11 +39,11 @@ Requires-Dist: ag2[mcp] ; extra == 'acp'
 Requires-Dist: starlette>=0.40,<2 ; extra == 'acp'
 Requires-Dist: uvicorn>=0.51.0,<1 ; extra == 'acp'
 Requires-Dist: ag-ui-protocol>=1.0,<2 ; extra == 'ag-ui'
-Requires-Dist: anthropic>=1.6.0,<2 ; extra == 'anthropic'
+Requires-Dist: anthropic>=1.9.0,<2 ; extra == 'anthropic'
 Requires-Dist: aiobotocore>=3.9.1,<4 ; extra == 'bedrock'
 Requires-Dist: dashscope>=1.25.13 ; extra == 'dashscope'
 Requires-Dist: ddgs>=9.0.0,<10 ; extra == 'ddgs'
-Requires-Dist: elevenlabs>=1.50.0,<3 ; extra == 'elevenlabs'
+Requires-Dist: elevenlabs>=2.73.0,<3 ; extra == 'elevenlabs'
 Requires-Dist: google-genai>=1.68.0,<3.0 ; extra == 'gemini'
 Requires-Dist: google-auth ; extra == 'gemini'
 Requires-Dist: mcp>=2.2.0,<3 ; extra == 'mcp'
@@ -52,14 +52,14 @@ Requires-Dist: jsonschema>=4.20.0,<5 ; extra == 'mcp'
 Requires-Dist: mcp-ui-server>=1.0.0 ; extra == 'mcp-ui'
 Requires-Dist: mcp>=2.2.0,<3 ; extra == 'mcp-ui'
 Requires-Dist: prometheus-client>=0.20.0,<0.30.0 ; extra == 'metrics'
-Requires-Dist: mistralai>=2.8.0,<3 ; extra == 'mistral'
-Requires-Dist: ollama>=0.4.7 ; extra == 'ollama'
-Requires-Dist: openai>=3.9.0,<4 ; extra == 'openai'
+Requires-Dist: mistralai>=3.2.0,<4 ; extra == 'mistral'
+Requires-Dist: ollama>=0.5.2,<1 ; extra == 'ollama'
+Requires-Dist: openai>=3.27.0,<4 ; extra == 'openai'
 Requires-Dist: perplexityai>=0.30.0,<1 ; extra == 'perplexity'
 Requires-Dist: redis>=5.0,<9 ; extra == 'redis'
 Requires-Dist: tavily-python>=0.7.4,<0.9 ; extra == 'tavily'
 Requires-Dist: opentelemetry-sdk>=1.20 ; extra == 'tracing'
-Requires-Dist: typesafe-sdk>=0.7.1,<0.8 ; extra == 'typesafe'
+Requires-Dist: typesafe-sdk>=0.7.5,<0.8 ; extra == 'typesafe'
 Requires-Dist: xai-sdk>=1.12.2,<2 ; extra == 'xai'
 Requires-Dist: zai-sdk>=0.2.3,<1 ; extra == 'zai'
 Requires-Python: >=3.10

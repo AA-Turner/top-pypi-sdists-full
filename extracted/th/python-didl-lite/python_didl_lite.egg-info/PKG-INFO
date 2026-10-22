@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-didl-lite
-Version: 1.5.1
+Version: 1.5.2
 Summary: DIDL-Lite (Digital Item Declaration Language) tools for Python
 Author-email: Steven Looman <steven.looman@gmail.com>
 License-Expression: Apache-2.0
@@ -9,12 +9,12 @@ Keywords: DIDL,DIDL-lite
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 Requires-Dist: defusedxml>=0.6.0
 Provides-Extra: test

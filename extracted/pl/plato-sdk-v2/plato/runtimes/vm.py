@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import tenacity
 
+from plato.rpc.client.manager import close_agent_client
 from plato.runtimes.base import Runtime, RuntimeInfo, VMMetadata
 from plato.runtimes.settings import get_settings
 from plato.utils.ssh import gateway_proxy_command
@@ -168,6 +169,9 @@ class VMRuntime(Runtime):
             pub_key = Path(str(self._ssh_key_path) + ".pub").read_text().strip()
             await env.add_ssh_key(pub_key)
         hostname, extra_opts = self._ssh_target(env)
+        # A new VM can get the mesh IP of one this process used before: forget that VM's
+        # daemon state, or the first RPC skips the bootstrap and hits a daemon not up yet.
+        await close_agent_client(hostname)
         if self._ssh_key_path is not None:
             await self._wait_for_ssh(hostname, extra_opts=extra_opts, timeout=min(timeout, 60))
         logger.debug("VM runtime started: alias=%s job_id=%s hostname=%s", alias, env.job_id, hostname)
@@ -206,11 +210,16 @@ class VMRuntime(Runtime):
         if env is None:
             logger.warning("VM runtime stop: unknown runtime_id %s", runtime_id)
             return
+        hostname = env.mesh_ip if _use_mesh_ssh() else env.job_id
         try:
             await self._session.remove_env(env)
             logger.debug("VM runtime stopped: %s", runtime_id)
         except Exception as e:
             logger.warning("Failed to stop VM %s: %s", runtime_id, e)
+        finally:
+            # Its mesh IP goes back to the pool: drop the cached client and daemon state with it.
+            if hostname:
+                await close_agent_client(hostname)
 
     async def exec(
         self,

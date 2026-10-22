@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_healthlake.literals import AgentInputMessageTypeType
+    from mypy_boto3_healthlake.literals import AgentErrorTypeType
 
-    data: AgentInputMessageTypeType = "confirmation_response"
+    data: AgentErrorTypeType = "AccessDeniedException"
     ```
 """
 
@@ -23,8 +23,8 @@ else:
 
 
 __all__ = (
+    "AgentErrorTypeType",
     "AgentInputMessageTypeType",
-    "AgentOutputMessageTypeType",
     "AnalyticsStatusType",
     "AuthorizationStrategyType",
     "BackupStatusType",
@@ -57,10 +57,14 @@ __all__ = (
 )
 
 
-AgentInputMessageTypeType = Literal["confirmation_response", "normal"]
-AgentOutputMessageTypeType = Literal[
-    "INITIAL_GREETING", "choices", "complete", "confirmation", "error", "normal", "options"
+AgentErrorTypeType = Literal[
+    "AccessDeniedException",
+    "InternalServerException",
+    "ResourceNotFoundException",
+    "ThrottlingException",
+    "ValidationException",
 ]
+AgentInputMessageTypeType = Literal["confirmation_response", "normal"]
 AnalyticsStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING", "PAUSED", "PAUSING"]
 AuthorizationStrategyType = Literal["AWS_AUTH", "SMART_ON_FHIR", "SMART_ON_FHIR_V1"]
 BackupStatusType = Literal["DISABLED", "ENABLED"]
@@ -182,6 +186,7 @@ ServiceName = Literal[
     "cloudtrail",
     "cloudtrail-data",
     "cloudwatch",
+    "cloudwatchomni",
     "codeartifact",
     "codebuild",
     "codecatalyst",
@@ -254,12 +259,12 @@ ServiceName = Literal[
     "emr",
     "emr-containers",
     "emr-serverless",
+    "endusermessaging",
     "entityresolution",
     "es",
+    "eventbridgev2",
     "events",
     "evs",
-    "finspace",
-    "finspace-data",
     "firehose",
     "fis",
     "fms",
@@ -327,6 +332,7 @@ ServiceName = Literal[
     "lambda",
     "lambda-core",
     "lambda-microvms",
+    "lambda-web",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -379,6 +385,7 @@ ServiceName = Literal[
     "neptune-graph",
     "neptunedata",
     "network-firewall",
+    "network-security-manager",
     "networkflowmonitor",
     "networkmanager",
     "networkmonitor",
@@ -460,6 +467,7 @@ ServiceName = Literal[
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
+    "sagemakertrainingsessionruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -510,7 +518,6 @@ ServiceName = Literal[
     "timestream-influxdb",
     "timestream-query",
     "timestream-write",
-    "tnb",
     "transcribe",
     "transfer",
     "translate",

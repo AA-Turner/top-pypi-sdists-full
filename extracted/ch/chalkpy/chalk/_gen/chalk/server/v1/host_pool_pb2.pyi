@@ -331,6 +331,12 @@ class HostPoolResources(_message.Message):
         gpus: _Optional[_Mapping[str, int]] = ...,
     ) -> None: ...
 
+class VersionInfo(_message.Message):
+    __slots__ = ("commit_sha",)
+    COMMIT_SHA_FIELD_NUMBER: _ClassVar[int]
+    commit_sha: str
+    def __init__(self, commit_sha: _Optional[str] = ...) -> None: ...
+
 class HostCapacity(_message.Message):
     __slots__ = (
         "host_id",
@@ -343,6 +349,7 @@ class HostCapacity(_message.Message):
         "external_control_stream_connected",
         "unavailable_reason",
         "usage_history",
+        "version_info",
     )
     HOST_ID_FIELD_NUMBER: _ClassVar[int]
     READY_FIELD_NUMBER: _ClassVar[int]
@@ -354,6 +361,7 @@ class HostCapacity(_message.Message):
     EXTERNAL_CONTROL_STREAM_CONNECTED_FIELD_NUMBER: _ClassVar[int]
     UNAVAILABLE_REASON_FIELD_NUMBER: _ClassVar[int]
     USAGE_HISTORY_FIELD_NUMBER: _ClassVar[int]
+    VERSION_INFO_FIELD_NUMBER: _ClassVar[int]
     host_id: str
     ready: bool
     placed_containers: int
@@ -364,6 +372,7 @@ class HostCapacity(_message.Message):
     external_control_stream_connected: bool
     unavailable_reason: str
     usage_history: HostUsageHistory
+    version_info: VersionInfo
     def __init__(
         self,
         host_id: _Optional[str] = ...,
@@ -376,6 +385,7 @@ class HostCapacity(_message.Message):
         external_control_stream_connected: bool = ...,
         unavailable_reason: _Optional[str] = ...,
         usage_history: _Optional[_Union[HostUsageHistory, _Mapping]] = ...,
+        version_info: _Optional[_Union[VersionInfo, _Mapping]] = ...,
     ) -> None: ...
 
 class UtilizationPoint(_message.Message):
@@ -692,6 +702,7 @@ class HostPoolHostStatus(_message.Message):
         "free",
         "last_heartbeat_at",
         "external_control_stream_connected",
+        "version_info",
     )
     HOST_ID_FIELD_NUMBER: _ClassVar[int]
     ACCEPTING_PLACEMENTS_FIELD_NUMBER: _ClassVar[int]
@@ -702,6 +713,7 @@ class HostPoolHostStatus(_message.Message):
     FREE_FIELD_NUMBER: _ClassVar[int]
     LAST_HEARTBEAT_AT_FIELD_NUMBER: _ClassVar[int]
     EXTERNAL_CONTROL_STREAM_CONNECTED_FIELD_NUMBER: _ClassVar[int]
+    VERSION_INFO_FIELD_NUMBER: _ClassVar[int]
     host_id: str
     accepting_placements: bool
     unavailable_reason: str
@@ -711,6 +723,7 @@ class HostPoolHostStatus(_message.Message):
     free: HostPoolReportedResources
     last_heartbeat_at: _timestamp_pb2.Timestamp
     external_control_stream_connected: bool
+    version_info: VersionInfo
     def __init__(
         self,
         host_id: _Optional[str] = ...,
@@ -722,6 +735,7 @@ class HostPoolHostStatus(_message.Message):
         free: _Optional[_Union[HostPoolReportedResources, _Mapping]] = ...,
         last_heartbeat_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         external_control_stream_connected: bool = ...,
+        version_info: _Optional[_Union[VersionInfo, _Mapping]] = ...,
     ) -> None: ...
 
 class HostPoolCapacityStatus(_message.Message):

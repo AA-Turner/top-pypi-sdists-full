@@ -1,19 +1,16 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: eciespy
-Version: 0.4.6
+Version: 0.4.7
 Summary: Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Python
-License: MIT
 Keywords: secp256k1,crypto,elliptic curves,ecies,bitcoin,ethereum,cryptocurrency
-Author: Weiliang Li
-Author-email: to.be.impressive@gmail.com
-Maintainer: Weiliang Li
-Maintainer-email: to.be.impressive@gmail.com
-Requires-Python: >=3.9,<4.0
+Author-email: Weiliang Li <to.be.impressive@gmail.com>
+Maintainer-email: Weiliang Li <to.be.impressive@gmail.com>
+Requires-Python: >=3.9,<4
+Description-Content-Type: text/markdown
+License-Expression: MIT
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
-Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -21,14 +18,16 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Operating System :: OS Independent
 Classifier: Topic :: Security :: Cryptography
-Provides-Extra: eth
-Requires-Dist: coincurve (>=13,<22)
-Requires-Dist: eth-keys (>=0.4,<0.8) ; extra == "eth"
-Requires-Dist: pycryptodome (>=3.21.0)
-Requires-Dist: typing-extensions (>=4.9.0)
+License-File: LICENSE
+Requires-Dist: coincurve>=13,<22
+Requires-Dist: pycryptodome>=3.21.0
+Requires-Dist: typing-extensions>=4.9.0
+Requires-Dist: eth-keys>=0.4,<0.8 ; extra == "eth"
 Project-URL: Repository, https://github.com/ecies/py
-Description-Content-Type: text/markdown
+Provides-Extra: eth
+Import-Name: ecies
 
 # eciespy
 
@@ -42,7 +41,7 @@ Description-Content-Type: text/markdown
 
 Elliptic Curve Integrated Encryption Scheme for secp256k1/curve25519 in Python.
 
-Other language versions:
+Other language versions (curve25519 is not supported in some versions):
 
 - [TypeScript](https://github.com/ecies/js)
 - [Rust](https://github.com/ecies/rs)
@@ -50,6 +49,7 @@ Other language versions:
 - [WASM](https://github.com/ecies/rs-wasm)
 - [Java](https://github.com/ecies/java)
 - [Dart](https://github.com/ecies/dart)
+- [Ruby](https://github.com/ecies/rb)
 
 You can also check a [web backend demo](https://github.com/ecies/py-demo).
 
@@ -236,4 +236,14 @@ See [DETAILS.md](./DETAILS.md).
 ## Changelog
 
 See [CHANGELOG.md](./CHANGELOG.md).
+
+## Development
+
+```bash
+uv sync --all-extras
+uv run pytest -v
+uv run ruff check --fix
+uv run ruff format
+uv run ty check
+```
 

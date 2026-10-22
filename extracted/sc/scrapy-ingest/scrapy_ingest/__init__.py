@@ -26,12 +26,12 @@ Enabling ``IngestPipeline`` auto-enables request logging (with ``parent_url``),
 error logging, full job logs (including ``print()``), and crawl stats.
 """
 
-from .extensions.log_handler import install_early
+from . import scrapy_hooks
 from .utils.meta_info import _pkg_meta
 
-install_early()
+scrapy_hooks.install()
 
-__version__ = _pkg_meta.version or "1.8.0"
+__version__ = _pkg_meta.version or "2.0.0"
 __author__ = _pkg_meta.author or "Fawad Ali"
 __license__ = _pkg_meta.license or "MIT"
 __description__ = "One pipeline. Full crawl observability in SQL or Elasticsearch."

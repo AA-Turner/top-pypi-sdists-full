@@ -250,3 +250,26 @@ def test_exact_capture_refuses_out_of_range_width() -> None:
         ExactCaptureSpec(width=100)
     with pytest.raises(ValueError):
         ExactCaptureSpec(width=800, color_scheme="sepia")
+
+
+@pytest.mark.asyncio
+async def test_url_mode_measure_script_reaches_the_pool_and_its_result_comes_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A url render check can await the page's own ready signal and return what the page reported."""
+    pool = _FakePool(
+        result=PageInspection(
+            http_status=200,
+            final_url="https://example.com/a",
+            measurements={"done": True, "verdict": "fail"},
+            measure_error=None,
+        )
+    )
+    _install(monkeypatch, pool)
+    result = await mod.browser_inspect(
+        mod.BrowserInspectRequest(url="https://example.com/a", measure_script="return window.__report"),
+        ctx=None,
+    )
+    assert pool.calls[0]["measure_script"] == "return window.__report"
+    assert result.measurements == {"done": True, "verdict": "fail"}
+    assert result.measure_error is None

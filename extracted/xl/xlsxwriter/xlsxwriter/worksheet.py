@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 # pylint: disable=too-many-return-statements
@@ -16,28 +16,37 @@ import os
 import re
 import tempfile
 from collections import defaultdict, namedtuple
+from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from functools import wraps
 from io import BytesIO, StringIO
 from math import isinf, isnan
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    TypeVar,
+    Union,
+)
 from warnings import warn
 
+# Package imports.
+from xlsxwriter import xmlwriter
 from xlsxwriter.chart import Chart
 from xlsxwriter.color import Color
 from xlsxwriter.comments import CommentType
+from xlsxwriter.drawing import Drawing, DrawingInfo, DrawingTypes
+from xlsxwriter.exceptions import DuplicateTableName, OverlappingRange
+from xlsxwriter.format import Format
 from xlsxwriter.image import Image
+from xlsxwriter.shape import Shape
 from xlsxwriter.url import Url, UrlTypes
-from xlsxwriter.vml import ButtonType
-
-# Package imports.
-from . import xmlwriter
-from .drawing import Drawing, DrawingInfo, DrawingTypes
-from .exceptions import DuplicateTableName, OverlappingRange
-from .format import Format
-from .shape import Shape
-from .utility import (
+from xlsxwriter.utility import (
     _datetime_to_excel_datetime,
     _get_sparkline_style,
     _preserve_whitespace,
@@ -50,7 +59,61 @@ from .utility import (
     xl_rowcol_to_cell,
     xl_rowcol_to_cell_fast,
 )
-from .xmlwriter import XMLwriter
+from xlsxwriter.vml import ButtonType
+from xlsxwriter.xmlwriter import XMLwriter
+
+if TYPE_CHECKING:
+    from typing_extensions import Concatenate, ParamSpec, Protocol, overload
+
+    ReturnTypeT_co = TypeVar("ReturnTypeT_co", covariant=True)
+    P = ParamSpec("P")
+
+    class CellMethod(Protocol[P, ReturnTypeT_co]):
+        """Overloads to support cell notation."""
+
+        @overload
+        def __call__(
+            self, row: int, col: int, /, *args: P.args, **kwargs: P.kwargs
+        ) -> ReturnTypeT_co: ...
+
+        @overload
+        def __call__(
+            self, cell: str, /, *args: P.args, **kwargs: P.kwargs
+        ) -> ReturnTypeT_co: ...
+
+    class RangeMethod(Protocol[P, ReturnTypeT_co]):
+        """Overloads to support range notation."""
+
+        @overload
+        def __call__(
+            self,
+            first_row: int,
+            first_col: int,
+            last_row: int,
+            last_col: int,
+            /,
+            *args: P.args,
+            **kwargs: P.kwargs,
+        ) -> ReturnTypeT_co: ...
+
+        @overload
+        def __call__(
+            self, cell_range: str, /, *args: P.args, **kwargs: P.kwargs
+        ) -> ReturnTypeT_co: ...
+
+    class ColumnMethod(Protocol[P, ReturnTypeT_co]):
+        """Overloads to support column range notation."""
+
+        @overload
+        def __call__(
+            self, first_col: int, last_col: int, /, *args: P.args, **kwargs: P.kwargs
+        ) -> ReturnTypeT_co: ...
+
+        @overload
+        def __call__(
+            self, col_range: str, /, *args: P.args, **kwargs: P.kwargs
+        ) -> ReturnTypeT_co: ...
+
 
 re_dynamic_function = re.compile(
     r"""
@@ -92,7 +155,9 @@ re_dynamic_function = re.compile(
 # Decorator functions.
 #
 ###############################################################################
-def convert_cell_args(method):
+def convert_cell_args(
+    method: "Callable[Concatenate[Any, int, int, P], ReturnTypeT_co]",
+) -> "CellMethod[P, ReturnTypeT_co]":
     """
     Decorator function to convert A1 notation in cell method calls
     to the default row/col notation.
@@ -116,7 +181,9 @@ def convert_cell_args(method):
     return cell_wrapper
 
 
-def convert_range_args(method):
+def convert_range_args(
+    method: "Callable[Concatenate[Any, int, int, int, int, P], ReturnTypeT_co]",
+) -> "RangeMethod[P, ReturnTypeT_co]":
     """
     Decorator function to convert A1 notation in range method calls
     to the default row/col notation.
@@ -148,7 +215,9 @@ def convert_range_args(method):
     return cell_wrapper
 
 
-def convert_column_args(method):
+def convert_column_args(
+    method: "Callable[Concatenate[Any, int, int, P], ReturnTypeT_co]",
+) -> "ColumnMethod[P, ReturnTypeT_co]":
     """
     Decorator function to convert A1 notation in columns method calls
     to the default row/col notation.
@@ -192,6 +261,35 @@ CellArrayFormulaTuple = namedtuple(
     "ArrayFormula", "formula, format, value, range, atype"
 )
 
+###############################################################################
+#
+# Helper classes and types.
+#
+###############################################################################
+
+
+@dataclass
+class ColumnInfo:
+    """Type to hold user modified properties for a column."""
+
+    width: Optional[int] = None
+    column_format: Optional["Format"] = None
+    hidden: bool = False
+    level: int = 0
+    collapsed: bool = False
+    autofit: bool = False
+
+
+@dataclass
+class RowInfo:
+    """Type to hold user modified properties for a row."""
+
+    height: Optional[int] = None
+    row_format: Optional["Format"] = None
+    hidden: bool = False
+    level: int = 0
+    collapsed: bool = False
+
 
 ###############################################################################
 #
@@ -226,7 +324,6 @@ class Worksheet(xmlwriter.XMLwriter):
         self.tmpdir = None
         self.is_chartsheet = False
 
-        self.ext_sheets = []
         self.fileclosed = 0
         self.excel_version = 2007
         self.excel2003_style = False
@@ -239,7 +336,17 @@ class Worksheet(xmlwriter.XMLwriter):
         self.dim_colmin = None
         self.dim_colmax = None
 
-        self.col_info = {}
+        self.col_info: Dict[int, ColumnInfo] = {}
+        self.row_info: Dict[int, RowInfo] = {}
+        self.default_row_height: int = 20
+        self.default_col_width: int = 64
+        self.cell_padding: int = 5
+        self.original_row_height: int = 20
+        self.max_digit_width: int = 7
+        self.max_col_width: int = 1790
+        self.default_date_width = 68
+        self.default_row_zeroed = 0
+
         self.selections = []
         self.hidden = 0
         self.active = 0
@@ -247,7 +354,6 @@ class Worksheet(xmlwriter.XMLwriter):
         self.top_left_cell = ""
 
         self.panes = []
-        self.active_pane = 3
         self.selected = 0
 
         self.page_setup_changed = False
@@ -284,8 +390,6 @@ class Worksheet(xmlwriter.XMLwriter):
 
         self.page_order = 0
         self.black_white = 0
-        self.draft_quality = 0
-        self.print_comments = 0
         self.page_start = 0
 
         self.fit_page = 0
@@ -298,15 +402,13 @@ class Worksheet(xmlwriter.XMLwriter):
         self.protect_options = {}
         self.protected_ranges = []
         self.num_protected_ranges = 0
-        self.set_cols = {}
-        self.set_rows = defaultdict(dict)
 
         self.zoom = 100
-        self.zoom_scale_normal = 1
+        self.zoom_scale_normal = True
+        self.zoom_to_fit = False
         self.print_scale = 100
         self.is_right_to_left = False
         self.show_zeros = 1
-        self.leading_zeros = 0
 
         self.outline_row_level = 0
         self.outline_col_level = 0
@@ -316,16 +418,6 @@ class Worksheet(xmlwriter.XMLwriter):
         self.outline_on = 1
         self.outline_changed = False
 
-        self.original_row_height = 15
-        self.default_row_height = 15
-        self.default_row_pixels = 20
-        self.default_col_width = 8.43
-        self.default_col_pixels = 64
-        self.default_date_pixels = 68
-        self.default_row_zeroed = 0
-
-        self.names = {}
-        self.write_match = []
         self.table = defaultdict(dict)
         self.merge = []
         self.merged_cells = {}
@@ -355,10 +447,8 @@ class Worksheet(xmlwriter.XMLwriter):
         self.col_size_changed = False
         self.row_size_changed = False
 
-        self.last_shape_id = 1
         self.rel_count = 0
         self.hlink_count = 0
-        self.hlink_refs = []
         self.external_hyper_links = []
         self.external_drawing_links = []
         self.external_comment_links = []
@@ -629,7 +719,7 @@ class Worksheet(xmlwriter.XMLwriter):
         self,
         row: int,
         col: int,
-        number: Union[int, float, Fraction],
+        number: Union[float, Fraction],
         cell_format: Optional[Format] = None,
     ) -> Literal[0, -1]:
         """
@@ -653,7 +743,7 @@ class Worksheet(xmlwriter.XMLwriter):
         self,
         row: int,
         col: int,
-        number: Union[int, float, Fraction],
+        number: Union[float, Fraction],
         cell_format: Optional[Format] = None,
     ) -> Literal[0, -1]:
         if isnan(number) or isinf(number):
@@ -1395,8 +1485,6 @@ class Worksheet(xmlwriter.XMLwriter):
         # formatting run. Use the default for strings without a leading format.
         fragments = []
         previous = "format"
-        pos = 0
-
         if len(tokens) <= 2:
             warn(
                 "You must specify more than 2 format/fragments for rich "
@@ -1404,7 +1492,7 @@ class Worksheet(xmlwriter.XMLwriter):
             )
             return -5
 
-        for token in tokens:
+        for pos, token in enumerate(tokens):
             if not isinstance(token, Format):
                 # Token is a string.
                 if previous != "format":
@@ -1437,8 +1525,6 @@ class Worksheet(xmlwriter.XMLwriter):
                 # Token is a format object. Add it to the fragment list.
                 fragments.append(token)
                 previous = "format"
-
-            pos += 1
 
         # If the first token is a string start the <r> element.
         if not isinstance(fragments[0], Format):
@@ -1982,12 +2068,52 @@ class Worksheet(xmlwriter.XMLwriter):
             -1: Column number is out of worksheet bounds.
 
         """
+        # Convert from Excel character width to pixels. The conversion is
+        # different below 1 character widths.
+        if width is None:
+            width_pixels = None
+        elif width == 0.0:
+            width_pixels = 0
+        elif width < 1.0:
+            width_pixels = round(width * (self.max_digit_width + self.cell_padding))
+        else:
+            width_pixels = round(width * self.max_digit_width) + self.cell_padding
+
+        return self.set_column_pixels(
+            first_col, last_col, width_pixels, cell_format, options
+        )
+
+    @convert_column_args
+    def set_column_pixels(
+        self,
+        first_col: int,
+        last_col: int,
+        width: Optional[float] = None,
+        cell_format: Optional[Format] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Literal[0, -1]:
+        """
+        Set the width, and other properties of a single column or a
+        range of columns, where column width is in pixels.
+
+        Args:
+            first_col:   First column (zero-indexed).
+            last_col:    Last column (zero-indexed). Can be same as first_col.
+            width:       Column width in pixels. (optional).
+            cell_format: Column cell_format. (optional).
+            options:     Dict of options such as hidden and level.
+
+        Returns:
+            0:  Success.
+            -1: Column number is out of worksheet bounds.
+
+        """
         if options is None:
             options = {}
 
         # Ensure 2nd col is larger than first.
         if first_col > last_col:
-            (first_col, last_col) = (last_col, first_col)
+            first_col, last_col = (last_col, first_col)
 
         # Don't modify the row dimensions when checking the columns.
         ignore_row = True
@@ -2017,44 +2143,20 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Store the column data.
         for col in range(first_col, last_col + 1):
-            self.col_info[col] = [width, cell_format, hidden, level, collapsed, False]
+            self.col_info[col] = ColumnInfo(
+                width=width,
+                column_format=cell_format,
+                hidden=hidden,
+                level=level,
+                collapsed=collapsed,
+            )
 
         # Store the column change to allow optimizations.
         self.col_size_changed = True
 
         return 0
 
-    @convert_column_args
-    def set_column_pixels(
-        self,
-        first_col: int,
-        last_col: int,
-        width: Optional[float] = None,
-        cell_format: Optional[Format] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Literal[0, -1]:
-        """
-        Set the width, and other properties of a single column or a
-        range of columns, where column width is in pixels.
-
-        Args:
-            first_col:   First column (zero-indexed).
-            last_col:    Last column (zero-indexed). Can be same as first_col.
-            width:       Column width in pixels. (optional).
-            cell_format: Column cell_format. (optional).
-            options:     Dict of options such as hidden and level.
-
-        Returns:
-            0:  Success.
-            -1: Column number is out of worksheet bounds.
-
-        """
-        if width is not None:
-            width = self._pixels_to_width(width)
-
-        return self.set_column(first_col, last_col, width, cell_format, options)
-
-    def autofit(self, max_width: int = 1790) -> None:
+    def autofit(self, max_width: Optional[int] = None) -> None:
         """
         Simulate autofit based on the data, and datatypes in each column.
 
@@ -2079,7 +2181,10 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Convert the autofit maximum pixel width to a column/character width,
         # but limit it to the Excel max limit.
-        max_width = min(self._pixels_to_width(max_width), 255.0)
+        if max_width is None:
+            max_width = self.max_col_width
+
+        max_width = min(max_width, self.max_col_width)
 
         # Create a reverse lookup for the share strings table so we can convert
         # the string id back to the original string.
@@ -2116,8 +2221,8 @@ class Worksheet(xmlwriter.XMLwriter):
                             length = xl_pixel_width(string)
                         else:
                             # Handle multi-line strings.
-                            for string in string.split("\n"):
-                                seg_length = xl_pixel_width(string)
+                            for segment in string.split("\n"):
+                                seg_length = xl_pixel_width(segment)
                                 length = max(length, seg_length)
 
                     elif cell_type == "Number":
@@ -2136,7 +2241,7 @@ class Worksheet(xmlwriter.XMLwriter):
                         # The following uses the default width for mm/dd/yyyy
                         # dates. It isn't feasible to parse the number format
                         # to get the actual string width for all format types.
-                        length = self.default_date_pixels
+                        length = self.default_date_width
 
                     elif cell_type == "Boolean":
                         # Handle boolean values.
@@ -2176,10 +2281,9 @@ class Worksheet(xmlwriter.XMLwriter):
                         col_width_max[col_num] = length
 
         # Apply the width to the column.
-        for col_num, pixel_width in col_width_max.items():
-            # Convert the string pixel width to a character width using an
-            # additional padding of 7 pixels, like Excel.
-            width = self._pixels_to_width(pixel_width + 7)
+        for col_num, width in col_width_max.items():
+            # Add a 7 pixels padding, like Excel.
+            width += 7
 
             # Limit the width to the maximum user or Excel value.
             width = min(width, max_width)
@@ -2190,18 +2294,21 @@ class Worksheet(xmlwriter.XMLwriter):
                 # greater than the user defined value. This allows the user
                 # to pre-load a minimum col width.
                 col_info = self.col_info.get(col_num)
-                user_width = col_info[0]
-                hidden = col_info[5]
+                user_width = col_info.width
+                hidden = col_info.hidden
                 if user_width is not None and not hidden:
                     # Col info is user defined.
                     if width > user_width:
-                        self.col_info[col_num][0] = width
-                        self.col_info[col_num][5] = True
+                        self.col_info[col_num].width = width
+                        self.col_info[col_num].hidden = True
                 else:
-                    self.col_info[col_num][0] = width
-                    self.col_info[col_num][5] = True
+                    self.col_info[col_num].width = width
+                    self.col_info[col_num].hidden = True
             else:
-                self.col_info[col_num] = [width, None, False, 0, False, True]
+                self.col_info[col_num] = ColumnInfo(
+                    width=width,
+                    autofit=True,
+                )
 
     def set_row(
         self,
@@ -2216,6 +2323,34 @@ class Worksheet(xmlwriter.XMLwriter):
         Args:
             row:         Row number (zero-indexed).
             height:      Row height. (optional).
+            cell_format: Row cell_format. (optional).
+            options:     Dict of options such as hidden, level and collapsed.
+
+        Returns:
+            0:  Success.
+            -1: Row number is out of worksheet bounds.
+
+        """
+        if height is not None:
+            pixel_height = round(height * 4.0 / 3.0)
+        else:
+            pixel_height = None
+
+        return self.set_row_pixels(row, pixel_height, cell_format, options)
+
+    def set_row_pixels(
+        self,
+        row: int,
+        height: Optional[float] = None,
+        cell_format: Optional[Format] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Literal[0, -1]:
+        """
+        Set the width (in pixels), and other properties of a row.
+
+        Args:
+            row:         Row number (zero-indexed).
+            height:      Row height in pixels. (optional).
             cell_format: Row cell_format. (optional).
             options:     Dict of options such as hidden, level and collapsed.
 
@@ -2247,7 +2382,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # If the height is 0 the row is hidden and the height is the default.
         if height == 0:
-            hidden = 1
+            hidden = True
             height = self.default_row_height
 
         # Set the limits for the outline levels (0 <= x <= 7).
@@ -2257,7 +2392,13 @@ class Worksheet(xmlwriter.XMLwriter):
         self.outline_row_level = max(self.outline_row_level, level)
 
         # Store the row properties.
-        self.set_rows[row] = [height, cell_format, hidden, level, collapsed]
+        self.row_info[row] = RowInfo(
+            height=height,
+            row_format=cell_format,
+            hidden=hidden,
+            level=level,
+            collapsed=collapsed,
+        )
 
         # Store the row change to allow optimizations.
         self.row_size_changed = True
@@ -2266,32 +2407,6 @@ class Worksheet(xmlwriter.XMLwriter):
         self.row_sizes[row] = [height, hidden]
 
         return 0
-
-    def set_row_pixels(
-        self,
-        row: int,
-        height: Optional[float] = None,
-        cell_format: Optional[Format] = None,
-        options: Optional[Dict[str, Any]] = None,
-    ) -> Literal[0, -1]:
-        """
-        Set the width (in pixels), and other properties of a row.
-
-        Args:
-            row:         Row number (zero-indexed).
-            height:      Row height in pixels. (optional).
-            cell_format: Row cell_format. (optional).
-            options:     Dict of options such as hidden, level and collapsed.
-
-        Returns:
-            0:  Success.
-            -1: Row number is out of worksheet bounds.
-
-        """
-        if height is not None:
-            height = self._pixels_to_height(height)
-
-        return self.set_row(row, height, cell_format, options)
 
     def set_default_row(
         self, height: Optional[float] = None, hide_unused_rows: bool = False
@@ -2308,12 +2423,14 @@ class Worksheet(xmlwriter.XMLwriter):
 
         """
         if height is None:
-            height = self.default_row_height
+            pixel_height = self.default_row_height
+        else:
+            pixel_height = int(round(height * 4.0 / 3.0))  # noqa: RUF046
 
-        if height != self.original_row_height:
+        if pixel_height != self.original_row_height:
             # Store the row change to allow optimizations.
             self.row_size_changed = True
-            self.default_row_height = height
+            self.default_row_height = pixel_height
 
         if hide_unused_rows:
             self.default_row_zeroed = 1
@@ -2355,9 +2472,9 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Swap last row/col with first row/col as necessary
         if first_row > last_row:
-            (first_row, last_row) = (last_row, first_row)
+            first_row, last_row = (last_row, first_row)
         if first_col > last_col:
-            (first_col, last_col) = (last_col, first_col)
+            first_col, last_col = (last_col, first_col)
 
         # Check that row and col are valid and store max and min values.
         if self._check_dimensions(first_row, first_col):
@@ -2420,9 +2537,15 @@ class Worksheet(xmlwriter.XMLwriter):
         """
         # Reverse max and min values if necessary.
         if last_row < first_row:
-            (first_row, last_row) = (last_row, first_row)
+            first_row, last_row = (last_row, first_row)
         if last_col < first_col:
-            (first_col, last_col) = (last_col, first_col)
+            first_col, last_col = (last_col, first_col)
+
+        # Check that row and col are valid without storing the values.
+        if self._check_dimensions(first_row, first_col, True, True):
+            return -1
+        if self._check_dimensions(last_row, last_col, True, True):
+            return -1
 
         # Build up the autofilter area range "Sheet1!$A$1:$C$13".
         area = self._convert_name_area(first_row, first_col, last_row, last_col)
@@ -2444,6 +2567,8 @@ class Worksheet(xmlwriter.XMLwriter):
                     )
 
             self.filter_cells[(first_row, col)] = ("worksheet", ref)
+
+        return 0
 
     def filter_column(self, col: int, criteria: str) -> None:
         """
@@ -2467,13 +2592,13 @@ class Worksheet(xmlwriter.XMLwriter):
         except ValueError:
             # Convert col ref to a cell ref and then to a col number.
             col_letter = col
-            (_, col) = xl_cell_to_rowcol(col + "1")
+            _, col = xl_cell_to_rowcol(col + "1")
 
             if col >= self.xls_colmax:
                 warn(f"Invalid column '{col_letter}'")
                 return
 
-        (col_first, col_last) = self.filter_range
+        col_first, col_last = self.filter_range
 
         # Reject column if it is outside filter range.
         if col < col_first or col > col_last:
@@ -2527,13 +2652,13 @@ class Worksheet(xmlwriter.XMLwriter):
         except ValueError:
             # Convert col ref to a cell ref and then to a col number.
             col_letter = col
-            (_, col) = xl_cell_to_rowcol(col + "1")
+            _, col = xl_cell_to_rowcol(col + "1")
 
             if col >= self.xls_colmax:
                 warn(f"Invalid column '{col_letter}'")
                 return
 
-        (col_first, col_last) = self.filter_range
+        col_first, col_last = self.filter_range
 
         # Reject column if it is outside filter range.
         if col < col_first or col > col_last:
@@ -2605,7 +2730,7 @@ class Worksheet(xmlwriter.XMLwriter):
         }
 
         # Check for valid input parameters.
-        for param_key in options.keys():
+        for param_key in options:
             if param_key not in valid_parameters:
                 warn(f"Unknown parameter '{param_key}' in data_validation()")
                 return -2
@@ -2890,7 +3015,7 @@ class Worksheet(xmlwriter.XMLwriter):
         }
 
         # Check for valid input parameters.
-        for param_key in options.keys():
+        for param_key in options:
             if param_key not in valid_parameter:
                 warn(f"Unknown parameter '{param_key}' in conditional_format()")
                 return -2
@@ -3077,7 +3202,7 @@ class Worksheet(xmlwriter.XMLwriter):
             cell_range = cell_range.replace("$", "")
 
         # Get the dxf format index.
-        if "format" in options and options["format"]:
+        if options.get("format"):
             options["format"] = options["format"]._get_dxf_index()
 
         # Set the priority based on the order of adding.
@@ -3369,9 +3494,9 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Swap last row/col for first row/col as necessary.
         if first_row > last_row:
-            (first_row, last_row) = (last_row, first_row)
+            first_row, last_row = (last_row, first_row)
         if first_col > last_col:
-            (first_col, last_col) = (last_col, first_col)
+            first_col, last_col = (last_col, first_col)
 
         # Check if the table range overlaps a previous merged or table range.
         # This is a critical file corruption error in Excel.
@@ -3407,10 +3532,12 @@ class Worksheet(xmlwriter.XMLwriter):
             "name",
             "style",
             "total_row",
+            "description",
+            "title",
         }
 
         # Check for valid input parameters.
-        for param_key in options.keys():
+        for param_key in options:
             if param_key not in valid_parameter:
                 warn(f"Unknown parameter '{param_key}' in add_table()")
                 return -2
@@ -3436,6 +3563,8 @@ class Worksheet(xmlwriter.XMLwriter):
         table["show_col_stripes"] = options.get("banded_columns", False)
         table["header_row_count"] = options.get("header_row", 0)
         table["totals_row_shown"] = options.get("total_row", False)
+        table["description"] = options.get("description")
+        table["title"] = options.get("title")
 
         # Set the table name.
         if "name" in options:
@@ -3545,7 +3674,7 @@ class Worksheet(xmlwriter.XMLwriter):
                     col_data["name_format"] = user_data.get("header_format")
 
                     # Handle the column formula.
-                    if "formula" in user_data and user_data["formula"]:
+                    if user_data.get("formula"):
                         formula = user_data["formula"]
 
                         # Remove the formula '=' sign if it exists.
@@ -3569,18 +3698,16 @@ class Worksheet(xmlwriter.XMLwriter):
                         if function == "std_dev":
                             function = "stdDev"
 
-                        subtotals = set(
-                            [
-                                "average",
-                                "countNums",
-                                "count",
-                                "max",
-                                "min",
-                                "stdDev",
-                                "sum",
-                                "var",
-                            ]
-                        )
+                        subtotals = {
+                            "average",
+                            "countNums",
+                            "count",
+                            "max",
+                            "min",
+                            "stdDev",
+                            "sum",
+                            "var",
+                        }
 
                         if function in subtotals:
                             formula = self._table_function_to_formula(
@@ -3629,18 +3756,15 @@ class Worksheet(xmlwriter.XMLwriter):
         if "data" in options:
             data = options["data"]
 
-            i = 0  # For indexing the row data.
-            for row in range(first_data_row, last_data_row + 1):
-                j = 0  # For indexing the col data.
-                for col in range(first_col, last_col + 1):
+            # Index the row and col data with i and j.
+            for i, row in enumerate(range(first_data_row, last_data_row + 1)):
+                for j, col in enumerate(range(first_col, last_col + 1)):
                     if i < len(data) and j < len(data[i]):
                         token = data[i][j]
                         if j in col_formats:
                             self._write(row, col, token, col_formats[j])
                         else:
                             self._write(row, col, token, None)
-                    j += 1
-                i += 1
 
         # Write any columns formulas after the user supplied table data to
         # overwrite it if required.
@@ -3731,7 +3855,7 @@ class Worksheet(xmlwriter.XMLwriter):
         }
 
         # Check for valid input parameters.
-        for param_key in options.keys():
+        for param_key in options:
             if param_key not in valid_parameters:
                 warn(f"Unknown parameter '{param_key}' in add_sparkline()")
                 return -1
@@ -3890,10 +4014,10 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Swap last row/col for first row/col if necessary
         if first_row > last_row:
-            (first_row, last_row) = (last_row, first_row)
+            first_row, last_row = (last_row, first_row)
 
         if first_col > last_col:
-            (first_col, last_col) = (last_col, first_col)
+            first_col, last_col = (last_col, first_col)
 
         sqref = xl_range(first_row, first_col, last_row, last_col)
 
@@ -4021,6 +4145,19 @@ class Worksheet(xmlwriter.XMLwriter):
 
         self.zoom = int(zoom)
 
+    def set_zoom_to_fit(self) -> None:
+        """
+        Set the worksheet zoom  to selection/fit. Only works for chartsheets.
+
+        Args:
+            None.
+
+        Returns:
+            Nothing.
+
+        """
+        self.zoom_to_fit = True
+
     def right_to_left(self) -> None:
         """
         Display the worksheet right to left for some versions of Excel.
@@ -4102,7 +4239,7 @@ class Worksheet(xmlwriter.XMLwriter):
         }
 
         # Overwrite the defaults with user specified values.
-        for key in options.keys():
+        for key in options:
             if key in defaults:
                 defaults[key] = options[key]
             else:
@@ -4178,8 +4315,8 @@ class Worksheet(xmlwriter.XMLwriter):
             options = {}
 
         # Create a new button object.
-        height = self.default_row_pixels
-        width = self.default_col_pixels
+        height = self.default_row_height
+        width = self.default_col_width
         button_number = 1 + len(self.buttons_list)
 
         button = ButtonType(row, col, height, width, button_number, options)
@@ -4810,7 +4947,7 @@ class Worksheet(xmlwriter.XMLwriter):
         }
 
         # Check for valid input parameters.
-        for param_key in options.keys():
+        for param_key in options:
             if param_key not in valid_parameters:
                 warn(f"Unknown parameter '{param_key}' in ignore_errors()")
                 return -1
@@ -4844,11 +4981,17 @@ class Worksheet(xmlwriter.XMLwriter):
         self.max_url_length = init_data["max_url_length"]
         self.use_future_functions = init_data["use_future_functions"]
         self.embedded_images = init_data["embedded_images"]
+        self.default_row_height = init_data["default_row_height"]
+        self.default_col_width = init_data["default_col_width"]
+        self.max_digit_width = init_data["max_digit_width"]
+        self.cell_padding = init_data["cell_padding"]
+        self.max_col_width = init_data["max_col_width"]
+
+        self.original_row_height = self.default_row_height
 
         if self.excel2003_style:
-            self.original_row_height = 12.75
-            self.default_row_height = 12.75
-            self.default_row_pixels = 17
+            self.original_row_height = 17
+            self.default_row_height = 17
             self.margin_left = 0.75
             self.margin_right = 0.75
             self.margin_top = 1
@@ -4861,11 +5004,13 @@ class Worksheet(xmlwriter.XMLwriter):
         if self.constant_memory:
             # This is sub-optimal but we need to create a temp file
             # with utf8 encoding in Python < 3.
-            (fd, filename) = tempfile.mkstemp(dir=self.tmpdir)
+            fd, filename = tempfile.mkstemp(dir=self.tmpdir)
             os.close(fd)
             self.row_data_filename = filename
             # pylint: disable=consider-using-with
-            self.row_data_fh = open(filename, mode="w+", encoding="utf-8")
+            self.row_data_fh = open(  # noqa: SIM115
+                filename, mode="w+", encoding="utf-8"
+            )
 
             # Set as the worksheet filehandle until the file is assembled.
             self.fh = self.row_data_fh
@@ -4987,9 +5132,13 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # In constant_memory mode we don't change dimensions for rows
         # that are already written.
-        if not ignore_row and not ignore_col and self.constant_memory:
-            if row < self.previous_row:
-                return -2
+        if (
+            not ignore_row
+            and not ignore_col
+            and self.constant_memory
+            and row < self.previous_row
+        ):
+            return -2
 
         if not ignore_row:
             if self.dim_rowmin is None or row < self.dim_rowmin:
@@ -5061,8 +5210,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         breaks_set = set(breaks)
 
-        if 0 in breaks_set:
-            breaks_set.remove(0)
+        breaks_set.discard(0)
 
         breaks_list = list(breaks_set)
         breaks_list.sort()
@@ -5349,8 +5497,8 @@ class Worksheet(xmlwriter.XMLwriter):
             decorative,
         ) = self.shapes[index]
 
-        width = options.get("width", self.default_col_pixels * 3)
-        height = options.get("height", self.default_row_pixels * 6)
+        width = options.get("width", self.default_col_width * 3)
+        height = options.get("height", self.default_row_height * 6)
 
         width *= x_scale
         height *= y_scale
@@ -5596,7 +5744,7 @@ class Worksheet(xmlwriter.XMLwriter):
                 x_abs += self._size_col(col_id)
         else:
             # Optimization for when the column widths haven't changed.
-            x_abs += self.default_col_pixels * col_start
+            x_abs += self.default_col_width * col_start
 
         x_abs += x1
 
@@ -5606,7 +5754,7 @@ class Worksheet(xmlwriter.XMLwriter):
                 y_abs += self._size_row(row_id)
         else:
             # Optimization for when the row heights haven't changed.
-            y_abs += self.default_row_pixels * row_start
+            y_abs += self.default_row_height * row_start
 
         y_abs += y1
 
@@ -5647,67 +5795,33 @@ class Worksheet(xmlwriter.XMLwriter):
         return [col_start, row_start, x1, y1, col_end, row_end, x2, y2, x_abs, y_abs]
 
     def _size_col(self, col: int, anchor=0):
-        # Convert the width of a cell from character units to pixels. Excel
-        # rounds the column width to the nearest pixel. If the width hasn't
-        # been set by the user we use the default value. A hidden column is
-        # treated as having a width of zero unless it has the special
-        # "object_position" of 4 (size with cells).
-        max_digit_width = 7  # For Calibri 11.
-        padding = 5
-        pixels = 0
-
         # Look up the cell value to see if it has been changed.
         if col in self.col_info:
-            width = self.col_info[col][0]
-            hidden = self.col_info[col][2]
+            width = self.col_info[col].width
+            hidden = self.col_info[col].hidden
 
             if width is None:
                 width = self.default_col_width
 
-            # Convert to pixels.
             if hidden and anchor != 4:
-                pixels = 0
-            elif width < 1:
-                pixels = int(width * (max_digit_width + padding) + 0.5)
-            else:
-                pixels = int(width * max_digit_width + 0.5) + padding
-        else:
-            pixels = self.default_col_pixels
+                width = 0
 
-        return pixels
+            return width
+
+        return self.default_col_width
 
     def _size_row(self, row: int, anchor=0):
-        # Convert the height of a cell from character units to pixels. If the
-        # height hasn't been set by the user we use the default value. A
-        # hidden row is treated as having a height of zero unless it has the
-        # special "object_position" of 4 (size with cells).
-        pixels = 0
-
         # Look up the cell value to see if it has been changed
         if row in self.row_sizes:
             height = self.row_sizes[row][0]
             hidden = self.row_sizes[row][1]
 
             if hidden and anchor != 4:
-                pixels = 0
-            else:
-                pixels = int(4.0 / 3.0 * height)
-        else:
-            pixels = int(4.0 / 3.0 * self.default_row_height)
+                height = 0
 
-        return pixels
+            return height
 
-    def _pixels_to_width(self, pixels):
-        # Convert the width of a cell from pixels to character units.
-        max_digit_width = 7.0  # For Calabri 11.
-        padding = 5.0
-
-        if pixels <= 12:
-            width = pixels / (max_digit_width + padding)
-        else:
-            width = (pixels - padding) / max_digit_width
-
-        return width
+        return self.default_row_height
 
     def _pixels_to_height(self, pixels):
         # Convert the height of a cell from pixels to character units.
@@ -5878,7 +5992,7 @@ class Worksheet(xmlwriter.XMLwriter):
         # Returns a range of data from the worksheet _table to be used in
         # chart cached data. Strings are returned as SST ids and decoded
         # in the workbook. Return None for data that doesn't exist since
-        # Excel can chart series with data missing.
+        # Excel can chart have series with data missing.
 
         if self.constant_memory:
             return ()
@@ -6073,7 +6187,9 @@ class Worksheet(xmlwriter.XMLwriter):
         if self.row_data_fh_closed:
             filename = self.row_data_filename
             # pylint: disable=consider-using-with
-            self.row_data_fh = open(filename, mode="a+", encoding="utf-8")
+            self.row_data_fh = open(  # noqa: SIM115
+                filename, mode="a+", encoding="utf-8"
+            )
             self.row_data_fh_closed = False
             self.fh = self.row_data_fh
 
@@ -6261,6 +6377,9 @@ class Worksheet(xmlwriter.XMLwriter):
 
         attributes.append(("workbookViewId", 0))
 
+        if self.is_chartsheet and self.zoom_to_fit:
+            attributes.append(("zoomToFit", 1))
+
         if self.panes or self.selections:
             self._xml_start_tag("sheetView", attributes)
             self._write_panes()
@@ -6271,11 +6390,11 @@ class Worksheet(xmlwriter.XMLwriter):
 
     def _write_sheet_format_pr(self) -> None:
         # Write the <sheetFormatPr> element.
-        default_row_height = self.default_row_height
+        height_in_chars = self.default_row_height * 0.75
         row_level = self.outline_row_level
         col_level = self.outline_col_level
 
-        attributes = [("defaultRowHeight", default_row_height)]
+        attributes = [("defaultRowHeight", f"{height_in_chars:.16g}")]
 
         if self.default_row_height != self.original_row_height:
             attributes.append(("customHeight", 1))
@@ -6304,7 +6423,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Use the first element of the column information structures to set
         # the initial/previous properties.
-        first_col = (sorted(self.col_info.keys()))[0]
+        first_col = min(self.col_info.keys())
         last_col = first_col
         prev_col_options = self.col_info[first_col]
         del self.col_info[first_col]
@@ -6333,70 +6452,47 @@ class Worksheet(xmlwriter.XMLwriter):
 
         self._xml_end_tag("cols")
 
-    def _write_col_info(self, col_min, col_max, col_info) -> None:
+    def _write_col_info(self, col_min: int, col_max: int, col_info: ColumnInfo) -> None:
         # Write the <col> element.
-        (width, cell_format, hidden, level, collapsed, autofit) = col_info
-
-        custom_width = 1
+        width = col_info.width
+        has_custom_width = True
         xf_index = 0
 
         # Get the cell_format index.
-        if cell_format:
-            xf_index = cell_format._get_xf_index()
+        if col_info.column_format:
+            xf_index = col_info.column_format._get_xf_index()
 
         # Set the Excel default column width.
         if width is None:
-            if not hidden:
-                width = 8.43
-                custom_width = 0
+            if not col_info.hidden:
+                width = self.default_col_width
+                has_custom_width = False
             else:
                 width = 0
-        elif width == 8.43:
+        elif width == self.default_col_width:
             # Width is defined but same as default.
-            custom_width = 0
+            has_custom_width = False
 
-        # Convert column width from user units to character width.
-        if width > 0:
-            # For Calabri 11.
-            max_digit_width = 7
-            padding = 5
-
-            if width < 1:
-                width = (
-                    int(
-                        (int(width * (max_digit_width + padding) + 0.5))
-                        / float(max_digit_width)
-                        * 256.0
-                    )
-                    / 256.0
-                )
-            else:
-                width = (
-                    int(
-                        (int(width * max_digit_width + 0.5) + padding)
-                        / float(max_digit_width)
-                        * 256.0
-                    )
-                    / 256.0
-                )
+        # Convert column width from pixels to character width.
+        char_width = (width * 256 // self.max_digit_width) / 256.0
 
         attributes = [
             ("min", col_min + 1),
             ("max", col_max + 1),
-            ("width", f"{width:.16g}"),
+            ("width", f"{char_width:.16g}"),
         ]
 
         if xf_index:
             attributes.append(("style", xf_index))
-        if hidden:
+        if col_info.hidden:
             attributes.append(("hidden", "1"))
-        if autofit:
+        if col_info.autofit:
             attributes.append(("bestFit", "1"))
-        if custom_width:
+        if has_custom_width:
             attributes.append(("customWidth", "1"))
-        if level:
-            attributes.append(("outlineLevel", level))
-        if collapsed:
+        if col_info.level:
+            attributes.append(("outlineLevel", col_info.level))
+        if col_info.collapsed:
             attributes.append(("collapsed", "1"))
 
         self._xml_empty_tag("col", attributes)
@@ -6585,7 +6681,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         for row_num in range(self.dim_rowmin, self.dim_rowmax + 1):
             if (
-                row_num in self.set_rows
+                row_num in self.row_info
                 or row_num in self.comments
                 or self.table[row_num]
             ):
@@ -6600,10 +6696,10 @@ class Worksheet(xmlwriter.XMLwriter):
 
                 if self.table[row_num]:
                     # Write the cells if the row contains data.
-                    if row_num not in self.set_rows:
+                    if row_num not in self.row_info:
                         self._write_row(row_num, span)
                     else:
-                        self._write_row(row_num, span, self.set_rows[row_num])
+                        self._write_row(row_num, span, self.row_info[row_num])
 
                     for col_num in range(self.dim_colmin, self.dim_colmax + 1):
                         if col_num in self.table[row_num]:
@@ -6614,10 +6710,16 @@ class Worksheet(xmlwriter.XMLwriter):
 
                 elif row_num in self.comments:
                     # Row with comments in cells.
-                    self._write_empty_row(row_num, span, self.set_rows[row_num])
+                    if row_num not in self.row_info:
+                        self._write_empty_row(row_num, span, None)
+                    else:
+                        self._write_empty_row(row_num, span, self.row_info[row_num])
                 else:
                     # Blank row with attributes only.
-                    self._write_empty_row(row_num, span, self.set_rows[row_num])
+                    if row_num not in self.row_info:
+                        self._write_empty_row(row_num, span, None)
+                    else:
+                        self._write_empty_row(row_num, span, self.row_info[row_num])
 
     def _write_single_row(self, current_row_num=0) -> None:
         # Write out the worksheet data as a single row with cells.
@@ -6630,7 +6732,7 @@ class Worksheet(xmlwriter.XMLwriter):
         row_num = self.previous_row
         self.previous_row = current_row_num
 
-        if row_num in self.set_rows or row_num in self.comments or self.table[row_num]:
+        if row_num in self.row_info or row_num in self.comments or self.table[row_num]:
             # Only process rows with formatting, cell data and/or comments.
 
             # No span data in optimized mode.
@@ -6638,10 +6740,10 @@ class Worksheet(xmlwriter.XMLwriter):
 
             if self.table[row_num]:
                 # Write the cells if the row contains data.
-                if row_num not in self.set_rows:
+                if row_num not in self.row_info:
                     self._write_row(row_num, span)
                 else:
-                    self._write_row(row_num, span, self.set_rows[row_num])
+                    self._write_row(row_num, span, self.row_info[row_num])
 
                 for col_num in range(self.dim_colmin, self.dim_colmax + 1):
                     if col_num in self.table[row_num]:
@@ -6651,7 +6753,7 @@ class Worksheet(xmlwriter.XMLwriter):
                 self._xml_end_tag("row")
             else:
                 # Row attributes or comments only.
-                self._write_empty_row(row_num, span, self.set_rows[row_num])
+                self._write_empty_row(row_num, span, self.row_info[row_num])
 
         # Reset table.
         self.table.clear()
@@ -6699,14 +6801,28 @@ class Worksheet(xmlwriter.XMLwriter):
 
         self.row_spans = spans
 
-    def _write_row(self, row: int, spans, properties=None, empty_row=False) -> None:
+    def _write_row(
+        self,
+        row: int,
+        spans: Optional[str],
+        row_info: Optional[RowInfo] = None,
+        empty_row: bool = False,
+    ) -> None:
         # Write the <row> element.
         xf_index = 0
 
-        if properties:
-            height, cell_format, hidden, level, collapsed = properties
+        if row_info:
+            height = row_info.height
+            row_format = row_info.row_format
+            hidden = row_info.hidden
+            level = row_info.level
+            collapsed = row_info.collapsed
         else:
-            height, cell_format, hidden, level, collapsed = None, None, 0, 0, 0
+            height = None
+            row_format = None
+            hidden = 0
+            level = 0
+            collapsed = 0
 
         if height is None:
             height = self.default_row_height
@@ -6714,8 +6830,8 @@ class Worksheet(xmlwriter.XMLwriter):
         attributes = [("r", row + 1)]
 
         # Get the cell_format index.
-        if cell_format:
-            xf_index = cell_format._get_xf_index()
+        if row_format:
+            xf_index = row_format._get_xf_index()
 
         # Add row attributes where applicable.
         if spans:
@@ -6724,13 +6840,14 @@ class Worksheet(xmlwriter.XMLwriter):
         if xf_index:
             attributes.append(("s", xf_index))
 
-        if cell_format:
+        if row_format:
             attributes.append(("customFormat", 1))
 
         if height != self.original_row_height or (
             height == self.original_row_height and height != self.default_row_height
         ):
-            attributes.append(("ht", f"{height:g}"))
+            height_in_chars = height * 0.75
+            attributes.append(("ht", f"{height_in_chars:.16g}"))
 
         if hidden:
             attributes.append(("hidden", 1))
@@ -6754,9 +6871,11 @@ class Worksheet(xmlwriter.XMLwriter):
         else:
             self._xml_start_tag_unencoded("row", attributes)
 
-    def _write_empty_row(self, row: int, spans, properties=None) -> None:
+    def _write_empty_row(
+        self, row: int, spans: Optional[str], row_info: Optional[RowInfo] = None
+    ) -> None:
         # Write and empty <row> element.
-        self._write_row(row, spans, properties, empty_row=True)
+        self._write_row(row, spans, row_info, empty_row=True)
 
     def _write_cell(self, row: int, col: int, cell) -> None:
         # Write the <cell> element.
@@ -6769,15 +6888,15 @@ class Worksheet(xmlwriter.XMLwriter):
             # Add the cell format index.
             xf_index = cell.format._get_xf_index()
             attributes.append(("s", xf_index))
-        elif row in self.set_rows and self.set_rows[row][1]:
+        elif row in self.row_info and self.row_info[row].row_format:
             # Add the row format.
-            row_xf = self.set_rows[row][1]
-            attributes.append(("s", row_xf._get_xf_index()))
+            row_format = self.row_info[row].row_format
+            attributes.append(("s", row_format._get_xf_index()))
         elif col in self.col_info:
             # Add the column format.
-            col_xf = self.col_info[col][1]
-            if col_xf is not None:
-                attributes.append(("s", col_xf._get_xf_index()))
+            column_format = self.col_info[col].column_format
+            if column_format is not None:
+                attributes.append(("s", column_format._get_xf_index()))
 
         type_cell_name = cell.__class__.__name__
 
@@ -7020,7 +7139,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
     def _write_merge_cell(self, merged_range) -> None:
         # Write the <mergeCell> element.
-        (row_min, col_min, row_max, col_max) = merged_range
+        row_min, col_min, row_max, col_max = merged_range
 
         # Convert the merge dimensions to a cell range.
         cell_1 = xl_rowcol_to_cell(row_min, col_min)
@@ -7134,7 +7253,7 @@ class Worksheet(xmlwriter.XMLwriter):
     def _write_autofilters(self) -> None:
         # Function to iterate through the columns that form part of an
         # autofilter range and write the appropriate filters.
-        (col1, col2) = self.filter_range
+        col1, col2 = self.filter_range
 
         for col in range(col1, col2 + 1):
             # Skip if column doesn't have an active filter.
@@ -7395,14 +7514,14 @@ class Worksheet(xmlwriter.XMLwriter):
             if sqref != "":
                 sqref += " "
 
-            (row_first, col_first, row_last, col_last) = cells
+            row_first, col_first, row_last, col_last = cells
 
             # Swap last row/col for first row/col as necessary
             if row_first > row_last:
-                (row_first, row_last) = (row_last, row_first)
+                row_first, row_last = (row_last, row_first)
 
             if col_first > col_last:
-                (col_first, col_last) = (col_last, col_first)
+                col_first, col_last = (col_last, col_first)
 
             sqref += xl_range(row_first, col_first, row_last, col_last)
 
@@ -7492,16 +7611,10 @@ class Worksheet(xmlwriter.XMLwriter):
         self._xml_data_element("formula2", formula)
 
     def _write_conditional_formats(self) -> None:
-        # Write the Worksheet conditional formats.
-        ranges = sorted(self.cond_formats.keys())
-
-        if not ranges:
-            return
-
-        for cond_range in ranges:
-            self._write_conditional_formatting(
-                cond_range, self.cond_formats[cond_range]
-            )
+        # Write the Worksheet conditional formats, in the order that the ranges
+        # were added in.
+        for cond_range, params in self.cond_formats.items():
+            self._write_conditional_formatting(cond_range, params)
 
     def _write_conditional_formatting(self, cond_range, params) -> None:
         # Write the <conditionalFormatting> element.
@@ -7562,10 +7675,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
             self._xml_empty_tag("cfRule", attributes)
 
-        elif params["type"] == "duplicateValues":
-            self._xml_empty_tag("cfRule", attributes)
-
-        elif params["type"] == "uniqueValues":
+        elif params["type"] in ("duplicateValues", "uniqueValues"):
             self._xml_empty_tag("cfRule", attributes)
 
         elif (
@@ -7683,7 +7793,7 @@ class Worksheet(xmlwriter.XMLwriter):
         # Create a pseudo GUID for each unique Excel 2010 data bar.
         worksheet_count = self.index + 1
         data_bar_count = len(self.data_bars_2010) + 1
-        guid = "{DA7ABA51-AAAA-BBBB-%04X-%012X}" % (worksheet_count, data_bar_count)
+        guid = f"{{DA7ABA51-AAAA-BBBB-{worksheet_count:04X}-{data_bar_count:012X}}}"
 
         # Store the 2010 data bar parameters to write the extLst elements.
         param["guid"] = guid
@@ -7781,7 +7891,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Move user cell selection to the panes.
         if self.selections:
-            (_, active_cell, sqref) = self.selections[0]
+            _, active_cell, sqref = self.selections[0]
             self.selections = []
 
         # Set the active pane.
@@ -7836,7 +7946,7 @@ class Worksheet(xmlwriter.XMLwriter):
 
         # Move user cell selection to the panes.
         if self.selections:
-            (_, active_cell, sqref) = self.selections[0]
+            _, active_cell, sqref = self.selections[0]
             self.selections = []
             has_selection = True
 

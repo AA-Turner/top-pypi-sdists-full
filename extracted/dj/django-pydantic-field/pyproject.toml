@@ -4,17 +4,18 @@ build-backend = "uv_build"
 
 [project]
 name = "django-pydantic-field"
-version = "0.5.4"
+version = "0.5.6"
 requires-python = ">=3.10"
 description = "Type-Safe Pydantic Schemas for Django JSONFields"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-authors = [
-    { name = "Savva Surenkov", email = "savva@surenkov.space" },
+keywords = [
+    "django",
+    "pydantic",
+    "json",
+    "schema",
 ]
-
-keywords = ["django", "pydantic", "json", "schema"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -42,17 +43,30 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
-
 dependencies = [
     "pydantic>=1.10,<3",
     "django>=3.1",
     "typing_extensions",
 ]
 
+[[project.authors]]
+name = "Savva Surenkov"
+email = "savva@surenkov.space"
+
 [project.optional-dependencies]
-openapi = ["uritemplate", "inflection"]
+openapi = [
+    "uritemplate",
+    "inflection",
+]
 jsonform = ["django_jsonform>=2.0,<3"]
+
+[project.urls]
+Homepage = "https://github.com/surenkov/django-pydantic-field"
+Documentation = "https://github.com/surenkov/django-pydantic-field"
+Source = "https://github.com/surenkov/django-pydantic-field"
+Changelog = "https://github.com/surenkov/django-pydantic-field/releases"
 
 [dependency-groups]
 dev = [
@@ -76,12 +90,6 @@ ci = [
     "psycopg[binary]>=3.1,<4",
     "mysqlclient>=2.1",
 ]
-
-[project.urls]
-Homepage = "https://github.com/surenkov/django-pydantic-field"
-Documentation = "https://github.com/surenkov/django-pydantic-field"
-Source = "https://github.com/surenkov/django-pydantic-field"
-Changelog = "https://github.com/surenkov/django-pydantic-field/releases"
 
 [tool.uv]
 default-groups = ["dev"]
@@ -117,10 +125,15 @@ django_settings_module = "tests.settings.django_test_settings"
 [tool.pytest.ini_options]
 strict = true
 strict_parametrization_ids = false
-
 addopts = "--import-mode=importlib --capture=no"
 pythonpath = ["."]
 testpaths = ["tests"]
-python_files = ["test_*.py", "*_tests.py"]
-norecursedirs = [".*", "venv"]
+python_files = [
+    "test_*.py",
+    "*_tests.py",
+]
+norecursedirs = [
+    ".*",
+    "venv",
+]
 DJANGO_SETTINGS_MODULE = "tests.settings.django_test_settings"

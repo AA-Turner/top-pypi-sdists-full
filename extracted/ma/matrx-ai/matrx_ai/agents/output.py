@@ -14,7 +14,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from matrx_ai.agents.response_parser import JsonExtraction, extract_json
+from matrx_utils import vcprint
+
+from matrx_ai.agents.response_parser import JsonExtraction, degenerate_output_error, extract_json
 
 __all__ = ["parse_agent_output", "resolve_output_schema"]
 
@@ -98,10 +100,25 @@ def parse_agent_output(
     ``.success`` and ``.reason``.
     """
     schema = resolve_output_schema(source)
-    return extract_json(
+    extraction = extract_json(
         text,
         schema=schema,
         return_all=return_all,
         nth=nth,
         detailed=True,
     )
+    # Schema-valid is not enough: constrained decoding can give up mid-generation and
+    # fill required strings with literal "placeholder". This funnel is where EVERY path
+    # (orchestrator, agent route, agent service) parses an agent answer, so the one
+    # verdict lives here — the same one AgentExecutor reports.
+    if extraction.success:
+        degenerate = degenerate_output_error(extraction.data)
+        if degenerate:
+            vcprint(
+                text,
+                "[parse_agent_output] DEGENERATE structured output — placeholder filler, "
+                "result REJECTED",
+                color="red",
+            )
+            return JsonExtraction(data=None, success=False, reason=degenerate)
+    return extraction

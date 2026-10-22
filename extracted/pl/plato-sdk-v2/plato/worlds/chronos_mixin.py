@@ -398,7 +398,6 @@ class ChronosSessionMixin:
                             exact_step,
                             original["repo_name"],
                         )
-                    self.logger.debug(f"Restored workspace '{name}' from step '{exact_step}'")
                     restored_any = True
                     if self._state and name in self._state.workspaces:
                         self._state.workspaces[name].steps = [exact_step]

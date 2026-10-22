@@ -1,12 +1,15 @@
 from datetime import datetime
 from functools import lru_cache
+from pathlib import Path
 from typing import cast
 
+from .config import OrchestraDbtSettings
 from .logger import log_warn
 from .state_backends import resolved_state_backend
 from .state_backends.base import StateBackend
 from .state_backends.http import HttpStateBackend
 from .state_errors import StateLoadError, StateSaveError
+from .state_filters import apply_integration_account_filter
 
 __all__ = [
     "StateLoadError",
@@ -27,16 +30,24 @@ from .models import (
 from .utils import load_json
 
 
-def load_state() -> StateApiModel:
-    return resolved_state_backend().load()
+def load_state(settings: OrchestraDbtSettings) -> StateApiModel:
+    state = resolved_state_backend(settings).load()
+    apply_integration_account_filter(state, settings)
+    return state
 
 
-def save_state(state: StateApiModel, updated_asset_external_ids: set[str]) -> None:
+def save_state(
+    state: StateApiModel,
+    updated_asset_external_ids: set[str],
+    settings: OrchestraDbtSettings,
+) -> None:
     """Save only this run's updated nodes, leaving every other stored node as it is.
 
     The HTTP backend upserts each node it is sent, so it is sent only the updates.
     File backends rewrite the whole file, so the updates are merged onto state
-    re-read at save time, or a concurrent run's writes would be reverted.
+    re-read at save time, or a concurrent run's writes would be reverted. That
+    re-read is unfiltered, so other integration accounts' entries in a shared
+    file are kept.
     """
     updates = {
         asset_external_id: state.state[asset_external_id]
@@ -45,7 +56,7 @@ def save_state(state: StateApiModel, updated_asset_external_ids: set[str]) -> No
     }
     if not updates:
         return
-    backend: StateBackend = resolved_state_backend()
+    backend: StateBackend = resolved_state_backend(settings)
     if isinstance(backend, HttpStateBackend):
         backend.save(StateApiModel(state=updates))
         return
@@ -60,16 +71,18 @@ def save_state(state: StateApiModel, updated_asset_external_ids: set[str]) -> No
 
 
 @lru_cache
-def _load_run_results() -> dict:
+def _load_run_results(target_dir: Path) -> dict:
     try:
-        return load_json(path="target/run_results.json")
+        return load_json(target_dir / "run_results.json")
     except FileNotFoundError:
         return {}
 
 
-def get_last_updated_from_run_results(node_id: str) -> datetime | None:
+def get_last_updated_from_run_results(
+    node_id: str, target_dir: Path
+) -> datetime | None:
     try:
-        for r in _load_run_results().get("results", []):
+        for r in _load_run_results(target_dir).get("results", []):
             if r["unique_id"] == node_id and r["status"] == "success":
                 return r["timing"][-1]["completed_at"]
     except Exception as e:
@@ -78,7 +91,10 @@ def get_last_updated_from_run_results(node_id: str) -> datetime | None:
 
 
 def update_state(
-    state: StateApiModel, parsed_dag: ParsedDag, source_freshness: SourceFreshness
+    state: StateApiModel,
+    parsed_dag: ParsedDag,
+    source_freshness: SourceFreshness,
+    target_dir: Path,
 ) -> set[str]:
     updated_asset_external_ids: set[str] = set()
     for node_id, node in parsed_dag.nodes.items():
@@ -86,7 +102,9 @@ def update_state(
             continue
 
         materialisation_node: MaterialisationNode = cast(MaterialisationNode, node)
-        last_updated_from_run_results = get_last_updated_from_run_results(node_id)
+        last_updated_from_run_results = get_last_updated_from_run_results(
+            node_id, target_dir
+        )
         if not last_updated_from_run_results:
             continue
 

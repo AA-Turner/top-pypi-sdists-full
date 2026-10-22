@@ -1991,16 +1991,18 @@ async fn create_s3_client(
     // store) and proxy handling (explicit proxy, `no_proxy`, `use_proxy_env`)
     // through one shared implementation. Fails the build on a bad custom root
     // store or CRL verifier, matching Azure/GCS.
-    let http_client = cloud_http::shared_or_build_client(shared, || {
-        crate::tls::aws_http_client::AwsSdkReqwestClient::build(
+    let http_client = match shared {
+        Some(client) => client.clone(),
+        None => crate::tls::aws_http_client::AwsSdkReqwestClient::build_prepared(
             &stage_info.tls_config,
             Some(&stage_info.proxy_config),
             stage_info.crl_manager.clone(),
             stage_info.root_store_provider.clone(),
         )
+        .await
         .map(crate::tls::aws_http_client::AwsSdkReqwestClient::into_shared)
-    })
-    .map_err(CreateS3ClientError::HttpClient)?;
+        .map_err(CreateS3ClientError::HttpClient)?,
+    };
 
     let loader = aws_config::defaults(BehaviorVersion::latest())
         .credentials_provider(credentials)
@@ -2856,28 +2858,10 @@ mod tests {
             .mount(&mock)
             .await;
 
-        let stage_info = StageInfo {
-            location_type: crate::file_manager::types::LocationType::S3,
-            bucket: "test-bucket".to_string(),
-            key_prefix: "prefix/".to_string(),
-            region: "us-east-1".to_string(),
-            creds: s3_creds("AKIA-TEST"),
-            endpoint: Some(mock.uri()),
-            presigned_url: None,
-            use_virtual_url: false,
-            use_regional_url: false,
-            use_s3_regional_url: false,
-            tls_config: crate::tls::config::TlsConfig::default(),
-            crl_manager: crate::crl::CrlManager::new(),
-            root_store_provider: crate::tls::RootStoreProvider::new(),
-            proxy_config: crate::tls::config::ProxyConfig::default(),
-            storage_account: None,
-        };
-
         // overwrite=true, skip_upload_on_content_match=false skips the HEAD probe.
         upload_to_s3_or_skip(
             prepared,
-            &stage_info,
+            &mp_stage(mock.uri()),
             "f.dat",
             true,
             false,
@@ -2901,6 +2885,57 @@ mod tests {
             cse: None,
         })
         .await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn put_object_omits_content_encoding() {
+        let mock = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock)
+            .await;
+
+        let digest = "0".repeat(64);
+        upload_to_s3_or_skip(
+            PreparedUpload {
+                source: crate::file_manager::types::PreparedSource::Bytes(Bytes::from_static(
+                    b"hello world",
+                )),
+                digest: digest.clone(),
+                cse: None,
+            },
+            &mp_stage(mock.uri()),
+            "f.dat",
+            true,
+            false,
+            &base_policy(),
+            MultipartParams::default(),
+            TransferCtx::default(),
+        )
+        .await
+        .expect("upload should succeed against the mock");
+
+        let received = mock
+            .received_requests()
+            .await
+            .expect("mock should have captured requests");
+        let put = received
+            .iter()
+            .find(|r| r.method.as_str() == "PUT")
+            .expect("a PUT request should have been received");
+        assert_eq!(
+            put.headers
+                .get("x-amz-meta-sfc-digest")
+                .and_then(|v| v.to_str().ok()),
+            Some(digest.as_str()),
+            "sfc-digest metadata must still be present"
+        );
+        assert!(
+            put.headers.get("content-encoding").is_none(),
+            "Content-Encoding must be absent on S3 PUT (got {:?})",
+            put.headers.get("content-encoding")
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -2943,24 +2978,6 @@ mod tests {
             .mount(&mock)
             .await;
 
-        let stage_info = StageInfo {
-            location_type: crate::file_manager::types::LocationType::S3,
-            bucket: "test-bucket".to_string(),
-            key_prefix: "prefix/".to_string(),
-            region: "us-east-1".to_string(),
-            creds: s3_creds("AKIA-TEST"),
-            endpoint: Some(mock.uri()),
-            presigned_url: None,
-            use_virtual_url: false,
-            use_regional_url: false,
-            use_s3_regional_url: false,
-            storage_account: None,
-            tls_config: crate::tls::config::TlsConfig::default(),
-            crl_manager: crate::crl::CrlManager::new(),
-            root_store_provider: crate::tls::RootStoreProvider::new(),
-            proxy_config: crate::tls::config::ProxyConfig::default(),
-        };
-
         tokio::time::timeout(
             std::time::Duration::from_secs(20),
             upload_to_s3_or_skip(
@@ -2969,7 +2986,7 @@ mod tests {
                     digest: "0".repeat(64),
                     cse: None,
                 },
-                &stage_info,
+                &mp_stage(mock.uri()),
                 "f.dat",
                 true,
                 false,
@@ -3048,24 +3065,6 @@ mod tests {
             .mount(&mock)
             .await;
 
-        let stage_info = StageInfo {
-            location_type: crate::file_manager::types::LocationType::S3,
-            bucket: "test-bucket".to_string(),
-            key_prefix: "prefix/".to_string(),
-            region: "us-east-1".to_string(),
-            creds: s3_creds("AKIA-TEST"),
-            endpoint: Some(mock.uri()),
-            presigned_url: None,
-            use_virtual_url: false,
-            use_regional_url: false,
-            use_s3_regional_url: false,
-            tls_config: crate::tls::config::TlsConfig::default(),
-            crl_manager: crate::crl::CrlManager::new(),
-            root_store_provider: crate::tls::RootStoreProvider::new(),
-            proxy_config: crate::tls::config::ProxyConfig::default(),
-            storage_account: None,
-        };
-
         upload_to_s3_or_skip(
             PreparedUpload {
                 source: crate::file_manager::types::PreparedSource::Bytes(plaintext.into()),
@@ -3075,7 +3074,7 @@ mod tests {
                     encryptor,
                 }),
             },
-            &stage_info,
+            &mp_stage(mock.uri()),
             "f.dat",
             true,
             false,
@@ -3098,6 +3097,80 @@ mod tests {
         assert!(
             seen_unsigned_payload.load(Ordering::SeqCst),
             "the CSE body must use plain UNSIGNED-PAYLOAD",
+        );
+    }
+
+    // Mirrors SNOW-4219220 in libsnowflakeclient, where a non-seekable
+    // streambuf meant a C-SDK-internal retry resent an empty single-part PUT
+    // body. Here the SDK owns the retry (`to_aws_retry_config`), and
+    // `put_object`'s SSE-from-path body hands it `ByteStream::read_from`,
+    // documented above as "retryable"; this pins that claim down against a
+    // transient 500 that forces the SDK to actually replay the body.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn put_object_retries_transient_5xx_and_replays_full_body() {
+        use std::io::Write;
+
+        let payload = vec![b'q'; 80 * 1024];
+        let mut tmp = tempfile::NamedTempFile::new().unwrap();
+        tmp.write_all(&payload).unwrap();
+        tmp.flush().unwrap();
+        let file_path = tmp.path().to_path_buf();
+
+        let mock = MockServer::start().await;
+        let calls = Arc::new(AtomicUsize::new(0));
+        let calls_for_response = calls.clone();
+        Mock::given(method("PUT"))
+            .and(path("/test-bucket/prefix/f.dat"))
+            .respond_with(move |_: &Request| {
+                if calls_for_response.fetch_add(1, MpOrdering::SeqCst) == 0 {
+                    ResponseTemplate::new(500).set_body_raw(
+                        "<Error><Code>InternalError</Code></Error>",
+                        "application/xml",
+                    )
+                } else {
+                    ResponseTemplate::new(200)
+                }
+            })
+            .expect(2)
+            .mount(&mock)
+            .await;
+
+        let status = upload_to_s3_or_skip(
+            PreparedUpload {
+                source: crate::file_manager::types::PreparedSource::Path(file_path),
+                digest: "0".repeat(64),
+                cse: None,
+            },
+            &mp_stage(mock.uri()),
+            "f.dat",
+            true,
+            false,
+            &zero_backoff_policy_with_attempts(2),
+            MultipartParams::default(),
+            TransferCtx::default(),
+        )
+        .await
+        .expect("the SDK should retry the transient 500 and the upload should succeed");
+
+        assert_eq!(status, UploadStatus::Uploaded);
+        assert_eq!(
+            calls.load(MpOrdering::SeqCst),
+            2,
+            "the SDK must retry the PUT once internally"
+        );
+
+        let requests = mock
+            .received_requests()
+            .await
+            .expect("wiremock should retain received requests");
+        let puts: Vec<_> = requests
+            .iter()
+            .filter(|r| r.method.as_str() == "PUT")
+            .collect();
+        assert_eq!(puts.len(), 2, "exactly one SDK-internal retry expected");
+        assert_eq!(
+            puts[1].body, payload,
+            "the retried PUT must resend the full original body, not an empty or truncated one"
         );
     }
 
@@ -3593,8 +3666,11 @@ mod tests {
             .credentials_provider(creds)
             .region(Region::new("us-east-1"))
             .http_client(crate::tls::aws_http_client::reqwest_aws_http_client(
-                crate::tls::aws_http_client::AwsSdkReqwestClient::with_default_tls()
-                    .expect("default-TLS SDK client must build"),
+                crate::tls::aws_http_client::AwsSdkReqwestClient::with_default_tls(
+                    crate::tls::RootStoreProvider::new(),
+                )
+                .await
+                .expect("default-TLS SDK client must build"),
             ))
             .load()
             .await;

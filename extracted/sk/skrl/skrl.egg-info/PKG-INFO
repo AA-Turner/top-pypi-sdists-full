@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: skrl
-Version: 2.1.0
-Summary: Modular and flexible library for reinforcement learning on PyTorch and JAX
+Version: 2.1.1
+Summary: Modular and flexible library for reinforcement learning on PyTorch, JAX and NVIDIA Warp
 Author: Toni-SM
 Maintainer: Toni-SM
 License: MIT License
@@ -33,16 +33,16 @@ Requires-Dist: jaxlib>=0.4.31; extra == "jax"
 Requires-Dist: flax>=0.9.0; extra == "jax"
 Requires-Dist: optax; extra == "jax"
 Provides-Extra: warp
-Requires-Dist: warp-lang>=1.12; extra == "warp"
-Requires-Dist: warp-nn>=0.1; extra == "warp"
+Requires-Dist: warp-lang>=1.15; extra == "warp"
+Requires-Dist: warp-nn>=0.4.1; extra == "warp"
 Provides-Extra: all
 Requires-Dist: torch>=1.11; extra == "all"
 Requires-Dist: jax>=0.4.31; extra == "all"
 Requires-Dist: jaxlib>=0.4.31; extra == "all"
 Requires-Dist: flax>=0.9.0; extra == "all"
 Requires-Dist: optax; extra == "all"
-Requires-Dist: warp-lang>=1.12; extra == "all"
-Requires-Dist: warp-nn>=0.1; extra == "all"
+Requires-Dist: warp-lang>=1.15; extra == "all"
+Requires-Dist: warp-nn>=0.4.1; extra == "all"
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-html; extra == "tests"

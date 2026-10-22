@@ -81,6 +81,45 @@ OFFLINE_WIDE_TABLE_COMPACTION_NAMESPACE_STATUS_COMPLETED: OfflineWideTableCompac
 OFFLINE_WIDE_TABLE_COMPACTION_NAMESPACE_STATUS_FAILED: OfflineWideTableCompactionNamespaceStatus
 OFFLINE_WIDE_TABLE_COMPACTION_NAMESPACE_STATUS_SKIPPED_DISABLED: OfflineWideTableCompactionNamespaceStatus
 
+class SnowflakeWarehouseStats(_message.Message):
+    __slots__ = ("execution_ms", "estimated_microcredits", "planning_ms", "warehouse_name", "warehouse_size")
+    EXECUTION_MS_FIELD_NUMBER: _ClassVar[int]
+    ESTIMATED_MICROCREDITS_FIELD_NUMBER: _ClassVar[int]
+    PLANNING_MS_FIELD_NUMBER: _ClassVar[int]
+    WAREHOUSE_NAME_FIELD_NUMBER: _ClassVar[int]
+    WAREHOUSE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    execution_ms: int
+    estimated_microcredits: int
+    planning_ms: int
+    warehouse_name: str
+    warehouse_size: str
+    def __init__(
+        self,
+        execution_ms: _Optional[int] = ...,
+        estimated_microcredits: _Optional[int] = ...,
+        planning_ms: _Optional[int] = ...,
+        warehouse_name: _Optional[str] = ...,
+        warehouse_size: _Optional[str] = ...,
+    ) -> None: ...
+
+class BigQueryWarehouseStats(_message.Message):
+    __slots__ = ("slot_ms",)
+    SLOT_MS_FIELD_NUMBER: _ClassVar[int]
+    slot_ms: int
+    def __init__(self, slot_ms: _Optional[int] = ...) -> None: ...
+
+class WarehouseStats(_message.Message):
+    __slots__ = ("snowflake", "bigquery")
+    SNOWFLAKE_FIELD_NUMBER: _ClassVar[int]
+    BIGQUERY_FIELD_NUMBER: _ClassVar[int]
+    snowflake: SnowflakeWarehouseStats
+    bigquery: BigQueryWarehouseStats
+    def __init__(
+        self,
+        snowflake: _Optional[_Union[SnowflakeWarehouseStats, _Mapping]] = ...,
+        bigquery: _Optional[_Union[BigQueryWarehouseStats, _Mapping]] = ...,
+    ) -> None: ...
+
 class OfflineWideTableCompactionNamespaceResult(_message.Message):
     __slots__ = (
         "parent_run_id",
@@ -149,6 +188,8 @@ class OfflineWideTableRun(_message.Message):
         "fill_compute_ms",
         "hwm_probe_bytes_scanned",
         "hwm_probe_compute_ms",
+        "fill_warehouse_stats",
+        "hwm_probe_warehouse_stats",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -173,6 +214,8 @@ class OfflineWideTableRun(_message.Message):
     FILL_COMPUTE_MS_FIELD_NUMBER: _ClassVar[int]
     HWM_PROBE_BYTES_SCANNED_FIELD_NUMBER: _ClassVar[int]
     HWM_PROBE_COMPUTE_MS_FIELD_NUMBER: _ClassVar[int]
+    FILL_WAREHOUSE_STATS_FIELD_NUMBER: _ClassVar[int]
+    HWM_PROBE_WAREHOUSE_STATS_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     deployment_id: str
@@ -196,6 +239,8 @@ class OfflineWideTableRun(_message.Message):
     fill_compute_ms: int
     hwm_probe_bytes_scanned: int
     hwm_probe_compute_ms: int
+    fill_warehouse_stats: WarehouseStats
+    hwm_probe_warehouse_stats: WarehouseStats
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -221,6 +266,8 @@ class OfflineWideTableRun(_message.Message):
         fill_compute_ms: _Optional[int] = ...,
         hwm_probe_bytes_scanned: _Optional[int] = ...,
         hwm_probe_compute_ms: _Optional[int] = ...,
+        fill_warehouse_stats: _Optional[_Union[WarehouseStats, _Mapping]] = ...,
+        hwm_probe_warehouse_stats: _Optional[_Union[WarehouseStats, _Mapping]] = ...,
     ) -> None: ...
 
 class ListOfflineWideTableRunsRequest(_message.Message):

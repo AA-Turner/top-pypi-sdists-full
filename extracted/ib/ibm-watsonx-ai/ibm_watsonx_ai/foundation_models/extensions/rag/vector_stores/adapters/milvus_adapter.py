@@ -101,6 +101,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
             MilvusVectorStore,
         )
         from ibm_watsonx_ai.foundation_models.embeddings import Embeddings
+        from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingModels
 
         credentials = Credentials(
             api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"
@@ -109,7 +110,8 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         api_client = APIClient(credentials)
 
         embedding = Embeddings(
-            model_id=EmbeddingTypes.IBM_SLATE_30M_ENG, api_client=api_client
+            model_id=EmbeddingModels.SLATE_125M_ENGLISH_RTRVR_V2,
+            api_client=api_client,
         )
 
         vector_store = MilvusVectorStore(
@@ -152,7 +154,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         api_client = APIClient(credentials)
 
         dense_embedding = Embeddings(
-                 model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
+                 model_id=EmbeddingModels.SLATE_125M_ENGLISH_RTRVR_V2,
                  api_client=api_client
                  )
 
@@ -195,7 +197,7 @@ class MilvusVectorStore(LangChainVectorStoreAdapter[Milvus]):
         api_client = APIClient(credentials)
 
         dense_embedding = Embeddings(
-                 model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
+                 model_id=EmbeddingModels.SLATE_125M_ENGLISH_RTRVR_V2,
                  api_client=api_client
                  )
         bm25_builtin_func = MilvusBM25BuiltinFunction()

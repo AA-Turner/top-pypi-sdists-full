@@ -67,7 +67,9 @@ Anti-patterns
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+import time
 import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -104,6 +106,46 @@ AuthorityKind = Literal["human_feedback", "replay_outcome", "gate_result"]
 
 class JudgeContractError(Exception):
     """The contract is invalid, or running it would violate D-15."""
+
+
+class JudgeUnfed(JudgeError):
+    """The judge could not be fed the subject intact: the bytes being judged are not inside the
+    text that would be sent. Raised BEFORE any model call (nothing is paid for), and never a
+    verdict -- a confident verdict on the wrong text is the failure this exists to stop.
+
+    Carries what a host needs to report it: the sha256 of the subject and the exact text that
+    would have been sent."""
+
+    def __init__(self, message: str, *, reply_sha256: str | None = None, sent_text: str | None = None) -> None:
+        super().__init__(message)
+        self.reply_sha256 = reply_sha256
+        self.sent_text = sent_text
+
+
+def reply_sha256(reply: str) -> str:
+    """sha256 of the exact subject text a judge was asked to judge."""
+    return hashlib.sha256((reply or "").encode("utf-8")).hexdigest()
+
+
+def reply_in_input(reply: str, sent: str) -> bool:
+    """The judged reply, byte for byte, is inside what the judge was sent. A request payload stored
+    as JSON escapes newlines and quotes, so the escaped form counts too."""
+    text = reply or ""
+    if not text.strip():
+        return False
+    return text in sent or json.dumps(text, ensure_ascii=False)[1:-1] in sent
+
+
+def missing_from_input(reply: str, fact_values: list[str], sent: str) -> list[str]:
+    """What the judge was NOT given: the reply itself (named by its hash) and any expected value."""
+    missing: list[str] = []
+    if not reply_in_input(reply, sent):
+        missing.append(f"reply sha256:{reply_sha256(reply)[:16]}")
+    missing.extend(v for v in fact_values if v not in sent)
+    return missing
+
+
+JudgeRunner = Literal["funnel", "mandated", "direct"]
 
 
 class EntityRef(BaseModel):
@@ -271,9 +313,15 @@ class JudgeOutcome(BaseModel):
     #: dict, so a consumer keeps access to fields its agent returns beyond the
     #: contract's four (Hindsight's `quality_delta` / `regression_risk`).
     invocation: dict[str, Any] = Field(default_factory=dict)
+    #: The exact text the judge model was sent (system + user). Set by the ``direct`` runner,
+    #: which proves the subject is inside it; None on the funnel and mandated paths.
+    #: A host proves input integrity from it.
+    sent_text: str | None = None
+    #: sha256 of the subject text that was judged (funnel and direct; None when mandated).
+    reply_sha256: str | None = None
 
 
-def _assert_rubric_isolation(contract: JudgeContract, *subjects: JudgeSubject | None) -> None:
+def assert_rubric_isolation(contract: JudgeContract, *subjects: JudgeSubject | None) -> None:
     """D-15 layer 2 — the rubric text may not be inside what is being judged.
 
     A caller that pastes the grading criteria into the agent's own prompt (or
@@ -295,6 +343,10 @@ def _assert_rubric_isolation(contract: JudgeContract, *subjects: JudgeSubject | 
                 "the rubric it is graded against (D-15). Remove the rubric from the subject's "
                 "prompt/content — it belongs on the judge contract and nowhere else."
             )
+
+
+#: The historic private name, kept for the package's own callers; hosts use the public one.
+_assert_rubric_isolation = assert_rubric_isolation
 
 
 def _why_no_parsed_output(res: Any) -> str:
@@ -377,11 +429,31 @@ class Judge:
         self,
         contract: JudgeContract,
         *,
+        runner: JudgeRunner | None = None,
         agent_cls: Any | None = None,
         mandate_runner: Any | None = None,
         api_key: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         self.contract = contract
+        #: Host attribution merged over the default call metadata on the funnel and direct
+        #: paths (e.g. ``source_app`` / ``source_feature``), so a host's cost rows stay
+        #: attributed to the host feature, not to this package.
+        self._metadata = dict(metadata or {})
+        # Which path runs the judge, chosen explicitly:
+        #   "funnel"   -- the Holder-authored turn through ``run_held_pydantic`` (the default);
+        #   "mandated" -- the DB agent behind ``contract.mandate`` (needs ``agent_cls``);
+        #   "direct"   -- the independent judge: the same Holder text, ONE strict-JSON call, none
+        #                 of the agent plumbing, and the subject proven inside the text sent.
+        # ``None`` keeps the old implicit choice (mandated when both ``agent_cls`` and
+        # ``contract.mandate`` are given, else funnel) so existing hosts do not change.
+        if runner is None:
+            runner = "mandated" if (agent_cls is not None and contract.mandate) else "funnel"
+        if runner == "mandated" and not (agent_cls is not None and contract.mandate):
+            raise JudgeContractError(
+                f"judge {contract.key!r}: runner='mandated' needs both agent_cls and contract.mandate"
+            )
+        self._runner: JudgeRunner = runner
         self._agent_cls = agent_cls
         # There are deliberately TWO `run_mandated` twins — `matrx_ai.mandates`
         # (package-internal, injected resolver) and aidream's host-side one that
@@ -459,12 +531,17 @@ class Judge:
         contract.assert_not_self_authored(subject.ref)
         _assert_rubric_isolation(contract, subject, reference)
 
-        if self._agent_cls is not None and contract.mandate:
+        sent_text: str | None = None
+        sha: str | None = None
+        if self._runner == "mandated":
             verdict, invocation = await self._run_mandated(
                 subject, reference, context=context, user_id=user_id
             )
+        elif self._runner == "direct":
+            verdict, invocation, sent_text = await self._run_direct(subject, reference, context=context)
         else:
             verdict, invocation = await self._run_funnel(subject, reference, context=context)
+        sha = invocation.get("reply_sha256")
 
         outcome = JudgeOutcome(
             verdict=verdict.verdict,
@@ -476,6 +553,8 @@ class Judge:
             mode=contract.mode,
             raw=verdict.model_dump(),
             invocation=invocation,
+            sent_text=sent_text,
+            reply_sha256=sha,
         )
         if ledger:
             from matrx_ai.evaluators.ledger import record_verdict
@@ -519,6 +598,7 @@ class Judge:
                     "source_feature": "judge",
                     "judge_key": contract.key,
                     "judge_version": contract.version,
+                    **self._metadata,
                 },
             )
             # The Holder authors the user turn; the site only offers values.
@@ -552,7 +632,9 @@ class Judge:
         # The measured cost rides the outcome (PLAN: "JudgeOutcome.invocation carries the
         # measured cost"): the judge's request rows often settle under no conversation a caller
         # can read, so 9 of 12 live judge costs read 0 (Agent Evaluation, 2026-10-16).
+        judged = _format_output(subject.content)
         return verdict, {
+            "reply_sha256": reply_sha256(judged),
             "runner": "funnel",
             "model": model,
             "mandate": mandate_key,
@@ -563,6 +645,105 @@ class Judge:
             "calls": int(measured.calls or 0),
             "duration_ms": int(measured.duration_ms or 0),
         }
+
+    async def _run_direct(
+        self,
+        subject: JudgeSubject,
+        reference: JudgeSubject | None,
+        *,
+        context: dict[str, Any] | None,
+    ) -> tuple[JudgeAssessment, dict[str, Any], str]:
+        """The independent judge: it never shares the run path of the unit under test.
+
+        The Holder still authors the text (``hold_code_call``), but the verdict comes from ONE
+        strict-JSON call through ``llm_to_pydantic_measured`` -- no ``run_held_pydantic``, no
+        agent plumbing. Before a cent is spent the judged text (and any reference) must be inside
+        the exact text that will be sent, else :class:`JudgeUnfed`. Bypassing the executor is
+        sanctioned; doing it by importing these privates from a host is not -- this is the door.
+        """
+        # Late imports on purpose: the Holder door, the funnel and the ledger are the seams a
+        # host's tests replace, and a bound module-level name would not see the replacement.
+        from matrx_ai.graph_nodes._strict_json import llm_to_pydantic_measured
+        from matrx_ai.mandates import hold_code_call as hold
+
+        contract = self.contract
+        mandate_key = (
+            COMPARATIVE_JUDGE_MANDATE if contract.mode == "comparative" else RUBRIC_JUDGE_MANDATE
+        )
+        try:
+            held = await hold(
+                mandate_key,
+                consumer=f"matrx_ai.evaluators.Judge.direct:{contract.key}",
+                variables={
+                    "allowed_verdicts": ", ".join(repr(v) for v in contract.verdict_values),
+                    **({} if contract.web_access else {"web_clause": ""}),
+                    **_judge_offer(contract, subject, reference, context),
+                },
+                metadata={
+                    "source_app": "matrx-ai",
+                    "source_feature": "judge",
+                    "judge_key": contract.key,
+                    "judge_version": contract.version,
+                    **self._metadata,
+                },
+            )
+            user = held.authored_user()
+        except MandateResolutionUnavailable as exc:
+            raise JudgeError(f"judge {contract.key!r}: {exc}") from exc
+        sent = f"{held.system}\n{user}"
+        judged = _format_output(subject.content)
+        sha = reply_sha256(judged)
+        unfed = [
+            what
+            for what, text in (("subject", judged), ("reference", _format_output(reference.content) if reference is not None else None))
+            if text is not None and not reply_in_input(text, sent)
+        ]
+        if unfed:
+            # Nothing is paid for: the text the verdict would be about never reached the judge.
+            raise JudgeUnfed(
+                f"judge {contract.key!r}: the {' and '.join(unfed)} being judged is not in the text "
+                f"sent to the judge (subject sha256:{sha[:16]}); refusing to judge other text.",
+                reply_sha256=sha,
+                sent_text=sent,
+            )
+        model = held.pick_model(contract.model)
+        conversation_id = str(uuid.uuid4())
+        started = time.monotonic()
+        try:
+            measured = await llm_to_pydantic_measured(
+                model=model,
+                **held.pin_for(contract.model),
+                system=held.system,
+                user=user,
+                output_cls=_verdict_model(contract),
+                max_tokens=held.pick_max_tokens(contract.max_tokens, unset=4096),
+                temperature=held.pick_temperature(),
+                system_run=True,
+                store=True,
+                conversation_id=conversation_id,
+                metadata={**held.metadata, "source_app": "matrx-ai", "source_feature": "judge", **self._metadata},
+            )
+        except (StrictJsonError, JudgeError, RuntimeError) as exc:
+            await held.finish(
+                getattr(exc, "raw_output", "") or "", success=False, error=f"{type(exc).__name__}: {exc}"[:500]
+            )
+            raise JudgeError(f"judge {contract.key!r} failed through the funnel: {exc}") from exc
+        verdict = measured.value
+        usage = measured.usage
+        dumped = verdict.model_dump(mode="json")
+        await held.finish(json.dumps(dumped, ensure_ascii=False, default=str), parsed=dumped)
+        return verdict, {
+            "runner": "direct",
+            "model": model,
+            "mandate": mandate_key,
+            "conversation_id": conversation_id,
+            "cost_usd": float(getattr(usage, "cost_usd", 0.0) or 0.0),
+            "input_tokens": int(getattr(usage, "input_tokens", 0) or 0),
+            "output_tokens": int(getattr(usage, "output_tokens", 0) or 0),
+            "calls": int(measured.calls or 0),
+            "duration_ms": int(measured.duration_ms or int((time.monotonic() - started) * 1000)),
+            "reply_sha256": sha,
+        }, sent
 
     async def _run_mandated(
         self,
@@ -661,6 +842,7 @@ __all__ = [
     "COMPARATIVE_VERDICTS",
     "RUBRIC_VERDICTS",
     "AuthorityKind",
+    "assert_rubric_isolation",
     "EntityRef",
     "Judge",
     "JudgeContract",
@@ -668,7 +850,12 @@ __all__ = [
     "JudgeInputs",
     "JudgeMode",
     "JudgeOutcome",
+    "JudgeRunner",
     "JudgeSubject",
     "JudgeAssessment",
+    "JudgeUnfed",
     "Provenance",
+    "missing_from_input",
+    "reply_in_input",
+    "reply_sha256",
 ]

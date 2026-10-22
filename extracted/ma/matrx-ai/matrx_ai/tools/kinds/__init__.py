@@ -348,6 +348,8 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     "office": OfficeToolResult,
     # Catalog discovery (third-party services L9): the Tools a catalog search found.
     "find_tools": FoundTools,
+    # Tools on demand (TOOL-SOURCES rule D): the tools load_tools queued, the bundle listing shape.
+    "load_tools": ToolBundleListing,
 }
 
 #: Generated tool FAMILIES: one implementation serves every member, so the

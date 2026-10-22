@@ -75,7 +75,6 @@ async def write_tool_execution_context(
     )
     if exit_code != 0:
         raise RuntimeError(f"Failed to write tool execution context on {info.hostname}: {stderr.strip()}")
-    logger.debug("Wrote tool execution context to agent VM")
 
     if not (file_trigger_patterns and trigger_server_url and watch_paths):
         return

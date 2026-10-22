@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents
-Version: 0.7.29
+Version: 0.7.30
 Summary: Production-ready, extensible agent harness with a built-in filesystem and context management, sub-agent delegation, skills, and long-term memory.
 License: MIT
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
@@ -37,7 +37,7 @@ Provides-Extra: quickjs
 Requires-Dist: langchain-quickjs>=0.3.9; extra == "quickjs"
 Provides-Extra: video
 Requires-Dist: av<19.0.0,>=18.0.0; extra == "video"
-Requires-Dist: pillow<13.0.0,>=12.3.0; extra == "video"
+Requires-Dist: pillow<14.0.0,>=12.3.0; extra == "video"
 Dynamic: license-file
 
 # 🧠🤖 Deep Agents

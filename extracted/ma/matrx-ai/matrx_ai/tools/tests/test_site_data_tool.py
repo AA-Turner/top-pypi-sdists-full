@@ -34,6 +34,17 @@ def _state():
     _ext._registry.update(saved)
 
 
+@pytest.fixture(autouse=True)
+def _purposeful_door():
+    """These tests exercise the dataset path, which only a purposeful screen may start."""
+    from matrx_ai.tools.tests.test_agent_projection import _make_ctx
+    from matrx_connect.context.app_context import clear_app_context, set_app_context
+
+    token = set_app_context(_make_ctx({"tool_origin": "screen_run"}))
+    yield
+    clear_app_context(token)
+
+
 def _install_client() -> list[httpx.Request]:
     seen: list[httpx.Request] = []
 
@@ -132,3 +143,28 @@ def test_stamp_read_engine_carries_the_advanced_reader_and_its_notice() -> None:
     plain = _stamp_read_engine({"text": "y"}, {"text": "y"})
     assert plain == {"text": "y"}
     assert _stamp_read_engine("not a dict", {"text": "z"}) == {"text": "z"}
+
+
+async def test_a_chat_turn_asking_for_linkedin_posts_never_starts_a_dataset() -> None:
+    from matrx_ai.tools.tests.test_agent_projection import _make_ctx
+    from matrx_connect.context.app_context import clear_app_context, set_app_context
+
+    billed: list[Any] = []
+    bd.register_brightdata_call_observer(billed.append)
+    seen = _install_client()
+    for meta in ({"door": "chat"}, {}):  # a chat turn, and an agent run with no screen origin
+        token = set_app_context(_make_ctx(meta))
+        try:
+            res = await site_data({"site": "linkedin_posts", "url": "https://www.linkedin.com/in/someone/"}, _ctx())
+        finally:
+            clear_app_context(token)
+        assert res.success and res.output["status"] == "not_started"
+        assert "/data/library" in res.output["message"] and "\n" not in res.output["message"]
+    assert seen == [] and billed == []
+
+
+async def test_a_purposeful_screen_still_starts_the_dataset() -> None:
+    _install_client()
+    bd.register_brightdata_call_observer(lambda _c: None)
+    res = await site_data({"url": GMAPS_URL}, _ctx())  # fixture = screen_run origin
+    assert res.success and res.output["status"] == "success"

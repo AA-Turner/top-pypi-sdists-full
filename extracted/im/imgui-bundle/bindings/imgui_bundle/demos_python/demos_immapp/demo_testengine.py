@@ -1,19 +1,24 @@
-# A demo app that demonstrates how to use ImGui Test Engine (https://github.com/ocornut/imgui_test_engine)
-#
-# It demonstrates how to:
-# - enable ImGui Test Engine via RunnerParams.use_imgui_test_engine
-# - define a callback where the tests are registered (runner_params.callbacks.register_tests)
-# - create tests, and:
-#   - automate actions using "named references" (see https://github.com/ocornut/imgui_test_engine/wiki/Named-References)
-#   - display an optional custom GUI for a test
-#   - manipulate custom variables
-#   - check that simulated actions do modify those variables
-#
-# Important note: ImGui Test Engine falls under the Dear ImGui Test Engine License
-#     See: https://github.com/ocornut/imgui_test_engine/blob/main/imgui_test_engine/LICENSE.txt
-#     TL;DR: free for individuals, educational, open-source and small businesses uses.
-#            Paid for larger businesses. Read license for details.
-#            License sales to larger businesses are used to fund and sustain the development of Dear ImGui.
+"""
+Automate and test your app with ImGui Test Engine.
+
+Watch a [ImGui Test Engine](https://github.com/ocornut/imgui_test_engine) drive the mouse and the keyboard:
+it clicks buttons, types text, etc., and checks the results.
+For scripted runs on top of it (automated tests, pictures, an AI agent at the mouse), see the `immapp.testing` demo.
+See the [test engine doc](https://imgui-bundle.pages.dev/doc/core-libs/test-engine/).
+
+## What it shows
+
+- how to enable the test engine: `runner_params.use_imgui_test_engine`
+- where to register the tests: `runner_params.callbacks.register_tests`
+- how to automate actions with [named references](https://github.com/ocornut/imgui_test_engine/wiki/Named-References)
+- a test with its own GUI and variables, and `CHECK` to verify that the simulated actions changed them
+
+## License
+
+ImGui Test Engine is under the [Dear ImGui Test Engine
+License](https://github.com/ocornut/imgui_test_engine/blob/main/imgui_test_engine/LICENSE.txt): free for individuals,
+education, open source and small businesses, paid for larger businesses. Its sales fund the development of Dear ImGui.
+"""
 
 
 from imgui_bundle import imgui, hello_imgui
@@ -57,7 +62,7 @@ def my_register_tests():
         ctx.set_ref("Dear ImGui Demo")                   # From now on, actions happen in the "Dear ImGui Demo" window
         ctx.item_open("**/Widgets")                         # Open the "Widgets", then "Basic" tree item
         ctx.item_open_all("**/Basic")
-        ctx.capture_screenshot_window("Dear ImGui Demo") # Capture window and save screenshot
+        ctx.capture_screenshot_window("//Dear ImGui Demo") # Capture window and save screenshot
         ctx.item_close("**/Widgets")
     test_capture_screenshot.test_func = test_capture_screenshot_func
 
@@ -123,6 +128,10 @@ def my_register_tests():
 # Our application GUI: shows that we can trigger the test manually
 def my_gui():
     global g_show_stack_tool_window
+    if not hello_imgui.get_runner_params().use_imgui_test_engine:
+        # In the browser, the engine needs JSPI (Chrome 137, Firefox 153, Safari 27): without it, the app runs alone
+        imgui.text_wrapped("The test engine is off: this browser has no JSPI (WebAssembly stack switching).")
+        return
     _, g_show_stack_tool_window = imgui.checkbox("Show ID Stack Tool Window", g_show_stack_tool_window)
     if imgui.is_item_hovered():
         imgui.set_tooltip("This tool window can help to identify the ID of the widgets (use \"Copy path to clipboard\")")
@@ -221,6 +230,8 @@ def create_dockable_windows() -> List[hello_imgui.DockableWindow]:
     test_engine_window.dock_space_name = "TestEngineSpace"
 
     def show_test_engine_windows():
+        if not hello_imgui.get_runner_params().use_imgui_test_engine:
+            return
         imgui.test_engine.show_test_engine_windows(
             hello_imgui.get_imgui_test_engine(), True
         )

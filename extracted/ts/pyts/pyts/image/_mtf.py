@@ -4,7 +4,7 @@
 # License: BSD-3-Clause
 
 from math import ceil
-from typing import Self
+from typing import Any, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -131,7 +131,7 @@ class MarkovTransitionField(BaseEstimator, UnivariateTransformerMixin):
         of the size of each time series and must be between 0 and 1. Output
         images are square, thus providing the size of one dimension is enough.
 
-    n_bins : int (default = 5)
+    n_bins : int (default = 8)
         Number of bins (also known as the size of the alphabet)
 
     strategy : 'uniform', 'quantile' or 'normal' (default = 'quantile')
@@ -216,7 +216,7 @@ class MarkovTransitionField(BaseEstimator, UnivariateTransformerMixin):
             `(n_samples, image_size * image_size)`.
 
         """
-        X = check_array(X)
+        X = cast(npt.NDArray[Any], check_array(X))
         n_samples, n_timestamps = X.shape
         image_size = self._check_params(n_timestamps)
 
@@ -268,7 +268,7 @@ class MarkovTransitionField(BaseEstimator, UnivariateTransformerMixin):
                 )
             image_size = self.image_size
         else:
-            if self.image_size < 0.0 or self.image_size > 1.0:
+            if self.image_size <= 0.0 or self.image_size > 1.0:
                 raise ValueError(
                     "If 'image_size' is a float, it must be greater than 0 "
                     f"and lower than or equal to 1 (got {self.image_size})."

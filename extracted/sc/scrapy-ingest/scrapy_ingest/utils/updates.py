@@ -53,10 +53,10 @@ def latest_pypi_release(package: str | None = None) -> dict[str, Any]:
 
 
 def get_update_url(
-        current_version: str | None = None,
-        *,
-        silent_fail: bool = True,
-        package: str | None = None,
+    current_version: str | None = None,
+    *,
+    silent_fail: bool = True,
+    package: str | None = None,
 ) -> str | None:
     """
     Return the PyPI release URL when a newer version exists, otherwise ``None``.

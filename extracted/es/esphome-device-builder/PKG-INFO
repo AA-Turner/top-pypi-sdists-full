@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esphome-device-builder
-Version: 1.25.0
+Version: 1.26.0
 Summary: ESPHome Device Builder
 Author-email: The ESPHome Authors <esphome@openhomefoundation.org>
 Maintainer-email: Open Home Foundation <esphome@openhomefoundation.org>
@@ -36,7 +36,7 @@ Requires-Dist: ruamel.yaml>=0.18.0
 Requires-Dist: voluptuous>=0.13.1
 Requires-Dist: zeroconf>=0.150.0
 Provides-Extra: esphome
-Requires-Dist: esphome>=2026.9.1; extra == "esphome"
+Requires-Dist: esphome>=2026.10.0; extra == "esphome"
 Provides-Extra: test
 Requires-Dist: blockbuster<1.6,>=1.5.5; extra == "test"
 Requires-Dist: codespell==2.4.3; extra == "test"

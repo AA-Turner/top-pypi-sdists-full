@@ -13,6 +13,7 @@ import time
 from typing import Any
 
 from matrx_ai.tools.arg_models.web_args import SiteDataArgs
+from matrx_ai.tools.implementations._dataset_door import is_chat_door, slower_dataset_line
 from matrx_ai.tools.implementations._web_read_caps import RESULT_BUDGET_CHARS
 from matrx_ai.tools.models import ToolContext, ToolError, ToolResult
 from matrx_ai.tools.streaming import ToolStreamManager
@@ -70,6 +71,14 @@ async def site_data(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
         return _fail("input_error", "Pass url, or site with query/location/inputs.", ctx, started_at)
     from matrx_scraper.features import site_data as door
     from matrx_scraper.vendors.brightdata import BrightDataRecorderMissing, current_limits
+
+    # Chat never starts a slow dataset (owner ruling 2026-10-16): one line back, nothing fetched or billed.
+    if is_chat_door(unknown_is_chat=True):
+        return ToolResult(
+            success=True,
+            output={"status": "not_started", "message": slower_dataset_line(parsed.site or parsed.url)},
+            started_at=started_at, completed_at=time.time(), tool_name="site_data", call_id=ctx.call_id,
+        )
 
     # The ceiling is the host's limit (aidream: the knob the data-sources screen also obeys);
     # checked here first so the agent gets a typed answer. The client enforces it again.

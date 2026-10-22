@@ -206,6 +206,23 @@ def _error_list(exc: Any) -> list[dict[str, Any]]:
     return []
 
 
+#: Length refusals: the limit is in Pydantic's own sentence ("at most 280 characters"); the size
+#: the model actually sent is added, so a retry knows by how much to cut (G3, 2026-10-21).
+_SIZE_ERROR_TYPES = frozenset({"string_too_long", "string_too_short", "too_long", "too_short"})
+
+
+def _size_given(error: dict[str, Any]) -> str:
+    if error.get("type") not in _SIZE_ERROR_TYPES:
+        return ""
+    supplied = error.get("input")
+    try:
+        size = len(supplied)  # type: ignore[arg-type]
+    except TypeError:
+        return ""
+    noun = "characters" if isinstance(supplied, str) else "items"
+    return f" (yours has {size} {noun})"
+
+
 def format_args_error(exc: Any) -> str:
     errors = _error_list(exc)
     if errors:
@@ -215,7 +232,7 @@ def format_args_error(exc: Any) -> str:
             saw_stringified_container = False
             for e in errors:
                 loc = ".".join(str(p) for p in e.get("loc", ())) or "(root)"
-                lines.append(f"{loc}: {e.get('msg', 'invalid')}")
+                lines.append(f"{loc}: {e.get('msg', 'invalid')}{_size_given(e)}")
                 etype = e.get("type", "")
                 if (etype in _DICT_ERROR_TYPES or etype in _LIST_ERROR_TYPES) and isinstance(
                     e.get("input"), str

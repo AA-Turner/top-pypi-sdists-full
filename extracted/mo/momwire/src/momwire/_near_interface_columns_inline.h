@@ -218,6 +218,24 @@ static const double MW_EXP_ZERO = -746.0;
 // vectorized loop instead of in front of it.
 static const int MW_BLOCK = 64;
 
+// The block's transcendental step, e^{ar} (cos ai, sin ai) per node, through
+// mw_vmath (momwire#1441) on the builds where libmvec cannot vectorize it:
+// the x86-64 baseline (`_sse2`) under GCC, whose `omp declare simd
+// simdlen(4)` names a 4-wide SSE2 variant libmvec lacks, and every MSVC
+// build (no libmvec; MW_NI_SIMD compiles out). There each node was a libm
+// call and the step was ~44 % of an sse2 buried fill. The GCC avx2 build
+// keeps libmvec's `_ZGVdN4v_*`, so its tables do not move; macOS keeps libm.
+#if MW_VMATH_X86 && (defined(_MSC_VER) || (!defined(__AVX2__) && !defined(__APPLE__)))
+#define MW_NI_VMATH 1
+#if defined(__AVX2__)
+typedef mw_vmath::avx2 vmath_backend;
+#else
+typedef mw_vmath::sse2 vmath_backend;
+#endif
+#else
+#define MW_NI_VMATH 0
+#endif
+
 // Accumulator lanes of `column_member`'s ordered sum (momwire#1193). The
 // lane combine there is written out for exactly four, so changing this is a
 // deliberate one-time move of every near-interface table, not a tuning knob.
@@ -326,7 +344,12 @@ static double s_min_of(const ZB &zb, const PB &pb, std::ptrdiff_t lo,
 // slowest-decaying member and so the one the extents must be converged for.
 // The rule's extents: `six_point`'s a_head and lam_top, from the column's
 // smallest s through the far-pair kill cap.
-static void column_extents(double k_p, const cd &k_m, double s_min,
+// `_RAYS_FROM_HEAD` (momwire#1595 D1): the Hankel rays start at a_head,
+// with no real-axis mid, once rho * a_head reaches this. The Python constant
+// carries the measurement; the two must agree.
+static const double MW_RAYS_FROM_HEAD = 1.0;
+
+static void column_extents(double rho, double k_p, const cd &k_m, double s_min,
                            double lam_mult, double &a_head_out,
                            double &lam_top_out) {
     const double kk = std::max(k_p, std::abs(k_m));
@@ -340,6 +363,7 @@ static void column_extents(double k_p, const cd &k_m, double s_min,
         a_head = std::max(2.2 * k_p, std::min(a_head, lam_kill));
         lam_top = std::max(1.5 * a_head, lam_kill);
     }
+    if (rho > 0.0 && rho * a_head >= MW_RAYS_FROM_HEAD) lam_top = a_head;
     a_head_out = a_head;
     lam_top_out = lam_top;
 }
@@ -418,6 +442,8 @@ static void column_head_mid(double rho, double k_p, const cd &k_m,
     // --- mid: the real axis [a_head, lam_top], same J0 factor. `six_point`
     // hands the WHOLE range to one adaptive segment, so unlike the head it
     // carries no seeding of its own and `sub_seed` supplies all of it.
+    // Empty where the rays start at a_head (MW_RAYS_FROM_HEAD).
+    if (!(lam_top > a_head)) return;
     s.edges.clear();
     s.edges.push_back(a_head);
     s.edges.push_back(lam_top);
@@ -445,6 +471,14 @@ static void column_head_mid(double rho, double k_p, const cd &k_m,
 
 }
 
+// The tail rays' 16-point Gauss rule (momwire#1595 D2): the frozen table's
+// order 16 (`_leggauss_table.h`, `_quadrature.leggauss`), digit for digit, so this twin and `_near_interface.py`'s
+// `_COLUMN_GX` / `_COLUMN_GW` build the same nodes. The head and mid keep the
+// caller's 24-point table (the measurement is in `_near_interface.py`).
+static const double MW_TAIL_GX[16] = {-0.9894009349916499, -0.9445750230732326, -0.8656312023878318, -0.755404408355003, -0.6178762444026438, -0.45801677765722737, -0.2816035507792589, -0.09501250983763744, 0.09501250983763744, 0.2816035507792589, 0.45801677765722737, 0.6178762444026438, 0.755404408355003, 0.8656312023878318, 0.9445750230732326, 0.9894009349916499};
+static const double MW_TAIL_GW[16] = {0.027152459411754176, 0.062253523938647456, 0.0951585116824926, 0.12462897125553407, 0.1495959888165767, 0.16915651939500265, 0.18260341504492364, 0.18945061045506864, 0.18945061045506864, 0.18260341504492364, 0.16915651939500265, 0.1495959888165767, 0.12462897125553407, 0.0951585116824926, 0.062253523938647456, 0.027152459411754176};
+static const int MW_TAIL_NG = 16;
+
 // The tail nodes, appended to s.lam / s.w: rho, s_min and lam_top.
 static void column_tail(double rho, double s_min, double lam_top, int p,
                         const double *gx, const double *gw, int ng,
@@ -463,7 +497,10 @@ static void column_tail(double rho, double s_min, double lam_top, int p,
         s.edges.push_back(s.edges.back() + step);
         step *= 2.0;
     }
-    fixed_gauss(s.edges, p, gx, gw, ng, s.t, s.wt);
+    (void)gx;
+    (void)gw;
+    (void)ng;
+    fixed_gauss(s.edges, p, MW_TAIL_GX, MW_TAIL_GW, MW_TAIL_NG, s.t, s.wt);
     const cd ray = std::exp(cd(0.0, 0.25 * MW_PI));
     if (rho == 0.0) {
         // `six_point`: the single up-ray, J0(0) = 1, no Hankel split.
@@ -510,7 +547,7 @@ static void column_rule(double rho, double k_p, const cd &k_m, double s_min,
                         double lam_mult, int p, double detour, const double *gx,
                         const double *gw, int ng, Scratch &s) {
     double a_head, lam_top;
-    column_extents(k_p, k_m, s_min, lam_mult, a_head, lam_top);
+    column_extents(rho, k_p, k_m, s_min, lam_mult, a_head, lam_top);
     s.lam.clear();
     s.w.clear();
     column_head_mid(rho, k_p, k_m, a_head, lam_top, p, detour, gx, gw, ng, s);
@@ -734,6 +771,11 @@ static void column_member(const Scratch &s, size_t K, double z, double zp,
             live |= ar[j] >= MW_EXP_ZERO;
         }
         if (!live) continue;  // exactly zero, see MW_EXP_ZERO
+#if MW_NI_VMATH
+        for (int j = 0; j < nb; ++j)
+            ai[j] = mw_fma::fma(gmi[k0 + j], zp, -(gpi[k0 + j] * z));
+        mw_vmath::exp_cis_lanes<vmath_backend>(ar, ai, er, ei, nb);
+#else
         MW_NI_SIMD()
         for (int j = 0; j < nb; ++j) {
             ai[j] = mw_fma::fma(gmi[k0 + j], zp, -(gpi[k0 + j] * z));
@@ -741,6 +783,7 @@ static void column_member(const Scratch &s, size_t K, double z, double zp,
             er[j] = ex * cos(ai[j]);
             ei[j] = ex * sin(ai[j]);
         }
+#endif
         // The block's six sums, in an order the SOURCE fixes (momwire#1193,
         // the #781 rule): node j adds into lane j % MW_LANES of its column,
         // sequentially within the lane, and the lanes combine pairwise as

@@ -1,13 +1,13 @@
 Metadata-Version: 2.3
 Name: anthropic
-Version: 1.17.0
+Version: 2.1.0
 Summary: The official Python library for the anthropic API
 Project-URL: Homepage, https://github.com/anthropics/anthropic-sdk-python
 Project-URL: Repository, https://github.com/anthropics/anthropic-sdk-python
 Author-email: Anthropic <support@anthropic.com>
-License: MIT
+License: Apache-2.0
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: OS Independent
@@ -135,4 +135,4 @@ See [CONTRIBUTING.md](https://github.com/anthropics/anthropic-sdk-python/tree/ma
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](https://github.com/anthropics/anthropic-sdk-python/tree/main/LICENSE) file for details.
+This project is licensed under the Apache License, Version 2.0. See the [LICENSE](https://github.com/anthropics/anthropic-sdk-python/tree/main/LICENSE) file for details. Versions released before the change from the MIT License, and third-party contributions merged before it, remain under the MIT License. See [LICENSE-MIT](https://github.com/anthropics/anthropic-sdk-python/tree/main/LICENSE-MIT).

@@ -1,6 +1,7 @@
 """
 Base extension functionality for scrapy_ingest.
 """
+
 import logging
 
 from scrapy_ingest.config.settings import Settings, validate_settings
@@ -32,7 +33,10 @@ class BaseExtension:
 
     def get_identifier_info(self, spider):
         """Get identifier column and value for the spider"""
-        return self.settings.get_identifier_column(), self.settings.get_identifier_value(spider)
+        return (
+            self.settings.get_identifier_column(),
+            self.settings.get_identifier_value(spider),
+        )
 
     def _ensure_db_initialized(self):
         """Initialize DB connection and schema manager lazily."""

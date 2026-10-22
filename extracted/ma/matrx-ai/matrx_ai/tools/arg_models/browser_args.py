@@ -179,6 +179,25 @@ class BrowserListProfilesArgs(BaseModel):
     profile_id: str = _PROFILE_FIELD_DEFAULT
 
 
+class BrowserCreateProfileArgs(BaseModel):
+    """Create ANOTHER cloud browser owned by the acting user and return its
+    ``profile_id`` — the same path as "New browser" in the product.
+
+    A fresh browser holds no sign-ins, so it is how an agent gets a clean
+    browser (a test account, a separate identity) without signing anybody out
+    of their existing one. Pass the returned ``profile_id`` to ``navigate``.
+    The new browser is never the default (unless it is the person's first).
+    ``display_name`` is optional; omitted, it is named "New cloud browser".
+    ``profile_id`` is kept for S6 uniformity and ignored.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["create_profile"]
+    display_name: str = Field(default="", max_length=120)
+    profile_id: str = _PROFILE_FIELD_DEFAULT
+
+
 class BrowserListLocalDevicesArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -253,6 +272,7 @@ CloudBrowserVariant = Annotated[
     | BrowserCloseArgs
     | BrowserDismissHandoffArgs
     | BrowserListProfilesArgs
+    | BrowserCreateProfileArgs
     | BrowserListLocalDevicesArgs
     | BrowserStartLocalArgs
     | BrowserRenderClipArgs

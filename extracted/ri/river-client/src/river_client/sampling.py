@@ -177,29 +177,34 @@ class PendingSamplingBatch:
         owned = collector is None
         if collector is None:
             collector = SamplingResultCollector(executor=executor)
-        futures = collector.register(self)
-        indices = {future: index for index, future in enumerate(futures)}
-        remaining = set(futures)
+        indices = {
+            future: index for index, future in enumerate(collector.register(self))
+        }
+        remaining = set(indices)
+
+        def completion(future):
+            index = indices.pop(future)
+            try:
+                sample, error = future.result(), None
+            except Exception as exc:
+                sample, error = None, exc
+            return SamplingCompletion(
+                index // self._num_samples,
+                index % self._num_samples,
+                self.request_ids[index],
+                sample,
+                error,
+            )
+
         try:
             while remaining:
                 done, remaining = await asyncio.wait(
                     remaining, return_when=asyncio.FIRST_COMPLETED
                 )
-                for future in done:
-                    index = indices[future]
-                    try:
-                        sample, error = future.result(), None
-                    except Exception as exc:
-                        sample, error = None, exc
-                    yield SamplingCompletion(
-                        index // self._num_samples,
-                        index % self._num_samples,
-                        self.request_ids[index],
-                        sample,
-                        error,
-                    )
+                while done:
+                    yield completion(done.pop())
         finally:
-            for future in futures:
+            for future in indices:
                 if not future.done():
                     future.cancel()
                 elif not future.cancelled():
@@ -334,35 +339,8 @@ class SamplingResultCollector:
         try:
             while True:
                 self._event.clear()
-                now = time.monotonic()
-                for id, entry in list(self._entries.items()):
-                    if not entry.future.done() and now >= entry.batch._deadline:
-                        entry.future.set_exception(
-                            RiverTimeoutError("Sampling timed out", request_id=id)
-                        )
-                    if entry.future.done():
-                        del self._entries[id]
                 active = {task for task in active if not task.done()}
-                eligible: dict[tuple, dict[str, _Entry]] = {}
-                # Due retries must not starve samples that have never been polled,
-                # including when a slow snapshot outlasts the polling interval.
-                for id, entry in sorted(
-                    self._entries.items(), key=lambda item: item[1].next_poll
-                ):
-                    if not entry.busy and entry.next_poll <= now:
-                        key = (entry.batch._session, entry.batch._model_id)
-                        eligible.setdefault(key, {})[id] = entry
-                for entries in eligible.values():
-                    items = list(entries.items())
-                    for start in range(0, len(items), MAX_SAMPLING_BATCH):
-                        if len(active) >= self.max_poll_rpcs:
-                            break
-                        chunk = dict(items[start : start + MAX_SAMPLING_BATCH])
-                        for entry in chunk.values():
-                            entry.busy = True
-                        task = asyncio.create_task(self._snapshot(chunk))
-                        task.add_done_callback(lambda completed: self.wake())
-                        active.add(task)
+                self._poll_due(active)
                 try:
                     await asyncio.wait_for(self._event.wait(), 0.05)
                 except TimeoutError:
@@ -371,6 +349,37 @@ class SamplingResultCollector:
             for task in active:
                 task.cancel()
             await asyncio.gather(*active, return_exceptions=True)
+
+    def _poll_due(self, active):
+        # Scheduling locals must not retain completed futures across RPC waits.
+        now = time.monotonic()
+        for id, entry in list(self._entries.items()):
+            if not entry.future.done() and now >= entry.batch._deadline:
+                entry.future.set_exception(
+                    RiverTimeoutError("Sampling timed out", request_id=id)
+                )
+            if entry.future.done():
+                del self._entries[id]
+        eligible: dict[tuple, dict[str, _Entry]] = {}
+        # Due retries must not starve samples that have never been polled,
+        # including when a slow snapshot outlasts the polling interval.
+        for id, entry in sorted(
+            self._entries.items(), key=lambda item: item[1].next_poll
+        ):
+            if not entry.busy and entry.next_poll <= now:
+                key = (entry.batch._session, entry.batch._model_id)
+                eligible.setdefault(key, {})[id] = entry
+        for entries in eligible.values():
+            items = list(entries.items())
+            for start in range(0, len(items), MAX_SAMPLING_BATCH):
+                if len(active) >= self.max_poll_rpcs:
+                    break
+                chunk = dict(items[start : start + MAX_SAMPLING_BATCH])
+                for entry in chunk.values():
+                    entry.busy = True
+                task = asyncio.create_task(self._snapshot(chunk))
+                task.add_done_callback(lambda completed: self.wake())
+                active.add(task)
 
     async def _snapshot(self, entries: dict[str, _Entry]):
         loop = asyncio.get_running_loop()
@@ -383,7 +392,7 @@ class SamplingResultCollector:
         seen, retrying = set(), set()
         call = None
         try:
-            first = next(iter(entries.values()))
+            model_id = next(iter(entries.values())).batch._model_id
             session._check_heartbeat_health()
             if session._before_poll is not None:
                 await loop.run_in_executor(self.executor, session._before_poll)
@@ -394,8 +403,8 @@ class SamplingResultCollector:
             if remaining <= 0:
                 raise RiverTimeoutError("Sampling timed out before result retrieval")
             request = pb2.RetrieveSamplingResultsRequest(request_ids=list(entries))
-            if first.batch._model_id is not None:
-                request.model_id = first.batch._model_id
+            if model_id is not None:
+                request.model_id = model_id
             call = self._stub(session).RetrieveSamplingResults(
                 request,
                 metadata=session._live_metadata,
@@ -413,6 +422,7 @@ class SamplingResultCollector:
                     continue
                 entry = entries[id]
                 if entry.future.done():
+                    del entries[id], entry, item
                     continue
                 try:
                     if kind == "failed":
@@ -447,10 +457,16 @@ class SamplingResultCollector:
                     )
                     if not entry.future.done():
                         entry.future.set_result(sample)
+                    del sample
                 except Exception as error:
                     if not entry.future.done():
                         entry.future.set_exception(error)
-            if len(seen) != len(entries):
+                finally:
+                    if entry.future.done():
+                        del entries[id]
+                        self.wake()
+                    del entry, item
+            if len(seen) != len(request.request_ids):
                 raise RiverError("Incomplete sampling snapshot")
         except Exception as error:
             retry = isinstance(error, grpc.RpcError)

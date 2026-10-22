@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-library
-Version: 0.1.35
+Version: 0.1.37
 Summary: Model Library for vals.ai 
 Author-email: "Vals AI, Inc." <contact@vals.ai>
 License: MIT
@@ -18,29 +18,30 @@ Requires-Dist: tiktoken<1.0,>=0.12.0
 Requires-Dist: pillow<13.0,>=12.1.1
 Requires-Dist: python-dotenv<2.0,>=1.0.0
 Requires-Dist: aiohttp<4.0,>=3.13.5
-Requires-Dist: openai[aiohttp]<3.0,>=2.45.0
-Requires-Dist: anthropic[aiohttp]<1.0,>=0.118.0
-Requires-Dist: mistralai<=2.4.5,>=2.4.5
-Requires-Dist: xai-sdk<2.0,>=1.19.0
+Requires-Dist: httpx2<3.0,>=2.13.0
+Requires-Dist: httpx-aiohttp[httpx2]<1.0,>=0.2.0
+Requires-Dist: openai[aiohttp]<4.0,>=3.31.0
+Requires-Dist: anthropic[aiohttp]<2.0,>=1.14.0
+Requires-Dist: mistralai<4.0,>=3.2.0
 Requires-Dist: ai21<5.0,>=4.3.0
-Requires-Dist: boto3<2.0,>=1.38.27
+Requires-Dist: boto3<2.0,>=1.43.106
 Requires-Dist: protobuf>=6.30.0
-Requires-Dist: google-genai[aiohttp]<3.0,>=2.12.0
+Requires-Dist: google-genai[aiohttp]<3.0,>=2.31.0
 Requires-Dist: google-cloud-storage<4.0,>=3.9.0
-Requires-Dist: google-auth<3.0,>=2.29.0
+Requires-Dist: google-auth<3.0,>=2.62.0
 Requires-Dist: websockets<16.0,>=15.0
 Provides-Extra: voice
-Requires-Dist: assemblyai<2.0,>=1.0.0; extra == "voice"
-Requires-Dist: cartesia<5.0,>=4.0.1; extra == "voice"
-Requires-Dist: deepgram-sdk<8.0,>=7.6.0; extra == "voice"
-Requires-Dist: elevenlabs<3.0,>=2.62.0; extra == "voice"
-Requires-Dist: google-cloud-speech<3.0,>=2.40.0; extra == "voice"
+Requires-Dist: assemblyai<2.0,>=1.6.1; extra == "voice"
+Requires-Dist: cartesia<5.0,>=4.2.0; extra == "voice"
+Requires-Dist: deepgram-sdk<8.0,>=7.13.0; extra == "voice"
+Requires-Dist: elevenlabs<3.0,>=2.72.0; extra == "voice"
+Requires-Dist: google-cloud-speech<3.0,>=2.41.0; extra == "voice"
 Requires-Dist: amazon-transcribe<1.0,>=0.6.4; extra == "voice"
-Requires-Dist: azure-cognitiveservices-speech<2.0,>=1.42.0; extra == "voice"
+Requires-Dist: azure-cognitiveservices-speech<2.0,>=1.52.0; extra == "voice"
 Provides-Extra: redshift-export
 Requires-Dist: pyarrow<23.0.0,>=18.0.0; extra == "redshift-export"
 Provides-Extra: server
-Requires-Dist: aiobotocore<3.0,>=2.25.1; extra == "server"
+Requires-Dist: aiobotocore<4.0,>=3.9.2; extra == "server"
 Requires-Dist: fastapi<1.0,>=0.115.0; extra == "server"
 Requires-Dist: starlette<2.0,>=1.0.1; extra == "server"
 Requires-Dist: opentelemetry-api<2.0,>=1.39.0; extra == "server"
@@ -91,6 +92,7 @@ Both distributions expose the same `model_library` imports and overlap on instal
 | Run examples from a repo checkout | [Examples guide](examples/README.md) |
 | Run tests | [Tests guide](tests/README.md) |
 | Contribute to model registry config | [Model config README](model_library/config/README.md) |
+| Open an issue or pull request | [Contributing](CONTRIBUTING.md) |
 
 ## Features
 

@@ -78,6 +78,7 @@ FAILURE_EXCEPTIONS = (
     SSLError,
     Timeout,
     HTTPConnectionClosed,
+    HTTPParseError,
     zlib.error,
 )
 
@@ -265,8 +266,8 @@ class FastHttpSession:
                 headers["Accept"] = "application/json"
 
         if not allow_redirects:
-            old_redirect_resonse_codes = self.client.redirect_resonse_codes
-            self.client.redirect_resonse_codes = self.client.redirect_response_codes = frozenset()
+            old_redirect_response_codes = self.client.redirect_response_codes
+            self.client.redirect_response_codes = frozenset()
 
         start_perf_counter = time.perf_counter()
         # send request, and catch any exceptions
@@ -282,7 +283,7 @@ class FastHttpSession:
         }
 
         if not allow_redirects:
-            self.client.redirect_resonse_codes = self.client.redirect_response_codes = old_redirect_resonse_codes
+            self.client.redirect_response_codes = old_redirect_response_codes
 
         request_meta["response_length"] = 0  # default value, if length cannot be determined
 
@@ -294,7 +295,7 @@ class FastHttpSession:
         else:
             try:
                 request_meta["response_length"] = len(response.content) if response.content else 0
-            except (HTTPParseError, *FAILURE_EXCEPTIONS) as e:
+            except FAILURE_EXCEPTIONS as e:
                 request_meta["response_time"] = (time.perf_counter() - start_perf_counter) * 1000
                 request_meta["exception"] = e  # type: ignore
                 if catch_response:
@@ -622,8 +623,7 @@ class LocustUserAgent(UserAgent):
     response_type = FastResponse
     request_type = FastRequest
     valid_response_codes = frozenset([200, 201, 202, 203, 204, 205, 206, 207, 208, 226, 301, 302, 303, 304, 307, 308])
-    redirect_resonse_codes = frozenset([301, 302, 303, 307, 308])
-    redirect_response_codes = redirect_resonse_codes  # geventhttpclient 2.5+ spelling
+    redirect_response_codes = frozenset([301, 302, 303, 307, 308])
 
     def __init__(self, client_pool: HTTPClientPool | None = None, **kwargs):
         super().__init__(**kwargs)
@@ -634,9 +634,9 @@ class LocustUserAgent(UserAgent):
     def _urlopen(self, request):
         """Override _urlopen() in order to make it use the response_type attribute"""
         client = self.clientpool.get_client(request.url_split)
-        resp = client.request(
-            request.method, request.url_split.request_uri, body=request.payload, headers=request.headers
-        )
+        # quoted_uri (percent-encoded, as geventhttpclient's own UserAgent sends it) was added in geventhttpclient 2.3.4
+        request_uri = getattr(request.url_split, "quoted_uri", request.url_split.request_uri)
+        resp = client.request(request.method, request_uri, body=request.payload, headers=request.headers)
         return self.response_type(resp, request=request, sent_request=resp._sent_request)
 
     def _verify_status(self, status_code, url=None):

@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 JsonSchemaType = Literal[
     "string",
@@ -15,6 +23,23 @@ JsonSchemaType = Literal[
     "object",
     "null",
 ]
+
+
+def _omit_absent(model: BaseModel, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+    """Serialize a schema node as the author wrote it: a typed field the caller never sent
+    (``enum``, ``items``, ``properties``, ``required``…) is ABSENT from the wire, never
+    ``null``/``[]``/``{}`` — a provider reads ``enum: null`` or ``properties: {}`` as a
+    constraint (2026-10-22, /ai/manual). Extras (``const``, ``anyOf``, …) ride along."""
+    dumped = handler(model)
+    sent = model.model_fields_set
+    out: dict[str, Any] = {}
+    for key, value in dumped.items():
+        field = type(model).model_fields.get(key)
+        sent_key = field is None or key in sent or (field.alias or key) in sent
+        if value is None or not sent_key:
+            continue
+        out[key] = value
+    return out
 
 
 class JsonSchemaProperty(BaseModel):
@@ -34,6 +59,10 @@ class JsonSchemaProperty(BaseModel):
         alias="additionalProperties",
     )
 
+    @model_serializer(mode="wrap")
+    def _serialize_as_sent(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _omit_absent(self, handler)
+
 
 class JsonSchemaObjectDocument(BaseModel):
     """Object-root JSON Schema — agent ``output_schema.schema`` and tool roots."""
@@ -47,6 +76,10 @@ class JsonSchemaObjectDocument(BaseModel):
         default=None,
         alias="additionalProperties",
     )
+
+    @model_serializer(mode="wrap")
+    def _serialize_as_sent(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        return _omit_absent(self, handler)
 
     @model_validator(mode="after")
     def _required_keys_exist(self) -> JsonSchemaObjectDocument:

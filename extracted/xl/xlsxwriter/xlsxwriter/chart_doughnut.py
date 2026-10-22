@@ -4,12 +4,12 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 from warnings import warn
 
-from . import chart_pie
+from xlsxwriter import chart_pie
 
 
 class ChartDoughnut(chart_pie.ChartPie):
@@ -32,7 +32,6 @@ class ChartDoughnut(chart_pie.ChartPie):
         """
         super().__init__()
 
-        self.vary_data_color = 1
         self.rotation = 0
         self.hole_size = 50
 

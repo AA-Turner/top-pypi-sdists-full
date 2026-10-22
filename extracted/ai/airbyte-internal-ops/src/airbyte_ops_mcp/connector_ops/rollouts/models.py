@@ -43,6 +43,7 @@ class ConnectorRolloutRecord(BaseModel):
 
     rollout_id: str
     actor_definition_id: str
+    release_candidate_version_id: str | None = None
     state: str
     initial_rollout_pct: int | None = None
     current_target_rollout_pct: int | None = None
@@ -102,7 +103,12 @@ class ConnectorRolloutRecord(BaseModel):
         and coerces UUID objects to strings for ID fields.
         """
         data = dict(row)
-        for key in ("rollout_id", "actor_definition_id", "updated_by_user_id"):
+        for key in (
+            "rollout_id",
+            "actor_definition_id",
+            "release_candidate_version_id",
+            "updated_by_user_id",
+        ):
             if key in data and data[key] is not None:
                 data[key] = str(data[key])
         filters_raw = data.get("filters")

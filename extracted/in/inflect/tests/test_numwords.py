@@ -1,3 +1,7 @@
+from decimal import Decimal
+
+import pytest
+
 import inflect
 
 
@@ -42,6 +46,18 @@ def test_lines():
     assert p.number_to_words(10000.3, threshold=500, comma=0) == "10000.3"
     assert p.number_to_words(100000.3, threshold=500, comma=0) == "100000.3"
     assert p.number_to_words(1000000.3, threshold=500, comma=0) == "1000000.3"
+    assert p.number_to_words(1000.3, threshold=500, comma="_") == "1_000.3"
+    assert p.number_to_words(1000000, threshold=500, comma="_") == "1_000_000"
+    assert (
+        p.number_to_words(1234, comma=";")
+        == "one thousand; two hundred and thirty-four"
+    )
+
+
+def test_scientific_notation_float():
+    p = inflect.engine()
+    assert p.number_to_words(0.000001) == "zero point zero zero zero zero zero one"
+    assert p.number_to_words(1e20) == "one hundred quintillion"
 
 
 def test_array():
@@ -88,7 +104,7 @@ def test_array():
             "100",
             "one hundred",
             "one, zero, zero",
-            "ten, zero",
+            "one, zero zero",
             "one zero zero",
             "one hundredth",
         ],
@@ -96,7 +112,7 @@ def test_array():
             "101",
             "one hundred and one",
             "one, zero, one",
-            "ten, one",
+            "one, zero one",
             "one zero one",
             "one hundred and first",
         ],
@@ -104,7 +120,7 @@ def test_array():
             "110",
             "one hundred and ten",
             "one, one, zero",
-            "eleven, zero",
+            "one, ten",
             "one ten",
             "one hundred and tenth",
         ],
@@ -112,7 +128,7 @@ def test_array():
             "111",
             "one hundred and eleven",
             "one, one, one",
-            "eleven, one",
+            "one, eleven",
             "one eleven",
             "one hundred and eleventh",
         ],
@@ -120,7 +136,7 @@ def test_array():
             "900",
             "nine hundred",
             "nine, zero, zero",
-            "ninety, zero",
+            "nine, zero zero",
             "nine zero zero",
             "nine hundredth",
         ],
@@ -128,7 +144,7 @@ def test_array():
             "999",
             "nine hundred and ninety-nine",
             "nine, nine, nine",
-            "ninety-nine, nine",
+            "nine, ninety-nine",
             "nine ninety-nine",
             "nine hundred and ninety-ninth",
         ],
@@ -137,7 +153,7 @@ def test_array():
             "one thousand",
             "one, zero, zero, zero",
             "ten, zero zero",
-            "one zero zero, zero",
+            "one, zero zero zero",
             "one thousandth",
         ],
         [
@@ -145,7 +161,7 @@ def test_array():
             "one thousand and one",
             "one, zero, zero, one",
             "ten, zero one",
-            "one zero zero, one",
+            "one, zero zero one",
             "one thousand and first",
         ],
         [
@@ -153,7 +169,7 @@ def test_array():
             "one thousand and ten",
             "one, zero, one, zero",
             "ten, ten",
-            "one zero one, zero",
+            "one, zero ten",
             "one thousand and tenth",
         ],
         [
@@ -161,7 +177,7 @@ def test_array():
             "one thousand, one hundred",
             "one, one, zero, zero",
             "eleven, zero zero",
-            "one ten, zero",
+            "one, one zero zero",
             "one thousand, one hundredth",
         ],
         [
@@ -169,15 +185,15 @@ def test_array():
             "two thousand",
             "two, zero, zero, zero",
             "twenty, zero zero",
-            "two zero zero, zero",
+            "two, zero zero zero",
             "two thousandth",
         ],
         [
             "10000",
             "ten thousand",
             "one, zero, zero, zero, zero",
-            "ten, zero zero, zero",
-            "one zero zero, zero zero",
+            "one, zero zero, zero zero",
+            "ten, zero zero zero",
             "ten thousandth",
         ],
         [
@@ -208,87 +224,123 @@ def test_array():
             "0123456",
             "one hundred and twenty-three thousand, four hundred and fifty-six",
             "zero, one, two, three, four, five, six",
-            "zero one, twenty-three, forty-five, six",
-            "zero twelve, three forty-five, six",
+            "zero, twelve, thirty-four, fifty-six",
+            "zero, one twenty-three, four fifty-six",
             "one hundred and twenty-three thousand, four hundred and fifty-sixth",
         ],
         [
             "1234567",
-            "one million, two hundred and thirty-four thousand, "
-            "five hundred and sixty-seven",
+            (
+                "one million, two hundred and thirty-four thousand, "
+                "five hundred and sixty-seven"
+            ),
             "one, two, three, four, five, six, seven",
-            "twelve, thirty-four, fifty-six, seven",
-            "one twenty-three, four fifty-six, seven",
-            "one million, two hundred and thirty-four thousand, "
-            "five hundred and sixty-seventh",
+            "one, twenty-three, forty-five, sixty-seven",
+            "one, two thirty-four, five sixty-seven",
+            (
+                "one million, two hundred and thirty-four thousand, "
+                "five hundred and sixty-seventh"
+            ),
         ],
         [
             "12345678",
-            "twelve million, three hundred and forty-five thousand, "
-            "six hundred and seventy-eight",
+            (
+                "twelve million, three hundred and forty-five thousand, "
+                "six hundred and seventy-eight"
+            ),
             "one, two, three, four, five, six, seven, eight",
             "twelve, thirty-four, fifty-six, seventy-eight",
-            "one twenty-three, four fifty-six, seventy-eight",
-            "twelve million, three hundred and forty-five thousand, "
-            "six hundred and seventy-eighth",
+            "twelve, three forty-five, six seventy-eight",
+            (
+                "twelve million, three hundred and forty-five thousand, "
+                "six hundred and seventy-eighth"
+            ),
         ],
         [
             "12_345_678",
-            "twelve million, three hundred and forty-five thousand, "
-            "six hundred and seventy-eight",
+            (
+                "twelve million, three hundred and forty-five thousand, "
+                "six hundred and seventy-eight"
+            ),
             "one, two, three, four, five, six, seven, eight",
             "twelve, thirty-four, fifty-six, seventy-eight",
-            "one twenty-three, four fifty-six, seventy-eight",
+            "twelve, three forty-five, six seventy-eight",
         ],
         [
             "1234,5678",
-            "twelve million, three hundred and forty-five thousand, "
-            "six hundred and seventy-eight",
+            (
+                "twelve million, three hundred and forty-five thousand, "
+                "six hundred and seventy-eight"
+            ),
             "one, two, three, four, five, six, seven, eight",
             "twelve, thirty-four, fifty-six, seventy-eight",
-            "one twenty-three, four fifty-six, seventy-eight",
+            "twelve, three forty-five, six seventy-eight",
         ],
         [
             "1234567890",
-            "one billion, two hundred and thirty-four million, five hundred "
-            "and sixty-seven thousand, eight hundred and ninety",
+            (
+                "one billion, two hundred and thirty-four million, five hundred "
+                "and sixty-seven thousand, eight hundred and ninety"
+            ),
             "one, two, three, four, five, six, seven, eight, nine, zero",
             "twelve, thirty-four, fifty-six, seventy-eight, ninety",
-            "one twenty-three, four fifty-six, seven eighty-nine, zero",
-            "one billion, two hundred and thirty-four million, five hundred "
-            "and sixty-seven thousand, eight hundred and ninetieth",
+            "one, two thirty-four, five sixty-seven, eight ninety",
+            (
+                "one billion, two hundred and thirty-four million, five hundred "
+                "and sixty-seven thousand, eight hundred and ninetieth"
+            ),
         ],
         [
             "123456789012345",
-            "one hundred and twenty-three trillion, four hundred and "
-            "fifty-six billion, seven hundred and eighty-nine million, twelve "
-            "thousand, three hundred and forty-five",
-            "one, two, three, four, five, six, seven, eight, nine, zero, one, "
-            "two, three, four, five",
-            "twelve, thirty-four, fifty-six, seventy-eight, ninety, twelve, "
-            "thirty-four, five",
-            "one twenty-three, four fifty-six, seven eighty-nine, "
-            "zero twelve, three forty-five",
-            "one hundred and twenty-three trillion, four hundred and "
-            "fifty-six billion, seven hundred and eighty-nine million, "
-            "twelve thousand, three hundred and forty-fifth",
+            (
+                "one hundred and twenty-three trillion, four hundred and "
+                "fifty-six billion, seven hundred and eighty-nine million, twelve "
+                "thousand, three hundred and forty-five"
+            ),
+            (
+                "one, two, three, four, five, six, seven, eight, nine, zero, one, "
+                "two, three, four, five"
+            ),
+            (
+                "one, twenty-three, forty-five, sixty-seven, eighty-nine, zero one, twenty-three, "
+                "forty-five"
+            ),
+            (
+                "one twenty-three, four fifty-six, seven eighty-nine, "
+                "zero twelve, three forty-five"
+            ),
+            (
+                "one hundred and twenty-three trillion, four hundred and "
+                "fifty-six billion, seven hundred and eighty-nine million, "
+                "twelve thousand, three hundred and forty-fifth"
+            ),
         ],
         [
             "12345678901234567890",
-            "twelve quintillion, three hundred and forty-five quadrillion, "
-            "six hundred and seventy-eight trillion, nine hundred and one "
-            "billion, two hundred and thirty-four million, five hundred and "
-            "sixty-seven thousand, eight hundred and ninety",
-            "one, two, three, four, five, six, seven, eight, nine, zero, one, "
-            "two, three, four, five, six, seven, eight, nine, zero",
-            "twelve, thirty-four, fifty-six, seventy-eight, ninety, twelve, "
-            "thirty-four, fifty-six, seventy-eight, ninety",
-            "one twenty-three, four fifty-six, seven eighty-nine, "
-            "zero twelve, three forty-five, six seventy-eight, ninety",
-            "twelve quintillion, three hundred and forty-five quadrillion, "
-            "six hundred and seventy-eight trillion, nine hundred and one "
-            "billion, two hundred and thirty-four million, five hundred and "
-            "sixty-seven thousand, eight hundred and ninetieth",
+            (
+                "twelve quintillion, three hundred and forty-five quadrillion, "
+                "six hundred and seventy-eight trillion, nine hundred and one "
+                "billion, two hundred and thirty-four million, five hundred and "
+                "sixty-seven thousand, eight hundred and ninety"
+            ),
+            (
+                "one, two, three, four, five, six, seven, eight, nine, zero, one, "
+                "two, three, four, five, six, seven, eight, nine, zero"
+            ),
+            (
+                "twelve, thirty-four, fifty-six, seventy-eight, ninety, twelve, "
+                "thirty-four, fifty-six, seventy-eight, ninety"
+            ),
+            (
+                "twelve, three forty-five, six seventy-eight, nine zero one, two thirty-four, five "
+                "sixty-seven, eight ninety"
+            ),
+            (
+                "twelve quintillion, three hundred and forty-five quadrillion, "
+                "six hundred and seventy-eight trillion, nine hundred and one "
+                "billion, two hundred and thirty-four million, five hundred and "
+                "sixty-seven thousand, eight hundred and ninetieth"
+            ),
         ],
         [
             "0.987654",
@@ -312,8 +364,8 @@ def test_array():
             "9.87654",
             "nine point eight seven six five four",
             "nine, point, eight, seven, six, five, four",
-            "nine, point, eighty-seven, sixty-five, four",
-            "nine, point, eight seventy-six, fifty-four",
+            "nine, point, eight, seventy-six, fifty-four",
+            "nine, point, eighty-seven, six fifty-four",
             "ninth point eight seven six five four",
             "nine point eight seven six five fourth",
         ],
@@ -322,7 +374,7 @@ def test_array():
             "ninety-eight point seven six five four",
             "nine, eight, point, seven, six, five, four",
             "ninety-eight, point, seventy-six, fifty-four",
-            "ninety-eight, point, seven sixty-five, four",
+            "ninety-eight, point, seven, six fifty-four",
             "ninety-eighth point seven six five four",
             "ninety-eight point seven six five fourth",
         ],
@@ -330,7 +382,7 @@ def test_array():
             "987.654",
             "nine hundred and eighty-seven point six five four",
             "nine, eight, seven, point, six, five, four",
-            "ninety-eight, seven, point, sixty-five, four",
+            "nine, eighty-seven, point, six, fifty-four",
             "nine eighty-seven, point, six fifty-four",
             "nine hundred and eighty-seventh point six five four",
             "nine hundred and eighty-seven point six five fourth",
@@ -340,7 +392,7 @@ def test_array():
             "nine thousand, eight hundred and seventy-six point five four",
             "nine, eight, seven, six, point, five, four",
             "ninety-eight, seventy-six, point, fifty-four",
-            "nine eighty-seven, six, point, fifty-four",
+            "nine, eight seventy-six, point, fifty-four",
             "nine thousand, eight hundred and seventy-sixth point five four",
             "nine thousand, eight hundred and seventy-six point five fourth",
         ],
@@ -348,8 +400,8 @@ def test_array():
             "98765.4",
             "ninety-eight thousand, seven hundred and sixty-five point four",
             "nine, eight, seven, six, five, point, four",
-            "ninety-eight, seventy-six, five, point, four",
-            "nine eighty-seven, sixty-five, point, four",
+            "nine, eighty-seven, sixty-five, point, four",
+            "ninety-eight, seven sixty-five, point, four",
             "ninety-eight thousand, seven hundred and sixty-fifth point four",
             "ninety-eight thousand, seven hundred and sixty-five point fourth",
         ],
@@ -357,15 +409,15 @@ def test_array():
             "101.202.303",
             "one hundred and one point two zero two three zero three",
             "one, zero, one, point, two, zero, two, point, three, zero, three",
-            "ten, one, point, twenty, two, point, thirty, three",
+            "one, zero one, point, two, zero two, point, three, zero three",
             "one zero one, point, two zero two, point, three zero three",
         ],
         [
             "98765.",
             "ninety-eight thousand, seven hundred and sixty-five point",
             "nine, eight, seven, six, five, point",
-            "ninety-eight, seventy-six, five, point",
-            "nine eighty-seven, sixty-five, point",
+            "nine, eighty-seven, sixty-five, point",
+            "ninety-eight, seven sixty-five, point",
         ],
     ]
 
@@ -396,3 +448,57 @@ def test_issue_131():
     p = inflect.engine()
     for nth_word in inflect.nth_suff:
         assert p.number_to_words(nth_word) == "zero"
+
+
+def test_issue_242():
+    # Numbers whose magnitude exceeds the largest known scale word must raise
+    # the documented NumOutOfRangeError, not leak an uncaught IndexError from
+    # an unchecked internal ``mill`` lookup.
+    p = inflect.engine()
+    for n in (10**36, 10**40, 10**100):
+        with pytest.raises(inflect.NumOutOfRangeError):
+            p.number_to_words(n)
+    # A number just within range still converts.
+    assert p.number_to_words(10**33) == "one decillion"
+
+
+def test_number_to_currency():
+    p = inflect.engine()
+    assert (
+        p.number_to_currency(100_020.56) == "one hundred thousand and twenty and 56/100"
+    )
+    assert (
+        p.number_to_currency(1234)
+        == "one thousand, two hundred and thirty-four and 00/100"
+    )
+    assert p.number_to_currency(0.07) == "zero and 07/100"
+    assert p.number_to_currency(1.5) == "one and 50/100"
+    assert p.number_to_currency("19.99") == "nineteen and 99/100"
+    assert p.number_to_currency(101.01, andword="") == "one hundred one and 01/100"
+
+
+def test_number_to_currency_rounds_half_up():
+    p = inflect.engine()
+    assert p.number_to_currency(2.675) == "two and 68/100"
+    assert p.number_to_currency(2.674) == "two and 67/100"
+    assert p.number_to_currency(Decimal("0.995")) == "one and 00/100"
+
+
+@pytest.mark.parametrize("num", ["ten", "nan", "inf"])
+def test_number_to_currency_bad_value(num):
+    with pytest.raises(inflect.BadNumValueError):
+        inflect.engine().number_to_currency(num)
+
+
+def test_issue_217():
+    # Groups of digits are aligned from the right, so a three digit number
+    # with group=2 reads as "one, twenty-three" rather than "twelve, three".
+    p = inflect.engine()
+    assert p.number_to_words("123", group=2) == "one, twenty-three"
+    assert p.number_to_words("1234", group=2) == "twelve, thirty-four"
+    assert p.number_to_words("12345", group=2) == "one, twenty-three, forty-five"
+    assert p.number_to_words("98765", group=3) == "ninety-eight, seven sixty-five"
+    assert (
+        p.number_to_words("1234567", group=3)
+        == "one, two thirty-four, five sixty-seven"
+    )

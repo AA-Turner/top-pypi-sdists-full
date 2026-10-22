@@ -44,6 +44,15 @@ from plato.worlds.preview_mixin import PreviewMixin
 from plato.worlds.runtime_mixin import RuntimeMixin
 from plato.worlds.schema import get_world_schema
 from plato.worlds.stage_tracking import disable_stage_tracking, enable_stage_tracking
+from plato.worlds.tailscale import (
+    LocalCommandRunner,
+    SshCommandRunner,
+    TailscaleError,
+    TailscaleNode,
+    build_join_plan,
+    join_tailnet,
+    leave_tailnet,
+)
 from plato.worlds.testing import run_e2e_tests
 from plato.worlds.workspace import Workspace
 
@@ -70,6 +79,22 @@ class ResolvedWorkspaceRepo:
     repo_name: str
     chronos_url: str
     api_key: str
+
+
+class AgentTailnetMember(PydanticBaseModel):
+    """An agent VM that joined the tailnet. It logs out after its task (or at world close as a fallback)."""
+
+    info: RuntimeInfo
+    node: TailscaleNode
+    leave_failed: bool = False
+    """True after a failed post-run logout. The leave already removed the managed blocks,
+    so the next task on this VM (warm pool) joins again instead of reusing the member."""
+
+
+WORLD_TAILNET_ROLE = "world"
+AGENT_TAILNET_ROLE_PREFIX = "agent-"
+# Chars of the agent VM alias (its random suffix) kept in the node hostname.
+AGENT_TAILNET_ID_CHARS = 8
 
 
 # Global registry of worlds
@@ -190,6 +215,8 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
         # can exceed the session env limit. Worlds that fan out across multiple
         # shapes (e.g. the workflow world) set this in reset().
         self._agent_vm_budget: AgentVMBudget | None = None
+        self._tailscale_world_node: TailscaleNode | None = None
+        self._tailscale_agent_members: dict[str, AgentTailnetMember] = {}
 
     @property
     def state(self) -> StateT:
@@ -379,6 +406,11 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             elif total_agents is not None:
                 manager.update_vm_timeout(total_agents)
             runner._execution_manager = manager
+
+        # The logout runs in on_post_run, before the VM is released or stopped.
+        if self.config.tailscale.joins_agents:
+            runner.on_prepare(self._join_tailnet_agent)
+            runner.on_post_run(self._leave_tailnet_agent)
 
         # Review gate is per-task, not per-manager — set on the runner
         if review_fn is not None:
@@ -659,6 +691,7 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             root_span.set_attribute("plato.phase", "world_start")
 
             try:
+                await self._join_tailnet_world()
                 plato_settings = get_plato_settings()
                 if self.config.preview.enabled:
                     await self._run_preview_loop(tracer)
@@ -680,11 +713,111 @@ class BaseWorld(PreviewMixin, RuntimeMixin, ChronosSessionMixin, ABC, Generic[Co
             finally:
                 if self._slack_notify_token is not None:
                     disable_stage_tracking(self._slack_notify_token)
-                await self.close()
-                await self._shutdown_agent_execution_managers()
-                await self._disconnect_plato_session()
+                # Each step runs even when an earlier one raises, so a failed close() keeps no VM alive.
+                try:
+                    await self.close()
+                finally:
+                    try:
+                        # Before the agent VMs go away, so each one can still log out over SSH.
+                        await self._leave_tailnet()
+                    finally:
+                        try:
+                            await self._shutdown_agent_execution_managers()
+                        finally:
+                            await self._disconnect_plato_session()
 
         await self._finalize(run_error)
+
+    def _tailscale_session_id(self) -> str:
+        chronos = getattr(self, "chronos", None)
+        return chronos.session_id if chronos is not None else ""
+
+    async def _join_tailnet_world(self) -> None:
+        """Join the world VM to the tailnet. A failed join raises only when ``tailscale.required`` is true."""
+        ts = self.config.tailscale
+        if not ts.joins_world:
+            return
+        try:
+            plan = build_join_plan(ts, session_id=self._tailscale_session_id(), role=WORLD_TAILNET_ROLE)
+            node = await join_tailnet(LocalCommandRunner(), plan, persist_proxy_env=False, log=self.logger)
+        except TailscaleError as exc:
+            if ts.required:
+                raise
+            self.logger.warning("World VM did not join the tailnet (tailscale.required is false): %s", exc)
+            return
+        self._tailscale_world_node = node
+
+    @property
+    def tailscale_proxy_env(self) -> dict[str, str]:
+        """Proxy environment to tailnet peers (userspace mode only, else empty).
+
+        Not in ``os.environ``, so Chronos, LLM and S3 stay direct. Pass it only to code that talks to peers.
+        """
+        node = self._tailscale_world_node
+        return dict(node.proxy_env) if node is not None else {}
+
+    async def _join_tailnet_agent(self, info: RuntimeInfo) -> None:
+        """``on_prepare`` hook: join one agent VM over SSH. Raises only when ``tailscale.required`` is true."""
+        ts = self.config.tailscale
+        member = self._tailscale_agent_members.get(info.runtime_id)
+        if member is not None and not member.leave_failed:
+            return
+        role = f"{AGENT_TAILNET_ROLE_PREFIX}{info.runtime_id[-AGENT_TAILNET_ID_CHARS:]}"
+        try:
+            plan = build_join_plan(ts, session_id=self._tailscale_session_id(), role=role)
+            node = await join_tailnet(SshCommandRunner(info), plan, persist_proxy_env=True, log=self.logger)
+        except TailscaleError as exc:
+            if ts.required:
+                raise
+            self.logger.warning(
+                "Agent VM %s did not join the tailnet (tailscale.required is false): %s", info.runtime_id, exc
+            )
+            return
+        self._tailscale_agent_members[info.runtime_id] = AgentTailnetMember(info=info, node=node)
+
+    async def _leave_tailnet_agent(self, info: RuntimeInfo) -> None:
+        """``on_post_run`` hook: log one agent VM out. Never raises.
+
+        After a failed logout the member stays, so the sweep in :meth:`_leave_tailnet` tries again.
+        """
+        member = self._tailscale_agent_members.get(info.runtime_id)
+        if member is None:
+            return
+        try:
+            left = await leave_tailnet(
+                SshCommandRunner(member.info),
+                member.node,
+                timeout_s=self.config.tailscale.leave_timeout_s,
+                log=self.logger,
+            )
+        except Exception as exc:
+            self.logger.warning("Tailscale leave failed on agent VM %s: %s", info.runtime_id, exc)
+            left = False
+        if left:
+            self._tailscale_agent_members.pop(info.runtime_id, None)
+        else:
+            member.leave_failed = True
+
+    async def _leave_tailnet(self) -> None:
+        """Log out every tailnet node this session still has. Best effort: never raises."""
+        ts = self.config.tailscale
+        members = list(self._tailscale_agent_members.values())
+        self._tailscale_agent_members.clear()
+        world_node, self._tailscale_world_node = self._tailscale_world_node, None
+        if not members and world_node is None:
+            return
+        try:
+            leaves = [
+                leave_tailnet(SshCommandRunner(m.info), m.node, timeout_s=ts.leave_timeout_s, log=self.logger)
+                for m in members
+            ]
+            if world_node is not None:
+                leaves.append(
+                    leave_tailnet(LocalCommandRunner(), world_node, timeout_s=ts.leave_timeout_s, log=self.logger)
+                )
+            await asyncio.gather(*leaves, return_exceptions=True)
+        except Exception as exc:
+            self.logger.warning("Tailscale cleanup failed: %s", exc)
 
     def extra_workspace_markers(self) -> dict[str, WorkspaceMarker]:
         """Dynamic workspaces to register alongside the config's marker fields.

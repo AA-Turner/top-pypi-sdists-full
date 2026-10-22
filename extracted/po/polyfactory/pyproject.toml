@@ -23,6 +23,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python",
   "Topic :: Software Development :: Libraries",
   "Topic :: Software Development :: Testing :: Unit",
@@ -32,7 +33,7 @@ classifiers = [
   "Typing :: Typed",
 ]
 name = "polyfactory"
-version = "3.4.0"
+version = "3.5.0"
 description = "Mock data generation factories"
 readme = "docs/PYPI_README.md"
 license = { text = "MIT" }
@@ -104,6 +105,7 @@ dev = [
   "mongomock-motor>=0.0.21",
   "aiosqlite>=0.19.0",
   "sqlalchemy[asyncio]>=1.4.29",
+  "pydantic>=2.14 ; python_full_version >= '3.15'",
 ]
 pydantic = ["pydantic[email]>=2.10.4"]
 
@@ -111,7 +113,7 @@ pydantic = ["pydantic[email]>=2.10.4"]
 allow_dirty = true
 commit = true
 commit_args = "--no-verify"
-current_version = "3.4.0"
+current_version = "3.5.0"
 ignore_missing_files = false
 ignore_missing_version = false
 message = "chore(release): bump to v{new_version}"

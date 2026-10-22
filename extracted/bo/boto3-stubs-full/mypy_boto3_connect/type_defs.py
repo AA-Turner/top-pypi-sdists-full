@@ -163,6 +163,7 @@ from .literals import (
     RulePublishStatusType,
     SearchContactsMatchTypeType,
     SearchContactsTimeRangeTypeType,
+    SecurityProfileTypeType,
     SingleSelectQuestionRuleCategoryAutomationConditionType,
     SortableFieldNameType,
     SortOrderType,
@@ -4423,12 +4424,17 @@ class ListSecurityProfilesRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
 
 
-class SecurityProfileSummaryTypeDef(TypedDict):
-    Id: NotRequired[str]
-    Arn: NotRequired[str]
-    Name: NotRequired[str]
-    LastModifiedTime: NotRequired[datetime]
-    LastModifiedRegion: NotRequired[str]
+SecurityProfileSummaryTypeDef = TypedDict(
+    "SecurityProfileSummaryTypeDef",
+    {
+        "Id": NotRequired[str],
+        "Arn": NotRequired[str],
+        "Name": NotRequired[str],
+        "LastModifiedTime": NotRequired[datetime],
+        "LastModifiedRegion": NotRequired[str],
+        "Type": NotRequired[SecurityProfileTypeType],
+    },
+)
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -5024,13 +5030,18 @@ class TagSetTypeDef(TypedDict):
     value: NotRequired[str]
 
 
-class SecurityProfileSearchSummaryTypeDef(TypedDict):
-    Id: NotRequired[str]
-    OrganizationResourceId: NotRequired[str]
-    Arn: NotRequired[str]
-    SecurityProfileName: NotRequired[str]
-    Description: NotRequired[str]
-    Tags: NotRequired[dict[str, str]]
+SecurityProfileSearchSummaryTypeDef = TypedDict(
+    "SecurityProfileSearchSummaryTypeDef",
+    {
+        "Id": NotRequired[str],
+        "OrganizationResourceId": NotRequired[str],
+        "Arn": NotRequired[str],
+        "SecurityProfileName": NotRequired[str],
+        "Description": NotRequired[str],
+        "Tags": NotRequired[dict[str, str]],
+        "Type": NotRequired[SecurityProfileTypeType],
+    },
+)
 
 
 class SearchVocabulariesRequestTypeDef(TypedDict):
@@ -11078,24 +11089,27 @@ OutboundStrategyOutputTypeDef = TypedDict(
     },
 )
 AgentFirstUnionTypeDef = Union[AgentFirstTypeDef, AgentFirstOutputTypeDef]
-
-
-class SecurityProfileTypeDef(TypedDict):
-    Id: NotRequired[str]
-    OrganizationResourceId: NotRequired[str]
-    Arn: NotRequired[str]
-    SecurityProfileName: NotRequired[str]
-    Description: NotRequired[str]
-    Tags: NotRequired[dict[str, str]]
-    AllowedAccessControlTags: NotRequired[dict[str, str]]
-    TagRestrictedResources: NotRequired[list[str]]
-    LastModifiedTime: NotRequired[datetime]
-    LastModifiedRegion: NotRequired[str]
-    HierarchyRestrictedResources: NotRequired[list[str]]
-    AllowedAccessControlHierarchyGroupId: NotRequired[str]
-    GranularAccessControlConfiguration: NotRequired[GranularAccessControlConfigurationOutputTypeDef]
-
-
+SecurityProfileTypeDef = TypedDict(
+    "SecurityProfileTypeDef",
+    {
+        "Id": NotRequired[str],
+        "OrganizationResourceId": NotRequired[str],
+        "Arn": NotRequired[str],
+        "SecurityProfileName": NotRequired[str],
+        "Description": NotRequired[str],
+        "Tags": NotRequired[dict[str, str]],
+        "AllowedAccessControlTags": NotRequired[dict[str, str]],
+        "TagRestrictedResources": NotRequired[list[str]],
+        "LastModifiedTime": NotRequired[datetime],
+        "LastModifiedRegion": NotRequired[str],
+        "HierarchyRestrictedResources": NotRequired[list[str]],
+        "AllowedAccessControlHierarchyGroupId": NotRequired[str],
+        "GranularAccessControlConfiguration": NotRequired[
+            GranularAccessControlConfigurationOutputTypeDef
+        ],
+        "Type": NotRequired[SecurityProfileTypeType],
+    },
+)
 GranularAccessControlConfigurationUnionTypeDef = Union[
     GranularAccessControlConfigurationTypeDef, GranularAccessControlConfigurationOutputTypeDef
 ]

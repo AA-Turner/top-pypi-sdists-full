@@ -17,10 +17,10 @@ permissions:
 
 jobs:
   Lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25
         with:
           disable-sudo: true
           egress-policy: block
@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f
         with:
           toolchain: "stable"
           components: rustfmt
@@ -46,32 +46,29 @@ jobs:
       UNSAFE_PYO3_SKIP_VERSION_CHECK: ${{ matrix.unsafe-pyo3-skip-version-check }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-24.04, macos-26, windows-2025]
         python-version: ["3.12"]
         allow-prereleases: [false]
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.14t"
             allow-prereleases: false
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.14"
             allow-prereleases: false
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.13"
             allow-prereleases: false
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.12"
             allow-prereleases: false
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.11"
-            allow-prereleases: false
-          - os: ubuntu-latest
-            python-version: "3.10"
             allow-prereleases: false
     runs-on: "${{ matrix.os }}"
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1
+        uses: step-security/harden-runner@ccd8616d44fd3846e67624a50d5aad6d37bf2d25
         with:
           disable-sudo: true
           egress-policy: block
@@ -96,7 +93,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: ${{ matrix.allow-prereleases }}
 
-      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772
+      - uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f
         with:
           toolchain: "stable"
 

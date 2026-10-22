@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     from ibm_watsonx_ai.gateway import Gateway
 
 # Type Aliases
-ParamsType: TypeAlias = dict[str, str | dict[str, str]]
+ParamsType: TypeAlias = dict[str, Any]
 PayloadType: TypeAlias = dict[str, str | list[str] | ParamsType | Crypto]
 
 
@@ -122,7 +122,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
                 from ibm_watsonx_ai.metanames import (
                     EmbedTextParamsMetaNames as EmbedParams,
                 )
-                from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingTypes
+                from ibm_watsonx_ai.foundation_models.utils.enums import EmbeddingModels
 
                 embed_params = {
                     EmbedParams.TRUNCATE_INPUT_TOKENS: 3,
@@ -130,7 +130,7 @@ class Embeddings(BaseEmbeddings, WMLResource):
                 }
 
                 embedding = Embeddings(
-                    model_id=EmbeddingTypes.IBM_SLATE_30M_ENG,
+                    model_id=EmbeddingModels.SLATE_125M_ENGLISH_RTRVR_V2,
                     params=embed_params,
                     credentials=Credentials(
                         api_key=IAM_API_KEY, url="https://us-south.ml.cloud.ibm.com"

@@ -530,6 +530,7 @@ async fn resolve_region(endpoints: &AttestationEndpoints) -> String {
 async fn try_imds_region(imds_base_url: &str) -> Option<String> {
     crate::tls::ensure_crypto_provider();
     let client = reqwest::Client::builder()
+        .tls_built_in_root_certs(false)
         .timeout(std::time::Duration::from_secs(2))
         .build()
         .ok()?;
@@ -1209,8 +1210,10 @@ mod tests {
                 ("AWS_EC2_METADATA_DISABLED", Some("true")),
             ],
             async {
-                let sdk_http = AwsSdkReqwestClient::with_default_tls()
-                    .expect("default-TLS SDK client must build");
+                let sdk_http =
+                    AwsSdkReqwestClient::with_default_tls(crate::tls::RootStoreProvider::new())
+                        .await
+                        .expect("default-TLS SDK client must build");
                 let err = resolve_credentials(&sdk_http, &config, "us-east-1")
                     .await
                     .expect_err("expected no ambient AWS credentials to be found");

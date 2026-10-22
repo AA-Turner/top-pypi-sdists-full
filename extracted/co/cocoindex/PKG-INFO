@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cocoindex
-Version: 1.0.25
+Version: 1.0.26
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
@@ -25,7 +25,7 @@ Requires-Dist: watchdog>=6.0.0
 Requires-Dist: numpy>=1.23.2
 Requires-Dist: psutil>=7.2.1
 Requires-Dist: msgspec>=0.19.0
-Requires-Dist: litellm>=1.81.0 ; extra == 'all'
+Requires-Dist: litellm>=1.81.0,!=1.107.0 ; extra == 'all'
 Requires-Dist: sentence-transformers>=3.3.1 ; extra == 'all'
 Requires-Dist: colpali-engine ; extra == 'all'
 Requires-Dist: lancedb>=0.34.0 ; extra == 'all'
@@ -49,7 +49,7 @@ Requires-Dist: azure-storage-blob>=12.19.0 ; extra == 'all'
 Requires-Dist: aiohttp>=3.9.0 ; extra == 'all'
 Requires-Dist: pymysql>=1.1.0 ; extra == 'all'
 Requires-Dist: aiomysql>=0.2.0 ; extra == 'all'
-Requires-Dist: falkordb>=1.1.0 ; extra == 'all'
+Requires-Dist: falkordb>=1.6.0 ; extra == 'all'
 Requires-Dist: neo4j>=5.18.0 ; extra == 'all'
 Requires-Dist: confluent-kafka>=2.6 ; extra == 'all'
 Requires-Dist: apache-iggy>=0.8.0 ; extra == 'all'
@@ -69,8 +69,8 @@ Requires-Dist: aiomysql>=0.2.0 ; extra == 'doris'
 Requires-Dist: faiss-cpu>=1.7 ; extra == 'entity-resolution'
 Requires-Dist: faiss-cpu>=1.7 ; extra == 'entity-resolution-llm'
 Requires-Dist: instructor>=1.0 ; extra == 'entity-resolution-llm'
-Requires-Dist: litellm>=1.81.0 ; extra == 'entity-resolution-llm'
-Requires-Dist: falkordb>=1.1.0 ; extra == 'falkordb'
+Requires-Dist: litellm>=1.81.0,!=1.107.0 ; extra == 'entity-resolution-llm'
+Requires-Dist: falkordb>=1.6.0 ; extra == 'falkordb'
 Requires-Dist: google-api-python-client>=2.0.0 ; extra == 'google-drive'
 Requires-Dist: google-auth>=2.0.0 ; extra == 'google-drive'
 Requires-Dist: google-auth-httplib2>=0.2.0 ; extra == 'google-drive'
@@ -79,7 +79,7 @@ Requires-Dist: apache-iggy>=0.8.0 ; extra == 'iggy'
 Requires-Dist: confluent-kafka>=2.6 ; extra == 'kafka'
 Requires-Dist: lancedb>=0.34.0 ; extra == 'lancedb'
 Requires-Dist: pyarrow>=23.0.0 ; extra == 'lancedb'
-Requires-Dist: litellm>=1.81.0 ; extra == 'litellm'
+Requires-Dist: litellm>=1.81.0,!=1.107.0 ; extra == 'litellm'
 Requires-Dist: neo4j>=5.18.0 ; extra == 'neo4j'
 Requires-Dist: oci>=2.0 ; extra == 'oci'
 Requires-Dist: asyncpg>=0.31.0 ; extra == 'postgres'

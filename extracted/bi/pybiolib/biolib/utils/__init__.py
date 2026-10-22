@@ -4,8 +4,8 @@ import os
 import socket
 import sys
 
-from biolib._internal.http_client import HttpClient
 from biolib._internal.utils.package_version import get_package_version
+from biolib._shared.http_client import HttpClient
 from biolib._shared.types.typing import Iterator, Optional, Tuple
 from biolib.biolib_logging import logger, logger_no_user_data
 from biolib.utils.seq_util import SeqUtil, SeqUtilRecord

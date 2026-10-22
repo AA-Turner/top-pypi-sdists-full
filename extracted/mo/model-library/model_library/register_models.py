@@ -89,6 +89,12 @@ class Metadata(BaseModel):
     ignored_for_cost: bool = False
     router: bool = Field(default=False, exclude_if=lambda v: not v)
 
+    @model_validator(mode="after")
+    def default_ignored_for_cost(self):
+        if "ignored_for_cost" not in self.model_fields_set:
+            self.ignored_for_cost = self.internal_only
+        return self
+
 
 class CompanyIcon(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -113,8 +119,9 @@ class CacheCost(BaseModel):
     write: float | None = None
     read_discount: float = 1
     write_markup: float = 1
+    write_1h_markup: float | None = None
 
-    def get_costs(self, core_input_cost: float) -> tuple[float, float]:
+    def get_costs(self, core_input_cost: float) -> tuple[float, float, float]:
         if self.read:
             read = self.read
         else:
@@ -124,7 +131,11 @@ class CacheCost(BaseModel):
             write = self.write
         else:
             write = core_input_cost * self.write_markup
-        return read, write
+
+        write_1h = (
+            core_input_cost * self.write_1h_markup if self.write_1h_markup else write
+        )
+        return read, write, write_1h
 
     @model_validator(mode="after")
     def validate_costs(self):
@@ -159,6 +170,7 @@ class BatchCost(BaseModel):
     output: float | None = None
     input_discount: float | None = None
     output_discount: float | None = None
+    cache_discount: float = 1
 
     def get_costs(
         self, core_input_cost: float, core_output_cost: float

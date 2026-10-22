@@ -1,4 +1,5 @@
-from kagglesdk.benchmarks.types.benchmark_tasks_api_service import ApiBatchScheduleBenchmarkTaskRunsRequest, ApiBatchScheduleBenchmarkTaskRunsResponse, ApiBenchmarkTask, ApiCreateBenchmarkTaskRequest, ApiDownloadBenchmarkTaskRunOutputRequest, ApiGetBenchmarkTaskQuotaRequest, ApiGetBenchmarkTaskQuotaResponse, ApiGetBenchmarkTaskRequest, ApiGetBenchmarkTaskRunLogsRequest, ApiListBenchmarkTaskRunsRequest, ApiListBenchmarkTaskRunsResponse, ApiListBenchmarkTasksRequest, ApiListBenchmarkTasksResponse, ApiPublishBenchmarkTaskRequest
+from kagglesdk.benchmarks.types.benchmark_task_run_service import GetBenchmarkSchedulerStatusResponse
+from kagglesdk.benchmarks.types.benchmark_tasks_api_service import ApiBatchScheduleBenchmarkTaskRunsRequest, ApiBatchScheduleBenchmarkTaskRunsResponse, ApiBenchmarkTask, ApiCancelBenchmarkTaskRunsRequest, ApiCancelBenchmarkTaskRunsResponse, ApiCreateBenchmarkTaskRequest, ApiDownloadBenchmarkTaskRunOutputRequest, ApiGetBenchmarkSchedulerStatusRequest, ApiGetBenchmarkTaskQuotaRequest, ApiGetBenchmarkTaskQuotaResponse, ApiGetBenchmarkTaskRequest, ApiGetBenchmarkTaskRunLogsRequest, ApiListBenchmarkTaskRunsRequest, ApiListBenchmarkTaskRunsResponse, ApiListBenchmarkTasksRequest, ApiListBenchmarkTasksResponse, ApiPublishBenchmarkTaskRequest, ApiUpdateBenchmarkTaskRequest, ApiUpdateBenchmarkTaskResponse, ApiUpdateBenchmarkTaskVersionRequest
 from kagglesdk.common.types.file_download import FileDownload
 from kagglesdk.kaggle_http_client import KaggleHttpClient
 
@@ -36,6 +37,22 @@ class BenchmarkTasksApiClient(object):
       request = ApiBatchScheduleBenchmarkTaskRunsRequest()
 
     return self._client.call("benchmarks.BenchmarkTasksApiService", "BatchScheduleBenchmarkTaskRuns", request, ApiBatchScheduleBenchmarkTaskRunsResponse)
+
+  def api_cancel_benchmark_task_runs(self, request: ApiCancelBenchmarkTaskRunsRequest = None) -> ApiCancelBenchmarkTaskRunsResponse:
+    r"""
+    Cancels the queued (and optionally the running) runs of a set of tasks,
+    optionally narrowed to one candidate. Only ever cancels the caller's own
+    runs; the flag-gated fleet-wide scope is only offered by the internal RPC.
+
+    Args:
+      request (ApiCancelBenchmarkTaskRunsRequest):
+        The request object; initialized to empty instance if not specified.
+    """
+
+    if request is None:
+      request = ApiCancelBenchmarkTaskRunsRequest()
+
+    return self._client.call("benchmarks.BenchmarkTasksApiService", "ApiCancelBenchmarkTaskRuns", request, ApiCancelBenchmarkTaskRunsResponse)
 
   def list_benchmark_tasks(self, request: ApiListBenchmarkTasksRequest = None) -> ApiListBenchmarkTasksResponse:
     r"""
@@ -127,10 +144,28 @@ class BenchmarkTasksApiClient(object):
 
     return self._client.call("benchmarks.BenchmarkTasksApiService", "GetBenchmarkTaskQuota", request, ApiGetBenchmarkTaskQuotaResponse)
 
+  def api_get_benchmark_scheduler_status(self, request: ApiGetBenchmarkSchedulerStatusRequest = None) -> GetBenchmarkSchedulerStatusResponse:
+    r"""
+    Scheduler readout covering the calling user's own enqueued runs: queue
+    depth, recent outcomes, and stats per candidate model and per benchmark.
+    Always self-scoped; the flag-gated fleet-wide view is only offered by the
+    internal RPC.
+
+    Args:
+      request (ApiGetBenchmarkSchedulerStatusRequest):
+        The request object; initialized to empty instance if not specified.
+    """
+
+    if request is None:
+      request = ApiGetBenchmarkSchedulerStatusRequest()
+
+    return self._client.call("benchmarks.BenchmarkTasksApiService", "ApiGetBenchmarkSchedulerStatus", request, GetBenchmarkSchedulerStatusResponse)
+
   def publish_benchmark_task(self, request: ApiPublishBenchmarkTaskRequest = None) -> ApiBenchmarkTask:
     r"""
     Publish a particular task for a user. Optionally publishes the backing
-    notebook (`source_kernel_id`) in the same request.
+    notebook (`source_kernel_id`) and the task's run artifacts in the same
+    request.
 
     Args:
       request (ApiPublishBenchmarkTaskRequest):
@@ -141,3 +176,35 @@ class BenchmarkTasksApiClient(object):
       request = ApiPublishBenchmarkTaskRequest()
 
     return self._client.call("benchmarks.BenchmarkTasksApiService", "PublishBenchmarkTask", request, ApiBenchmarkTask)
+
+  def update_benchmark_task(self, request: ApiUpdateBenchmarkTaskRequest = None) -> ApiUpdateBenchmarkTaskResponse:
+    r"""
+    Update editable metadata (description, tags, provenance, citations) on a
+    task. Only the fields named in `update_mask` are written. Everything but
+    `tags` is written to the task's *current* version; to target an older
+    version, use UpdateBenchmarkTaskVersion.
+
+    Args:
+      request (ApiUpdateBenchmarkTaskRequest):
+        The request object; initialized to empty instance if not specified.
+    """
+
+    if request is None:
+      request = ApiUpdateBenchmarkTaskRequest()
+
+    return self._client.call("benchmarks.BenchmarkTasksApiService", "UpdateBenchmarkTask", request, ApiUpdateBenchmarkTaskResponse)
+
+  def update_benchmark_task_version(self, request: ApiUpdateBenchmarkTaskVersionRequest = None) -> ApiBenchmarkTask:
+    r"""
+    Update editable metadata on one specific version of a task. Unlike
+    UpdateBenchmarkTask, the version named by the slug is the version written.
+
+    Args:
+      request (ApiUpdateBenchmarkTaskVersionRequest):
+        The request object; initialized to empty instance if not specified.
+    """
+
+    if request is None:
+      request = ApiUpdateBenchmarkTaskVersionRequest()
+
+    return self._client.call("benchmarks.BenchmarkTasksApiService", "UpdateBenchmarkTaskVersion", request, ApiBenchmarkTask)

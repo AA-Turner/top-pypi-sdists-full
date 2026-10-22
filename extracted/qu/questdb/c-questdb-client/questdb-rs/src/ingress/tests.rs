@@ -205,6 +205,76 @@ fn qwpws_config_accepts_websocket_schemes() {
     assert_eq!(tls.protocol, Protocol::Wss);
 }
 
+/// The derived `sf_max_total_bytes` floor, which no other test reaches.
+///
+/// `has_deferred_commit_headroom` needs the budget to hold a fresh slot's
+/// active segment and hot spare, plus a reserve of two (the committing frame,
+/// and the spare the driver may install concurrently). Below five segments the
+/// reserve can never be satisfied and deferral silently never engages -- an
+/// oversize chunk then commits once per frame, which is safe but is exactly the
+/// batching the split path exists to get.
+///
+/// The floor only binds when `sf_max_segment_bytes` is large enough to beat the
+/// flat default, so every other test in the tree either sets `sf_max_total_bytes`
+/// explicitly (taking the early return) or uses the 4 MiB default segment (where
+/// the flat default wins). Both `4` and `5` would look identical there.
+#[cfg(feature = "sync-sender-qwp-ws")]
+#[test]
+fn qwpws_sf_max_total_bytes_floors_at_five_segments() {
+    let flat_default = |conf: &str| {
+        let builder = SenderBuilder::from_conf(conf).unwrap();
+        builder.qwp_ws.as_ref().unwrap().sf_max_total_bytes()
+    };
+
+    // Default segment: the flat 128 MiB default wins, so the floor is invisible.
+    assert_eq!(
+        flat_default("ws::addr=localhost:9000;"),
+        128 * 1024 * 1024,
+        "the flat memory default must win at the default segment size"
+    );
+
+    // Large segment, total unset: the floor binds at five segments.
+    let seg = 64 * 1024 * 1024_u64;
+    assert_eq!(
+        flat_default("ws::addr=localhost:9000;sf_max_segment_bytes=64mb;"),
+        seg * 5,
+        "a segment large enough to beat the flat default must floor at five \
+         segments, or the deferred-commit valve can never open"
+    );
+
+    // An explicit total is left alone, however small.
+    assert_eq!(
+        flat_default("ws::addr=localhost:9000;sf_max_segment_bytes=64mb;sf_max_total_bytes=100mb;"),
+        100 * 1024 * 1024,
+        "an explicitly configured total must not be inflated by the floor"
+    );
+
+    // With `sf_dir` the queue is persisted, split deferral is off, and the
+    // floor must not inflate a budget no valve can spend.
+    let dir = tempfile::TempDir::new().unwrap();
+    assert_eq!(
+        flat_default(&format!(
+            "ws::addr=localhost:9000;sf_max_segment_bytes=64mb;sf_dir={};",
+            dir.path().display()
+        )),
+        10 * 1024 * 1024 * 1024,
+        "the disk default must be untouched by the deferred-commit floor"
+    );
+
+    // Disk mode keeps the queue's two-segment publishable minimum, so a
+    // segment above half the disk default is caught at the knob rather than
+    // failing the slot open with an unattributable capacity error.
+    let huge_seg = 6 * 1024 * 1024 * 1024_u64;
+    assert_eq!(
+        flat_default(&format!(
+            "ws::addr=localhost:9000;sf_max_segment_bytes={huge_seg};sf_dir={};",
+            dir.path().display()
+        )),
+        huge_seg * 2,
+        "the disk default must floor at two segments"
+    );
+}
+
 #[cfg(feature = "sync-sender-qwp-ws")]
 #[test]
 fn qwpws_store_and_forward_defaults_match_java() {
@@ -215,6 +285,8 @@ fn qwpws_store_and_forward_defaults_match_java() {
     assert_defaulted_eq(&qwp_ws.sf_max_segment_bytes, 4 * 1024 * 1024_u64);
     assert_defaulted_eq(&qwp_ws.sf_max_total_bytes, None);
     assert_defaulted_eq(&qwp_ws.sf_durability, conf::SfDurability::Memory);
+    assert_defaulted_eq(&qwp_ws.sf_sync_interval, None);
+    assert_eq!(qwp_ws.periodic_sync_interval(), None);
     assert_defaulted_eq(&qwp_ws.sf_append_deadline, Duration::from_secs(30));
     assert_defaulted_eq(&qwp_ws.auth_timeout, Duration::from_secs(15));
     assert_defaulted_eq(&qwp_ws.progress, QwpWsProgress::Background);
@@ -251,25 +323,20 @@ fn qwpws_progress_config_parses_manual_and_background() {
     assert_specified_eq(&qwp_ws.progress, QwpWsProgress::Background);
 }
 
+/// `in_flight_window` and `max_in_flight` were removed. They are no longer
+/// configuration keys, so the QWP/WebSocket parser rejects them as unknown --
+/// matching the Java client, which also rejects `in_flight_window`.
 #[cfg(feature = "sync-sender-qwp-ws")]
 #[test]
-fn qwpws_config_accepts_java_in_flight_window_alias() {
-    let builder = SenderBuilder::from_conf("ws::addr=localhost:9000;in_flight_window=7;").unwrap();
-    let qwp_ws = builder.qwp_ws.as_ref().unwrap();
-    assert_specified_eq(&qwp_ws.max_in_flight, 7usize);
-
+fn qwpws_config_rejects_removed_in_flight_keys() {
     assert_conf_err(
-        SenderBuilder::from_conf("ws::addr=localhost:9000;in_flight_window=1;"),
-        "WebSocket transport requires async mode (in_flight_window > 1)",
+        SenderBuilder::from_conf("ws::addr=localhost:9000;in_flight_window=7;"),
+        "Unknown config key \"in_flight_window\"",
     );
     assert_conf_err(
-        SenderBuilder::from_conf("ws::addr=localhost:9000;in_flight_window=-1;"),
-        "in-flight window size must be positive[size=-1]",
+        SenderBuilder::from_conf("ws::addr=localhost:9000;max_in_flight=3;"),
+        "Unknown config key \"max_in_flight\"",
     );
-
-    let builder = SenderBuilder::from_conf("ws::addr=localhost:9000;max_in_flight=1;").unwrap();
-    let qwp_ws = builder.qwp_ws.as_ref().unwrap();
-    assert_specified_eq(&qwp_ws.max_in_flight, 1usize);
 }
 
 /// Connect-string keys that the Rust egress reader
@@ -296,6 +363,8 @@ const EGRESS_ONLY_CONFIG_KEYS: &[&str] = &[
     "failover_backoff_initial_ms",
     "failover_backoff_max_ms",
     "failover_max_duration_ms",
+    // Egress-only per-query timeout default
+    "query_timeout_ms",
     // Java-egress-only decoded-batch pool size (Rust egress is sync/pull,
     // see comment in `egress/config.rs`); still ignored on ingress
     // because that's an egress-side concern either way.
@@ -360,6 +429,36 @@ fn ingress_accepts_full_egress_connect_string_unchanged() {
     assert_specified_eq(&builder.port, "9000");
     assert_specified_eq(&builder.username, Some("u".to_string()));
     assert_specified_eq(&builder.password, Some("p".to_string()));
+}
+
+#[cfg(all(feature = "sync-sender-http", feature = "sync-sender-qwp-ws"))]
+#[test]
+fn qwpws_config_knows_every_egress_only_key() {
+    // `ingress_silently_accepts_every_egress_only_key` only covers
+    // `http::`, where the parser's catch-all ignores anything it does not
+    // recognise. On `ws::` the parser REJECTS unknown keys, so an
+    // egress-only key missing from `QWP_WS_PORTABLE_CONFIG_KEYS` breaks
+    // every connect string shared between a sender and a reader — which is
+    // the normal shape for `questdb.connect()`, where one string configures
+    // both pools.
+    //
+    // The assertion is on the failure MODE, not on success: a key may still
+    // be rejected for its value (`compression=1` is not a valid codec), and
+    // that is fine. What must never happen is "Unknown config key".
+    for key in EGRESS_ONLY_CONFIG_KEYS {
+        for val in ["1", "primary", "halt", ""] {
+            let conf = format!("ws::addr=localhost:9000;{key}={val};");
+            if let Err(e) = SenderBuilder::from_conf(&conf) {
+                assert!(
+                    !e.msg().contains("Unknown config key"),
+                    "egress-only key {key:?} is missing from \
+                     QWP_WS_PORTABLE_CONFIG_KEYS, so a shared ws:: connect \
+                     string carrying it fails to parse: {}",
+                    e.msg()
+                );
+            }
+        }
+    }
 }
 
 #[cfg(feature = "sync-sender-qwp-ws")]
@@ -449,7 +548,7 @@ fn qwpws_store_and_forward_config_accepts_and_rejects_java_keys() {
     );
     assert_conf_err(
         SenderBuilder::from_conf("ws::addr=localhost:9000;sf_durability=sync;"),
-        "invalid sf_durability [value=sync, allowed-values=[memory, flush, append]]",
+        "invalid sf_durability [value=sync, allowed-values=[memory, periodic, flush, append]]",
     );
     assert_conf_err(
         SenderBuilder::from_conf("ws::addr=localhost:9000;qwp_ws_progress=sync;"),
@@ -539,6 +638,15 @@ fn qwpws_store_and_forward_config_is_websocket_only() {
         "The \"sf_append_deadline_millis\" setting is only supported for QWP/WebSocket.",
     );
     assert_conf_err(
+        SenderBuilder::from_conf("tcp::addr=localhost:9009;sf_sync_interval_millis=5000;"),
+        "The \"sf_sync_interval_millis\" setting is only supported for QWP/WebSocket.",
+    );
+    #[cfg(feature = "sync-sender-http")]
+    assert_conf_err(
+        SenderBuilder::from_conf("http::addr=localhost:9000;sf_sync_interval_millis=5000;"),
+        "The \"sf_sync_interval_millis\" setting is only supported for QWP/WebSocket.",
+    );
+    assert_conf_err(
         SenderBuilder::from_conf("tcp::addr=localhost:9009;qwp_ws_progress=manual;"),
         "The \"qwp_ws_progress\" setting is only supported for QWP/WebSocket.",
     );
@@ -579,13 +687,75 @@ fn qwpws_store_and_forward_reserved_durability_fails_before_connect() {
         SenderBuilder::from_conf("ws::addr=127.0.0.1:1;sf_durability=flush;")
             .unwrap()
             .build(),
-        "sf_durability=flush is not yet supported (deferred follow-up; use sf_durability=memory)",
+        "sf_durability=flush is not yet supported (use sf_durability=memory or periodic)",
     );
     assert_conf_err(
         SenderBuilder::from_conf("ws::addr=127.0.0.1:1;sf_durability=append;")
             .unwrap()
             .build(),
-        "sf_durability=append is not yet supported (deferred follow-up; use sf_durability=memory)",
+        "sf_durability=append is not yet supported (use sf_durability=memory or periodic)",
+    );
+}
+
+#[cfg(feature = "sync-sender-qwp-ws")]
+#[test]
+fn qwpws_periodic_durability_config_matches_java() {
+    let defaulted = SenderBuilder::from_conf(
+        "ws::addr=localhost:9000;sf_dir=/tmp/qdb-rust-sf;sf_durability=periodic;",
+    )
+    .unwrap();
+    let qwp_ws = defaulted.qwp_ws.as_ref().unwrap();
+    assert_specified_eq(&qwp_ws.sf_durability, conf::SfDurability::Periodic);
+    assert_defaulted_eq(&qwp_ws.sf_sync_interval, None);
+    assert_eq!(
+        qwp_ws.periodic_sync_interval(),
+        Some(Duration::from_millis(5000))
+    );
+
+    let explicit = SenderBuilder::from_conf(
+        "ws::addr=localhost:9000;sf_dir=/tmp/qdb-rust-sf;sf_durability=periodic;\
+         sf_sync_interval_millis=123;",
+    )
+    .unwrap();
+    let qwp_ws = explicit.qwp_ws.as_ref().unwrap();
+    assert_specified_eq(&qwp_ws.sf_sync_interval, Some(Duration::from_millis(123)));
+    assert_eq!(
+        qwp_ws.periodic_sync_interval(),
+        Some(Duration::from_millis(123))
+    );
+
+    assert_conf_err(
+        SenderBuilder::from_conf("ws::addr=127.0.0.1:1;sf_sync_interval_millis=5000;")
+            .unwrap()
+            .build(),
+        "sf_sync_interval_millis requires sf_durability=periodic",
+    );
+    assert_conf_err(
+        SenderBuilder::from_conf("ws::addr=127.0.0.1:1;sf_durability=periodic;")
+            .unwrap()
+            .build(),
+        "sf_durability=periodic requires sf_dir",
+    );
+    assert_conf_err(
+        SenderBuilder::from_conf(
+            "ws::addr=127.0.0.1:1;sf_durability=periodic;sf_sync_interval_millis=0;",
+        ),
+        "\"sf_sync_interval_millis\" must be greater than 0.",
+    );
+
+    let max_valid = i64::MAX / 1_000_000;
+    SenderBuilder::from_conf(format!(
+        "ws::addr=localhost:9000;sf_dir=/tmp/qdb-rust-sf;sf_durability=periodic;\
+         sf_sync_interval_millis={max_valid};"
+    ))
+    .unwrap();
+    assert_conf_err(
+        SenderBuilder::from_conf(format!(
+            "ws::addr=localhost:9000;sf_dir=/tmp/qdb-rust-sf;sf_durability=periodic;\
+             sf_sync_interval_millis={};",
+            max_valid + 1
+        )),
+        format!("\"sf_sync_interval_millis\" must be at most {max_valid}."),
     );
 }
 

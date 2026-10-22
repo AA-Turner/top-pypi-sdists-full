@@ -4,7 +4,7 @@ from pydantic import ValidationError
 from pytest import fixture, raises
 
 from stjames import Constraint, Molecule
-from stjames.conformers import ETKDGSettings, iMTDSettings
+from stjames.conformers import ConformerProperties, ETKDGSettings, iMTDSettings
 from stjames.constraint import ConstraintType
 from stjames.workflows.conformer_search import ConformerSearchWorkflow
 
@@ -64,3 +64,24 @@ def test_no_conformer_gen(water: Molecule, chloroethane: Molecule) -> None:
 
     with raises(ValueError, match="Not all molecules in initial_conformers have the same atomic formula"):
         ConformerSearchWorkflow(initial_conformers=[chloroethane, water], conf_gen_settings=None)
+
+
+def test_partial_conformer_properties(water: Molecule) -> None:
+    """Round-trip conformers whose descriptors were only partly computed."""
+    workflow = ConformerSearchWorkflow(
+        initial_molecule=water,
+        conf_gen_settings=ETKDGSettings(),
+        conformer_properties=[ConformerProperties(radius_of_gyration=0.8, dipole=1.8), ConformerProperties()],
+    )
+
+    restored = ConformerSearchWorkflow.model_validate_json(workflow.model_dump_json())
+    assert restored.conformer_properties == workflow.conformer_properties
+
+
+def test_ensemble_spectra_lengths() -> None:
+    """Require spectral intensities parallel to their line positions."""
+    with raises(ValidationError, match=r"excitation_energies \(2\) and oscillator_strengths \(1\)"):
+        ConformerProperties(excitation_energies=[0.2, 0.25], oscillator_strengths=[0.1])
+
+    with raises(ValidationError, match="ir_intensities requires vibrational_frequencies"):
+        ConformerProperties(ir_intensities=[10.0])

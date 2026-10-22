@@ -3,7 +3,7 @@ import binascii
 import json
 from typing import Any, Dict, cast
 
-from biolib._internal.http_client import HttpClient
+from biolib._shared.http_client import HttpClient
 from biolib.biolib_errors import BioLibError
 
 

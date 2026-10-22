@@ -2,22 +2,23 @@
 name = "mkdocs-jupyter"
 description = "Use Jupyter in mkdocs websites"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 license = { "text" = "Apache-2.0" }
 keywords = ["mkdocs", "jupyter", "jupyterlab", "notebooks", "documentation"]
 authors = [{ name = "Daniel Rodriguez", email = "daniel@danielfrg.com" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
     "nbconvert>=7.2.9,<8",
+    "beautifulsoup4>=4.7,<5",
     "mkdocs>=1.4.0,<2",
     "mkdocs-material>9.0.0",
     "jupytext>1.13.8,<2",
@@ -35,6 +36,7 @@ dev-dependencies = [
     # Testing
     "coverage[toml]",
     "pymdown-extensions",
+    "mkdocstrings[python]",
     "pytest",
     "pytest-cov",
     # Utils

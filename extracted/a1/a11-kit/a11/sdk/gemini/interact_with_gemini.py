@@ -31,6 +31,7 @@ from a11.sdk.gemini.interact_with_gemini_schema import (
     DEFAULT_MODEL,
 )
 from a11.sdk import llm
+from a11.sdk.usage import UsageReporter, provider_event, closing_stream
 from a11.sdk.llm_tools import runner
 
 # The Gemini server-side interaction id is stashed here on an assistant
@@ -70,8 +71,8 @@ _STEP_TYPES = frozenset(
 _MODEL_STEP_TYPES = frozenset({"model_output", "function_call", "thought"})
 
 
-#: Image bytes by the prefix their base64 begins with, for a portable image block that named
-#: no media type. Gemini rejects an image part without one, so a sniffed type beats no type.
+#: Recognize image bytes by their base64 prefix when a portable image block
+#: omits the media type required by Gemini.
 _IMAGE_MAGIC = (
     ("iVBORw0KGgo", "image/png"),
     ("/9j/", "image/jpeg"),
@@ -93,11 +94,9 @@ def _sniffed_mimetype(data: str | None) -> str | None:
 def _native_content_blocks(blocks: list[Any]) -> list[Any]:
     """User content blocks as Gemini's own parts.
 
-    A block Gemini already reads passes through untouched. An image block minted for another
-    provider is translated through `llm.normalized_parts_by_shape`, because Gemini rejects an
-    image part carrying no ``mime_type``: a client sending Anthropic's portable
-    ``source``/``media_type`` envelope got HTTP 400 ``Missing/unsupported mime_type in image
-    content``, since this handler read the block as native and found neither field.
+    Native Gemini blocks pass through. Portable image blocks are translated
+    through `llm.normalized_parts_by_shape` and require a media type, supplied
+    explicitly or recognized from their bytes.
     """
     out: list[Any] = []
     for block in blocks:
@@ -112,7 +111,10 @@ def _native_content_blocks(blocks: list[Any]) -> list[Any]:
         )
         if native or not foreign:
             if native and not block.get("mime_type"):
-                block = {**block, "mime_type": _sniffed_mimetype(block.get("data"))}
+                block = {
+                    **block,
+                    "mime_type": _sniffed_mimetype(block.get("data")),
+                }
             out.append(block)
             continue
         for part in llm.normalized_parts_by_shape([block]):
@@ -591,36 +593,49 @@ async def _build_tool_results_from_outputs(
             step["name"] = call_names[call_id]
         steps = [step]
         if images:
-            steps.append({
-                "type": "user_input",
-                "content": [
-                    {"type": "text", "text": _IMAGE_RESULT_NOTE},
-                    *(
-                        {
-                            "type": "image",
-                            "data": image.data,
-                            "mime_type": image.mime_type,
-                        }
-                        for image in images
-                    ),
-                ],
-            })
+            steps.append(
+                {
+                    "type": "user_input",
+                    "content": [
+                        {"type": "text", "text": _IMAGE_RESULT_NOTE},
+                        *(
+                            {
+                                "type": "image",
+                                "data": image.data,
+                                "mime_type": image.mime_type,
+                            }
+                            for image in images
+                        ),
+                    ],
+                }
+            )
         return steps
 
     return await llm.build_tool_results(executed, as_function_result)
 
 
-def _build_usage_metadata(usage: Any | None) -> llm.UsageMetadata | None:
+def _build_usage_metadata(
+    usage: Any | None, *, incremental: bool = False
+) -> llm.UsageMetadata | None:
     """Map Gemini's `Usage` onto the provider-independent `UsageMetadata`."""
     if usage is None:
         return None
 
     return llm.UsageMetadata(
-        input_tokens=usage.total_input_tokens,
-        output_tokens=usage.total_output_tokens,
+        input_tokens=(
+            usage.total_input_tokens - (usage.total_cached_tokens or 0)
+            if usage.total_input_tokens is not None
+            else None
+        ),
+        output_tokens=(
+            usage.total_output_tokens + (usage.total_thought_tokens or 0)
+            if usage.total_output_tokens is not None
+            else None
+        ),
         total_tokens=usage.total_tokens,
         cached_input_tokens=usage.total_cached_tokens,
         reasoning_tokens=usage.total_thought_tokens,
+        input_tokens_scope="incremental" if incremental else "context",
     )
 
 
@@ -643,6 +658,9 @@ def _build_backend_specific_metadata(
         value = getattr(snapshot, field, None)
         if value is not None:
             metadata[field] = llm.encode_backend_value(str(value))
+
+    if getattr(snapshot, "usage", None) is not None:
+        metadata["provider_usage"] = llm.encode_backend_value(snapshot.usage)
 
     return metadata
 
@@ -765,6 +783,18 @@ async def interact_with_gemini(action: a11.Action):
             snapshot = None
             gemini_interaction_id = None
             have_prev = bool(conversation.previous_server_interaction_id)
+            reporter = UsageReporter(action, "gemini", model)
+            await reporter.report(
+                llm.UsageMetadata(
+                    input_tokens_scope=(
+                        "incremental"
+                        if have_prev and not replay_full_history
+                        else "context"
+                    )
+                ),
+                complete=False,
+            )
+
             try:
                 if replay_full_history or not have_prev:
                     # Nothing to resume from — a fresh conversation, or the
@@ -786,6 +816,17 @@ async def interact_with_gemini(action: a11.Action):
                             exc,
                         )
                         replay_full_history = True
+                        await reporter.report(
+                            reporter.usage,
+                            {"error": type(exc).__name__, "code": exc.code},
+                            complete=False,
+                            coverage="resume_attempt_usage_unreported",
+                        )
+                        reporter = UsageReporter(action, "gemini", model)
+                        reporter.operation = "retry"
+                        await reporter.report(
+                            llm.UsageMetadata(), complete=False
+                        )
                         stream = await client.aio.interactions.create(
                             **build_create_kwargs(full=True)
                         )
@@ -801,44 +842,61 @@ async def interact_with_gemini(action: a11.Action):
 
             accumulator = _StepAccumulator()
 
-            async for event in stream:
-                await action["event_stream"].put(event)
+            async with closing_stream(stream):
+                async for event in stream:
+                    await action["event_stream"].put(provider_event(event))
 
-                event_type = event.event_type
+                    event_type = event.event_type
+                    candidate = getattr(event, "interaction", None)
+                    if (
+                        candidate is not None
+                        and getattr(candidate, "usage", None) is not None
+                    ):
+                        await reporter.report(
+                            _build_usage_metadata(
+                                candidate.usage,
+                                incremental=have_prev
+                                and not replay_full_history,
+                            ),
+                            candidate.usage,
+                            source_id=getattr(candidate, "id", None),
+                            complete=event_type
+                            in {"interaction.completed", "interaction.failed"},
+                        )
 
-                if event_type == "interaction.created":
-                    gemini_interaction_id = event.interaction.id
+                    if event_type == "interaction.created":
+                        gemini_interaction_id = event.interaction.id
 
-                elif event_type == "step.start":
-                    accumulator.start(event.index, event.step)
+                    elif event_type == "step.start":
+                        accumulator.start(event.index, event.step)
 
-                elif event_type == "step.delta":
-                    accumulator.delta(event.index, event.delta)
+                    elif event_type == "step.delta":
+                        accumulator.delta(event.index, event.delta)
 
-                    delta = event.delta
-                    delta_type = getattr(delta, "type", None)
-                    if delta_type == "text":
-                        if delta.text:
-                            await output.put(text=delta.text)
-                    elif delta_type == "thought_summary":
-                        content = getattr(delta, "content", None)
-                        if (
-                            content is not None
-                            and getattr(content, "type", None) == "text"
-                            and getattr(content, "text", None)
-                        ):
-                            await output.put(thought=content.text)
+                        delta = event.delta
+                        delta_type = getattr(delta, "type", None)
+                        if delta_type == "text":
+                            if delta.text:
+                                await output.put(text=delta.text)
+                        elif delta_type == "thought_summary":
+                            content = getattr(delta, "content", None)
+                            if (
+                                content is not None
+                                and getattr(content, "type", None) == "text"
+                                and getattr(content, "text", None)
+                            ):
+                                await output.put(thought=content.text)
 
-                elif event_type == "interaction.completed":
-                    snapshot = event.interaction
+                    elif event_type == "interaction.completed":
+                        snapshot = event.interaction
 
-                elif event_type == "error":
-                    message = "Gemini interaction failed."
-                    if event.error is not None and event.error.message:
-                        message = event.error.message
-                    raise Status(
-                        code=StatusCode.INTERNAL, message=message
-                    ).to_exception()
+                    elif event_type == "error":
+                        message = "Gemini interaction failed."
+                        if event.error is not None and event.error.message:
+                            message = event.error.message
+                        raise Status(
+                            code=StatusCode.INTERNAL, message=message
+                        ).to_exception()
 
             # The completed event only carries metadata; the model's produced
             # steps are reconstructed from the streamed deltas.
@@ -869,7 +927,7 @@ async def interact_with_gemini(action: a11.Action):
                 backend_specific_metadata=_build_backend_specific_metadata(
                     snapshot, gemini_interaction_id
                 ),
-                usage_metadata=_build_usage_metadata(snapshot.usage),
+                usage_metadata=reporter.usage,
             )
             previous_interaction_id = interaction.id
             rejected = await llm.add_tool_calls_to_interaction(

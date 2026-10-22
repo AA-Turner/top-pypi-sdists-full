@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sqlbuild-build-features", "crates/sqlbuild-core", "crates/sqlbuild-cursor", "crates/sqlbuild-state", "crates/sqlbuild-pysource", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-host", "crates/sqlbuild-recall", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-cli", "crates/sqlbuild-python"]
+members = ["crates/sqlbuild-build-features", "crates/sqlbuild-core", "crates/sqlbuild-cursor", "crates/sqlbuild-state", "crates/sqlbuild-pysource", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-host", "crates/sqlbuild-recall", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-project", "crates/sqlbuild-cli", "crates/sqlbuild-python"]
 resolver = "2"
 
 # Native crates from the bottom up: each crate may depend only on crates listed before it.
@@ -25,6 +25,7 @@ order = [
     "sqlbuild-analysis",
     "sqlbuild-rules",
     "sqlbuild-refactor",
+    "sqlbuild-project",
     "sqlbuild-cli",
     "sqlbuild-python",
 ]
@@ -32,7 +33,7 @@ python-boundary = "sqlbuild-python"
 polyglot-floor = "sqlbuild-analysis"
 
 [workspace.package]
-version = "0.164.3"
+version = "0.167.0"
 edition = "2024"
 license = "Apache-2.0"
 publish = false
@@ -105,6 +106,7 @@ sqlbuild-render = { path = "crates/sqlbuild-render" }
 sqlbuild-refactor = { path = "crates/sqlbuild-refactor" }
 sqlbuild-rules = { path = "crates/sqlbuild-rules" }
 sqlbuild-model-config = { path = "crates/sqlbuild-model-config" }
+sqlbuild-project = { path = "crates/sqlbuild-project" }
 sqlbuild-pysource = { path = "crates/sqlbuild-pysource" }
 sqlbuild-recall = { path = "crates/sqlbuild-recall" }
 sqlbuild-scopes = { path = "crates/sqlbuild-scopes" }

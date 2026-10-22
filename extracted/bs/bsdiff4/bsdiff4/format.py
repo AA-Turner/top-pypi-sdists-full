@@ -1,5 +1,4 @@
 import bz2
-import sys
 from io import BytesIO
 
 
@@ -9,12 +8,18 @@ MAGIC = b'BSDIFF40'
 import bsdiff4.core as core
 
 
+def _read_exact(fi, size):
+    data = fi.read(size)
+    if len(data) != size:
+        raise ValueError("truncated bsdiff4 patch")
+    return data
+
+
 def write_patch(fo, len_dst, tcontrol, bdiff, bextra):
-    """write a BSDIFF4-format patch to stream 'fo'
-    """
+    "write a BSDIFF4-format patch to stream 'fo'"
     fo.write(MAGIC)
     faux = BytesIO()
-    # write control tuples as series of offts
+    # write control tuples as series of offsets
     for c in tcontrol:
         for x in c:
             faux.write(core.encode_int64(x))
@@ -30,8 +35,7 @@ def write_patch(fo, len_dst, tcontrol, bdiff, bextra):
 
 
 def read_patch(fi, header_only=False):
-    """read a BSDIFF4-format patch from stream 'fi'
-    """
+    "read a BSDIFF4-format patch from stream 'fi'"
     magic = fi.read(8)
     if magic[:7] != MAGIC[:7]:
         raise ValueError("incorrect magic bsdiff4 header")
@@ -39,8 +43,12 @@ def read_patch(fi, header_only=False):
     len_control = core.decode_int64(fi.read(8))
     len_diff = core.decode_int64(fi.read(8))
     len_dst = core.decode_int64(fi.read(8))
+    if min(len_control, len_diff, len_dst) < 0:
+        raise ValueError("negative size in bsdiff4 patch")
     # read the control header
-    bcontrol = bz2.decompress(fi.read(len_control))
+    bcontrol = bz2.decompress(_read_exact(fi, len_control))
+    if len(bcontrol) % 24:
+        raise ValueError("invalid control block")
     tcontrol = [(core.decode_int64(bcontrol[i:i + 8]),
                  core.decode_int64(bcontrol[i + 8:i + 16]),
                  core.decode_int64(bcontrol[i + 16:i + 24]))
@@ -48,7 +56,7 @@ def read_patch(fi, header_only=False):
     if header_only:
         return len_control, len_diff, len_dst, tcontrol
     # read the diff and extra blocks
-    bdiff = bz2.decompress(fi.read(len_diff))
+    bdiff = bz2.decompress(_read_exact(fi, len_diff))
     bextra = bz2.decompress(fi.read())
     return len_dst, tcontrol, bdiff, bextra
 

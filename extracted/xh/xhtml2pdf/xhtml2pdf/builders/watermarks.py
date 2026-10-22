@@ -8,6 +8,7 @@ import pypdf
 from PIL import Image
 from reportlab.pdfgen.canvas import Canvas
 
+from xhtml2pdf.builders.inserts import inserted_pages
 from xhtml2pdf.config.resources import ResourceAccessError, current_policy
 from xhtml2pdf.files import InlineDataURI, NetworkFileUri, pisaFileObject
 from xhtml2pdf.util import ImageWarning
@@ -203,6 +204,8 @@ class WaterMarks:
             raise ValueError(msg) from exc
 
         has_bg: bool = False
+        # A page of another PDF is shown as it is in that PDF.
+        inserted = inserted_pages(doc)
         for pages, bgouter, step in WaterMarks.get_watermark(doc, len(pdfoutput.pages)):
             try:
                 bginput: pypdf.PdfReader = pypdf.PdfReader(bgouter.getBytesIO())
@@ -220,10 +223,19 @@ class WaterMarks:
                 continue
             for index, ctr in enumerate(pages):
                 page: pypdf.PageObject = pdfoutput.pages[ctr - 1]
-                if index % step == 0:
+                if index % step == 0 and ctr not in inserted:
                     page.merge_page(pagebg, over=False)
                 has_bg = True
         if has_bg:
+            if getattr(doc, "encrypt", None) is not None:
+                log.warning(
+                    "The document is written WITHOUT encryption: its page"
+                    " background is merged in after the document is built, by"
+                    " reading it back and writing it again, and that second"
+                    " write cannot reapply the encryption ReportLab gave it."
+                    " Drop the background or the encryption, or encrypt the"
+                    " result afterwards (with pypdf, for instance)."
+                )
             pdfoutput.write(output)
 
         return output, has_bg

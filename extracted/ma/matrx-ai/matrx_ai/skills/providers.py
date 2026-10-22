@@ -162,6 +162,21 @@ async def preload_skill_catalog() -> None:
 ATTACH_WITH_TOOLS_KEY = "attach_with_tools"
 
 
+def _tool_uuid_for_name(name: str) -> UUID | None:
+    """A skill's ``allowed_tools`` entry given as a tool name → that tool's UUID (None if unknown)."""
+    try:
+        from matrx_ai.tools.registry import ToolRegistry
+
+        td = ToolRegistry.get_instance().get(name.strip())
+    except Exception:
+        return None
+    tool_id = getattr(td, "tool_id", None) if td is not None else None
+    try:
+        return UUID(str(tool_id)) if tool_id else None
+    except ValueError:
+        return None
+
+
 def attach_with_tools_of(config: Any) -> set[str]:
     """The tool names a skill row's ``config`` declares as its carriers (empty when none)."""
     if not isinstance(config, dict):
@@ -249,9 +264,12 @@ def _row_to_body(row: Any, category_path: list[str]) -> SkillBody:
                 try:
                     allowed.append(UUID(entry))
                 except ValueError:
-                    # Bad data — skip silently here; startup_check is the
-                    # canonical place that flags this loudly (SK-R15).
-                    continue
+                    # A tool NAME (the ingest contract allows names or UUIDs):
+                    # resolve it through the registry. An unknown name is
+                    # flagged loudly by startup_check (SK-R15).
+                    resolved = _tool_uuid_for_name(entry)
+                    if resolved is not None:
+                        allowed.append(resolved)
 
     raw_triggers = getattr(row, "trigger_patterns", None) or []
     triggers: list[str] = (

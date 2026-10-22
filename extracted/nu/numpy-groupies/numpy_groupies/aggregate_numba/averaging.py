@@ -3,18 +3,19 @@
 Integer input is centered on the first value of each group and the global
 min/max is tracked in the same accumulation pass; the exactness gates run
 between the passes and raise ``OverflowError`` for the same inputs in every
-backend (see ``aggregate_common`` for the policy constants).
+backend (see ``common`` for the policy constants).
 """
 
-import typing
+from collections.abc import Callable
+from typing import Any, NamedTuple
 
 import numba as nb
 import numpy as np
 import numpy.typing as npt
 
-from numpy_groupies.aggregate_common import EXACT_FLOAT64_INTEGER_LIMIT, INT64_DEVIATION_LIMIT, INT64_MIN
 from numpy_groupies.aggregate_numba.compose import build_kernel, rule_float, rule_real_float
 from numpy_groupies.aggregate_numba.jit import njit_stable
+from numpy_groupies.common import EXACT_FLOAT64_INTEGER_LIMIT, INT64_DEVIATION_LIMIT, INT64_MIN
 
 
 # the building blocks and overload shims of this file are jitted: numba
@@ -34,7 +35,7 @@ def _track_extrema(val: float, low: float, high: float) -> None:
 
 
 @nb.extending.overload(_track_extrema)
-def _track_extrema_overload(val: float, low: float, high: float) -> typing.Callable[..., None]:
+def _track_extrema_overload(val: float, low: float, high: float) -> Callable[..., None]:
     if isinstance(val, nb.types.Integer):
 
         def _impl(val: float, low: float, high: float) -> None:
@@ -51,8 +52,8 @@ def _track_extrema_overload(val: float, low: float, high: float) -> typing.Calla
 
 @njit_stable
 def _mean_overflow_message(count: int, bound: int) -> str:
-    """The numba twin of ``raise_integer_mean_overflow`` - numba cannot call
-    the python helper (aggregate_common must stay numpy-free), so the text is
+    """The numba twin of ``check_integer_mean_overflow`` - numba cannot call
+    the python helper (common must stay numpy-free), so the text is
     mirrored here and must be kept in sync with it."""
     return (
         "cannot compute an exact mean of "
@@ -68,7 +69,7 @@ def _mean_overflow_message(count: int, bound: int) -> str:
 
 @njit_stable
 def _span_overflow_message(low: int, high: int) -> str:
-    """The numba twin of ``raise_integer_variance_span_overflow``."""
+    """The numba twin of ``check_integer_variance_span_overflow``."""
     # numba's str() negates int64-min internally, wraps, and then fails to
     # size the string buffer - spell that one value out
     low_text = "-9223372036854775808" if low == INT64_MIN else str(low)
@@ -91,7 +92,7 @@ def _mean_limit_check(low: float, high: float, count: int) -> None:
 
 
 @nb.extending.overload(_mean_limit_check)
-def _mean_limit_check_overload(low: float, high: float, count: int) -> typing.Callable[..., None]:
+def _mean_limit_check_overload(low: float, high: float, count: int) -> Callable[..., None]:
     if not isinstance(low, nb.types.Integer):
 
         def _impl(low: float, high: float, count: int) -> None:
@@ -131,7 +132,7 @@ def _span_limit_check(low: float, high: float, count: int) -> None:
 
 
 @nb.extending.overload(_span_limit_check)
-def _span_limit_check_overload(low: float, high: float, count: int) -> typing.Callable[..., None]:
+def _span_limit_check_overload(low: float, high: float, count: int) -> Callable[..., None]:
     if not isinstance(low, nb.types.Integer):
 
         def _impl(low: float, high: float, count: int) -> None:
@@ -157,7 +158,7 @@ def _span_limit_check_overload(low: float, high: float, count: int) -> typing.Ca
     return _impl
 
 
-class MeanState(typing.NamedTuple):
+class MeanState(NamedTuple):
     """``out`` doubles as the running sum until the finishing pass divides it
     by ``count``; ``low``/``high`` are the single-element global extrema
     scratch that feed the integer exactness gate."""
@@ -202,7 +203,7 @@ def _mean_gate(st: MeanState, n_values: int) -> None:
     _mean_limit_check(st.low[0], st.high[0], n_values)
 
 
-def _mean_finish(st: MeanState, g: int, fill_value: float, ddof: int) -> typing.Any:
+def _mean_finish(st: MeanState, g: int, fill_value: float, ddof: int) -> Any:
     if st.count[g] > ddof:
         return st.out[g] / st.count[g]
     return fill_value
@@ -222,7 +223,166 @@ mean = build_kernel(
 )
 
 
-class StdState(typing.NamedTuple):
+class MomentState(NamedTuple):
+    """The running central moments of the skewness and the kurtosis kernel.
+
+    ``out`` is the result the driver writes into, ``m1`` is the running mean, ``m2``/``m3``/``m4`` the sums of the squared,
+    cubed and fourth powers of the deviations from it, ``count`` the number of
+    values seen, and ``low``/``high`` the global extrema that feed the
+    exactness gate.  Kept flat like the other states - numba cannot type
+    inherited NamedTuples."""
+
+    out: npt.NDArray[np.floating]
+    m1: npt.NDArray[np.floating]
+    m2: npt.NDArray[np.floating]
+    m3: npt.NDArray[np.floating]
+    m4: npt.NDArray[np.floating]
+    count: npt.NDArray[np.int64]  # type: ignore[assignment]  # the field name shadows tuple.count, which numba does not see
+    low: npt.NDArray[np.number]
+    high: npt.NDArray[np.number]
+
+
+def _moment_init(
+    size: int,
+    n_input: int,
+    out_dtype: np.dtype,
+    aux_dtype: np.dtype,
+    in_dtype: np.dtype,
+    fill_value: float,
+    forced_fill: float,
+) -> MomentState:
+    return MomentState(
+        np.zeros(size, out_dtype),
+        np.zeros(size, out_dtype),
+        np.zeros(size, out_dtype),
+        np.zeros(size, out_dtype),
+        np.zeros(size, out_dtype),
+        np.zeros(size, np.int64),
+        np.empty(1, in_dtype),
+        np.empty(1, in_dtype),
+    )
+
+
+def _moment_seed(st: MomentState, a: npt.NDArray[np.number]) -> None:
+    # seed the global extrema scratch with the first value
+    if len(a) > 0:
+        st.low[0] = a[0]
+        st.high[0] = a[0]
+
+
+def _moment_update(st: MomentState, ri: int, i: int, val: float, fill_value: float, ddof: int) -> None:
+    """Accumulate one value into the running central moments.
+
+    The update is the one of Welford (and the one pandas uses): the moments
+    are kept around the running mean, so that a large offset cannot erase
+    the small deviations the skewness and the kurtosis are made of.
+    """
+    if isinstance(val, complex):
+        # the moments of the deviations of a complex value would be complex,
+        # and their ratio meaningless
+        raise TypeError("the skewness and the kurtosis are not defined for complex values")
+    st.count[ri] += 1
+    n = st.count[ri]
+    delta = val - st.m1[ri]
+    delta_n = delta / n
+    term1 = delta * delta_n * (n - 1)
+    st.m4[ri] += (
+        term1 * delta_n * delta_n * (n * n - 3 * n + 3) + 6 * delta_n * delta_n * st.m2[ri] - 4 * delta_n * st.m3[ri]
+    )
+    st.m3[ri] += term1 * delta_n * (n - 2) - 3 * delta_n * st.m2[ri]
+    st.m2[ri] += term1
+    st.m1[ri] += delta_n
+    _track_extrema(val, st.low, st.high)  # type: ignore[arg-type]  # low/high are 1-element arrays; body uses low[0]
+
+
+def _moment_update_nan(st: MomentState, ri: int, i: int, val: float, fill_value: float, ddof: int) -> None:
+    """The same accumulation, with the nans left out.
+
+    The body is a copy of the one above: a call would make the loop of the
+    nan variant ten times slower than the one of the plain variant, and the
+    accumulation is a handful of lines.
+    """
+    if val != val:
+        return
+    if isinstance(val, complex):
+        raise TypeError("the skewness and the kurtosis are not defined for complex values")
+    st.count[ri] += 1
+    n = st.count[ri]
+    delta = val - st.m1[ri]
+    delta_n = delta / n
+    term1 = delta * delta_n * (n - 1)
+    st.m4[ri] += (
+        term1 * delta_n * delta_n * (n * n - 3 * n + 3) + 6 * delta_n * delta_n * st.m2[ri] - 4 * delta_n * st.m3[ri]
+    )
+    st.m3[ri] += term1 * delta_n * (n - 2) - 3 * delta_n * st.m2[ri]
+    st.m2[ri] += term1
+    st.m1[ri] += delta_n
+    _track_extrema(val, st.low, st.high)  # type: ignore[arg-type]  # low/high are 1-element arrays; body uses low[0]
+
+
+def _moment_gate(st: MomentState, n_values: int) -> None:
+    _mean_limit_check(st.low[0], st.high[0], n_values)
+
+
+def _skew_finish(st: MomentState, g: int, fill_value: float, ddof: int) -> Any:
+    n = st.count[g]
+    if n == 0:
+        return fill_value
+    if n < 3:
+        # fewer than three values have no skewness
+        return np.nan
+    if st.m2[g] == 0:
+        # a group whose values are all the same has no spread - and no
+        # skewness either, which pandas answers with a zero
+        return 0.0
+    return n * np.sqrt(n - 1) / (n - 2) * st.m3[g] / st.m2[g] ** 1.5
+
+
+def _kurt_finish(st: MomentState, g: int, fill_value: float, ddof: int) -> Any:
+    n = st.count[g]
+    if n == 0:
+        return fill_value
+    if n < 4:
+        # fewer than four values have no kurtosis
+        return np.nan
+    if st.m2[g] == 0:
+        return 0.0
+    return n * (n + 1) * (n - 1) * st.m4[g] / ((n - 2) * (n - 3) * st.m2[g] ** 2) - 3 * (n - 1) ** 2 / (
+        (n - 2) * (n - 3)
+    )
+
+
+skew = build_kernel(
+    "skew",
+    init=_moment_init,
+    update=_moment_update,
+    update_nan=_moment_update_nan,
+    seed=_moment_seed,
+    gate=_moment_gate,
+    finish=_skew_finish,
+    forced_fill=0,
+    fill_default=np.nan,
+    rule=rule_float,
+    doc="Skewness of the values of every group",
+)
+
+
+kurt = build_kernel(
+    "kurt",
+    init=_moment_init,
+    update=_moment_update,
+    update_nan=_moment_update_nan,
+    seed=_moment_seed,
+    gate=_moment_gate,
+    finish=_kurt_finish,
+    forced_fill=0,
+    fill_default=np.nan,
+    rule=rule_float,
+    doc="Excess kurtosis of the values of every group",
+)
+
+
+class StdState(NamedTuple):
     """The running sums of the dispersion kernels: ``out`` accumulates the
     squared deviations in the real output dtype, ``dev`` the deviations
     themselves in the widened auxiliary dtype (complex stays complex),
@@ -248,7 +408,7 @@ def _accumulate_std(val: float, st: StdState, ri: int) -> None:
 
 
 @nb.extending.overload(_accumulate_std)
-def _accumulate_std_overload(val: float, st: StdState, ri: int) -> typing.Callable[..., None]:
+def _accumulate_std_overload(val: float, st: StdState, ri: int) -> Callable[..., None]:
     if isinstance(val, nb.types.Integer):
 
         def _impl(val: float, st: StdState, ri: int) -> None:
@@ -315,7 +475,7 @@ def _std_gate(st: StdState, n_values: int) -> None:
     _span_limit_check(st.low[0], st.high[0], n_values)
 
 
-def _std_finish(st: StdState, g: int, fill_value: float, ddof: int) -> typing.Any:
+def _std_finish(st: StdState, g: int, fill_value: float, ddof: int) -> Any:
     if st.count[g] > ddof:
         m = st.dev[g]
         mean2 = m.real * m.real + m.imag * m.imag
@@ -338,7 +498,7 @@ std = build_kernel(
 )
 
 
-def _var_finish(st: StdState, g: int, fill_value: float, ddof: int) -> typing.Any:
+def _var_finish(st: StdState, g: int, fill_value: float, ddof: int) -> Any:
     if st.count[g] > ddof:
         m = st.dev[g]
         mean2 = m.real * m.real + m.imag * m.imag

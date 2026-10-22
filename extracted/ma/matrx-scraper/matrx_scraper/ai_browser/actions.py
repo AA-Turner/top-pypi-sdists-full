@@ -523,7 +523,7 @@ async def fill(
     try:
         # A person cannot set a field's value in one event; ``human`` clears
         # and retypes it keystroke by keystroke. Fields no keyboard can drive
-        # (date/colour pickers, zero-size inputs) keep Playwright's fill.
+        # (date/color pickers, zero-size inputs) keep Playwright's fill.
         typed = human and await _human_fill(session.page, selector, value, timeout_ms)
         if not typed:
             kind = await _input_kind(session.page, selector)

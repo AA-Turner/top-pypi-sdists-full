@@ -20,6 +20,94 @@ logger = logging.getLogger(__name__)
 _MOUNT_MAX_ATTEMPTS = 3
 _MOUNT_RETRY_DELAY_S = 5.0
 _MOUNT_PER_ATTEMPT_TIMEOUT_S = 35  # `timeout 30 mount …` + small SSH overhead
+_SERVING_CHECK_ATTEMPTS = 5
+_SERVING_CHECK_DELAY_S = 1.0
+_SERVER_RESTART_COOLDOWN_S = 30.0
+
+_SERVING_CHECK_CMD = "timeout 10 rpcinfo -t 127.0.0.1 nfs 3 && timeout 10 rpcinfo -t 127.0.0.1 mountd 3"
+
+# Parallel agent mounts that all time out restart the shared server once.
+_server_restart_lock = asyncio.Lock()
+_last_server_restart: float | None = None
+
+
+def _nfsd_thread_count(total_mb: int) -> int:
+    return max(8, min(32, total_mb // 256))
+
+
+async def _total_mem_kb() -> int:
+    exit_code, total_kb_str, _ = await run_local(
+        "awk '/MemTotal/{print $2}' /proc/meminfo",
+        timeout=5,
+    )
+    return int(total_kb_str.strip()) if exit_code == 0 and total_kb_str.strip().isdigit() else 4194304
+
+
+def _server_start_cmd(nfsd_threads: int, *, restart: bool) -> str:
+    action = "restart" if restart else "start"
+    return (
+        "systemctl start rpcbind; "
+        "systemctl reset-failed proc-fs-nfsd.mount 2>/dev/null; "
+        "exportfs -ra && "
+        f"systemctl {action} nfs-kernel-server && "
+        f"rpc.nfsd {nfsd_threads}"
+    )
+
+
+async def _server_serving() -> tuple[bool, str]:
+    """Poll rpcbind until nfs v3 and mountd v3 answer on the world VM (bounded)."""
+    out = ""
+    for attempt in range(1, _SERVING_CHECK_ATTEMPTS + 1):
+        exit_code, stdout, stderr = await run_local(_SERVING_CHECK_CMD, timeout=25)
+        if exit_code == 0:
+            return True, ""
+        out = (stdout + stderr).strip() or f"exit_code={exit_code}"
+        if attempt < _SERVING_CHECK_ATTEMPTS:
+            await asyncio.sleep(_SERVING_CHECK_DELAY_S)
+    return False, out
+
+
+async def _start_server(nfsd_threads: int, *, restart: bool) -> None:
+    exit_code, stdout, stderr = await run_local(_server_start_cmd(nfsd_threads, restart=restart), timeout=60)
+    if exit_code != 0:
+        logger.info(
+            "NFS server %s exited %d: %s",
+            "restart" if restart else "start",
+            exit_code,
+            (stdout + stderr).strip(),
+        )
+
+
+async def _ensure_server_serving(nfsd_threads: int) -> None:
+    """Start the NFS server and verify it serves; restart once, else raise."""
+    await _start_server(nfsd_threads, restart=False)
+    ok, err = await _server_serving()
+    if ok:
+        return
+    logger.info("NFS server not serving after start (%s); restarting it", err)
+    await _start_server(nfsd_threads, restart=True)
+    ok, err = await _server_serving()
+    if not ok:
+        raise RuntimeError(f"NFS server not serving after restart: {err}")
+
+
+async def _restart_server_for_mount_retry() -> None:
+    """Restart this world VM's NFS server before a timed-out mount is retried."""
+    global _last_server_restart
+    async with _server_restart_lock:
+        if _last_server_restart is not None and _time.monotonic() - _last_server_restart < _SERVER_RESTART_COOLDOWN_S:
+            return
+        nfsd_threads = _nfsd_thread_count(await _total_mem_kb() // 1024)
+        try:
+            await _start_server(nfsd_threads, restart=True)
+            ok, err = await _server_serving()
+        except RuntimeError as exc:
+            ok, err = False, str(exc)
+        _last_server_restart = _time.monotonic()
+    if ok:
+        logger.info("NFS server restarted and serving")
+    else:
+        logger.info("NFS server still not serving after restart: %s", err)
 
 
 def _is_transient_mount_failure(exit_code: int, stderr: str) -> bool:
@@ -74,11 +162,7 @@ class NFSTransport(Transport):
         )
         await self._setup_workspace_path(self.path)
 
-        exit_code, total_kb_str, _ = await run_local(
-            "awk '/MemTotal/{print $2}' /proc/meminfo",
-            timeout=5,
-        )
-        total_kb = int(total_kb_str.strip()) if exit_code == 0 and total_kb_str.strip().isdigit() else 4194304
+        total_kb = await _total_mem_kb()
         total_mb = total_kb // 1024
 
         min_free_kb = max(131072, total_kb * 10 // 100)
@@ -92,7 +176,7 @@ class NFSTransport(Transport):
             dirty_bg_bytes // 1048576,
         )
 
-        exit_code, stdout, stderr = await run_local(
+        exit_code, _, stderr = await run_local(
             f"sysctl -w vm.min_free_kbytes={min_free_kb} && "
             f"sysctl -w vm.dirty_bytes={dirty_bytes} && "
             f"sysctl -w vm.dirty_background_bytes={dirty_bg_bytes} && "
@@ -102,8 +186,6 @@ class NFSTransport(Transport):
         )
         if exit_code != 0:
             logger.warning("sysctl tuning failed (exit=%d): %s", exit_code, stderr.strip())
-        else:
-            logger.debug("VM memory tuning applied: %s", stdout.strip())
 
         perms = "ro" if self.readonly else "rw"
         export_line = f"{self.path} *({perms},sync,fsid=0,no_subtree_check,no_root_squash)"
@@ -123,8 +205,7 @@ class NFSTransport(Transport):
         if exit_code != 0:
             raise RuntimeError(f"Failed to mount nfsd filesystem: {stderr}")
 
-        nfsd_threads = max(8, min(32, total_mb // 256))
-        logger.debug("Setting nfsd threads: %d (for %dMB RAM)", nfsd_threads, total_mb)
+        nfsd_threads = _nfsd_thread_count(total_mb)
         await run_local(
             "if [ -f /etc/default/nfs-kernel-server ]; then "
             f"  sed -i 's/^RPCNFSDCOUNT=.*/RPCNFSDCOUNT={nfsd_threads}/' /etc/default/nfs-kernel-server || true; "
@@ -134,22 +215,13 @@ class NFSTransport(Transport):
             timeout=10,
         )
 
-        exit_code, _, stderr = await run_local(
-            "systemctl start rpcbind && "
-            "systemctl reset-failed proc-fs-nfsd.mount 2>/dev/null; "
-            "exportfs -ra && "
-            "systemctl start nfs-kernel-server && "
-            f"rpc.nfsd {nfsd_threads} 2>/dev/null; true",
-            timeout=30,
-        )
-        if exit_code != 0:
-            raise RuntimeError(f"Failed to start NFS server: {stderr}")
+        await _ensure_server_serving(nfsd_threads)
 
         _, nfsd_threads_actual, _ = await run_local(
             "cat /proc/fs/nfsd/threads 2>/dev/null || rpcinfo -p 2>/dev/null | grep nfs | head -1",
             timeout=5,
         )
-        logger.debug("nfsd threads: %s", nfsd_threads_actual.strip())
+        logger.debug("nfsd threads: %s (asked %d for %dMB RAM)", nfsd_threads_actual.strip(), nfsd_threads, total_mb)
 
         _, exports, _ = await run_local("exportfs -s", timeout=5)
         logger.debug(f"NFS server running. Exports:\n{exports.strip()}")
@@ -177,8 +249,6 @@ class NFSTransport(Transport):
         exit_code, _, stderr = await run_local("exportfs -ra", timeout=10)
         if exit_code != 0:
             logger.warning("exportfs -ra failed: %s", stderr.strip())
-        else:
-            logger.debug("NFS exports refreshed")
 
     async def _setup_workspace_path(self, path: str) -> None:
         """Create workspace directory with correct ownership."""
@@ -189,7 +259,6 @@ class NFSTransport(Transport):
             f"chown 1000:1000 {path} 2>/dev/null; chmod 1777 {path} 2>/dev/null; true",
             timeout=10,
         )
-        logger.debug(f"Workspace path ready: {path}")
 
     async def setup_agent(
         self,
@@ -203,7 +272,8 @@ class NFSTransport(Transport):
         transient connection-timeout failures (intermittent rpcbind/mountd
         races and overlay-network packet loss show up here). Each attempt is
         wrapped in `timeout 30 mount …` so it fails fast instead of waiting
-        ~130s for the kernel's own retrans loop."""
+        ~130s for the kernel's own retrans loop; an attempt killed by that
+        timeout (exit 124) restarts the world VM's NFS server before the retry."""
         await self._setup_workspace_path(self.path)
 
         del agent_env
@@ -234,7 +304,7 @@ class NFSTransport(Transport):
         # so the retry loop below is unaffected.
         mount_cmd = (
             f"mountpoint -q {remote} || "
-            f"timeout 30 mount -t nfs -o vers=3,hard,timeo=300,retrans=5,nolock,"
+            f"timeout 30 mount -t nfs -v -o vers=3,hard,timeo=300,retrans=5,nolock,"
             f"rsize=32768,wsize=32768{ro_opt}{extra_opt} {nfs_src} {remote}"
         )
         t0 = _time.monotonic()
@@ -248,7 +318,7 @@ class NFSTransport(Transport):
                 attempt,
                 _MOUNT_MAX_ATTEMPTS,
             )
-            exit_code, _, stderr = await run_ssh(
+            exit_code, stdout, stderr = await run_ssh(
                 self.ssh_key_path,
                 hostname,
                 mount_cmd,
@@ -257,9 +327,17 @@ class NFSTransport(Transport):
             if exit_code == 0:
                 break
             last_err = stderr.strip() or f"exit_code={exit_code}"
+            logger.info(
+                "NFS mount -v on %s exited %d:\n%s",
+                hostname,
+                exit_code,
+                (stdout + stderr).strip(),
+            )
             if not _is_transient_mount_failure(exit_code, stderr):
                 raise RuntimeError(f"Failed to mount NFS on agent VM: {last_err}")
             if attempt < _MOUNT_MAX_ATTEMPTS:
+                if exit_code == 124:
+                    await _restart_server_for_mount_retry()
                 logger.warning(
                     "NFS mount attempt %d/%d failed on %s (%s); retrying in %.1fs",
                     attempt,

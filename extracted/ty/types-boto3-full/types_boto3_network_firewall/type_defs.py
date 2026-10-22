@@ -26,8 +26,10 @@ from .literals import (
     ConfigurationSyncStateType,
     ContainerAssociationStatusType,
     ContainerMonitoringTypeType,
+    DNSExpiryExceptionPolicyType,
     EnabledAnalysisTypeType,
     EncryptionTypeType,
+    FirewallPolicyErrorCodeType,
     FirewallStatusValueType,
     FlowOperationStatusType,
     FlowOperationTypeType,
@@ -46,6 +48,7 @@ from .literals import (
     ResourceManagedTypeType,
     ResourceStatusType,
     RevocationCheckActionType,
+    Route53ResolvedIPValidationActionType,
     RuleGroupRequestPhaseType,
     RuleGroupTypeType,
     RuleOrderType,
@@ -148,6 +151,7 @@ __all__ = (
     "DescribeFirewallMetadataRequestTypeDef",
     "DescribeFirewallMetadataResponseTypeDef",
     "DescribeFirewallPolicyRequestTypeDef",
+    "DescribeFirewallPolicyRequestWaitTypeDef",
     "DescribeFirewallPolicyResponseTypeDef",
     "DescribeFirewallRequestTypeDef",
     "DescribeFirewallResponseTypeDef",
@@ -185,6 +189,7 @@ __all__ = (
     "DisassociateSubnetsResponseTypeDef",
     "EncryptionConfigurationTypeDef",
     "FirewallMetadataTypeDef",
+    "FirewallPolicyErrorTypeDef",
     "FirewallPolicyMetadataTypeDef",
     "FirewallPolicyOutputTypeDef",
     "FirewallPolicyResponseTypeDef",
@@ -296,6 +301,8 @@ __all__ = (
     "RejectNetworkFirewallTransitGatewayAttachmentRequestTypeDef",
     "RejectNetworkFirewallTransitGatewayAttachmentResponseTypeDef",
     "ResponseMetadataTypeDef",
+    "Route53ResolvedIPValidationOutputTypeDef",
+    "Route53ResolvedIPValidationTypeDef",
     "RuleDefinitionOutputTypeDef",
     "RuleDefinitionTypeDef",
     "RuleGroupMetadataTypeDef",
@@ -398,6 +405,7 @@ __all__ = (
     "VpcEndpointOutputTypeDef",
     "VpcEndpointTypeDef",
     "VpcEndpointUnionTypeDef",
+    "WaiterConfigTypeDef",
 )
 
 
@@ -611,6 +619,11 @@ class DescribeFirewallPolicyRequestTypeDef(TypedDict):
     FirewallPolicyArn: NotRequired[str]
 
 
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
+
 class DescribeFirewallRequestTypeDef(TypedDict):
     FirewallName: NotRequired[str]
     FirewallArn: NotRequired[str]
@@ -620,6 +633,7 @@ class DescribeFlowOperationRequestTypeDef(TypedDict):
     FirewallArn: str
     FlowOperationId: str
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     VpcEndpointAssociationArn: NotRequired[str]
     VpcEndpointId: NotRequired[str]
 
@@ -735,6 +749,12 @@ class FirewallMetadataTypeDef(TypedDict):
     TransitGatewayAttachmentId: NotRequired[str]
 
 
+class FirewallPolicyErrorTypeDef(TypedDict):
+    Code: FirewallPolicyErrorCodeType
+    Message: str
+    ResourceId: NotRequired[str]
+
+
 class FirewallPolicyMetadataTypeDef(TypedDict):
     Name: NotRequired[str]
     Arn: NotRequired[str]
@@ -830,6 +850,7 @@ class ListFlowOperationResultsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     VpcEndpointId: NotRequired[str]
     VpcEndpointAssociationArn: NotRequired[str]
 
@@ -837,6 +858,7 @@ class ListFlowOperationResultsRequestTypeDef(TypedDict):
 class ListFlowOperationsRequestTypeDef(TypedDict):
     FirewallArn: str
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     VpcEndpointAssociationArn: NotRequired[str]
     VpcEndpointId: NotRequired[str]
     FlowOperationType: NotRequired[FlowOperationTypeType]
@@ -1276,6 +1298,22 @@ FlowTypeDef = TypedDict(
 )
 
 
+class Route53ResolvedIPValidationOutputTypeDef(TypedDict):
+    Action: Route53ResolvedIPValidationActionType
+    DNSFirewallRuleGroupId: str
+    DNSExpiryExceptionPolicy: DNSExpiryExceptionPolicyType
+    BypassDestinationValidationIPRanges: NotRequired[list[AddressTypeDef]]
+    SourceIPRanges: NotRequired[list[AddressTypeDef]]
+
+
+class Route53ResolvedIPValidationTypeDef(TypedDict):
+    Action: Route53ResolvedIPValidationActionType
+    DNSFirewallRuleGroupId: str
+    DNSExpiryExceptionPolicy: DNSExpiryExceptionPolicyType
+    BypassDestinationValidationIPRanges: NotRequired[Sequence[AddressTypeDef]]
+    SourceIPRanges: NotRequired[Sequence[AddressTypeDef]]
+
+
 class ListAnalysisReportsResponseTypeDef(TypedDict):
     AnalysisReports: list[AnalysisReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1426,21 +1464,6 @@ class VpcEndpointAssociationTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
-class FirewallPolicyResponseTypeDef(TypedDict):
-    FirewallPolicyName: str
-    FirewallPolicyArn: str
-    FirewallPolicyId: str
-    Description: NotRequired[str]
-    FirewallPolicyStatus: NotRequired[ResourceStatusType]
-    Tags: NotRequired[list[TagTypeDef]]
-    ConsumedStatelessRuleCapacity: NotRequired[int]
-    ConsumedStatefulRuleCapacity: NotRequired[int]
-    ConsumedStatefulDomainCapacity: NotRequired[int]
-    NumberOfAssociations: NotRequired[int]
-    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
-    LastModifiedTime: NotRequired[datetime]
-
-
 class UpdateFirewallEncryptionConfigurationRequestTypeDef(TypedDict):
     UpdateToken: NotRequired[str]
     FirewallArn: NotRequired[str]
@@ -1490,6 +1513,12 @@ class UpdateProxyRequestTypeDef(TypedDict):
     ListenerPropertiesToAdd: NotRequired[Sequence[ListenerPropertyRequestTypeDef]]
     ListenerPropertiesToRemove: NotRequired[Sequence[ListenerPropertyRequestTypeDef]]
     TlsInterceptProperties: NotRequired[TlsInterceptPropertiesRequestTypeDef]
+
+
+class DescribeFirewallPolicyRequestWaitTypeDef(TypedDict):
+    FirewallPolicyName: NotRequired[str]
+    FirewallPolicyArn: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 
 class ProxySettingsOutputTypeDef(TypedDict):
@@ -1570,6 +1599,23 @@ class ListFirewallsResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class FirewallPolicyResponseTypeDef(TypedDict):
+    FirewallPolicyName: str
+    FirewallPolicyArn: str
+    FirewallPolicyId: str
+    Description: NotRequired[str]
+    FirewallPolicyStatus: NotRequired[ResourceStatusType]
+    StatusMessage: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    ConsumedStatelessRuleCapacity: NotRequired[int]
+    ConsumedStatefulRuleCapacity: NotRequired[int]
+    ConsumedStatefulDomainCapacity: NotRequired[int]
+    NumberOfAssociations: NotRequired[int]
+    EncryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    Errors: NotRequired[list[FirewallPolicyErrorTypeDef]]
+    LastModifiedTime: NotRequired[datetime]
+
+
 class ListFirewallPoliciesResponseTypeDef(TypedDict):
     FirewallPolicies: list[FirewallPolicyMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1618,6 +1664,7 @@ class ListFlowOperationResultsRequestPaginateTypeDef(TypedDict):
     FirewallArn: str
     FlowOperationId: str
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     VpcEndpointId: NotRequired[str]
     VpcEndpointAssociationArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1626,6 +1673,7 @@ class ListFlowOperationResultsRequestPaginateTypeDef(TypedDict):
 class ListFlowOperationsRequestPaginateTypeDef(TypedDict):
     FirewallArn: str
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     VpcEndpointAssociationArn: NotRequired[str]
     VpcEndpointId: NotRequired[str]
     FlowOperationType: NotRequired[FlowOperationTypeType]
@@ -1919,6 +1967,7 @@ FlowFilterUnionTypeDef = Union[FlowFilterTypeDef, FlowFilterOutputTypeDef]
 class ListFlowOperationResultsResponseTypeDef(TypedDict):
     FirewallArn: str
     AvailabilityZone: str
+    AvailabilityZoneId: str
     VpcEndpointAssociationArn: str
     VpcEndpointId: str
     FlowOperationId: str
@@ -1997,23 +2046,6 @@ ContainerMonitoringConfigurationUnionTypeDef = Union[
 ]
 
 
-class CreateFirewallPolicyResponseTypeDef(TypedDict):
-    UpdateToken: str
-    FirewallPolicyResponse: FirewallPolicyResponseTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DeleteFirewallPolicyResponseTypeDef(TypedDict):
-    FirewallPolicyResponse: FirewallPolicyResponseTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateFirewallPolicyResponseTypeDef(TypedDict):
-    UpdateToken: str
-    FirewallPolicyResponse: FirewallPolicyResponseTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class FirewallTypeDef(TypedDict):
     FirewallPolicyArn: str
     VpcId: str
@@ -2074,6 +2106,23 @@ class ActionDefinitionOutputTypeDef(TypedDict):
 
 class ActionDefinitionTypeDef(TypedDict):
     PublishMetricAction: NotRequired[PublishMetricActionTypeDef]
+
+
+class CreateFirewallPolicyResponseTypeDef(TypedDict):
+    UpdateToken: str
+    FirewallPolicyResponse: FirewallPolicyResponseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteFirewallPolicyResponseTypeDef(TypedDict):
+    FirewallPolicyResponse: FirewallPolicyResponseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateFirewallPolicyResponseTypeDef(TypedDict):
+    UpdateToken: str
+    FirewallPolicyResponse: FirewallPolicyResponseTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeLoggingConfigurationResponseTypeDef(TypedDict):
@@ -2256,6 +2305,7 @@ class DescribeVpcEndpointAssociationResponseTypeDef(TypedDict):
 class DescribeFlowOperationResponseTypeDef(TypedDict):
     FirewallArn: str
     AvailabilityZone: str
+    AvailabilityZoneId: str
     VpcEndpointAssociationArn: str
     VpcEndpointId: str
     FlowOperationId: str
@@ -2271,6 +2321,7 @@ class StartFlowCaptureRequestTypeDef(TypedDict):
     FirewallArn: str
     FlowFilters: Sequence[FlowFilterUnionTypeDef]
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     VpcEndpointAssociationArn: NotRequired[str]
     VpcEndpointId: NotRequired[str]
     MinimumFlowAgeInSeconds: NotRequired[int]
@@ -2280,6 +2331,7 @@ class StartFlowFlushRequestTypeDef(TypedDict):
     FirewallArn: str
     FlowFilters: Sequence[FlowFilterUnionTypeDef]
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     VpcEndpointAssociationArn: NotRequired[str]
     VpcEndpointId: NotRequired[str]
     MinimumFlowAgeInSeconds: NotRequired[int]
@@ -2431,6 +2483,7 @@ class FirewallPolicyOutputTypeDef(TypedDict):
     TLSInspectionConfigurationArn: NotRequired[str]
     PolicyVariables: NotRequired[PolicyVariablesOutputTypeDef]
     EnableTLSSessionHolding: NotRequired[bool]
+    Route53ResolvedIPValidation: NotRequired[Route53ResolvedIPValidationOutputTypeDef]
 
 
 class FirewallPolicyTypeDef(TypedDict):
@@ -2444,6 +2497,7 @@ class FirewallPolicyTypeDef(TypedDict):
     TLSInspectionConfigurationArn: NotRequired[str]
     PolicyVariables: NotRequired[PolicyVariablesTypeDef]
     EnableTLSSessionHolding: NotRequired[bool]
+    Route53ResolvedIPValidation: NotRequired[Route53ResolvedIPValidationTypeDef]
 
 
 class DescribeTLSInspectionConfigurationResponseTypeDef(TypedDict):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protobuf-py-ext
-Version: 0.6.0
+Version: 0.7.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: MacOS :: MacOS X
@@ -16,7 +16,9 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Free Threading
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Rust
+License-File: LICENSE
 Summary: Native extension for protobuf-py
+License-Expression: Apache-2.0
 Requires-Python: >=3.10
 Project-URL: Documentation, https://protobufpy.com/
 Project-URL: Homepage, https://github.com/bufbuild/protobuf-py

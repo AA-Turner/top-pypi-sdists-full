@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zigpy
-Version: 2.3.0
+Version: 2.4.0
 Summary: Library implementing a Zigbee stack
 Author-email: Russell Cloran <rcloran@gmail.com>
 License: GPL-3.0
@@ -11,7 +11,7 @@ License-File: LICENSE
 License-File: COPYING
 Requires-Dist: attrs
 Requires-Dist: aiohttp
-Requires-Dist: aiosqlite<0.22.0,>=0.20.0
+Requires-Dist: aiosqlite>=0.22.1
 Requires-Dist: crccheck
 Requires-Dist: cryptography
 Requires-Dist: voluptuous

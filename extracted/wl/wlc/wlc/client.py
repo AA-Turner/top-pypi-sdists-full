@@ -11,7 +11,7 @@ from collections.abc import Collection, Iterable, Iterator, Mapping
 from http import HTTPStatus
 from ipaddress import ip_address
 from typing import TYPE_CHECKING, Any, BinaryIO, TextIO, TypeAlias, TypeVar, cast
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin
 
 import requests
 import requests.auth
@@ -54,6 +54,39 @@ FileSpec: TypeAlias = (
 RequestFiles: TypeAlias = Mapping[str, FileSpec]
 WeblateObject: TypeAlias = Project | Component | Translation | Unit
 LazyObjectT = TypeVar("LazyObjectT", bound=LazyObject)
+
+_OBJECT_PATH_DECODE_LIMIT = 4
+
+
+def _validate_object_path(path: str) -> None:
+    """Reject object paths that can change the constructed API endpoint."""
+    candidate = path
+    for _decode_depth in range(_OBJECT_PATH_DECODE_LIMIT):
+        segments = candidate.split("/")
+        invalid_boundary = (
+            not candidate or candidate.startswith("/") or candidate.endswith("/")
+        )
+        invalid_segment = any(segment in {"", ".", ".."} for segment in segments)
+        invalid_syntax = any(character in candidate for character in "\\?#")
+        if (
+            invalid_boundary
+            or invalid_segment
+            or invalid_syntax
+            or not candidate.isprintable()
+        ):
+            msg = "Invalid object path."
+            raise WeblateException(msg)
+
+        decoded = unquote(candidate)
+        if decoded == candidate:
+            return
+        if decoded.count("/") != candidate.count("/"):
+            msg = "Invalid object path."
+            raise WeblateException(msg)
+        candidate = decoded
+
+    msg = "Invalid object path."
+    raise WeblateException(msg)
 
 
 # pylint: disable-next=too-few-public-methods
@@ -419,6 +452,7 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
 
     def _post_factory(self, prefix: str, path: str, kwargs: RequestPayload) -> JSONDict:
         """Create an object at the given API path."""
+        _validate_object_path(path)
         # Preserve post() overrides and its handling of reserved transport options.
         return self.post(f"{prefix}/{path}/", **cast("JSONDict", kwargs))
 
@@ -444,12 +478,21 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
             for item in data["results"]:
                 yield parser(weblate=self, **item)
 
-            path = data["next"]
+            next_url = data.get("next")
+            if next_url is None:
+                break
+            if not isinstance(next_url, str):
+                msg = "Server returned an invalid pagination link."
+                raise WeblateException(msg)
+            if not next_url:
+                break
+            path = next_url
 
     def _get_factory(
         self, prefix: str, path: str, parser: type[LazyObjectT]
     ) -> LazyObjectT:
         """Fetch and parse an object at the given API path."""
+        _validate_object_path(path)
         data = cast("JSONDict", self.get(f"{prefix}/{path}/"))
         return parser(weblate=self, **data)
 
@@ -472,8 +515,8 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
                 return self.get_component(path)
             case 1:
                 return self.get_project(path)
-        msg = f"Not supported path: {path}"
-        raise ValueError(msg)
+        msg = "Invalid object path."
+        raise WeblateException(msg)
 
     def get_project(self, path: str) -> Project:
         """Return project of given path."""
@@ -567,6 +610,7 @@ class Weblate:  # ruff: ignore[too-many-public-methods]
         self, project: str, *, params: RequestParams | None = None, **kwargs: object
     ) -> JSONDict:
         """Create a new component for project in the instance."""
+        _validate_object_path(project)
         files: dict[str, FileSpec] = {}
         for fileattr in ("docfile", "zipfile"):
             if fileattr in kwargs:

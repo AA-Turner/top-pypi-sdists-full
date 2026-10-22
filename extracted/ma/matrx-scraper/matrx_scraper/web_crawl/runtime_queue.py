@@ -48,6 +48,8 @@ if TYPE_CHECKING:  # avoid a hard import cycle; the host passes a live engine
 
 # The opaque link between a batch execution and the crawl session it durably backs.
 CRAWL_SESSION_LINK_KIND = "web_crawl_session"
+#: Runtime's opaque execution `type` label for a crawl's batch execution.
+CRAWL_EXECUTION_TYPE = "crawl"
 
 
 class FrontierReadError(RuntimeError):
@@ -83,6 +85,14 @@ _PRIOR_CARRY_STATES = (
     WorkItemState.PENDING,
     WorkItemState.IN_PROGRESS,
     WorkItemState.DEAD_LETTER,
+)
+#: The error types a settled execution stamps on the pending items it closes unrun
+#: (`finalize`, and the host's boot sweep): `execution_<terminal state>`. Such an
+#: item is FAILED in the store but was never fetched, so a resume carries it like
+#: a pending one and it never counts as finished.
+CLOSED_UNRUN_ERROR_TYPES = frozenset(
+    f"execution_{s.value}"
+    for s in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED)
 )
 #: Items seeded (and done-checked) per round-trip while carrying a frontier.
 #: A batch size, never a cap — the carry runs until every item is across.
@@ -129,6 +139,8 @@ class RuntimeWorkQueueBackend:
         # Their frontier is carried forward: what they finished is not fetched
         # again, what they left is seeded here (`carry_over_prior_frontier`).
         self._prior_execution_ids = list(prior_execution_ids or [])
+        # prior execution id -> the keys it closed unrun when it settled (read once).
+        self._closed_unrun: dict[str, dict[str, object]] = {}
         self._execution_id = execution_id
         self._holder = holder
         self._lease_seconds = lease_seconds
@@ -160,22 +172,53 @@ class RuntimeWorkQueueBackend:
             max_attempts=DEFAULT_ITEM_MAX_ATTEMPTS,
         )
 
+    async def _closed_unrun_items(self, prior: str) -> dict[str, object]:
+        """The items `prior` closed unrun when it settled (`CLOSED_UNRUN_ERROR_TYPES`),
+        by canonical key. Read in full once per backend; empty without a count."""
+        cached = self._closed_unrun.get(prior)
+        if cached is not None:
+            return cached
+        closed = 0
+        for error_type in CLOSED_UNRUN_ERROR_TYPES:
+            closed += await self._store.work_item_error_type_count(
+                prior, state=WorkItemState.FAILED, error_type=error_type
+            )
+        items: dict[str, object] = {}
+        if closed:
+            failed = int((await self._store.work_item_counts(prior)).get(WorkItemState.FAILED, 0))
+            for it in await self._store.list_work_items(prior, states=[WorkItemState.FAILED], limit=failed):
+                if it.error is not None and it.error.error_type in CLOSED_UNRUN_ERROR_TYPES:
+                    items[it.canonical_key] = it
+            if len(items) < closed:
+                raise FrontierCarryError(
+                    f"execution {prior} reports {closed} item(s) closed unrun but only "
+                    f"{len(items)} could be read; refusing a resume that would lose them"
+                )
+        self._closed_unrun[prior] = items
+        return items
+
     async def _done_in_prior(self, keys: list[str]) -> set[str]:
         """Which canonical keys an earlier execution of this session settled
-        for good (fetched, or recorded failed) — never fetched again."""
+        for good (fetched, or recorded failed) — never fetched again. An item
+        the execution closed unrun when it settled was never fetched: not done."""
         done: set[str] = set()
         if not keys:
             return done
         for prior in self._prior_execution_ids:
             states = await self._store.work_item_states(prior, keys)
-            done.update(k for k, st in states.items() if st in _PRIOR_DONE_STATES)
+            unrun = await self._closed_unrun_items(prior) if WorkItemState.FAILED in states.values() else {}
+            done.update(
+                k
+                for k, st in states.items()
+                if st in _PRIOR_DONE_STATES and not (st is WorkItemState.FAILED and k in unrun)
+            )
         return done
 
     async def carry_over_prior_frontier(self) -> int:
         """Seed EVERYTHING the earlier executions left unfinished into this one.
 
-        Pending, in-progress (a dead process's claims) and dead-lettered items
-        come forward with their depth/parent payload; a key finished in ANY
+        Pending, in-progress (a dead process's claims), dead-lettered items and
+        the items an execution closed unrun when it settled come forward with their depth/parent payload; a key finished in ANY
         earlier execution is skipped. There is no cap: each earlier execution's
         unfinished items are read in full (the read is sized from the store's
         own counts) and seeded in batches of `PRIOR_CARRY_BATCH`. Afterwards
@@ -186,10 +229,10 @@ class RuntimeWorkQueueBackend:
         for prior in self._prior_execution_ids:
             counts = await self._store.work_item_counts(prior)
             unfinished = sum(int(counts.get(st, 0)) for st in _PRIOR_CARRY_STATES)
-            if not unfinished:
-                continue
-            items = await self._store.list_work_items(
-                prior, states=list(_PRIOR_CARRY_STATES), limit=unfinished
+            items = (
+                await self._store.list_work_items(prior, states=list(_PRIOR_CARRY_STATES), limit=unfinished)
+                if unfinished
+                else []
             )
             if len(items) < unfinished:
                 raise FrontierCarryError(
@@ -197,7 +240,7 @@ class RuntimeWorkQueueBackend:
                     f"only {len(items)} could be read; refusing a resume that would "
                     f"lose {unfinished - len(items)} of them"
                 )
-            for it in items:
+            for it in [*items, *(await self._closed_unrun_items(prior)).values()]:
                 carried.setdefault(
                     it.canonical_key,
                     WorkItemSeed(
@@ -504,6 +547,41 @@ class RuntimeWorkQueueBackend:
                 self._execution_id,
                 status,
             )
+        await self.close_pending_if_settled()
+
+    async def close_pending_if_settled(self) -> int:
+        """A settled execution leaves no work behind: every `pending` item of a
+        TERMINAL batch execution is closed to `failed`, `execution_<state>` (the
+        shared drainer's rule). A resume still carries them (`CLOSED_UNRUN_ERROR_TYPES`).
+        Reads the execution's real status, so a settle that did not land closes
+        nothing. Loud-logged, never raised — like the settle itself."""
+        try:
+            execution = await self._store.get_execution(self._execution_id)
+            if execution is None or not is_terminal(execution.status):
+                return 0
+            state = ExecutionStatus(execution.status).value
+            closed = await self._store.cancel_pending_work_items(
+                self._execution_id,
+                error=ExecutionError(
+                    error_type=f"execution_{state}",
+                    message=f"execution {self._execution_id} settled {state}; its pending work items were closed unrun",
+                ),
+                now=_now(),
+            )
+        except Exception:
+            logger.exception(
+                "durable crawl frontier: could not close the pending items of settled execution %s",
+                self._execution_id,
+            )
+            return 0
+        if closed:
+            logger.info(
+                "durable crawl frontier: execution %s settled %s; closed %s pending item(s) unrun",
+                self._execution_id,
+                state,
+                closed,
+            )
+        return closed
 
 
 def _process_holder(session_id: str) -> str:
@@ -566,7 +644,7 @@ async def get_or_create_crawl_execution(
     """The batch `global_execution` that anchors + scopes a crawl's work items."""
     return await get_or_create_batch_execution(
         engine,
-        execution_type="crawl",
+        execution_type=CRAWL_EXECUTION_TYPE,
         link_kind=CRAWL_SESSION_LINK_KIND,
         link_id=session_id,
         organization_id=organization_id,
@@ -642,6 +720,8 @@ def make_work_queue_factory(
 
 
 __all__ = [
+    "CLOSED_UNRUN_ERROR_TYPES",
+    "CRAWL_EXECUTION_TYPE",
     "RuntimeWorkQueueBackend",
     "FrontierCarryError",
     "PRIOR_CARRY_BATCH",

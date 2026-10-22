@@ -36,13 +36,16 @@ from dataclasses import replace
 import numpy as np
 
 from ..deck import BASES, NEC2_BASES
+from ..deck._nec5 import Nec5Structure, ends_on_nx, split_structures
 from . import _printout
 from ._nec4_printout import (
     FarFieldGround,
     Nec4Printout,
     Nec4Report,
     Nec4Run,
+    MoveRow,
     Preamble,
+    ScaleRow,
     SegmentRow,
     WireRow,
     render_nec4_printout,
@@ -82,12 +85,15 @@ _EPS0_PRINTED = 8.854e-12
 _SERVED_CARDS = frozenset(
     {"GN", "GD", "FR", "EX", "LD", "TL", "NT", "PQ", "RP", "NE", "NH", "XQ", "EN", "EK"}
 )
-_SERVED_GEOMETRY = frozenset({"GW", "GE"})
+_SERVED_GEOMETRY = frozenset({"GW", "GS", "GM", "GE"})
 
 # The pattern request forms captured: XNDA 1000 (a cut) and 1001 (the 3-D
 # grid, with its average-gain trailer), RP mode 0, at no range or at one
-# (the range form, momwire#1463: `_at_range`).
-_SERVED_XNDA = frozenset({1000, 1001})
+# (the range form, momwire#1463: `_at_range`).  1002 (the trailer and no
+# rows), 1003 (1001's printout), 1010 and 1011 (DIRECTIVE gains in the rows,
+# the trailer still a power gain) print as NEC-5's do for the same XNDA, in
+# the same row builder (probes p33-p36, momwire#1592).
+_SERVED_XNDA = frozenset({1000, 1001, 1002, 1003, 1010, 1011})
 
 # A GD card's leading integer, as the one captured value prints it.
 _GD_KIND = {2: "CIRCLE CLIFF"}
@@ -133,11 +139,85 @@ def render(text: str, *, basis: str) -> str:
     refused = basis_refusal(basis)
     if refused is not None:
         return _printout.render_refusal(text, refused, basis=basis, dialect="nec4")
+    structures = split_structures(text)
+    if structures is not None:
+        return _render_chain(structures, basis=basis)
+    printout, _seconds = render_structure(text, basis=basis)
+    return printout
+
+
+def render_structure(
+    text: str,
+    *,
+    basis: str,
+    echo_text: str | None = None,
+    closing: bool = True,
+    run_seconds: float = 0.0,
+) -> tuple[str, float | None]:
+    """One structure's printout and the seconds its solve took, ``None`` for
+    a refusal (which ends a chain).
+
+    ``text`` is SOLVED; ``echo_text`` is what the printout echoes when it is
+    not the same (a structure an ``NX`` closed is solved as the standalone
+    deck its body makes and echoed with the ``NX`` it arrived with, as the
+    NEC-5 slot's chain is, momwire#1592).  ``closing=False`` leaves out the
+    ``RUN TIME`` trailer; with it, ``run_seconds`` is added to this
+    structure's own, so the last structure of a chain carries the whole
+    chain's.
+    """
+    echo = text if echo_text is None else echo_text
+    refused = basis_refusal(basis)
+    if refused is not None:
+        return _printout.render_refusal(
+            echo, refused, basis=basis, dialect="nec4"
+        ), None
     try:
         data = solve(text, basis=basis)
     except Nec4Refusal as exc:
-        return _printout.render_refusal(text, str(exc), basis=basis, dialect="nec4")
-    return render_nec4_printout(text, data, basis=basis)
+        return _printout.render_refusal(
+            echo, str(exc), basis=basis, dialect="nec4"
+        ), None
+    seconds = data.run_seconds
+    data = replace(data, run_seconds=seconds + run_seconds)
+    return render_nec4_printout(echo, data, basis=basis, closing=closing), seconds
+
+
+def _render_chain(structures: list[Nec5Structure], *, basis: str) -> str:
+    """An ``NX``-chained deck's printout (momwire#1592): each structure's own
+    printout in turn, as the NEC-5 slot lays a chain out
+    (:func:`momwire.eznec._shell._render_chain`).
+
+    SimNEC's batch and stream modes queue several runs into one engine call
+    with ``NX`` between them, and read each run's printout up to its ``NX``
+    echo.  Every structure starts from scratch, so each is solved as the
+    standalone deck its body makes; each prints in full, header included,
+    ends on its ``NX`` echo, and only the last carries ``RUN TIME`` (the
+    chain's).  A structure that refuses ends the chain there with its own
+    refusal printout, after the structures that solved.
+
+    No NEC-4.2 printout of a chain has been captured: the layout between
+    structures is the NEC-5 one, and inside each structure it is this
+    slot's own.  Before momwire#1592 the whole chain was handed to the
+    one-deck path, whose reader stops at the first ``NX`` while its echo
+    counted every execute card up to ``EN``, and the deck refused as
+    ``N execute cards against 1 execute runs``.
+    """
+    printouts: list[str] = []
+    seconds = 0.0
+    for k, structure in enumerate(structures):
+        last = k == len(structures) - 1 and not ends_on_nx(structure)
+        printout, took = render_structure(
+            structure.deck_text,
+            basis=basis,
+            echo_text=structure.echo_text,
+            closing=last,
+            run_seconds=seconds,
+        )
+        printouts.append(printout)
+        if took is None:
+            break
+        seconds += took
+    return "".join(printouts)
 
 
 def _unmeasured(what: str) -> str:
@@ -216,15 +296,62 @@ def _served_table(card) -> None:
         raise Nec4Refusal(_unmeasured("RP at a negative range"))
 
 
+def _served_geometry(deck) -> None:
+    """:class:`Nec4Refusal` for a geometry deck no NEC-4.2 printout shows.
+
+    Measured (p38, p39 and four more ``GM`` probes, momwire#1592): ``GW``
+    cards, then at most one ``GM``, then at most one ``GS`` scaling the
+    whole structure.  A ``GW`` after either, a ``GM`` after a ``GS``, a
+    second of either, and ``GS``'s tag-range form (xnec2c's) have no
+    printout, and refuse by name.
+    """
+    seen: list[str] = []
+    for card in deck.geometry:
+        m = card.mnemonic
+        if m not in _SERVED_GEOMETRY:
+            raise Nec4Refusal(_unmeasured(f"the {m} geometry card"))
+        if m == "GS" and (card.i(0) or card.i(1)):
+            raise Nec4Refusal(_unmeasured("GS scaling a range of tags"))
+        if m in ("GS", "GM") and m in seen:
+            raise Nec4Refusal(_unmeasured(f"a second {m} card"))
+        if m == "GW" and ("GS" in seen or "GM" in seen):
+            raise Nec4Refusal(_unmeasured("a GW card after a GS or GM card"))
+        if m == "GM" and "GS" in seen:
+            raise Nec4Refusal(_unmeasured("a GM card after a GS card"))
+        seen.append(m)
+
+
+def _a_new_frequency(cards, previous: int, number: int) -> bool:
+    """Whether the cards after one run's execute card (echo ``previous``)
+    through the next one's (echo ``number``) are a new frequency and nothing
+    else the matrix depends on: an ``FR``, with only sources and requests
+    beside it.
+
+    That is the NEC-5 program reading's later run
+    (:func:`~momwire.eznec._serve.split_sequence`, the same card set), and
+    the shape probe p37 (Dan AC6LA's ``FR / EX / XQ / FR / RP``) measures on
+    NEC-4.2: the run at the new ``FR`` prints every frequency's whole block,
+    FREQUENCY to pattern, after its card echo (momwire#1592).  A ground,
+    load or network card between the runs has no NEC-4.2 printout.
+    """
+    from ._serve import _SEQUENCE_CARDS
+
+    between = [c.mnemonic for c in cards[previous:number]]
+    return "FR" in between and all(m in _SEQUENCE_CARDS for m in between)
+
+
 def _served_shape(text: str, deck, echo_at, further) -> list[tuple[int, object]]:
     """``(group index, group)`` for every run the deck executes, or
     :class:`Nec4Refusal` for a shape no NEC-4.2 printout shows.
 
-    Two multi-run shapes are measured: one execute card over an ``FR`` sweep
-    (p2) and several execute cards at one frequency, each after the first
-    changing only the sources (p8).  A later run that refills the matrix (a
-    new ``FR``, ``GN`` or load between execute cards), or a sweep with more
-    than one execute card, is unmeasured.
+    Three multi-run shapes are measured: one execute card over an ``FR``
+    sweep (p2); several execute cards at one frequency, each after the first
+    changing only the sources (p8); and a later run at a new ``FR``, a sweep
+    or one frequency, with only sources and requests beside it
+    (:func:`_a_new_frequency`, p37: Dan AC6LA's ``FR / EX / XQ / FR / RP``,
+    the NEC-5 program reading's order).  A later run that refills the matrix
+    otherwise (a ``GN`` or load between execute cards), or a sweep with a
+    run after it, is unmeasured.
 
     A further ``RP``/``NE``/``NH`` card of a run (:func:`_further_tables`) is
     measured at one frequency (p20-p28).  After a sweep it is not, and
@@ -234,9 +361,7 @@ def _served_shape(text: str, deck, echo_at, further) -> list[tuple[int, object]]
     fixtures), a layout this printout does not lay out.  Both refuse by
     name: a table left out with nothing said is momwire#1463's fault.
     """
-    for card in deck.geometry:
-        if card.mnemonic not in _SERVED_GEOMETRY:
-            raise Nec4Refusal(_unmeasured(f"the {card.mnemonic} geometry card"))
+    _served_geometry(deck)
     for card in deck.data_cards:
         if card.mnemonic not in _SERVED_CARDS:
             raise Nec4Refusal(_unmeasured(f"the {card.mnemonic} card"))
@@ -246,14 +371,21 @@ def _served_shape(text: str, deck, echo_at, further) -> list[tuple[int, object]]
     if not runs:
         raise Nec4Refusal(_unmeasured("a deck with no execute card"))
     if len(runs) > 1:
-        if any(len(g.freqs_mhz) != 1 for _i, g in runs):
+        if any(len(g.freqs_mhz) != 1 for _i, g in runs[:-1]):
             raise Nec4Refusal(
                 _unmeasured("several execute cards over a frequency sweep")
             )
-        if any(g.refilled or g.refilled_partial for _i, g in runs[1:]):
-            raise Nec4Refusal(
-                _unmeasured("a later execute card after a card that refills the matrix")
-            )
+        cards = _printout._post_ge_cards(text)
+        for k in range(1, len(runs)):
+            index, group = runs[k]
+            if not (group.refilled or group.refilled_partial):
+                continue
+            if not _a_new_frequency(cards, echo_at[runs[k - 1][0]], echo_at[index]):
+                raise Nec4Refusal(
+                    _unmeasured(
+                        "a later execute card after a card that refills the matrix"
+                    )
+                )
     gd_at = [
         i
         for i, card in enumerate(_printout._post_ge_cards(text), start=1)
@@ -326,7 +458,10 @@ def solve(text: str, *, basis: str) -> Nec4Printout:
                         records,
                         connections,
                         echo_through=echo_at[index] if step == 0 else None,
-                        preamble=count == 0,
+                        # A run at a new FR prints every frequency's
+                        # preamble, as the first run does (p37); a run that
+                        # changes only the sources prints none (p8).
+                        preamble=count == 0 or group.refilled,
                     )
                 )
             # One frequency here (`_served_shape`), so `records` is the run
@@ -533,11 +668,34 @@ def _connections(solver, deck) -> list[tuple[int, int]]:
 # --------------------------------------------------------------------------
 
 
-def _wire_rows(deck) -> tuple[WireRow, ...]:
-    rows = []
+def _wire_rows(deck) -> tuple[WireRow | ScaleRow | MoveRow, ...]:
+    """The wire table in card order: each ``GW``'s row as written, and the
+    lines a ``GS`` or ``GM`` card prints where it stands (p38, p39).  The
+    rows stay as written, before any card moves or scales them, and a
+    ``GM``'s copies print no rows of their own; :func:`_served_geometry`
+    keeps the order to the one the printouts show."""
+    rows: list[WireRow | ScaleRow | MoveRow] = []
     first = 1
-    gw = [c for c in deck.geometry if c.mnemonic == "GW"]
-    for number, card in enumerate(gw, start=1):
+    number = 0
+    for card in deck.geometry:
+        if card.mnemonic == "GS":
+            rows.append(ScaleRow(card.f(2)))
+            continue
+        if card.mnemonic == "GM":
+            rows.append(
+                MoveRow(
+                    card.i(0),
+                    card.i(1),
+                    (card.f(2), card.f(3), card.f(4)),
+                    (card.f(5), card.f(6), card.f(7)),
+                    int(card.f(8) + 0.5),
+                    first - 1,
+                )
+            )
+            continue
+        if card.mnemonic != "GW":
+            continue
+        number += 1
         n_seg = card.i(1)
         rows.append(
             WireRow(
@@ -906,6 +1064,7 @@ def _pattern(card, result, freq_mhz: float, gd, medium: GroundMedium | None):
         result.p_in,
         ground_z=result.ground_z or 0.0,
         cliff=cliff,
+        p_radiated=result.p_radiated,
     )
     range_m = card.f(8)
     if range_m == 0.0:

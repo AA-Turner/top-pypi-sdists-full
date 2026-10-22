@@ -3,14 +3,15 @@
 from collections import Counter
 from typing import Annotated, Self
 
-from pydantic import AfterValidator, Field, model_validator
+from pydantic import AfterValidator, Field, PositiveFloat, model_validator
 
+from ..base import round_float
 from ..conformers import ConformerProperties, ConformerSearchMixin, iMTDSettings
 from ..method import Method
 from ..molecule import Molecule
 from ..settings import Settings
 from ..task import Task
-from ..types import UUID, FloatPerAtom, round_float_per_atom
+from ..types import UUID, FloatPerAtom, round_float_per_atom, round_list
 from .multistage_opt import MultiStageOptSettings
 from .workflow import MoleculeWorkflow, SMILESWorkflow
 
@@ -26,12 +27,15 @@ class ConformerSearchWorkflow(ConformerSearchMixin, SMILESWorkflow, MoleculeWork
         initial_smiles: SMILES of the molecule of interest
         conf_gen_settings: settings for conformer generation
         multistage_opt_settings: multi-stage optimization settings
+        weighting_temperature: temperature for the conformer populations and their free-energy corrections (K)
 
         initial_conformers: input conformers (if no conformer-generation is requested)
         conformer_uuids: list of UUIDs of the Molecules generated
         energies: energies of the molecules
-        conformer_properties: each conformer's properties
-        ensemble_properties: overall ensemble's properties
+        boltzmann_weights: conformer populations at `weighting_temperature`; from free energies when every conformer
+            has frequencies, else from ground-state energies
+        conformer_properties: each conformer's properties, aligned with conformer_uuids
+        ensemble_properties: properties weighted by `boltzmann_weights`
     """
 
     multistage_opt_settings: MultiStageOptSettings = MultiStageOptSettings(
@@ -42,10 +46,12 @@ class ConformerSearchWorkflow(ConformerSearchMixin, SMILESWorkflow, MoleculeWork
     initial_smiles: str = ""
     initial_molecule: Molecule | None = None
     initial_conformers: list[Molecule] = []
+    weighting_temperature: Annotated[PositiveFloat, AfterValidator(round_float(3))] = 298.15
 
     # Results
     conformer_uuids: list[list[UUID | None]] = Field(default_factory=list)
     energies: Annotated[FloatPerAtom, AfterValidator(round_float_per_atom(6))] = Field(default_factory=list)
+    boltzmann_weights: Annotated[list[float], AfterValidator(round_list(6))] = Field(default_factory=list)
 
     conformer_properties: list[ConformerProperties] = []
     ensemble_properties: ConformerProperties | None = None

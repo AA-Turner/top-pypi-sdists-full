@@ -5,27 +5,69 @@ from typing import Annotated, Literal, Self, Sequence
 
 from pydantic import AfterValidator, BaseModel, Field, NonNegativeFloat, PositiveFloat, PositiveInt, field_validator, model_validator
 
-from .base import LowercaseStrEnum, round_float
+from .base import LowercaseStrEnum, round_float, round_optional_float
 from .constraint import Constraint
 from .method import Method, XTBMethod
 from .mode import Mode
 from .settings import Settings
 from .solvent import SolventModel, SolventSettings
+from .types import FloatPerAtom, round_list, round_optional_float_per_atom
 from .workflows.multistage_opt import MultiStageOptMixin
 
 
 class ConformerProperties(BaseModel):
-    """Descriptors of a conformer's properties.
+    """Properties of a conformer or of a population-weighted conformer ensemble.
 
     Attributes:
-        solvent_accessible_surface_area: average SASA (Å²)
-        polar_solvent_accessible_surface_area: average SASA for non-C/H elements (Å²)
-        radius_of_gyration: radius of gyration (Å)
+        solvent_accessible_surface_area: SASA (Å²); ensemble: averaged
+        polar_solvent_accessible_surface_area: SASA of non-C/H atoms (Å²); ensemble: averaged
+        radius_of_gyration: radius of gyration (Å); ensemble: averaged
+        dipole: dipole magnitude about the center of mass (Debye); ensemble: root-mean-square
+        mulliken_charges: partial atomic charges (e); ensemble only: averaged per atom
+        excitation_energies: excitation energies (Hartree); ensemble only: every conformer's, unweighted
+        oscillator_strengths: oscillator strengths, parallel to `excitation_energies`; ensemble only: each weighted
+        rotatory_strengths: ECD rotatory strengths (10⁻⁴⁰ esu²·cm²), parallel to `excitation_energies`; ensemble only: each weighted
+        vibrational_frequencies: real vibrational frequencies (cm⁻¹); ensemble only: every conformer's, unweighted
+        ir_intensities: IR intensities (km/mol), parallel to `vibrational_frequencies`; ensemble only: each weighted
     """
 
-    solvent_accessible_surface_area: Annotated[PositiveFloat, AfterValidator(round_float(3))]
-    polar_solvent_accessible_surface_area: Annotated[NonNegativeFloat, AfterValidator(round_float(3))]
-    radius_of_gyration: Annotated[PositiveFloat, AfterValidator(round_float(3))]
+    solvent_accessible_surface_area: Annotated[PositiveFloat | None, AfterValidator(round_optional_float(3))] = None
+    polar_solvent_accessible_surface_area: Annotated[NonNegativeFloat | None, AfterValidator(round_optional_float(3))] = None
+    radius_of_gyration: Annotated[PositiveFloat | None, AfterValidator(round_optional_float(3))] = None
+    dipole: Annotated[NonNegativeFloat | None, AfterValidator(round_optional_float(3))] = None
+    mulliken_charges: Annotated[FloatPerAtom | None, AfterValidator(round_optional_float_per_atom(6))] = None
+
+    excitation_energies: Annotated[list[float] | None, AfterValidator(round_list(6))] = None
+    oscillator_strengths: Annotated[list[float] | None, AfterValidator(round_list(6))] = None
+    rotatory_strengths: Annotated[list[float] | None, AfterValidator(round_list(4))] = None
+
+    vibrational_frequencies: Annotated[list[float] | None, AfterValidator(round_list(3))] = None
+    ir_intensities: Annotated[list[float] | None, AfterValidator(round_list(3))] = None
+
+    @model_validator(mode="after")
+    def check_spectrum_lengths(self) -> Self:
+        """Require spectral intensities to be parallel to their line positions.
+
+        Raises:
+            ValueError: intensities lack positions or differ from them in length
+        """
+        spectra = {
+            "excitation_energies": (
+                self.excitation_energies,
+                {"oscillator_strengths": self.oscillator_strengths, "rotatory_strengths": self.rotatory_strengths},
+            ),
+            "vibrational_frequencies": (self.vibrational_frequencies, {"ir_intensities": self.ir_intensities}),
+        }
+        for positions_name, (positions, intensities) in spectra.items():
+            for name, values in intensities.items():
+                if values is None:
+                    continue
+                if positions is None:
+                    raise ValueError(f"{name} requires {positions_name}")
+                if len(values) != len(positions):
+                    raise ValueError(f"{positions_name} ({len(positions)}) and {name} ({len(values)}) must have the same length")
+
+        return self
 
 
 class ConformerClusteringDescriptor(LowercaseStrEnum):

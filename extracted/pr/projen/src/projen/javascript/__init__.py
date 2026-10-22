@@ -22223,6 +22223,7 @@ class TypescriptConfig(
         extends: typing.Optional["TypescriptConfigExtends"] = None,
         file_name: typing.Optional[builtins.str] = None,
         include: typing.Optional[typing.Sequence[builtins.str]] = None,
+        references: typing.Optional[typing.Sequence[typing.Union["TypescriptConfigReference", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param project: -
@@ -22231,6 +22232,7 @@ class TypescriptConfig(
         :param extends: (experimental) Base ``tsconfig.json`` configuration(s) to inherit from.
         :param file_name: Default: "tsconfig.json"
         :param include: (experimental) Specifies a list of glob patterns that match TypeScript files to be included in compilation. Default: - all .ts files recursively
+        :param references: (experimental) Explicit TypeScript project references. References are not inherited through ``extends``. An empty array is preserved. Referenced projects must enable ``composite`` in their compiler options. Default: - no project references
 
         :stability: experimental
         '''
@@ -22243,6 +22245,7 @@ class TypescriptConfig(
             extends=extends,
             file_name=file_name,
             include=include,
+            references=references,
         )
 
         jsii.create(self.__class__, self, [project, options])
@@ -22455,6 +22458,7 @@ class TypescriptConfigExtends(
         "extends": "extends",
         "file_name": "fileName",
         "include": "include",
+        "references": "references",
     },
 )
 class TypescriptConfigOptions:
@@ -22466,6 +22470,7 @@ class TypescriptConfigOptions:
         extends: typing.Optional["TypescriptConfigExtends"] = None,
         file_name: typing.Optional[builtins.str] = None,
         include: typing.Optional[typing.Sequence[builtins.str]] = None,
+        references: typing.Optional[typing.Sequence[typing.Union["TypescriptConfigReference", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param compiler_options: (experimental) Compiler options to use.
@@ -22473,6 +22478,7 @@ class TypescriptConfigOptions:
         :param extends: (experimental) Base ``tsconfig.json`` configuration(s) to inherit from.
         :param file_name: Default: "tsconfig.json"
         :param include: (experimental) Specifies a list of glob patterns that match TypeScript files to be included in compilation. Default: - all .ts files recursively
+        :param references: (experimental) Explicit TypeScript project references. References are not inherited through ``extends``. An empty array is preserved. Referenced projects must enable ``composite`` in their compiler options. Default: - no project references
 
         :stability: experimental
         '''
@@ -22485,6 +22491,7 @@ class TypescriptConfigOptions:
             check_type(argname="argument extends", value=extends, expected_type=type_hints["extends"])
             check_type(argname="argument file_name", value=file_name, expected_type=type_hints["file_name"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
+            check_type(argname="argument references", value=references, expected_type=type_hints["references"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if compiler_options is not None:
             self._values["compiler_options"] = compiler_options
@@ -22496,6 +22503,8 @@ class TypescriptConfigOptions:
             self._values["file_name"] = file_name
         if include is not None:
             self._values["include"] = include
+        if references is not None:
+            self._values["references"] = references
 
     @builtins.property
     def compiler_options(self) -> typing.Optional["TypeScriptCompilerOptions"]:
@@ -22549,6 +22558,21 @@ class TypescriptConfigOptions:
         result = self._values.get("include")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
+    @builtins.property
+    def references(self) -> typing.Optional[typing.List["TypescriptConfigReference"]]:
+        '''(experimental) Explicit TypeScript project references.
+
+        References are not inherited through ``extends``. An empty array is preserved.
+        Referenced projects must enable ``composite`` in their compiler options.
+
+        :default: - no project references
+
+        :see: https://www.typescriptlang.org/docs/handbook/project-references.html
+        :stability: experimental
+        '''
+        result = self._values.get("references")
+        return typing.cast(typing.Optional[typing.List["TypescriptConfigReference"]], result)
+
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -22557,6 +22581,51 @@ class TypescriptConfigOptions:
 
     def __repr__(self) -> str:
         return "TypescriptConfigOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="projen.javascript.TypescriptConfigReference",
+    jsii_struct_bases=[],
+    name_mapping={"path": "path"},
+)
+class TypescriptConfigReference:
+    def __init__(self, *, path: builtins.str) -> None:
+        '''(experimental) A reference to another TypeScript project.
+
+        :param path: (experimental) Path to a directory containing ``tsconfig.json``, or to a configuration file. Relative paths are resolved from the referencing configuration file's directory. Backslashes are converted to forward slashes. Absolute paths are not rebased.
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d8b1e1d1703b9f0abf0ccc7911728f20de08364754c047bfd623e04b173bb3e6)
+            check_type(argname="argument path", value=path, expected_type=type_hints["path"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "path": path,
+        }
+
+    @builtins.property
+    def path(self) -> builtins.str:
+        '''(experimental) Path to a directory containing ``tsconfig.json``, or to a configuration file.
+
+        Relative paths are resolved from the referencing configuration file's directory.
+        Backslashes are converted to forward slashes. Absolute paths are not rebased.
+
+        :stability: experimental
+        '''
+        result = self._values.get("path")
+        assert result is not None, "Required property 'path' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TypescriptConfigReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -29940,6 +30009,7 @@ __all__ = [
     "TypescriptConfig",
     "TypescriptConfigExtends",
     "TypescriptConfigOptions",
+    "TypescriptConfigReference",
     "UpdateSnapshot",
     "UpgradeDependencies",
     "UpgradeDependenciesOptions",
@@ -32026,6 +32096,7 @@ def _typecheckingstub__bdd8e9cd126102b8184e52538d49523cef64724ec6ad410a5e2d5169e
     extends: typing.Optional[TypescriptConfigExtends] = None,
     file_name: typing.Optional[builtins.str] = None,
     include: typing.Optional[typing.Sequence[builtins.str]] = None,
+    references: typing.Optional[typing.Sequence[typing.Union[TypescriptConfigReference, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -32085,6 +32156,14 @@ def _typecheckingstub__f928658806d66c2cd4f3977b17ae3d10092cf4b9afb10e736c01729b7
     extends: typing.Optional[TypescriptConfigExtends] = None,
     file_name: typing.Optional[builtins.str] = None,
     include: typing.Optional[typing.Sequence[builtins.str]] = None,
+    references: typing.Optional[typing.Sequence[typing.Union[TypescriptConfigReference, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d8b1e1d1703b9f0abf0ccc7911728f20de08364754c047bfd623e04b173bb3e6(
+    *,
+    path: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

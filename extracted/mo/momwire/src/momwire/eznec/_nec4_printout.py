@@ -73,6 +73,8 @@ __all__ = [
     "Preamble",
     "SegmentRow",
     "SegmentValueRow",
+    "MoveRow",
+    "ScaleRow",
     "WireRow",
     "render_nec4_printout",
     "value_row",
@@ -91,6 +93,33 @@ class WireRow:
     first: int
     last: int
     tag: int
+
+
+@dataclass(frozen=True)
+class ScaleRow:
+    """A ``GS`` card's line in the wire table, in card order (probes p38,
+    and ``GM`` then ``GS``, momwire#1592): the factor, F10.5."""
+
+    factor: float
+
+
+@dataclass(frozen=True)
+class MoveRow:
+    """A ``GM`` card's two lines in the wire table, in card order (p39).
+
+    The card's tag increment and copy count, its three rotations and three
+    translations as written, its ``ITS`` field, and the segment count of the
+    structure the card moves.  Two integers between ``ITS`` and that count
+    print as 1 and 0 in every NEC-4.2 printout probed (p39 and four more
+    ``GM`` probes varying every field, momwire#1592), and are printed so.
+    """
+
+    tag_increment: int
+    copies: int
+    rotation_deg: tuple[float, float, float]
+    translation: tuple[float, float, float]
+    first_tag: int
+    segments: int
 
 
 @dataclass(frozen=True)
@@ -221,7 +250,9 @@ class Nec4Report:
 class Nec4Printout:
     """Everything a NEC-4.2 printout prints that the deck text does not."""
 
-    wires: tuple[WireRow, ...]
+    # The wire table's rows in card order: a ``GW``'s row, or the lines a
+    # ``GS`` or ``GM`` card prints among them.
+    wires: tuple[WireRow | ScaleRow | MoveRow, ...]
     ge_flag: int
     total_segments: int
     # One tuple of signed segment numbers per multiple-wire junction.
@@ -315,6 +346,22 @@ _STRUCTURE_GAP = _printout._STRUCTURE_GAP
 # --------------------------------------------------------------------------
 
 
+def _structure_rows(row: WireRow | ScaleRow | MoveRow) -> list[str]:
+    """One entry of the wire table: a wire's row, or a ``GS``/``GM`` card's
+    lines (probes p38, p39), 6X then the words, and for ``GM`` 4X, two I5,
+    six F10.5 and four I5."""
+    if isinstance(row, ScaleRow):
+        return [f"      STRUCTURE SCALED BY FACTOR{row.factor:10.5f}"]
+    if isinstance(row, MoveRow):
+        numbers = "".join(f"{v:10.5f}" for v in (*row.rotation_deg, *row.translation))
+        return [
+            "      THE STRUCTURE HAS BEEN MOVED, GM COMMAND DATA IS -",
+            f"    {row.tag_increment:5d}{row.copies:5d}{numbers}"
+            f"{row.first_tag:5d}{1:5d}{0:5d}{row.segments:5d}",
+        ]
+    return [_wire_row(row)]
+
+
 def _wire_row(row: WireRow) -> str:
     """I6, three F11.5, an F12.5 and two F11.5, the radius F11.5, then the
     segment count I7, FIRST I9, LAST I6 and the tag I8 (0234, 0235)."""
@@ -399,7 +446,11 @@ def _value_row(row: SegmentValueRow) -> str:
 
 def _structure(data: Nec4Printout) -> list[str]:
     lines = [_printout._STRUCTURE_HEADING, "", *_printout._COORDINATE_NOTE, "", ""]
-    lines += [*_WIRE_COLUMNS, *(_wire_row(w) for w in data.wires), ""]
+    lines += [
+        *_WIRE_COLUMNS,
+        *(ln for w in data.wires for ln in _structure_rows(w)),
+        "",
+    ]
     if data.ge_flag != 0:
         lines += [_GROUND_PLANE, ""]
     if data.ge_flag > 0:
@@ -586,7 +637,11 @@ def _echo(index: int, card) -> list[str]:
 
 
 def render_nec4_printout(
-    deck_text: str, data: Nec4Printout, *, basis: str | None = None
+    deck_text: str,
+    data: Nec4Printout,
+    *,
+    basis: str | None = None,
+    closing: bool = True,
 ) -> str:
     """A complete NEC-4.2 printout: the header, then everything to ``RUN TIME``.
 
@@ -594,9 +649,13 @@ def render_nec4_printout(
     post-``GE`` card images, ``EN`` last and after the results, exactly as in
     NEC-5's); ``data`` every number the runs produced.  ``basis`` reaches line
     2's engine stamp and nothing else.
+
+    In an ``NX``-chained deck the terminator's slot holds the ``NX`` echo,
+    and ``closing=False`` drops the ``RUN TIME`` trailer of every structure
+    but the last (momwire#1592), as the NEC-5 printout's chain does.
     """
     cards = _printout._post_ge_cards(deck_text)
-    terminator = cards[-1] if cards and cards[-1].mnemonic == "EN" else None
+    terminator = _printout._terminator(cards)
     numbered = [(i, c) for i, c in enumerate(cards, start=1) if c is not terminator]
     gap = _printout._blank
     body: list[str] = []
@@ -620,13 +679,19 @@ def render_nec4_printout(
                 for line in _echo(i, c)
             ]
             echoed = run.echo_through
-            body += [*block, *gap(_STRUCTURE_GAP if index == 0 else _SECTION_GAP)]
+            # A run that opens with its FREQUENCY block stands as far below
+            # its echo as the first run does, a later run at a new FR
+            # included (p37, momwire#1592); a run without one, a section's
+            # gap (p8).
+            opens = index == 0 or getattr(run, "preamble", None) is not None
+            body += [*block, *gap(_STRUCTURE_GAP if opens else _SECTION_GAP)]
         body += _tables(run) if isinstance(run, Nec4Report) else _run(run)
     body.append("")
     body += [line for i, c in numbered[echoed:] for line in _echo(i, c)]
     if terminator is not None:
         body.append(_printout._card_echo(len(cards), terminator))
-    body += ["", f"{_printout._RUN_TIME_LABEL}{data.run_seconds:10.3f}"]
+    if closing:
+        body += ["", f"{_printout._RUN_TIME_LABEL}{data.run_seconds:10.3f}"]
     header = _printout.render_header(deck_text, basis=basis, dialect="nec4")
     return header + "\n".join(body) + "\n"
 

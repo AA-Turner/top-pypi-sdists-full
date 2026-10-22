@@ -17,9 +17,8 @@ from tentaclio.streams.stream_client_handler import StreamURLHandler
 
 from .clients.s3_client import *  # noqa
 
-
 # s3 buckets
-STREAM_HANDLER_REGISTRY.register("s3", StreamURLHandler(S3Client))  # type: ignore
-SCANNER_REGISTRY.register("s3", ClientDirScanner(S3Client))  # type: ignore
-COPIER_REGISTRY.register("s3+s3", S3Client("s3://"))  # type: ignore
-REMOVER_REGISTRY.register("s3", ClientRemover(S3Client))  # type: ignore
+STREAM_HANDLER_REGISTRY.register("s3", StreamURLHandler(S3Client))
+SCANNER_REGISTRY.register("s3", ClientDirScanner(S3Client))
+COPIER_REGISTRY.register("s3+s3", S3Client("s3://"))
+REMOVER_REGISTRY.register("s3", ClientRemover(S3Client))

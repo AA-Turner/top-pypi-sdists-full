@@ -41,8 +41,10 @@ from momwire.eznec._nec4_printout import (
     FarFieldGround,
     Nec4Printout,
     Nec4Report,
+    MoveRow,
     Nec4Run,
     Preamble,
+    ScaleRow,
     SegmentRow,
     SegmentValueRow,
     WireRow,
@@ -66,7 +68,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "eznec_nec42"
 PRINTOUTS = FIXTURES / "printouts"
 PROBES_DIR = FIXTURES / "probes"
 MULTI_DIR = FIXTURES / "multisource"
-# The seventeen decks EZNEC wrote, and thirty-two probe decks written to show
+# The seventeen decks EZNEC wrote, and the probe decks written to show
 # NEC-4.2's layout of what EZNEC's captures did not (README beside them).
 CAPTURES = tuple(sorted(p.name[:4] for p in FIXTURES.glob("*.nec")))
 PROBES = tuple(sorted(p.name.split("_")[0] for p in PROBES_DIR.glob("*.nec")))
@@ -162,7 +164,7 @@ def _unstamped(text: str) -> list[str]:
 def test_the_fixtures_pair_each_deck_with_its_printout():
     """One printout per deck, and each echoes its own deck's comment block —
     the stamp EZNEC checks a printout's age by."""
-    assert len(CAPTURES) == 17 and len(PROBES) == 32 and MULTI == ("m1", "m2")
+    assert len(CAPTURES) == 17 and len(PROBES) == 43 and MULTI == ("m1", "m2")
     assert sorted(p.name.split("_")[0] for p in PRINTOUTS.glob("*.out")) == sorted(
         CASES
     )
@@ -393,6 +395,10 @@ def _pattern(lines: list[str]) -> tuple[PatternBlock, ...]:
                 cell.split("AT PHASE")[1].split()[0]
             )
             first = start + 9
+    # XNDA's D digit (1010, 1011; momwire#1592): the gains column heading
+    # names DIRECTIVE gains.
+    if any("- DIRECTIVE GAINS -" in ln for ln in lines[start:first]):
+        ranged["directive"] = True
     rows = []
     for line in _rows_after(lines, first):
         c = _cells(line, _PATTERN_EDGES)
@@ -566,7 +572,27 @@ def parse_printout(deck: str, text: str) -> Nec4Printout:
     lines = text.split("\n")
     wires_at = next(i for i, ln in enumerate(lines) if ln.startswith("  NO.        X1"))
     wires = []
-    for line in _rows_after(lines, wires_at + 1):
+    table = _rows_after(lines, wires_at + 1)
+    for k, line in enumerate(table):
+        # A GS or GM card's lines among the wire rows (p38-p43, momwire#1592).
+        if line.startswith("      STRUCTURE SCALED BY FACTOR"):
+            wires.append(ScaleRow(float(line.split()[-1])))
+            continue
+        if line.startswith("      THE STRUCTURE HAS BEEN MOVED"):
+            v = table[k + 1].split()
+            wires.append(
+                MoveRow(
+                    int(v[0]),
+                    int(v[1]),
+                    (float(v[2]), float(v[3]), float(v[4])),
+                    (float(v[5]), float(v[6]), float(v[7])),
+                    int(v[8]),
+                    int(v[11]),
+                )
+            )
+            continue
+        if k and table[k - 1].startswith("      THE STRUCTURE HAS BEEN MOVED"):
+            continue
         c = _cells(line, _WIRE_EDGES)
         wires.append(
             WireRow(
@@ -1121,14 +1147,44 @@ def _edited(capture: str, old: str, new: str) -> str:
             id="sweep-and-two-runs",
         ),
         pytest.param(
-            _edited("0233", "XQ 0", "XQ 0\r\nFR 0,1,0,0,14.,0.\r\nXQ 0"),
+            _edited("0233", "XQ 0", "XQ 0\r\nLD 4,1,3,0,10.,0.\r\nXQ 0"),
             "a later execute card after a card that refills the matrix",
             id="refill-between-runs",
+        ),
+        pytest.param(
+            # A new FR is served (p37); a load beside it is not.
+            _edited(
+                "0233", "XQ 0", "XQ 0\r\nFR 0,1,0,0,14.,0.\r\nLD 4,1,3,0,10.,0.\r\nXQ 0"
+            ),
+            "a later execute card after a card that refills the matrix",
+            id="new-fr-and-a-load-between-runs",
+        ),
+        pytest.param(
+            # Measured: a sweep in the LAST run (p37); a sweep with a run
+            # after it is not.
+            _edited("p37", "RP 0 1 73 1000 0 0 0 5", "XQ\nFR 0 1 0 0 3.6 0\nXQ"),
+            "several execute cards over a frequency sweep",
+            id="a-run-after-a-sweep",
         ),
         pytest.param(
             _edited("0223", "RP 0,1,361,1000", "RP 0,1,361,0"),
             "RP with XNDA 0",
             id="xnda",
+        ),
+        pytest.param(
+            _edited("p39", "GE 0", "GW 9 3 1 0 0 1 1 0 0.001\nGE 0"),
+            "a GW card after a GS or GM card",
+            id="gw-after-gm",
+        ),
+        pytest.param(
+            _edited("p38", "GS 0 0 0.001", "GS 1 1 0.001"),
+            "GS scaling a range of tags",
+            id="gs-tag-range",
+        ),
+        pytest.param(
+            _edited("p43", "GS 0 0 2", "GS 0 0 2\nGM 1 1 0 0 0 0 0 5 0"),
+            "a second GM card",
+            id="second-gm",
         ),
         pytest.param(
             _edited("0230", "GD 2,", "GD 1,"),
@@ -1208,3 +1264,25 @@ def test_a_spherical_grid_into_the_soil_refuses_by_name():
     text = render(deck, basis=BASIS, dialect="nec4")
     assert " ***** NEC ERROR - NE asks for the field at (1.73205, 0, -1)" in text
     assert "below the finite ground" in text
+
+
+@pytest.mark.integration
+def test_dans_fr_xq_fr_rp_serves_through_the_slot(tmp_path):
+    """Dan AC6LA's program (momwire#1592, probe p37): one run at the first
+    ``FR``, then a whole block per frequency of the second, each with its
+    pattern, through the slot's process entry as EZNEC and SimNEC launch it.
+    The layout is gated against the licensed printout above; this pins the
+    run order and the frequencies."""
+    source, out = tmp_path / "EZ.NEC", tmp_path / "NEC.OUT"
+    source.write_bytes(deck_text("p37").encode("latin-1"))
+    assert _shell.main([str(source), str(out)], basis=BASIS, dialect="nec4") == 0
+    text = out.read_bytes().decode("latin-1")
+    assert "NEC ERROR" not in text
+    freqs = [
+        float(ln.split("=")[1].split()[0])
+        for ln in text.splitlines()
+        if ln.strip().startswith("FREQUENCY=")
+    ]
+    assert freqs == pytest.approx([3.68, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0])
+    assert text.count("- - - ANTENNA INPUT PARAMETERS - - -") == 7
+    assert text.count("- - - RADIATION PATTERNS - - -") == 6

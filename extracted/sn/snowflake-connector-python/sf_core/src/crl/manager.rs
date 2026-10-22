@@ -2,6 +2,7 @@ use crate::crl::cache::{BackgroundRefresher, CrlCache};
 use crate::crl::config::CrlConfig;
 use crate::crl::error::CrlError;
 use crate::crl::worker::{CrlWorker, SharedCrlWorker};
+use crate::tls::RootStoreSnapshot;
 use crate::utils::sync::MutexRecoverExt;
 use once_cell::sync::OnceCell;
 use std::fmt;
@@ -33,13 +34,21 @@ impl CrlManager {
         Arc::clone(&self.0.worker)
     }
 
-    /// Returns the cache for this manager. The first `config` wins. A later
-    /// call returns that cache and starts the refresher when it is not running.
-    pub fn cache(&self, config: CrlConfig) -> Result<Arc<CrlCache>, CrlError> {
+    pub(crate) fn has_cache(&self) -> bool {
+        self.0.cache.get().is_some()
+    }
+
+    /// Returns the cache for this manager. The first `config` and `roots` win.
+    /// A later call returns that cache and starts the refresher when it is not running.
+    pub(crate) fn cache(
+        &self,
+        config: CrlConfig,
+        roots: &RootStoreSnapshot<'_>,
+    ) -> Result<Arc<CrlCache>, CrlError> {
         let cache = self
             .0
             .cache
-            .get_or_try_init(|| CrlCache::open_cache(config))?;
+            .get_or_try_init(|| CrlCache::open_cache(config, roots))?;
         let mut slot = self.0.refresher.lock_recover();
         if slot.is_none() {
             *slot = CrlCache::spawn_background_refresher(Arc::clone(cache));
@@ -63,6 +72,7 @@ impl fmt::Debug for CrlManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tls::RootStoreProvider;
 
     fn memory_only() -> CrlConfig {
         CrlConfig {
@@ -81,14 +91,19 @@ mod tests {
     #[test]
     fn first_config_wins_and_starts_one_refresher() {
         let manager = CrlManager::new();
-        let first = manager.cache(memory_only()).expect("first cache");
+        let first = manager
+            .cache(memory_only(), &RootStoreProvider::new().snapshot())
+            .expect("first cache");
         first.wait_for_scheduler(true);
         let second = manager
-            .cache(CrlConfig {
-                enable_memory_caching: false,
-                enable_disk_caching: false,
-                ..CrlConfig::default()
-            })
+            .cache(
+                CrlConfig {
+                    enable_memory_caching: false,
+                    enable_disk_caching: false,
+                    ..CrlConfig::default()
+                },
+                &RootStoreProvider::new().snapshot(),
+            )
             .expect("second cache");
         assert!(Arc::ptr_eq(&first, &second));
         assert!(first.scheduler_is_published());
@@ -98,11 +113,14 @@ mod tests {
     fn disabled_caching_does_not_publish_a_scheduler() {
         let manager = CrlManager::new();
         let cache = manager
-            .cache(CrlConfig {
-                enable_memory_caching: false,
-                enable_disk_caching: false,
-                ..CrlConfig::default()
-            })
+            .cache(
+                CrlConfig {
+                    enable_memory_caching: false,
+                    enable_disk_caching: false,
+                    ..CrlConfig::default()
+                },
+                &RootStoreProvider::new().snapshot(),
+            )
             .expect("cache");
         assert!(!cache.scheduler_is_published());
     }
@@ -110,7 +128,9 @@ mod tests {
     #[test]
     fn last_manager_drop_joins_refresher_while_cache_remains() {
         let manager = CrlManager::new();
-        let cache = manager.cache(memory_only()).expect("cache");
+        let cache = manager
+            .cache(memory_only(), &RootStoreProvider::new().snapshot())
+            .expect("cache");
         cache.wait_for_scheduler(true);
         let clone = manager.clone();
         drop(manager);
@@ -122,13 +142,17 @@ mod tests {
     #[test]
     fn a_new_manager_starts_its_own_refresher() {
         let first = CrlManager::new();
-        let first_cache = first.cache(memory_only()).expect("first cache");
+        let first_cache = first
+            .cache(memory_only(), &RootStoreProvider::new().snapshot())
+            .expect("first cache");
         first_cache.wait_for_scheduler(true);
         drop(first);
         first_cache.wait_for_scheduler(false);
 
         let second = CrlManager::new();
-        let second_cache = second.cache(memory_only()).expect("second cache");
+        let second_cache = second
+            .cache(memory_only(), &RootStoreProvider::new().snapshot())
+            .expect("second cache");
         second_cache.wait_for_scheduler(true);
         assert!(!Arc::ptr_eq(&first_cache, &second_cache));
         drop(second);

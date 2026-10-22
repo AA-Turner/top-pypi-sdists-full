@@ -1020,10 +1020,17 @@ class UnifiedMessage:
         draft written INSIDE the model's thinking win over the real final
         answer during extraction. Reasoning is never output — read it via
         ``get_thinking()`` when you explicitly want it.
+
+        A tool CALL is not an answer either. ``ToolCallContent.get_output()``
+        serialises the call as JSON, and a run that stopped on a call (cut off,
+        cancelled, out of rounds) used to hand that JSON on as its "answer": a
+        parent agent got ``{"type": "tool_call", "call_id": ..., "name":
+        "shell_execute", ...}`` relayed as a helper's report (live 2026-10-21).
+        Read the calls from ``content`` when you need them.
         """
         parts: list[str] = []
         for content in self.content:
-            if isinstance(content, ThinkingContent):
+            if isinstance(content, ThinkingContent | ToolCallContent | WebSearchCallContent):
                 continue
             piece = content.get_output()
             if piece:
@@ -2266,6 +2273,13 @@ class MessageList:
                 **({"name": msg.name} if msg.name else {}),
                 **({"timestamp": msg.timestamp} if msg.timestamp else {}),
                 **({"metadata": msg.metadata} if msg.metadata else {}),
+                # The authorship record rides too — an EMPTY list (a host turn) included —
+                # or a direct send's stored row reads NULL and quotes the host as the person.
+                **(
+                    {"user_content": [content.to_dict() for content in msg.user_content]}
+                    if msg.user_content is not None
+                    else {}
+                ),
             }
             for msg in self._messages
         ]

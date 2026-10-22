@@ -78,7 +78,7 @@ def _orthonormal(model: Any) -> Any:
     return model.to(DEVICE).eval()
 
 
-class _Oracle(torch.nn.Module):
+class _Oracle(torch.nn.Module):  # type: ignore[name-defined,misc]
     """A draft that knows the model's continuation and gets every `miss`-th token wrong."""
 
     def __init__(self, model: Any, prompt: int, reference: Any, miss: int) -> None:
@@ -97,7 +97,7 @@ class _Oracle(torch.nn.Module):
         return self.rows[token] * 4
 
 
-class _Random(torch.nn.Module):
+class _Random(torch.nn.Module):  # type: ignore[name-defined,misc]
     """A Qwen3.5-style head of random weights: its drafts are almost never kept."""
 
     def __init__(self, model: Any) -> None:
@@ -192,6 +192,7 @@ def test_a_verify_pass_steps_its_tokens_as_decode_does(
         job = triton_kernels.job(lm.KERNELS, major * 10 + minor)
         assert kernel_compile.wait(store, job).state == "ready"
     launch = triton_kernels.ready(lm.KERNELS, device="cuda")
+    assert launch is not None
     monkeypatch.setattr(lm, "_STEPS", [launch])
     space = sys.modules["transformers.models.qwen3_5.modeling_qwen3_5"]
     verify = lm._Verify()
@@ -242,8 +243,7 @@ def test_a_head_that_does_not_fit_decodes_without_drafting(
     model = _qwen3_5()
     ids = torch.randint(10, 44, (1, 30), device=DEVICE)
     want = _reference(model, ids, 40, 0.0)
-    static = lm._static
-    monkeypatch.setattr(lm, "_static", lambda *a: None if a[-1] is not None else static(*a))
+    monkeypatch.setattr(lm._Engine, "_hold", lambda engine, _stack: engine.draft is None)
     WARNINGS.clear()
     got = lm.generate(
         model,
@@ -278,4 +278,4 @@ def test_a_head_attached_as_a_package_attaches_it_decodes_graphed() -> None:
         draft=draft,
     )
     assert torch.equal(got, want)
-    assert WARNINGS == []
+    assert not WARNINGS

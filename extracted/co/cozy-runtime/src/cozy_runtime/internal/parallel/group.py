@@ -19,10 +19,12 @@ import threading
 from collections import Counter
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from types import ModuleType
 from typing import Annotated, Any, Protocol, TypedDict
 
 import msgspec
 
+from cozy_runtime.author._errors import DEVICE_OOM, MEMORY_EXHAUSTED
 from cozy_runtime.internal import execution_evidence, liveness, spawn
 from cozy_runtime.internal.config import inherited_environment, update_environment
 from cozy_runtime.internal.parallel.plan import GpuDivergence, GroupPlan, GroupRefusal
@@ -34,6 +36,10 @@ from cozy_runtime.internal.seam import Channel, SeamError
 #: then written, never "only when unset" - and every rank REQUIRES it before forming a
 #: communicator: the executor asserts the seal, it does not write its own environment.
 NVLS_ENV = "NCCL_NVLS_ENABLE"
+#: A GPU's part of a call ended short of memory: the attempt fails, the group stays whole.
+SHORT = frozenset({DEVICE_OOM, MEMORY_EXHAUSTED})
+#: Another GPU ended the collective this one waited in (`RankGroup.interrupt`).
+ENDED = "group_call_ended"
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,13 +82,11 @@ class Frame(msgspec.Struct, frozen=True):
 
 
 class _Hello(msgspec.Struct, frozen=True):
-    """A follower's `hello`, as far as rank 0 checks it: who it is and under which seal, and
-    what its memory answers beyond the floor's commands (`weight_plane/1`)."""
+    """A follower's `hello`, as far as rank 0 checks it: who it is and under which seal."""
 
     rank: int
     world: int
     sealed: dict[str, str]
-    memory: tuple[str, ...] = ()
 
 
 _Bytes = Annotated[int, msgspec.Meta(ge=0)]
@@ -141,10 +145,10 @@ class Follower:
     replies: queue.Queue[tuple[Frame, dict[str, Any]] | None] = field(default_factory=queue.Queue)
     #: the seam-closed verdict once the reader saw EOF or a torn frame; "" while live
     gone: str = ""
-    #: its `hello`'s memory capabilities: rank 0 sends it only the commands it answers
-    memory: tuple[str, ...] = ()
-    #: a request of its own is with the machine: that wait is not its stillness
+    #: a request of its own is with the machine: that wait is not its stillness; and how
+    #: many it made (a call's movement while it recovers, `RankGroup.watched`)
     relaying: bool = False
+    relayed: int = 0
     #: a byte here aborts its collectives (its watcher thread; `RankGroup.interrupt`)
     abort: socket.socket | None = None
 
@@ -195,15 +199,9 @@ def abortable(backend: str) -> None:
         update_environment({"TORCH_NCCL_ASYNC_ERROR_HANDLING": "0"})
 
 
-#: The NCCL names this process's group set from its measured links: Runtime-owned, so the
-#: seal's restore leaves them alone (an older machine still seals NCCL_P2P_LEVEL=NVL).
-ROUTED: dict[str, str] = {}
-
-
 def route(nccl: Mapping[str, str]) -> None:
     """NCCL reads its route once, when this process's first communicator forms; every GPU of
     the group writes the same values, chosen by rank 0, before it joins."""
-    ROUTED.update(nccl)
     update_environment(nccl)
 
 
@@ -220,9 +218,37 @@ def join_rank(torch: Any, spec: RankSpec, sealed: Mapping[str, str]) -> Any:
     abortable(spec.backend)
     route(spec.nccl)
     store = dist.TCPStore("127.0.0.1", spec.port, spec.world, is_master=False)
-    dist.init_process_group(spec.backend, store=store, rank=spec.rank, world_size=spec.world)
+    dist.init_process_group(
+        spec.backend,
+        store=store,
+        rank=spec.rank,
+        world_size=spec.world,
+        device_id=_device(torch, spec.backend),
+    )
     dist.barrier()
+    warm(torch, spec.backend, spec.rank, spec.world)
     return dist.group.WORLD
+
+
+def _device(torch: ModuleType, backend: str) -> object:
+    """NCCL's device, which makes its communicator eager: its buffers are allocated as the group
+    forms, before weights fill the GPU, never inside a request where no rung can make room
+    for the driver (12298, 12379: "NCCL Error 1: unhandled cuda error")."""
+    return torch.device("cuda", torch.cuda.current_device()) if "nccl" in backend else None
+
+
+def warm(torch: ModuleType, backend: str, rank: int, world: int) -> None:
+    """GPU 0 and each follower exchange one element, so the pair's point-to-point communicator
+    (a request's broadcasts and results ride it) exists from the group's start too."""
+    if "nccl" not in backend:
+        return
+    dist, one = torch.distributed, torch.zeros(1, device=_device(torch, backend))
+    for peer in range(1, world) if rank == 0 else (0,):
+        if rank == 0:
+            dist.send(one, peer)
+        else:
+            dist.recv(one, peer)
+    torch.cuda.synchronize()
 
 
 def abort_process_group() -> None:
@@ -323,22 +349,19 @@ class RankGroup:
         self.broken = ""
         #: a call in flight may run again when a GPU runs out of memory (`mirror.mirrored`)
         self.rerunnable = False
-        #: `interrupt` ended this formation's collectives; `form(room=...)` clears it
+        #: `interrupt` ended this formation's collectives; `form(again=...)` clears it
         self.interrupted = False
         #: set once this formation's interrupt has aborted its communicator (set: none due)
         self._ended = threading.Event()
         self._ended.set()
-        #: device bytes the followers gave back at the last `form(room=...)`
-        self.gave = 0
         #: per mirrored component, the pace of its calls (`watched`): the longest pause any
         #: call of it showed carries over to the next
         self.paces: dict[str, liveness.Pace] = {}
         #: per follower rank, the largest working peak its mirrored calls reported this attempt
         self.working_peaks: dict[int, int] = {}
         #: per follower rank, its executor's plane facts as its latest reply stated them
-        self.rank_planes: dict[int, dict[str, Any]] = {}
         #: per follower rank, its `execution_evidence` record folded over this attempt's calls
-        self.rank_records: dict[int, execution_evidence.RankEvidence] = {}
+        self.rank_records: dict[int, execution_evidence.GpuEvidence] = {}
         #: per spread method this attempt
         self.spread_log: dict[str, SpreadLog] = {}
         self._readers: list[threading.Thread] = []
@@ -414,19 +437,20 @@ class RankGroup:
             if head.event == "request" and self.relay is not None:
                 follower.relaying = True
                 try:
-                    self.relay(follower.channel, frame)
+                    self.relay(follower.channel, {**frame, "rank": follower.rank})
                 except SeamError as exc:
                     follower.gone = f"{follower.gpu}'s request was not relayed: {exc}"
                     break
                 finally:
                     follower.relaying = False
+                    follower.relayed += 1
                 continue
-            if isinstance(frame.get("plane"), dict):
-                self.rank_planes[follower.rank] = frame["plane"]
             follower.replies.put((head, frame))
-            if head.reply == "run" and not head.ok and self.rerunnable and "rerun" in frame:
-                self.interrupt()
-            elif head.reply == "run" and not head.ok:
+            if head.reply != "run" or head.ok:
+                continue
+            if "rerun" in frame and self.rerunnable:
+                self.interrupt()  # GPU 0 may wait on it in a collective
+            elif "rerun" in frame or head.code not in SHORT:
                 self._break(
                     f"{follower.gpu} failed its part of the call: {head.code}: {head.detail}"[:600]
                 )
@@ -457,9 +481,10 @@ class RankGroup:
     def watched(self, name: str, device: Callable[[], int]) -> Iterator[None]:
         """A mirrored call in flight, judged by its own pace (`liveness.Pace`), never a clock:
         the reading is GPU 0's device progress (`device`), the bytes each follower moved and
-        the answers that arrived. Every GPU of a call waits on the others in its
-        collectives, so a GPU stuck in one stops them all; a spinning wait burns CPU, which is
-        why CPU time is not in the reading. Still for longer than STILL_FACTOR times the
+        the answers that arrived, and the requests each made of the machine for room. Every GPU
+        of a call waits on the others in its collectives, so a GPU stuck in one stops them all;
+        a spinning wait burns CPU, which is why CPU time is not in the reading. A request with
+        the machine is no stillness. Still for longer than STILL_FACTOR times the
         longest pause any call of this component showed (the first call learns its own, from
         its device progress) and the noise floor: the group breaks, naming the GPUs that
         have not answered. NCCL's own watchdog is off (`abortable`): this is the one that
@@ -474,11 +499,13 @@ class RankGroup:
                 pace.observe(
                     (
                         device(),
-                        tuple(liveness.moved(f.pid) for f in self.followers),
-                        tuple(f.replies.qsize() for f in self.followers),
+                        tuple(
+                            (liveness.moved(f.pid), f.replies.qsize(), f.relayed)
+                            for f in self.followers
+                        ),
                     )
                 )
-                if pace.wedged(floor):
+                if pace.wedged(floor) and not any(f.relaying for f in self.followers):
                     quiet = [f.gpu for f in self.followers if f.replies.empty()] or ["GPU 0"]
                     self._break(f"{', '.join(quiet)} wedged in {name!r}: {pace.verdict(floor)}")
                     return
@@ -494,7 +521,7 @@ class RankGroup:
     def interrupt(self) -> None:
         """End the collective in flight on every GPU and keep the group whole: each
         follower's watcher aborts its communicator, and this process aborts its own. The group
-        forms again (`form(room=...)`) before its next call. Once per formation: a second
+        forms again (`form(again=...)`) before its next call. Once per formation: a second
         caller (the reader thread and the call's own thread both may) returns only once the
         first one's abort is done, so the group is never formed again under an abort still
         in progress (that deadlocks torch's process-group teardown)."""
@@ -538,22 +565,22 @@ class RankGroup:
                     f"({hello.sealed!r} vs {dict(sealed)!r})",
                     code="group_unformed",
                 )
-            follower.memory = hello.memory
 
     def form(
         self,
         torch: Any,
         sealed: Mapping[str, str],
-        cells: Sequence[int] = (),
-        room: int = -1,
+        ledgers: Sequence[int] = (),
+        again: bool = False,
         nccl: Mapping[str, str] | None = None,
         formed: Callable[[Any], None] | None = None,
     ) -> Any:
         """Form the process group: the store on a kernel-chosen loopback port, every
-        follower joining it, rank 0 joining last, one barrier as the proof. `cells`, one per
-        follower in rank order, are their budget cells: each follows its `join`, then the
-        socket its watcher reads (`interrupt`). `room` >= 0 forms it AGAIN after an
-        `interrupt`: every follower joins a new store and gives that many device bytes back.
+        follower joining it, rank 0 joining last, one barrier as the proof. `ledgers`, a pair
+        per follower in rank order, are their GPUs' ledger memfds and eventfds: each pair follows
+        its `join`, then the
+        socket its watcher reads (`interrupt`). `again` forms it AGAIN after an `interrupt`:
+        every follower joins a new store.
         `nccl` is the route every GPU forms under; `formed` runs on rank 0 right after the
         barrier, while each follower runs its half before it answers the join."""
         dist = torch.distributed
@@ -564,7 +591,7 @@ class RankGroup:
         if nccl is not None:
             self.nccl = dict(nccl)
             route(self.nccl)
-        if room >= 0 and dist.is_initialized():
+        if again and dist.is_initialized():
             dist.destroy_process_group()
         self.store = dist.TCPStore(
             "127.0.0.1", 0, self.degree, is_master=True, wait_for_workers=False
@@ -578,14 +605,14 @@ class RankGroup:
             "calibrate": formed is not None,
         }
         for index, follower in enumerate(self.followers):
-            if room >= 0:
-                self.send_one(follower.rank, {**join, "room": room})
+            if again:
+                self.send_one(follower.rank, {**join, "again": True})
                 continue
             follower.abort, watcher = socket.socketpair()
             try:
-                self.send_one(follower.rank, {**join, "cell": bool(cells), "abort": True})
-                if cells:
-                    self.memfd_to(follower.rank, cells[index])
+                self.send_one(follower.rank, {**join, "ledger": bool(ledgers), "abort": True})
+                if ledgers:
+                    follower.channel.send_ledger(*ledgers[2 * index : 2 * index + 2])
                 follower.channel.send_descriptor(watcher)
             except SeamError as exc:
                 raise GroupRefusal(
@@ -593,9 +620,16 @@ class RankGroup:
                 ) from exc
             finally:
                 watcher.close()
-        dist.init_process_group(self.backend, store=self.store, rank=0, world_size=self.degree)
+        dist.init_process_group(
+            self.backend,
+            store=self.store,
+            rank=0,
+            world_size=self.degree,
+            device_id=_device(torch, self.backend),
+        )
         self.pg = dist.group.WORLD
         dist.barrier()
+        warm(torch, self.backend, 0, self.degree)
         if formed is not None:
             formed(self.pg)
         replies = self.collect("join")
@@ -606,7 +640,6 @@ class RankGroup:
                     f"{reply.get('detail', '')}"[:400],
                     code="group_unformed",
                 )
-        self.gave = sum(int(reply.get("freed") or 0) for reply in replies)
         self.formed, self.interrupted = True, False
         return self.pg
 
@@ -622,6 +655,12 @@ class RankGroup:
                 raise GroupRefusal(
                     f"{follower.gpu} cannot be commanded: {exc}", code="group_broken"
                 ) from exc
+
+    def start(self, command: Mapping[str, object]) -> None:
+        """Hand every follower rank 0's Start. The ledger descriptors that follow TensorD's
+        Start are rank 0's; a follower takes its own at join (`form`), so the Start it gets
+        names none, or it would wait in `start` for descriptors nobody sends."""
+        self.broadcast({**command, "ledgers": 0})
 
     def collect(self, name: str) -> list[dict[str, Any]]:
         """One reply named `name` from every follower, in rank order.
@@ -679,15 +718,6 @@ class RankGroup:
         except SeamError as exc:
             raise GroupRefusal(
                 f"{self.gpu(rank)} cannot be commanded: {exc}", code="group_broken"
-            ) from exc
-
-    def memfd_to(self, rank: int, memfd: int) -> None:
-        """Hand follower `rank` one pinned host tier (right after the frame naming it)."""
-        try:
-            self.followers[rank - 1].channel.send_memfd(memfd)
-        except SeamError as exc:
-            raise GroupRefusal(
-                f"{self.gpu(rank)} cannot take a host tier: {exc}", code="group_broken"
             ) from exc
 
     def reply_one(self, rank: int, name: str) -> dict[str, Any]:

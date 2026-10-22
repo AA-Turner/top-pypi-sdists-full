@@ -4,17 +4,25 @@
 #include "hello_imgui/hello_imgui.h"
 #include "imgui.h"
 
-void demo_immvision_display()
+#include <algorithm>
+
+namespace
+{
+    const float TENNIS_WIDTH_EM = 22.5f;  // the first image's width, at most: on a phone, the window's width
+    const float SECOND_COLUMN_MIN_EM = 20.f;  // the second column goes beside the first if it fits there, else below
+}
+
+void gui_demo_immvision_display()
 {
     static bool inited = false;
     static ImmVision::ImageBuffer bear, tennis;
     static ImmVision::ImageParams params;
-
-    static ImVec2 imageDisplaySize(0.f, ImmApp::EmSize(20.f));
+    static ImVec2 imageDisplaySize;
 
     if (!inited)
     {
-        ImmVision::UseRgbColorOrder();
+        float width = std::min(HelloImGui::EmSize(TENNIS_WIDTH_EM), ImGui::GetContentRegionAvail().x);
+        imageDisplaySize = ImVec2(width, 0.f);  // the height follows the image's aspect ratio
         std::string assetsDir = DemosAssetsFolder() + "/images/";
         bear = ImmVision::ImRead(assetsDir + "bear_transparent.png");
         tennis = ImmVision::ImRead(assetsDir + "tennis.jpg");
@@ -26,18 +34,19 @@ void demo_immvision_display()
     }
 
     ImGui::BeginGroup();
-    ImGuiMd::RenderUnindented("# ImmVision::ImageDisplay()");
-    ImGuiMd::RenderUnindented("Displays an image (possibly resizable)");
+    RichMd::Render("# ImmVision::ImageDisplay()");
+    RichMd::Render("Displays an image (possibly resizable)");
     ImmVision::ImageDisplayResizable("Tennis", tennis, &imageDisplaySize);
     ImGui::EndGroup();
 
-    ImGui::SameLine();
+    if (ImGui::GetContentRegionAvail().x - ImGui::GetItemRectSize().x >= HelloImGui::EmSize(SECOND_COLUMN_MIN_EM))
+        ImGui::SameLine();
 
     ImGui::BeginGroup();
-    ImGuiMd::RenderUnindented("# ImmVision::Image()");
-    ImGuiMd::RenderUnindented("Displays an image, while providing lots of visualization options.");
+    RichMd::Render("# ImmVision::Image()");
+    RichMd::Render("Displays an image, while providing lots of visualization options.");
     ImmVision::Image("Bear", bear, &params);
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         * Zoom in/out using the mouse wheel.
         * Pixel values are displayed at high zoom levels.
         * Pan the image by dragging it with the left mouse button

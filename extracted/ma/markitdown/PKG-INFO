@@ -1,6 +1,6 @@
-Metadata-Version: 2.5
+Metadata-Version: 2.4
 Name: markitdown
-Version: 0.1.8
+Version: 0.1.9
 Summary: Utility tool for converting various files to Markdown
 Project-URL: Documentation, https://github.com/microsoft/markitdown#readme
 Project-URL: Issues, https://github.com/microsoft/markitdown/issues
@@ -18,9 +18,10 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: <3.15,>=3.10
 Requires-Dist: beautifulsoup4
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: charset-normalizer
 Requires-Dist: defusedxml
-Requires-Dist: magika~=0.6.1
+Requires-Dist: magika<2,>=0.6.1
 Requires-Dist: markdownify
 Requires-Dist: requests
 Provides-Extra: all
@@ -28,7 +29,7 @@ Requires-Dist: azure-ai-contentunderstanding>=1.2.0b1; extra == 'all'
 Requires-Dist: azure-ai-documentintelligence; extra == 'all'
 Requires-Dist: azure-identity; extra == 'all'
 Requires-Dist: lxml; extra == 'all'
-Requires-Dist: mammoth~=1.11.0; extra == 'all'
+Requires-Dist: mammoth<2,>=1.12.2; extra == 'all'
 Requires-Dist: olefile; extra == 'all'
 Requires-Dist: openpyxl; extra == 'all'
 Requires-Dist: pandas; extra == 'all'
@@ -50,7 +51,7 @@ Requires-Dist: azure-ai-documentintelligence; extra == 'az-doc-intel'
 Requires-Dist: azure-identity; extra == 'az-doc-intel'
 Provides-Extra: docx
 Requires-Dist: lxml; extra == 'docx'
-Requires-Dist: mammoth~=1.11.0; extra == 'docx'
+Requires-Dist: mammoth<2,>=1.12.2; extra == 'docx'
 Provides-Extra: outlook
 Requires-Dist: olefile; extra == 'outlook'
 Provides-Extra: pdf

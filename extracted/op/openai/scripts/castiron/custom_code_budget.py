@@ -84,6 +84,9 @@ def strict_policy(repo: Path, revision: str) -> bool:
 
 
 MANIFEST = b"scripts/castiron/generated-files.json"
+# Accept the relocated tooling only from the verified checkpoint. Deploy this
+# reader before changing the producer so trusted-main checks can validate moves.
+MANIFEST_PATHS = (MANIFEST, b"generated/castiron/generated-files.json")
 # Derived from the renderer's repository-file inventory, also used by checkpoint
 # publication to distinguish generated tooling from protected SDK-owned CI.
 GENERATED_GITHUB_PATHS = frozenset(
@@ -92,7 +95,6 @@ GENERATED_GITHUB_PATHS = frozenset(
         b".github/workflows/castiron-custom-code-comment.yml",
     }
 )
-
 
 
 # Audited inventory of the authenticated pre-inventory checker format. These
@@ -149,18 +151,26 @@ def checkpoint_github_inventory(source: bytes) -> frozenset[bytes]:
 def generated_manifest(repo: Path, generated: str) -> dict[bytes, dict[str, str]]:
     """Read ownership from the verified snapshot, never the candidate's manifest."""
     entries = report.tree_entries(repo, generated, include_workflows=True)
-    entry = entries.get(MANIFEST)
+    manifests = [path for path in MANIFEST_PATHS if path in entries]
+    if len(manifests) > 1:
+        raise ValueError("checkpoint contains ambiguous generated ownership manifests")
+    manifest_path = manifests[0] if manifests else MANIFEST
+    entry = entries.get(manifest_path)
     if entry is None or entry.mode != b"100644":
         raise ValueError(
             "strict mode requires a generated ownership manifest; regenerate with Castiron"
         )
     blobs = report.read_blobs(repo, entries)
-    inventory_entry = entries.get(b"scripts/castiron/custom_code_budget.py")
+    inventory_path = manifest_path.rsplit(b"/", 1)[0] + b"/custom_code_budget.py"
+    inventory_entry = entries.get(inventory_path)
     if inventory_entry is None or inventory_entry.mode not in (b"100644", b"100755"):
         raise ValueError("checkpoint is missing its generated GitHub inventory")
     github_paths = checkpoint_github_inventory(blobs[inventory_entry.oid])
     value = json.loads(blobs[entry.oid], object_pairs_hook=unique_keys)
-    if not isinstance(value, dict) or set(cast(dict[str, Any], value)) != {"schema_version", "files"}:
+    if not isinstance(value, dict) or set(cast(dict[str, Any], value)) != {
+        "schema_version",
+        "files",
+    }:
         raise ValueError("invalid generated ownership manifest")
     value = cast(dict[str, Any], value)
     if (
@@ -180,7 +190,7 @@ def generated_manifest(repo: Path, generated: str) -> dict[bytes, dict[str, str]
         ):
             raise ValueError("invalid generated manifest path")
         path = name.encode("utf-8")
-        if path == MANIFEST:
+        if path in MANIFEST_PATHS:
             raise ValueError("generated manifest cannot include itself")
         # A matching identity cannot turn inherited, SDK-owned CI into generated
         # output. Use this verified checkpoint's literal compiler inventory, not
@@ -188,7 +198,10 @@ def generated_manifest(repo: Path, generated: str) -> dict[bytes, dict[str, str]
         # Public checkpoints may omit the private workflow/action blobs.
         if not report.included(path) and path not in github_paths:
             raise ValueError(f"generated manifest claims SDK-owned GitHub path: {name}")
-        if not isinstance(identity, dict) or set(cast(dict[str, Any], identity)) != {"mode", "sha256"}:
+        if not isinstance(identity, dict) or set(cast(dict[str, Any], identity)) != {
+            "mode",
+            "sha256",
+        }:
             raise ValueError(f"invalid generated identity: {name}")
         identity = cast(dict[str, Any], identity)
         if (
@@ -208,10 +221,9 @@ def generated_manifest(repo: Path, generated: str) -> dict[bytes, dict[str, str]
     # Those are outside generated ownership. Every other snapshot path, including
     # renderer-owned GitHub files omitted from the legacy hash, must be listed.
     # Public snapshots retain generated identities without the private blobs.
-    snapshot_paths = set(entries) - {MANIFEST}
+    snapshot_paths = set(entries) - {manifest_path}
     if any(
-        report.included(path) or path in github_paths
-        for path in snapshot_paths - files.keys()
+        report.included(path) or path in github_paths for path in snapshot_paths - files.keys()
     ) or any(report.included(path) for path in files.keys() - snapshot_paths):
         raise ValueError("generated manifest does not cover the verified snapshot exactly")
     for path, identity in files.items():
@@ -223,7 +235,10 @@ def generated_manifest(repo: Path, generated: str) -> dict[bytes, dict[str, str]
             ):
                 raise ValueError(f"manifest disagrees with generated snapshot: {path.decode()}")
     # The manifest is itself immutable, bound by the existing snapshot hash.
-    files[MANIFEST] = {"mode": "100644", "sha256": hashlib.sha256(blobs[entry.oid]).hexdigest()}
+    files[manifest_path] = {
+        "mode": "100644",
+        "sha256": hashlib.sha256(blobs[entry.oid]).hexdigest(),
+    }
     return files
 
 
@@ -341,20 +356,22 @@ def evaluate(
     pull_heads: list[str] | None = None,
     measurement: tuple[dict[str, Any], bytes] | None = None,
     policy_sha: str | None = None,
+    target_branch: str = "main",
 ) -> tuple[dict[str, Any], bytes]:
     """In a queue, isolate each PR but budget the complete merged candidate."""
     base, head = report.require_sha(base), report.require_sha(head)
-    policy_sha = cast(str, report.require_sha(policy_sha or base))
+    policy = cast(str, report.require_sha(policy_sha or base))
     result: dict[str, Any] = {
         "base_sha": base,
-        "policy_sha": policy_sha,
+        "target_branch": target_branch,
+        "policy_sha": policy,
         "head_sha": head,
         "checks": {},
     }
     checks = result["checks"]
     proposed_limits: list[int] = []
     try:
-        read_budget(repo, policy_sha)
+        read_budget(repo, policy)
         read_budget(repo, base)
         read_budget(repo, head)
         if pull_heads is not None and not pull_heads:
@@ -371,7 +388,7 @@ def evaluate(
 
     patch = b""
     try:
-        limit = read_budget(repo, policy_sha)
+        limit = read_budget(repo, policy)
         result["limit"] = limit
         measured, patch = (
             measurement
@@ -383,6 +400,7 @@ def evaluate(
                 public=public,
                 fetch=fetch,
                 require_head_hash=True,
+                target_branch=target_branch,
             )
         )
         added, removed = count_custom_lines(measured)
@@ -402,11 +420,7 @@ def evaluate(
         description = f"+{added} / -{removed} = {total} custom lines; limit {checked_limit}."
         # Main's strict policy applies even if the candidate tries to remove it.
         # A proposed activation must itself satisfy the stricter contract.
-        if (
-            strict_policy(repo, policy_sha)
-            or strict_policy(repo, base)
-            or strict_policy(repo, head)
-        ):
+        if strict_policy(repo, policy) or strict_policy(repo, base) or strict_policy(repo, head):
             violations = verify_generated(
                 repo, measured["after"]["commit"], head, previous=measured["before"]["commit"]
             )
@@ -644,6 +658,7 @@ def github_evaluate(
         pull_heads=pull_heads,
         measurement=measurement,
         policy_sha=main,
+        target_branch=branch,
     )
     result["target_branch"] = branch
     return result, patch
@@ -664,6 +679,7 @@ def main() -> int:
     local.add_argument("--head", required=True)
     local.add_argument("--public", action="store_true")
     local.add_argument("--fetch", action="store_true")
+    local.add_argument("--target-branch", choices=sorted(report.TARGET_BRANCHES), default="main")
     github = commands.add_parser("github")
     github.add_argument("--repository", required=True)
     github.add_argument("--event-path", type=Path, required=True)
@@ -698,7 +714,12 @@ def main() -> int:
     try:
         if args.command == "check":
             result, patch = evaluate(
-                args.repo, args.base, args.head, public=args.public, fetch=args.fetch
+                args.repo,
+                args.base,
+                args.head,
+                public=args.public,
+                fetch=args.fetch,
+                target_branch=args.target_branch,
             )
         else:
             result, patch = github_evaluate(

@@ -169,6 +169,7 @@ class CreateTrainingRunRequest(_message.Message):
         "compute_class",
         "network_policy",
         "execution_target",
+        "entrypoint",
     )
     class EnvEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -203,6 +204,7 @@ class CreateTrainingRunRequest(_message.Message):
     COMPUTE_CLASS_FIELD_NUMBER: _ClassVar[int]
     NETWORK_POLICY_FIELD_NUMBER: _ClassVar[int]
     EXECUTION_TARGET_FIELD_NUMBER: _ClassVar[int]
+    ENTRYPOINT_FIELD_NUMBER: _ClassVar[int]
     name: str
     data: TrainingRunDataSource
     config: _struct_pb2.Struct
@@ -218,6 +220,7 @@ class CreateTrainingRunRequest(_message.Message):
     compute_class: _service_pb2.ComputeClass
     network_policy: _service_pb2.NetworkPolicy
     execution_target: _service_pb2.ExecutionTarget
+    entrypoint: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -235,6 +238,7 @@ class CreateTrainingRunRequest(_message.Message):
         compute_class: _Optional[_Union[_service_pb2.ComputeClass, str]] = ...,
         network_policy: _Optional[_Union[_service_pb2.NetworkPolicy, _Mapping]] = ...,
         execution_target: _Optional[_Union[_service_pb2.ExecutionTarget, _Mapping]] = ...,
+        entrypoint: _Optional[_Iterable[str]] = ...,
     ) -> None: ...
 
 class CreateTrainingRunResponse(_message.Message):

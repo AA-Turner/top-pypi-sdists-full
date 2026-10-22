@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-scraper
-Version: 0.2.402
+Version: 0.2.409
 Summary: Web scraping engine, HTML parsing, and search integration for the Matrx ecosystem
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -25,7 +25,7 @@ Requires-Dist: httpx>=0.27
 Requires-Dist: lxml>=5.0
 Requires-Dist: markdownify>=0.13
 Requires-Dist: matrx-api>=0.1.13
-Requires-Dist: matrx-utils>=2.0.81
+Requires-Dist: matrx-utils>=2.0.83
 Requires-Dist: pydantic>=2.12
 Requires-Dist: python-dotenv>=1.0
 Requires-Dist: requests>=2.31
@@ -41,13 +41,13 @@ Requires-Dist: curl-cffi>=0.7; extra == 'all'
 Requires-Dist: datasketch>=1.6; extra == 'all'
 Requires-Dist: extruct>=0.18; extra == 'all'
 Requires-Dist: fastapi>=0.115; extra == 'all'
-Requires-Dist: matrx-connect>=0.1.233; extra == 'all'
-Requires-Dist: matrx-files>=0.2.302; extra == 'all'
-Requires-Dist: matrx-files[ocr]>=0.2.302; extra == 'all'
-Requires-Dist: matrx-files[pdf]>=0.2.302; extra == 'all'
-Requires-Dist: matrx-graph>=0.2.327; extra == 'all'
-Requires-Dist: matrx-orm>=3.1.241; extra == 'all'
-Requires-Dist: matrx-runtime>=0.0.170; extra == 'all'
+Requires-Dist: matrx-connect>=0.1.237; extra == 'all'
+Requires-Dist: matrx-files>=0.2.309; extra == 'all'
+Requires-Dist: matrx-files[ocr]>=0.2.309; extra == 'all'
+Requires-Dist: matrx-files[pdf]>=0.2.309; extra == 'all'
+Requires-Dist: matrx-graph>=0.2.334; extra == 'all'
+Requires-Dist: matrx-orm>=3.1.243; extra == 'all'
+Requires-Dist: matrx-runtime>=0.0.173; extra == 'all'
 Requires-Dist: pillow>=12.3.0; extra == 'all'
 Requires-Dist: playwright>=1.45; extra == 'all'
 Requires-Dist: pymupdf>=1.27; extra == 'all'
@@ -64,28 +64,28 @@ Provides-Extra: cloud-browser
 Requires-Dist: cryptography>=41; extra == 'cloud-browser'
 Requires-Dist: zstandard>=0.22; extra == 'cloud-browser'
 Provides-Extra: connect
-Requires-Dist: matrx-connect>=0.1.233; extra == 'connect'
+Requires-Dist: matrx-connect>=0.1.237; extra == 'connect'
 Provides-Extra: db
-Requires-Dist: matrx-files>=0.2.302; extra == 'db'
-Requires-Dist: matrx-orm>=3.1.241; extra == 'db'
+Requires-Dist: matrx-files>=0.2.309; extra == 'db'
+Requires-Dist: matrx-orm>=3.1.243; extra == 'db'
 Provides-Extra: dedup
 Requires-Dist: cachetools>=5.3; extra == 'dedup'
 Requires-Dist: datasketch>=1.6; extra == 'dedup'
 Requires-Dist: simhash>=2.1; extra == 'dedup'
 Provides-Extra: durable
-Requires-Dist: matrx-runtime>=0.0.170; extra == 'durable'
+Requires-Dist: matrx-runtime>=0.0.173; extra == 'durable'
 Provides-Extra: files
-Requires-Dist: matrx-files>=0.2.302; extra == 'files'
+Requires-Dist: matrx-files>=0.2.309; extra == 'files'
 Provides-Extra: graph
-Requires-Dist: matrx-graph>=0.2.327; extra == 'graph'
+Requires-Dist: matrx-graph>=0.2.334; extra == 'graph'
 Provides-Extra: metadata
 Requires-Dist: extruct>=0.18; extra == 'metadata'
 Provides-Extra: ocr
-Requires-Dist: matrx-files[ocr]>=0.2.302; extra == 'ocr'
+Requires-Dist: matrx-files[ocr]>=0.2.309; extra == 'ocr'
 Requires-Dist: pillow>=12.3.0; extra == 'ocr'
 Requires-Dist: pytesseract>=0.3.13; extra == 'ocr'
 Provides-Extra: pdf
-Requires-Dist: matrx-files[pdf]>=0.2.302; extra == 'pdf'
+Requires-Dist: matrx-files[pdf]>=0.2.309; extra == 'pdf'
 Requires-Dist: pymupdf>=1.27; extra == 'pdf'
 Provides-Extra: server
 Requires-Dist: asyncpg>=0.31.0; extra == 'server'
@@ -94,11 +94,11 @@ Requires-Dist: cryptography>=41; extra == 'server'
 Requires-Dist: curl-cffi>=0.7; extra == 'server'
 Requires-Dist: extruct>=0.18; extra == 'server'
 Requires-Dist: fastapi>=0.115; extra == 'server'
-Requires-Dist: matrx-connect>=0.1.233; extra == 'server'
-Requires-Dist: matrx-files>=0.2.302; extra == 'server'
-Requires-Dist: matrx-files[pdf]>=0.2.302; extra == 'server'
-Requires-Dist: matrx-orm>=3.1.241; extra == 'server'
-Requires-Dist: matrx-runtime>=0.0.170; extra == 'server'
+Requires-Dist: matrx-connect>=0.1.237; extra == 'server'
+Requires-Dist: matrx-files>=0.2.309; extra == 'server'
+Requires-Dist: matrx-files[pdf]>=0.2.309; extra == 'server'
+Requires-Dist: matrx-orm>=3.1.243; extra == 'server'
+Requires-Dist: matrx-runtime>=0.0.173; extra == 'server'
 Requires-Dist: playwright>=1.45; extra == 'server'
 Requires-Dist: pymupdf>=1.27; extra == 'server'
 Requires-Dist: python-dotenv>=1.0; extra == 'server'
@@ -113,13 +113,13 @@ Requires-Dist: curl-cffi>=0.7; extra == 'standalone'
 Requires-Dist: datasketch>=1.6; extra == 'standalone'
 Requires-Dist: extruct>=0.18; extra == 'standalone'
 Requires-Dist: fastapi>=0.115; extra == 'standalone'
-Requires-Dist: matrx-connect>=0.1.233; extra == 'standalone'
-Requires-Dist: matrx-files>=0.2.302; extra == 'standalone'
-Requires-Dist: matrx-files[ocr]>=0.2.302; extra == 'standalone'
-Requires-Dist: matrx-files[pdf]>=0.2.302; extra == 'standalone'
-Requires-Dist: matrx-graph>=0.2.327; extra == 'standalone'
-Requires-Dist: matrx-orm>=3.1.241; extra == 'standalone'
-Requires-Dist: matrx-runtime>=0.0.170; extra == 'standalone'
+Requires-Dist: matrx-connect>=0.1.237; extra == 'standalone'
+Requires-Dist: matrx-files>=0.2.309; extra == 'standalone'
+Requires-Dist: matrx-files[ocr]>=0.2.309; extra == 'standalone'
+Requires-Dist: matrx-files[pdf]>=0.2.309; extra == 'standalone'
+Requires-Dist: matrx-graph>=0.2.334; extra == 'standalone'
+Requires-Dist: matrx-orm>=3.1.243; extra == 'standalone'
+Requires-Dist: matrx-runtime>=0.0.173; extra == 'standalone'
 Requires-Dist: pillow>=12.3.0; extra == 'standalone'
 Requires-Dist: playwright>=1.45; extra == 'standalone'
 Requires-Dist: pymupdf>=1.27; extra == 'standalone'

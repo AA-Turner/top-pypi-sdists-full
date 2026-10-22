@@ -29,6 +29,25 @@ else:
 
 logger = logging.getLogger(__name__)
 
+
+class _OutermostRunOutput(BaseCallbackHandler):
+    run_inline = True
+
+    def __init__(self) -> None:
+        self.run_id: uuid.UUID | None = None
+        self.output: Any = None
+
+    def on_chain_start(
+        self, serialized: Any, inputs: Any, *, run_id: uuid.UUID, **kwargs: Any
+    ) -> None:
+        if self.run_id is None:
+            self.run_id = run_id
+
+    def on_chain_end(self, outputs: Any, *, run_id: uuid.UUID, **kwargs: Any) -> None:
+        if run_id == self.run_id:
+            self.output = outputs
+
+
 _LANGGRAPH_METADATA_KEYS = (
     "langgraph_step",
     "langgraph_node",
@@ -373,6 +392,7 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
     # Retriever callbacks ARE captured (retriever queries -> function spans).
     ignore_retriever = False
     ignore_custom_event = True
+    records_llm_calls = True
 
     def __init__(
         self,
@@ -392,6 +412,7 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
         self._trace_function_key = trace_function_key
         self._get_active_span_context = get_active_span_context
         self._capture_tools = capture_tools
+        self._claimed_tool_calls: set[tuple[str, str]] = set()
         self._should_record = _should_record or (
             lambda: (self._http_client._resolve_api_key() or "").strip() != ""
         )
@@ -452,6 +473,30 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
             parent_id = resolved.get("parent_id")
             resolved = self._run_to_span.get(parent_id) if parent_id else None
         return resolved
+
+    def _is_claimed_tool_call(
+        self, parent_run_id: uuid.UUID | None, tool_call_id: str | None
+    ) -> bool:
+        if tool_call_id is None:
+            return False
+        parent = self._run_to_span.get(str(parent_run_id)) if parent_run_id else None
+        active_context = self._get_active_context()
+        trace_id = (
+            parent["trace_id"]
+            if parent is not None
+            else (active_context["trace_id"] if active_context is not None else None)
+        )
+        return (
+            trace_id is not None
+            and (trace_id, tool_call_id) in self._claimed_tool_calls
+        )
+
+    def _visible_span_id_in_trace(self, run_id: str, trace_id: str) -> str | None:
+        span = self._run_to_span.get(run_id)
+        visible = self._resolve_visible_parent_span(span) if span else None
+        if visible is None or visible["trace_id"] != trace_id:
+            return None
+        return visible["span_id"]
 
     def _get_active_parent_id(self, invocation: _InvocationState) -> str | None:
         active_context = invocation.get("active_context")
@@ -908,6 +953,8 @@ class BitfabLangGraphCallbackHandler(BaseCallbackHandler):
         **kwargs: Any,
     ) -> None:
         if not self._capture_tools:
+            return
+        if self._is_claimed_tool_call(parent_run_id, kwargs.get("tool_call_id")):
             return
         try:
             serialized = serialized or {}

@@ -159,13 +159,17 @@ SUCCEEDED = Outcome("succeeded", "runtime", "ok")
 #: say. Measured: cl-003 watched a plan-arithmetic defect arrive as
 #: `AUTHOR_EXCEPTION/CAUSE_ORIGIN_AUTHOR` on a package that made no memory call.
 DEVICE_OOM = "device_out_of_memory"
+#: The one memory refusal (`tensorfs.varena.torch.Exhausted`): it did not fit with every other
+#: evictable byte gone. Capacity, like DEVICE_OOM: it fails the attempt, never the process.
+MEMORY_EXHAUSTED = "memory_exhausted"
 
 
 def is_device_oom(exc: BaseException) -> bool:
     """A device allocation failure, recognized WITHOUT importing torch: torch's
-    `OutOfMemoryError`, an asynchronous `AcceleratorError` for cudaErrorMemoryAllocation, a
-    cuBLAS/cuDNN workspace allocation that failed inside a library call, or MPS's plain
-    RuntimeError for a pool past its limit or one buffer larger than Metal allows.
+    `OutOfMemoryError`, an asynchronous `AcceleratorError` for cudaErrorMemoryAllocation, an
+    allocation that failed inside a CUDA library call (cuBLAS, cuDNN, cuFFT, cuSOLVER,
+    cuSPARSE, NCCL), a TensorFS driver call that found none, or MPS's plain RuntimeError for a
+    pool past its limit or one buffer larger than Metal allows.
 
     This module is the author kernel's and it is deliberately dependency-free — the
     worker imports it and the worker has no torch. The identity is therefore structural:
@@ -177,16 +181,35 @@ def is_device_oom(exc: BaseException) -> bool:
         return True
     if torch_error and name == "AcceleratorError":
         return getattr(exc, "error_code", None) == 2 or "out of memory" in text
-    return isinstance(exc, RuntimeError) and any(
+    if type(exc).__module__ == "tensorfs.varena":  # a driver call of the plane's (run 10996)
+        return name == "CudaError" and "CUDA_ERROR_OUT_OF_MEMORY" in text
+    if not isinstance(exc, RuntimeError):
+        return False
+    if "NCCL" in text and "out of memory" in text:
+        return True
+    return any(
         mark in text
         for mark in (
             "CUDA error: out of memory",
+            "CUDA driver error: out of memory",
+            "Triton Error [CUDA]: out of memory",
             "CUBLAS_STATUS_ALLOC_FAILED",
             "CUDNN_STATUS_ALLOC_FAILED",
+            "CUFFT_ALLOC_FAILED",
+            "CUSOLVER_STATUS_ALLOC_FAILED",
+            "CUSPARSE_STATUS_ALLOC_FAILED",
             "MPS backend out of memory",
             "Invalid buffer size",
         )
     )
+
+
+def is_capacity(exc: BaseException) -> bool:
+    """The device ran out: an allocation failure, or varena's `Exhausted`."""
+    exhausted = (
+        type(exc).__module__ == "tensorfs.varena.torch" and type(exc).__name__ == "Exhausted"
+    )
+    return exhausted or is_device_oom(exc)
 
 
 def is_library_refusal(exc: BaseException) -> bool:
@@ -196,6 +219,18 @@ def is_library_refusal(exc: BaseException) -> bool:
     a memory budget one is run again once with room made; a second is the library's own."""
     text = str(exc)
     return isinstance(exc, RuntimeError) and ("CUBLAS_STATUS_" in text or "CUDNN_STATUS_" in text)
+
+
+def unwind(exc: BaseException) -> None:
+    """Let a failure's frames go, and the tensors their locals hold: every traceback in its
+    cause and context chain (its outcome keeps the text)."""
+    chain: list[BaseException | None] = [exc]
+    seen: set[int] = set()
+    while chain:
+        if (link := chain.pop()) is not None and id(link) not in seen:
+            seen.add(id(link))
+            link.__traceback__ = None
+            chain += (link.__cause__, link.__context__)
 
 
 def classify(exc: BaseException | None) -> Outcome:
@@ -218,6 +253,9 @@ def classify(exc: BaseException | None) -> Outcome:
     if is_device_oom(exc):
         first = str(exc).partition("\n")[0][:400] or "the device ran out of memory"
         return Outcome("failed", "runtime", DEVICE_OOM, first, (), _trace(exc))
+    if type(exc).__module__ == "tensorfs.varena.torch":  # varena's memory, named structurally
+        code = MEMORY_EXHAUSTED if type(exc).__name__ == "Exhausted" else "weight_unbound"
+        return Outcome("failed", "runtime", code, str(exc)[:400], (), _trace(exc))
     return Outcome(
         "failed",
         "author",

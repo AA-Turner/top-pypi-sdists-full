@@ -61,6 +61,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from matrx_ai.config.message_config import host_authored_user_turn
 from matrx_ai.graph_nodes.mandates import hold_ambient_workflow_strict_json
 from matrx_ai.orchestrator.mandate_carrier import mandate_carrier_passthrough
 from matrx_ai.orchestrator.step_phase import emit_step_phase
@@ -1022,15 +1023,15 @@ async def llm_messages_to_pydantic_measured(
         retry_messages = [*messages]
         if raw_first:
             retry_messages.append({"role": "assistant", "content": raw_first})
+        # The repair turn is the HOST's, never the person's: stored with empty
+        # user_content and authored_by=host so no reader quotes it as theirs.
         retry_messages.append(
-            {
-                "role": "user",
-                "content": (
-                    "Your previous response did not validate against the required schema. "
-                    f"Validation error:\n{first_err}\n\n"
-                    "Return corrected JSON only. Preserve your substantive verdict."
-                ),
-            }
+            host_authored_user_turn(
+                "Your previous response did not validate against the required schema. "
+                f"Validation error:\n{first_err}\n\n"
+                "Return corrected JSON only. Preserve your substantive verdict.",
+                reason="strict_json_schema_repair",
+            ).to_storage_dict()
         )
         # A format-repair turn has the first turn's facts in its transcript; do
         # not spend on a second hosted search merely to repair JSON syntax.

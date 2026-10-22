@@ -1239,7 +1239,7 @@ class ToolRegistry:
         rather than synthesise a fake entry.
         """
         index: dict[str, set[str]] = {}
-        unknown_count = 0
+        unknown_ids: set[str] = set()
         for item in items:
             row = item.to_dict() if hasattr(item, "to_dict") else item
             tool_id = row.get("tool_id")
@@ -1248,16 +1248,20 @@ class ToolRegistry:
                 continue
             tool_name = self._tools_by_id.get(str(tool_id))
             if tool_name is None:
-                unknown_count += 1
+                unknown_ids.add(str(tool_id))
                 continue
             index.setdefault(tool_name, set()).add(executor_name)
         self._bindings_by_tool = index
-        if unknown_count:
+        # Announce on CHANGE, never per reload: every registry reload re-read the same
+        # orphan rows and wrote the same warning (4,194 ops.app_log rows in 6 h, DB lane C
+        # 2026-10-21). A new or different orphan set is still announced, with its ids.
+        if unknown_ids and unknown_ids != getattr(self, "_announced_unknown_binding_ids", None):
             vcprint(
-                f"[ToolRegistry] {unknown_count} tool_binding row(s) "
-                f"reference unknown tool_ids; ignored",
+                f"[ToolRegistry] {len(unknown_ids)} tool_binding row(s) "
+                f"reference unknown tool_ids; ignored: {sorted(unknown_ids)[:10]}",
                 color="yellow",
             )
+        self._announced_unknown_binding_ids = unknown_ids
         vcprint(
             f"[Tools] Indexed {sum(len(s) for s in index.values())} bindings "
             f"across {len(index)} tools",

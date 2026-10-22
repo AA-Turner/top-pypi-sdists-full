@@ -16,6 +16,8 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from functools import partial
 
+import numpy as np
+
 from river_client.client import (
     _IMAGE_PAD_TOKEN_CANDIDATES,
     _image_placeholder_token_id,
@@ -28,6 +30,7 @@ from river_client.sampling import MAX_SAMPLING_BATCH, SamplingResultCollector
 from .config import Budget, GroupCompletion, KVCache, Schedule, _integer
 from .env import Env, InfrastructureError, elide_middle
 from .progress import Activities
+from .requirements import _validate_top_logprobs
 from .rendering import continuation_chunks, prompt_chunks, sample_stop
 from .trajectory import Trajectory, decode_state, encode_state
 
@@ -264,6 +267,7 @@ class RolloutEngine:
         sample_timeout: float = 1800.0,
         environment_timeout: float | None = None,
         return_expert_routing: bool = False,
+        top_logprobs: int | None = None,
     ):
         """Configure rollout generation.
 
@@ -280,11 +284,13 @@ class RolloutEngine:
             kv_cache: Maximum retained KV age and behavior at that limit.
             temperature: Sampling temperature; training requires a positive value.
             top_p: Nucleus sampling threshold.
-            top_k: Top-k sampling limit; -1 disables it.
+            top_k: Top-k sampling limit; -1 or 0 disables it.
             seed: Base sampling seed.
             sample_timeout: Timeout for one sampling request in seconds.
             environment_timeout: Optional timeout for an environment call in seconds.
             return_expert_routing: Request expert routing for supported models.
+            top_logprobs: Number of top-K alternatives per sampled token. Configured
+                losses request this automatically when needed.
         """
         if not inspect.iscoroutinefunction(getattr(model, "sample", None)) and not any(
             callable(getattr(model, name, None))
@@ -338,6 +344,9 @@ class RolloutEngine:
         if type(return_expert_routing) is not bool:
             raise TypeError("return_expert_routing must be a boolean")
         self.return_expert_routing = return_expert_routing
+        if top_logprobs is not None:
+            _validate_top_logprobs(top_logprobs)
+        self.top_logprobs = top_logprobs
         self.model, self.env, self.renderer = model, env, renderer
         # Only image chunks may carry the image placeholder. The API rejects a
         # whole sampling batch over one stray placeholder, and training must not
@@ -600,78 +609,81 @@ class RolloutEngine:
 
     async def _dispatch(self):
         while True:
-            # Native transport admission counts outstanding prompts, not RPCs.
-            # Completed prompts release capacity immediately for continuations.
-            await self._operation_slots.acquire()
-            transferred = False
-            deferred = []
-            try:
-                first = (await self._ready.get())[2]
-                requests = [first]
-                batch_bytes = first.estimated_bytes
-                deadline = time.monotonic() + self.schedule.window
-                batch_limit = (
-                    min(self.schedule.max_batch, MAX_SAMPLING_BATCH)
-                    if self._independent_samples
-                    else self.schedule.max_batch
+            await self._dispatch_batch()
+
+    async def _dispatch_batch(self):
+        # Batch-local references must expire before waiting for the next batch.
+        # Admission counts outstanding prompts, not RPCs; completed prompts
+        # release capacity immediately for continuations.
+        await self._operation_slots.acquire()
+        transferred = False
+        deferred = []
+        try:
+            first = (await self._ready.get())[2]
+            requests = [first]
+            batch_bytes = first.estimated_bytes
+            deadline = time.monotonic() + self.schedule.window
+            batch_limit = (
+                min(self.schedule.max_batch, MAX_SAMPLING_BATCH)
+                if self._independent_samples
+                else self.schedule.max_batch
+            )
+            while (
+                len(requests) < batch_limit
+                and batch_bytes < self.schedule.max_batch_bytes
+                and (
+                    not self._independent_samples or not self._operation_slots.locked()
                 )
-                while (
-                    len(requests) < batch_limit
-                    and batch_bytes < self.schedule.max_batch_bytes
-                    and (
-                        not self._independent_samples
-                        or not self._operation_slots.locked()
+            ):
+                try:
+                    item = self._ready.get_nowait()
+                except asyncio.QueueEmpty:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    try:
+                        item = await asyncio.wait_for(self._ready.get(), remaining)
+                    except TimeoutError:
+                        break
+                request = item[2]
+                if request.future.cancelled():
+                    continue
+                if request.cap == first.cap and (
+                    (
+                        self.sampling_policy == "segment"
+                        and (
+                            not self._retained_kv
+                            or (request.kv_anchor_id, request.previous_policy_id)
+                            == (first.kv_anchor_id, first.previous_policy_id)
+                        )
+                    )
+                    or (
+                        self.sampling_policy == "trajectory"
+                        and request.pinned_policy_id == first.pinned_policy_id
                     )
                 ):
-                    try:
-                        item = self._ready.get_nowait()
-                    except asyncio.QueueEmpty:
-                        remaining = deadline - time.monotonic()
-                        if remaining <= 0:
-                            break
-                        try:
-                            item = await asyncio.wait_for(self._ready.get(), remaining)
-                        except TimeoutError:
-                            break
-                    request = item[2]
-                    if request.future.cancelled():
-                        continue
-                    if request.cap == first.cap and (
-                        (
-                            self.sampling_policy == "segment"
-                            and (
-                                not self._retained_kv
-                                or (request.kv_anchor_id, request.previous_policy_id)
-                                == (first.kv_anchor_id, first.previous_policy_id)
-                            )
-                        )
-                        or (
-                            self.sampling_policy == "trajectory"
-                            and request.pinned_policy_id == first.pinned_policy_id
-                        )
-                    ):
-                        request_bytes = request.estimated_bytes
-                        if batch_bytes + request_bytes > self.schedule.max_batch_bytes:
-                            deferred.append(item)
-                            break
-                        batch_bytes += request_bytes
-                        requests.append(request)
-                        if self._independent_samples:
-                            await self._operation_slots.acquire()
-                    else:
+                    request_bytes = request.estimated_bytes
+                    if batch_bytes + request_bytes > self.schedule.max_batch_bytes:
                         deferred.append(item)
-                if self._independent_samples:
-                    for request in requests:
-                        request.future.add_done_callback(self._release_sample_slot)
-                task = asyncio.create_task(self._sample(requests))
-                self._batches.add(task)
-                task.add_done_callback(self._sample_finished)
-                transferred = True
-            finally:
-                for item in deferred:
-                    self._ready.put_nowait(item)
-                if not transferred:
-                    self._operation_slots.release()
+                        break
+                    batch_bytes += request_bytes
+                    requests.append(request)
+                    if self._independent_samples:
+                        await self._operation_slots.acquire()
+                else:
+                    deferred.append(item)
+            if self._independent_samples:
+                for request in requests:
+                    request.future.add_done_callback(self._release_sample_slot)
+            task = asyncio.create_task(self._sample(requests))
+            self._batches.add(task)
+            task.add_done_callback(self._sample_finished)
+            transferred = True
+        finally:
+            for item in deferred:
+                self._ready.put_nowait(item)
+            if not transferred:
+                self._operation_slots.release()
 
     def _release_sample_slot(self, future):
         self._operation_slots.release()
@@ -688,7 +700,7 @@ class RolloutEngine:
             for request in requests:
                 if request.member.cause and not request.future.done():
                     request.future.set_exception(_RolloutStopped())
-            requests = [r for r in requests if not r.future.done()]
+            requests[:] = [r for r in requests if not r.future.done()]
             if not requests:
                 return
             started = time.monotonic()
@@ -720,6 +732,8 @@ class RolloutEngine:
                 "return_prompt_token_ids": any(r.images for r in requests),
                 "timeout": self.sample_timeout,
             }
+            if self.top_logprobs is not None:
+                kwargs["logprobs"] = self.top_logprobs
             if self.return_expert_routing:
                 kwargs["return_expert_routing"] = True
             if self._retained_kv:
@@ -749,8 +763,10 @@ class RolloutEngine:
                 )
                 self._sampling["submitted_requests"] += 1
                 self._sampling["submit_seconds"] += time.monotonic() - started
+                del request
                 async for completion in pending.as_completed(collector=self._collector):
                     request = requests[completion.prompt_index]
+                    requests[completion.prompt_index] = None
                     try:
                         if completion.error is not None:
                             raise completion.error
@@ -760,6 +776,7 @@ class RolloutEngine:
                             request.future.set_exception(error)
                     count -= 1
                     self._sampling["inflight_prompts"] -= 1
+                    del request, completion
                 return
             if inspect.iscoroutinefunction(getattr(self.model, "sample", None)):
                 results = await self.model.sample(**kwargs)
@@ -785,7 +802,7 @@ class RolloutEngine:
                         request.future.set_exception(stopped)
         except Exception as exc:
             for request in requests:
-                if not request.future.done():
+                if request is not None and not request.future.done():
                     request.future.set_exception(exc)
         finally:
             if started is not None:
@@ -827,6 +844,18 @@ class RolloutEngine:
             self._sampling["kv_refreshes"] += int(
                 bool(request.kv_anchor_id) and anchor.id != request.kv_anchor_id
             )
+        # The server validates probabilities; training additionally requires full rows.
+        if (
+            self.top_logprobs is not None
+            and sample.tokens
+            and (
+                sample.top_logprobs is None
+                or len(sample.top_logprobs) != len(sample.tokens)
+                or sample.top_logprobs.width != self.top_logprobs
+                or np.any(sample.top_logprobs.token_ids < 0)
+            )
+        ):
+            raise ValueError("sampler omitted or misaligned requested top-K metadata")
         self._sampling["prompt_tokens"] += sample.prompt_tokens
         self._sampling["cached_prompt_tokens"] += sample.cached_prompt_tokens
         if self.sampling_policy == "trajectory" and not self._live_full_weight:
@@ -1059,6 +1088,7 @@ class RolloutEngine:
 
                         try:
                             sample = await future
+                            del future, request
                         except _RolloutStopped:
                             await self._finish(member, group.row, member.cause)
                             break
@@ -1069,6 +1099,8 @@ class RolloutEngine:
                             traj.append_span(sample)
                             traj.sample_index += 1
                             traj.pending_tokens.extend(sample.tokens)
+                            stop_reason = sample.stop_reason
+                            del sample
                             group.changed.set()
                             terminated = (
                                 sample_stop(self.renderer, traj.pending_tokens)
@@ -1080,7 +1112,7 @@ class RolloutEngine:
                                 >= self.budget.max_turn_tokens
                             )
                             if (
-                                sample.stop_reason == "length"
+                                stop_reason == "length"
                                 and not terminated
                                 and not turn_limit
                             ):
@@ -1132,9 +1164,9 @@ class RolloutEngine:
                                     traj.messages.extend(messages)
                                     traj.wrap_up = True
                                 continue
-                            if sample.stop_reason not in {"stop", "eos", "length"}:
+                            if stop_reason not in {"stop", "eos", "length"}:
                                 raise ValueError(
-                                    f"unknown sampler stop reason: {sample.stop_reason!r}"
+                                    f"unknown sampler stop reason: {stop_reason!r}"
                                 )
                             # Decoding is solely an environment/reward view. These
                             # strings never replace sampled tokens in the prompt.
@@ -1144,7 +1176,7 @@ class RolloutEngine:
                             )
                             traj.messages.append(parsed.message)
                             traj.final_text = text
-                            traj.last_stop_reason = sample.stop_reason
+                            traj.last_stop_reason = stop_reason
                             traj.pending_tokens.clear()
                             traj.turns += 1
                             traj.phase = "environment"

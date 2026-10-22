@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: river-client
-Version: 0.14.1
+Version: 0.15.0
 Summary: Python client for River ML training API
 Project-URL: Homepage, https://river.ai
 Author-email: River AI <api@river.ai>
@@ -136,6 +136,11 @@ checkpoint = model.save_weights("step1", mode="training", immutable=True, timeou
 model.load_weights(checkpoint, load_optimizer=True, timeout=3600)
 ```
 
+Pass `train_router=True` to `session.create_model(..., full_weight=True)` to
+train MoE router weights as well. Routers are frozen by default; the routing
+correction bias remains fixed. Recreate a model with the same `train_router`
+setting when restoring a training checkpoint.
+
 Checkpoints include FP32 master weights, Adam moments, optimizer parameters,
 and the training step. Full-weight saves require `immutable=True`; repeated
 names create separate checkpoint URIs with independent retention. Only an RL
@@ -156,9 +161,28 @@ within the server's retention cap. They cannot be restored from cloud storage
 after expiry or NFS loss. This option requires server support; the SDK rejects
 it on an endpoint without `temporary_checkpoints_v1`. Changing an existing
 checkpoint's storage policy requires a new name or `immutable=True`. The RL
-trainer uses it for per-step sampling snapshots. Recovery and evaluation saves
-remain durable so unfinished evaluations can resume after a long pause. Update the server before using the new RL client.
-Custom model implementations must accept the `durable` keyword on `save_weights`.
+trainer uses it for per-step sampling snapshots and rolling LoRA recovery saves.
+Each rolling recovery save expires seven days after creation by default.
+The server reaps expired saves after active consumers release them; the trainer
+never explicitly deletes checkpoints. Configure `Checkpointing.recovery_ttl_seconds`
+within your server's retention cap and resume before the base expires. Recovery
+requires NFS and the complete local run folder. Existing checkpoints keep their
+original retention. Final checkpoints, explicit milestones, and persisted
+evaluation jobs remain durable. Update the server before using the new RL client.
+Custom model implementations must accept `durable` and `ttl` on `save_weights`.
+
+The process-local evaluations in `examples/scalerl.py`,
+`examples/alex_scripts/scalerl_with_rl_trainer.py`, and
+`examples/alex_scripts/self_distillation.py` instead use immutable NFS-only
+snapshots with a 72-hour TTL. They consume each snapshot in one evaluation and
+do not persist evaluation jobs for resume. This covers the SDK's 24-hour save
+and sampling waits plus a day of margin, and requires a client exposing
+`durable` and a server advertising `temporary_checkpoints_v1`. Each evaluation
+retains a separate snapshot until expiry: budget NFS capacity as evaluation
+saves per day × 3 × snapshot bytes, plus any active-request retention. Final and
+explicit periodic training saves in these examples remain durable; SDK trainer
+rolling recovery saves use the policy above. This evaluation policy does not extend to other
+evaluation callers without establishing their resume and consumer lifetimes.
 
 On trainer resume, unfinished rollouts pinned to temporary snapshots restart
 from their environment's initial state, even after a short pause. Recovery
@@ -226,7 +250,7 @@ with client.session() as session:
         optimizer=rl.Adam(lr=1e-5),
         advantage=rl.GroupCentered(),  # Center rewards within each prompt group.
         completion=rl.GroupCompletion(mode="wait"),
-        normalize="token",
+        loss=rl.CISPO(normalize="token"),
         groups_per_step=2, group_size=8,  # Two prompts, eight rollouts each.
         max_staleness=0,  # Synchronous; >0 allows bounded sampling ahead.
     )

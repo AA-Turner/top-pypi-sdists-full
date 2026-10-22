@@ -4,15 +4,14 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
 
 from typing import Any, Dict, Optional
 
+from xlsxwriter import worksheet
 from xlsxwriter.chart import Chart
-
-from . import worksheet
-from .drawing import Drawing
+from xlsxwriter.drawing import Drawing
 
 
 class Chartsheet(worksheet.Worksheet):
@@ -40,7 +39,7 @@ class Chartsheet(worksheet.Worksheet):
         self.drawing = None
         self.chart = None
         self.charts = []
-        self.zoom_scale_normal = 0
+        self.zoom_scale_normal = False
         self.orientation = 0
         self.protection = False
 

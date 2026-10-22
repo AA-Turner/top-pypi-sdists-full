@@ -25,8 +25,8 @@ from typing import Any
 import numpy as np
 import numpy.typing as npt
 
-from numpy_groupies.aggregate_common import DEFAULT_FILL_VALUE
-from numpy_groupies.utils import check_fill_value, default_fill_value
+from numpy_groupies.common import DEFAULT_FILL_VALUE, default_fill_value
+from numpy_groupies.utils_np import check_fill_value
 
 
 def trapezoid_ref(*args: Any, **kwargs: Any) -> Any:
@@ -62,6 +62,39 @@ def _at_a_position(numpy_function: Callable[..., Any]) -> Callable[[np.ndarray, 
 
     one_group.__name__ = f"at_{numpy_function.__name__}"
     return one_group
+
+
+def _quantile_ref(values: npt.NDArray[np.number], q: float = 0.5, method: str = "linear") -> Any:
+    """the quantile of one group, the way numpy computes it.
+
+    numpy's own quantile takes real values only, so a group of complex values
+    is ordered the way numpy orders complex values in its median - the real
+    part first, the imaginary part breaking the tie - and the quantile
+    interpolates between the two values it falls between as it does for the
+    real ones.
+    """
+    if values.dtype.kind != "c":
+        return np.quantile(values, q, method=method)
+    if np.isnan(values).any():
+        # a nan in either part makes the value incomparable, and the group
+        # answers with a nan, like the median of a complex group does
+        return values[0] * np.nan
+    ordered = np.sort(values)
+    pos = q * (len(ordered) - 1)
+    lower = int(np.floor(pos))
+    upper = int(np.ceil(pos))
+    if method == "nearest":
+        return ordered[min(int(np.round(pos)), len(ordered) - 1)]
+    if lower == upper:
+        return ordered[lower]
+    low, high = ordered[lower], ordered[upper]
+    if method == "lower":
+        return low
+    if method == "higher":
+        return high
+    if method == "midpoint":
+        return (low + high) / 2
+    return low + (high - low) * (pos - lower)
 
 
 def _skip_nans(one_group: Callable[..., Any]) -> Callable[..., Any]:
@@ -125,6 +158,68 @@ def _sum_of_squares(values: npt.NDArray[np.floating], pos: npt.NDArray[np.intege
     return np.sum(np.abs(values) ** 2)
 
 
+def _nunique_ref(values: npt.NDArray[np.number], pos: npt.NDArray[np.integer]) -> int:
+    """the number of distinct values of one group.
+
+    The values that are equal count once - a zero and a minus zero are one
+    value, an integer and the float of the same number are one value.  The
+    nans count once among themselves: a nan in either part of a complex value
+    is a nan, and the nans of a group are one value of their own (pandas
+    counts them that way, and so does polars, which counts the nan as a
+    value).
+    """
+    if values.dtype.kind in "fc":
+        nans = np.isnan(values)
+        usable = values[~nans]
+    else:
+        nans = None
+        usable = values
+    distinct = len(np.unique(usable))
+    if nans is not None and nans.any():
+        distinct += 1
+    return distinct
+
+
+def _skew_ref(values: npt.NDArray[np.number], pos: npt.NDArray[np.integer]) -> float:
+    """the skewness of the values of one group.
+
+    The third central moment over the second one to the three-halves power,
+    with the correction for the size of the group that pandas applies: the
+    factor sqrt(n(n-1))/(n-2) makes the estimator unbiased for a normal
+    distribution.  A group of fewer than three values has no skewness, and a
+    group whose values are all the same has none either - its spread is zero,
+    and the answer is zero as well.
+    """
+    n = len(values)
+    if n < 3:
+        return float("nan")
+    devs = values - values.mean()
+    s2 = float((devs**2).sum())
+    if s2 == 0:
+        return 0.0
+    s3 = float((devs**3).sum())
+    return n * (n - 1) ** 0.5 / (n - 2) * s3 / s2**1.5
+
+
+def _kurt_ref(values: npt.NDArray[np.number], pos: npt.NDArray[np.integer]) -> float:
+    """the excess kurtosis of the values of one group.
+
+    The fourth central moment over the square of the second one, minus the
+    three of a normal distribution, with the correction for the size of the
+    group that pandas applies.  A group of fewer than four values has no
+    kurtosis, and a group whose values are all the same has none either.
+    """
+    n = len(values)
+    if n < 4:
+        return float("nan")
+    devs = values - values.mean()
+    s2 = float((devs**2).sum())
+    if s2 == 0:
+        return 0.0
+    s4 = float((devs**4).sum())
+    return n * (n + 1) * (n - 1) * s4 / ((n - 2) * (n - 3) * s2**2) - 3 * (n - 1) ** 2 / ((n - 2) * (n - 3))
+
+
 def _sort_ref(values: npt.NDArray[np.number], reverse: bool = False) -> npt.NDArray[np.integer]:
     """one group, ordered the way numpy orders it."""
     ordered = np.sort(values)
@@ -166,11 +261,16 @@ _REF_ONE_PER_GROUP: dict[str, Callable[..., Any]] = {
     "any": _of(np.any),
     "mean": _of(np.mean),
     "median": _of(np.median),
+    "quantile": lambda v, pos, q=0.5, method="linear": _quantile_ref(v, q, method),
+    "percentile": lambda v, pos, q=50.0, method="linear": _quantile_ref(v, q / 100.0, method),
     "std": lambda v, pos, ddof=0: np.std(v, ddof=ddof),
     "var": lambda v, pos, ddof=0: np.var(v, ddof=ddof),
     "trapezoid": _trapezoid_of,
     "sumofsquares": _sum_of_squares,
     "len": lambda v, pos: len(v),
+    "nunique": _nunique_ref,
+    "skew": _skew_ref,
+    "kurt": _kurt_ref,
     "first": lambda v, pos: v[0],
     "last": lambda v, pos: v[-1],
     "anynan": lambda v, pos: bool(np.isnan(v).any()),
@@ -185,11 +285,16 @@ _REF_ONE_PER_GROUP: dict[str, Callable[..., Any]] = {
     "nanany": _skip_nans(_of(np.any)),
     "nanmean": _skip_nans(_of(np.mean)),
     "nanmedian": _skip_nans(_of(np.median)),
+    "nanquantile": _skip_nans(lambda v, pos, q=0.5, method="linear": _quantile_ref(v, q, method)),
+    "nanpercentile": _skip_nans(lambda v, pos, q=50.0, method="linear": _quantile_ref(v, q / 100.0, method)),
     "nanstd": _skip_nans(lambda v, pos, ddof=0: np.std(v, ddof=ddof)),
     "nanvar": _skip_nans(lambda v, pos, ddof=0: np.var(v, ddof=ddof)),
     "nantrapezoid": _skip_nans(_trapezoid_of),
     "nansumofsquares": _skip_nans(_sum_of_squares),
     "nanlen": _skip_nans(lambda v, pos: len(v)),
+    "nannunique": _skip_nans(_nunique_ref),
+    "nanskew": _skip_nans(_skew_ref),
+    "nankurt": _skip_nans(_kurt_ref),
     "nanfirst": _skip_nans(lambda v, pos: v[0]),
     "nanlast": _skip_nans(lambda v, pos: v[-1]),
     "nanargmin": _skip_nans(_at_a_position(np.argmin)),

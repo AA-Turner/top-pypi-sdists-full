@@ -134,6 +134,7 @@ from aioesphomeapi.model import (
     DateTimeState,
     DeviceCapabilities,
     DeviceInfo,
+    DeviceRelation,
     DeviceWizard,
     EntityInfo,
     EntityState,
@@ -473,6 +474,12 @@ def test_bluetooth_connections_free_surfaces_allocated() -> None:
     assert model.free == 2
     assert model.limit == 3
     assert model.allocated == [10, 20]
+
+
+@pytest.mark.parametrize("supports_toggle", [True, False])
+def test_cover_info_supports_toggle(supports_toggle: bool) -> None:
+    pb = ListEntitiesCoverResponse(key=1, supports_toggle=supports_toggle)
+    assert CoverInfo.from_pb(pb).supports_toggle is supports_toggle
 
 
 @pytest.mark.parametrize(
@@ -1588,6 +1595,28 @@ def test_sub_device_info_convert_list() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        (None, DeviceRelation.VIA),
+        (0, DeviceRelation.VIA),
+        (1, DeviceRelation.CHILD),
+        (99, None),
+    ],
+)
+def test_sub_device_info_relation(
+    raw: int | None, expected: DeviceRelation | None
+) -> None:
+    """Test SubDeviceInfo.relation from pb and dict, including unknown values."""
+    kwargs = {} if raw is None else {"relation": raw}
+    from_pb = SubDeviceInfo.from_pb(SubDeviceInfoProto(device_id=1, **kwargs))
+    from_dict = SubDeviceInfo.from_dict({"device_id": 1, **kwargs})
+    assert from_pb.relation is expected
+    assert from_dict.relation is expected
+    response = DeviceInfoResponse(devices=[SubDeviceInfoProto(device_id=1, **kwargs)])
+    assert DeviceInfo.from_pb(response).devices[0].relation is expected
+
+
 def test_media_player_supported_format_convert_list() -> None:
     """Test list conversion for MediaPlayerSupportedFormat."""
     assert MediaPlayerInfo.from_dict(
@@ -1600,7 +1629,14 @@ def test_media_player_supported_format_convert_list() -> None:
                     "num_channels": 2,
                     "purpose": 1,
                     "sample_bytes": 2,
-                }
+                },
+                {
+                    "format": "mp3",
+                    "sample_rate": 48000,
+                    "num_channels": 2,
+                    "purpose": 0,
+                    "bitrate": 48,
+                },
             ],
             "feature_flags": 0,
         }
@@ -1613,7 +1649,14 @@ def test_media_player_supported_format_convert_list() -> None:
                 num_channels=2,
                 purpose=1,
                 sample_bytes=2,
-            )
+            ),
+            MediaPlayerSupportedFormat(
+                format="mp3",
+                sample_rate=48000,
+                num_channels=2,
+                purpose=0,
+                bitrate=48,
+            ),
         ],
         feature_flags=0,
     )
@@ -2790,6 +2833,24 @@ _GATT_UUID_STR = "12345678-aabb-ccdd-1122-334455667788"
                 "num_channels": 2,
                 "purpose": 1,
                 "sample_bytes": 2,
+                "bitrate": 0,
+            },
+        ),
+        (
+            MediaPlayerSupportedFormatModel,
+            lambda: MediaPlayerSupportedFormat(
+                format="mp3",
+                sample_rate=48000,
+                num_channels=2,
+                bitrate=48,
+            ),
+            {
+                "format": "mp3",
+                "sample_rate": 48000,
+                "num_channels": 2,
+                "purpose": 0,
+                "sample_bytes": 0,
+                "bitrate": 48,
             },
         ),
         (

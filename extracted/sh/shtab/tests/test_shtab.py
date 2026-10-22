@@ -86,7 +86,7 @@ def test_main_self_completion(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -o bashdefault -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab",
         'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     assert expected[shell] in captured.out
@@ -100,7 +100,7 @@ def test_main_output_path(shell, capsys, change_dir, output):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -o bashdefault -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab",
         'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     if output in ("-", "stdout"):
@@ -116,7 +116,7 @@ def test_prog_override(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     if shell == 'bash':
-        assert "complete -F _shtab_shtab foo" in captured.out
+        assert "complete -o bashdefault -F _shtab_shtab foo" in captured.out
     else:
         pytest.skip("WiP")
 
@@ -129,7 +129,7 @@ def test_prog_scripts(shell, capsys):
     assert not captured.err
     script_py = [i.strip() for i in captured.out.splitlines() if "script.py" in i and i[0] != '#']
     if shell == 'bash':
-        assert script_py == ["complete -F _shtab_shtab script.py"]
+        assert script_py == ["complete -o bashdefault -F _shtab_shtab script.py"]
     elif shell == 'zsh':
         assert captured.out.startswith("#compdef script.py")
         assert script_py == [
@@ -332,6 +332,55 @@ def fish_candidates(completion, cmdline):
     proc = subprocess.check_output(['fish', '-c', f"{completion}\ncomplete -C{quoted}"], text=True)
     # each output line is "candidate<TAB>description" (or just "candidate")
     return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
+
+
+@pytest.mark.parametrize("case", ["relative", "absolute", "prefix", "no_match", "nested"])
+def test_fish_glob_filters_paths(case, change_dir):
+    """Glob completion filters the whole path but retains directories (#261)."""
+    for name in ("a.yaml", "b.json", "config.yml", "settings.toml", "notes.txt", "a.yaml.bak",
+                 "with space.yaml"):
+        (change_dir / name).touch()
+    for name in ("subdir", "space dir", "space dir/deeper folder"):
+        (change_dir / name).mkdir()
+    (change_dir / "space dir/nested.yaml").touch()
+    (change_dir / "space dir/no.txt").touch()
+    parser = ArgumentParser(prog="pathcomplete")
+    parser.add_argument("--config").complete = shtab.glob("*.toml", "*.yml", "*.yaml", "*.json")
+    completion = complete(parser, 'fish')
+    expected = {
+        "a.yaml", "b.json", "config.yml", "settings.toml", "with space.yaml", "subdir/",
+        "space dir/"}
+    prefix = ""
+    if case == "absolute":
+        prefix = str(change_dir) + "/"
+        expected = {prefix + name for name in expected}
+    elif case == "prefix":
+        prefix, expected = "a", {"a.yaml"}
+    elif case == "no_match":
+        prefix, expected = "notes", set()
+    elif case == "nested":
+        prefix = "space\\ dir/"
+        expected = {"space dir/nested.yaml", "space dir/deeper folder/"}
+    assert set(fish_candidates(completion, f"pathcomplete --config {prefix}")) == expected
+
+
+def test_fish_glob_matches_paths_not_descriptions():
+    """Description text is preserved but cannot make a nonmatching path match."""
+    if not shutil.which('fish'):
+        pytest.skip("fish not available")
+    parser = ArgumentParser(prog="pathcomplete")
+    parser.add_argument("--config").complete = shtab.glob("*.yaml")
+    completion = complete(parser, 'fish')
+    script = completion + """
+function __fish_complete_path
+  printf '%s\\n' 'a.yaml\tYAML document\t' 'notes.txt\tlooks.yaml\t' 'subdir/\tDirectory\t'
+end
+complete -C 'pathcomplete --config '
+"""
+    output = subprocess.check_output(['fish', '-c', script], text=True)
+    assert "a.yaml\tYAML document" in output
+    assert "subdir/\tDirectory" in output
+    assert "notes.txt" not in output
 
 
 def powershell_candidates(completion, cmdline):
@@ -557,7 +606,7 @@ def test_bash_dir_collision(change_dir, test_parser):
     (change_dir / "create").mkdir()
     (change_dir / "subdir").mkdir()
     completion = complete(test_parser, 'bash')
-    assert "complete -F _shtab_myprog myprog" in completion, \
+    assert "complete -o bashdefault -F _shtab_myprog myprog" in completion, \
         "`-o filenames` must not apply readline filename post-processing globally"
     lines = bash_candidates(completion, ["myprog cre", "myprog create alpha sub"], change_dir)
     assert lines == [
@@ -850,6 +899,34 @@ def test_bash_option_completion_after_positional_path():
     completion = shtab.complete(parser, shell="bash")
     shell = Bash(completion + "\nCOMP_WORDS=(test . --w); COMP_CWORD=2; _shtab_test;")
     shell.test('"${COMPREPLY[*]}" = "--wdir"')
+
+
+@pytest.mark.parametrize("previous", ["", "--pid ", "--file ", "--directory ", "-- ", "> "])
+@pytest.mark.parametrize("word,expected", [
+    ("$SHTAB_TEST_VAR", "$SHTAB_TEST_VARIABLE "),
+    ("${SHTAB_TEST_VAR", "${SHTAB_TEST_VARIABLE} "),
+    ('"$SHTAB_TEST_VAR', '"$SHTAB_TEST_VARIABLE" '),
+    ('"${SHTAB_TEST_VAR', '"${SHTAB_TEST_VARIABLE}" '),])
+def test_bash_variable_completion(change_dir, monkeypatch, previous, word, expected):
+    monkeypatch.setenv("INPUTRC", os.devnull)
+    monkeypatch.setenv("HISTFILE", os.devnull)
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--pid", type=int)
+    parser.add_argument("--file").complete = shtab.FILE
+    parser.add_argument("--directory").complete = shtab.DIRECTORY
+    completion = shtab.complete(parser, shell="bash", preamble="export SHTAB_TEST_VARIABLE=123")
+    lines = bash_candidates(completion, [f"test {previous}{word}"], change_dir)
+    assert lines == [f"test {previous}{expected}"]
+
+
+def test_bash_fallback_does_not_complete_filenames(change_dir, monkeypatch):
+    monkeypatch.setenv("INPUTRC", os.devnull)
+    monkeypatch.setenv("HISTFILE", os.devnull)
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--pid", type=int)
+    (change_dir / "test_file.txt").touch()
+    completion = shtab.complete(parser, shell="bash")
+    assert bash_candidates(completion, ["test --pid test_f"], change_dir) == ["test --pid test_f"]
 
 
 @fix_shell

@@ -31,7 +31,7 @@ class CerebrasTranslator(BaseTranslator):
     """Translates between unified format and Cerebras API (OpenAI-style)"""
 
     #: THE CACHE LINE LAW: the per-turn block rides after the cached prefix.
-    TURN_CONTEXT_AFTER_CACHE_LINE = True
+    PROVIDER = "cerebras"
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)

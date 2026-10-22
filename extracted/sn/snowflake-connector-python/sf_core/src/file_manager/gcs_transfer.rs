@@ -131,7 +131,7 @@ pub async fn upload_to_gcs_or_skip(
     tx: TransferCtx<'_>,
 ) -> Result<UploadStatus, GcsUploadError> {
     let scheduler = &super::scheduler_for(tx, multipart);
-    let client = create_gcs_client(stage_info, tx.http_client)?;
+    let client = create_gcs_client(stage_info, tx.http_client).await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
     let using_presigned_url = stage_info.presigned_url.is_some();
     let refresher = tx.refresher;
@@ -342,7 +342,7 @@ async fn gcs_get_with_refresh(
     per_file_index: usize,
     tx: TransferCtx<'_>,
 ) -> Result<reqwest::Response, GcsDownloadError> {
-    let client = create_gcs_client(stage_info, tx.http_client)?;
+    let client = create_gcs_client(stage_info, tx.http_client).await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
     // Either presigned-URL source enables the 400-handling: the URL may
     // have expired and reissuing it produces a fresh signature. The
@@ -781,7 +781,6 @@ async fn upload_to_gcs(
             .apply_to(
                 client
                     .put(&url_owned)
-                    .header("content-encoding", "")
                     .header(reqwest::header::CONTENT_LENGTH, content_length)
                     .body(body),
             );
@@ -946,18 +945,19 @@ fn map_http_error(e: HttpError) -> GcsRequestError {
 // (`gcs_get_with_refresh`) call sites — if client construction is ever split
 // per direction (as `create_s3_client`'s `provider_name` param anticipates),
 // add the equivalent GCS case here too.
-fn create_gcs_client(
+async fn create_gcs_client(
     stage_info: &StageInfo,
     shared: Option<&reqwest::Client>,
 ) -> Result<reqwest::Client, GcsRequestError> {
-    cloud_http::shared_or_build_client(shared, || cloud_http::build_gcs_client(stage_info)).map_err(
-        |e| {
+    match shared {
+        Some(client) => Ok(client.clone()),
+        None => cloud_http::build_gcs_client(stage_info).await.map_err(|e| {
             ClientSetupSnafu {
                 detail: e.to_string(),
             }
             .build()
-        },
-    )
+        }),
+    }
 }
 
 /// Constructs the GCS URL and extracts the bearer token from stage info.
@@ -1288,7 +1288,7 @@ async fn gcs_try_ranged_download(
     spill_target: cloud_http::CloudSpillTarget<'_>,
     tx: TransferCtx<'_>,
 ) -> Result<Option<CloudStreamingDownload>, GcsDownloadError> {
-    let client = create_gcs_client(stage_info, tx.http_client)?;
+    let client = create_gcs_client(stage_info, tx.http_client).await?;
     let key = format!("{}{filename}", stage_info.key_prefix);
 
     let make_attempt = |base: &StageInfo| {
@@ -2745,7 +2745,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None).unwrap();
+        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None)
+            .await
+            .unwrap();
         let url = format!("{}/my-bucket/prefix/file.csv", server.uri());
         let result = check_file_exists_gcs(
             &client,
@@ -2772,7 +2774,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None).unwrap();
+        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None)
+            .await
+            .unwrap();
         let url = format!("{}/my-bucket/prefix/file.csv", server.uri());
         let result = check_file_exists_gcs(
             &client,
@@ -2800,7 +2804,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None).unwrap();
+        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None)
+            .await
+            .unwrap();
         let url = format!("{}/my-bucket/prefix/file.csv", server.uri());
         let result = check_file_exists_gcs(
             &client,
@@ -2822,7 +2828,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None).unwrap();
+        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None)
+            .await
+            .unwrap();
         let url = format!("{}/my-bucket/prefix/file.csv", server.uri());
         let result = check_file_exists_gcs(
             &client,
@@ -2847,7 +2855,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None).unwrap();
+        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None)
+            .await
+            .unwrap();
         let url = format!("{}/my-bucket/prefix/file.csv", server.uri());
         let result = check_file_exists_gcs(
             &client,
@@ -2876,7 +2886,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None).unwrap();
+        let client = create_gcs_client(&make_stage_for_mock(&server.uri()), None)
+            .await
+            .unwrap();
         let url = format!("{}/my-bucket/prefix/file.csv", server.uri());
         let result = check_file_exists_gcs(
             &client,
@@ -3035,6 +3047,59 @@ mod tests {
             Some(digest.as_str())
         );
         assert_eq!(authorization(put), "Bearer fake-token");
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn gcs_put_omits_content_encoding() {
+        let server = MockServer::start().await;
+        Mock::given(method("PUT"))
+            .and(path("/my-bucket/prefix/file.csv"))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let digest = "0".repeat(64);
+        let status = upload_to_gcs_or_skip(
+            PreparedUpload {
+                source: crate::file_manager::types::PreparedSource::Bytes(Bytes::from_static(
+                    b"hello world",
+                )),
+                digest: digest.clone(),
+                cse: None,
+            },
+            &make_stage_for_mock(&server.uri()),
+            "file.csv",
+            /* overwrite */ true,
+            /* skip_upload_on_content_match */ false,
+            MultipartParams::default(),
+            &test_policy(
+                /* using_presigned_url */ false,
+                DEFAULT_PUT_GET_MAX_ATTEMPTS,
+            ),
+            TransferCtx::default(),
+        )
+        .await
+        .expect("bearer-token GCS PUT should succeed against the mock");
+        assert_eq!(status, UploadStatus::Uploaded);
+
+        let received = server.received_requests().await.unwrap();
+        let put = received
+            .iter()
+            .find(|r| r.method.as_str() == "PUT")
+            .expect("a PUT request should have been received");
+        assert_eq!(
+            put.headers
+                .get(GCS_META_SFC_DIGEST)
+                .and_then(|v| v.to_str().ok()),
+            Some(digest.as_str()),
+            "sfc-digest must still be present"
+        );
+        assert!(
+            put.headers.get(reqwest::header::CONTENT_ENCODING).is_none(),
+            "Content-Encoding must be absent on GCS PUT (got {:?})",
+            put.headers.get(reqwest::header::CONTENT_ENCODING)
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]

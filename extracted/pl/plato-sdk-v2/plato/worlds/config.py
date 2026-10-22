@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, JsonValue, PrivateAttr, TypeAdapter
+from pydantic import BaseModel, Field, JsonValue, PrivateAttr, TypeAdapter, field_validator, model_validator
 
 from plato._generated.models import (
     EnvFromArtifact,
@@ -25,6 +26,8 @@ EnvConfig = EnvFromArtifact | EnvFromSimulator | EnvFromResource
 __all__ = [
     "ChronosConfig",
     "DevConfig",
+    "TailscaleConfig",
+    "TailscaleScope",
     "WorkspaceSourceSpec",
 ]
 
@@ -392,6 +395,138 @@ class CheckpointConfig(BaseModel):
     exclude_envs: list[str] = Field(default_factory=lambda: ["runtime"])
 
 
+class TailscaleScope(StrEnum):
+    """Which VMs of a session join the tailnet."""
+
+    WORLD = "world"
+    """Only the world VM joins."""
+    AGENTS = "agents"
+    """Only the agent VMs join."""
+    BOTH = "both"
+    """The world VM and every agent VM join."""
+
+
+TAILSCALE_TAG_PREFIX = "tag:"
+
+# A domain entry also covers its subdomains.
+TAILSCALE_DEFAULT_NO_PROXY: tuple[str, ...] = (
+    "localhost",
+    "127.0.0.1",
+    "::1",
+    "runtime.plato.internal",
+    "plato.so",
+    "anthropic.com",
+    "openai.com",
+    "amazonaws.com",
+)
+
+
+class TailscaleConfig(BaseModel):
+    """Join the session's VMs to the Tailscale tailnet. Off by default.
+
+    The reference and an example launch config are in docs/worlds/agent.md, section 8.
+    """
+
+    enabled: bool = False
+    scope: TailscaleScope = TailscaleScope.WORLD
+    auth_key: str | None = Field(
+        default=None,
+        description="Tailscale OAuth client secret (``tskey-client-...``) or an auth key. "
+        "An OAuth client secret gets ``?ephemeral=true&preauthorized=true`` appended and is "
+        'passed to ``tailscale up --auth-key``. Use "${TAILSCALE_OAUTH_CLIENT_SECRET}".',
+    )
+    tags: list[str] = Field(
+        default_factory=lambda: ["tag:chronos"],
+        description="ACL tags the node advertises. An OAuth client secret requires at least one tag.",
+    )
+    required: bool = Field(
+        default=True,
+        description="True: a VM that cannot join fails the session (or the agent run). "
+        "False: log a warning and continue without the tailnet.",
+    )
+    require_kernel_mode: bool = Field(
+        default=False,
+        description="True: a VM without /dev/net/tun (userspace mode) fails the join before the "
+        "install and before tailscaled starts. Set it when the code that talks to tailnet peers "
+        "cannot use the local userspace proxy, for example yt-dlp or curl with their own --proxy. "
+        "With required, the session (or the agent run) then stops. False: such a VM joins in "
+        "userspace mode.",
+    )
+    hostname_prefix: str = Field(
+        default="chronos",
+        min_length=1,
+        description="Node hostname is ``<prefix>-<session id first 8 chars>-<role>``.",
+    )
+    join_timeout_s: int = Field(default=30, ge=1, description="Timeout for ``tailscale up``.")
+    daemon_start_timeout_s: int = Field(
+        default=15,
+        ge=1,
+        description="Seconds to wait for a started ``tailscaled`` to open its socket.",
+    )
+    leave_timeout_s: int = Field(default=15, ge=1, description="Timeout for ``tailscale logout`` on cleanup.")
+    install_timeout_s: int = Field(
+        default=180,
+        ge=1,
+        description="Timeout for the runtime install of the pinned Tailscale build (download, "
+        "SHA-256 check, extract) on a VM whose image has no ``tailscale`` binary.",
+    )
+    command_timeout_s: int = Field(
+        default=30,
+        ge=1,
+        description="Timeout for the short checks (binary, /dev/net/tun, status, /etc/hosts).",
+    )
+    accept_dns: bool = Field(
+        default=False,
+        description="Pass ``--accept-dns``. Off by default: MagicDNS does not reliably configure "
+        "the resolver in VMs, so peers go into a managed /etc/hosts block instead.",
+    )
+    write_hosts: bool = Field(default=True, description="Write tailnet peers into a managed /etc/hosts block.")
+    proxy_port: int = Field(
+        default=1055,
+        ge=1,
+        le=65535,
+        description="Local SOCKS5 + HTTP proxy port that tailscaled opens in userspace mode "
+        "(a VM without /dev/net/tun).",
+    )
+    export_proxy_env: bool = Field(
+        default=True,
+        description="In userspace mode only, make the proxy environment (ALL_PROXY, NO_PROXY). "
+        "Agent VMs get it in a managed /etc/environment block. The world VM does NOT export it "
+        "into its own process: worlds read BaseWorld.tailscale_proxy_env and give it only to the "
+        "code that talks to tailnet peers. Kernel mode never sets it.",
+    )
+    no_proxy: list[str] = Field(
+        default_factory=lambda: list(TAILSCALE_DEFAULT_NO_PROXY),
+        description="Hosts that bypass the userspace proxy (NO_PROXY). A domain also covers its "
+        "subdomains. The default keeps Chronos, LLM and S3 traffic on its direct route.",
+    )
+
+    @field_validator("tags")
+    @classmethod
+    def _tags_have_prefix(cls, tags: list[str]) -> list[str]:
+        for tag in tags:
+            if not tag.startswith(TAILSCALE_TAG_PREFIX) or len(tag) == len(TAILSCALE_TAG_PREFIX):
+                raise ValueError(f"Tailscale tag {tag!r} must look like '{TAILSCALE_TAG_PREFIX}<name>'")
+        return tags
+
+    @model_validator(mode="after")
+    def _enabled_needs_auth_key(self) -> TailscaleConfig:
+        if self.enabled and not self.auth_key:
+            raise ValueError(
+                "tailscale.enabled is true but tailscale.auth_key is empty; "
+                'set it to "${TAILSCALE_OAUTH_CLIENT_SECRET}"'
+            )
+        return self
+
+    @property
+    def joins_world(self) -> bool:
+        return self.enabled and self.scope in (TailscaleScope.WORLD, TailscaleScope.BOTH)
+
+    @property
+    def joins_agents(self) -> bool:
+        return self.enabled and self.scope in (TailscaleScope.AGENTS, TailscaleScope.BOTH)
+
+
 class RunConfig(BaseModel):
     """Base configuration for running a world.
 
@@ -457,6 +592,8 @@ class RunConfig(BaseModel):
 
     # Preview mode settings
     preview: PreviewConfig = Field(default_factory=PreviewConfig)
+
+    tailscale: TailscaleConfig = Field(default_factory=TailscaleConfig)
 
     # Review specification — defines how this session should be reviewed.
     # When set, the world runs verify() instead of the normal reset/step loop.

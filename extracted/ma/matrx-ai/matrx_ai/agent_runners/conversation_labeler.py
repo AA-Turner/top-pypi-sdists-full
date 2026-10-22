@@ -26,6 +26,7 @@ per-minute token admission (regression tests in
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 
 from matrx_utils import vcprint
@@ -119,6 +120,25 @@ def _trim_content(content: str, max_chars: int = 5000) -> str:
     return f"{content[:half]}{trim_msg}{content[-half:]}"
 
 
+_ARTIFACT_BLOCK = re.compile(r"<artifact\b([^>]*)>.*?(?:</artifact>|\Z)", re.DOTALL | re.IGNORECASE)
+_ARTIFACT_TYPE = re.compile(r"""\btype\s*=\s*["']?([A-Za-z0-9_\- ]+)""")
+
+
+def _strip_artifact_markup(text: str) -> str:
+    """An ``<artifact …>`` block is stored markup, not words the person said or read.
+
+    The namer used to read the tag itself and title chats "… with Artifact Chart"
+    (review 4, F13). The block becomes one neutral word for what it holds ("chart",
+    or "attachment" when the tag names no type); its body never reaches the namer.
+    """
+
+    def _label(match: re.Match[str]) -> str:
+        kind = _ARTIFACT_TYPE.search(match.group(1))
+        return f"[{kind.group(1).strip().lower() if kind else 'attachment'}]"
+
+    return _ARTIFACT_BLOCK.sub(_label, text)
+
+
 def _format_messages_for_labeling(
     messages: list[dict[str, Any]], max_total_chars: int = 5000
 ) -> str:
@@ -138,6 +158,7 @@ def _format_messages_for_labeling(
             content = "\n".join(text_parts)
         if not isinstance(content, str):
             content = str(content)
+        content = _strip_artifact_markup(content)
         parts.append(f"{role.capitalize()}:\n{content}")
 
     combined = "\n\n".join(parts)

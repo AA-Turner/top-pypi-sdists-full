@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tapio-py
-Version: 0.17.0
+Version: 0.18.0
 Summary: A Pekko-inspired actor toolkit for Python: typed, asyncio-native actors with supervision.
 Project-URL: Homepage, https://github.com/cpolito88/tapio
 Project-URL: Repository, https://github.com/cpolito88/tapio
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Typing :: Typed
@@ -24,6 +25,7 @@ Requires-Python: >=3.11
 Requires-Dist: pydantic-settings>=2.2
 Requires-Dist: pydantic>=2.12
 Requires-Dist: pydantic>=2.12; python_version >= '3.14'
+Requires-Dist: pydantic>=2.14; python_version >= '3.15'
 Requires-Dist: typing-extensions>=4.10
 Provides-Extra: cli
 Requires-Dist: typer>=0.12; extra == 'cli'

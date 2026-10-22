@@ -22,7 +22,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n!chalk/server/v1/signup_code.proto\x12\x0f\x63halk.server.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1c\x63halk/quota/v1/service.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x8e\x01\n\x0fSignupCodeQuota\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource\x12\x38\n\x05limit\x18\x02 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitB\x06\xbaH\x03\xc8\x01\x01R\x05limit"P\n\x14SignupCodeQuotaGrant\x12\x38\n\x06quotas\x18\x01 \x03(\x0b\x32 .chalk.server.v1.SignupCodeQuotaR\x06quotas"\xa8\x08\n\nSignupCode\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n\x0b\x63ode_prefix\x18\x02 \x01(\tR\ncodePrefix\x12\x12\n\x04note\x18\x03 \x01(\tR\x04note\x12\x39\n\x06status\x18\x04 \x01(\x0e\x32!.chalk.server.v1.SignupCodeStatusR\x06status\x12\x30\n\x12\x63reated_by_user_id\x18\x05 \x01(\tH\x00R\x0f\x63reatedByUserId\x88\x01\x01\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nexpires_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\texpiresAt\x88\x01\x01\x12>\n\nrevoked_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\trevokedAt\x88\x01\x01\x12@\n\x0bredeemed_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\nredeemedAt\x88\x01\x01\x12\x32\n\x13redeemed_by_user_id\x18\n \x01(\tH\x04R\x10redeemedByUserId\x88\x01\x01\x12@\n\x0b\x63onsumed_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x05R\nconsumedAt\x88\x01\x01\x12\x1c\n\x07team_id\x18\x0c \x01(\tH\x06R\x06teamId\x88\x01\x01\x12%\n\x0einvite_message\x18\r \x01(\tR\rinviteMessage\x12G\n\x0einitial_quotas\x18\x0e \x03(\x0b\x32 .chalk.server.v1.SignupCodeQuotaR\rinitialQuotas\x12\x45\n\x08metadata\x18\x0f \x03(\x0b\x32).chalk.server.v1.SignupCode.MetadataEntryR\x08metadata\x12-\n\x10\x63reated_by_email\x18\x10 \x01(\tH\x07R\x0e\x63reatedByEmail\x88\x01\x01\x12\x1b\n\x06region\x18\x11 \x01(\tH\x08R\x06region\x88\x01\x01\x1a;\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x15\n\x13_created_by_user_idB\r\n\x0b_expires_atB\r\n\x0b_revoked_atB\x0e\n\x0c_redeemed_atB\x16\n\x14_redeemed_by_user_idB\x0e\n\x0c_consumed_atB\n\n\x08_team_idB\x13\n\x11_created_by_emailB\t\n\x07_region"\xea\x03\n\x17\x43reateSignupCodeRequest\x12\x12\n\x04note\x18\x01 \x01(\tR\x04note\x12\x31\n\x12\x65xpires_in_seconds\x18\x02 \x01(\x03H\x00R\x10\x65xpiresInSeconds\x88\x01\x01\x12%\n\x0einvite_message\x18\x03 \x01(\tR\rinviteMessage\x12Q\n\x0einitial_quotas\x18\x04 \x03(\x0b\x32 .chalk.server.v1.SignupCodeQuotaB\x08\xbaH\x05\x92\x01\x02\x10 R\rinitialQuotas\x12l\n\x08metadata\x18\x05 \x03(\x0b\x32\x36.chalk.server.v1.CreateSignupCodeRequest.MetadataEntryB\x18\xbaH\x15\x9a\x01\x12\x10@"\x07r\x05\x10\x01\x18\x80\x01*\x05r\x03\x18\x80\x08R\x08metadata\x12\x41\n\x06region\x18\x06 \x01(\tB$\xbaH!r\x1f\x10\x01\x18\x80\x01\x32\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x01R\x06region\x88\x01\x01\x1a;\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x15\n\x13_expires_in_secondsB\t\n\x07_region"r\n\x18\x43reateSignupCodeResponse\x12<\n\x0bsignup_code\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.SignupCodeR\nsignupCode\x12\x18\n\x04\x63ode\x18\x02 \x01(\tB\x04\xd8\xa1\'\x01R\x04\x63ode"\x18\n\x16ListSignupCodesRequest"Y\n\x17ListSignupCodesResponse\x12>\n\x0csignup_codes\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.SignupCodeR\x0bsignupCodes"H\n\x17RevokeSignupCodeRequest\x12-\n\x0esignup_code_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0csignupCodeId"X\n\x18RevokeSignupCodeResponse\x12<\n\x0bsignup_code\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.SignupCodeR\nsignupCode"\\\n\x17RedeemSignupCodeRequest\x12 \n\x07user_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06userId\x12\x1f\n\x04\x63ode\x18\x02 \x01(\tB\x0b\xbaH\x04r\x02\x10\x01\xd8\xa1\'\x01R\x04\x63ode"\x1a\n\x18RedeemSignupCodeResponse";\n\x18PreviewSignupCodeRequest\x12\x1f\n\x04\x63ode\x18\x01 \x01(\tB\x0b\xbaH\x04r\x02\x10\x01\xd8\xa1\'\x01R\x04\x63ode"z\n\x19PreviewSignupCodeResponse\x12\x1e\n\nredeemable\x18\x01 \x01(\x08R\nredeemable\x12*\n\x0einvite_message\x18\x02 \x01(\tH\x00R\rinviteMessage\x88\x01\x01\x42\x11\n\x0f_invite_message"H\n$GetSignupCodeRedemptionStatusRequest\x12 \n\x07user_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06userId"U\n%GetSignupCodeRedemptionStatusResponse\x12,\n\x12has_live_clearance\x18\x01 \x01(\x08R\x10hasLiveClearance*\xda\x01\n\x10SignupCodeStatus\x12"\n\x1eSIGNUP_CODE_STATUS_UNSPECIFIED\x10\x00\x12 \n\x1cSIGNUP_CODE_STATUS_AVAILABLE\x10\x01\x12\x1f\n\x1bSIGNUP_CODE_STATUS_REDEEMED\x10\x02\x12\x1f\n\x1bSIGNUP_CODE_STATUS_CONSUMED\x10\x03\x12\x1e\n\x1aSIGNUP_CODE_STATUS_REVOKED\x10\x04\x12\x1e\n\x1aSIGNUP_CODE_STATUS_EXPIRED\x10\x05\x32\xb3\x06\n\x11SignupCodeService\x12\x89\x01\n\x10\x43reateSignupCode\x12(.chalk.server.v1.CreateSignupCodeRequest\x1a).chalk.server.v1.CreateSignupCodeResponse" \x80}\x1b\x8a\xd3\x0e\x19\x08\x02\x12\x15\x43reated a signup code\x12l\n\x0fListSignupCodes\x12\'.chalk.server.v1.ListSignupCodesRequest\x1a(.chalk.server.v1.ListSignupCodesResponse"\x06\x90\x02\x01\x80}\x1b\x12\x89\x01\n\x10RevokeSignupCode\x12(.chalk.server.v1.RevokeSignupCodeRequest\x1a).chalk.server.v1.RevokeSignupCodeResponse" \x80}\x1b\x8a\xd3\x0e\x19\x08\x02\x12\x15Revoked a signup code\x12\x8a\x01\n\x10RedeemSignupCode\x12(.chalk.server.v1.RedeemSignupCodeRequest\x1a).chalk.server.v1.RedeemSignupCodeResponse"!\x80}\x1d\x8a\xd3\x0e\x1a\x08\x02\x12\x16Redeemed a signup code\x12\x96\x01\n\x1dGetSignupCodeRedemptionStatus\x12\x35.chalk.server.v1.GetSignupCodeRedemptionStatusRequest\x1a\x36.chalk.server.v1.GetSignupCodeRedemptionStatusResponse"\x06\x90\x02\x01\x80}\x1d\x12r\n\x11PreviewSignupCode\x12).chalk.server.v1.PreviewSignupCodeRequest\x1a*.chalk.server.v1.PreviewSignupCodeResponse"\x06\x90\x02\x01\x80}\x1d\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fSignupCodeProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n!chalk/server/v1/signup_code.proto\x12\x0f\x63halk.server.v1\x1a\x1b\x62uf/validate/validate.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1c\x63halk/quota/v1/service.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x8e\x01\n\x0fSignupCodeQuota\x12\x41\n\x08resource\x18\x01 \x01(\x0b\x32\x1d.chalk.quota.v1.QuotaResourceB\x06\xbaH\x03\xc8\x01\x01R\x08resource\x12\x38\n\x05limit\x18\x02 \x01(\x0b\x32\x1a.chalk.quota.v1.QuotaLimitB\x06\xbaH\x03\xc8\x01\x01R\x05limit"P\n\x14SignupCodeQuotaGrant\x12\x38\n\x06quotas\x18\x01 \x03(\x0b\x32 .chalk.server.v1.SignupCodeQuotaR\x06quotas"\xea\x08\n\nSignupCode\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n\x0b\x63ode_prefix\x18\x02 \x01(\tR\ncodePrefix\x12\x12\n\x04note\x18\x03 \x01(\tR\x04note\x12\x39\n\x06status\x18\x04 \x01(\x0e\x32!.chalk.server.v1.SignupCodeStatusR\x06status\x12\x30\n\x12\x63reated_by_user_id\x18\x05 \x01(\tH\x00R\x0f\x63reatedByUserId\x88\x01\x01\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nexpires_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\texpiresAt\x88\x01\x01\x12>\n\nrevoked_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\trevokedAt\x88\x01\x01\x12@\n\x0bredeemed_at\x18\t \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x03R\nredeemedAt\x88\x01\x01\x12\x32\n\x13redeemed_by_user_id\x18\n \x01(\tH\x04R\x10redeemedByUserId\x88\x01\x01\x12@\n\x0b\x63onsumed_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x05R\nconsumedAt\x88\x01\x01\x12\x1c\n\x07team_id\x18\x0c \x01(\tH\x06R\x06teamId\x88\x01\x01\x12%\n\x0einvite_message\x18\r \x01(\tR\rinviteMessage\x12G\n\x0einitial_quotas\x18\x0e \x03(\x0b\x32 .chalk.server.v1.SignupCodeQuotaR\rinitialQuotas\x12\x45\n\x08metadata\x18\x0f \x03(\x0b\x32).chalk.server.v1.SignupCode.MetadataEntryR\x08metadata\x12-\n\x10\x63reated_by_email\x18\x10 \x01(\tH\x07R\x0e\x63reatedByEmail\x88\x01\x01\x12\x1b\n\x06region\x18\x11 \x01(\tH\x08R\x06region\x88\x01\x01\x12,\n\x0frecipient_email\x18\x12 \x01(\tH\tR\x0erecipientEmail\x88\x01\x01\x1a;\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x15\n\x13_created_by_user_idB\r\n\x0b_expires_atB\r\n\x0b_revoked_atB\x0e\n\x0c_redeemed_atB\x16\n\x14_redeemed_by_user_idB\x0e\n\x0c_consumed_atB\n\n\x08_team_idB\x13\n\x11_created_by_emailB\t\n\x07_regionB\x12\n\x10_recipient_email"\xb8\x04\n\x17\x43reateSignupCodeRequest\x12\x12\n\x04note\x18\x01 \x01(\tR\x04note\x12\x31\n\x12\x65xpires_in_seconds\x18\x02 \x01(\x03H\x00R\x10\x65xpiresInSeconds\x88\x01\x01\x12%\n\x0einvite_message\x18\x03 \x01(\tR\rinviteMessage\x12Q\n\x0einitial_quotas\x18\x04 \x03(\x0b\x32 .chalk.server.v1.SignupCodeQuotaB\x08\xbaH\x05\x92\x01\x02\x10 R\rinitialQuotas\x12l\n\x08metadata\x18\x05 \x03(\x0b\x32\x36.chalk.server.v1.CreateSignupCodeRequest.MetadataEntryB\x18\xbaH\x15\x9a\x01\x12\x10@"\x07r\x05\x10\x01\x18\x80\x01*\x05r\x03\x18\x80\x08R\x08metadata\x12\x41\n\x06region\x18\x06 \x01(\tB$\xbaH!r\x1f\x10\x01\x18\x80\x01\x32\x18^[a-z0-9]+(-[a-z0-9]+)*$H\x01R\x06region\x88\x01\x01\x12\x38\n\x0frecipient_email\x18\x07 \x01(\tB\n\xbaH\x07r\x05\x18\xfe\x01`\x01H\x02R\x0erecipientEmail\x88\x01\x01\x1a;\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x15\n\x13_expires_in_secondsB\t\n\x07_regionB\x12\n\x10_recipient_email"\xd6\x01\n\x18\x43reateSignupCodeResponse\x12<\n\x0bsignup_code\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.SignupCodeR\nsignupCode\x12\x18\n\x04\x63ode\x18\x02 \x01(\tB\x04\xd8\xa1\'\x01R\x04\x63ode\x12\x62\n\x15\x65mail_delivery_status\x18\x03 \x01(\x0e\x32..chalk.server.v1.SignupCodeEmailDeliveryStatusR\x13\x65mailDeliveryStatus"\xe1\x02\n\x16ListSignupCodesFilters\x12\x39\n\x12\x63reated_by_user_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01H\x00R\x0f\x63reatedByUserId\x88\x01\x01\x12\x36\n\x10\x63reated_by_email\x18\x02 \x01(\tB\x07\xbaH\x04r\x02`\x01H\x01R\x0e\x63reatedByEmail\x88\x01\x01\x12k\n\x08metadata\x18\x03 \x03(\x0b\x32\x35.chalk.server.v1.ListSignupCodesFilters.MetadataEntryB\x18\xbaH\x15\x9a\x01\x12\x10@"\x07r\x05\x10\x01\x18\x80\x01*\x05r\x03\x18\x80\x08R\x08metadata\x1a;\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x42\x15\n\x13_created_by_user_idB\x13\n\x11_created_by_email"[\n\x16ListSignupCodesRequest\x12\x41\n\x07\x66ilters\x18\x01 \x01(\x0b\x32\'.chalk.server.v1.ListSignupCodesFiltersR\x07\x66ilters"Y\n\x17ListSignupCodesResponse\x12>\n\x0csignup_codes\x18\x01 \x03(\x0b\x32\x1b.chalk.server.v1.SignupCodeR\x0bsignupCodes"H\n\x17RevokeSignupCodeRequest\x12-\n\x0esignup_code_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x0csignupCodeId"X\n\x18RevokeSignupCodeResponse\x12<\n\x0bsignup_code\x18\x01 \x01(\x0b\x32\x1b.chalk.server.v1.SignupCodeR\nsignupCode"\\\n\x17RedeemSignupCodeRequest\x12 \n\x07user_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06userId\x12\x1f\n\x04\x63ode\x18\x02 \x01(\tB\x0b\xbaH\x04r\x02\x10\x01\xd8\xa1\'\x01R\x04\x63ode"\x1a\n\x18RedeemSignupCodeResponse";\n\x18PreviewSignupCodeRequest\x12\x1f\n\x04\x63ode\x18\x01 \x01(\tB\x0b\xbaH\x04r\x02\x10\x01\xd8\xa1\'\x01R\x04\x63ode"z\n\x19PreviewSignupCodeResponse\x12\x1e\n\nredeemable\x18\x01 \x01(\x08R\nredeemable\x12*\n\x0einvite_message\x18\x02 \x01(\tH\x00R\rinviteMessage\x88\x01\x01\x42\x11\n\x0f_invite_message"H\n$GetSignupCodeRedemptionStatusRequest\x12 \n\x07user_id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x06userId"U\n%GetSignupCodeRedemptionStatusResponse\x12,\n\x12has_live_clearance\x18\x01 \x01(\x08R\x10hasLiveClearance*\xda\x01\n\x10SignupCodeStatus\x12"\n\x1eSIGNUP_CODE_STATUS_UNSPECIFIED\x10\x00\x12 \n\x1cSIGNUP_CODE_STATUS_AVAILABLE\x10\x01\x12\x1f\n\x1bSIGNUP_CODE_STATUS_REDEEMED\x10\x02\x12\x1f\n\x1bSIGNUP_CODE_STATUS_CONSUMED\x10\x03\x12\x1e\n\x1aSIGNUP_CODE_STATUS_REVOKED\x10\x04\x12\x1e\n\x1aSIGNUP_CODE_STATUS_EXPIRED\x10\x05*\xb0\x01\n\x1dSignupCodeEmailDeliveryStatus\x12\x31\n-SIGNUP_CODE_EMAIL_DELIVERY_STATUS_UNSPECIFIED\x10\x00\x12.\n*SIGNUP_CODE_EMAIL_DELIVERY_STATUS_ACCEPTED\x10\x01\x12,\n(SIGNUP_CODE_EMAIL_DELIVERY_STATUS_FAILED\x10\x02\x32\xb3\x06\n\x11SignupCodeService\x12\x89\x01\n\x10\x43reateSignupCode\x12(.chalk.server.v1.CreateSignupCodeRequest\x1a).chalk.server.v1.CreateSignupCodeResponse" \x80}\x1b\x8a\xd3\x0e\x19\x08\x02\x12\x15\x43reated a signup code\x12l\n\x0fListSignupCodes\x12\'.chalk.server.v1.ListSignupCodesRequest\x1a(.chalk.server.v1.ListSignupCodesResponse"\x06\x90\x02\x01\x80}\x1b\x12\x89\x01\n\x10RevokeSignupCode\x12(.chalk.server.v1.RevokeSignupCodeRequest\x1a).chalk.server.v1.RevokeSignupCodeResponse" \x80}\x1b\x8a\xd3\x0e\x19\x08\x02\x12\x15Revoked a signup code\x12\x8a\x01\n\x10RedeemSignupCode\x12(.chalk.server.v1.RedeemSignupCodeRequest\x1a).chalk.server.v1.RedeemSignupCodeResponse"!\x80}\x1d\x8a\xd3\x0e\x1a\x08\x02\x12\x16Redeemed a signup code\x12\x96\x01\n\x1dGetSignupCodeRedemptionStatus\x12\x35.chalk.server.v1.GetSignupCodeRedemptionStatusRequest\x1a\x36.chalk.server.v1.GetSignupCodeRedemptionStatusResponse"\x06\x90\x02\x01\x80}\x1d\x12r\n\x11PreviewSignupCode\x12).chalk.server.v1.PreviewSignupCodeRequest\x1a*.chalk.server.v1.PreviewSignupCodeResponse"\x06\x90\x02\x01\x80}\x1d\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0fSignupCodeProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -53,8 +53,24 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CREATESIGNUPCODEREQUEST"].fields_by_name[
         "region"
     ]._serialized_options = b"\272H!r\037\020\001\030\200\0012\030^[a-z0-9]+(-[a-z0-9]+)*$"
+    _globals["_CREATESIGNUPCODEREQUEST"].fields_by_name["recipient_email"]._options = None
+    _globals["_CREATESIGNUPCODEREQUEST"].fields_by_name[
+        "recipient_email"
+    ]._serialized_options = b"\272H\007r\005\030\376\001`\001"
     _globals["_CREATESIGNUPCODERESPONSE"].fields_by_name["code"]._options = None
     _globals["_CREATESIGNUPCODERESPONSE"].fields_by_name["code"]._serialized_options = b"\330\241'\001"
+    _globals["_LISTSIGNUPCODESFILTERS_METADATAENTRY"]._options = None
+    _globals["_LISTSIGNUPCODESFILTERS_METADATAENTRY"]._serialized_options = b"8\001"
+    _globals["_LISTSIGNUPCODESFILTERS"].fields_by_name["created_by_user_id"]._options = None
+    _globals["_LISTSIGNUPCODESFILTERS"].fields_by_name[
+        "created_by_user_id"
+    ]._serialized_options = b"\272H\004r\002\020\001"
+    _globals["_LISTSIGNUPCODESFILTERS"].fields_by_name["created_by_email"]._options = None
+    _globals["_LISTSIGNUPCODESFILTERS"].fields_by_name["created_by_email"]._serialized_options = b"\272H\004r\002`\001"
+    _globals["_LISTSIGNUPCODESFILTERS"].fields_by_name["metadata"]._options = None
+    _globals["_LISTSIGNUPCODESFILTERS"].fields_by_name[
+        "metadata"
+    ]._serialized_options = b'\272H\025\232\001\022\020@"\007r\005\020\001\030\200\001*\005r\003\030\200\010'
     _globals["_REVOKESIGNUPCODEREQUEST"].fields_by_name["signup_code_id"]._options = None
     _globals["_REVOKESIGNUPCODEREQUEST"].fields_by_name[
         "signup_code_id"
@@ -93,42 +109,48 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\220\002\001\200}\035"
     _globals["_SIGNUPCODESERVICE"].methods_by_name["PreviewSignupCode"]._options = None
     _globals["_SIGNUPCODESERVICE"].methods_by_name["PreviewSignupCode"]._serialized_options = b"\220\002\001\200}\035"
-    _globals["_SIGNUPCODESTATUS"]._serialized_start = 2891
-    _globals["_SIGNUPCODESTATUS"]._serialized_end = 3109
+    _globals["_SIGNUPCODESTATUS"]._serialized_start = 3559
+    _globals["_SIGNUPCODESTATUS"]._serialized_end = 3777
+    _globals["_SIGNUPCODEEMAILDELIVERYSTATUS"]._serialized_start = 3780
+    _globals["_SIGNUPCODEEMAILDELIVERYSTATUS"]._serialized_end = 3956
     _globals["_SIGNUPCODEQUOTA"]._serialized_start = 239
     _globals["_SIGNUPCODEQUOTA"]._serialized_end = 381
     _globals["_SIGNUPCODEQUOTAGRANT"]._serialized_start = 383
     _globals["_SIGNUPCODEQUOTAGRANT"]._serialized_end = 463
     _globals["_SIGNUPCODE"]._serialized_start = 466
-    _globals["_SIGNUPCODE"]._serialized_end = 1530
-    _globals["_SIGNUPCODE_METADATAENTRY"]._serialized_start = 1318
-    _globals["_SIGNUPCODE_METADATAENTRY"]._serialized_end = 1377
-    _globals["_CREATESIGNUPCODEREQUEST"]._serialized_start = 1533
-    _globals["_CREATESIGNUPCODEREQUEST"]._serialized_end = 2023
-    _globals["_CREATESIGNUPCODEREQUEST_METADATAENTRY"]._serialized_start = 1318
-    _globals["_CREATESIGNUPCODEREQUEST_METADATAENTRY"]._serialized_end = 1377
-    _globals["_CREATESIGNUPCODERESPONSE"]._serialized_start = 2025
-    _globals["_CREATESIGNUPCODERESPONSE"]._serialized_end = 2139
-    _globals["_LISTSIGNUPCODESREQUEST"]._serialized_start = 2141
-    _globals["_LISTSIGNUPCODESREQUEST"]._serialized_end = 2165
-    _globals["_LISTSIGNUPCODESRESPONSE"]._serialized_start = 2167
-    _globals["_LISTSIGNUPCODESRESPONSE"]._serialized_end = 2256
-    _globals["_REVOKESIGNUPCODEREQUEST"]._serialized_start = 2258
-    _globals["_REVOKESIGNUPCODEREQUEST"]._serialized_end = 2330
-    _globals["_REVOKESIGNUPCODERESPONSE"]._serialized_start = 2332
-    _globals["_REVOKESIGNUPCODERESPONSE"]._serialized_end = 2420
-    _globals["_REDEEMSIGNUPCODEREQUEST"]._serialized_start = 2422
-    _globals["_REDEEMSIGNUPCODEREQUEST"]._serialized_end = 2514
-    _globals["_REDEEMSIGNUPCODERESPONSE"]._serialized_start = 2516
-    _globals["_REDEEMSIGNUPCODERESPONSE"]._serialized_end = 2542
-    _globals["_PREVIEWSIGNUPCODEREQUEST"]._serialized_start = 2544
-    _globals["_PREVIEWSIGNUPCODEREQUEST"]._serialized_end = 2603
-    _globals["_PREVIEWSIGNUPCODERESPONSE"]._serialized_start = 2605
-    _globals["_PREVIEWSIGNUPCODERESPONSE"]._serialized_end = 2727
-    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSREQUEST"]._serialized_start = 2729
-    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSREQUEST"]._serialized_end = 2801
-    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSRESPONSE"]._serialized_start = 2803
-    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSRESPONSE"]._serialized_end = 2888
-    _globals["_SIGNUPCODESERVICE"]._serialized_start = 3112
-    _globals["_SIGNUPCODESERVICE"]._serialized_end = 3931
+    _globals["_SIGNUPCODE"]._serialized_end = 1596
+    _globals["_SIGNUPCODE_METADATAENTRY"]._serialized_start = 1364
+    _globals["_SIGNUPCODE_METADATAENTRY"]._serialized_end = 1423
+    _globals["_CREATESIGNUPCODEREQUEST"]._serialized_start = 1599
+    _globals["_CREATESIGNUPCODEREQUEST"]._serialized_end = 2167
+    _globals["_CREATESIGNUPCODEREQUEST_METADATAENTRY"]._serialized_start = 1364
+    _globals["_CREATESIGNUPCODEREQUEST_METADATAENTRY"]._serialized_end = 1423
+    _globals["_CREATESIGNUPCODERESPONSE"]._serialized_start = 2170
+    _globals["_CREATESIGNUPCODERESPONSE"]._serialized_end = 2384
+    _globals["_LISTSIGNUPCODESFILTERS"]._serialized_start = 2387
+    _globals["_LISTSIGNUPCODESFILTERS"]._serialized_end = 2740
+    _globals["_LISTSIGNUPCODESFILTERS_METADATAENTRY"]._serialized_start = 1364
+    _globals["_LISTSIGNUPCODESFILTERS_METADATAENTRY"]._serialized_end = 1423
+    _globals["_LISTSIGNUPCODESREQUEST"]._serialized_start = 2742
+    _globals["_LISTSIGNUPCODESREQUEST"]._serialized_end = 2833
+    _globals["_LISTSIGNUPCODESRESPONSE"]._serialized_start = 2835
+    _globals["_LISTSIGNUPCODESRESPONSE"]._serialized_end = 2924
+    _globals["_REVOKESIGNUPCODEREQUEST"]._serialized_start = 2926
+    _globals["_REVOKESIGNUPCODEREQUEST"]._serialized_end = 2998
+    _globals["_REVOKESIGNUPCODERESPONSE"]._serialized_start = 3000
+    _globals["_REVOKESIGNUPCODERESPONSE"]._serialized_end = 3088
+    _globals["_REDEEMSIGNUPCODEREQUEST"]._serialized_start = 3090
+    _globals["_REDEEMSIGNUPCODEREQUEST"]._serialized_end = 3182
+    _globals["_REDEEMSIGNUPCODERESPONSE"]._serialized_start = 3184
+    _globals["_REDEEMSIGNUPCODERESPONSE"]._serialized_end = 3210
+    _globals["_PREVIEWSIGNUPCODEREQUEST"]._serialized_start = 3212
+    _globals["_PREVIEWSIGNUPCODEREQUEST"]._serialized_end = 3271
+    _globals["_PREVIEWSIGNUPCODERESPONSE"]._serialized_start = 3273
+    _globals["_PREVIEWSIGNUPCODERESPONSE"]._serialized_end = 3395
+    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSREQUEST"]._serialized_start = 3397
+    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSREQUEST"]._serialized_end = 3469
+    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSRESPONSE"]._serialized_start = 3471
+    _globals["_GETSIGNUPCODEREDEMPTIONSTATUSRESPONSE"]._serialized_end = 3556
+    _globals["_SIGNUPCODESERVICE"]._serialized_start = 3959
+    _globals["_SIGNUPCODESERVICE"]._serialized_end = 4778
 # @@protoc_insertion_point(module_scope)

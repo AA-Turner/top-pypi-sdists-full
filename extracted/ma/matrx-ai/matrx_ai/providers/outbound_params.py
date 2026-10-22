@@ -362,6 +362,32 @@ _LAST_OUTBOUND: ContextVar[tuple[str, tuple[Any, ...]] | None] = ContextVar(
 )
 
 
+#: (model, adjustment signature) pairs this process has already printed. The same
+#: model + same adjusted params repeat on every call (782 ops.app_log WARNING rows in
+#: 6 h, DB lane C 2026-10-21); the adjustment still reaches the client and the
+#: settings-adjustment record on every call — only the repeated server log line goes.
+_ANNOUNCED_ADJUSTMENTS: set[tuple[str, tuple[tuple[str, str, str], ...]]] = set()
+
+
+def _first_announcement(model: Any, adjustments: list[Any]) -> bool:
+    """True the first time this process sees this model with this exact adjustment set."""
+    signature = tuple(
+        sorted(
+            (
+                str(getattr(adj, "key", "")),
+                str(getattr(adj, "action", "")),
+                str(getattr(adj, "sent_value", "")),
+            )
+            for adj in adjustments
+        )
+    )
+    key = (str(model), signature)
+    if key in _ANNOUNCED_ADJUSTMENTS:
+        return False
+    _ANNOUNCED_ADJUSTMENTS.add(key)
+    return True
+
+
 def remember_outbound_adjustments(model: Any, adjustments: list[Any]) -> None:
     try:
         _LAST_OUTBOUND.set((str(model), tuple(adjustments)))
@@ -508,7 +534,7 @@ def resolve_outbound_params(
     for key in _STRUCTURAL_CANONICAL_KEYS:
         params.pop(key, None)
     remember_outbound_params(getattr(config, "model", "?"), params)
-    if adjustments:
+    if adjustments and _first_announcement(getattr(config, "model", "?"), adjustments):
         vcprint(
             data=[
                 {

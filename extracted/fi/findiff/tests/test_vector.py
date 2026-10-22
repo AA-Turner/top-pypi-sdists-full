@@ -173,6 +173,54 @@ class TestCurl:
         np.testing.assert_array_almost_equal(laplace(f), 4 * np.ones_like(X))
 
 
+class TestLaplacianNonUniform:
+
+    def test_2d_non_uniform(self):
+        axes, h, [X, Y] = init_mesh(2, (50, 50))
+        f = np.sin(X) * np.sin(Y)
+        expected = -2 * np.sin(X) * np.sin(Y)
+        laplace = Laplacian(coords=axes, acc=4)
+        assert_array_almost_equal(laplace(f), expected, decimal=4)
+
+    def test_3d_non_uniform(self):
+        axes, h, [X, Y, Z] = init_mesh(3, (30, 30, 30))
+        f = np.sin(X) * np.sin(Y) * np.sin(Z)
+        expected = -3 * np.sin(X) * np.sin(Y) * np.sin(Z)
+        laplace = Laplacian(coords=axes, acc=4)
+        assert_array_almost_equal(laplace(f), expected, decimal=3)
+
+    def test_1d_non_uniform(self):
+        x = np.linspace(0, np.pi, 100)
+        f = np.sin(x)
+        expected = -np.sin(x)
+        laplace = Laplacian(coords=[x], acc=4)
+        assert_array_almost_equal(laplace(f), expected, decimal=4)
+
+    def test_uniform_grid_gives_correct_laplacian(self):
+        """On a uniform grid the coords= Laplacian is correct and at least as
+        accurate as the h= path. Its central stencils are wider (the non-uniform
+        scheme cannot rely on the symmetry bonus), so the two paths agree only to
+        the uniform scheme's order, not bit-for-bit."""
+        axes, h, [X, Y] = init_mesh(2, (50, 50))
+        f = np.sin(X) * np.cos(Y)
+        expected = -2 * np.sin(X) * np.cos(Y)
+        result_uniform = Laplacian(h=h, acc=2)(f)
+        result_nonuniform = Laplacian(coords=axes, acc=2)(f)
+
+        interior = (slice(2, -2), slice(2, -2))
+        assert_array_almost_equal(
+            result_nonuniform[interior], expected[interior], decimal=3
+        )
+        err_uniform = np.max(np.abs(result_uniform[interior] - expected[interior]))
+        err_nonuniform = np.max(np.abs(result_nonuniform[interior] - expected[interior]))
+        assert err_nonuniform <= err_uniform
+
+    def test_h_and_coords_raises(self):
+        axes, h, _ = init_mesh(2, (10, 10))
+        with pytest.raises(ValueError, match="not both"):
+            Laplacian(h=h, coords=axes)
+
+
 def init_mesh(ndims, npoints):
     axes = [np.linspace(-1, 1, npoints[k]) for k in range(ndims)]
     h = [x[1] - x[0] for x in axes]

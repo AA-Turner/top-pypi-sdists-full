@@ -1,25 +1,33 @@
+"""
+An animated plot and some markdown, in a few lines.
+
+A cosine wave moves in an [ImPlot](https://github.com/epezent/implot) plot, under a text written in
+[markdown](https://imgui-bundle.pages.dev/doc/addons/text-markdown/). Both are add-ons, activated in one call:
+`immapp.run(gui, with_implot=True, with_markdown=True)`. A good start for a small app.
+"""
+
 import numpy as np
 # imgui_bundle is a package that provides several imgui-related submodules
 from imgui_bundle import (imgui,       # first we import ImGui
                           implot,      # ImPlot provides advanced real-time plotting
-                          imgui_md,    # imgui_md: markdown rendering for imgui
+                          rich_md,    # rich_md: markdown rendering for imgui
                           hello_imgui, # hello_imgui: starter pack for imgui apps
                           immapp,      # helper to activate addons (like implot, markdown, etc.)
                           )
 
 def gui():
     # Render some markdown text
-    imgui_md.render_unindented("""
+    rich_md.render("""
     # Render an animated plot with ImPlot
     This example shows how to use `ImPlot` to render an animated plot,
-    and how to use `imgui_md` to render markdown text (*this text!*).
+    and how to use `rich_md` to render markdown text (*this text!*).
     """)
 
     # Render an animated plot
     if implot.begin_plot(
             title_id="Plot",
-            # size in em units (1em = height of a character)
-            size=hello_imgui.em_to_vec2(40, 20)):
+            # the window's width (-1), and 20 em high (1 em = the height of a character)
+            size=imgui.ImVec2(-1, hello_imgui.em_size(20))):
         x = np.arange(0, np.pi * 4, 0.01)
         y = np.cos(x + imgui.get_time())
         implot.plot_line("y1", x, y)

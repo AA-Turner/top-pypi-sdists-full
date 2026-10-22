@@ -28,6 +28,8 @@ class FireworksConfig(ProviderConfig):
 
 @register_provider("fireworks")
 class FireworksModel(DelegateOnly):
+    api_key_setting = "FIREWORKS_API_KEY"
+
     provider_config = FireworksConfig()
 
     def __init__(
@@ -58,7 +60,7 @@ class FireworksModel(DelegateOnly):
         config.custom_api_key = config.custom_api_key or SecretStr(
             model_library_settings.FIREWORKS_NEXUS_API_KEY
             if is_firerouter
-            else model_library_settings.FIREWORKS_API_KEY
+            else self._api_key_from(model_library_settings)
         )
 
         self.init_delegate(
@@ -135,10 +137,7 @@ class FireworksModel(DelegateOnly):
         # https://docs.fireworks.ai/guides/prompt-caching
         # Prompt caching is enabled by default for all Fireworks models and deployments.
 
-        # Discounts for prompt caching are available for enterprise deployments. Contact us to learn more.
-
-        # https://docs.fireworks.ai/faq-new/billing-pricing/is-prompt-caching-billed-differently
-        # prompt caching does not affect billing for serverless models
+        # Cached prompt tokens on serverless models are discounted (50% by default, varies by model).
 
         return await super()._calculate_cost(
             metadata,

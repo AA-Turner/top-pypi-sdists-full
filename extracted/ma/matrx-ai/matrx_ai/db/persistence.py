@@ -837,6 +837,59 @@ def _final_assistant_text(msg_list: list[dict[str, Any]]) -> str:
     return ""
 
 
+def shares_callers_user_request(ctx: Any, user_request_id: Any) -> bool:
+    """True when this run is a sub-agent writing under its CALLER's user_request.
+
+    ``child_agent_context`` forks with the caller's ``request_id`` and records it as
+    ``parent_request_id``; a child given its own record (``independent_request``)
+    has a fresh id, so the two differ and it settles its own row."""
+    parent_request_id = str(getattr(ctx, "parent_request_id", "") or "")
+    return bool(parent_request_id) and parent_request_id == str(user_request_id or "")
+
+
+def user_request_outcome_fields(
+    ur_data: dict[str, Any], req_list: list[dict[str, Any]], *, now: Any
+) -> dict[str, Any]:
+    """The OUTCOME columns a run that owns its user_request writes on it."""
+    fields: dict[str, Any] = {
+        "status": ur_data.get("status", "completed"),
+        "completed_at": now,
+    }
+    settled_finish_reason = _settled_finish_reason(ur_data, req_list)
+    if settled_finish_reason:
+        fields["finish_reason"] = settled_finish_reason
+    if ur_data.get("error"):
+        fields["error"] = _cx_error_text(ur_data["error"])
+    return fields
+
+
+async def run_settles_user_request(
+    ctx: Any, user_request_id: Any, conversation_id: Any
+) -> bool:
+    """Does THIS run settle the outcome of ``user_request_id``?
+
+    Yes for every run on its own row. A sub-agent writing under its caller's row
+    settles it only when the row is its own conversation's (it was the first to
+    run there — e.g. a workflow or tool fan-out with no AI turn of its own above
+    it). When the row belongs to another conversation, that conversation's run
+    settles it, and the child's outcome stays on its own conversation and in the
+    tool result its caller reads. An unreadable or missing row keeps the old
+    behavior (settle) so a row can never be left unsettled by this rule."""
+    if not shares_callers_user_request(ctx, user_request_id):
+        return True
+    try:
+        rows = await _cxm().user_request.filter_user_requests(id=user_request_id)
+    except Exception as exc:  # noqa: BLE001 — never strand a row on a read failure
+        vcprint(
+            f"[CX PERSISTENCE] could not read user_request {user_request_id} to check who "
+            f"settles it ({type(exc).__name__}: {exc}); this sub-agent settles it.",
+            color="yellow",
+        )
+        return True
+    owner = str(getattr(rows[0], "conversation_id", "") or "") if rows else ""
+    return not owner or owner == str(conversation_id or "")
+
+
 def _call_request_settled_hook(
     *,
     conversation_id: str | None,
@@ -1954,18 +2007,24 @@ async def persist_completed_request(
             # Re-adding any of these keys re-opens the defect; the guard
             # scripts/check_user_request_totals_derived.py fails on it.
             ur_update_data: dict[str, Any] = {
-                "status": ur_data.get("status", "completed"),
-                "completed_at": now,
                 "metadata": await merge_into_existing_metadata(
                     "user_request", user_request_id, request_metadata
                 ),
             }
-
-            settled_finish_reason = _settled_finish_reason(ur_data, req_list)
-            if settled_finish_reason:
-                ur_update_data["finish_reason"] = settled_finish_reason
-            if ur_data.get("error"):
-                ur_update_data["error"] = _cx_error_text(ur_data["error"])
+            # 🚨 ONLY THE ROW'S OWN RUN SETTLES ITS OUTCOME (2026-10-21). A sub-agent
+            # forked without its own request record runs under its caller's
+            # user_request id (child_agent_context keeps request_id and records
+            # it as parent_request_id). Its rows and cost belong there, but its
+            # OUTCOME is its own: a helper stopping at its ceiling wrote "paused"
+            # over its parent's finished turn (user_request 5add6922), and a
+            # child's tool failure wrote its error there (c462f1d9). The child's
+            # outcome lives on its own conversation (last_request_status) and in
+            # the tool result its caller reads.
+            settles_row = await run_settles_user_request(
+                _ctx, user_request_id, db_conversation_id
+            )
+            if settles_row:
+                ur_update_data.update(user_request_outcome_fields(ur_data, req_list, now=now))
 
             # Queue the aggregate UPDATE. This is THE write whose loss caused
             # the 261-stuck-cx_user_request-rows leak. Coalescing with the
@@ -1978,11 +2037,11 @@ async def persist_completed_request(
                     conversation_id=db_conversation_id,
                     request_id=user_request_id,
                     ctx=_ctx,
-                    status=str(ur_update_data["status"]),
+                    status=str(ur_data.get("status", "completed")),
                     msg_list=msg_list,
                 )
 
-            if tracker and emitter:
+            if tracker and emitter and settles_row:
                 # Emit the ACTUAL terminal status — never hardcode 'completed'.
                 # On a failed request the row was written status='failed' (see
                 # to_storage_dict); emitting 'completed' here told the FE the

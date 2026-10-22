@@ -45,10 +45,16 @@ _FLOAT_OPS = [
     ("nanlast", {}),
     ("median", {}),
     ("nanmedian", {}),
+    ("quantile", {}),
+    ("nanquantile", {}),
+    ("quantile", {"q": 0.9}),
+    ("nanquantile", {"q": 0.9}),
     ("trapezoid", {"ddof": 1.0}),
     ("nantrapezoid", {"ddof": 1.0}),
     ("sumofsquares", {}),
     ("nansumofsquares", {}),
+    ("nunique", {}),
+    ("nannunique", {}),
     ("argmin", {}),
     ("nanargmin", {}),
     ("argmax", {}),
@@ -65,11 +71,14 @@ _INT_OPS = [
     ("prod", {}),
     ("len", {}),
     ("nanlen", {}),
+    ("nunique", {}),
+    ("nannunique", {}),
     ("min", {}),
     ("max", {}),
     ("first", {}),
     ("last", {}),
     ("median", {}),
+    ("quantile", {}),
     ("argmin", {}),
     ("argmax", {}),
     ("cumsum", {}),
@@ -89,24 +98,27 @@ _BOOL_OPS = [
 ]
 
 
-def _kernel_result(name, values, ddof=0):
+def _kernel_result(name, values, ddof=0, q=0.5):
     """Call the kernel of ``name`` from jitted code (fill default via None)."""
     stub = getattr(kernels, "aggregate_" + name)
 
     @nb.njit
-    def caller(group_idx, a, ddof, size, fill_value):
-        return stub(group_idx, a, ddof, size, fill_value)
+    def caller(group_idx, a, ddof, q, size, fill_value):
+        return stub(group_idx, a, ddof, q, size, fill_value)
 
-    return caller(GROUP_IDX, values, ddof, -1, None)
+    return caller(GROUP_IDX, values, ddof, q, -1, None)
 
 
-def _layer2_result(name, values, ddof=0):
+def _layer2_result(name, values, ddof=0, q=0.5):
     if name in ("trapezoid", "nantrapezoid"):
         # the python-level wrapper carries the sample spacing as dx
         return aggregate_numba.aggregate(GROUP_IDX, values, func=name, dx=ddof)
     if name == "sort":
         # ... and the reverse flag of the sort kernel as its third argument
         return aggregate_numba.aggregate(GROUP_IDX, values, func=name, reverse=bool(ddof))
+    if name in ("quantile", "nanquantile"):
+        # ... and the quantile of the quantile kernel in the slot of its own
+        return aggregate_numba.aggregate(GROUP_IDX, values, func=name, q=q)
     return aggregate_numba.aggregate(GROUP_IDX, values, func=name, ddof=ddof)
 
 
@@ -158,7 +170,7 @@ def test_collecting_kernel_refuses_a_fill_value():
 
     @nb.njit
     def caller(group_idx, a, fill_value):
-        return kernels.aggregate_array(group_idx, a, 0, -1, fill_value)
+        return kernels.aggregate_array(group_idx, a, 0, 0.5, -1, fill_value)
 
     with pytest.raises(nb.TypingError, match="has no fill_value"):
         caller(GROUP_IDX, FLOAT_A, 7.0)
@@ -182,6 +194,19 @@ def test_pure_python_call_raises():
         kernels.aggregate_mean(GROUP_IDX, FLOAT_A)
 
 
+def test_the_moments_answer_from_njit_like_the_reference():
+    # the skewness and the kurtosis are available inside jitted code as well
+    @nb.njit
+    def wrapped(group_idx, a):
+        return kernels.aggregate_skew(group_idx, a), kernels.aggregate_kurt(group_idx, a)
+
+    group_idx = np.array([0, 0, 0, 0, 1, 1, 1, 1])
+    a = np.array([1.0, 2.0, 3.0, 10.0, 1.0, 2.0, 3.0, 4.0])
+    skew, kurt = wrapped(group_idx, a)
+    np.testing.assert_allclose(skew, aggregate_ref(group_idx, a, func="skew", size=2))
+    np.testing.assert_allclose(kurt, aggregate_ref(group_idx, a, func="kurt", size=2))
+
+
 def test_median_orders_complex_from_njit_like_the_reference():
     # the median driver selects the middle of every group with the ordering
     # of the package, which for complex values is the lexicographic order
@@ -195,6 +220,56 @@ def test_median_orders_complex_from_njit_like_the_reference():
     group_idx = np.array([0, 0, 1])
     a = np.array([1 + 2j, 3 + 4j, 5 + 6j])
     np.testing.assert_array_equal(wrapped(group_idx, a), aggregate_ref(group_idx, a, func="median", size=2))
+
+
+def test_quantile_orders_complex_from_njit_like_the_reference():
+    # the quantile driver selects the wanted quantile out of the block of every
+    # group with the ordering of the package, which for complex values is the
+    # lexicographic order numpy uses - so the kernel compiles for them and
+    # answers like the reference does.
+    @nb.njit
+    def wrapped(group_idx, a):
+        return kernels.aggregate_quantile(group_idx, a, 0, 0.5, 2, None)
+
+    group_idx = np.array([0, 0, 1])
+    a = np.array([1 + 2j, 3 + 4j, 5 + 6j])
+    np.testing.assert_array_equal(wrapped(group_idx, a), aggregate_ref(group_idx, a, func="quantile", q=0.5, size=2))
+
+
+def test_quantile_of_a_complex_group_with_a_nan_poisons_it_from_njit():
+    # a nan in either part of a complex value makes the value incomparable, and
+    # the whole group answers with a nan - the plain quantile is contagious
+    @nb.njit
+    def wrapped(group_idx, a):
+        return kernels.aggregate_quantile(group_idx, a, 0, 0.5, 2, None)
+
+    group_idx = np.array([0, 0, 1])
+    a = np.array([1 + 2j, complex(np.nan, 4.0), 5 + 6j])
+    np.testing.assert_array_equal(wrapped(group_idx, a), aggregate_ref(group_idx, a, func="quantile", q=0.5, size=2))
+
+
+def test_nunique_counts_the_distinct_values_from_njit_like_the_reference():
+    # the driver of the distinct values orders the block of every group, so
+    # that the values that differ from their predecessor are the distinct
+    # ones - for complex values the order is the lexicographic one numpy
+    # uses, and the nans are one value among themselves
+    @nb.njit
+    def wrapped(group_idx, a):
+        return kernels.aggregate_nunique(group_idx, a)
+
+    group_idx = np.array([0, 0, 0, 1])
+    a = np.array([1 + 2j, 1 + 2j, 3 + 4j, complex(np.nan, 1.0)])
+    np.testing.assert_array_equal(wrapped(group_idx, a), aggregate_ref(group_idx, a, func="nunique", size=2))
+
+
+def test_nannunique_leaves_the_nans_out_from_njit_like_the_reference():
+    @nb.njit
+    def wrapped(group_idx, a):
+        return kernels.aggregate_nannunique(group_idx, a)
+
+    group_idx = np.array([0, 0, 0, 1])
+    a = np.array([1.0, 1.0, 3.0, np.nan])
+    np.testing.assert_array_equal(wrapped(group_idx, a), aggregate_ref(group_idx, a, func="nannunique", size=2))
 
 
 def test_sort_orders_complex_from_njit_like_numpy():
@@ -246,7 +321,7 @@ def test_fill_value_passthrough():
 
     @nb.njit
     def caller(group_idx, a, fill_value):
-        return kernels.aggregate_sum(group_idx, a, 0, -1, fill_value)
+        return kernels.aggregate_sum(group_idx, a, 0, 0.5, -1, fill_value)
 
     result = caller(GROUP_IDX, INT_A, 42)
     assert result[2] == 42
@@ -256,7 +331,7 @@ def test_size_too_small_raises():
 
     @nb.njit
     def caller(group_idx, a, size):
-        return kernels.aggregate_sum(group_idx, a, 0, size)
+        return kernels.aggregate_sum(group_idx, a, 0, 0.5, size)
 
     with pytest.raises(ValueError, match="too large"):
         caller(GROUP_IDX, FLOAT_A, 1)
@@ -314,7 +389,7 @@ def _all_drivers():
         for pair in vars(module).values():
             if type(pair).__name__ != "KernelPair":
                 continue
-            for handle in (pair.plain, pair.nan):
+            for handle in (pair.plain, pair.nan_variant):
                 if handle is not None:
                     yield handle.name, handle.driver
 

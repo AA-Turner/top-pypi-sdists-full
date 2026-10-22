@@ -13,6 +13,7 @@ from sklearn.utils.validation import check_is_fitted
 
 from pyts._base import MultivariateTransformerMixin
 from pyts.multivariate.utils import check_3d_array
+from pyts.multivariate.utils._utils import _check_n_features
 from pyts.transformation import WEASEL
 
 
@@ -27,12 +28,13 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
     n_bins : int (default = 4)
         The number of bins to produce. It must be between 2 and 26.
 
-    window_sizes : array-like (default = [0.1, 0.3, 0.5, 0.7, 0.9])
+    window_sizes : None or array-like (default = None)
         Size of the sliding windows. All the elements must be either integers
         or floats. In the latter case, each element represents the percentage
         of the size of each time series and must be between 0 and 1; the size
         of the sliding windows will be computed as
-        ``np.ceil(window_sizes * n_timestamps)``.
+        ``np.ceil(window_sizes * n_timestamps)``. If None,
+        ``[0.1, 0.3, 0.5, 0.7, 0.9]`` is used.
 
     window_steps : None or array-like (default = None)
         Step of the sliding windows. If None, each ``window_step`` is equal to
@@ -71,7 +73,7 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
     sparse : bool (default = True)
         Return a sparse matrix if True, else return an array.
 
-    alphabet : None, 'ordinal' or array-like, shape = (n_bins,)
+    alphabet : None or array-like, shape = (n_bins,)
         Alphabet to use. If None, the first `n_bins` letters of the Latin
         alphabet are used.
 
@@ -87,6 +89,9 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
             - int : window size
             - str : word
 
+    n_features_in_ : int
+        Number of features seen during ``fit``. ``transform`` requires the
+        same number of features.
 
     References
     ----------
@@ -119,8 +124,6 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
         sparse: bool = True,
         alphabet: str | npt.ArrayLike | None = None,
     ) -> None:
-        if window_sizes is None:
-            window_sizes = [0.1, 0.3, 0.5, 0.7, 0.9]
         self.word_size = word_size
         self.n_bins = n_bins
         self.window_sizes = window_sizes
@@ -150,7 +153,7 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
         self : object
 
         """
-        X = check_3d_array(X)
+        X = check_3d_array(X).astype(np.float64, copy=False)
         _, n_features, _n_timestamps = X.shape
 
         X_diff = np.abs(np.diff(X))
@@ -173,6 +176,7 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
         self._estimators_diff = [clone(estimator) for _ in range(n_features)]
 
         self.vocabulary_ = {}
+        self.n_features_in_ = n_features
 
         for i, transformer in enumerate(self._estimators):
             transformer.fit(X[:, i, :], y)
@@ -199,7 +203,8 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
 
         """
         check_is_fitted(self, 'vocabulary_')
-        X = check_3d_array(X)
+        X = check_3d_array(X).astype(np.float64, copy=False)
+        _check_n_features(X, self.n_features_in_)
         _n_samples, _, _ = X.shape
         X_diff = np.abs(np.diff(X))
 
@@ -232,7 +237,7 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
             Document-term matrix with relevant features only.
 
         """
-        X = check_3d_array(X)
+        X = check_3d_array(X).astype(np.float64, copy=False)
         _n_samples, n_features, _n_timestamps = X.shape
 
         X_diff = np.abs(np.diff(X))
@@ -255,6 +260,7 @@ class WEASELMUSE(BaseEstimator, MultivariateTransformerMixin):
         self._estimators_diff = [clone(estimator) for _ in range(n_features)]
 
         self.vocabulary_ = {}
+        self.n_features_in_ = n_features
 
         X_new = []
         for i, transformer in enumerate(self._estimators):

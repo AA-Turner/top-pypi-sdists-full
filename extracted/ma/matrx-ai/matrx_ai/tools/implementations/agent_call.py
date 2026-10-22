@@ -61,6 +61,7 @@ fails with a clean ``feature_unavailable``.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any
@@ -99,6 +100,81 @@ REMEMBER_NOTE_MAX_CHARS = 20_000
 
 
 logger = logging.getLogger(__name__)
+
+
+def _declares_structured_output(agent: Any) -> bool:
+    """True when ``agent`` asked for JSON (a schema or a json response format)."""
+    from matrx_ai.agents.output import resolve_output_schema
+
+    try:
+        schema = resolve_output_schema(agent)
+    except Exception:  # noqa: BLE001
+        return False
+    if not schema:
+        return False
+    return str(schema.get("type") or "").lower() != "text"
+
+
+def _describe_tool_call(call: dict[str, Any]) -> str:
+    name = str(call.get("name") or "a tool")
+    args = call.get("arguments") or {}
+    detail = ""
+    if isinstance(args, dict) and args:
+        for key in ("command", "action", "query", "url", "path", "code"):
+            if args.get(key):
+                detail = f"{key}={str(args[key])[:160]!r}"
+                break
+        if not detail:
+            detail = ", ".join(sorted(str(k) for k in args)[:6])
+    return f"{name}({detail})" if detail else name
+
+
+def relayable_answer(
+    raw_output: str,
+    agent: Any = None,
+    *,
+    stopped_on_tool_calls: list[dict[str, Any]] | None = None,
+) -> Any:
+    """What a caller is handed as a helper's answer.
+
+    * The agent declares structured output → the parsed JSON (dict/list) when
+      the text parses, else the text.
+    * No declared structure → the helper's TEXT, untouched — unless the whole
+      answer is itself strict JSON. Prose is never fished for JSON: the lenient
+      extractor turned a report into ``['active_sandbox']`` (a code span), a
+      quoted tool call, or a repaired dict of sentence fragments
+      (``{"changed": "", "pass)": "", ...}``) — all relayed as "the result"
+      (live 2026-10-21).
+    * No text at all and the run ended on a tool call → a plain sentence saying
+      the helper stopped before writing an answer, naming its last action.
+    """
+    text = raw_output or ""
+    if not text.strip():
+        if stopped_on_tool_calls:
+            last = "; ".join(_describe_tool_call(c) for c in stopped_on_tool_calls[-3:])
+            return (
+                "The helper stopped before writing an answer (it was cut off "
+                f"mid-tool-call); last action: {last}. Its work so far is not a "
+                "finished answer — ask it again or check what that action did."
+            )
+        return text
+    if _declares_structured_output(agent):
+        from matrx_ai.agents.output import parse_agent_output
+
+        extraction = parse_agent_output(text, agent)
+        if extraction.success and isinstance(extraction.data, dict | list):
+            return extraction.data
+        return text
+    stripped = text.strip()
+    if stripped[:1] in "{[" and stripped[-1:] in "}]":
+        try:
+            data = json.loads(stripped)
+        except ValueError:
+            return text
+        if isinstance(data, dict | list):
+            return data
+    return text
+
 
 
 def _fail(
@@ -929,30 +1005,34 @@ async def agent_call(
                 "finished answer without saying it was time-bounded."
             ),
         }
-    elif _child_status == "max_iterations_exceeded" and max_iterations:
+    elif _child_status == "max_iterations_exceeded":
+        # Whoever set the ceiling — this caller, the harness knob, or the library
+        # default — a run that stopped AT it did not finish. Before 2026-10-21 the
+        # marker fired only when THIS caller passed max_iterations, so a helper
+        # stopped by the default ceiling reported back as plainly "finished".
+        _ceiling = max_iterations or (result.metadata or {}).get("max_iterations")
+        _rounds = f"{int(_ceiling)} rounds" if _ceiling else "its rounds"
+        _agent_label = getattr(agent, "name", None) or agent_id
         bounded_extras["bounded"] = {
             "stopped_by": "max_iterations",
-            "max_iterations": int(max_iterations),
-            "detail": f"stopped at its ceiling of {int(max_iterations)} rounds",
+            **({"max_iterations": int(_ceiling)} if _ceiling else {}),
+            "detail": f"stopped at its step limit of {_rounds}, not finished",
             "what_this_means": (
-                f"This answer is what '{getattr(agent, 'name', None) or agent_id}' had "
-                f"after the {int(max_iterations)} rounds you allowed it. It is real "
-                "work, not an error, and it may be incomplete — do not present it as a "
-                "finished answer without saying it was bounded."
+                f"'{_agent_label}' used all {_rounds} it was allowed and stopped before "
+                "finishing. Its answer is its own report of what it did, what is left and "
+                "where it stopped. It is real work, not an error, but it is incomplete — do "
+                "not present it as a finished answer. It can be continued from where it "
+                "stopped: its conversation keeps the full history."
             ),
         }
 
-    # Surface structured output natively when the agent declares a schema (and
-    # the text parses) — keeps the model from receiving stringified JSON and
-    # satisfies the ToolResult.output contract gate. Uses the one JSON funnel.
-    from matrx_ai.agents.output import parse_agent_output
-
+    # The helper's answer, as the caller will see it — see relayable_answer.
     raw_output = result.output or ""
-    extraction = parse_agent_output(raw_output, agent)
-    if extraction.success and isinstance(extraction.data, dict | list):
-        result_value: Any = extraction.data
-    else:
-        result_value = raw_output
+    result_value: Any = relayable_answer(
+        raw_output,
+        agent,
+        stopped_on_tool_calls=list(getattr(result, "stopped_on_tool_calls", None) or []),
+    )
 
     # ── Conversation-aware extras + remember write-back ─────────────────
     # Merged into BOTH result shapes (inline and reference) below.

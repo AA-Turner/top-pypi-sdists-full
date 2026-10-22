@@ -154,7 +154,7 @@ class ErrorMiddleware:
         install_parent_url_tracking(crawler)
         return middleware
 
-    def process_exception(self, request, exception, spider):
+    def process_exception(self, request, exception):
         start_time = request.meta.get("start_time", time.time())
         elapsed_seconds = time.time() - start_time
         status_code = status_code_from_exception(exception)

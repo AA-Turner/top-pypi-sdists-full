@@ -15,7 +15,6 @@ from pymobiledevice3.exceptions import (
     RemoteAutomationNotEnabledError,
     WebInspectorNotEnabledError,
 )
-from pymobiledevice3.lockdown import LockdownClient
 from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.services.lockdown_service import LockdownService
 from pymobiledevice3.services.notification_proxy import NotificationProxyService
@@ -190,7 +189,7 @@ class WebinspectorService(LockdownService):
     RSD_SERVICE_NAME = "com.apple.webinspector.shim.remote"
 
     def __init__(self, lockdown: LockdownServiceProvider) -> None:
-        super().__init__(lockdown, self.SERVICE_NAME if isinstance(lockdown, LockdownClient) else self.RSD_SERVICE_NAME)
+        super().__init__(lockdown)
         self.connection_id = str(uuid.uuid4()).upper()
         self.state: Optional[str] = None
         self.connected_application: dict[str, Application] = {}
@@ -768,13 +767,6 @@ class WebinspectorService(LockdownService):
             await self._service.send_plist({"__selector": selector, "__argument": args})
         except (ConnectionError, ConnectionTerminatedError, OSError, EOFError) as error:
             self._note_connection_lost(error)
-
-    def _page_by_automation_session(self, session_id: str) -> Page:
-        for app_id in self.application_pages:
-            for page in self.application_pages[app_id]:
-                if page.type_ == WirTypes.AUTOMATION and page.automation_session_id == session_id:
-                    return page
-        raise KeyError(f"Automation session with id {session_id} not found")
 
     async def _wait_for_page(self, session_id: str) -> Page:
         while True:

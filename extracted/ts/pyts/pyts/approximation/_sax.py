@@ -3,7 +3,7 @@
 # Author: Johann Faouzi <johann.faouzi@gmail.com>
 # License: BSD-3-Clause
 
-from typing import Any, Self
+from typing import Any, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -98,7 +98,7 @@ class SymbolicAggregateApproximation(BaseEstimator, UnivariateTransformerMixin):
             Binned data.
 
         """
-        X = check_array(X, dtype=np.float64)
+        X = cast(npt.NDArray[np.float64], check_array(X, dtype=np.float64))
         n_timestamps = X.shape[1]
         alphabet = self._check_params(n_timestamps)
         discretizer = KBinsDiscretizer(
@@ -127,7 +127,7 @@ class SymbolicAggregateApproximation(BaseEstimator, UnivariateTransformerMixin):
             )
         if not (
             (self.alphabet is None)
-            or (self.alphabet == 'ordinal')
+            or (isinstance(self.alphabet, str) and self.alphabet == 'ordinal')
             or (isinstance(self.alphabet, (list, tuple, np.ndarray)))
         ):
             raise TypeError(
@@ -136,7 +136,7 @@ class SymbolicAggregateApproximation(BaseEstimator, UnivariateTransformerMixin):
             )
         if self.alphabet is None:
             alphabet = np.array([chr(i) for i in range(97, 97 + self.n_bins)])
-        elif self.alphabet == 'ordinal':
+        elif isinstance(self.alphabet, str) and self.alphabet == 'ordinal':
             alphabet = 'ordinal'
         else:
             alphabet = check_array(self.alphabet, ensure_2d=False, dtype=None)

@@ -19,11 +19,13 @@ from __future__ import annotations
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Union
+from typing import Any, Union
+
+from botocore.eventstream import EventStream
 
 from .literals import (
+    AgentErrorTypeType,
     AgentInputMessageTypeType,
-    AgentOutputMessageTypeType,
     AnalyticsStatusType,
     AuthorizationStrategyType,
     BackupStatusType,
@@ -44,7 +46,7 @@ else:
 
 __all__ = (
     "AgentInputMessageTypeDef",
-    "AgentOutputMessageTypeDef",
+    "AgentOutputMessageStreamTypeDef",
     "AnalyticsConfigurationTypeDef",
     "BackupConfigurationTypeDef",
     "ContinuousBackupRestoreConfigurationTypeDef",
@@ -76,7 +78,9 @@ __all__ = (
     "DescribeFHIRImportJobRequestTypeDef",
     "DescribeFHIRImportJobRequestWaitTypeDef",
     "DescribeFHIRImportJobResponseTypeDef",
+    "EndOfOutputEventTypeDef",
     "ErrorCauseTypeDef",
+    "ErrorEventTypeDef",
     "ExistingVersionedProfileSourceTypeDef",
     "ExportJobPropertiesTypeDef",
     "GetDataTransformationProfileRequestTypeDef",
@@ -111,6 +115,7 @@ __all__ = (
     "ProfileConfigurationTypeDef",
     "ProfileConfigurationUnionTypeDef",
     "ProfileMappingSourceTypeDef",
+    "ProgressEventTypeDef",
     "PublishDataTransformationProfileRequestTypeDef",
     "PublishDataTransformationProfileResponseTypeDef",
     "ResponseMetadataTypeDef",
@@ -129,6 +134,7 @@ __all__ = (
     "StarterProfileSourceTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
+    "TextMessageEventTypeDef",
     "TimestampTypeDef",
     "TransformationInputDataConfigTypeDef",
     "TransformationJobProgressReportTypeDef",
@@ -152,14 +158,21 @@ AgentInputMessageTypeDef = TypedDict(
         "Type": AgentInputMessageTypeType,
     },
 )
-AgentOutputMessageTypeDef = TypedDict(
-    "AgentOutputMessageTypeDef",
-    {
-        "Body": str,
-        "Type": AgentOutputMessageTypeType,
-        "OptionsList": NotRequired[list[str]],
-    },
-)
+
+class EndOfOutputEventTypeDef(TypedDict):
+    FinalResponseMessage: str
+    Options: NotRequired[list[str]]
+    ConversationId: NotRequired[str]
+
+class ErrorEventTypeDef(TypedDict):
+    Error: AgentErrorTypeType
+    Message: str
+
+class ProgressEventTypeDef(TypedDict):
+    Message: str
+
+class TextMessageEventTypeDef(TypedDict):
+    Message: str
 
 class AnalyticsConfigurationTypeDef(TypedDict):
     Status: NotRequired[AnalyticsStatusType]
@@ -351,9 +364,15 @@ class UpdateDataTransformationProfileRequestTypeDef(TypedDict):
 
 class UpdateProfileWithAgentRequestTypeDef(TypedDict):
     ProfileId: str
-    SourceFormat: SourceFormatType
     InputMessage: AgentInputMessageTypeDef
     ConversationId: NotRequired[str]
+
+class AgentOutputMessageStreamTypeDef(TypedDict):
+    TextMessageEvent: NotRequired[TextMessageEventTypeDef]
+    ProgressEvent: NotRequired[ProgressEventTypeDef]
+    HeartbeatEvent: NotRequired[dict[str, Any]]
+    ErrorEvent: NotRequired[ErrorEventTypeDef]
+    EndOfOutputEvent: NotRequired[EndOfOutputEventTypeDef]
 
 class DatastoreBackupStatusTypeDef(TypedDict):
     Configuration: NotRequired[BackupConfigurationTypeDef]
@@ -479,11 +498,6 @@ class UpdateDataTransformationProfileResponseTypeDef(TypedDict):
     LastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
-class UpdateProfileWithAgentResponseTypeDef(TypedDict):
-    AgentResponse: AgentOutputMessageTypeDef
-    ConversationId: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
 class CreateDataTransformationProfileSourceTypeDef(TypedDict):
     StarterProfile: NotRequired[StarterProfileSourceTypeDef]
     ExistingVersionedProfileId: NotRequired[ExistingVersionedProfileSourceTypeDef]
@@ -562,6 +576,10 @@ class OutputDataConfigTypeDef(TypedDict):
 ProfileConfigurationUnionTypeDef = Union[
     ProfileConfigurationTypeDef, ProfileConfigurationOutputTypeDef
 ]
+
+class UpdateProfileWithAgentResponseTypeDef(TypedDict):
+    AgentResponse: EventStream[AgentOutputMessageStreamTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class RestoreConfigurationTypeDef(TypedDict):
     ContinuousBackupRestoreConfiguration: NotRequired[ContinuousBackupRestoreConfigurationTypeDef]

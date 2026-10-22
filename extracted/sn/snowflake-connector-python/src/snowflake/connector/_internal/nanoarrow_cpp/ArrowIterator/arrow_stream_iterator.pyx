@@ -1,5 +1,6 @@
 # distutils: language = c++
 # cython: language_level=3
+# cython: freethreading_compatible = True
 
 from cpython.ref cimport PyObject
 from libc.stdint cimport int64_t, uintptr_t

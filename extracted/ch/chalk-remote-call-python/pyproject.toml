@@ -48,7 +48,8 @@ dev = [
 tracing = [
     "opentelemetry-api>=1.20.0",
     "opentelemetry-sdk>=1.20.0",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
+    # Unix-socket exports need channel_options, added in 1.35.0.
+    "opentelemetry-exporter-otlp-proto-grpc>=1.35.0",
 ]
 
 [project.urls]

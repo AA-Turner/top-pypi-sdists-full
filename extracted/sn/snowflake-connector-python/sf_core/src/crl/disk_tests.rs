@@ -184,7 +184,12 @@ mod disk_crl_tests {
         };
 
         let crl = crate::crl::CrlManager::new();
-        let cache = crl.cache(cfg.clone()).expect("crl cache");
+        let cache = crl
+            .cache(
+                cfg.clone(),
+                &crate::tls::RootStoreProvider::new().snapshot(),
+            )
+            .expect("crl cache");
         let validator = CrlValidator::new(cfg, cache);
 
         // Should not panic even with invalid cached bytes; will attempt network if needed

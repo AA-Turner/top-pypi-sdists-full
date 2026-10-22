@@ -4,14 +4,16 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2013-2025, John McNamara, jmcnamara@cpan.org
+# Copyright (c) 2013-2026, John McNamara, jmcnamara@cpan.org
 #
+
+from typing import Optional
+
+from xlsxwriter import xmlwriter
 
 # Package imports.
 from xlsxwriter.comments import CommentType
 from xlsxwriter.image import Image
-
-from . import xmlwriter
 
 
 ###########################################################################
@@ -32,7 +34,7 @@ class ButtonType:
         height: int,
         width: int,
         button_number: int,
-        options: dict = None,
+        options: Optional[dict] = None,
     ) -> None:
         """
         Initialize a ButtonType instance.
@@ -404,7 +406,7 @@ class Vml(xmlwriter.XMLwriter):
         # Set the shape index.
         shape_id = "_x0000_s" + str(shape_id)
 
-        (left, top, width, height) = self._pixels_to_points(comment.vertices)
+        left, top, width, height = self._pixels_to_points(comment.vertices)
 
         # Set the visibility.
         if comment.is_visible:
@@ -454,7 +456,7 @@ class Vml(xmlwriter.XMLwriter):
         # Set the shape index.
         shape_id = "_x0000_s" + str(shape_id)
 
-        (left, top, width, height) = self._pixels_to_points(button.vertices)
+        left, top, width, height = self._pixels_to_points(button.vertices)
 
         style = (
             f"position:absolute;"
@@ -606,7 +608,7 @@ class Vml(xmlwriter.XMLwriter):
 
         self._xml_end_tag("v:textbox")
 
-    def _write_div(self, align: str, caption: str = None) -> None:
+    def _write_div(self, align: str, caption: Optional[str] = None) -> None:
         # Write the <div> element.
 
         style = "text-align:" + align
@@ -708,7 +710,7 @@ class Vml(xmlwriter.XMLwriter):
 
     def _write_anchor(self, vertices) -> None:
         # Write the <x:Anchor> element.
-        (col_start, row_start, x1, y1, col_end, row_end, x2, y2) = vertices[:8]
+        col_start, row_start, x1, y1, col_end, row_end, x2, y2 = vertices[:8]
 
         strings = [col_start, x1, row_start, y1, col_end, x2, row_end, y2]
         strings = [str(i) for i in strings]

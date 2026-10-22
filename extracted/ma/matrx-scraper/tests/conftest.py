@@ -282,3 +282,13 @@ def _fail_on_headed_request(request: pytest.FixtureRequest):
             "`headed_request_expected` if it deliberately tests the headed wiring.",
             pytrace=False,
         )
+
+
+@pytest.fixture(autouse=True)
+def _stealth_retry_off_unless_testing_it(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stealth retry would launch a real browser on any failed read in a test that is not about it."""
+    if request.module.__name__.endswith(("test_stealth_browser_step", "test_stealth_retry")):
+        return
+    from matrx_scraper import stealth_browser
+
+    monkeypatch.setattr(stealth_browser, "STEALTH_RETRY_DEFAULT", False)

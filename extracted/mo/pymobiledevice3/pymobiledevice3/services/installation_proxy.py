@@ -8,8 +8,6 @@ from typing import Any, Callable, Optional, cast
 from zipfile import ZIP_DEFLATED, BadZipFile, ZipFile
 
 from pymobiledevice3.exceptions import AppInstallError
-from pymobiledevice3.lockdown import LockdownClient
-from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.plist_types import PlistSendable
 from pymobiledevice3.services.afc import AfcService
 from pymobiledevice3.services.lockdown_service import LockdownService
@@ -51,16 +49,18 @@ def classify_zip_file(zip_bytes: bytes) -> ZipFileType:
             dirs = next((name for name in zip_file.namelist() if "/" in name), "").split("/")
 
             if dirs[0] != "Payload":
-                raise AppInstallError("package does not have a payload")
+                raise AppInstallError("The package is not a valid .ipa or .ipcc: it has no Payload folder.")
             if dirs[1].endswith(".app"):
                 return ZipFileType.IPA
             elif dirs[1].endswith(".bundle"):
                 return ZipFileType.IPCC
             else:
-                raise AppInstallError("package does not have the appropriate folders structure")
+                raise AppInstallError(
+                    "The package is not a valid .ipa or .ipcc: Payload holds no .app or .bundle folder."
+                )
 
     except BadZipFile as e:
-        raise AppInstallError("Invalid bytes package") from e
+        raise AppInstallError("The package is not a valid ZIP archive.") from e
 
 
 class InstallationProxyService(LockdownService):
@@ -75,12 +75,6 @@ class InstallationProxyService(LockdownService):
 
     SERVICE_NAME = "com.apple.mobile.installation_proxy"
     RSD_SERVICE_NAME = "com.apple.mobile.installation_proxy.shim.remote"
-
-    def __init__(self, lockdown: LockdownServiceProvider):
-        if isinstance(lockdown, LockdownClient):
-            super().__init__(lockdown, self.SERVICE_NAME)
-        else:
-            super().__init__(lockdown, self.RSD_SERVICE_NAME)
 
     async def _watch_completion(self, handler: Optional[Callable[..., Any]] = None, *args: Any) -> None:
         while True:
@@ -176,7 +170,7 @@ class InstallationProxyService(LockdownService):
         :returns: None.
         :raises AppInstallError: If the restore fails.
         """
-        await self.send_cmd_for_bundle_identifier(bundle_identifier, "Restore", options, handler, args)
+        await self.send_cmd_for_bundle_identifier(bundle_identifier, "Restore", options, handler, *args)
 
     async def uninstall(
         self,
@@ -198,7 +192,7 @@ class InstallationProxyService(LockdownService):
         :returns: None.
         :raises AppInstallError: If the uninstall fails.
         """
-        await self.send_cmd_for_bundle_identifier(bundle_identifier, "Uninstall", options, handler, args)
+        await self.send_cmd_for_bundle_identifier(bundle_identifier, "Uninstall", options, handler, *args)
 
     async def install_from_bytes(
         self,
@@ -350,7 +344,7 @@ class InstallationProxyService(LockdownService):
             )
         )
 
-        await self._watch_completion(handler, args)
+        await self._watch_completion(handler, *args)
 
     async def upload_ipcc_from_path(self, file: Path, remote_path: str, afc_client: AfcService) -> None:
         """

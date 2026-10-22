@@ -18,6 +18,7 @@ import contextlib
 import json
 import pathlib
 import re
+import subprocess
 import sys
 import tomllib
 
@@ -53,35 +54,23 @@ DENY_TOKENS = (
 
 # Per-package import fences. Values are forbidden module prefixes.
 PACKAGE_FENCES: dict[str, tuple[str, ...]] = {
-    "author": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
+    "author": ("cozy_runtime.internal", "cozy_runtime.cli", "tensorfs"),
     # Public derivation surface (cr-071): job packages import it directly. It builds only
     # on the author surface and scoped TensorFS API, never worker storage or CLI authority.
-    "derive": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
+    "derive": ("cozy_runtime.internal", "cozy_runtime.cli", "tensorfs"),
     # Fused DiT blocks: packages declare layouts here; kernels compile through author.kernels.
-    "fusion": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
+    "fusion": ("cozy_runtime.internal", "cozy_runtime.cli", "tensorfs"),
     # LM decode: static cache and CUDA-graphed steps; placement through the author protocol.
-    "lm": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
+    "lm": ("cozy_runtime.internal", "cozy_runtime.cli", "tensorfs"),
     # CUDA graphs over plane-held weights, which the executor installs on every component; a
     # replay reports the attention it serves into the run's evidence.
-    "graphs": ("cozy_runtime.cli", "worker_protocol", "tensorfs"),
+    "graphs": ("cozy_runtime.cli", "tensorfs"),
     # The activation probe (cr-075): a public mechanism surface shaped like `derive` — job
     # code and the runtime verb both build on it; it never reaches the worker planes.
-    "probe": ("cozy_runtime.internal", "cozy_runtime.cli", "worker_protocol", "tensorfs"),
+    "probe": ("cozy_runtime.internal", "cozy_runtime.cli", "tensorfs"),
     "internal": ("cozy_runtime.cli",),
     "cli": (),
 }
-# cr-174: TensorFS owns public derivation declarations and scoped handles. These
-# execution bindings may import that API; direct Store and native internals stay fenced.
-SCOPED_TENSORFS_FILES = frozenset(
-    {
-        "author/_context.py",
-        "author/_weights.py",
-        "author/_invoke.py",
-        "derive/facade.py",
-        "derive/operations.py",
-        "derive/quantization.py",
-    }
-)
 # Pillow is a base dependency and the actual public Image value type; imports stay at module scope.
 AUTHOR_ALLOWED_THIRD_PARTY = ("msgspec", "PIL")
 # The `media` extra's encoder (cr-017): allowed in the author package ONLY function-scoped,
@@ -252,20 +241,13 @@ def fence_package_imports() -> list[str]:
         }
         for name in imports(tree):
             rel = path.relative_to(ROOT)
-            scoped_tensorfs = (
-                name == "tensorfs.derived"
-                and path.relative_to(SRC).as_posix() in SCOPED_TENSORFS_FILES
-            )
-            if not scoped_tensorfs and any(
-                name == f or name.startswith(f + ".") for f in forbidden
-            ):
+            if any(name == f or name.startswith(f + ".") for f in forbidden):
                 bad.append(f"{rel}: {module_of(path)} may not import {name}")
             root = name.split(".")[0]
             if (
                 pkg == "author"
                 and root not in stdlib
                 and root != "cozy_runtime"
-                and not scoped_tensorfs
                 and root not in AUTHOR_ALLOWED_THIRD_PARTY
                 and not (
                     root in AUTHOR_ALLOWED_LAZY
@@ -615,33 +597,51 @@ def fence_canonical_numbers() -> list[str]:
     return bad[:10]
 
 
-def fence_torch_free_import() -> list[str]:
-    """`import cozy_runtime` must never pull torch (§1.0), derivation harness included.
+#: What a CPU path imports with torch absent: the package, its author surface, the executor
+#: (it loads torch only for a model) and every console script (added from pyproject).
+TORCH_FREE_ENTRIES = ("cozy_runtime", "cozy_runtime.author", "cozy_runtime.internal.executor")
+_BLOCKED_TORCH_PROBE = """
+import importlib, json, pkgutil, sys
+sys.modules["torch"] = None  # any attempt to import torch raises ImportError
+failed, torch_only = {}, []
+for name in json.loads(sys.argv[1]):
+    try:
+        importlib.import_module(name)
+    except Exception as exc:
+        failed[name] = f"{type(exc).__name__}: {exc}"
+for info in pkgutil.walk_packages(importlib.import_module("cozy_runtime").__path__, "cozy_runtime."):
+    if info.name in sys.modules or info.name.endswith(".__main__"):
+        continue
+    try:
+        importlib.import_module(info.name)
+    except ImportError as exc:
+        if (exc.name or "").partition(".")[0] == "torch":
+            torch_only.append(info.name)
+print(json.dumps({"failed": failed, "torch_only": torch_only}))
+"""
 
-    torch is an optional extra: the derive harness imports it INSIDE `torch_module()`, so a
-    cloned package stays inspectable and the base package installs without a 3 GB wheel.
-    """
-    bad = []
-    # A build script beside kernel sources (`internal/int8_op/setup.py`) is in no package:
-    # nothing imports it, and it builds against torch by design.
-    for path in (p for p in py_files() if (p.parent / "__init__.py").exists()):
-        tree = ast.parse(path.read_text())
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.Import, ast.ImportFrom)):
-                continue
-            names = (
-                [a.name for a in node.names]
-                if isinstance(node, ast.Import)
-                else [node.module or ""]
-            )
-            if not any(n.split(".")[0] == "torch" for n in names):
-                continue
-            if node.col_offset == 0:
-                bad.append(
-                    f"{module_of(path)}:{node.lineno} imports torch at module scope — the "
-                    "harness imports it inside a function so the base package stays torch-free"
-                )
-    return bad
+
+def fence_torch_free_import() -> list[str]:
+    """`import cozy_runtime` and every torch-free entry point import with torch blocked, in a
+    fresh interpreter (§1.0). A torch-only module imports torch at its top, as the owner's
+    imports-at-top rule puts it; it is then reachable only from other torch-only modules, which
+    this proves by importing rather than by reading where an import sits."""
+    scripts = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"].get("scripts", {})
+    entries = [*TORCH_FREE_ENTRIES, *(target.partition(":")[0] for target in scripts.values())]
+    run = subprocess.run(
+        [sys.executable, "-c", _BLOCKED_TORCH_PROBE, json.dumps(entries)],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+    )
+    if run.returncode:
+        return [f"the blocked-torch probe failed: {run.stderr.strip()[-600:]}"]
+    result = json.loads(run.stdout.strip().splitlines()[-1])
+    print(f"torch-free-import: {len(result['torch_only'])} torch-only modules, none reached")
+    return [
+        f"{name} does not import with torch absent: {why}"[:400]
+        for name, why in result["failed"].items()
+    ]
 
 
 STATIC_READERS = tuple(
@@ -900,7 +900,7 @@ def fence_one_address_predicate() -> list[str]:
 #: `dict[str, Any]` record's missing key, 2026-09-28). Records are decoded once, at their
 #: boundary, into typed structs; this count under `internal/` may only fall. Lower it in
 #: the change that removes some.
-ANY_CEILING = 643
+ANY_CEILING = 462
 
 
 def any_references(tree: ast.AST) -> int:
@@ -944,6 +944,35 @@ def fence_any_ratchet() -> list[str]:
     return []
 
 
+#: The repo is public: a home directory in a tracked file points at evidence nobody else can open. tests/ holds
+#: inputs, and a placeholder user (`/home/user/…`) is obviously fake anywhere.
+HOME_PATH = re.compile(r"(?:/home/|/Users/|[A-Za-z]:\\{1,2}Users\\{1,2})([A-Za-z0-9._-]+)")
+PLACEHOLDER_USERS = frozenset(
+    {"user", "username", "name", "me", "you", "alice", "bob", "example", "runner"}
+)
+
+
+def fence_no_home_paths() -> list[str]:
+    tracked = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True
+    ).stdout
+    found = []
+    for rel in tracked.decode().split("\0"):
+        if not rel or rel.startswith("tests/"):
+            continue
+        try:
+            text = (ROOT / rel).read_text()
+        except (UnicodeDecodeError, OSError):
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            found += [
+                f"{rel}:{n}: {m[0]} is a local path; cite the evidence another way"
+                for m in HOME_PATH.finditer(line)
+                if m[1].lower() not in PLACEHOLDER_USERS
+            ]
+    return found
+
+
 FENCES = {
     "one-address-predicate": fence_one_address_predicate,
     "forbidden-dependency": fence_forbidden_dependency,
@@ -964,6 +993,7 @@ FENCES = {
     "package-owns-no-media-decode": fence_package_owns_no_media_decode,
     "base-distributions": fence_base_distributions,
     "any-ratchet": fence_any_ratchet,
+    "no-home-paths": fence_no_home_paths,
 }
 
 

@@ -4,7 +4,7 @@
 # License: BSD-3-Clause
 
 from math import ceil
-from typing import Self
+from typing import Any, Self, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +16,7 @@ from sklearn.utils.validation import check_array, check_is_fitted
 
 from pyts._base import UnivariateTransformerMixin
 from pyts.approximation import SymbolicFourierApproximation
-from pyts.utils._utils import _windowed_view
+from pyts.utils._utils import _windowed_view, _word_vectorizer_params
 
 
 class BOSS(BaseEstimator, UnivariateTransformerMixin):
@@ -75,7 +75,7 @@ class BOSS(BaseEstimator, UnivariateTransformerMixin):
     sparse : bool (default = True)
         Return a sparse matrix if True, else return an array.
 
-    alphabet : None, 'ordinal' or array-like, shape = (n_bins,)
+    alphabet : None or array-like, shape = (n_bins,)
         Alphabet to use. If None, the first `n_bins` letters of the Latin
         alphabet are used.
 
@@ -149,7 +149,7 @@ class BOSS(BaseEstimator, UnivariateTransformerMixin):
         self : object
 
         """
-        X = check_array(X)
+        X = cast(npt.NDArray[Any], check_array(X))
         n_samples, n_timestamps = X.shape
         if y is not None:
             check_classification_targets(y)
@@ -189,7 +189,7 @@ class BOSS(BaseEstimator, UnivariateTransformerMixin):
         else:
             X_bow = np.asarray([' '.join(X_word[i]) for i in range(n_samples)])
 
-        vectorizer = CountVectorizer()
+        vectorizer = CountVectorizer(**_word_vectorizer_params())
         vectorizer.fit(X_bow)
         self.vocabulary_ = {value: key for key, value in vectorizer.vocabulary_.items()}
         self._window_size = window_size
@@ -214,7 +214,7 @@ class BOSS(BaseEstimator, UnivariateTransformerMixin):
 
         """
         check_is_fitted(self, ['_sfa', '_vectorizer', 'vocabulary_'])
-        X = check_array(X)
+        X = cast(npt.NDArray[Any], check_array(X))
         n_samples, n_timestamps = X.shape
 
         X_windowed = _windowed_view(
@@ -265,7 +265,7 @@ class BOSS(BaseEstimator, UnivariateTransformerMixin):
             Document-term matrix.
 
         """
-        X = check_array(X)
+        X = cast(npt.NDArray[Any], check_array(X))
         n_samples, n_timestamps = X.shape
         if y is not None:
             check_classification_targets(y)
@@ -305,7 +305,7 @@ class BOSS(BaseEstimator, UnivariateTransformerMixin):
         else:
             X_bow = np.asarray([' '.join(X_word[i]) for i in range(n_samples)])
 
-        vectorizer = CountVectorizer()
+        vectorizer = CountVectorizer(**_word_vectorizer_params())
         X_boss = vectorizer.fit_transform(X_bow)
         self.vocabulary_ = {value: key for key, value in vectorizer.vocabulary_.items()}
         self._window_size = window_size
@@ -321,6 +321,19 @@ class BOSS(BaseEstimator, UnivariateTransformerMixin):
         return csr_matrix(X_boss)
 
     def _check_params(self, n_timestamps: int) -> tuple[int, int]:
+        # Words are built by joining symbols into space-separated tokens, so
+        # the integer symbols of ``alphabet='ordinal'`` cannot be supported:
+        # once there are more than 10 bins, joined integers are ambiguous
+        # (``'1' + '11'`` and ``'11' + '1'`` give the same word). It is
+        # rejected here with a clear error, as in SAXVSM and BagOfWords.
+        if not (
+            self.alphabet is None
+            or isinstance(self.alphabet, (list, tuple, np.ndarray))
+        ):
+            raise TypeError(
+                "'alphabet' must be None or array-like "
+                f"with shape (n_bins,) (got {self.alphabet})."
+            )
         if not isinstance(self.word_size, (int, np.integer)):
             raise TypeError("'word_size' must be an integer.")
         if not self.word_size >= 1:

@@ -208,7 +208,7 @@ def validate_capabilities(
 
 def _encode_param(args: List[str], spec: Dict[str, Any], value: Any) -> None:
     """Encode a single operation parameter into CLI argv flags."""
-    if value is None:
+    if value is None and spec.get('kind') != 'jsonFlag':
         if spec.get('required'):
             raise SuperDocError(f"Missing required parameter: {spec['name']}", code='INVALID_ARGUMENT')
         return
@@ -317,7 +317,11 @@ def build_operation_argv(
     payload = apply_operation_param_aliases(operation, payload)
     argv: List[str] = list(operation['commandTokens'])
     for spec in operation['params']:
-        _encode_param(argv, spec, payload.get(spec['name']))
+        if spec['name'] not in payload:
+            if spec.get('required'):
+                raise SuperDocError(f"Missing required parameter: {spec['name']}", code='INVALID_ARGUMENT')
+            continue
+        _encode_param(argv, spec, payload[spec['name']])
     if timeout_ms is not None:
         argv.extend(['--timeout-ms', str(timeout_ms)])
     argv.extend(['--output', 'json'])

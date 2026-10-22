@@ -175,6 +175,24 @@ def authored_names(template: str, variables: Mapping[str, Any]) -> list[str]:
     return [name for name in variables if f"{{{{{name}}}}}" in template]
 
 
+def declared_values_given(
+    template: str, variables: Mapping[str, Any], render: Callable[[Any], str]
+) -> bool:
+    """True when a DECLARED variable the template names was given a non-empty value.
+
+    The variable rule's own answer to "did the run put anything in this turn?": it reads the
+    declared values, never the text (no search for braces). A turn whose every declared slot
+    was filled with nothing is the author's sentence with holes in it, not run context.
+    """
+    for name, value in variables.items():
+        if is_platform_value(value):
+            continue
+        if any(token in template for token in (f"{{{{{name}}}}}", f"{{{{#{name}}}}}", f"{{{{<{name}>}}}}")):
+            if is_filled(value, render):
+                return True
+    return False
+
+
 def is_filled(value: Any, render: Callable[[Any], str]) -> bool:
     """A value fills a section unless it is None, ``False``, an empty container, blank text or a
     toggle's off label (``OffValue``)."""

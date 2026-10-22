@@ -1,6 +1,7 @@
 """
 Serialization utilities for converting data to JSON-serializable format.
 """
+
 import json
 from datetime import datetime
 

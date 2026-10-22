@@ -21,7 +21,7 @@ steps:
   args:
   - build
   - -f
-  - Dockerfile
+  - tools/cicd/Dockerfile
   - -t
   - us-docker.pkg.dev/$PROJECT_ID/tools/kagglesdk-cicd:${_PYTHON_VERSION}
   - --cache-from

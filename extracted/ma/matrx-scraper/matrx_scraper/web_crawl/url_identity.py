@@ -963,6 +963,7 @@ async def _merge_gsc_stats(
                 update_fields=["clicks", "impressions", "ctr", "position"],
             )
         if alias_ids:
+            # hard-delete-ok: duplicate page-stat rows just merged into the canonical row
             await GscPageStat.delete_where(id__in=alias_ids)
     return len(alias_ids)
 

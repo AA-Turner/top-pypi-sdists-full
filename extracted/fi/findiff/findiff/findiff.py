@@ -1,8 +1,13 @@
 import numpy as np
 from scipy import sparse
 
-from findiff.coefs import coefficients, calc_coefs_non_uni_batched
-from findiff.compact import _CompactDiffUniformPeriodic, _CompactDiffUniformNonPeriodic
+from findiff.backend import add_at, get_namespace
+from findiff.coefs import calc_coefs, coefficients, calc_coefs_non_uni_batched
+from findiff.compact import (
+    _CompactDiffNonUniform,
+    _CompactDiffUniformNonPeriodic,
+    _CompactDiffUniformPeriodic,
+)
 from findiff.grids import EquidistantAxis, GridAxis, NonEquidistantAxis
 from findiff.utils import (
     get_list_of_multiindex_tuples,
@@ -12,7 +17,19 @@ from findiff.utils import (
 )
 
 
-def build_differentiator(order: int, axis: GridAxis, acc, scheme=None):
+BOUNDARY_CLOSURES = ("one-sided", "centered")
+
+
+def build_differentiator(order: int, axis: GridAxis, acc, scheme=None,
+                         boundary="one-sided"):
+    if boundary not in BOUNDARY_CLOSURES:
+        raise ValueError(
+            f"Unknown boundary closure {boundary!r}; use one of {BOUNDARY_CLOSURES}."
+        )
+    if scheme and boundary != "one-sided":
+        raise ValueError(
+            "boundary='centered' is not supported for compact schemes."
+        )
     if scheme:
         if isinstance(axis, EquidistantAxis):
             if axis.periodic:
@@ -23,14 +40,23 @@ def build_differentiator(order: int, axis: GridAxis, acc, scheme=None):
                 return _CompactDiffUniformNonPeriodic(
                     axis.dim, order, axis.spacing, scheme
                 )
-        raise NotImplementedError("This is not yet implemented for compact schemes.")
+        if isinstance(axis, NonEquidistantAxis):
+            if axis.periodic:
+                raise NotImplementedError("Periodic nonuniform axes not yet implemented")
+            return _CompactDiffNonUniform(axis.dim, order, axis.coords, scheme)
+        raise TypeError("Unknown axis type.")
 
     if isinstance(axis, EquidistantAxis):
-        if not axis.periodic:
-            return _FinDiffUniform(axis.dim, order, axis.spacing, acc)
-        else:
+        if axis.periodic:
             return _FinDiffUniformPeriodic(axis.dim, order, axis.spacing, acc)
+        if boundary == "centered":
+            return _FinDiffUniformCentered(axis.dim, order, axis.spacing, acc)
+        return _FinDiffUniform(axis.dim, order, axis.spacing, acc)
     elif isinstance(axis, NonEquidistantAxis):
+        if boundary == "centered" and not axis.periodic:
+            raise NotImplementedError(
+                "boundary='centered' is only implemented for equidistant grids."
+            )
         if not axis.periodic:
             return _FinDiffNonUniform(axis.dim, order, axis.coords, acc)
         else:
@@ -58,7 +84,11 @@ class _FinDiffBase:
         return f
 
     def apply_to_array(self, yd, y, weights, off_slices, ref_slice, dim):
-        """Applies the finite differences only to slices along a given axis"""
+        """Applies the finite differences only to slices along a given axis.
+
+        Returns the updated output array (required for immutable backends
+        like JAX).
+        """
 
         ndims = len(y.shape)
 
@@ -71,9 +101,10 @@ class _FinDiffBase:
             off_multi_slice = [all] * ndims
             off_multi_slice[dim] = s
             if abs(1 - w) < 1.0e-14:
-                yd[tuple(ref_multi_slice)] += y[tuple(off_multi_slice)]
+                yd = add_at(yd, tuple(ref_multi_slice), y[tuple(off_multi_slice)])
             else:
-                yd[tuple(ref_multi_slice)] += w * y[tuple(off_multi_slice)]
+                yd = add_at(yd, tuple(ref_multi_slice), w * y[tuple(off_multi_slice)])
+        return yd
 
     def shift_slice(self, sl, off, max_index):
 
@@ -105,16 +136,17 @@ class _FinDiffUniform(_FinDiffBase):
 
     def __call__(self, f):
         f = self.guard_valid_target(f)
+        xp = get_namespace(f)
 
         npts = f.shape[self.axis]
-        fd = np.zeros_like(f)
+        fd = xp.zeros_like(f)
         num_bndry_points = len(self.center["coefficients"]) // 2
 
-        self._apply_central_coefs(f, fd, npts, num_bndry_points)
+        fd = self._apply_central_coefs(f, fd, npts, num_bndry_points)
 
-        self._apply_forward_coefs(f, fd, npts, num_bndry_points)
+        fd = self._apply_forward_coefs(f, fd, npts, num_bndry_points)
 
-        self._apply_backward_coefs(f, fd, npts, num_bndry_points)
+        fd = self._apply_backward_coefs(f, fd, npts, num_bndry_points)
 
         h_inv = 1.0 / self.spacing**self.order
         return fd * h_inv
@@ -126,7 +158,7 @@ class _FinDiffUniform(_FinDiffBase):
         off_slices = [
             self.shift_slice(ref_slice, offsets[k], npts) for k in range(len(offsets))
         ]
-        self.apply_to_array(fd, f, weights, off_slices, ref_slice, self.axis)
+        return self.apply_to_array(fd, f, weights, off_slices, ref_slice, self.axis)
 
     def _apply_forward_coefs(self, f, fd, npts, num_bndry_points):
         weights = self.forward["coefficients"]
@@ -135,7 +167,7 @@ class _FinDiffUniform(_FinDiffBase):
         off_slices = [
             self.shift_slice(ref_slice, offsets[k], npts) for k in range(len(offsets))
         ]
-        self.apply_to_array(fd, f, weights, off_slices, ref_slice, self.axis)
+        return self.apply_to_array(fd, f, weights, off_slices, ref_slice, self.axis)
 
     def _apply_central_coefs(self, f, fd, npts, num_bndry_points):
         weights = self.center["coefficients"]
@@ -144,7 +176,7 @@ class _FinDiffUniform(_FinDiffBase):
         off_slices = [
             self.shift_slice(ref_slice, offsets[k], npts) for k in range(len(offsets))
         ]
-        self.apply_to_array(fd, f, weights, off_slices, ref_slice, self.axis)
+        return self.apply_to_array(fd, f, weights, off_slices, ref_slice, self.axis)
 
     def write_matrix_entries(self, mat, shape):
         long_indices_nd = get_long_indices_for_all_grid_points_as_ndarray(shape)
@@ -185,6 +217,60 @@ class _FinDiffUniform(_FinDiffBase):
         return offsets_long
 
 
+class _FinDiffUniformCentered(_FinDiffUniform):
+    """Like _FinDiffUniform, but points near the boundary (except the boundary
+    points themselves) use the widest *centered* stencil that fits into the
+    grid instead of one-sided stencils.
+
+    The accuracy order drops towards the boundary (to 2 next to it), but the
+    discrete operator keeps a well-behaved spectrum (e.g. real and negative
+    for the second derivative with Dirichlet conditions), which keeps
+    time-dependent problems stable for any `acc`.
+    """
+
+    def _centered_rows(self, npts):
+        nside = len(self.center["coefficients"]) // 2
+        rows = []
+        for i in range(1, nside):
+            if 2 * i + 1 <= self.order:  # not enough points for a centered stencil
+                continue
+            stencil = calc_coefs(self.order, list(range(-i, i + 1)))
+            rows.append((i, stencil))
+            if npts - 1 - i != i:
+                rows.append((npts - 1 - i, stencil))
+        return rows
+
+    def __call__(self, f):
+        fd = super().__call__(f)
+        f = self.guard_valid_target(f)
+        npts = f.shape[self.axis]
+        h_inv = 1.0 / self.spacing**self.order
+        for i, stencil in self._centered_rows(npts):
+            idx = [slice(None)] * f.ndim
+            idx[self.axis] = i
+            value = 0
+            for o, c in zip(stencil["offsets"], stencil["coefficients"]):
+                src = list(idx)
+                src[self.axis] = i + o
+                value = value + c * f[tuple(src)]
+            fd = add_at(fd, tuple(idx), value * h_inv - fd[tuple(idx)])
+        return fd
+
+    def write_matrix_entries(self, mat, shape):
+        super().write_matrix_entries(mat, shape)
+        long_indices_nd = get_long_indices_for_all_grid_points_as_ndarray(shape)
+        for i, stencil in self._centered_rows(shape[self.axis]):
+            idx = [slice(None)] * len(shape)
+            idx[self.axis] = i
+            Is = long_indices_nd[tuple(idx)].reshape(-1)
+            mat[Is, :] = 0
+            offsets_long = self._convert_1D_offsets_to_long_indices(
+                self.axis, stencil["offsets"], shape
+            )
+            for o, c in zip(offsets_long, stencil["coefficients"]):
+                mat[Is, Is + o] = c / self.spacing**self.order
+
+
 class _FinDiffUniformPeriodic(_FinDiffBase):
 
     def __init__(self, axis, order, spacing, acc):
@@ -195,10 +281,11 @@ class _FinDiffUniformPeriodic(_FinDiffBase):
 
     def __call__(self, f):
         f = self.guard_valid_target(f)
+        xp = get_namespace(f)
 
-        fd = np.zeros_like(f)
+        fd = xp.zeros_like(f)
         for off, coef in zip(self.coefs["offsets"], self.coefs["coefficients"]):
-            fd += coef * np.roll(f, -off, axis=self.axis)
+            fd = fd + coef * xp.roll(f, -off, axis=self.axis)
         h_inv = 1.0 / self.spacing**self.order
         return fd * h_inv
 
@@ -234,37 +321,40 @@ class _FinDiffNonUniform(_FinDiffBase):
     def __call__(self, y):
         """The core function to take a partial derivative on a non-uniform grid"""
         y = self.guard_valid_target(y)
+        xp = get_namespace(y)
 
         dim = self.axis
         N = len(self.coords)
-        yd = np.zeros_like(y)
+        yd = xp.zeros_like(y)
         ndims = len(y.shape)
 
-        self._apply_nonuni_weights(
+        yd = self._apply_nonuni_weights(
             yd, y, dim, ndims,
             self.center["coefficients"], self.center["offsets"],
             slice(self.num_bndry, N - self.num_bndry),
         )
 
-        self._apply_nonuni_weights(
-            yd, y, dim, ndims,
-            self.forward["coefficients"], self.forward["offsets"],
-            slice(0, self.num_bndry),
-        )
-
-        self._apply_nonuni_weights(
-            yd, y, dim, ndims,
-            self.backward["coefficients"], self.backward["offsets"],
-            slice(N - self.num_bndry, N),
-        )
+        # points near the boundary have individual offsets, apply row by row
+        for scheme, start in ((self.forward, 0), (self.backward, N - self.num_bndry)):
+            for r, (weights, offsets) in enumerate(
+                zip(scheme["coefficients"], scheme["offsets"])
+            ):
+                yd = self._apply_nonuni_weights(
+                    yd, y, dim, ndims, weights[None, :], offsets,
+                    slice(start + r, start + r + 1),
+                )
 
         return yd
 
     def _apply_nonuni_weights(self, yd, y, dim, ndims, weights, offsets, ref_slice):
-        """Apply per-point weights using vectorized slice operations."""
+        """Apply per-point weights using vectorized slice operations.
+
+        Returns the updated output array (required for immutable backends
+        like JAX).
+        """
         n_pts = ref_slice.stop - ref_slice.start
         if n_pts == 0:
-            return
+            return yd
 
         ref_multi = [slice(None)] * ndims
         ref_multi[dim] = ref_slice
@@ -277,18 +367,24 @@ class _FinDiffNonUniform(_FinDiffBase):
             w = weights[:, j_idx]
             w_shape = [1] * ndims
             w_shape[dim] = n_pts
-            yd[tuple(ref_multi)] += w.reshape(w_shape) * y[tuple(off_multi)]
+            yd = add_at(yd, tuple(ref_multi), w.reshape(w_shape) * y[tuple(off_multi)])
+        return yd
 
     def write_matrix_entries(self, mat, shape):
         long_indices_nd = get_long_indices_for_all_grid_points_as_ndarray(shape)
         N = len(self.coords)
         ndims = len(shape)
 
-        schemes = [
-            (self.forward, slice(0, self.num_bndry)),
-            (self.center, slice(self.num_bndry, N - self.num_bndry)),
-            (self.backward, slice(N - self.num_bndry, N)),
-        ]
+        schemes = [(self.center, slice(self.num_bndry, N - self.num_bndry))]
+        # points near the boundary have individual offsets, one scheme per row
+        for scheme, start in ((self.forward, 0), (self.backward, N - self.num_bndry)):
+            for r, (weights, offsets) in enumerate(
+                zip(scheme["coefficients"], scheme["offsets"])
+            ):
+                schemes.append(
+                    ({"coefficients": weights[None, :], "offsets": offsets},
+                     slice(start + r, start + r + 1))
+                )
 
         for scheme, axis_slice in schemes:
             n_axis_pts = axis_slice.stop - axis_slice.start

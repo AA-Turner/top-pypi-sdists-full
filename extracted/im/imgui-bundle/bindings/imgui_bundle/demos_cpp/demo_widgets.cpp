@@ -16,7 +16,7 @@
 #ifdef IMGUI_BUNDLE_WITH_IMFILEDIALOG
 #include "ImFileDialog/ImFileDialog.h"
 #endif
-#include "imgui_md_wrapper.h"
+#include "imgui_rich_md/rich_md.h"
 #include "ImCoolBar/ImCoolBar.h"
 #include "demo_utils/api_demos.h"
 
@@ -26,7 +26,7 @@
 
 void DemoKnobs()
 {
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # Knobs
         [imgui-knobs](https://github.com/altschuler/imgui-knobs) provides knobs for ImGui.
         )");
@@ -145,7 +145,7 @@ void DemoKnobs()
 
 void DemoSpinner()
 {
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # Spinners
         [imspinner](https://github.com/dalerank/imspinner) provides spinners for ImGui.
     )");
@@ -188,9 +188,9 @@ void DemoToggle()
 {
     static bool flag = true;
 
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # Toggle Switch
-        [imgui_toggle](https://github.com/cmdwtf/imgui_toggle) provides toggle switches for ImGui."""
+        [imgui_toggle](https://github.com/cmdwtf/imgui_toggle) provides toggle switches for ImGui.
     )");
 
     bool changed = false;
@@ -218,14 +218,15 @@ void DemoPortableFileDialogs()
     static std::string lastFileSelection;
 
     ImGui::PushID("pfd");
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # Portable File Dialogs
         [portable-file-dialogs](https://github.com/samhocevar/portable-file-dialogs) provides file dialogs
         as well as notifications and messages. They will use the native dialogs and notifications on each platform.
+        **On the desktop only**: in a browser, they do nothing.
     )");
 
 #ifdef __EMSCRIPTEN__
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         *Note: On Emscripten/Web, only messages dialogs (with an Ok button and an icon) are supported.
         On Windows, Linux and MacOS, everything is supported.*
     )");
@@ -348,7 +349,7 @@ void DemoImFileDialog()
 #ifdef IMGUI_BUNDLE_WITH_IMFILEDIALOG
     static std::string selectedFilename;
 
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # ImFileDialog
          [ImFileDialog](https://github.com/pthom/ImFileDialog.git) provides file dialogs for ImGui.
         )");
@@ -460,7 +461,7 @@ void DemoCommandPalette()
         wasInited = true;
     }
 
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # Command Palette
         [imgui-command-palette](https://github.com/hnOsmium0001/imgui-command-palette.git) provides a Sublime Text or VSCode style command palette in ImGui
     )");
@@ -473,7 +474,10 @@ void DemoCommandPalette()
         ImCmd::CommandPaletteWindow("CommandPalette", &showCommandPalette);
 
     ImGui::NewLine();
-    ImGui::Text("Press Ctrl+Shift+P to bring up the command palette");
+    if (ImGui::Button("Open the command palette"))  // a touch screen has no keyboard shortcut
+        showCommandPalette = true;
+    ImGui::SameLine();
+    ImGui::Text("or press Ctrl+Shift+P");
     ImGui::NewLine();
     ImGui::Text("counter=%i", counter);
 }
@@ -501,15 +505,20 @@ void DemoCoolBar()
 
 
     std::vector<std::string> buttonLabels {"A", "B", "C", "D", "E", "F"};
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
         # ImCoolBar
         ImCoolBar provides a dock-like Cool bar for Dear ImGui
     )");
 
     ImGui::ImCoolBarSettings coolBarSettings;
-    coolBarSettings.anchor = ImVec2(0.5f, 0.07f); // position in the window (ratio of window size)
     coolBarSettings.mode = ImCoolBarFlags_Horizontal;
-    if (ImGui::BeginCoolBar("##CoolBarMain", coolBarSettings))
+    // The bar is a window of its own, placed in the viewport: its anchor is a ratio of the viewport's free space.
+    // Here, it goes where the cursor is, in the space kept for it below, and scrolls with the page
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    float barHeight = coolBarSettings.normalSize + 2.f * ImGui::GetStyle().WindowPadding.y;
+    float barTop = ImGui::GetCursorScreenPos().y - viewport->Pos.y;
+    coolBarSettings.anchor = ImVec2(0.5f, barTop / (viewport->Size.y - barHeight));
+    if (ImGui::IsRectVisible(ImVec2(1.f, barHeight)) && ImGui::BeginCoolBar("##CoolBarMain", coolBarSettings))
     {
         for (const std::string& label: buttonLabels)
         {
@@ -522,11 +531,11 @@ void DemoCoolBar()
         ImGui::EndCoolBar();
     }
 
-    ImGui::NewLine(); ImGui::NewLine();
+    ImGui::Dummy(ImVec2(0.f, barHeight));
 }
 
 
-void demo_widgets()
+void gui_demo_widgets()
 {
     DemoCoolBar();
     DemoToggle();

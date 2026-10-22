@@ -24,6 +24,17 @@ def _ext_state():
     _ext._registry.update(saved)
 
 
+@pytest.fixture(autouse=True)
+def _purposeful_door():
+    """The table path is a purposeful screen's; chat never starts a dataset."""
+    from matrx_ai.tools.tests.test_agent_projection import _make_ctx
+    from matrx_connect.context.app_context import clear_app_context, set_app_context
+
+    token = set_app_context(_make_ctx({"tool_origin": "screen_run"}))
+    yield
+    clear_app_context(token)
+
+
 def _ctx() -> ToolContext:
     return ToolContext(call_id="call-1", tool_name="site_data")
 

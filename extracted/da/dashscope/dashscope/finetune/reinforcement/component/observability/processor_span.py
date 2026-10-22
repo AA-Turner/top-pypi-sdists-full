@@ -102,12 +102,9 @@ def trace_processor_span(  # pylint: disable=too-many-statements
             if tracer is None or not _OTEL_SPAN_API:
                 if is_tracing_enabled() and tracer is None:
                     logger.warning(
-                        (
-                            "ENABLE_TRAJECTORY is set but "
-                            "OpenTelemetry is not "
-                            "installed. "
-                            "pip install 'dashscope[agentic_rl_tracing]'"
-                        ),
+                        "ENABLE_TRAJECTORY is set but "
+                        "OpenTelemetry is not installed. "
+                        "Reinstall the SDK with: pip install -U dashscope",
                     )
                 return fn(self, input_data, *args, **kwargs)
 

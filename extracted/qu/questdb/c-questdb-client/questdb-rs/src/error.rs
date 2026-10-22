@@ -48,7 +48,8 @@ pub enum ErrorCode {
     /// The host, port, or interface was incorrect.
     CouldNotResolveAddr,
 
-    /// Called methods in the wrong order. E.g. `symbol` after `column`.
+    /// Called methods in the wrong order, such as writing a symbol after a
+    /// non-symbol column on an ILP buffer or calling `at` before any column.
     InvalidApiCall,
 
     /// A network error connecting or flushing data out. **Transient** — obtain a
@@ -106,16 +107,13 @@ pub enum ErrorCode {
     /// QWP/WebSocket server rejection or terminal protocol violation.
     ServerRejection,
 
-    /// `PooledSenderCore::flush_arrow_batch_*` was passed a column whose Arrow /
-    /// QuestDB kind cannot be persisted to a QuestDB table (e.g.
-    /// `ARRAY(LONG, N-D)` is query-result-only on the egress side and has
-    /// no QWP wire tag for ingress). Only emitted on the `arrow` feature.
+    /// An Arrow column cannot be written to QuestDB because its type is not
+    /// supported for ingestion. Only emitted on the `arrow` feature.
     ArrowUnsupportedColumnKind,
 
-    /// `PooledSenderCore::flush_arrow_batch_*` was passed a `RecordBatch` that
-    /// failed client-side structural validation (column count vs schema,
-    /// name encoding, ARROW C Data Interface invariants on a freshly
-    /// imported array, etc.). Only emitted on the `arrow` feature.
+    /// Arrow data is invalid or conflicts with its metadata or overrides. For
+    /// example, a UUID claim requires 16-byte values and a LONG256 claim
+    /// requires 32-byte values. Only emitted on the `arrow` feature.
     ArrowIngest,
 
     /// A reconnectable failure on the column-major sender's flush/sync path
@@ -142,6 +140,12 @@ pub enum ErrorCode {
     HandshakeError,
 
     /// Server returned an unsupported QWP version, encoding, or capability.
+    ///
+    /// Also raised client-side, before anything is written, when a query
+    /// carries a per-query timeout and the server does not advertise
+    /// `CAP_QUERY_TIMEOUT` — see
+    /// [`ReaderQuery::timeout`](crate::egress::ReaderQuery::timeout). The
+    /// connection is untouched by that refusal.
     UnsupportedServer,
 
     /// Wire-format violation: bad magic, truncated frame, unknown discriminant,
@@ -176,6 +180,24 @@ pub enum ErrorCode {
     /// Query was cancelled (locally or via server `CANCELLED` status `0x0A`).
     Cancelled,
 
+    /// The query ran past the timeout it carried: server-reported QWP
+    /// `QUERY_TIMEOUT` (status `0x0E`), produced only for a request that
+    /// supplied `timeout_ms`. Per-query, so the connection stays usable and
+    /// a pooled client runs its next query on it.
+    ///
+    /// A timeout requested against a server that does not advertise
+    /// `CAP_QUERY_TIMEOUT` is refused with [`Self::UnsupportedServer`]
+    /// instead, so a caller that retries a timeout with a larger budget
+    /// does not loop against a server that ignores every budget — see
+    /// [`ReaderQuery::timeout`](crate::egress::ReaderQuery::timeout).
+    ///
+    /// **Do not retry a write on this error.** A DDL / `INSERT` / `UPDATE`
+    /// that timed out waiting for the table writer may still be applied
+    /// afterwards, and a statement that completes past its timeout is
+    /// reported as `EXEC_DONE` rather than a timeout precisely so a
+    /// retrying client cannot apply it twice.
+    QueryTimeout,
+
     /// Mid-query failover was eligible but at least one batch had already
     /// been delivered to the caller, and the cursor's `on_failover_reset`
     /// callback was not installed. Failover would replay the query from the
@@ -204,11 +226,14 @@ pub enum ErrorCode {
     /// bug; not user-recoverable. Only emitted on the `arrow` feature.
     ArrowExport,
 
-    /// An irreducible QWP/WebSocket unit (the table schema plus a single
-    /// row block) exceeds the negotiated per-batch cap
-    /// (`min(max_buf_size, server X-QWP-Max-Batch-Size)`). Chunk publication
-    /// splits oversize inputs into smaller frames automatically, so this only
-    /// surfaces when splitting cannot make a frame fit. Distinct from
+    /// A QWP/WebSocket frame exceeds the negotiated per-frame cap
+    /// (`min(max_buf_size, server X-QWP-Max-Batch-Size)`, further bounded by
+    /// the store-and-forward segment payload capacity). Chunk publication
+    /// splits oversize inputs into smaller frames automatically, so there this
+    /// only surfaces for an irreducible unit (the table schema plus a single
+    /// row block). A row [`Buffer`](crate::ingress::Buffer) is published as one
+    /// frame and is never split, so flushing one whose encoded frame exceeds
+    /// the cap fails with this code and publishes nothing. Distinct from
     /// [`InvalidApiCall`](Self::InvalidApiCall) so callers can recognise it
     /// without matching on the error message text.
     BatchTooLarge,
@@ -226,6 +251,79 @@ pub enum ErrorCode {
     /// the error message text. The sender's own reconnect/failover loops treat it
     /// as terminal (they stop) rather than retrying it to their deadline.
     StoreResendRequired,
+
+    /// The QWP/WebSocket connection-scoped symbol dictionary is full: interning
+    /// another distinct symbol would push it past its entry-count cap
+    /// (2,000,000, matching the server's ingress ceiling) or its cumulative
+    /// UTF-8 heap cap (256 MiB). The dictionary accumulates every distinct
+    /// symbol referenced across every column, chunk, and row-buffer flush on
+    /// one connection, and is only reset by discarding that connection.
+    ///
+    /// The failing frame is rejected before any byte reaches the wire and the
+    /// buffer is rolled back, so *that flush* loses nothing and already-interned
+    /// symbols keep flushing — but retrying a *new* symbol on the same sender can
+    /// never succeed. A full dictionary therefore **retires the connection on
+    /// return**: a pooled sender is dropped rather than recycled (so the next
+    /// borrow gets a fresh, empty-dictionary connection, not the same full one),
+    /// and the frames flushed *earlier* on it are drained / committed best-effort
+    /// on the way out. So the simplest recovery is to return or drop the sender as
+    /// usual and continue on a fresh borrow. If those earlier frames must not be
+    /// lost, drain or commit them *and check* first, as below.
+    ///
+    /// - **Pooled row sender** (`QuestDb::borrow_sender`): a full dictionary marks
+    ///   the connection for retirement, so a plain drop (which *is* the pool
+    ///   return) drains the queue best-effort within `close_flush_timeout` and
+    ///   drops the connection instead of recycling it — the next borrow gets a
+    ///   fresh one. (Nothing extra to call: an explicit `drop_on_return()` does the
+    ///   same and is redundant here.) `wait()` first if the queued frames must not
+    ///   be lost. With `sf_dir` configured they persist in the slot, but so does
+    ///   the dictionary, and the next borrower re-seeds from that slot's side-file
+    ///   at the same size unless the slot drained first — so `wait()` there too, so
+    ///   the slot drains and the next borrower starts clean.
+    /// - **Pooled direct column sender**
+    ///   (`QuestDb::borrow_direct_column_sender`): a full dictionary marks the
+    ///   connection **spent** — retired on return, but its transport is healthy and
+    ///   still drainable — so a plain drop commits the deferred tail best-effort
+    ///   *and* retires the connection. Its `flush` is *deferred* (nothing is
+    ///   committed until [`commit`](crate::db::BorrowedDirectColumnSender::commit)
+    ///   or `flush_and_wait`), so for a *checked* guarantee call `commit(..)` (or
+    ///   `flush_and_wait(..)` on the final chunk) and confirm it succeeded before
+    ///   the drop — `commit` still goes through on a spent connection. Do **not**
+    ///   reach for `drop_on_return()` on a full dictionary: it hard-latches the
+    ///   connection, which makes the drop **skip** the best-effort commit and
+    ///   discard the tail. `reborrow_from_pool()` likewise discards the in-flight
+    ///   tail (its failover contract), so `commit`/`wait()` before it if that tail
+    ///   matters.
+    /// - **Standalone** (`Sender`): call
+    ///   [`close_drain`](crate::ingress::Sender::close_drain) and check it
+    ///   succeeded, then drop and reconnect. Unlike the pooled guards above, a
+    ///   plain drop drains **nothing** here — `SyncProtocolHandler`'s `Drop`
+    ///   shuts down the ILP-over-TCP socket and has no QWP/WebSocket arm at all,
+    ///   so every published-but-unacked frame is discarded with no wait. This is
+    ///   the most lossy of the three flavours on a bare drop, not the least.
+    ///   `close_drain` is bounded by `close_flush_timeout`.
+    /// - **C ABI**: a plain `questdb_db_return_sender` /
+    ///   `questdb_db_return_direct_sender` now retires (does not recycle) a
+    ///   full-dictionary connection and drains / commits its pending frames
+    ///   best-effort — call `qwp_sender_wait` / `qwp_direct_sender_commit` first
+    ///   for a checked guarantee. `questdb_db_drop_direct_sender` force-drops and
+    ///   **skips** the direct sender's tail commit, so on a full dictionary prefer
+    ///   the plain return unless you mean to discard the tail.
+    ///
+    /// **One exception to "that flush loses nothing", and it matters for
+    /// resends.** A chunk too large for a single frame is split into several
+    /// frames, published as it goes; store-and-forward is at-least-once, so
+    /// earlier frames can already be durably queued when a later frame hits
+    /// the cap. Nothing is lost then either, but the operation is no longer
+    /// known-not-delivered: it is reported as delivery-unknown, so **check
+    /// [`in_doubt`](Error::in_doubt) before resending** — a blind resend of
+    /// the whole chunk duplicates the rows the queued prefix already carried.
+    ///
+    /// Distinct from [`InvalidApiCall`](Self::InvalidApiCall) — a caller
+    /// mistake with no recovery — so callers can recognise a full dictionary
+    /// **by code** and take that specific action, without matching on the error
+    /// message text.
+    SymbolDictFull,
 }
 
 /// An error that occurred when using the QuestDB client library.
@@ -296,6 +394,10 @@ impl Error {
     /// `true` when the operation that produced this error is *delivery-unknown*
     /// ("in doubt"): the current input may already have reached the server, so
     /// blindly replaying it on a fresh connection can duplicate rows.
+    ///
+    /// For a high-level DataFrame ingestion call, the input is the entire
+    /// DataFrame, including any batches already committed by that call. For a
+    /// low-level flush, this does not track earlier independent flushes.
     ///
     /// This is independent of the [`code`](Error::code): a delivery-unknown
     /// failure typically reports [`ErrorCode::FailoverRetry`] (the connection
@@ -533,12 +635,14 @@ mod tests {
                 ErrorCode::LimitExceeded => {}
                 ErrorCode::ServerLimitExceeded => {}
                 ErrorCode::Cancelled => {}
+                ErrorCode::QueryTimeout => {}
                 ErrorCode::FailoverWouldDuplicate => {}
                 ErrorCode::SchemaDrift => {}
                 ErrorCode::NoSchema => {}
                 ErrorCode::ArrowExport => {}
                 ErrorCode::BatchTooLarge => {}
                 ErrorCode::StoreResendRequired => {}
+                ErrorCode::SymbolDictFull => {}
             }
         }
         let _ = _exhaustive;

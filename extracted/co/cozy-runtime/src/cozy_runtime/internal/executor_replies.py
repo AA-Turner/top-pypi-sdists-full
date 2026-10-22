@@ -1,307 +1,89 @@
-"""The executor's reply to one attempt (`invoke`), decoded once by the worker.
-
-A refusal carries only `ok: false`, `code` and `detail`; a run carries the rest. Every field
-has a default, so a reply from an executor pinned to an older Runtime decodes, and a field a
-newer executor adds is ignored.
-"""
+"""One request's memory, as its invoke reply states it (memory-varena §5.8, xs-046 B4's wire)."""
 
 from __future__ import annotations
 
-import logging
-from typing import Literal
-
 import msgspec
 
-from cozy_runtime.author._observations import Scalar
-from cozy_runtime.internal import tolerant
-from cozy_runtime.internal.canonical import Json
 
-_LOG = logging.getLogger(__name__)
+class Step(msgspec.Struct, frozen=True, kw_only=True):
+    """One pass of a model: bytes at home and resident, copied home and streamed through slots,
+    the GPU-timed prefetch stall, torch's allocated peak above the pass's start, and torch's
+    allocated bytes at that start (a leak shows as their growth)."""
 
-
-class Outcome(msgspec.Struct, frozen=True, kw_only=True):
-    """The author kernel's verdict on the attempt."""
-
-    terminal: Literal["succeeded", "failed", "refused", "canceled"]
-    origin: str
-    code: str = ""
-    message: str = ""
-    fields: tuple[str, ...] = ()
-    traceback: str = ""
-
-
-class Shortfall(msgspec.Struct, frozen=True, kw_only=True):
-    """The capacity fact residency raised into the handler."""
-
-    resource: str
-    scope: str
-    needed_bytes: int
-    available_bytes: int
-    evidence_class: str = "measured"
-    request_shape: str = ""
+    model: str
+    gpu: int
+    step: int
+    home: int
+    resident: int
+    paged_in: int
+    streamed: int
+    stall_ns: int
+    activations: int
+    allocated: int = 0
 
 
-class ObservationRow(msgspec.Struct, frozen=True, kw_only=True):
-    kind: str = "log"
-    name: str = ""
-    value: Scalar = None
-    fields: dict[str, Scalar] = {}
-    at_unix_ms: int = 0
-    seq: int = 0
+class Eviction(msgspec.Struct, frozen=True, kw_only=True):
+    model: str
+    gpu: int
+    rung: int
+    reason: str
+    nbytes: int
 
 
-class OutputRow(msgspec.Struct, frozen=True, kw_only=True):
-    """One asset or tree the result names; size and digest once its bytes are encoded."""
+class Peak(msgspec.Struct, frozen=True, kw_only=True):
+    """A model's measured activation peak at one shape key, and the cuts in force there (B3)."""
 
-    output_id: str
-    asset_ref: str
+    model: str
+    shape: str
+    peak: int
+    cuts: list[str] = []
+
+
+class Copy(msgspec.Struct, frozen=True, kw_only=True):
+    """A run of weight copies since the last request (`tensorfs.varena.torch.Copy`): to a GPU
+    (`h2d`: a restore, refill or fill) or a host layout read from disk (`disk`), in GB/s and %
+    of its measured ceiling (None while unmeasured), with the PCIe link, GPU copy and page-lock
+    seconds."""
+
     kind: str
-    media_type: str = ""
-    size_bytes: int | None = None
-    digest: str = ""
+    gpu: int
+    bytes: int
+    seconds: float
+    gbps: float
+    ceiling: float
+    pct: float | None
+    link: str = ""
+    busy_s: float = 0.0
+    pin_s: float = 0.0
+    staged: int = 0
+    cached: int = 0
 
 
-class FrameRow(msgspec.Struct, frozen=True, kw_only=True):
-    """One host frame the handler registered; the worker encodes it after release."""
+class Memory(msgspec.Struct, frozen=True, kw_only=True):
+    """The invoke reply's `memory`, which `cozy run show` states as `measurements.memory.stats`
+    and the merge gate reads: torch bytes package state still held at the request's end
+    (`leftover`), weight bytes copied to the device while it ran (`paged_in`, home or through
+    slots), and each model's bytes copied per step (`steps`). Then the detail: every step's
+    row, the evictions it made, the peaks and cuts per shape key, its out-of-memory retries,
+    `leftover` by GPU, and the copy runs against their ceilings."""
 
-    handle: str
-    codec: str
-    raw: str
-    raw_bytes: int
-    media_type: str = ""
-    facts: dict[str, Json] = {}
-
-
-class CaptureWritten(msgspec.Struct, frozen=True, kw_only=True):
-    """The activation capture tree the executor wrote into the attempt spool."""
-
-    output_id: str
-    content_digest: str
-    root: str
-    length: int
-
-
-class ResultRef(msgspec.Struct, frozen=True):
-    digest: str
-    length: int
+    leftover: int = 0
+    paged_in: int = 0
+    steps: dict[str, list[int]] = {}
+    rows: list[Step] = []
+    evictions: list[Eviction] = []
+    peaks: list[Peak] = []
+    retries: int = 0
+    leftover_by_gpu: list[tuple[int, int]] = []
+    #: the declared plan (`Context.plan`), each step's components
+    plan: list[list[str]] = []
+    copies: list[Copy] = []
 
 
-class Adjustment(msgspec.Struct, frozen=True, kw_only=True):
-    """One caller-visible divergence between requested and served, as the client sees it."""
-
-    field: str
-    kind: Literal["adjusted", "clamp", "warn"]
-    requested: str
-    applied: str
-    reason: str = ""
-    #: `handler`, or the runtime-owned origin (`policy`, `checkpoint:…`, `adapter:…`)
-    source: str = "handler"
-
-
-class Streamed(msgspec.Struct, frozen=True, kw_only=True):
-    """One component's streamed tail at its last stage: regions, resident prefix, window."""
-
-    blocks: int = 0
-    resident_blocks: int = 0
-    window: int = 0
-
-
-class PlaneFacts(msgspec.Struct, frozen=True, kw_only=True):
-    """The executor's weight plane (`weight_plane/1`), as exact counters. Bytes are per device
-    of this rank; `-1` is unreadable, never zero."""
-
-    budget_bytes: int = -1
-    committed_bytes: int = -1
-    leased_bytes: int = -1
-    pinned_budget_bytes: int = -1
-    pinned_bytes: int = -1
-    #: CUDA context and runtime workspaces outside torch and the plane, measured at load
-    context_bytes: int = -1
-    #: torch's reserved bytes, and the process's device bytes (context + reserved + mapped)
-    reserved_bytes: int = -1
-    process_bytes: int = -1
-    #: the owner's process cap in force (`process_cap/1`); -1: none
-    cap_bytes: int = -1
-    #: torch's peak above its bytes at the attempt's start: activations and derived weights
-    activation_peak_bytes: int = -1
-    resident: dict[str, int] = {}
-    streamed: dict[str, Streamed] = {}
-    h2d_bytes: int = 0
-    h2d_gbps: float = 0.0
-    #: of those, copied to the device straight from disk (the pinned tier did not hold them)
-    #: and straight from the page cache (it did not either)
-    disk_copy_bytes: int = 0
-    mapped_copy_bytes: int = 0
-    #: of those, host memory this process could not page-lock, through the staging buffers;
-    #: the rest of the host bytes were one DMA each. Each path's own rate (bytes / ns)
-    bounce_copy_bytes: int = 0
-    host_gbps: float = 0.0
-    bounce_gbps: float = 0.0
-    disk_gbps: float = 0.0
-    #: page locks the driver refused (a sealed layout counts once)
-    register_failed: int = 0
-    #: per stage method, its last plan's inputs, bytes: driver free, torch reserved and
-    #: allocated, the plane's committed and the bound weights' decoded copies, the stage's
-    #: activation growth and the budget that came out (`Weights.driver_budget`)
-    plan_inputs: dict[str, dict[str, int]] = {}
-    #: GPU regions mapped from the machine's custody (`weights.attach/1`): outside
-    #: `committed_bytes`, counted once by the machine
-    shared_bytes: int = 0
-    #: bytes this executor process read from storage since it started (`/proc/self/io`;
-    #: TensorFS 0.3.92): a gate compares a delta across a return. -1: not counted
-    disk_read_bytes: int = -1
-    #: RAM of the machine's sealed layouts this executor maps (theirs, never its own)
-    sealed_bytes: int = 0
-    #: LoRA'd weights baked into device bytes since the process started (a streamed copy counts
-    #: at every acquire), and the milliseconds its resident bakes took
-    lora_baked: int = 0
-    lora_bake_ms: float = 0.0
-    #: LoRA'd weights whose bytes arrived baked from the machine's custody: no bake here
-    lora_attached: int = 0
-    late: int = 0
-    stall_ns: int = 0
-    misses: int = 0
-    evictions: int = 0
-    oom_retries: int = 0
-    #: torch's allocator short of room: times it dropped its whole cache to place one
-    #: allocation, and out-of-memory errors it raised; then this process's own cache releases
-    #: that returned something, their bytes, and both by the function that asked. A stage
-    #: with room shows none of the first two.
-    alloc_retries: int = 0
-    alloc_ooms: int = 0
-    cache_releases: int = 0
-    cache_released_bytes: int = 0
-    cache_released_by: dict[str, tuple[int, int]] = {}
-    #: Per stage method, the most room torch had at an entry of this request in which it
-    #: dropped its cache more than once: the owner keeps it for the request's shape and
-    #: gives it to later executors (`Invoke.squeezed_bytes`)
-    squeezed: dict[str, int] = {}
-    #: components given back to make torch room since the process began, and their bytes
-    paged_out: int = 0
-    paged_out_bytes: int = 0
-    #: times this process's own tensors moved to host memory for an op since it began, and
-    #: their bytes (`spill`)
-    spilled: int = 0
-    spilled_bytes: int = 0
-    #: What memory made the call do, e.g. {"bands": "12 ops, 805306368 B of results in host memory"}
-    modes: dict[str, str] = {}
-
-
-class Metrics(msgspec.Struct, frozen=True, kw_only=True):
-    handler_ms: float = 0.0
-    device_lease_ms: float = 0.0
-    d2h_wait_ms: float = 0.0
-    #: torch's high-water marks over the attempt: live tensors, and the segments it reserved
-    peak_vram_bytes: int = 0
-    peak_reserved_bytes: int = 0
-    activation_peak_bytes: int = 0
-    activation_peaks: dict[str, int] = {}
-    allocated_at_start_bytes: int = -1
-    working_peak_vram_bytes: int = 0
-    shape_cell: str = ""
-    rss_at_end_bytes: int = 0
-    started_unix: float = 0.0
-    gpu_count: int = 0
-
-
-class AttemptReply(msgspec.Struct, frozen=True, kw_only=True):
+class RankMemory(msgspec.Struct, frozen=True, kw_only=True):
     ok: bool
+    rank: int
+    request_id: str
+    memory: Memory | None = None
     code: str = ""
     detail: str = ""
-    origin: str = ""
-    poisoned: str = ""
-    shortfall: Shortfall | None = None
-    outcome: Outcome | None = None
-    quiescent: bool = False
-    #: Sealed environment names the package changed; the executor restored them.
-    env_changed: tuple[str, ...] = ()
-    residency: dict[str, Json] = {}
-    #: Undecoded here: the worker reads each row alone, so an unreadable row costs itself,
-    #: never the reply and its result.
-    observations: tuple[object, ...] = ()
-    observation_caps: dict[str, int] = {}
-    attribution: dict[str, Json] = {}
-    position: int = 0
-    execution_observation: dict[str, Json] = {}
-    execution: dict[str, Json] = {}
-    #: A request pin some attention site of this call applied.
-    attention_applied: bool = False
-    capture: CaptureWritten | None = None
-    outputs: tuple[OutputRow, ...] = ()
-    frames: tuple[FrameRow, ...] = ()
-    #: The working allowance the executor granted; absent, the admitted final outputs.
-    max_output_bytes: int | None = None
-    result_ref: ResultRef | None = None
-    result_schema_digest: str = ""
-    adjustments: tuple[Adjustment, ...] = ()
-    ignored: tuple[str, ...] = ()
-    """Request fields the package's types do not declare, dropped before decoding."""
-    oversize_result_bytes: int = 0
-    metrics: Metrics = Metrics()
-    #: The card and ranks after the cache went back; an older executor is probed instead.
-    after: dict[str, Json] | None = None
-    plane: PlaneFacts | None = None
-
-
-class PreparedReply(msgspec.Struct, frozen=True, kw_only=True):
-    """`prepare_request`: the request resolved once, and only its digests."""
-
-    ok: bool
-    code: str = "request_unresolvable"
-    detail: str = ""
-    origin: str = ""
-    features: dict[str, int] = {}
-    features_digest: str = ""
-    overlay_digest: str = ""
-    facts_digest: str = ""
-    adjustments: tuple[Adjustment, ...] = ()
-
-
-def budget_claim(reply: AttemptReply) -> dict[str, int]:
-    """The allowance claim `output_budget.effective` checks against the admitted bound."""
-    return {} if reply.max_output_bytes is None else {"max_output_bytes": reply.max_output_bytes}
-
-
-#: Telemetry and narration: a member here that does not read takes its default. The verdict,
-#: result, outputs, digests and `poisoned` stay exact.
-_ADVISORY: dict[type, frozenset[str]] = {
-    AttemptReply: frozenset(
-        {
-            "origin",
-            "shortfall",
-            "quiescent",
-            "env_changed",
-            "residency",
-            "observations",
-            "observation_caps",
-            "attribution",
-            "position",
-            "execution_observation",
-            "execution",
-            "attention_applied",
-            "adjustments",
-            "ignored",
-            "oversize_result_bytes",
-            "metrics",
-            "plane",
-        }
-    ),
-    PreparedReply: frozenset({"origin", "detail", "adjustments"}),
-}
-
-
-def decode[R: (AttemptReply, PreparedReply)](frame: object, into: type[R]) -> R:
-    """The reply a frame states. An unreadable advisory member costs itself, with one warning;
-    a malformed load-bearing one is the executor's refusal, named."""
-    try:
-        reply, dropped = tolerant.read(frame, into, _ADVISORY[into])
-    except msgspec.ValidationError as exc:
-        return into(ok=False, code="executor_reply_malformed", detail=str(exc)[:1024])
-    if dropped:
-        _LOG.warning(
-            "executor %s: dropped %d unreadable member(s); first %s",
-            into.__name__,
-            len(dropped),
-            dropped[0][:512],
-        )
-    return reply

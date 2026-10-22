@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: atlan-application-sdk
-Version: 3.50.0
+Version: 3.51.1
 Summary: Atlan Application SDK is a Python library for developing applications on the Atlan Platform
 Project-URL: Repository, https://github.com/atlanhq/application-sdk
 Project-URL: Documentation, https://github.com/atlanhq/application-sdk/README.md
@@ -20,8 +20,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.11
 Requires-Dist: aiohttp<4.0.0,>=3.10.0
+Requires-Dist: atlan-application-sdk-api==3.51.1
 Requires-Dist: azure-identity>=1.15.0
 Requires-Dist: boto3<2.0.0,>=1.38.6
+Requires-Dist: certifi>=2026.10.19
 Requires-Dist: fastapi[standard]<0.144.0,>=0.143.0
 Requires-Dist: google-auth<3.0.0,>=2.0.0
 Requires-Dist: httpx-retries<0.7.0,>=0.6.0

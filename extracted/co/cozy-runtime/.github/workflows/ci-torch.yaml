@@ -6,7 +6,7 @@ name: ci-torch
 on:
   workflow_dispatch:
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
   cancel-in-progress: true
 jobs:
   torch:
@@ -25,10 +25,6 @@ jobs:
         with:
           save-cache: ${{ github.ref == 'refs/heads/master' }}
       - run: uv python install 3.12
-      - name: TensorFS read access (a git source until 0.10 is published)
-        env:
-          TENSORFS_KEY: ${{ secrets.TENSORFS_READ_KEY }}
-        run: bash scripts/prepare-release-source-access.sh
       - id: sync
         run: uv sync --locked
       - run: uv pip install --python .venv/bin/python --index https://download.pytorch.org/whl/cpu "torch==2.14.0" torchvision
@@ -37,8 +33,7 @@ jobs:
       - name: Torch-gated test files
         run: |
           mapfile -t files < <(grep -lE '(importorskip|find_spec)\(\s*"(torch|diffusers|transformers)|needs_torch|NO_TORCH|SkipTest\(' tests/test_*.py)
-          sudo systemd-run --wait --pipe --collect \
-            --unit="cozy-runtime-torch-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+          bash "scripts/ci-delegated.sh" "cozy-runtime-torch-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
             --uid="$(id -u)" --gid="$(id -g)" \
             --property=Delegate=yes --working-directory="$PWD" \
             --setenv="PATH=$PATH" --setenv="HOME=$HOME" \
@@ -65,12 +60,11 @@ jobs:
           uv build --wheel --out-dir "$proof_root/wheels"
           uv venv --python 3.12 "$proof_root/.venv"
           wheel=$(echo "$proof_root"/wheels/*.whl)
-          UV_LINK_MODE=copy uv pip install --python "$proof_root/.venv/bin/python" "$wheel[media,model-execution]" pytest
+          # The lock's pins as constraints: an unreleased TensorFS is a git source, not on PyPI.
+          uv export --frozen --no-dev --no-emit-project --no-hashes -o "$proof_root/locked.txt"
+          UV_LINK_MODE=copy uv pip install --python "$proof_root/.venv/bin/python" \
+            -c "$proof_root/locked.txt" "$wheel[media,model-execution]" pytest
           UV_LINK_MODE=copy uv pip install --python "$proof_root/.venv/bin/python" --index https://download.pytorch.org/whl/cpu "torch==2.14.0"
           cp -a tests "$proof_root/"
           cd "$proof_root"
-          sudo -E .venv/bin/python -m pytest -q -rs tests/test_warm_isolation.py \
-            tests/test_executor_handoff.py::test_the_executor_can_write_the_document_the_handoff_returns \
-            tests/test_executor_handoff.py::test_a_directory_beneath_the_grant_is_not_granted \
-            tests/test_executor_handoff.py::test_a_stale_document_does_not_refuse_the_next_preparation \
-            tests/test_weights_source_config.py::test_native_source_fd_preserves_repository_permissions
+          sudo -E .venv/bin/python -m pytest -q -rs tests/test_trampoline_parent_death.py

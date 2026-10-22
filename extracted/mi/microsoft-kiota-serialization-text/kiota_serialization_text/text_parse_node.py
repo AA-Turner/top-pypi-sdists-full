@@ -35,8 +35,7 @@ class TextParseNode(ParseNode):
         Args:
             text (str):The text value to initialize the node with
         """
-        if text or text is False:
-            self._text = text
+        self._text = text
 
     def get_str_value(self) -> Optional[str]:
         """Gets the string value from the text node
@@ -61,8 +60,8 @@ class TextParseNode(ParseNode):
         Returns:
             bool: The boolean value of the node
         """
-        if self._text or (self._text is False):
-            return bool(self._text)
+        if self._text:
+            return self._text.strip().lower() == "true"
         return None
 
     def get_int_value(self) -> Optional[int]:
@@ -163,7 +162,11 @@ class TextParseNode(ParseNode):
         raw_key = self.get_str_value()
         camel_case_key = None
         if raw_key:
-            camel_case_key = raw_key[0].upper() + raw_key[1:]
+            if raw_key.lower() == "none":
+                # None is a reserved keyword in python
+                camel_case_key = "None_"
+            else:
+                camel_case_key = raw_key[0].upper() + raw_key[1:]
         if camel_case_key:
             try:
                 return enum_class[camel_case_key]  # type: ignore

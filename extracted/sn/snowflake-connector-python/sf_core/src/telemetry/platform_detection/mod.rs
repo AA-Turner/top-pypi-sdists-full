@@ -8,6 +8,7 @@ use tracing::instrument::WithSubscriber;
 
 use crate::env_vars;
 use crate::telemetry::session_telemetry::SessionTelemetry;
+use crate::tls::RootStoreProvider;
 
 use self::aws::{CallerIdentityProvider, StsCallerIdentityProvider};
 
@@ -21,8 +22,9 @@ mod tests;
 const DETECTION_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Clone)]
-pub struct DetectionConfig {
+pub(crate) struct DetectionConfig {
     pub(crate) caller_identity_provider: Arc<dyn CallerIdentityProvider>,
+    pub(crate) root_store_provider: RootStoreProvider,
     pub(crate) aws_metadata_base_url: String,
     pub(crate) azure_metadata_base_url: String,
     pub(crate) gce_metadata_root_url: String,
@@ -30,10 +32,13 @@ pub struct DetectionConfig {
     pub(crate) timeout: Duration,
 }
 
-impl Default for DetectionConfig {
-    fn default() -> Self {
+impl DetectionConfig {
+    pub(crate) fn new(root_store_provider: RootStoreProvider) -> Self {
         Self {
-            caller_identity_provider: Arc::new(StsCallerIdentityProvider),
+            caller_identity_provider: Arc::new(StsCallerIdentityProvider {
+                roots: root_store_provider.clone(),
+            }),
+            root_store_provider,
             aws_metadata_base_url: "http://169.254.169.254".to_string(),
             azure_metadata_base_url: "http://169.254.169.254".to_string(),
             gce_metadata_root_url: "http://metadata.google.internal".to_string(),
@@ -49,7 +54,7 @@ impl Default for DetectionConfig {
 /// query cloud-metadata or STS endpoints are left out.
 /// Returns the names of only those detectors that succeeded. Order matches
 /// the detector list below so the serialized array is stable across runs.
-pub async fn detect_platforms(config: &DetectionConfig) -> Vec<String> {
+pub(crate) async fn detect_platforms(config: &DetectionConfig) -> Vec<String> {
     if crate::utils::env_flag(env_vars::SNOWFLAKE_DISABLE_PLATFORM_DETECTION) {
         return vec!["disabled".to_string()];
     }
@@ -78,17 +83,20 @@ pub async fn detect_platforms(config: &DetectionConfig) -> Vec<String> {
             return vec!["disabled".to_string()];
         }
 
-        let builder = match crate::tls::client::default_verified_client_builder() {
-            Ok(builder) => builder,
-            Err(e) => {
-                tracing::warn!(
-                    error_type = std::any::type_name_of_val(&e),
-                    error = %e,
-                    "failed to build platform detection HTTP client; skipping detection"
-                );
-                return vec!["disabled".to_string()];
-            }
-        };
+        let builder =
+            match crate::tls::client::default_verified_client_builder(&config.root_store_provider)
+                .await
+            {
+                Ok(builder) => builder,
+                Err(e) => {
+                    tracing::warn!(
+                        error_type = std::any::type_name_of_val(&e),
+                        error = %e,
+                        "failed to build platform detection HTTP client; skipping detection"
+                    );
+                    return vec!["disabled".to_string()];
+                }
+            };
         match builder.build() {
             Ok(c) => Some(c),
             Err(e) => {
@@ -249,6 +257,11 @@ impl PlatformDetector {
 
     pub(crate) fn platforms(&self) -> Option<&[String]> {
         self.platforms.get().map(Vec::as_slice)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn root_store_provider(&self) -> &RootStoreProvider {
+        &self.config.root_store_provider
     }
 
     #[cfg(test)]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RESTFly
-Version: 2.0.3
+Version: 2.0.4
 Summary: Write your own API Client libraries quickly.
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown

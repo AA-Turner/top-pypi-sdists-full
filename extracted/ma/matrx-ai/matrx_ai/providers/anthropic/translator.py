@@ -44,7 +44,7 @@ from matrx_ai.providers.structured_output_findings import response_format_identi
 class AnthropicTranslator(BaseTranslator):
     """Translates between unified format and Anthropic Messages API"""
 
-    TURN_CONTEXT_AFTER_CACHE_LINE = True
+    PROVIDER = "anthropic"
 
     def __init__(self, debug: bool = False):
         super().__init__(debug=debug)

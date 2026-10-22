@@ -47,7 +47,6 @@ def register_agent(name: str | None = None):
     def decorator(cls: type[BaseAgent]) -> type[BaseAgent]:
         agent_name = name or getattr(cls, "name", cls.__name__.lower().replace("agent", ""))
         _AGENT_REGISTRY[agent_name] = cls
-        logger.debug(f"Registered agent: {agent_name} -> {cls.__name__}")
         return cls
 
     return decorator

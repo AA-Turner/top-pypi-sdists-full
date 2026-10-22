@@ -1,6 +1,6 @@
 [project]
 name = "daytona_analytics_api_client"
-version = "0.225.0"
+version = "0.226.0"
 description = "Daytona Analytics API"
 authors = [
   {name = "OpenAPI Generator Community",email = "team@openapitools.org"},
@@ -12,7 +12,7 @@ requires-python = ">=3.10"
 dependencies = [
   "urllib3 (>=2.8.0,<3.0.0)",
   "python-dateutil (>=2.9.0.post0)",
-  "pydantic (>=2.14.0)",
+  "pydantic (>=2.14.1)",
   "typing-extensions (>=4.16.0)",
 ]
 

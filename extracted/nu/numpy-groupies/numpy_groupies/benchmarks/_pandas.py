@@ -6,7 +6,9 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from numpy_groupies.aggregate_common import (
+from numpy_groupies.aggregate_numpy import aggregate as _aggregate_numpy
+from numpy_groupies.aggregate_numpy.base import _aggregate_base
+from numpy_groupies.common import (
     DEFAULT_FILL_VALUE,
     Registry,
     Resolved,
@@ -14,9 +16,10 @@ from numpy_groupies.aggregate_common import (
     custom_callable,
     funcs_no_separate_nan,
 )
-from numpy_groupies.aggregate_numpy import _aggregate_base
-from numpy_groupies.aggregate_numpy import aggregate as _aggregate_numpy
-from numpy_groupies.utils import (
+from numpy_groupies.utils_np import (
+    AFillValue,
+    AResult,
+    AScalar,
     RavelOrder,
     aliasing,
     allnan,
@@ -31,7 +34,7 @@ def _wrapper(
     a: npt.NDArray[np.number],
     size: int | tuple[int, ...] | None,
     fill_value: float,
-    func: str | Callable[..., Any] = "sum",
+    func: str | Callable[..., AScalar] = "sum",
     dtype: np.dtype | None = None,
     ddof: int = 0,
     **kwargs: Any,
@@ -94,8 +97,11 @@ _supported_funcs = [
     "max",
     "mean",
     "median",
+    "quantile",
     "var",
     "std",
+    "skew",
+    "kurt",
     "first",
     "last",
     "cumsum",
@@ -103,7 +109,7 @@ _supported_funcs = [
     "cummax",
     "cummin",
 ]
-_op_dict: dict[str, Callable[..., Any]] = {fn: partial(_wrapper, func=fn) for fn in _supported_funcs}
+_op_dict: dict[str, Callable[..., AResult]] = {fn: partial(_wrapper, func=fn) for fn in _supported_funcs}
 _op_dict.update(("nan" + fn, partial(_wrapper, func=fn)) for fn in _supported_funcs if fn not in funcs_no_separate_nan)
 # plain cumsum must propagate NaNs within their group (issue #91), which is
 # pandas skipna=False - nancumsum is handled inside _wrapper instead
@@ -112,11 +118,22 @@ _op_dict["nancumsum"] = partial(_wrapper, func="nancumsum")
 # plain median propagates NaNs like np.median - pandas skips them by default
 # and GroupBy.median() takes no skipna argument
 _op_dict["median"] = partial(_wrapper, func="median", _nan_poison=True)
+# the same for the quantile: GroupBy.quantile() skips the NaNs as well
+_op_dict["quantile"] = partial(_wrapper, func="quantile", _nan_poison=True)
+# the moments skip the NaNs as well - GroupBy.skew() and GroupBy.kurt() have
+# no skipna argument, so the plain functions poison their groups afterwards
+_op_dict["skew"] = partial(_wrapper, func="skew", _nan_poison=True)
+_op_dict["kurt"] = partial(_wrapper, func="kurt", _nan_poison=True)
 _op_dict.update(
     allnan=partial(_wrapper, func=allnan),
     anynan=partial(_wrapper, func=anynan),
     len=partial(_wrapper, func="count"),
     nanlen=partial(_wrapper, func="count"),
+    # pandas counts the nans as a value of their own with dropna=False, and
+    # leaves them out with dropna=True - the plain function counts them, the
+    # nan variant does not
+    nunique=partial(_wrapper, func="nunique", dropna=False),
+    nannunique=partial(_wrapper, func="nunique", dropna=True),
     argmax=partial(_wrapper, func="idxmax"),
     argmin=partial(_wrapper, func="idxmin"),
     nanargmax=partial(_wrapper, func="idxmax"),
@@ -124,7 +141,7 @@ _op_dict.update(
 )
 
 
-def _custom_operation(func: Any) -> Resolved:
+def _custom_operation(func: Callable[..., AScalar]) -> Resolved:
     """The operation of a callable of the caller's own.
 
     pandas' groupby machinery takes any callable, so the wrapper of this
@@ -140,9 +157,9 @@ _dispatch = Registry(_op_dict, aliasing, _custom_operation)
 def aggregate(
     group_idx: npt.NDArray[np.integer],
     a: npt.NDArray[np.number],
-    func: str | Callable[..., Any] = "sum",
+    func: str | Callable[..., AScalar] = "sum",
     size: int | Sequence[int] | None = None,
-    fill_value: Any = DEFAULT_FILL_VALUE,
+    fill_value: AFillValue = DEFAULT_FILL_VALUE,
     order: RavelOrder = "C",
     dtype: npt.DTypeLike = None,
     axis: int | None = None,

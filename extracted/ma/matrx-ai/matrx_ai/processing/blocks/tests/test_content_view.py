@@ -94,5 +94,19 @@ def test_nested_kinds_escape_code_xml_and_anonymous_json_in_order() -> None:
 
     content = content_from_text(text)
     ratings = [item for item in content if item["__kind"] == "rating"]
-    assert [item["value"] for item in ratings] == [1, 2, 3]
-    assert any(item["__kind"] == "markdown" for item in content)
+    # Ruling of aidream fc9a403c04 ("preserve kind block source order across literal wrappers",
+    # matching the TypeScript splitter): a kind inside a non-JSON fence (```python) stays literal
+    # code, so only the XML-wrapped and the JSON-fenced ratings become kinds, in source order.
+    assert [item["value"] for item in ratings] == [2, 3]
+    markdown = [item["text"] for item in content if item["__kind"] == "markdown"]
+    assert any(f"```python\nbefore\n{one}\nafter\n```" in text for text in markdown), markdown
+
+
+def test_an_xml_section_stays_a_section_not_a_fence():
+    """Review 5 G2: a wrapped tag is its own source; re-fencing it as ```xml made it quoted source."""
+    from matrx_ai.processing.blocks.content_view import content_from_text
+
+    text = "Intro.\n\n<foo>\nfoo body\n</foo>\n\nDone."
+    joined = "\n".join(str(i.get("markdown") or i.get("text") or i.get("content") or i) for i in content_from_text(text))
+    assert "```xml" not in joined
+    assert "<foo>\nfoo body\n</foo>" in joined

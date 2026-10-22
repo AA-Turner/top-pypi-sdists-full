@@ -37,6 +37,7 @@ from airbyte_ops_mcp.connector_ops.rollouts._helpers import (
     count_eligible_or_pinned_actors,
     describe_gate_next_step,
     estimate_tier_eligible_actors,
+    exclude_counterpart_failures,
     filter_rollouts_by_connector,
     get_connector_rollout_config,
     get_registry_default_version,
@@ -469,10 +470,12 @@ def _light_evidence_ga_hold(
                     f"{exc}"
                 ),
             )
+        sync_info, excluded = exclude_counterpart_failures(sibling, sync_info)
         sibling_gate = check_health_gate(
             sibling,
             sync_info,
             RolloutStrategy.FAST,
+            excluded_counterpart_failures=excluded,
         )
         if not sibling_gate.passed:
             return HoldDecision(
@@ -987,6 +990,9 @@ def run_auto_advance(
     - `in_progress` rollouts: normal percentage advancement, health-gated.
     - `workflow_started` rollouts: guarded hold evaluation. Existing rows are
       never restarted through the create-oriented `manual_start` endpoint.
+
+    The gate excludes counterpart-origin failures from each connection's latest
+    RC sync job since rollout creation; if that lookup fails, all failures count.
     """
     result = AutopilotResult(command="auto-advance", dry_run=dry_run)
 
@@ -1355,7 +1361,13 @@ def run_auto_advance(
                 )
                 continue
 
-            gate = check_health_gate(rollout, sync_info, strategy)
+            sync_info, excluded = exclude_counterpart_failures(rollout, sync_info)
+            gate = check_health_gate(
+                rollout,
+                sync_info,
+                strategy,
+                excluded_counterpart_failures=excluded,
+            )
             if gate.should_rollback:
                 logger.warning(
                     "auto-advance: Failure threshold hit for %s (rollout=%s): %s",
@@ -1532,6 +1544,10 @@ def run_auto_promote(
     3. If elapsed >= `MAX_SOAK_TIME`, force progression regardless of signal.
     4. Otherwise, require both `SOAKED_SIGNAL_COUNT_THRESHOLD` (actor count)
        and `SOAKED_SIGNAL_PERCENT_THRESHOLD` (% of pinned) to pass.
+
+    Counterpart-origin failures from each connection's latest RC sync job
+    since rollout creation are excluded before both failure triggers; lookup
+    errors fail open to counting all.
     """
     result = AutopilotResult(command="auto-promote", dry_run=dry_run)
 
@@ -1671,7 +1687,13 @@ def run_auto_promote(
             )
             continue
 
-        gate = check_health_gate(rollout, sync_info, strategy_key)
+        sync_info, excluded = exclude_counterpart_failures(rollout, sync_info)
+        gate = check_health_gate(
+            rollout,
+            sync_info,
+            strategy_key,
+            excluded_counterpart_failures=excluded,
+        )
         if not gate.passed:
             next_step = ""
             if not gate.should_rollback:
@@ -2736,7 +2758,13 @@ def _backfill_paused_investigation(
             message=f"Failed to snapshot gate for paused-rollout investigation: {exc}",
             tier=rollout.tier,
         )
-    gate = check_health_gate(rollout, sync_info, strategy)
+    sync_info, excluded = exclude_counterpart_failures(rollout, sync_info)
+    gate = check_health_gate(
+        rollout,
+        sync_info,
+        strategy,
+        excluded_counterpart_failures=excluded,
+    )
 
     recorded_reason = (
         (rollout.paused_reason or "")
@@ -2801,6 +2829,10 @@ def run_auto_triage_failed(
        notification. The pause prevents duplicate notifications on subsequent
        cron runs. Auto-advance and auto-promote independently skip on the same
        gate as defense-in-depth.
+
+    Before gating, latest RC sync jobs per connection since rollout creation are
+    checked for counterpart-origin failures; query errors fail open to counting
+    all failures.
     """
     result = AutopilotResult(command="auto-triage-failed", dry_run=dry_run)
 
@@ -2892,7 +2924,13 @@ def run_auto_triage_failed(
             )
             continue
 
-        gate = check_health_gate(rollout, sync_info, strategy)
+        sync_info, excluded = exclude_counterpart_failures(rollout, sync_info)
+        gate = check_health_gate(
+            rollout,
+            sync_info,
+            strategy,
+            excluded_counterpart_failures=excluded,
+        )
         if not gate.should_rollback:
             continue
 

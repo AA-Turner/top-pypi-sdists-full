@@ -7,6 +7,7 @@ from pathlib import Path
 from .constants import ORCHESTRA_REUSED_NODE
 from .logger import log_debug, log_error, log_info, log_warn
 from .models import MaterialisationNode
+from .modify import snapshot_file
 from .utils import load_yaml, save_yaml
 
 
@@ -66,9 +67,9 @@ def revert_patch_file(file_path: Path) -> None:
     file_path.write_text(content, encoding="utf-8")
 
 
-def _get_sql_files(cwd: Path) -> list[Path]:
+def _get_sql_files(project_dir: Path) -> list[Path]:
     filtered_files: list[Path] = []
-    for root, _, files in os.walk(cwd, followlinks=True):
+    for root, _, files in os.walk(project_dir, followlinks=True):
         # Skip .venv directories
         if ".venv" in root:
             continue
@@ -78,9 +79,10 @@ def _get_sql_files(cwd: Path) -> list[Path]:
     return filtered_files
 
 
-def patch_sql_files(nodes_to_reuse: dict[str, MaterialisationNode]) -> None:
-    cwd = Path(os.getcwd())
-    sql_files = _get_sql_files(cwd)
+def patch_sql_files(
+    nodes_to_reuse: dict[str, MaterialisationNode], project_dir: Path
+) -> None:
+    sql_files = _get_sql_files(project_dir)
 
     if not sql_files:
         log_warn("No .sql files found in project directory.")
@@ -90,7 +92,7 @@ def patch_sql_files(nodes_to_reuse: dict[str, MaterialisationNode]) -> None:
     }
 
     for file in sql_files:
-        relative_path = str(file.relative_to(cwd))
+        relative_path = str(file.relative_to(project_dir))
         if relative_path in file_paths_to_nodes:
             node: MaterialisationNode = file_paths_to_nodes[relative_path]
             try:
@@ -105,12 +107,11 @@ def patch_sql_files(nodes_to_reuse: dict[str, MaterialisationNode]) -> None:
                 log_warn(f"Failed to add tag to {file}: {e}")
 
 
-def revert_patching(file_paths_to_revert: list[str]) -> None:
-    cwd = Path(os.getcwd())
-    sql_files = _get_sql_files(cwd)
+def revert_patching(file_paths_to_revert: list[str], project_dir: Path) -> None:
+    sql_files = _get_sql_files(project_dir)
 
     for file in sql_files:
-        relative_path = str(file.relative_to(cwd))
+        relative_path = str(file.relative_to(project_dir))
         if relative_path in file_paths_to_revert:
             try:
                 revert_patch_file(file_path=file)
@@ -118,19 +119,38 @@ def revert_patching(file_paths_to_revert: list[str]) -> None:
                 log_warn(f"Failed to reset tag from {file}: {e}")
 
 
+def _seed_properties_path(node: MaterialisationNode, project_dir: Path) -> Path:
+    if node.patch_path:
+        package_dir = project_dir / node.file_path.removesuffix(node.dbt_path)
+        return package_dir / node.patch_path.split("://", 1)[1]
+    # Next to the CSV is always inside seed-paths, so dbt parses it.
+    return project_dir / Path(node.file_path).parent / "properties.yml"
+
+
 def patch_seed_properties(
-    nodes_to_reuse: dict[str, MaterialisationNode],
-    seed_properties_file_path: str = "seeds/properties.yml",
+    nodes_to_reuse: dict[str, MaterialisationNode], project_dir: Path
+) -> dict[Path, bytes | None]:
+    """
+    Tag reused seeds in their own properties file, else in one next to the CSV.
+    Returns each touched file's prior content (`None` if created) for restoring.
+    """
+    seeds_by_file: dict[Path, dict[str, MaterialisationNode]] = {}
+    for node in nodes_to_reuse.values():
+        if node.file_path.endswith(".csv"):
+            seeds_by_file.setdefault(_seed_properties_path(node, project_dir), {})[
+                Path(node.file_path).stem
+            ] = node
+
+    snapshots: dict[Path, bytes | None] = {}
+    for seed_properties_file_path, seeds_to_reuse in seeds_by_file.items():
+        snapshots[seed_properties_file_path] = snapshot_file(seed_properties_file_path)
+        _patch_seed_properties_file(seeds_to_reuse, seed_properties_file_path)
+    return snapshots
+
+
+def _patch_seed_properties_file(
+    seeds_to_reuse: dict[str, MaterialisationNode], seed_properties_file_path: Path
 ) -> None:
-    seeds_to_reuse: dict[str, MaterialisationNode] = {
-        node.file_path.split("/")[-1].removesuffix(".csv"): node
-        for node in nodes_to_reuse.values()
-        if node.file_path.endswith(".csv")
-    }
-
-    if not seeds_to_reuse:
-        return
-
     try:
         seeds_properties = load_yaml(seed_properties_file_path)
         if "seeds" not in seeds_properties:
@@ -141,7 +161,7 @@ def patch_seed_properties(
         log_info(
             f"No {seed_properties_file_path} file found in project directory. Creating one."
         )
-        Path(seed_properties_file_path).parent.mkdir(parents=True, exist_ok=True)
+        seed_properties_file_path.parent.mkdir(parents=True, exist_ok=True)
         seeds_properties: dict = {"seeds": []}
     except Exception as e:
         log_error(f"Error loading {seed_properties_file_path}: {e}")

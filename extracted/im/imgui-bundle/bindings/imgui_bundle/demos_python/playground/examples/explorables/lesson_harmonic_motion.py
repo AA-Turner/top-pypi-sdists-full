@@ -1,9 +1,16 @@
-"""A lesson on Simple Harmonic Motion, built with Dear ImGui Bundle."""
+"""Simple harmonic motion
+
+A mass on a spring, a pendulum, a vibrating string: they all follow the same equation. It is the equation of
+[simple harmonic motion](https://en.wikipedia.org/wiki/Simple_harmonic_motion) (for the pendulum, at small
+angles). Adjust the mass and the spring stiffness, and watch how the motion changes.
+"""
 
 import numpy as np
 import time
-from imgui_bundle import imgui, implot, immapp, hello_imgui, imgui_md, imgui_knobs
+from imgui_bundle import imgui, implot, immapp, hello_imgui, rich_md, imgui_knobs
 from imgui_bundle import ImVec2, ImVec4
+
+NARROW_WIDTH_EM = 32  # Under this width (in em, a phone), the information goes under the knobs
 
 
 # =============================================================================
@@ -35,7 +42,7 @@ The solution is a pure sinusoid:
 
 $$x(t) = A\cos(\omega_0 t + \phi)$$
 
-**Try it below:** adjust the mass and spring stiffness, and watch how the motion changes.
+**Try it:** adjust the mass and spring stiffness below, and watch the motion change in the figure above.
 """
 
 DAMPING_INTRO = r"""### What is damping?
@@ -271,37 +278,8 @@ def resonance_curve(w0: float, zeta: float, f0_over_m: float, n_points: int = 20
 # GUI
 # =============================================================================
 
-def gui(state: AppState):
-    state.update()
-    em = hello_imgui.em_size()
-
-    # Full-width scrollable lesson
-    imgui.begin_child("lesson", ImVec2(0, 0), imgui.ChildFlags_.none)
-
-    # ---- INTRODUCTION ----
-    imgui_md.render(INTRO)
-    imgui.spacing()
-
-    # ---- INTERACTIVE: Free oscillation ----
-    imgui.separator()
-    imgui.spacing()
-
-    # Controls row
-    imgui.begin_horizontal("shm_controls", ImVec2(imgui.get_content_region_avail().x, 0))
-    _, state.k = imgui_knobs.knob("Stiffness k", state.k, 0.5, 20.0,
-                                   speed=0.05, variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot,
-                                   format="%.1f")
-    imgui.spring(0, em)
-    _, state.m = imgui_knobs.knob("Mass m", state.m, 0.1, 5.0,
-                                   speed=0.02, variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot,
-                                   format="%.1f")
-    imgui.spring(0, em)
-    _, state.speed = imgui_knobs.knob("Speed", state.speed, 0.1, 3.0,
-                                       speed=0.01, variant=imgui_knobs.ImGuiKnobVariant_.stepped,
-                                       format="%.1fx")
-    imgui.spring(0, em)
-
-    # Natural frequency display
+def natural_frequency_info(state: AppState):
+    """The natural frequency, the period and the Reset button"""
     w0 = np.sqrt(state.k / state.m)
     period = 2 * np.pi / w0
 
@@ -315,23 +293,42 @@ def gui(state: AppState):
     imgui.spring()
     imgui.end_vertical()
 
-    imgui.spring()
-    imgui.end_horizontal()
 
-    imgui.spacing()
+def resonance_ratio_info(state: AppState):
+    """The ratio of the driving frequency to the natural one"""
+    w0 = np.sqrt(state.k / state.m)
+    imgui.begin_vertical("ratio_info", ImVec2(0, 0))
+    imgui.spring()
+    ratio = state.wd / w0
+    imgui.text(f"w_d / w_0 = {ratio:.2f}")
+    if 0.9 < ratio < 1.1:
+        imgui.text_colored(ImVec4(1, 0.3, 0.3, 1), "Near resonance!")
+    imgui.spring()
+    imgui.end_vertical()
+
+
+def knob_spacing(narrow: bool):
+    """Between two knobs: a spring of the horizontal layout, or the same line on a narrow screen"""
+    if narrow:
+        imgui.same_line()
+    else:
+        imgui.spring(0, hello_imgui.em_size())
+
+
+def gui_figure(state: AppState, narrow: bool):
+    """The spring and the mass, then the plot of the displacement: at the top, always visible"""
+    em = hello_imgui.em_size()
 
     # Spring-mass animation
-    anim_height = em * 8
+    anim_height = em * (6 if narrow else 8)
     cursor = imgui.get_cursor_screen_pos()
     avail_w = imgui.get_content_region_avail().x
     imgui.dummy(ImVec2(avail_w, anim_height))
     draw_spring_mass(state, cursor, avail_w, anim_height)
 
-    imgui.spacing()
-
     # Displacement plot (always render to avoid layout height change on reset)
     plot_w = imgui.get_content_region_avail().x
-    if implot.begin_plot("##displacement", ImVec2(plot_w, em * 10)):
+    if implot.begin_plot("##displacement", ImVec2(plot_w, em * (8 if narrow else 10))):
         implot.setup_axes("Time (s)", "Displacement x")
         if len(state.t_history) > 1:
             ts = np.array(state.t_history)
@@ -342,13 +339,56 @@ def gui(state: AppState):
         else:
             implot.setup_axes_limits(0, 10, -2.5, 2.5, imgui.Cond_.always)
         implot.end_plot()
+        hello_imgui.set_item_is_live()  # the oscillation moves on its own: no idling while it is visible
 
+
+def gui(state: AppState):
+    state.update()
+    em = hello_imgui.em_size()
+    # On a narrow screen (a phone): no horizontal layout (its knobs show their label beside them, wider),
+    # and the information under the knobs
+    narrow = imgui.get_content_region_avail().x < em * NARROW_WIDTH_EM
+
+    # The figure at the top; below it, the lesson scrolls
+    gui_figure(state, narrow)
+    imgui.separator()
+    imgui.begin_child("lesson", ImVec2(0, 0), imgui.ChildFlags_.none)
+
+    # ---- INTRODUCTION ----
+    rich_md.render(INTRO)
     imgui.spacing()
+
+    # ---- INTERACTIVE: Free oscillation ----
+    imgui.separator()
+    imgui.spacing()
+
+    # Controls row
+    if not narrow:
+        imgui.begin_horizontal("shm_controls", ImVec2(imgui.get_content_region_avail().x, 0))
+    _, state.k = imgui_knobs.knob("Stiffness k", state.k, 0.5, 20.0,
+                                   speed=0.05, variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot,
+                                   format="%.1f")
+    knob_spacing(narrow)
+    _, state.m = imgui_knobs.knob("Mass m", state.m, 0.1, 5.0,
+                                   speed=0.02, variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot,
+                                   format="%.1f")
+    knob_spacing(narrow)
+    _, state.speed = imgui_knobs.knob("Speed", state.speed, 0.1, 3.0,
+                                       speed=0.01, variant=imgui_knobs.ImGuiKnobVariant_.stepped,
+                                       format="%.1fx")
+    if narrow:
+        natural_frequency_info(state)
+    else:
+        imgui.spring(0, em)
+        natural_frequency_info(state)
+        imgui.spring()
+        imgui.end_horizontal()
+
     imgui.spacing()
 
     # ---- DAMPING SECTION ----
     if imgui.collapsing_header("Damping", imgui.TreeNodeFlags_.default_open):
-        imgui_md.render(DAMPING_INTRO)
+        rich_md.render(DAMPING_INTRO)
         imgui.spacing()
 
         if imgui.button("Disable damping" if state.damping_enabled else "Enable damping"):
@@ -375,7 +415,7 @@ def gui(state: AppState):
 
     # ---- RESONANCE SECTION ----
     if imgui.collapsing_header("Driven Oscillation & Resonance"):
-        imgui_md.render(RESONANCE_INTRO)
+        rich_md.render(RESONANCE_INTRO)
         imgui.spacing()
 
         if imgui.button("Disable driving force" if state.driving_enabled else "Enable driving force"):
@@ -388,31 +428,27 @@ def gui(state: AppState):
         if not state.driving_enabled:
             imgui.begin_disabled()
 
-        imgui.begin_horizontal("drive_controls", ImVec2(imgui.get_content_region_avail().x, 0))
+        if not narrow:
+            imgui.begin_horizontal("drive_controls", ImVec2(imgui.get_content_region_avail().x, 0))
         _, state.f0 = imgui_knobs.knob("Force F0", state.f0, 0.1, 5.0,
                                         speed=0.02, variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot,
                                         format="%.1f")
-        imgui.spring(0, em)
+        knob_spacing(narrow)
         _, state.wd = imgui_knobs.knob("Drive freq", state.wd, 0.1, 8.0,
                                         speed=0.02, variant=imgui_knobs.ImGuiKnobVariant_.wiper_dot,
                                         format="%.1f")
-        imgui.spring(0, em)
-
-        w0 = np.sqrt(state.k / state.m)
-        imgui.begin_vertical("ratio_info", ImVec2(0, 0))
-        imgui.spring()
-        ratio = state.wd / w0
-        imgui.text(f"w_d / w_0 = {ratio:.2f}")
-        if 0.9 < ratio < 1.1:
-            imgui.text_colored(ImVec4(1, 0.3, 0.3, 1), "Near resonance!")
-        imgui.spring()
-        imgui.end_vertical()
-        imgui.spring()
-        imgui.end_horizontal()
+        if narrow:
+            resonance_ratio_info(state)
+        else:
+            imgui.spring(0, em)
+            resonance_ratio_info(state)
+            imgui.spring()
+            imgui.end_horizontal()
 
         # Resonance curve
         imgui.spacing()
-        imgui.text("Resonance curve (amplitude vs driving frequency)")
+        imgui.text_wrapped("Resonance curve (amplitude vs driving frequency)")
+        w0 = np.sqrt(state.k / state.m)
         zeta = state.b / (2 * np.sqrt(state.m * state.k))
         f0_over_m = state.f0 / state.m
         wd_arr, amp_arr = resonance_curve(w0, zeta, f0_over_m)
@@ -442,7 +478,6 @@ def main():
     params.callbacks.show_gui = lambda: gui(state)
     params.app_window_params.window_geometry.size = (1000, 800)
     params.app_window_params.window_title = "Lesson: Simple Harmonic Motion"
-    params.fps_idling.fps_idle = 25
     addons = immapp.AddOnsParams(with_markdown=True, with_implot= True, with_latex=True)
     immapp.run(params, addons)
 

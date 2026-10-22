@@ -103,14 +103,14 @@ class PossibleCodesEAN13:
                     line=1
                     print(f"""
 {self.mkOption(1)}{Fore.light_magenta}What You Scanned{Style.reset} -> {scanned}
-{self.mkOption(2)}{Fore.cyan}CD_LEN({Fore.orange_red_1}{mlen(ean13_verified)}{Fore.cyan}) - EAN13 is Verified with Checksum{Style.reset} -> {pc_rebar(ean13_verified)}
+{self.mkOption(2)}{Fore.cyan}CD_LEN({Fore.orange_red_1}{mlen(ean13_verified)}{Fore.cyan}) - EAN13 is Verified with Checksum{Style.reset} -> {pc_rebar(ean13_verified)} | {Fore.light_sea_green}{ean13_verified}{Style.reset}
 {self.mkOption(3.1)}{Fore.light_salmon_1}{Style.bold}{Style.underline}EAN13 Variants that might show on Shelf Tag{Style.reset}
-{self.mkOption(3.2)}{Fore.green}CD_LEN({Fore.orange_red_1}{mlen(ean13_stripped_0)}{Fore.green}) - EAN13 Stripped 0 version # 1{Style.reset} -> {pc_rebar(ean13_stripped_0)}
-{self.mkOption(3.3)}{Fore.green_yellow}CD_LEN({Fore.orange_red_1}{mlen(ean13_stripped_1)}{Fore.green_yellow}) - EAN13 Stripped version # 2 {Style.reset} -> {pc_rebar(ean13_stripped_1)}
-{self.mkOption(3.4)}{Fore.yellow}CD_LEN({Fore.orange_red_1}{mlen(ean13_stripped_2)}{Fore.yellow}) - EAN13 Stripped version # 3 {Style.reset} -> {pc_rebar(ean13_stripped_2)}
+{self.mkOption(3.2)}{Fore.green}CD_LEN({Fore.orange_red_1}{mlen(ean13_stripped_0)}{Fore.green}) - EAN13 Stripped 0 version # 1{Style.reset} -> {pc_rebar(ean13_stripped_0)} | {Fore.light_sea_green}{ean13_stripped_0}{Style.reset}
+{self.mkOption(3.3)}{Fore.green_yellow}CD_LEN({Fore.orange_red_1}{mlen(ean13_stripped_1)}{Fore.green_yellow}) - EAN13 Stripped version # 2 {Style.reset} -> {pc_rebar(ean13_stripped_1)} | {Fore.light_sea_green}{ean13_stripped_1}{Style.reset}
+{self.mkOption(3.4)}{Fore.yellow}CD_LEN({Fore.orange_red_1}{mlen(ean13_stripped_2)}{Fore.yellow}) - EAN13 Stripped version # 3 {Style.reset} -> {pc_rebar(ean13_stripped_2)} | {Fore.light_sea_green}{ean13_stripped_2}{Style.reset}
 {self.mkOption(4.1)}{Fore.light_green}{Style.bold}{Style.underline}EAN8 Variants that might show on the Shelf Tag{Style.reset}
-{self.mkOption(4.2)}{Fore.light_salmon_3a}CD_LEN({Fore.orange_red_1}{mlen(ean8)}{Fore.light_salmon_3a}) - EAN8{Style.reset} -> {pc_rebar(ean8)}
-{self.mkOption(4.3)}{Fore.light_salmon_3a}CD_LEN({Fore.orange_red_1}{mlen(ean8_chped)}{Fore.light_salmon_3a}) - EAN8 w/o CKSM{Style.reset} -> {pc_rebar(ean8_chped)}
+{self.mkOption(4.2)}{Fore.light_salmon_3a}CD_LEN({Fore.orange_red_1}{mlen(ean8)}{Fore.light_salmon_3a}) - EAN8{Style.reset} -> {pc_rebar(ean8)} | {Fore.light_sea_green}{ean8}{Style.reset}
+{self.mkOption(4.3)}{Fore.light_salmon_3a}CD_LEN({Fore.orange_red_1}{mlen(ean8_chped)}{Fore.light_salmon_3a}) - EAN8 w/o CKSM{Style.reset} -> {pc_rebar(ean8_chped)} | {Fore.light_sea_green}{ean8_chped}{Style.reset}
                         """)
                     break
                 else:
@@ -191,14 +191,14 @@ class PossibleCodes:
                     ean13=''
                 print(
             f"""
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upcas[0:-1])}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1)}{Fore.tan}{Style.underline}[{Style.bold}{Fore.light_red}ScanGun{Style.reset}{Fore.tan}{Style.underline}]Telethon Code #:{Style.reset} -> {Fore.pale_green_1b}{Style.bold}{pc_rebar(str(upcas[0:-1]))}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upcas[0:-1])}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1)}{Fore.tan}{Style.underline}[{Style.bold}{Fore.light_red}ScanGun{Style.reset}{Fore.tan}{Style.underline}]Telethon Code #:{Style.reset} -> {Fore.pale_green_1b}{Style.bold}{pc_rebar(str(upcas[0:-1]))} | {Fore.light_sea_green}{str(upcas[0:-1])}{Style.reset}
 {Fore.orange_red_1}Shelf Tag Variations{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(2)}{Fore.cyan}UPCA -> {pc_rebar(str(upcas))}{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca_stripped)}{Fore.orange_red_1}) - {Style.reset}{self.mkOption(3)}{Fore.green}{Style.underline}UPCA Stripped{Style.reset} -> {Fore.magenta}{Style.bold}{pc_rebar(str(upca_stripped))}{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upce)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(4)}{Fore.dark_goldenrod}{Style.underline}UPCE{Style.reset} -> {Fore.magenta}{Style.bold}{pc_rebar(str(upce))}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(2)}{Fore.cyan}UPCA -> {pc_rebar(str(upcas))} | {Fore.light_sea_green}{upcas}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca_stripped)}{Fore.orange_red_1}) - {Style.reset}{self.mkOption(3)}{Fore.green}{Style.underline}UPCA Stripped{Style.reset} -> {Fore.magenta}{Style.bold}{pc_rebar(str(upca_stripped))} | {Fore.light_sea_green}{upca_stripped}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upce)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(4)}{Fore.dark_goldenrod}{Style.underline}UPCE{Style.reset} -> {Fore.magenta}{Style.bold}{pc_rebar(str(upce))} | {Fore.light_sea_green}{upce}{Style.reset}
 {self.mkChopped(upce,5)}
 {Fore.grey_70}***{Fore.orange_red_1}You Should not See This if you scanned a UPC-A Barcode{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(ean13)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(5)}{Fore.dark_goldenrod}{Style.underline}EAN13{Style.reset} -> {Fore.magenta}{Style.bold}{pc_rebar(ean13)}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(ean13)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(5)}{Fore.dark_goldenrod}{Style.underline}EAN13{Style.reset} -> {Fore.magenta}{Style.bold}{pc_rebar(ean13)} | {Fore.light_sea_green}{ean13}{Style.reset}
                    """)
             else:
                 '''More Updates will come to make this better for the new guy'''
@@ -228,18 +228,18 @@ class PossibleCodes:
                     if upce == False:
                         upce=scanned
                     print(f"""
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upcas[0:-1])}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1.1)}{Fore.tan}{Style.underline}[{Style.bold}{Fore.light_red}ScanGun{Style.reset}{Fore.tan}{Style.underline}]Telethon Code #:{Style.reset} -> {Fore.pale_green_1b}{Style.bold}{pc_rebar(str(upcas[0:-1]))}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upcas[0:-1])}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1.1)}{Fore.tan}{Style.underline}[{Style.bold}{Fore.light_red}ScanGun{Style.reset}{Fore.tan}{Style.underline}]Telethon Code #:{Style.reset} -> {Fore.pale_green_1b}{Style.bold}{pc_rebar(str(upcas[0:-1]))} | {Fore.light_sea_green}{str(upcas[0:-1])}{Style.reset}
 {Fore.orange_red_1}Shelf Tag Variations{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1.2)}{Fore.green_yellow}UPCA-Checked -> {pc_rebar(str(upca))}{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca_stripped)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1.3)}{Fore.green}{Style.underline}UPCA Stripped{Style.reset} ->{Fore.magenta}{Style.bold}{pc_rebar(str(upca_stripped))}{Style.reset}""")
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1.2)}{Fore.green_yellow}UPCA-Checked -> {pc_rebar(str(upca))} | {Fore.light_sea_green}{upca}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca_stripped)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1.3)}{Fore.green}{Style.underline}UPCA Stripped{Style.reset} ->{Fore.magenta}{Style.bold}{pc_rebar(str(upca_stripped))} | {Fore.light_sea_green}{upca_stripped}{Style.reset}""")
                 print(f"""
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1)}{Fore.cyan}UPCA -> {pc_rebar(str(upca))}{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upce)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(2)}{Fore.yellow}{Style.underline}UPCE{Style.reset} ->{Fore.magenta}{Style.bold}{pc_rebar(str(upce))}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upca)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(1)}{Fore.cyan}UPCA -> {pc_rebar(str(upca))} | {Fore.light_sea_green}{upca}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(upce)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(2)}{Fore.yellow}{Style.underline}UPCE{Style.reset} ->{Fore.magenta}{Style.bold}{pc_rebar(str(upce))} | {Fore.light_sea_green}{upce}{Style.reset}
 {self.mkChopped(upce,3)}
 {Fore.grey_70}***{Fore.orange_red_1}You Should not See This if you scanned a UPC-E/UPC-A Barcode{Style.reset}
-{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(ean13)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(3)}{Fore.yellow}{Style.underline}EAN13{Style.reset} ->{Fore.magenta}{Style.bold}{pc_rebar(str(ean13))}{Style.reset}
+{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(ean13)}{Fore.orange_red_1}){Style.reset} - {self.mkOption(3)}{Fore.yellow}{Style.underline}EAN13{Style.reset} ->{Fore.magenta}{Style.bold}{pc_rebar(str(ean13))} | {Fore.light_sea_green}{ean13}{Style.reset}
                 """)
-            print(f"{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(str(str(upca)[:-1]).zfill(13))}{Fore.orange_red_1}){Style.reset} - {self.mkOption(4)}{Fore.yellow}PickList Code -> {pc_rebar(str(str(upca)[:-1]).zfill(13))}{Style.reset} - {Style.bold}{Fore.light_red}Only found on picklists, possibly invoices!{Style.reset}")
+            print(f"{Fore.orange_red_1}CD_LEN({Fore.green_yellow}{mlen(str(str(upca)[:-1]).zfill(13))}{Fore.orange_red_1}){Style.reset} - {self.mkOption(4)}{Fore.yellow}PickList Code -> {pc_rebar(str(str(upca)[:-1]).zfill(13))} | {Fore.light_sea_green}{str(str(upca)[:-1]).zfill(13)}{Style.reset} - {Style.bold}{Fore.light_red}Only found on picklists, possibly invoices!{Style.reset}")
         except Exception as e:
             print(e)
         print(f"--- End Code=UPC=Barcode ---{pc_rebar(scanned)}---")

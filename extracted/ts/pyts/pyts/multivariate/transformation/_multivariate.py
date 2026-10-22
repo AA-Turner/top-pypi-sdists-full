@@ -13,6 +13,7 @@ from sklearn.utils.validation import check_is_fitted
 
 from pyts._base import MultivariateTransformerMixin, _SupportsFitTransform
 from pyts.multivariate.utils import check_3d_array
+from pyts.multivariate.utils._utils import _check_n_features
 
 
 class MultivariateTransformer(BaseEstimator, MultivariateTransformerMixin):
@@ -39,6 +40,10 @@ class MultivariateTransformer(BaseEstimator, MultivariateTransformerMixin):
     ----------
     estimators_ : list of estimator objects
         The collection of fitted transformers.
+
+    n_features_in_ : int
+        Number of features seen during ``fit``. ``transform`` requires the
+        same number of features.
 
     Examples
     --------
@@ -83,6 +88,7 @@ class MultivariateTransformer(BaseEstimator, MultivariateTransformerMixin):
         self._check_params(n_features)
         for i, transformer in enumerate(self.estimators_):
             transformer.fit(X[:, i, :], y)
+        self.n_features_in_ = n_features
         return self
 
     def fit_transform(  # pyrefly: ignore[bad-override]
@@ -130,6 +136,7 @@ class MultivariateTransformer(BaseEstimator, MultivariateTransformerMixin):
         X = check_3d_array(X)
         n_samples, _, _ = X.shape
         check_is_fitted(self, 'estimators_')
+        _check_n_features(X, self.n_features_in_)
 
         X_transformed = [
             transformer.transform(X[:, i, :])
@@ -182,13 +189,18 @@ class MultivariateTransformer(BaseEstimator, MultivariateTransformerMixin):
                     "be equal to the number of features "
                     f"({len(self.estimator)} != {n_features})"
                 )
+            # Clone each estimator so that the same instance listed several
+            # times is fitted independently on each feature, and so that the
+            # estimators passed by the user are left unfitted.
+            estimators = []
             for i, estimator in enumerate(self.estimator):
                 if not (
                     isinstance(estimator, BaseEstimator)
                     and hasattr(estimator, 'transform')
                 ):
                     raise ValueError(f"Estimator {i} must be a transformer.")
-            self.estimators_ = self.estimator
+                estimators.append(clone(estimator))
+            self.estimators_ = estimators
 
         else:
             raise TypeError(

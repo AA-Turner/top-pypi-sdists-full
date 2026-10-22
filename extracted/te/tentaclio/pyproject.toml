@@ -1,23 +1,28 @@
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "tentaclio"
 dynamic = ["version"]
 description = "Unification of data connectors for distributed data tasks"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
+license-files = ["LICENSE.txt"]
 authors = [
-    { name = "Octopus Energy", email = "nerds@octopus.energy" }
+    {name = "Octopus Energy", email = "nerds@octopus.energy"}
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Typing :: Typed",
 ]
 dependencies = [
@@ -26,7 +31,7 @@ dependencies = [
     # HTTP
     "requests",
     # SQLAlchemy
-    "sqlalchemy>=1.4",
+    "sqlalchemy>=1.4,<2.1",
     # SFTP
     "paramiko>=3.4.0,<4.0.0",
     # Utils
@@ -48,10 +53,6 @@ polars = ["polars>=0.16"]
 [project.urls]
 Homepage = "https://github.com/octopus-energy/tentaclio"
 Repository = "https://github.com/octopus-energy/tentaclio"
-
-[build-system]
-requires = ["setuptools>=61.0", "setuptools-scm>=8", "wheel"]
-build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
@@ -112,22 +113,10 @@ python_functions = "test_*"
 filterwarnings = ["error::RuntimeWarning"]
 addopts = "--cov=./src/tentaclio/ --cov-report xml --cov-report term"
 
-[tool.mypy]
-incremental = true
-warn_unused_configs = true
-warn_unused_ignores = true
-check_untyped_defs = true
-warn_redundant_casts = true
-ignore_missing_imports = true
-
-[tool.isort]
-profile = "black"
-line_length = 99
-multi_line_output = 3
-lines_after_imports = 2
-default_section = "THIRDPARTY"
-known_first_party = ["tentaclio"]
-sections = ["STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+[tool.black]
+line-length = 99
+include = '\.pyi?$'
+exclude = '(\.mypy_cache)'
 
 [tool.flake8]
 exclude = ["logs", ".*/*.py", "*.egg-info"]
@@ -135,8 +124,22 @@ max-line-length = 99
 max-complexity = 10
 ignore = ["F405", "W391", "W503"]
 
-[tool.black]
-line-length = 99
+[tool.isort]
+profile = "black"
+line_length = 99
+multi_line_output = 3
+include_trailing_comma = true
+default_section = "THIRDPARTY"
+known_first_party = ["tentaclio"]
+sections = ["STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+
+[tool.mypy]
+incremental = true
+warn_unused_configs = true
+warn_unused_ignores = true
+check_untyped_defs = true
+warn_redundant_casts = true
+ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["src/tentaclio"]

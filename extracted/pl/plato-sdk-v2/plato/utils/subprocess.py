@@ -206,8 +206,6 @@ async def run_ssh(
             logger.warning(f"SSH stdout: {stdout_str}")
         if stderr_str:
             logger.warning(f"SSH stderr: {stderr_str}")
-    else:
-        logger.debug("SSH command finished on %s: exit_code=%s", hostname, exit_code)
 
     return exit_code, stdout_str, stderr_str
 

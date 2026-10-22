@@ -6,7 +6,7 @@ import time
 from urllib.parse import urlparse
 
 import biolib.api
-from biolib._internal.http_client import HttpClient
+from biolib._shared.http_client import HttpClient
 from biolib._shared.types.typing import Callable, Dict, Iterator, List, Optional, Tuple, TypedDict
 from biolib.api.client import ApiClient
 from biolib.biolib_api_client import BiolibApiClient

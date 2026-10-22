@@ -1,4 +1,5 @@
 # Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
+from typing import Any
 from imgui_bundle import _imgui_bundle as _native_bundle
 from imgui_bundle._imgui_bundle import immapp_cpp as immapp_cpp  # type: ignore
 from imgui_bundle._imgui_bundle.immapp_cpp import (  # type: ignore
@@ -89,7 +90,7 @@ __all__ = [
 ]
 
 
-def run_nb(*args, **kwargs):
+def run_nb(*args: Any, **kwargs: Any) -> Any:
     """run_nb: alias for immapp.run, kept for backward compatibility.
     Was intended to be used in Jupyter notebooks. Now immapp.run is patched to work in notebooks.
     """
@@ -106,7 +107,7 @@ def render_markdown_doc_panel(doc: str, height_em: float = 20.0) -> None:
         doc: markdown string to render (will be unindented automatically)
         height_em: height of the panel in em units
     """
-    from imgui_bundle import imgui, imgui_md, hello_imgui
+    from imgui_bundle import imgui, rich_md, hello_imgui
     tweaked_theme = hello_imgui.ImGuiTweakedTheme()
     tweaked_theme.theme = hello_imgui.ImGuiTheme_.gray_variations
     tweaked_theme.tweaks.rounding = 0.0
@@ -116,7 +117,7 @@ def render_markdown_doc_panel(doc: str, height_em: float = 20.0) -> None:
     # (it saves/restores the resized height in the ini file after that)
     imgui.begin_child("##doc", size,
                       imgui.ChildFlags_.borders | imgui.ChildFlags_.resize_y)
-    imgui_md.render_unindented(doc)
+    rich_md.render(doc)
     imgui.end_child()
     imgui.new_line()
     hello_imgui.pop_tweaked_theme()
@@ -124,12 +125,79 @@ def render_markdown_doc_panel(doc: str, height_em: float = 20.0) -> None:
 __all__.append("render_markdown_doc_panel")
 
 
-def download_url_bytes(url: str) -> bytes:
+def _http_error_text(status: int, body: bytes) -> str:
+    """The error of an HTTP status: its phrase, and the start of the body (web APIs explain their errors there).
+    The phrase comes from Python, not from the server: browsers give none over HTTP/2."""
+    import http
+    try:
+        phrase = " " + http.HTTPStatus(status).phrase
+    except ValueError:
+        phrase = ""
+    excerpt = body[:200].decode("utf-8", errors="replace").strip()
+    return f"HTTP {status}{phrase}" + (f": {excerpt}" if excerpt else "")
+
+
+def _request_desktop(url: str, method: str, json_body: Any, timeout_s: float,
+                     headers: dict[str, str] | None = None) -> tuple[int, bytes, str]:
+    """Makes a request with urllib (blocking), and returns (status, data, error)"""
+    import json
+    import urllib.error
+    import urllib.request
+    request_headers = {"User-Agent": "imgui_bundle/1.0"}
+    body = None
+    if json_body is not None:
+        body = json.dumps(json_body).encode()
+        request_headers["Content-Type"] = "application/json"
+    request_headers.update(headers or {})
+    timeout_text = f"Timeout after {timeout_s:g} s"
+    try:
+        request = urllib.request.Request(url, data=body, headers=request_headers, method=method)
+        with urllib.request.urlopen(request, timeout=timeout_s) as response:
+            return response.status, response.read(), ""
+    except urllib.error.HTTPError as e:  # urllib raises on an error status, with the body
+        data = e.read()
+        return e.code, data, _http_error_text(e.code, data)
+    except TimeoutError:  # while reading the answer
+        return 0, b"", timeout_text
+    except urllib.error.URLError as e:  # while connecting
+        return 0, b"", timeout_text if isinstance(e.reason, TimeoutError) else str(e.reason)
+    except Exception as e:  # e.g. an invalid URL
+        return 0, b"", str(e) or type(e).__name__
+
+
+async def _request_browser(url: str, method: str, json_body: Any, timeout_s: float,
+                           headers: dict[str, str] | None = None) -> tuple[int, bytes, str]:
+    """Makes a request with the browser's fetch, and returns (status, data, error)"""
+    import asyncio
+    import json
+    from pyodide.http import pyfetch  # type: ignore
+    options: dict[str, Any] = {"method": method}
+    request_headers: dict[str, str] = {}
+    if json_body is not None:
+        options["body"] = json.dumps(json_body)
+        request_headers["Content-Type"] = "application/json"
+    request_headers.update(headers or {})
+    if request_headers:
+        options["headers"] = request_headers
+    try:
+        # The time limit is for the answer, as on the desktop, not for reading a long body
+        response = await asyncio.wait_for(pyfetch(url, **options), timeout_s)
+        data: bytes = await response.bytes()
+    except asyncio.TimeoutError:
+        return 0, b"", f"Timeout after {timeout_s:g} s"
+    except Exception as e:  # a network failure, or a refusal by CORS
+        return 0, b"", str(e) or type(e).__name__
+    return response.status, data, "" if response.ok else _http_error_text(response.status, data)
+
+
+def download_url_bytes(url: str, timeout_s: float = 10.0) -> bytes:
     """Download data from a URL. Works on both desktop (urllib) and Pyodide (sync XMLHttpRequest).
-    Returns the downloaded bytes, or empty bytes on failure.
+    Returns the downloaded bytes, or empty bytes on failure (an error status included).
+    This blocks the GUI: from a GUI function, prefer start_download().
 
     Args:
         url: the URL to download from
+        timeout_s: how long to wait for the server's answer (on the desktop: Pyodide's sync request has no limit)
     """
     from imgui_bundle import __bundle_pyodide__
     if __bundle_pyodide__:
@@ -164,21 +232,19 @@ def download_url_bytes(url: str) -> bytes:
             logging.getLogger("immapp").warning("Failed to download %s: %s", url, e)
         return b""
     else:
-        import urllib.request
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "imgui_bundle/1.0"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                return resp.read()
-        except Exception as e:
+        _status, data, error = _request_desktop(url, "GET", None, timeout_s)
+        if error:
             import logging
-            logging.getLogger("immapp").warning("Failed to download %s: %s", url, e)
+            logging.getLogger("immapp").warning("Failed to download %s: %s", url, error)
             return b""
+        return data
 
 __all__.append("download_url_bytes")
 
 
-async def download_url_bytes_async(url: str) -> bytes:
+async def download_url_bytes_async(url: str, timeout_s: float = 10.0) -> bytes:
     """Download data from a URL asynchronously.
+    Returns the downloaded bytes, or empty bytes on failure (an error status included).
 
     On Pyodide: uses pyfetch (non-blocking, lets the browser breathe).
     On desktop: uses urllib in a thread (non-blocking for the event loop).
@@ -192,22 +258,97 @@ async def download_url_bytes_async(url: str) -> bytes:
 
     Args:
         url: the URL to download from
+        timeout_s: how long to wait for the server's answer
     """
     from imgui_bundle import __bundle_pyodide__
     if __bundle_pyodide__:
-        try:
-            from pyodide.http import pyfetch  # type: ignore
-            resp = await pyfetch(url)
-            return await resp.bytes()
-        except Exception as e:
+        _status, data, error = await _request_browser(url, "GET", None, timeout_s)
+        if error:
             import logging
-            logging.getLogger("immapp").warning("Failed to download %s: %s", url, e)
+            logging.getLogger("immapp").warning("Failed to download %s: %s", url, error)
             return b""
+        return data
     else:
         import asyncio
         # Run sync download in a thread to avoid blocking the event loop
-        return await asyncio.to_thread(download_url_bytes, url)
+        return await asyncio.to_thread(download_url_bytes, url, timeout_s)
 
 __all__.append("download_url_bytes_async")
+
+
+def decode_image(file_bytes: bytes, channels: int = 3) -> Any:
+    """Decodes an image file's bytes (PNG, JPEG, BMP, GIF, TGA...; the format is detected), e.g. downloaded with
+    start_download(): a numpy array of uint8, (height, width, channels). channels: 3 = RGB, 4 = RGBA, 1 = gray
+    (then (height, width)). Raises ValueError when the bytes are not an image.
+    No OpenCV needed, in Pyodide too (it is hello_imgui.load_image_data_from_encoded_data(), with stb_image)."""
+    from imgui_bundle import hello_imgui
+    return hello_imgui.load_image_data_from_encoded_data(file_bytes, channels)
+
+__all__.append("decode_image")
+
+
+class Download:
+    """A request running in the background, started by start_download(). Look at `done` at each frame, then at
+    `error` and `data`."""
+
+    def __init__(self, url: str) -> None:
+        self.url = url
+        # (status, data, error), set once and in one assignment: the GUI never sees a half-written result
+        self._result: tuple[int, bytes, str] | None = None
+        self._task: Any = None  # in Pyodide: a reference to the task, which asyncio keeps only weakly
+
+    @property
+    def done(self) -> bool:
+        """True once the request ended, with a success or a failure"""
+        return self._result is not None
+
+    @property
+    def status(self) -> int:
+        """The HTTP status, once done; 0 for a network failure or a timeout"""
+        return self._result[0] if self._result is not None else 0
+
+    @property
+    def data(self) -> bytes:
+        """The body of the response, once done (also with an error status)"""
+        return self._result[1] if self._result is not None else b""
+
+    @property
+    def error(self) -> str:
+        """Empty on success (a 2xx status). Else the error status with the start of the body, or the network failure"""
+        return self._result[2] if self._result is not None else ""
+
+__all__.append("Download")
+
+
+def start_download(url: str, method: str = "GET", json_body: Any = None, timeout_s: float = 30.0,
+                   headers: dict[str, str] | None = None) -> Download:
+    """Starts a request that does not block the GUI: a thread on the desktop, a fetch in Pyodide.
+    Call it from a GUI function, and look at the result's `done` at each frame.
+
+    Args:
+        url: the URL to request
+        method: "GET", "POST", ...
+        json_body: if given, sent as JSON (with Content-Type: application/json)
+        timeout_s: how long to wait for the server's answer
+        headers: more HTTP headers, e.g. {"Authorization": "Bearer <key>"}
+    """
+    from imgui_bundle import __bundle_pyodide__
+    download = Download(url)
+    if __bundle_pyodide__:
+        import asyncio
+
+        async def request_in_browser() -> None:
+            download._result = await _request_browser(url, method, json_body, timeout_s, headers)
+        download._task = asyncio.ensure_future(request_in_browser())
+    else:
+        import threading
+
+        def request_in_thread() -> None:
+            download._result = _request_desktop(url, method, json_body, timeout_s, headers)
+        # A daemon thread: the app can quit while a request runs
+        threading.Thread(target=request_in_thread, daemon=True).start()
+    return download
+
+__all__.append("start_download")
 
 

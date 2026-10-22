@@ -199,8 +199,11 @@ async def _scraper_quick_preview(args: dict[str, Any]) -> dict[str, Any]:
 
 async def _scraper_scrape(args: dict[str, Any]) -> dict[str, Any]:
     from matrx_scraper.orchestrator import scrape
+    from matrx_scraper.stealth_browser import chat_read_budget
 
-    result = await scrape(args["url"], **{k: v for k, v in args.items() if k != "url"})
+    # An agent tool call is a chat-origin read: short budget, so the optional stealth retry is skipped.
+    with chat_read_budget():
+        result = await scrape(args["url"], **{k: v for k, v in args.items() if k != "url"})
     return result.model_dump() if hasattr(result, "model_dump") else dict(result)
 
 

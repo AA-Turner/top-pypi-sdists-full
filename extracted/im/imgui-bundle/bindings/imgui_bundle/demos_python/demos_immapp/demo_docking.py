@@ -1,14 +1,24 @@
-# A more complex app demo
-#
-# It demonstrates how to:
-# - set up a complex docking layouts (with several possible layouts):
-# - load additional fonts, possibly colored, and with emojis
-# - display a log window
-# - use the status bar
-# - use default menus (App and view menu), and how to customize them
-# - use a specific application state (instead of using static variables)
-# - save some additional user settings within imgui ini file
-# - use borderless windows, that are movable and resizable
+"""
+A full application: docking layouts, fonts, themes, logs and a status bar.
+
+A template for a real application, built with [Hello ImGui](https://pthom.github.io/hello_imgui/): copy it and start
+from there. Dockable windows with several layouts, colored fonts and emojis, a log window, a status bar, toolbars,
+menus and a theme chooser. Your settings are saved, and restored at the next start. The code is heavily commented.
+
+## What it shows
+
+How to:
+- set up a complex docking layout, with several possible layouts
+- load additional fonts, possibly colored, and with emojis
+- display a log window
+- use the status bar
+- use the default menus (App and View), and customize them
+- use a specific application state (instead of static variables)
+- save additional user settings within the imgui ini file
+- use borderless windows, that are movable and resizable
+- use multiple viewports: drag a window out of the main window
+"""
+
 import json
 from enum import Enum
 import time
@@ -106,16 +116,18 @@ def push_font_with_default_size(font: imgui.ImFont):
 # Warning, the save/load function below are quite simplistic!
 def my_app_settings_to_string(settings: MyAppSettings) -> str:
     as_dict: dict[str, Any] = {}
-    as_dict["motto"] = hello_imgui.input_text_data_to_dict(settings.motto)
+    as_dict["motto"] = hello_imgui.input_text_data_to_string(settings.motto)  # the same format as the C++ demo
     as_dict["value"] = settings.value
     return json.dumps(as_dict)
 
 
 def string_to_my_app_settings(s: str) -> MyAppSettings:
     r = MyAppSettings()
+    if not s:  # no settings saved yet: the first run
+        return r
     try:
         as_dict = json.loads(s)
-        r.motto = hello_imgui.input_text_data_from_dict(as_dict["motto"])
+        r.motto = hello_imgui.input_text_data_from_string(as_dict["motto"])
         r.value = as_dict["value"]
     except Exception as e:
         hello_imgui.log(hello_imgui.LogLevel.error, f"Error while loading user settings: {e}")
@@ -916,14 +928,14 @@ def main():
     # Part 4: Run the app
     #
 
-    # Version 1: using hello_imgui.run
-    # hello_imgui.run(runner_params)
+    hello_imgui.run(runner_params)
 
-    # Version 2: using manual_render
-    hello_imgui.manual_render.setup_from_runner_params(runner_params)
-    while not runner_params.app_shall_exit:
-        hello_imgui.manual_render.render()
-    hello_imgui.manual_render.tear_down()
+    # Alternatively, you can drive the loop yourself with manual_render
+    # (not in the browser, where this loop would never give control back to the page):
+    #     hello_imgui.manual_render.setup_from_runner_params(runner_params)
+    #     while not runner_params.app_shall_exit:
+    #         hello_imgui.manual_render.render()
+    #     hello_imgui.manual_render.tear_down()
 
 
 if __name__ == "__main__":

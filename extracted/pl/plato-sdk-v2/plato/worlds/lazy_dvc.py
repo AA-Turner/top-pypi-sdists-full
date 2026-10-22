@@ -109,7 +109,6 @@ async def mount_lazy(
         phase_reporter("fuse_resolve_binary", time.monotonic() - started_at)
 
     started_at = time.monotonic()
-    logger.debug("Using Rust FUSE binary: %s", rust_binary)
     proc = await asyncio.create_subprocess_exec(
         rust_binary,
         str(config_path),

@@ -4,6 +4,7 @@ import csv
 import itertools
 import json
 import logging
+import math
 import mimetypes
 import os.path
 from functools import wraps
@@ -162,6 +163,7 @@ class WebUI:
         app.debug = True
         self.greenlet: gevent.Greenlet | None = None
         self._swarm_greenlet: gevent.Greenlet | None = None
+        self._run_time_greenlet: gevent.Greenlet | None = None
         self.template_args = {}
         self.auth_args = {}
         self.app.template_folder = build_path or DEFAULT_BUILD_PATH
@@ -336,9 +338,16 @@ class WebUI:
             if self._swarm_greenlet is not None:
                 self._swarm_greenlet.kill(block=True)
                 self._swarm_greenlet = None
+            self._cancel_run_time_timer()
 
             if environment.runner is not None:
-                if user_count is None or user_count < 0 or spawn_rate is None or spawn_rate <= 0:
+                if (
+                    user_count is None
+                    or user_count < 0
+                    or spawn_rate is None
+                    or spawn_rate <= 0
+                    or not math.isfinite(spawn_rate)
+                ):
                     err_msg = "Missing or invalid user_count or spawn_rate from /swarm request"
                     logger.error(err_msg)
                     return jsonify({"success": False, "message": err_msg, "host": environment.host})
@@ -350,7 +359,8 @@ class WebUI:
                     "host": environment.host,
                 }
                 if run_time:
-                    gevent.spawn_later(run_time, self._stop_runners).link_exception(greenlet_exception_handler)
+                    self._run_time_greenlet = gevent.spawn_later(run_time, self._stop_runners)
+                    self._run_time_greenlet.link_exception(greenlet_exception_handler)
                     response_data["run_time"] = run_time
 
                 if self.userclass_picker_is_active:
@@ -360,17 +370,18 @@ class WebUI:
             else:
                 return jsonify({"success": False, "message": "No runner", "host": environment.host})
 
-        @app_blueprint.route("/stop")
+        @app_blueprint.route("/stop", methods=["POST"])
         @self.auth_required_if_enabled
         def stop() -> Response:
             if self._swarm_greenlet is not None:
                 self._swarm_greenlet.kill(block=True)
                 self._swarm_greenlet = None
+            self._cancel_run_time_timer()
             if environment.runner is not None:
                 environment.runner.stop()
             return jsonify({"success": True, "message": "Test stopped"})
 
-        @app_blueprint.route("/stats/reset")
+        @app_blueprint.route("/stats/reset", methods=["POST"])
         @self.auth_required_if_enabled
         def reset_stats() -> str:
             environment.events.reset_stats.fire()
@@ -797,5 +808,11 @@ class WebUI:
         self.environment._remove_user_classes_with_weight_zero()
         self.environment._validate_user_class_name_uniqueness()
 
+    def _cancel_run_time_timer(self):
+        if self._run_time_greenlet is not None:
+            self._run_time_greenlet.kill(block=False)
+            self._run_time_greenlet = None
+
     def _stop_runners(self):
+        self._run_time_greenlet = None
         self.environment.runner.stop()

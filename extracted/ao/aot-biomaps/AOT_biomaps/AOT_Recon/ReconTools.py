@@ -13,7 +13,7 @@ For CPU: Uses NumPy operations.
 
 import os
 import numpy as np
-import contextlib # <-- AJOUT POUR LE CONTEXTE HYBRIDE
+import contextlib
 from scipy.signal.windows import hann
 import warnings
 from tqdm import trange
@@ -280,46 +280,69 @@ if CUPY_AVAILABLE:
         'fused_mrf_potential_kernel'
     )
 
+    # -----------------------------------------------------------------
+    # EXACT Nuyts et al. (2002) Relative Difference Prior (RDP)
+    # Paper: IEEE Trans. Nucl. Sci., 49(1), 56-60, 2002.
+    #
+    # Eq. (5)  Pair penalty:  phi_ij = beta * w_ij * d^2 / V
+    #          with u_i+ = max(u_i, 0), u_j+ = max(u_j, 0),
+    #               d = u_i+ - u_j+, s = u_i+ + u_j+,
+    #               V = s + gamma * |d| + eps  (gamma = delta)
+    #
+    # Eq. (9)  Exact gradient w.r.t. u_i:
+    #          d(phi_ij)/d(u_i) = beta * w_ij * d * (u_i+ + 3*u_j+ + gamma*|d| + 2*eps) / V^2
+    #
+    # Eq. (11) Separable surrogate curvature (De Pierro / Nuyts):
+    #          q_{ij -> i} = d^2(phi_ij)/d(u_i)^2 - d^2(phi_ij)/(d(u_i)d(u_j))
+    #                      = beta * w_ij * 4 * (2*u_j+ + eps) * (s + eps) / V^3
+    # -----------------------------------------------------------------
     rdp_potential_kernel = cp.ElementwiseKernel(
-        'int32 Z, int32 X, raw float32 U, raw int32 dz, raw int32 dx, raw float32 w, int32 num_neighbors, float32 beta, float32 delta, int32 hessian_mode',
+        'int32 Z, int32 X, raw float32 U, raw int32 dz, raw int32 dx, raw float32 w, int32 num_neighbors, float32 beta, float32 gamma, float32 eps',
         'float32 grad_out, float32 hess_out, float32 energy_out',
         '''
         int z = i / X;
         int x = i % X;
-        float u_i = U[i];
-        
-        float gamma = 0.05f;
-        
-        float g = 0.0f;
-        float h = 0.0f;
-        float e = 0.0f;
-        
+        // Project onto physical domain u >= 0 (protects Nesterov extrapolation)
+        double u_i = U[i] > 0.0f ? (double)U[i] : 0.0;
+
+        double g = 0.0;
+        double h = 0.0;
+        double e = 0.0;
+        double beta_d = (double)beta;
+        double gamma_d = (double)gamma;
+        double eps_d = (double)eps;
+
         for(int k = 0; k < num_neighbors; ++k) {
             int nz = z + dz[k];
             int nx = x + dx[k];
-            
+
             if (nz >= 0 && nz < Z && nx >= 0 && nx < X) {
-                float u_j = U[nz * X + nx];
-                float diff = u_i - u_j;
-                float abs_diff = abs(diff);
-                float sum_ij = u_i + u_j;
-                float weight = w[k];
-                
-                float denom = sum_ij + gamma + delta * abs_diff;
-                float denom_sq = denom * denom;
-                
-                float sign_diff = diff > 0.0f ? 1.0f : (diff < 0.0f ? -1.0f : 0.0f);
-                float d_denom = 1.0f + delta * sign_diff;
-                
-                g += beta * weight * (2.0f * diff * denom - (diff * diff) * d_denom) / denom_sq;
-                
-                h += beta * weight * 2.0f / denom;
-                e += beta * weight * (diff * diff) / denom;
+                float u_j_raw = U[nz * X + nx];
+                double u_j = u_j_raw > 0.0f ? (double)u_j_raw : 0.0;
+                double weight = (double)w[k];
+
+                double d = u_i - u_j;
+                double ad = fabs(d);
+                double s = u_i + u_j;
+
+                // Nuyts 2002 Eq. (5) denominator: V = u_i + u_j + gamma * |u_i - u_j| + eps
+                double V = s + gamma_d * ad + eps_d;
+                double V2 = V * V;
+                double V3 = V2 * V;
+
+                // Nuyts 2002 Eq. (9)-(10): exact first derivative w.r.t. u_i
+                g += beta_d * weight * d * (u_i + 3.0 * u_j + gamma_d * ad + 2.0 * eps_d) / V2;
+
+                // Nuyts 2002 Eq. (11): exact separable surrogate curvature
+                h += beta_d * weight * 4.0 * (2.0 * u_j + eps_d) * (s + eps_d) / V3;
+
+                // Pair energy (divided by 2 after summing over all ordered pairs)
+                e += beta_d * weight * (d * d) / V;
             }
         }
-        grad_out = g;
-        hess_out = h;
-        energy_out = e;
+        grad_out = (float)g;
+        hess_out = (float)h;
+        energy_out = (float)e;
         ''',
         'fused_rdp_potential_kernel'
     )
@@ -370,6 +393,7 @@ def get_potential_function(
     shape: PotentialShapeType, 
     radius: int, 
     delta: float = 1.0, 
+    eps_rd: float = 1e-6,
     compute_grad: bool = True, 
     compute_hess: bool = True, 
     compute_energy: bool = True,
@@ -393,11 +417,13 @@ def get_potential_function(
             _OFFSET_CACHE[cache_key] = build_full_neighborhood_offsets(SMatrix, shape, radius)
         dz_arr, dx_arr, w_arr = _OFFSET_CACHE[cache_key]
 
+        eps_safe = float(max(eps_rd, 1e-12))
+
         # GPU Execution (Zero Allocation)
         if is_gpu:
             grad_out = xp.empty_like(U, dtype=xp.float32)
             hess_out = xp.empty_like(U, dtype=xp.float32)
-            energy_out = xp.empty_like(U, dtype=xp.float32) if compute_energy else grad_out 
+            energy_out = xp.empty_like(U, dtype=xp.float32)
             
             if potential_type in [PotentialType.QUADRATIC, PotentialType.HUBER]:
                 mrf_potential_kernel(
@@ -407,8 +433,8 @@ def get_potential_function(
                 )
             elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
                 rdp_potential_kernel(
-                    Z, X, U, dz_arr, dx_arr, w_arr, len(dz_arr), 
-                    beta, delta, hessian_mode,
+                    Z, X, U, dz_arr, dx_arr, w_arr, len(dz_arr),
+                    np.float32(beta), np.float32(delta), np.float32(eps_safe),
                     grad_out, hess_out, energy_out
                 )
             else:
@@ -466,17 +492,20 @@ def get_potential_function(
                     e[mask_lin] = beta * w * (abs_diff[mask_lin] - 0.5 * delta)
                     
                 elif potential_type == PotentialType.RELATIVE_DIFFERENCE:
-                    gamma = 0.05
-                    denom = u_i + u_j + gamma + delta * xp.abs(diff)
-                    d_denom = 1.0 + delta * xp.sign(diff)
-                    
-                    g = beta * w * (2.0 * diff * denom - (diff**2) * d_denom) / (denom**2)
-                    h = beta * w * 2.0 / denom
-                    e = beta * w * (diff**2) / denom
+                    # Exact Nuyts et al. (2002) Eq. (5), (9), (11)
+                    ad = xp.abs(diff)
+                    s = u_i + u_j
+                    V = s + delta * ad + eps_safe
 
-                if compute_grad: grad_img[slice_c_z, slice_c_x] += g
-                if compute_hess: hess_img[slice_c_z, slice_c_x] += h
-                if compute_energy: U_value += float(xp.sum(e))
+                    if compute_grad:
+                        g = beta * w * diff * (u_i + 3.0 * u_j + delta * ad + 2.0 * eps_safe) / (V * V)
+                        grad_img[slice_c_z, slice_c_x] += g
+                    if compute_hess:
+                        h = beta * w * 4.0 * (2.0 * u_j + eps_safe) * (s + eps_safe) / (V * V * V)
+                        hess_img[slice_c_z, slice_c_x] += h
+                    if compute_energy:
+                        e = beta * w * (diff * diff) / V
+                        U_value += float(xp.sum(e))
 
             if compute_energy: U_value /= 2.0
             return (grad_img.flatten() if compute_grad else None, 

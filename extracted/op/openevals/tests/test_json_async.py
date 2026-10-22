@@ -23,7 +23,7 @@ async def test_json_match_mix():
     outputs = {"a": "Mango, Bananas", "b": 2}
     reference_outputs = {"a": "Bananas, Mango", "b": 3}
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         rubric={"a": "Does the answer mention all the fruits in the reference answer?"},
         aggregator="average",
     )
@@ -79,7 +79,7 @@ async def test_json_match_rubric():
         "description": "Harrison chase is the CEO of LangChain. He used to work at Kensho and Robust Intelligence.",
     }
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         aggregator="all",
         rubric={
             "description": "Is the correct job title and company mentioned, as well as previous companies?"
@@ -102,7 +102,7 @@ async def test_json_match_rubric_wrong():
         "description": "Harrison chase is the CEO of LangChain. He used to work at Kensho and Robust Intelligence.",
     }
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         aggregator="all",
         rubric={
             "description": "Is the correct job title and company mentioned, as well as previous companies?"
@@ -121,7 +121,7 @@ async def test_json_match_rubric_with_reasoning():
         "description": "Harrison chase is the CEO of LangChain. He used to work at Kensho and Robust Intelligence."
     }
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         rubric={
             "description": "Is the correct job title and company mentioned, as well as previous companies?"
         },
@@ -140,7 +140,7 @@ async def test_json_match_rubric_without_reasoning():
         "description": "Harrison chase is the CEO of LangChain. He used to work at Kensho and Robust Intelligence."
     }
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         aggregator="all",
         rubric={
             "description": "Is the correct job title and company mentioned, as well as previous companies?"
@@ -165,7 +165,7 @@ async def test_json_match_rubric_with_reasoning_individual_key():
         "description": "Harrison chase is the CEO of LangChain. He used to work at Kensho and Robust Intelligence.",
     }
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         rubric={
             "description": "Is the correct job title and company mentioned, as well as previous companies?"
         },
@@ -422,7 +422,7 @@ async def test_json_match_list_rubric():
     outputs = [{"a": "Strawberries, Melons, Bananas"}]
     reference_outputs = [{"a": "Bananas, Strawberries, Melons"}]
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         rubric={"a": "Does the answer mention all the fruits in the reference answer?"},
         list_aggregator="average",
     )
@@ -514,6 +514,19 @@ async def test_json_match_mode_subset_outputs():
 
 @pytest.mark.langsmith
 @pytest.mark.asyncio
+async def test_json_match_mode_superset_empty_outputs():
+    evaluator = create_async_json_match_evaluator(
+        list_aggregator="average",
+        aggregator="average",
+        list_match_mode="superset",
+    )
+    result = await evaluator(outputs=[], reference_outputs=[{"a": 1}])
+    assert result[0]["key"] == "json_match:average"
+    assert result[0]["score"] == 0
+
+
+@pytest.mark.langsmith
+@pytest.mark.asyncio
 async def test_json_match_mode_subset_reference():
     outputs = [
         {"a": 1},
@@ -571,7 +584,7 @@ async def test_json_match_mode_order():
 async def test_works_with_aevaluate():
     client = Client()
     evaluator = create_async_json_match_evaluator(
-        model="openai:gpt-5-mini",
+        model="openai:gpt-6-luna",
         rubric={
             "description": "Is the correct job title and company mentioned, as well as previous companies?"
         },
@@ -588,7 +601,7 @@ async def test_works_with_aevaluate():
 @pytest.mark.langsmith
 def test_error_no_rubric():
     with pytest.raises(ValueError):
-        create_async_json_match_evaluator(model="openai:gpt-5-mini")
+        create_async_json_match_evaluator(model="openai:gpt-6-luna")
 
 
 @pytest.mark.langsmith

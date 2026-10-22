@@ -1,12 +1,12 @@
 // Part of ImGui Bundle - MIT License - Copyright (c) 2022-2026 Pascal Thomet - https://github.com/pthom/imgui_bundle
-#include "imgui_md_wrapper/imgui_md_wrapper.h"
+#include "imgui_rich_md/rich_md.h"
 #include "hello_imgui/hello_imgui.h"
 #include "demo_utils/api_demos.h"
 
-void demo_tex_inspect_simple();
+void gui_demo_tex_inspect_simple();
 
 
-void demo_tex_inspect_launcher()
+void gui_demo_tex_inspect_launcher()
 {
 #ifndef IMGUI_BUNDLE_WITH_TEXT_INSPECT
     ImGui::Text("Dear ImGui Bundle was compiled without support for ImGuiTexInspect (this requires OpenGl)");
@@ -18,7 +18,7 @@ void demo_tex_inspect_launcher()
         return;
     }
 
-    ImGuiMd::RenderUnindented(R"(
+    RichMd::Render(R"(
     # imgui_tex_inspect
     [imgui_tex_inspect](https://github.com/andyborrell/imgui_tex_inspect) is a texture inspector tool for Dear ImGui
     ImGuiTexInspect is a texture inspector tool for Dear ImGui. It's a debug tool that allows you to easily inspect the data in any texture.
@@ -28,7 +28,7 @@ void demo_tex_inspect_launcher()
 
     // if (ImGui::CollapsingHeader("Simple Demo"))
     // {
-    //     demo_tex_inspect_simple();
+    //     gui_demo_tex_inspect_simple();
     //     ShowPythonVsCppFile("demos_tex_inspect/demo_tex_inspect_simple");
     // }
     if (ImGui::CollapsingHeader("Full Demo"))
